@@ -3225,6 +3225,118 @@
     },
     "flags": 4096
   },
+  "cert.renewal_failed": {
+    "embeds": [
+      {
+        "title": "✕ Certificate renewal failed · certbot.timer",
+        "description": "The last time certbot tried to renew the certificates it failed, so they will not renew by themselves until it works.\n\n**Renew with:** `noust cert renew`\n\n*What certbot reported*\n```\nFailed to renew certificate shop.example.com with error: Some challenges have failed.\nDetail: 203.0.113.9: Fetching http://shop.example.com/.well-known/acme-challenge/x: Timeout during connect (likely firewall problem)\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Certificates",
+            "value": "shop.example.com, blog.example.com",
+            "inline": true
+          },
+          {
+            "name": "Last attempt",
+            "value": "Tue 2026-11-10 12:11:09 UTC",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/domains"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "cert.renewal_stopped": {
+    "embeds": [
+      {
+        "title": "▲ Certificate renewal stopped · certbot.timer",
+        "description": "The timer that makes certbot renew the certificates is not running, so they will not renew by themselves.\n\n**Start it again with:** `systemctl enable --now certbot.timer`",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Certificates",
+            "value": "shop.example.com",
+            "inline": true
+          },
+          {
+            "name": "Next attempt",
+            "value": "Wed 2026-11-11 00:41:10 UTC",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/domains"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "app.oom_killed": {
+    "embeds": [
+      {
+        "title": "✕ Application killed for lack of memory · shop.example.com",
+        "description": "The kernel killed shop.example.com for running out of memory.\n\n**Diagnose with:** `noust diagnose shop.example.com`",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Killed",
+            "value": "2 times",
+            "inline": true
+          },
+          {
+            "name": "Memory limit",
+            "value": "512.0 MB",
+            "inline": true
+          },
+          {
+            "name": "Most it used",
+            "value": "511.0 MB",
+            "inline": true
+          },
+          {
+            "name": "Counting since",
+            "value": "Tue 2026-11-10 03:00:00 UTC",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
   "hostile.deploy_failed": {
     "embeds": [
       {

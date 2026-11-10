@@ -249,6 +249,15 @@ export const serverText = {
       oom: {
         text: "Killed by the kernel for running out of memory (limit or machine).",
       },
+      oom_limit: {
+        text: "The kernel killed {domain} for running out of memory: its limit is {limit} and it used up to {peak}, so it needs more than it is allowed. Raise the limit with: {command}",
+      },
+      oom_machine: {
+        text: "The kernel killed {domain} for running out of memory and it has no memory limit, so the server ran out of memory (it used up to {peak}). Free memory on the server, or give the application a limit it can keep to: {command}",
+      },
+      oom_unit: {
+        text: "systemd records that the last run of {domain} ended because the kernel killed it for running out of memory. See its memory limit with: {command}",
+      },
       port_elsewhere: {
         text: "Listening on {actual_port}, Noust routes to {recorded_port}.",
       },
@@ -412,8 +421,23 @@ export const serverText = {
       found: {
         text: "The kernel log shows OOM activity in the last 7 days",
       },
+      found_no_cgroup_v2: {
+        text: "The kernel log shows OOM activity in the last 7 days, and this server cannot say which application it was: it does not use cgroup v2, where the kernel counts kills by unit",
+      },
+      found_no_file: {
+        text: "The kernel log shows OOM activity in the last 7 days, and this server cannot say which application it was: the unit's memory.events cannot be read",
+      },
+      killed_one: {
+        text: "The kernel killed this application for running out of memory once since its unit started ({since})",
+      },
+      killed_several: {
+        text: "The kernel killed this application for running out of memory {count} times since its unit started ({since})",
+      },
       none: {
         text: "No OOM kills in the kernel log in the last 7 days",
+      },
+      unit_result: {
+        text: "systemd records that the last run of this application's unit ended because the kernel killed it for running out of memory",
       },
       unreadable: {
         text: "Could not read the kernel log",
@@ -698,6 +722,11 @@ export const serverText = {
       },
       no_key: {
         text: "SSH key: not found",
+      },
+    },
+    stapling: {
+      site: {
+        text: "{site} still asks nginx to staple OCSP responses, which Let's Encrypt stopped giving in August 2025: nginx logs a warning about it at every reload. Noust writes the site again without it the next time it writes the site (a deployment, a change of its domains)",
       },
     },
     web: {

@@ -83,9 +83,11 @@ from noust.monitor.signals import observe_processes
 from noust.monitor.timeseries import EVENT_UNIT_FAILED, EVENT_UNIT_RECOVERED
 from noust.monitor.watch_backups import BackupWatch
 from noust.monitor.watch_central import CentralWatch
+from noust.monitor.watch_certs import CertRenewalWatch
 from noust.monitor.watch_containers import ContainerWatch
 from noust.monitor.watch_cron import CronWatch
 from noust.monitor.watch_destinations import DestinationWatch
+from noust.monitor.watch_oom import OomWatch
 from noust.monitor.watch_patches import PatchWatch
 from noust.monitor.watch_probes import ProbeWatch
 from noust.monitor.watch_recipes import RecipeWatch
@@ -144,11 +146,10 @@ DISK_RENOTIFY_HOURS = 0.0
 #: show fewer, the console shows all.
 JOURNAL_EXCERPT_LINES = 20
 
-#: A certificate with fewer days than this left is worth an email; Let's
-#: Encrypt itself starts warning at 30 days and certbot's own renewal cron
-#: runs from 30 days out, so 14 catches a renewal that has been silently
-#: failing for two weeks while still leaving time to fix it by hand. The
-#: operator's ``monitor.cert_warning_days`` replaces it.
+#: The operator's ceiling on when a certificate is spoken of: under this many days left, and only
+#: once it is past the point where it is renewed (a third of its life, see
+#: :mod:`noust.core.cert_life`). 14 catches a renewal that has been silently failing for two weeks
+#: while still leaving time to fix it by hand. ``monitor.cert_warning_days`` replaces it.
 CERT_EXPIRY_WARNING_DAYS = 14
 
 #: Sidecar recording the last calendar day each certificate was warned about,
@@ -338,30 +339,6 @@ def _settled(health: ServiceHealth, previous_restarts: int | None) -> bool:
     )
 
 
-def days_until_expiry(expiry: str | None, today: date) -> int | None:
-    """
-    Compute how many days remain until a certificate's recorded expiry.
-
-    Args:
-        expiry: ``CertificateInfo.expiry``, a ``YYYY-MM-DD`` date or None
-            when certbot's own output could not be parsed.
-        today: The current date, injected so a test does not depend on when
-            it runs.
-
-    Returns:
-        The number of days remaining, negative for a certificate already
-        expired, or None when ``expiry`` is absent or unparsable - certbot
-        not saying is not the same as certbot saying "soon".
-    """
-    if not expiry:
-        return None
-    try:
-        expiry_date = datetime.strptime(expiry, "%Y-%m-%d").date()
-    except ValueError:
-        return None
-    return (expiry_date - today).days
-
-
 @dataclass
 class MonitorConfig:
     """
@@ -499,6 +476,8 @@ class ProcessMonitor:
                 SecurityReleaseWatch(),
                 RecipeWatch(),
                 CentralWatch(),
+                CertRenewalWatch(),
+                OomWatch(),
             ]
         )
         self._alert_engine = alert_engine
@@ -930,8 +909,10 @@ class ProcessMonitor:
 
     def _check_certificates(self) -> None:
         """
-        Publish ``cert_expiring`` for a certificate under the warning window.
+        Publish ``cert_expiring`` for a certificate that is late to renew.
 
+        Late is past the point where it is renewed, a third of its life, and under the operator's
+        ceiling (``monitor.cert_warning_days``): :meth:`~noust.core.cert_life.CertLife.announces`.
         At most once per certificate per calendar day: the day a warning last
         went out for a given certificate is kept in a small sidecar (see
         :meth:`_cert_notification_state_path`), so restarting the daemon
@@ -952,8 +933,11 @@ class ProcessMonitor:
         window = self._cert_warning_days()
 
         for cert in certificates:
-            days_left = days_until_expiry(cert.expiry, today)
-            if days_left is None or days_left >= window:
+            life = cert.life()
+            days_left = life.days_left
+            # A certificate is late when it is past its renewal point; the operator's ceiling
+            # only says how late the monitor lets it get before it speaks (item 172).
+            if days_left is None or not life.announces(window):
                 continue
             if state.get(cert.name) == today.isoformat():
                 continue

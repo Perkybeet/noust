@@ -209,7 +209,7 @@ How the console's terminal behaves. `docs/terminal.md` explains what each limit 
 | `monitor.disk_threshold` | `90.0` | The percentage from which the disk of the applications is announced (`disk_threshold`), 1 to 100. |
 | `monitor.disk_check_seconds` | `0` | The least seconds between two looks at the disks; 0 looks on every scan. A longer wait is a longer delay before the message, never a different message. |
 | `monitor.disk_renotify_hours` | `0` | While a disk stays over its threshold, announce it again every this many hours (up to 720). 0 sends one message per crossing. |
-| `monitor.cert_warning_days` | `14` | A certificate with fewer days left than this is announced (`cert_expiring`), at most once a day. |
+| `monitor.cert_warning_days` | `14` | The ceiling on when a late certificate is announced (`cert_expiring`), at most once a day: it speaks when fewer days than this are left and the certificate is past the point where it is renewed (a third of its life). It never makes a certificate with most of its life ahead late. |
 | `monitor.backup_missing_days` | `2` | A backup schedule or policy (an application's, a database's, an application's data or Noust's own state) with no successful backup newer than this many days is announced (`backup_missing`). A weekly or monthly schedule is allowed its period and a day. 0 turns the check off. |
 | `monitor.backup_check_hours` | `6` | How often the monitor looks for backups that did not run, and asks the backup destinations in use whether they answer (`destination_unreachable`). |
 | `monitor.backup_missing_renotify_hours` | `24` | While a backup stays missing, announce it again every this many hours. |
@@ -257,7 +257,9 @@ How the console's terminal behaves. `docs/terminal.md` explains what each limit 
 | `notifications.events.deploy_hook_failed` | `true` | Notify when a deployment went live with warnings: a `post_deploy` hook failed once the new version was serving. |
 | `notifications.events.restore_success` | `true` | Notify when a restore succeeds. |
 | `notifications.events.restore_failed` | `true` | Notify when a restore fails. |
-| `notifications.events.cert_expiring` | `true` | Notify when a certificate is about to expire. |
+| `notifications.events.cert_expiring` | `true` | Notify when a certificate is late to renew or expired. |
+| `notifications.events.cert_renewal_failed` | `true` | certbot's last renewal failed, or the timer that runs it is not running; with certbot's own words. |
+| `notifications.events.app_oom_killed` | `true` | The kernel killed an application for running out of memory (cgroup v2), with how many times, its memory limit and the most it used. |
 | `notifications.events.unit_failed` | `true` | Notify when a watched unit fails. |
 | `notifications.events.app_unreachable` | `true` | Notify when an application whose unit is running stops answering its health check: three failed probes over at least a minute, once per outage; not asked while the application is being deployed or runs a job, nor when its unit was stopped on purpose or failed (that is `unit_failed`). A stack with no published port is judged by its containers instead. |
 | `notifications.events.app_recovered` | `true` | Notify when an application that was reported unreachable answers again. |

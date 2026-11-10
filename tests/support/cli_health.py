@@ -15,6 +15,7 @@ from noust.core.exceptions import ServiceError
 from noust.core.store import App
 from noust.core.utils import domain_to_app_name
 from noust.managers import health as health_module
+from noust.managers.cert_renewal import RenewalStatus
 
 #: One gigabyte, for readable fake disk figures.
 _GB = 1024**3
@@ -183,6 +184,9 @@ def server(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Any:
     # The hardening checks have their own tests (test_server_security_checks.py);
     # here they must not probe the machine running the suite.
     monkeypatch.setattr(health_module, "run_checks", lambda **_kw: None)
+    # How certbot renews has its own tests (test_cert_renewal.py); the machine running the suite
+    # must not be asked about its timer.
+    monkeypatch.setattr(health_module, "read_renewal", lambda runner: RenewalStatus())
     # No Noust unit runs on the machine described: its descriptors have their own tests
     # (test_health_descriptors.py), and the suite's own processes must not be asked about.
     monkeypatch.setattr(

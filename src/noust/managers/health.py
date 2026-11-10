@@ -25,10 +25,9 @@ from __future__ import annotations
 import shutil
 import sqlite3
 from dataclasses import dataclass, field
-from datetime import datetime
 from typing import Literal
 
-from noust.core import descriptors, paths
+from noust.core import cert_life, descriptors, paths
 from noust.core.app_state import RUNNING, RUNNING_UNMANAGED, STATIC, resolve_states
 from noust.core.config import Config
 from noust.core.exceptions import NoustError
@@ -36,6 +35,7 @@ from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import App, WebServer, get_store
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.cert_manager import CertificateInfo, CertManager
+from noust.managers.cert_renewal import FAILED, TIMER_STOPPED, read_renewal
 from noust.managers.internal_ca import InternalCA
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.server.security_checks import (
@@ -45,12 +45,6 @@ from noust.managers.server.security_checks import (
     summarize,
 )
 from noust.managers.service_manager import ServiceManager
-
-#: A certificate this close to expiry is an incident, not a reminder.
-CERT_CRITICAL_DAYS = 7
-
-#: A certificate this close to expiry deserves a warning.
-CERT_WARNING_DAYS = 30
 
 #: The server's own authority is an issue this close to expiry: a new one has to be trusted
 #: again on every device, which is not done in a week.
@@ -165,23 +159,6 @@ class HealthReport:
         if self.warnings:
             return "warning"
         return "healthy"
-
-
-def _days_until(expiry: str) -> int | None:
-    """
-    Days left before a certificate expiry date.
-
-    Args:
-        expiry: Expiry date as certbot reports it, ``YYYY-MM-DD``.
-
-    Returns:
-        Whole days remaining, or None when the date cannot be parsed.
-    """
-    try:
-        expires = datetime.fromisoformat(expiry.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    return (expires - datetime.now(expires.tzinfo)).days
 
 
 def _certificate_label(cert: CertificateInfo) -> str:
@@ -381,7 +358,12 @@ def _check_applications(verbose: bool, warnings: list[str]) -> HealthCheck:
 
 def _check_certificates(verbose: bool, issues: list[str], warnings: list[str]) -> HealthCheck:
     """
-    Summarise certificates close to expiry.
+    Summarise the certificates that need a renewal, and whether renewal works.
+
+    A certificate is judged on its own life (:mod:`noust.core.cert_life`): a warning once a
+    third of it is left and it has not been renewed, an issue under a sixth. Counting days
+    instead would put a certificate of 45 days in warning for half its life and one of 6 days
+    in alarm for all of it.
 
     Args:
         verbose: Passed through to :class:`CertManager`.
@@ -398,42 +380,46 @@ def _check_certificates(verbose: bool, issues: list[str], warnings: list[str]) -
         expired: list[str] = []
         expiring_soon: list[str] = []
         # Tracked apart from `expiring_soon` (which also holds a cert that is
-        # merely close, not gone) so the check's own status can be "error"
-        # exactly when the verdict this feeds is: a certificate under
-        # CERT_CRITICAL_DAYS is as urgent as one already expired, even though
+        # merely past its renewal point, not gone) so the check's own status can
+        # be "error" exactly when the verdict this feeds is: a certificate in
+        # its last sixth is as urgent as one already expired, even though
         # neither is "expired" in the strict sense.
         critical = False
 
         for cert in certs:
-            expiry = cert.get("expiry")
-            if not expiry:
-                continue
-
-            days_left = _days_until(expiry)
-            if days_left is None:
-                warnings.append(
-                    f"Certificate for {_certificate_label(cert)} has an unreadable expiry date"
-                )
-                continue
-
             label = _certificate_label(cert)
-            if days_left < 0:
+            life = cert_life.life_of(cert)
+            days_left = life.days_left
+            if life.state == cert_life.UNKNOWN or days_left is None:
+                if cert.get("expiry"):
+                    warnings.append(f"Certificate for {label} has an unreadable expiry date")
+                continue
+
+            if life.state == cert_life.EXPIRED:
                 issues.append(f"Certificate for {label} expired {abs(days_left)} days ago")
                 expired.append(label)
                 critical = True
-            elif days_left < CERT_CRITICAL_DAYS:
-                issues.append(f"Certificate for {label} expires in {days_left} days")
+            elif life.state == cert_life.CRITICAL:
+                issues.append(
+                    f"Certificate for {label} expires in {days_left} days and its renewal is "
+                    "overdue"
+                )
                 expiring_soon.append(label)
                 critical = True
-            elif days_left < CERT_WARNING_DAYS:
-                warnings.append(f"Certificate for {label} expires in {days_left} days")
+            elif life.state == cert_life.RENEWAL_PENDING:
+                warnings.append(
+                    f"Certificate for {label} expires in {days_left} days: its renewal is pending"
+                )
                 expiring_soon.append(label)
 
+        renewal = _check_renewal(certs, critical, issues, warnings) if certs else "ok"
         authority = _check_internal_authority(issues, warnings)
-        if expired or expiring_soon or authority != "ok":
+        if expired or expiring_soon or renewal != "ok" or authority != "ok":
             value = (
                 f"{len(certs)} total, {len(expired)} expired, {len(expiring_soon)} expiring soon"
             )
+            if renewal != "ok":
+                value += ", renewal failing" if renewal == FAILED else ", renewal stopped"
             if authority != "ok":
                 value += ", the internal authority is about to expire"
             return HealthCheck(
@@ -446,6 +432,40 @@ def _check_certificates(verbose: bool, issues: list[str], warnings: list[str]) -
         return HealthCheck("SSL Certificates", "None configured", "info")
     except NoustError as exc:
         return HealthCheck("SSL Certificates", f"Could not check: {exc}", "warning")
+
+
+def _check_renewal(
+    certs: list[CertificateInfo], critical: bool, issues: list[str], warnings: list[str]
+) -> str:
+    """
+    Say whether certbot's renewal is working, which the days left do not tell.
+
+    Args:
+        certs: The certificates, which a renewal that does not run would leave to expire.
+        critical: Whether one of them is already in its last sixth: then a renewal that is not
+            working is an issue, because there is little time left to fix it.
+        issues: Issue list to append to.
+        warnings: Warning list to append to.
+
+    Returns:
+        ``failed`` or ``timer_stopped`` when that is the problem, ``ok`` otherwise (a server that
+        renews some other way, or that cannot be asked, is not a problem).
+    """
+    if not any(cert.get("source", "letsencrypt") != "custom" for cert in certs):
+        return "ok"
+    status = read_renewal(get_runner())
+    where = issues if critical else warnings
+    if status.problem == FAILED:
+        when = f" ({status.last_run})" if status.last_run else ""
+        where.append(f"The last certbot renewal failed{when}: {status.output or 'no output'}")
+        return FAILED
+    if status.problem == TIMER_STOPPED:
+        where.append(
+            f"{status.unit} is not running, so certbot renews nothing by itself. "
+            f"Start it with: systemctl enable --now {status.unit}"
+        )
+        return TIMER_STOPPED
+    return "ok"
 
 
 def _check_internal_authority(issues: list[str], warnings: list[str]) -> str:

@@ -538,6 +538,52 @@ def test_list_names_what_each_certificate_serves_and_how_many_more(
     assert tables[0][1][0][3] == "a.shop.tld, b.shop.tld (+1 more)"
 
 
+def _certbot_ending_in(days: int, life: int) -> tuple[str, str]:
+    """What certbot and openssl say of a certificate of ``life`` days with ``days`` left."""
+    from datetime import datetime, timedelta, timezone
+
+    end = datetime.now(timezone.utc) + timedelta(days=days)
+    start = end - timedelta(days=life)
+    return (
+        CERTBOT_OUTPUT.replace(
+            "2026-11-30 10:00:00+00:00", end.strftime("%Y-%m-%d %H:%M:%S+00:00")
+        ),
+        f"issuer=O = Let's Encrypt\nnotBefore={start:%b %e %H:%M:%S %Y} GMT\n"
+        f"notAfter={end:%b %e %H:%M:%S %Y} GMT\n",
+    )
+
+
+def test_list_json_says_how_each_certificate_is_doing_on_its_own_life(
+    live_dir: Path, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("noust.cli.commands.cert.names_served_by_certificate", lambda: {})
+    certbot, openssl = _certbot_ending_in(25, life=45)
+    runner.script(["certbot", "certificates"], stdout=certbot)
+    runner.script(["openssl", "x509", "-noout", "-issuer"], stdout=openssl)
+
+    cert = json.loads(_invoke(["cert", "list", "--json"]).output)["certificates"][0]
+
+    assert cert["state"] == "healthy"
+    assert cert["days_left"] == 24 or cert["days_left"] == 25
+
+
+def test_list_marks_a_certificate_past_its_renewal_point_beside_its_date(
+    live_dir: Path, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("noust.cli.commands.cert.names_served_by_certificate", lambda: {})
+    certbot, openssl = _certbot_ending_in(10, life=45)
+    runner.script(["certbot", "certificates"], stdout=certbot)
+    runner.script(["openssl", "x509", "-noout", "-issuer"], stdout=openssl)
+    tables: list[tuple[list[Any], list[Any]]] = []
+    monkeypatch.setattr(
+        Logger, "table", lambda self, headers, rows, justify=None: tables.append((headers, rows))
+    )
+
+    _invoke(["cert", "list"])
+
+    assert tables[0][1][0][2].endswith("(renewal pending)")
+
+
 def test_list_json_reports_an_empty_machine(live_dir: Path, runner: FakeRunner) -> None:
     """No certificates is {"certificates": [], "total": 0}, not the human text."""
     runner.script(["certbot", "certificates"], stdout="No certificates found.\n")

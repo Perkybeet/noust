@@ -1066,6 +1066,42 @@
     "message": "Este servidor vuelve a recibir las llamadas de su central.\n\nServidor: web-1\nEstuvo callada durante: 23 min 40 s",
     "priority": 2
   },
+  "cert.renewal_failed": {
+    "title": "✕ Ha fallado la renovación de certificados · certbot.timer",
+    "message": "La última vez que certbot intentó renovar los certificados falló, así que no se renovarán solos hasta que funcione.\n\nServidor: web-1\nCertificados: shop.example.com, blog.example.com\nÚltimo intento: Tue 2026-11-10 12:11:09 UTC\nRenuévalo con: noust cert renew\n\nLo que ha informado certbot:\n  Failed to renew certificate shop.example.com with error: Some challenges have failed.\n  Detail: 203.0.113.9: Fetching http://shop.example.com/.well-known/acme-challenge/x: Timeout during connect (likely firewall problem)",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/domains"
+        }
+      }
+    }
+  },
+  "cert.renewal_stopped": {
+    "title": "▲ La renovación de certificados está parada · certbot.timer",
+    "message": "El temporizador que hace que certbot renueve los certificados no está en marcha, así que no se renovarán solos.\n\nServidor: web-1\nCertificados: shop.example.com\nPróximo intento: Wed 2026-11-11 00:41:10 UTC\nVuelve a ponerlo en marcha con: systemctl enable --now certbot.timer",
+    "priority": 5,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/domains"
+        }
+      }
+    }
+  },
+  "app.oom_killed": {
+    "title": "✕ Aplicación cerrada por falta de memoria · shop.example.com",
+    "message": "El núcleo ha cerrado shop.example.com por falta de memoria.\n\nServidor: web-1\nCerrada: 2 veces\nLímite de memoria: 512.0 MB\nLo máximo que usó: 511.0 MB\nContando desde: Tue 2026-11-10 03:00:00 UTC\nDiagnostícala con: noust diagnose shop.example.com",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+        }
+      }
+    }
+  },
   "hostile.deploy_failed": {
     "title": "✕ Despliegue fallido · shop.example.com",
     "message": "Se ha detenido por un error antes de que la nueva versión tomara el relevo.\n\nServidor: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nVersión: 20260929-104449\nCommit: a1b2c3d (<b>x</b>&amp;<!channel> @everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @here <@U123> <#C1> red emoji 🚀\nIniciado por: Webhook\nDuración: 1 min 12 s\nRevísalo con: noust diagnose shop.example.com\n\nLo que ha informado el sistema:\n  Release did not pass <its> health & check\n  <urlopen error [Errno 111] Connection refused>\n  ```\n  @everyone <!channel> <@U123|admin> &lt;b&gt;\n  red *bold* _italic_ ~strike~ `code`\n  noitcnuf\n  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…",

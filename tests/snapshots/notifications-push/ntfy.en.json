@@ -1617,6 +1617,60 @@
       "web-1"
     ]
   },
+  "cert.renewal_failed": {
+    "topic": "noust-alerts",
+    "title": "✕ Certificate renewal failed · certbot.timer",
+    "message": "The last time certbot tried to renew the certificates it failed, so they will not renew by themselves until it works.\n\nServer: web-1\nCertificates: shop.example.com, blog.example.com\nLast attempt: Tue 2026-11-10 12:11:09 UTC\nRenew with: noust cert renew\n\nWhat certbot reported:\n  Failed to renew certificate shop.example.com with error: Some challenges have failed.\n  Detail: 203.0.113.9: Fetching http://shop.example.com/.well-known/acme-challenge/x: Timeout during connect (likely firewall problem)",
+    "priority": 4,
+    "tags": [
+      "cert_renewal_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/domains",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/domains"
+      }
+    ]
+  },
+  "cert.renewal_stopped": {
+    "topic": "noust-alerts",
+    "title": "▲ Certificate renewal stopped · certbot.timer",
+    "message": "The timer that makes certbot renew the certificates is not running, so they will not renew by themselves.\n\nServer: web-1\nCertificates: shop.example.com\nNext attempt: Wed 2026-11-11 00:41:10 UTC\nStart it again with: systemctl enable --now certbot.timer",
+    "priority": 3,
+    "tags": [
+      "cert_renewal_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/domains",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/domains"
+      }
+    ]
+  },
+  "app.oom_killed": {
+    "topic": "noust-alerts",
+    "title": "✕ Application killed for lack of memory · shop.example.com",
+    "message": "The kernel killed shop.example.com for running out of memory.\n\nServer: web-1\nKilled: 2 times\nMemory limit: 512.0 MB\nMost it used: 511.0 MB\nCounting since: Tue 2026-11-10 03:00:00 UTC\nDiagnose with: noust diagnose shop.example.com",
+    "priority": 4,
+    "tags": [
+      "app_oom_killed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "topic": "noust-alerts",
     "title": "✕ Deploy failed · shop.example.com",

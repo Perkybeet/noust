@@ -53,9 +53,10 @@ command it printed, with a `-d` for each name the application answers on.
 
 ## A certificate is about to expire
 
-Certbot renews each certificate in its last thirty days, by itself. `noust health` lists the ones
-close to expiry, and a notification channel hears about them
-([Make it safe to leave alone](first-safety.md)). When renewal keeps failing, the cause is one of
+Certbot renews each certificate by itself once a third of its life is left (its last thirty days
+before certbot 4). `noust health` lists the ones that are past that point and have not been renewed,
+and says when the last renewal failed, with certbot's own words; a notification channel hears about
+both ([Make it safe to leave alone](first-safety.md)). When renewal keeps failing, the cause is one of
 the above: `noust cert renew -d wrenfield.io` shows certbot's words. A certificate that expired is
 the probable cause `noust diagnose` names:
 

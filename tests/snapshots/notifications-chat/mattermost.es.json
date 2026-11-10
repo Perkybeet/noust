@@ -2817,6 +2817,106 @@
       }
     ]
   },
+  "cert.renewal_failed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Ha fallado la renovación de certificados · certbot.timer",
+        "color": "#cf3a30",
+        "title": "✕ Ha fallado la renovación de certificados · certbot.timer",
+        "text": "La última vez que certbot intentó renovar los certificados falló, así que no se renovarán solos hasta que funcione.\n\n**Renuévalo con:** `noust cert renew`\n\n*Lo que ha informado certbot*\n```\nFailed to renew certificate shop.example.com with error: Some challenges have failed.\nDetail: 203.0.113.9: Fetching http://shop.example.com/.well-known/acme-challenge/x: Timeout during connect (likely firewall problem)\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Servidor",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Certificados",
+            "value": "shop.example.com, blog.example.com"
+          },
+          {
+            "short": true,
+            "title": "Último intento",
+            "value": "Tue 2026-11-10 12:​11:09 UTC"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/domains"
+      }
+    ]
+  },
+  "cert.renewal_stopped": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ La renovación de certificados está parada · certbot.timer",
+        "color": "#e3a73c",
+        "title": "▲ La renovación de certificados está parada · certbot.timer",
+        "text": "El temporizador que hace que certbot renueve los certificados no está en marcha, así que no se renovarán solos.\n\n**Vuelve a ponerlo en marcha con:** `systemctl enable --now certbot.timer`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Servidor",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Certificados",
+            "value": "shop.example.com"
+          },
+          {
+            "short": true,
+            "title": "Próximo intento",
+            "value": "Wed 2026-11-11 00:​41:10 UTC"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/domains"
+      }
+    ]
+  },
+  "app.oom_killed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Aplicación cerrada por falta de memoria · shop.example.com",
+        "color": "#cf3a30",
+        "title": "✕ Aplicación cerrada por falta de memoria · shop.example.com",
+        "text": "El núcleo ha cerrado shop.example.com por falta de memoria.\n\n**Diagnostícala con:** `noust diagnose shop.example.com`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Servidor",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Cerrada",
+            "value": "2 veces"
+          },
+          {
+            "short": true,
+            "title": "Límite de memoria",
+            "value": "512.0 MB"
+          },
+          {
+            "short": true,
+            "title": "Lo máximo que usó",
+            "value": "511.0 MB"
+          },
+          {
+            "short": true,
+            "title": "Contando desde",
+            "value": "Tue 2026-11-10 03:​00:00 UTC"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "username": "Noust",
     "attachments": [

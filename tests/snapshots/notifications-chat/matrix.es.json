@@ -650,6 +650,27 @@
     "formatted_body": "<b>● La central vuelve a llamar · nas</b><br>Este servidor vuelve a recibir las llamadas de su central.<ul><li><b>Servidor:</b> web-1</li><li><b>Estuvo callada durante:</b> 23 min 40 s</li></ul>",
     "m.mentions": {}
   },
+  "cert.renewal_failed": {
+    "msgtype": "m.text",
+    "body": "✕ Ha fallado la renovación de certificados · certbot.timer\nLa última vez que certbot intentó renovar los certificados falló, así que no se renovarán solos hasta que funcione.\n\nServidor: web-1\nCertificados: shop.example.com, blog.example.com\nÚltimo intento: Tue 2026-11-10 12:11:09 UTC\nRenuévalo con: noust cert renew\n\nLo que ha informado certbot:\n  Failed to renew certificate shop.example.com with error: Some challenges have failed.\n  Detail: 203.0.113.9: Fetching http://shop.example.com/.well-known/acme-challenge/x: Timeout during connect (likely firewall problem)\n\nAbrir en la consola: https://console.example.com/n/web-1/domains",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Ha fallado la renovación de certificados · certbot.timer</b><br>La última vez que certbot intentó renovar los certificados falló, así que no se renovarán solos hasta que funcione.<ul><li><b>Servidor:</b> web-1</li><li><b>Certificados:</b> shop.example.com, blog.example.com</li><li><b>Último intento:</b> Tue 2026-11-10 12:11:09 UTC</li><li><b>Renuévalo con:</b> <code>noust cert renew</code></li></ul><i>Lo que ha informado certbot</i><pre><code>Failed to renew certificate shop.example.com with error: Some challenges have failed.\nDetail: 203.0.113.9: Fetching http://shop.example.com/.well-known/acme-challenge/x: Timeout during connect (likely firewall problem)</code></pre><a href=\"https://console.example.com/n/web-1/domains\">Abrir en la consola</a>",
+    "m.mentions": {}
+  },
+  "cert.renewal_stopped": {
+    "msgtype": "m.text",
+    "body": "▲ La renovación de certificados está parada · certbot.timer\nEl temporizador que hace que certbot renueve los certificados no está en marcha, así que no se renovarán solos.\n\nServidor: web-1\nCertificados: shop.example.com\nPróximo intento: Wed 2026-11-11 00:41:10 UTC\nVuelve a ponerlo en marcha con: systemctl enable --now certbot.timer\n\nAbrir en la consola: https://console.example.com/n/web-1/domains",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ La renovación de certificados está parada · certbot.timer</b><br>El temporizador que hace que certbot renueve los certificados no está en marcha, así que no se renovarán solos.<ul><li><b>Servidor:</b> web-1</li><li><b>Certificados:</b> shop.example.com</li><li><b>Próximo intento:</b> Wed 2026-11-11 00:41:10 UTC</li><li><b>Vuelve a ponerlo en marcha con:</b> <code>systemctl enable --now certbot.timer</code></li></ul><a href=\"https://console.example.com/n/web-1/domains\">Abrir en la consola</a>",
+    "m.mentions": {}
+  },
+  "app.oom_killed": {
+    "msgtype": "m.text",
+    "body": "✕ Aplicación cerrada por falta de memoria · shop.example.com\nEl núcleo ha cerrado shop.example.com por falta de memoria.\n\nServidor: web-1\nCerrada: 2 veces\nLímite de memoria: 512.0 MB\nLo máximo que usó: 511.0 MB\nContando desde: Tue 2026-11-10 03:00:00 UTC\nDiagnostícala con: noust diagnose shop.example.com\n\nAbrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Aplicación cerrada por falta de memoria · shop.example.com</b><br>El núcleo ha cerrado shop.example.com por falta de memoria.<ul><li><b>Servidor:</b> web-1</li><li><b>Cerrada:</b> 2 veces</li><li><b>Límite de memoria:</b> 512.0 MB</li><li><b>Lo máximo que usó:</b> 511.0 MB</li><li><b>Contando desde:</b> Tue 2026-11-10 03:00:00 UTC</li><li><b>Diagnostícala con:</b> <code>noust diagnose shop.example.com</code></li></ul><a href=\"https://console.example.com/n/web-1/apps/shop.example.com\">Abrir en la consola</a>",
+    "m.mentions": {}
+  },
   "hostile.deploy_failed": {
     "msgtype": "m.text",
     "body": "✕ Despliegue fallido · shop.example.com\nSe ha detenido por un error antes de que la nueva versión tomara el relevo.\n\nServidor: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nVersión: 20260929-104449\nCommit: a1b2c3d (<b>x</b>&amp;<!channel> @​everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @​here <@​U123> <#C1> red emoji 🚀\nIniciado por: Webhook\nDuración: 1 min 12 s\nRevísalo con: noust diagnose shop.example.com\n\nLo que ha informado el sistema:\n  Release did not pass <its> health & check\n  <urlopen error [Errno 111] Connection refused>\n  ```\n  @​everyone <!channel> <@​U123|admin> &lt;b&gt;\n  red *bold* _italic_ ~strike~ `code`\n  noitcnuf\n  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…\n\nAbrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",

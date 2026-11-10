@@ -13,7 +13,9 @@ verbatim in the excerpt), for:
 - a **probe** of an address from outside the machine that stopped answering, and
   the moment it answered again;
 - the **central** that manages the server going quiet, and calling again: said by the
-  server, because the central cannot say it of itself.
+  server, because the central cannot say it of itself;
+- the **renewal of certificates** that failed or whose timer is not running (item 172);
+- an **application the kernel killed** for running out of memory (item 175).
 
 Pure: whoever watches reads the machine and hands these functions the facts.
 """
@@ -23,7 +25,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import datetime, timezone
 
-from noust.core.messages import message
+from noust.core.messages import message, plural
 from noust.core.notifications.composers import _fact, build
 from noust.core.notifications.context import NotificationContext
 from noust.core.notifications.excerpt import make_excerpt
@@ -243,4 +245,115 @@ def compose_central(
         if silent
         else message(f"summary.{code}", ctx.locale),
         facts=facts,
+    )
+
+
+def compose_cert_renewal(
+    problem: str,
+    ctx: NotificationContext,
+    *,
+    unit: str = "certbot.timer",
+    last_run: str | None = None,
+    next_run: str | None = None,
+    output: str = "",
+    certificates: Sequence[str] = (),
+) -> Notification:
+    """
+    Compose the notification for certbot's renewal not working.
+
+    A certificate that is about to expire says so on its own (``cert_expiring``); this says the
+    reason, early: the last run failed, or nothing runs it.
+
+    Args:
+        problem: ``failed`` (the last run ended in an error) or ``timer_stopped``.
+        ctx: The context.
+        unit: The timer that runs the renewal.
+        last_run: When it last ran, as systemd or certbot's log wrote it.
+        next_run: When the timer fires next.
+        output: certbot's own words of the failed run, verbatim.
+        certificates: The certificates certbot renews.
+
+    Returns:
+        ``cert.renewal_failed`` (a failure) or ``cert.renewal_stopped`` (a warning), both under
+        ``cert_renewal_failed``.
+    """
+    failed = problem == "failed"
+    code = "cert.renewal_failed" if failed else "cert.renewal_stopped"
+    facts: list[Fact] = []
+    if certificates:
+        facts.append(_fact("certificates", ", ".join(certificates), ctx))
+    if last_run:
+        facts.append(_fact("renewal_last", last_run, ctx))
+    if next_run and not failed:
+        facts.append(_fact("renewal_next", next_run, ctx))
+    excerpt = (
+        make_excerpt(output, label=message("excerpt.cert.renewal", ctx.locale))
+        if failed and output
+        else None
+    )
+    command = (
+        _fact("renew", "noust cert renew", ctx, mono=True)
+        if failed
+        else _fact("enable_timer", f"systemctl enable --now {unit}", ctx, mono=True)
+    )
+    return build(
+        ctx,
+        kind="cert_renewal_failed",
+        code=code,
+        state=State.FAILED if failed else State.WARNING,
+        subject=unit,
+        summary=message(f"summary.{code}", ctx.locale),
+        facts=facts,
+        command=command,
+        excerpt=excerpt,
+        path="/domains",
+    )
+
+
+def compose_app_oom(
+    domain: str,
+    ctx: NotificationContext,
+    *,
+    count: int,
+    limit: int | None = None,
+    peak: int | None = None,
+    since: str = "",
+) -> Notification:
+    """
+    Compose the notification for an application the kernel killed for running out of memory.
+
+    Args:
+        domain: The application.
+        ctx: The context.
+        count: How many kills the counter rose by since the monitor last looked.
+        limit: Its memory limit in bytes; None when nothing limits it but the machine.
+        peak: The most it used, in bytes, when the kernel keeps it.
+        since: When its unit started, which is where the kernel's count begins.
+
+    Returns:
+        ``app.oom_killed`` (a failure), under ``app_oom_killed``.
+    """
+    facts = [
+        _fact("oom_kills", f"{count} {plural('time', ctx.locale, count)}", ctx),
+        _fact(
+            "oom_limit",
+            format_bytes(limit) if limit is not None else message("fact.oom_none", ctx.locale),
+            ctx,
+        ),
+    ]
+    if peak is not None:
+        facts.append(_fact("oom_peak", format_bytes(peak), ctx))
+    if since:
+        facts.append(_fact("oom_since", since, ctx))
+    return build(
+        ctx,
+        kind="app_oom_killed",
+        code="app.oom_killed",
+        state=State.FAILED,
+        subject=domain,
+        summary=message("summary.app.oom_killed", ctx.locale, domain=domain),
+        facts=facts,
+        command=_fact("diagnose", f"noust diagnose {domain}", ctx, mono=True),
+        path=f"/apps/{domain}",
+        domain=domain,
     )

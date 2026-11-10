@@ -17,6 +17,7 @@ probe that raises must not take any other probe down with it.
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -24,6 +25,7 @@ import pytest
 from noust.core.exceptions import ValidationError
 from noust.core.runner import FakeRunner
 from noust.core.store import DeploymentRecord
+from noust.managers.diagnose import Check
 from noust.managers.service_manager import ServiceManager
 from tests.support.diagnose import (
     DOMAIN,
@@ -384,3 +386,63 @@ def test_last_deployment_failure_is_reported(
     last_deploy = _check(result, "last_deployment")
     assert last_deploy.status == "fail"
     assert "npm install exited 1" in last_deploy.summary
+
+
+# -- Certificates are judged on their own life (item 172) ----------------------------------
+
+
+def _certificate_of(runner: FakeRunner, *, life_days: int, days_left: float) -> None:
+    """A certificate of ``life_days`` with ``days_left`` to go on the day the diagnosis runs."""
+    now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    end = now + timedelta(days=days_left)
+    runner.script(
+        ["certbot", "certificates"],
+        stdout=_certbot_output(end.strftime("%Y-%m-%d")).replace(
+            "00:00:00", end.strftime("%H:%M:%S")
+        ),
+    )
+    start = end - timedelta(days=life_days)
+    runner.script(
+        ["openssl", "x509", "-noout", "-issuer"],
+        stdout=(
+            "issuer=C = US, O = Let's Encrypt, CN = R11\n"
+            f"notBefore={start:%b %e %H:%M:%S %Y} GMT\n"
+            f"notAfter={end:%b %e %H:%M:%S %Y} GMT\n"
+        ),
+    )
+
+
+def _diagnosed_certificate(
+    monkeypatch: pytest.MonkeyPatch, runner: FakeRunner, **life: float
+) -> Check:
+    _fragment(runner)
+    _unit_state(runner)
+    _listening(runner, 3000)
+    _no_findings(runner)
+    _certificate_of(runner, **life)  # type: ignore[arg-type]
+    return _check(_diagnose(monkeypatch, runner, app=_app()), "certificate")
+
+
+def test_25_days_left_of_a_certificate_of_45_days_is_not_a_warning(
+    monkeypatch: pytest.MonkeyPatch, runner: FakeRunner
+) -> None:
+    check = _diagnosed_certificate(monkeypatch, runner, life_days=45, days_left=25)
+
+    assert check.status == "ok"
+
+
+def test_25_days_left_of_a_certificate_of_90_days_has_gone_past_its_renewal(
+    monkeypatch: pytest.MonkeyPatch, runner: FakeRunner
+) -> None:
+    check = _diagnosed_certificate(monkeypatch, runner, life_days=90, days_left=25)
+
+    assert check.status == "warn"
+    assert "expires in 25 days" in check.summary
+
+
+def test_a_certificate_of_6_days_with_3_left_is_not_a_warning(
+    monkeypatch: pytest.MonkeyPatch, runner: FakeRunner
+) -> None:
+    check = _diagnosed_certificate(monkeypatch, runner, life_days=6, days_left=3)
+
+    assert check.status == "ok"

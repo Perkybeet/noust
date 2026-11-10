@@ -755,6 +755,9 @@ def collect(env: DoctorEnvironment | None = None) -> DoctorReport:
     limits = limits_section()
     if limits is not None:
         sections.append(limits)
+    stapling = stapling_section()
+    if stapling is not None:
+        sections.append(stapling)
     return DoctorReport(tuple(sections))
 
 
@@ -877,6 +880,42 @@ def limits_section(systemd_dir: Path | None = None) -> DoctorSection | None:
     if not items:
         return None
     return DoctorSection("Noust's own units", tuple(items), key="limits")
+
+
+def stapling_section(sites_dir: Path | None = None) -> DoctorSection | None:
+    """
+    Name the sites Noust generated that still ask nginx to staple OCSP responses.
+
+    Let's Encrypt turned its OCSP service off in August 2025; nginx logs a warning at every reload
+    for a site that still asks for stapling. The templates no longer write the lines, and a site
+    changes the next time Noust writes it. A site the operator wrote is never named (item 172).
+
+    Args:
+        sites_dir: Where nginx's site files are; the web server's own unless a test describes
+            another machine.
+
+    Returns:
+        The section, or None when none is to be named (or the sites could not be read: the other
+        checks still stand, and this one is only a list).
+    """
+    from noust.managers import site_stapling
+
+    try:
+        if sites_dir is None:
+            from noust.managers.nginx_manager import NginxManager
+
+            sites_dir = NginxManager().backend.sites_available
+        found = site_stapling.generated_sites_with_stapling(sites_dir)
+    except (NoustError, OSError) as exc:
+        logger.debug("The sites were not read for OCSP stapling: %s", exc)
+        return None
+    if not found:
+        return None
+    return DoctorSection(
+        "Sites with OCSP stapling",
+        tuple(item("info", "doctor.stapling.site", site=name) for name in found),
+        key="stapling",
+    )
 
 
 def cron_section() -> DoctorSection | None:

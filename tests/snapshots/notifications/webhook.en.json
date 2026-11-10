@@ -4121,6 +4121,155 @@
     "links": [],
     "excerpt": null
   },
+  "cert.renewal_failed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000093",
+    "event": "cert_renewal_failed",
+    "code": "cert.renewal_failed",
+    "state": "failed",
+    "locale": "en",
+    "title": "Certificate renewal failed: certbot.timer",
+    "summary": "The last time certbot tried to renew the certificates it failed, so they will not renew by themselves until it works.",
+    "body": "The last time certbot tried to renew the certificates it failed, so they will not renew by themselves until it works.\n\nServer: web-1\nCertificates: shop.example.com, blog.example.com\nLast attempt: Tue 2026-11-10 12:11:09 UTC\nRenew with: noust cert renew\n\nWhat certbot reported:\n  Failed to renew certificate shop.example.com with error: Some challenges have failed.\n  Detail: 203.0.113.9: Fetching http://shop.example.com/.well-known/acme-challenge/x: Timeout during connect (likely firewall problem)\n\nOpen in the console: https://console.example.com/n/web-1/domains",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "certificates",
+        "label": "Certificates",
+        "value": "shop.example.com, blog.example.com"
+      },
+      {
+        "key": "renewal_last",
+        "label": "Last attempt",
+        "value": "Tue 2026-11-10 12:11:09 UTC"
+      },
+      {
+        "key": "renew",
+        "label": "Renew with",
+        "value": "noust cert renew"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/domains"
+      }
+    ],
+    "excerpt": {
+      "label": "What certbot reported",
+      "lines": [
+        "Failed to renew certificate shop.example.com with error: Some challenges have failed.",
+        "Detail: 203.0.113.9: Fetching http://shop.example.com/.well-known/acme-challenge/x: Timeout during connect (likely firewall problem)"
+      ],
+      "omitted": 0
+    }
+  },
+  "cert.renewal_stopped": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000094",
+    "event": "cert_renewal_failed",
+    "code": "cert.renewal_stopped",
+    "state": "warning",
+    "locale": "en",
+    "title": "Certificate renewal stopped: certbot.timer",
+    "summary": "The timer that makes certbot renew the certificates is not running, so they will not renew by themselves.",
+    "body": "The timer that makes certbot renew the certificates is not running, so they will not renew by themselves.\n\nServer: web-1\nCertificates: shop.example.com\nNext attempt: Wed 2026-11-11 00:41:10 UTC\nStart it again with: systemctl enable --now certbot.timer\n\nOpen in the console: https://console.example.com/n/web-1/domains",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "certificates",
+        "label": "Certificates",
+        "value": "shop.example.com"
+      },
+      {
+        "key": "renewal_next",
+        "label": "Next attempt",
+        "value": "Wed 2026-11-11 00:41:10 UTC"
+      },
+      {
+        "key": "enable_timer",
+        "label": "Start it again with",
+        "value": "systemctl enable --now certbot.timer"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/domains"
+      }
+    ],
+    "excerpt": null
+  },
+  "app.oom_killed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000095",
+    "event": "app_oom_killed",
+    "code": "app.oom_killed",
+    "state": "failed",
+    "locale": "en",
+    "title": "Application killed for lack of memory: shop.example.com",
+    "summary": "The kernel killed shop.example.com for running out of memory.",
+    "body": "The kernel killed shop.example.com for running out of memory.\n\nServer: web-1\nKilled: 2 times\nMemory limit: 512.0 MB\nMost it used: 511.0 MB\nCounting since: Tue 2026-11-10 03:00:00 UTC\nDiagnose with: noust diagnose shop.example.com\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "oom_kills",
+        "label": "Killed",
+        "value": "2 times"
+      },
+      {
+        "key": "oom_limit",
+        "label": "Memory limit",
+        "value": "512.0 MB"
+      },
+      {
+        "key": "oom_peak",
+        "label": "Most it used",
+        "value": "511.0 MB"
+      },
+      {
+        "key": "oom_since",
+        "label": "Counting since",
+        "value": "Tue 2026-11-10 03:00:00 UTC"
+      },
+      {
+        "key": "diagnose",
+        "label": "Diagnose with",
+        "value": "noust diagnose shop.example.com"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ],
+    "excerpt": null
+  },
   "hostile.deploy_failed": {
     "version": 1,
     "id": "00000000-0000-4000-8000-000000001000",

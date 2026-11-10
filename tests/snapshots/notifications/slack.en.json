@@ -5865,6 +5865,207 @@
       }
     ]
   },
+  "cert.renewal_failed": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Certificate renewal failed · certbot.timer",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Certificate renewal failed · certbot.timer",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "The last time certbot tried to renew the certificates it failed, so they will not renew by themselves until it works."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Certificates*\nshop.example.com, blog.example.com"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Last attempt*\nTue 2026-11-10 12:11:09 UTC"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Renew with:* `noust cert renew`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_What certbot reported_\n```Failed to renew certificate shop.example.com with error: Some challenges have failed.\nDetail: 203.0.113.9: Fetching http://shop.example.com/.well-known/acme-challenge/x: Timeout during connect (likely firewall problem)```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/domains|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "cert.renewal_stopped": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Certificate renewal stopped · certbot.timer",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Certificate renewal stopped · certbot.timer",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "The timer that makes certbot renew the certificates is not running, so they will not renew by themselves."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Certificates*\nshop.example.com"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Next attempt*\nWed 2026-11-11 00:41:10 UTC"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Start it again with:* `systemctl enable --now certbot.timer`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/domains|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "app.oom_killed": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Application killed for lack of memory · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Application killed for lack of memory · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "The kernel killed shop.example.com for running out of memory."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Killed*\n2 times"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Memory limit*\n512.0 MB"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Most it used*\n511.0 MB"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Counting since*\nTue 2026-11-10 03:00:00 UTC"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Diagnose with:* `noust diagnose shop.example.com`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "attachments": [
       {

@@ -238,6 +238,38 @@ waits on, so it does not take the random pause (up to eight minutes) certbot add
 no terminal started; the timer's own runs keep it. The monitor's expiry warnings reach the notification channels, and an uploaded certificate is
 warned about as well.
 
+### How a certificate is judged
+
+Let's Encrypt issues for 90 days now, for 64 from 10 February 2027 and for 45 from 16 February 2028,
+and offers a profile of 6 days; certificates you buy are limited to 100 days from March 2027. A
+threshold written in days is wrong for at least one of those (25 days left is half the life of a
+45-day certificate and a warning on a 90-day one), so Noust judges a certificate on its own life,
+between the start and the end it reads from the certificate file:
+
+| State | When | In `noust health` |
+|---|---|---|
+| healthy | at least a third of its life is left | nothing |
+| renewal pending | under a third, not yet renewed | a warning |
+| critical | under a sixth | an issue |
+| expired | the end has passed | an issue |
+
+certbot 4 renews at a third (at a half for a certificate of 10 days or less), so a healthy
+certificate needs nothing, and one that is past that point has not been renewed when it should
+have been. A certificate of 6 days is not in alarm for its whole life. An uploaded certificate has a
+life too and is judged the same way. When the start cannot be read, the life is taken to be 90 days.
+`noust health`, the overview, `noust diagnose`, the monitor, `noust cert list` and the console all give
+this one answer; `GET /api/certs` carries it as `state`.
+
+`monitor.cert_warning_days` (14) is your ceiling and only narrows when the monitor speaks: it
+announces a certificate that is past its renewal point and has fewer days left than that, never one
+with most of its life ahead.
+
+Noust also looks at the result of the renewal, not only at the days: the state of certbot's timer
+(`certbot.timer`, `certbot-renew.timer` or the snap's) and of its last run, read with `systemctl` and
+the journal, or from certbot's log where the renewal is the cron entry Noust writes. When the last run
+failed, `noust health` and the notification `cert_renewal_failed` say so with certbot's own words,
+while there is still time. A server that renews some other way is not reported.
+
 ## Backing it up
 
 `/etc/letsencrypt` (accounts, keys, renewal configuration, the hook above) is part of

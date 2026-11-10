@@ -57,11 +57,12 @@ import shlex
 import sqlite3
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, overload
 
 from noust.central import require_server_role
-from noust.core import audit
+from noust.core import audit, cert_life
 from noust.core.audit.context import current_actor_name
 from noust.core.certificate_store import (
     CHALLENGE_DNS,
@@ -157,7 +158,16 @@ _CHALLENGE_FAILURE_MARKERS = (
 #: Fields of :class:`CertificateInfo` that hold text, used to type the mapping
 #: accessor the CLI and the health check still read certificates through.
 _TextField = Literal[
-    "name", "expiry", "expiry_full", "cert_path", "key_path", "issuer", "source", "challenge"
+    "name",
+    "expiry",
+    "expiry_full",
+    "cert_path",
+    "key_path",
+    "issuer",
+    "source",
+    "challenge",
+    "not_before",
+    "not_after",
 ]
 
 #: Validity of a certificate Noust mints for itself: the longest a browser
@@ -356,6 +366,10 @@ class CertificateInfo(MappingRecord):
             issued it), ``custom`` for one that was uploaded.
         challenge: How it is renewed: ``http-01``, ``dns-01``, or empty for an
             uploaded certificate, which is not.
+        not_before: When it began to be valid, ISO 8601 in UTC, read from the certificate file
+            itself; None when it could not be read. certbot's listing never prints it.
+        not_after: When it expires, the same way: the file's when it could be read, certbot's
+            own line otherwise. What :meth:`life` measures.
     """
 
     name: str = ""
@@ -367,6 +381,24 @@ class CertificateInfo(MappingRecord):
     issuer: str | None = None
     source: str = "letsencrypt"
     challenge: str = "http-01"
+    not_before: str | None = None
+    not_after: str | None = None
+
+    def life(self, now: datetime | None = None) -> cert_life.CertLife:
+        """
+        Say how the certificate is doing, on its own life (item 172).
+
+        The one answer ``noust health``, the overview, the diagnosis, the monitor and the
+        console give: see :mod:`noust.core.cert_life`.
+
+        Args:
+            now: The moment to judge at; the present when omitted.
+
+        Returns:
+            Its state, and the days and the fraction of its life that decided it. A certificate
+            whose start could not be read is judged on an assumed life of 90 days.
+        """
+        return cert_life.life_of(self, now)
 
     # The overloads exist so that a reader still using the mapping form keeps a
     # real static type instead of Any. Reading ``cert.expiry`` is the intended
@@ -437,6 +469,20 @@ class CertificateTest(MappingRecord):
     not_before: str | None = None
     not_after: str | None = None
     path: str | None = None
+
+
+def _iso(value: datetime | str | None) -> str | None:
+    """
+    Write a moment the way a certificate record keeps it.
+
+    Args:
+        value: A moment, ISO text of one (an uploaded certificate's, from the store), or None.
+
+    Returns:
+        ISO 8601 in UTC to the second; None when there is no moment or it cannot be read.
+    """
+    moment = cert_life.parse_moment(value) if isinstance(value, str) else value
+    return moment.isoformat(timespec="seconds") if moment is not None else None
 
 
 def _expiry_stamp(certificate: CertificateInfo) -> str:
@@ -805,6 +851,8 @@ class CertManager(BaseManager):
                     issuer=item.issuer,
                     source=SOURCE_CUSTOM,
                     challenge="",
+                    not_before=_iso(item.not_before),
+                    not_after=_iso(item.not_after),
                 )
             )
         return found
@@ -826,45 +874,57 @@ class CertManager(BaseManager):
             return None
         certificates = self._parse_certificates(result.stdout)
         for certificate in certificates:
-            certificate.issuer = self._read_issuer(certificate.cert_path)
+            self._read_file_facts(certificate)
         return certificates
 
-    def _read_issuer(self, cert_path: str) -> str | None:
+    def _read_file_facts(self, certificate: CertificateInfo) -> None:
         """
-        Read a certificate's issuer straight from the file, through openssl.
+        Read a certificate's issuer and its life straight from the file, through openssl.
 
-        certbot's own listing never prints the issuer, and asking the ACME
-        account for it would be a network round trip for something already
-        sitting on disk in the certificate itself - openssl reading the file
-        it is pointed at is the cheapest correct way to answer this.
+        certbot's own listing never prints the issuer or when the certificate began, and asking
+        the ACME account would be a network round trip for something already sitting on disk in
+        the certificate itself - openssl reading the file it is pointed at is the cheapest
+        correct way to answer this. One call gives all three, so listing costs no more than it
+        did: the start of the life is what lets a certificate be judged on a fraction of it.
 
         Args:
-            cert_path: Path of the certificate (fullchain) file.
-
-        Returns:
-            The issuer's distinguished name, or None when there is no path to
-            read, the file is missing, or openssl cannot parse it. A
-            certificate record with no issuer is still useful, so a read
-            failure here is logged and does not fail the caller.
+            certificate: The record to fill in. Left as it is when there is no path to read, the
+                file is missing or openssl cannot parse it: a record without an issuer or a start
+                is still useful, so a read failure is logged and does not fail the caller.
         """
-        if not cert_path:
-            return None
+        if not certificate.cert_path:
+            return
         result = self._exec(
-            ["openssl", "x509", "-noout", "-issuer", "-in", cert_path, *OPENSSL_NAME_FORMAT]
+            [
+                "openssl",
+                "x509",
+                "-noout",
+                "-issuer",
+                "-startdate",
+                "-enddate",
+                "-in",
+                certificate.cert_path,
+                *OPENSSL_NAME_FORMAT,
+            ]
         )
         if not result.success:
             self.logger.debug(
-                f"Could not read the issuer of {cert_path}: "
+                f"Could not read the issuer of {certificate.cert_path}: "
                 f"{(result.stderr or result.stdout).strip()}"
             )
-            return None
+            return
         # openssl prints "issuer=C = US, O = Let's Encrypt, CN = R11", give or
         # take the exact fields; everything after the first '=' is what an
         # operator wants to see.
-        output = result.stdout.strip()
-        if output.lower().startswith("issuer="):
-            return output.split("=", 1)[1].strip() or None
-        return output or None
+        for raw in result.stdout.splitlines():
+            line = raw.strip()
+            name, _, value = line.partition("=")
+            if name.lower() == "issuer":
+                certificate.issuer = value.strip() or None
+            elif name == "notBefore":
+                certificate.not_before = _iso(cert_life.parse_moment(value))
+            elif name == "notAfter":
+                certificate.not_after = _iso(cert_life.parse_moment(value)) or certificate.not_after
 
     @staticmethod
     def _parse_certificates(output: str) -> list[CertificateInfo]:
@@ -897,6 +957,7 @@ class CertManager(BaseManager):
                 if match:
                     current.expiry = match.group(1)
                 current.expiry_full = expiry_str
+                current.not_after = _iso(cert_life.parse_moment(expiry_str))
             elif line.startswith("Certificate Path:"):
                 current.cert_path = line.split(":", 1)[1].strip()
             elif line.startswith("Private Key Path:"):

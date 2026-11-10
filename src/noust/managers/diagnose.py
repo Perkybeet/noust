@@ -47,11 +47,12 @@ from pathlib import Path
 from typing import Any, Literal
 from urllib.error import HTTPError, URLError
 
-from noust.core import descriptors
+from noust.core import cert_life, cgroup_events, descriptors
 from noust.core.appdir.layout import app_root
 from noust.core.appdir.releases import Release, ReleaseManager
 from noust.core.config import Config
 from noust.core.exceptions import NoustError
+from noust.core.notifications.formatting import format_bytes
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.server_text import ServerText, say
 from noust.core.store import (
@@ -77,6 +78,7 @@ from noust.deployers.helpers.health_gate import HealthCheck
 from noust.managers.cert_manager import CertManager
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.service_manager import ServiceManager
+from noust.monitor.plan import CGROUP_MOUNT, is_cgroup_v2
 
 log = logging.getLogger(__name__)
 
@@ -101,10 +103,6 @@ _NGINX_LOG_TAIL_BYTES = 65536
 
 #: How many matching nginx error log lines are kept as evidence.
 _NGINX_LOG_MAX_LINES = 20
-
-#: A certificate this close to expiry is worth a warning on its own check,
-#: even when it is not yet the probable cause. Mirrors noust health.
-_CERT_WARNING_DAYS = 30
 
 #: Disk usage past this is the probable cause by itself.
 _DISK_FAIL_PERCENT = 95.0
@@ -205,6 +203,8 @@ class _Context:
     config: Config
     service_manager: ServiceManager
     cert_manager: CertManager
+    #: Where the cgroups are mounted: the kernel's own count of what it killed is read from there.
+    cgroup_mount: Path = CGROUP_MOUNT
 
 
 ProbeResult = tuple[Check, dict[str, Any]]
@@ -331,28 +331,6 @@ def _parse_ss_output(output: str) -> list[_ListenEntry]:
         )
         entries.append(_ListenEntry(port=int(port_match.group(1)), processes=processes))
     return entries
-
-
-def _days_until(expiry: str, now: datetime) -> int | None:
-    """
-    Days left before a certificate expiry date.
-
-    Args:
-        expiry: Expiry date as certbot reports it, ``YYYY-MM-DD``.
-        now: The moment to measure from.
-
-    Returns:
-        Whole days remaining, negative when already expired, or None when the
-        date cannot be parsed.
-    """
-    try:
-        expires = datetime.fromisoformat(expiry)
-    except ValueError:
-        return None
-    if expires.tzinfo is None:
-        expires = expires.replace(tzinfo=timezone.utc)
-    reference = now if now.tzinfo else now.replace(tzinfo=timezone.utc)
-    return (expires - reference).days
 
 
 # -- Probes ---------------------------------------------------------------
@@ -984,21 +962,31 @@ def _check_certificate(ctx: _Context) -> ProbeResult:
             "certificate", "warn", say("diagnose.certificate.no_expiry", label=label), evidence
         ), {"found": True}
 
-    days_left = _days_until(cert.expiry, ctx.now)
-    if days_left is None:
+    # The same answer noust health and the overview give: a certificate is judged on its own life,
+    # so one of 45 days is not in warning at the age one of 90 is, and one of 6 days is not in alarm.
+    life = cert.life(ctx.now)
+    days_left = life.days_left
+    if life.state == cert_life.UNKNOWN or days_left is None:
         return _check(
             "certificate", "warn", say("diagnose.certificate.bad_expiry", label=label), evidence
         ), {"found": True}
 
-    facts = {"found": True, "expiry": cert.expiry, "days_left": days_left, "expired": days_left < 0}
-    if days_left < 0:
+    facts = {
+        "found": True,
+        "expiry": cert.expiry,
+        "days_left": days_left,
+        "expired": life.state == cert_life.EXPIRED,
+        "state": life.state,
+        "life_days": life.life_days,
+    }
+    if life.state == cert_life.EXPIRED:
         return _check(
             "certificate",
             "fail",
             say("diagnose.certificate.expired", label=label, expiry=cert.expiry),
             evidence,
         ), facts
-    if days_left < _CERT_WARNING_DAYS:
+    if life.needs_renewal:
         expires = (
             say("diagnose.certificate.expires_one", label=label)
             if days_left == 1
@@ -1062,26 +1050,174 @@ def _check_last_deployment(ctx: _Context) -> ProbeResult:
 
 def _check_oom(ctx: _Context) -> ProbeResult:
     """
-    Look for OOM activity in the kernel log.
+    Say whether the kernel killed this application for running out of memory.
 
-    Correlating a kernel OOM message with one specific unit exactly would need
-    matching cgroups or the pid at the moment of the kill, which the message
-    does not reliably carry. Presence of OOM activity while the unit is
-    failing or crash-looping is what :func:`_decide` treats as the cause; this
-    probe reports the activity, the unit checks report the failure.
+    The kernel's log line names a process and a pid, not a unit, so on its own it cannot say whose
+    it was. In cgroup v2 the kernel counts the kills by cgroup: ``oom_kill`` in the ``memory.events``
+    of the unit's cgroup is exactly this application's (item 175), and ``Result=oom-kill`` is what
+    systemd records when the kill ended a run. Where neither can be read (no cgroup v2, no such
+    file, a cgroup that restarting the unit made again) the check is what it always was, the log of
+    the last week, and says that it cannot tell whose.
     """
+    attribution = _attribute_oom(ctx)
     result = ctx.runner.run(
         ["journalctl", "-k", "--since", _OOM_WINDOW, "--grep", "oom", "-o", "short-iso"],
         timeout=15,
     )
+    logged = result.stdout.strip() if result.success else ""
+    facts = {"found": bool(logged), **attribution}
+
+    if attribution.get("attributed"):
+        count = int(attribution["kills"])
+        since = str(attribution.get("since") or "its last start")
+        if count == 0:
+            said = say("diagnose.oom.unit_result")
+        elif count == 1:
+            said = say("diagnose.oom.killed_one", since=since)
+        else:
+            said = say("diagnose.oom.killed_several", count=count, since=since)
+        return _check("oom", "warn", said, _oom_evidence(attribution, logged)), facts
     if not result.success:
         return _check("oom", "skip", say("diagnose.oom.unreadable"), result.stderr.strip()), {}
+    if not logged:
+        return _check("oom", "ok", say("diagnose.oom.none")), facts
+    reason = attribution.get("cannot_say")
+    if reason == "no_cgroup_v2":
+        said = say("diagnose.oom.found_no_cgroup_v2")
+    elif reason == "no_file":
+        said = say("diagnose.oom.found_no_file")
+    else:
+        said = say("diagnose.oom.found")
+    return _check("oom", "warn", said, logged), facts
 
-    text = result.stdout.strip()
-    if not text:
-        return _check("oom", "ok", say("diagnose.oom.none")), {"found": False}
 
-    return _check("oom", "warn", say("diagnose.oom.found"), text), {"found": True}
+def _attribute_oom(ctx: _Context) -> dict[str, Any]:
+    """
+    Read what the kernel and systemd say about this application's unit.
+
+    Args:
+        ctx: The diagnosis context.
+
+    Returns:
+        ``attributed`` (the kernel counted kills in the unit's cgroup, or systemd records that its
+        last run ended in an out-of-memory kill) with ``kills``, ``limit``, ``peak``, ``since`` (when
+        the unit started, which is where the count begins), ``result`` and ``control_group``; or
+        ``cannot_say`` (``no_cgroup_v2`` or ``no_file``) when this machine cannot tell whose a kill
+        was; or nothing at all for an application that has no unit to ask.
+    """
+    if _no_unit(ctx) is not None:
+        return {}
+    info = ctx.service_manager.inspect_unit(ctx.app_name)
+    if not info.exists:
+        return {}
+    shown = ctx.runner.run(
+        ["systemctl", "show", "-p", "ControlGroup,ActiveEnterTimestamp,Result", info.unit_file],
+        timeout=15,
+    )
+    fields = _parse_systemctl_show(shown.stdout)
+    unit_result = fields.get("Result", "")
+    control_group = fields.get("ControlGroup", "").strip()
+    since = fields.get("ActiveEnterTimestamp", "").strip()
+
+    kernel = cgroup_events.OomFacts()
+    why = ""
+    if not is_cgroup_v2(ctx.cgroup_mount):
+        why = "no_cgroup_v2"
+    elif control_group:
+        kernel = cgroup_events.read_facts(ctx.cgroup_mount / control_group.lstrip("/"))
+        if not kernel.readable:
+            why = "no_file"
+    else:
+        why = "no_file"
+
+    found: dict[str, Any] = {
+        "kills": kernel.kills,
+        "limit": kernel.limit,
+        "peak": kernel.peak,
+        "since": since,
+        "result": unit_result,
+        "control_group": control_group,
+    }
+    if kernel.kills > 0 or unit_result == "oom-kill":
+        return {**found, "attributed": True}
+    return {**found, "cannot_say": why} if why else found
+
+
+def _oom_evidence(attribution: dict[str, Any], logged: str) -> str:
+    """
+    Args:
+        attribution: What :func:`_attribute_oom` read.
+        logged: What the kernel log said of running out of memory, verbatim.
+
+    Returns:
+        The figures as the kernel wrote them, then the log's own lines: nothing paraphrased.
+    """
+    limit = attribution["limit"]
+    lines = [
+        f"oom_kill={attribution['kills']}",
+        f"memory.max={limit if limit is not None else 'max'}",
+    ]
+    if attribution["peak"] is not None:
+        lines.append(f"memory.peak={attribution['peak']}")
+    if attribution["since"]:
+        lines.append(f"ActiveEnterTimestamp={attribution['since']}")
+    if attribution["result"]:
+        lines.append(f"Result={attribution['result']}")
+    return "\n".join([*lines, *([logged] if logged else [])])
+
+
+#: The step a suggested limit is rounded up to, in megabytes.
+_LIMIT_STEP_MB = 64
+
+
+def _suggested_megabytes(limit: int | None, peak: int | None) -> int:
+    """
+    Args:
+        limit: The memory limit it had, in bytes, or None.
+        peak: The most it used, in bytes, or None.
+
+    Returns:
+        A limit half as large again as the larger of the two, in whole steps of 64 MB, so the
+        command the diagnosis suggests is one that works as it is written.
+    """
+    base = max(limit or 0, peak or 0) / (1024 * 1024)
+    wanted = max(base * 1.5, float(_LIMIT_STEP_MB))
+    return int(-(-wanted // _LIMIT_STEP_MB) * _LIMIT_STEP_MB)
+
+
+def _oom_cause(ctx: _Context, oom: dict[str, Any]) -> ServerText:
+    """
+    Say why the kernel killed the application and what to do, from its limit against its peak.
+
+    Args:
+        ctx: The diagnosis context.
+        oom: What :func:`_attribute_oom` read, with ``attributed``.
+
+    Returns:
+        The probable cause.
+    """
+    limit, peak = oom.get("limit"), oom.get("peak")
+    if oom.get("kills", 0) == 0:
+        # Only systemd's record: its cgroup was made again when the unit restarted, and with it the count.
+        return say(
+            "diagnose.cause.oom_unit", domain=ctx.domain, command=f"noust app limits {ctx.domain}"
+        )
+    suggested = _suggested_megabytes(limit, peak)
+    command = f"noust app limits {ctx.domain} --memory {suggested}M --restart"
+    if limit is None:
+        return say(
+            "diagnose.cause.oom_machine",
+            domain=ctx.domain,
+            peak=format_bytes(int(peak)) if peak is not None else "?",
+            command=command,
+        )
+    return say(
+        "diagnose.cause.oom_limit",
+        domain=ctx.domain,
+        limit=format_bytes(int(limit)),
+        peak=format_bytes(int(peak)) if peak is not None else format_bytes(int(limit)),
+        command=command,
+    )
 
 
 def _check_disk(ctx: _Context) -> ProbeResult:
@@ -1175,6 +1311,9 @@ def _decide(
     if unit.get("exists") is False:
         return "down", say("diagnose.cause.no_unit", unit=ctx.app_name)
 
+    if oom.get("attributed") and (unit_failed or crash_looping):
+        return "down", _oom_cause(ctx, oom)
+
     if (unit_failed or crash_looping) and oom.get("found"):
         return "down", say("diagnose.cause.oom")
 
@@ -1244,6 +1383,10 @@ def _decide(
     if disk.get("percent_used", 0) > _DISK_FAIL_PERCENT:
         return "degraded", say("diagnose.cause.disk_full", percent=round(disk["percent_used"]))
 
+    if oom.get("attributed"):
+        # It is up, and the kernel has been killing it: what it serves now is a restart's worth.
+        return "degraded", _oom_cause(ctx, oom)
+
     statuses = {c.status for c in checks}
     if "fail" in statuses:
         return "down", None
@@ -1282,6 +1425,7 @@ def diagnose(
     now: Callable[[], datetime] | None = None,
     http_get: HttpGet | None = None,
     disk_usage: DiskUsage | None = None,
+    cgroup_mount: Path | None = None,
 ) -> Diagnosis:
     """
     Correlate everything Noust can read about a domain into one diagnosis.
@@ -1299,6 +1443,8 @@ def diagnose(
             opens a socket.
         disk_usage: Reads free space for a path, with :func:`shutil.disk_usage`'s
             signature. Defaults to :func:`shutil.disk_usage`.
+        cgroup_mount: Where cgroups are mounted, for the kernel's own count of what it killed.
+            Defaults to the system's; tests point it at a fake tree.
 
     Returns:
         Every probe's result and the verdict derived from them.
@@ -1325,6 +1471,7 @@ def diagnose(
         config=Config(),
         service_manager=ServiceManager(runner=resolved_runner),
         cert_manager=CertManager(runner=resolved_runner),
+        cgroup_mount=cgroup_mount or CGROUP_MOUNT,
     )
 
     checks: list[Check] = []

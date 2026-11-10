@@ -5865,6 +5865,207 @@
       }
     ]
   },
+  "cert.renewal_failed": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Ha fallado la renovación de certificados · certbot.timer",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Ha fallado la renovación de certificados · certbot.timer",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "La última vez que certbot intentó renovar los certificados falló, así que no se renovarán solos hasta que funcione."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Certificados*\nshop.example.com, blog.example.com"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Último intento*\nTue 2026-11-10 12:11:09 UTC"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Renuévalo con:* `noust cert renew`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Lo que ha informado certbot_\n```Failed to renew certificate shop.example.com with error: Some challenges have failed.\nDetail: 203.0.113.9: Fetching http://shop.example.com/.well-known/acme-challenge/x: Timeout during connect (likely firewall problem)```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/domains|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "cert.renewal_stopped": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ La renovación de certificados está parada · certbot.timer",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ La renovación de certificados está parada · certbot.timer",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "El temporizador que hace que certbot renueve los certificados no está en marcha, así que no se renovarán solos."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Certificados*\nshop.example.com"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Próximo intento*\nWed 2026-11-11 00:41:10 UTC"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Vuelve a ponerlo en marcha con:* `systemctl enable --now certbot.timer`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/domains|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "app.oom_killed": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Aplicación cerrada por falta de memoria · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Aplicación cerrada por falta de memoria · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "El núcleo ha cerrado shop.example.com por falta de memoria."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Cerrada*\n2 veces"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Límite de memoria*\n512.0 MB"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Lo máximo que usó*\n511.0 MB"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Contando desde*\nTue 2026-11-10 03:00:00 UTC"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Diagnostícala con:* `noust diagnose shop.example.com`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "attachments": [
       {

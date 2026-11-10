@@ -1696,6 +1696,63 @@
     "disable_notification": true,
     "parse_mode": "HTML"
   },
+  "cert.renewal_failed": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Ha fallado la renovación de certificados</b> · certbot.timer\nLa última vez que certbot intentó renovar los certificados falló, así que no se renovarán solos hasta que funcione.\n\n<b>Servidor:</b> web-1\n<b>Certificados:</b> shop.example.com, blog.example.com\n<b>Último intento:</b> Tue 2026-11-10 12:11:09 UTC\n<b>Renuévalo con:</b> <code>noust cert renew</code>\n\n<i>Lo que ha informado certbot</i>\n<pre>Failed to renew certificate shop.example.com with error: Some challenges have failed.\nDetail: 203.0.113.9: Fetching http://shop.example.com/.well-known/acme-challenge/x: Timeout during connect (likely firewall problem)</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/domains"
+          }
+        ]
+      ]
+    }
+  },
+  "cert.renewal_stopped": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>La renovación de certificados está parada</b> · certbot.timer\nEl temporizador que hace que certbot renueve los certificados no está en marcha, así que no se renovarán solos.\n\n<b>Servidor:</b> web-1\n<b>Certificados:</b> shop.example.com\n<b>Próximo intento:</b> Wed 2026-11-11 00:41:10 UTC\n<b>Vuelve a ponerlo en marcha con:</b> <code>systemctl enable --now certbot.timer</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/domains"
+          }
+        ]
+      ]
+    }
+  },
+  "app.oom_killed": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Aplicación cerrada por falta de memoria</b> · shop.example.com\nEl núcleo ha cerrado shop.example.com por falta de memoria.\n\n<b>Servidor:</b> web-1\n<b>Cerrada:</b> 2 veces\n<b>Límite de memoria:</b> 512.0 MB\n<b>Lo máximo que usó:</b> 511.0 MB\n<b>Contando desde:</b> Tue 2026-11-10 03:00:00 UTC\n<b>Diagnostícala con:</b> <code>noust diagnose shop.example.com</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+          }
+        ]
+      ]
+    }
+  },
   "hostile.deploy_failed": {
     "chat_id": "-1001234567890",
     "text": "✕ <b>Despliegue fallido</b> · shop.example.com\nSe ha detenido por un error antes de que la nueva versión tomara el relevo.\n\n<b>Servidor:</b> wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n<b>Versión:</b> 20260929-104449\n<b>Commit:</b> a1b2c3d (&lt;b&gt;x&lt;/b&gt;&amp;amp;&lt;!channel&gt; @everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @here &lt;@U123&gt; &lt;#C1&gt; red emoji 🚀\n<b>Iniciado por:</b> Webhook\n<b>Duración:</b> 1 min 12 s\n<b>Revísalo con:</b> <code>noust diagnose shop.example.com</code>\n\n<i>Lo que ha informado el sistema</i>\n<pre>Release did not pass &lt;its&gt; health &amp; check\n&lt;urlopen error [Errno 111] Connection refused&gt;\n```\n@everyone &lt;!channel&gt; &lt;@U123|admin&gt; &amp;lt;b&amp;gt;\nred *bold* _italic_ ~strike~ `code`\nnoitcnuf\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…</pre>",

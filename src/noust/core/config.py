@@ -235,8 +235,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # Updates of the operating system waiting are looked for every this
         # many hours (0 turns it off).
         "os_patches_check_hours": 24,
-        # An API token is announced this many days before it expires (0 turns
-        # it off).
+        # An API token is announced this many days before it expires (0 turns it off).
         "token_warning_days": 7,
         # The web server (nginx or Apache) is looked at every this many seconds (0 turns
         # it off). One that crashed is started again after its own configuration test
@@ -315,8 +314,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "deploy_success": True,
             "deploy_failed": True,
             "deploy_rolled_back": True,
-            # Deployed with warnings: a post_deploy hook failed once the new
-            # version was serving.
+            # Deployed with warnings: a post_deploy hook failed once the new version was serving.
             "deploy_hook_failed": True,
             "restore_success": True,
             "restore_failed": True,
@@ -378,6 +376,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "recipe_outdated": True,
             # The central that manages this server stopped calling it.
             "central_silent": True,
+            "cert_renewal_failed": True,
+            "app_oom_killed": True,
         },
         "channels": {
             # A webhook URL is a capability: Slack and Discord embed the

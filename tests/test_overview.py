@@ -22,7 +22,7 @@ What is defended:
 from __future__ import annotations
 
 from collections.abc import Iterator
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -121,10 +121,19 @@ def finish(
     return deployment_id
 
 
-def cert(name: str, days: int | None) -> CertificateInfo:
-    """A certificate that expires in ``days`` days."""
+def cert(name: str, days: int | None, life: int | None = None) -> CertificateInfo:
+    """A certificate that expires in ``days`` days, and lived ``life`` of them when that is known."""
     expiry = (date.today() + timedelta(days=days)).isoformat() if days is not None else None
-    return CertificateInfo(name=name, domains=[name], expiry=expiry)
+    if life is None or days is None:
+        return CertificateInfo(name=name, domains=[name], expiry=expiry)
+    end = datetime.now(timezone.utc) + timedelta(days=days)
+    return CertificateInfo(
+        name=name,
+        domains=[name],
+        expiry=expiry,
+        not_before=(end - timedelta(days=life)).isoformat(timespec="seconds"),
+        not_after=end.isoformat(timespec="seconds"),
+    )
 
 
 def collect(store: NoustStore, **collaborators: Any) -> dict[str, Any]:
@@ -218,6 +227,52 @@ def test_certificates_are_counted_by_how_long_they_have_left(store: NoustStore) 
     assert figure["expired"] == 1
     assert figure["next_days"] == -2
     assert figure["warning_days"] == CERT_WARNING_DAYS == 21
+
+
+def test_a_certificate_is_counted_by_the_fraction_of_its_life_that_is_left(
+    store: NoustStore,
+) -> None:
+    """25 days is a warning for 90 days of life, but the middle of one of 45."""
+    certs = [
+        cert("long.com", 25, life=90),  # renewal pending
+        cert("mid.com", 25, life=45),  # healthy
+        cert("late.com", 1, life=6),  # renewal pending
+        cert("gone.com", -3, life=45),
+    ]
+
+    figure = collect(store, certificates=lambda: certs)["certificates"]
+
+    assert figure["expiring"] == 2
+    assert figure["expired"] == 1
+
+
+def test_a_certificate_of_6_days_with_4_left_is_not_on_the_attention_list(
+    store: NoustStore,
+) -> None:
+    deploy(store, "short.example.com")
+
+    items = collect(store, certificates=lambda: [cert("short.example.com", 4, life=6)])
+
+    assert items["attention"] == []
+
+
+def test_a_certificate_in_its_last_sixth_is_a_failure_and_one_past_its_renewal_point_a_warning(
+    store: NoustStore,
+) -> None:
+    deploy(store, "late.example.com")
+    deploy(store, "very-late.example.com")
+    deploy(store, "fine.example.com")
+    certs = [
+        cert("late.example.com", 20, life=64),
+        cert("very-late.example.com", 5, life=64),
+        cert("fine.example.com", 30, life=64),
+    ]
+
+    items = {item["id"]: item for item in collect(store, certificates=lambda: certs)["attention"]}
+
+    assert items["app:late.example.com"]["reasons"][0]["severity"] == "warn"
+    assert items["app:very-late.example.com"]["reasons"][0]["severity"] == "fail"
+    assert "app:fine.example.com" not in items
 
 
 def test_backups_are_measured_against_the_applications_that_should_have_them(

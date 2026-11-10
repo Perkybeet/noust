@@ -238,6 +238,15 @@ export const serverText: Catalog<typeof en> = {
       oom: {
         text: "El kernel la mató por quedarse sin memoria (por el límite o por la máquina).",
       },
+      oom_limit: {
+        text: "El núcleo cerró {domain} por falta de memoria: su límite es {limit} y llegó a usar {peak}, así que necesita más de lo que se le permite. Sube el límite con: {command}",
+      },
+      oom_machine: {
+        text: "El núcleo cerró {domain} por falta de memoria y no tiene límite de memoria, así que fue el servidor el que se quedó sin ella (llegó a usar {peak}). Libera memoria en el servidor, o dale a la aplicación un límite que pueda cumplir: {command}",
+      },
+      oom_unit: {
+        text: "systemd registra que la última ejecución de {domain} terminó porque el núcleo la cerró por falta de memoria. Mira su límite de memoria con: {command}",
+      },
       port_elsewhere: {
         text: "Escucha en el {actual_port}, pero Noust enruta al {recorded_port}.",
       },
@@ -401,8 +410,23 @@ export const serverText: Catalog<typeof en> = {
       found: {
         text: "El registro del kernel muestra actividad por falta de memoria en los últimos 7 días",
       },
+      found_no_cgroup_v2: {
+        text: "El registro del núcleo muestra actividad por falta de memoria en los últimos 7 días, y este servidor no puede decir de qué aplicación fue: no usa cgroup v2, donde el núcleo cuenta lo que mata por unidad",
+      },
+      found_no_file: {
+        text: "El registro del núcleo muestra actividad por falta de memoria en los últimos 7 días, y este servidor no puede decir de qué aplicación fue: no se puede leer el memory.events de la unidad",
+      },
+      killed_one: {
+        text: "El núcleo cerró esta aplicación por falta de memoria una vez desde que arrancó su unidad ({since})",
+      },
+      killed_several: {
+        text: "El núcleo cerró esta aplicación por falta de memoria {count} veces desde que arrancó su unidad ({since})",
+      },
       none: {
         text: "No hay procesos matados por falta de memoria en el registro del kernel en los últimos 7 días",
+      },
+      unit_result: {
+        text: "systemd registra que la última ejecución de la unidad de esta aplicación terminó porque el núcleo la cerró por falta de memoria",
       },
       unreadable: {
         text: "No se pudo leer el registro del kernel",
@@ -687,6 +711,11 @@ export const serverText: Catalog<typeof en> = {
       },
       no_key: {
         text: "Clave SSH: no encontrada",
+      },
+    },
+    stapling: {
+      site: {
+        text: "{site} sigue pidiendo a nginx que grape respuestas OCSP, que Let's Encrypt dejó de dar en agosto de 2025: nginx avisa de ello en cada recarga. Noust vuelve a escribir el sitio sin eso la próxima vez que lo escribe (un despliegue, un cambio de sus dominios)",
       },
     },
     web: {

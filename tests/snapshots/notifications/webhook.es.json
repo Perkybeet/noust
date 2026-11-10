@@ -4121,6 +4121,155 @@
     "links": [],
     "excerpt": null
   },
+  "cert.renewal_failed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000093",
+    "event": "cert_renewal_failed",
+    "code": "cert.renewal_failed",
+    "state": "failed",
+    "locale": "es",
+    "title": "Ha fallado la renovación de certificados: certbot.timer",
+    "summary": "La última vez que certbot intentó renovar los certificados falló, así que no se renovarán solos hasta que funcione.",
+    "body": "La última vez que certbot intentó renovar los certificados falló, así que no se renovarán solos hasta que funcione.\n\nServidor: web-1\nCertificados: shop.example.com, blog.example.com\nÚltimo intento: Tue 2026-11-10 12:11:09 UTC\nRenuévalo con: noust cert renew\n\nLo que ha informado certbot:\n  Failed to renew certificate shop.example.com with error: Some challenges have failed.\n  Detail: 203.0.113.9: Fetching http://shop.example.com/.well-known/acme-challenge/x: Timeout during connect (likely firewall problem)\n\nAbrir en la consola: https://console.example.com/n/web-1/domains",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "certificates",
+        "label": "Certificados",
+        "value": "shop.example.com, blog.example.com"
+      },
+      {
+        "key": "renewal_last",
+        "label": "Último intento",
+        "value": "Tue 2026-11-10 12:11:09 UTC"
+      },
+      {
+        "key": "renew",
+        "label": "Renuévalo con",
+        "value": "noust cert renew"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/domains"
+      }
+    ],
+    "excerpt": {
+      "label": "Lo que ha informado certbot",
+      "lines": [
+        "Failed to renew certificate shop.example.com with error: Some challenges have failed.",
+        "Detail: 203.0.113.9: Fetching http://shop.example.com/.well-known/acme-challenge/x: Timeout during connect (likely firewall problem)"
+      ],
+      "omitted": 0
+    }
+  },
+  "cert.renewal_stopped": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000094",
+    "event": "cert_renewal_failed",
+    "code": "cert.renewal_stopped",
+    "state": "warning",
+    "locale": "es",
+    "title": "La renovación de certificados está parada: certbot.timer",
+    "summary": "El temporizador que hace que certbot renueve los certificados no está en marcha, así que no se renovarán solos.",
+    "body": "El temporizador que hace que certbot renueve los certificados no está en marcha, así que no se renovarán solos.\n\nServidor: web-1\nCertificados: shop.example.com\nPróximo intento: Wed 2026-11-11 00:41:10 UTC\nVuelve a ponerlo en marcha con: systemctl enable --now certbot.timer\n\nAbrir en la consola: https://console.example.com/n/web-1/domains",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "certificates",
+        "label": "Certificados",
+        "value": "shop.example.com"
+      },
+      {
+        "key": "renewal_next",
+        "label": "Próximo intento",
+        "value": "Wed 2026-11-11 00:41:10 UTC"
+      },
+      {
+        "key": "enable_timer",
+        "label": "Vuelve a ponerlo en marcha con",
+        "value": "systemctl enable --now certbot.timer"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/domains"
+      }
+    ],
+    "excerpt": null
+  },
+  "app.oom_killed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000095",
+    "event": "app_oom_killed",
+    "code": "app.oom_killed",
+    "state": "failed",
+    "locale": "es",
+    "title": "Aplicación cerrada por falta de memoria: shop.example.com",
+    "summary": "El núcleo ha cerrado shop.example.com por falta de memoria.",
+    "body": "El núcleo ha cerrado shop.example.com por falta de memoria.\n\nServidor: web-1\nCerrada: 2 veces\nLímite de memoria: 512.0 MB\nLo máximo que usó: 511.0 MB\nContando desde: Tue 2026-11-10 03:00:00 UTC\nDiagnostícala con: noust diagnose shop.example.com\n\nAbrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "oom_kills",
+        "label": "Cerrada",
+        "value": "2 veces"
+      },
+      {
+        "key": "oom_limit",
+        "label": "Límite de memoria",
+        "value": "512.0 MB"
+      },
+      {
+        "key": "oom_peak",
+        "label": "Lo máximo que usó",
+        "value": "511.0 MB"
+      },
+      {
+        "key": "oom_since",
+        "label": "Contando desde",
+        "value": "Tue 2026-11-10 03:00:00 UTC"
+      },
+      {
+        "key": "diagnose",
+        "label": "Diagnostícala con",
+        "value": "noust diagnose shop.example.com"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ],
+    "excerpt": null
+  },
   "hostile.deploy_failed": {
     "version": 1,
     "id": "00000000-0000-4000-8000-000000001000",
