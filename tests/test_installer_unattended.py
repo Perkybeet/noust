@@ -241,7 +241,7 @@ def test_the_console_is_reached_with_a_command_that_is_copied_as_it_is(
         "To open the console from your computer, run this there:\n"
         "  ssh -N -L 8080:127.0.0.1:8080 root@203.0.113.7\n"
         "Then browse to:\n"
-        "  http://127.0.0.1:8080/login?with=token\n"
+        "  http://localhost:8080/login?with=token\n"
     ) in done.stdout
 
 

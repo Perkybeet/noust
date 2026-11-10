@@ -393,11 +393,11 @@ def test_the_console_is_given_with_the_servers_own_address_and_the_sign_in_link(
     assert document(done)["console"] == {
         "state": "skipped",
         "address": "127.0.0.1:8080",
-        "url": "http://127.0.0.1:8080/login?with=token",
+        "url": "http://localhost:8080/login?with=token",
         "tunnel": "ssh -N -L 8080:127.0.0.1:8080 root@203.0.113.7",
     }
     assert "ssh -N -L 8080:127.0.0.1:8080 root@203.0.113.7" in done.stderr
-    assert "http://127.0.0.1:8080/login?with=token" in done.stderr
+    assert "http://localhost:8080/login?with=token" in done.stderr
 
 
 def test_the_address_sshd_recorded_is_the_one_printed(machine: dict[str, str]) -> None:

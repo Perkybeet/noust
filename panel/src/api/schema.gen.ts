@@ -47341,6 +47341,10 @@ export interface components {
          *         account: The account it is for.
          *         code: The code; only its digest is stored.
          *         expires_in: Seconds it is valid for.
+         *         public_url: The address the console's links are built from (``web.public_url``), or
+         *             None when the server was never told one. Without it the console can only build the
+         *             link from the address it was opened at, which through an SSH tunnel is a local one
+         *             that means nothing to the person invited, and says so.
          *         emailed: Whether the invitation was also mailed to the address given.
          *         email_error: Why it was not, when it was asked for and did not go: the invitation
          *             exists, and its code is handed over by hand.
@@ -47365,6 +47369,8 @@ export interface components {
             emailed: boolean;
             /** Expires In */
             expires_in: number;
+            /** Public Url */
+            public_url?: string | null;
         };
         /**
          * InvitationNotice

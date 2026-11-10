@@ -195,6 +195,51 @@ describe("Settings > Accounts", () => {
     expect(backend.callsTo("POST /api/auth/invitations").at(-1)?.body).toEqual({ username: "lucia.ferrer", expires_hours: 24, role: "operator", email: "Lucia.Ferrer@example.com" });
   });
 
+  it("builds the link from the console's own address when the server has one, and says nothing of the tunnel (item 149)", { timeout: 20_000 }, async () => {
+    accountsBackend({
+      "POST /api/auth/invitations": (call) =>
+        json(201, {
+          account: account((call.body as { username: string }).username, "operator", { status: "invited" }),
+          code: "noust_inv_abc123",
+          expires_in: 86_400,
+          public_url: "https://console.example.com",
+        }),
+    });
+    const { user } = renderConsole("/settings/accounts");
+    await screen.findByText("ana");
+    await user.click(screen.getByRole("button", { name: "Invite a person" }));
+    const dialog = await screen.findByRole("dialog", { name: "Invite a person" });
+    await user.type(within(dialog).getByLabelText(/^Email/), "lucia@example.com");
+    await user.click(within(dialog).getByRole("button", { name: "Send invitation" }));
+    await confirmItsYou(user);
+
+    const issued = await screen.findByRole("dialog", { name: "Send this invitation to lucia" });
+    // The address the browser was opened at (here a local one, as through a tunnel) is not what the link says.
+    expect(within(issued).getByTestId("invitation-link")).toHaveValue("https://console.example.com/invite#noust_inv_abc123");
+    expect(within(issued).queryByText("This link only works on this computer")).not.toBeInTheDocument();
+  });
+
+  it("says that a link built from a local address is of no use to the person invited, and where to give an address", { timeout: 20_000 }, async () => {
+    accountsBackend({
+      "POST /api/auth/invitations": (call) =>
+        json(201, { account: account((call.body as { username: string }).username, "operator", { status: "invited" }), code: "noust_inv_abc123", expires_in: 86_400, public_url: null }),
+    });
+    const { user } = renderConsole("/settings/accounts");
+    await screen.findByText("ana");
+    await user.click(screen.getByRole("button", { name: "Invite a person" }));
+    const dialog = await screen.findByRole("dialog", { name: "Invite a person" });
+    await user.type(within(dialog).getByLabelText(/^Email/), "lucia@example.com");
+    await user.click(within(dialog).getByRole("button", { name: "Send invitation" }));
+    await confirmItsYou(user);
+
+    const issued = await screen.findByRole("dialog", { name: "Send this invitation to lucia" });
+    expect(within(issued).getByText("This link only works on this computer")).toBeInTheDocument();
+    expect(within(issued).getByText(/localhost/)).toBeInTheDocument();
+    expect(within(issued).getByRole("link", { name: "Set the console's address" })).toHaveAttribute("href", "/settings/general");
+    // The link is still there: it opens for whoever can reach this address.
+    expect(within(issued).getByTestId("invitation-link")).toHaveValue(`${window.location.origin}/invite#noust_inv_abc123`);
+  });
+
   it("lets the proposed account name be changed, and refuses one the server would", { timeout: 20_000 }, async () => {
     const backend = accountsBackend({
       "POST /api/auth/invitations": (call) => json(201, { account: account((call.body as { username: string }).username, "viewer", { status: "invited" }), code: "noust_inv_abc123", expires_in: 86_400, emailed: true }),

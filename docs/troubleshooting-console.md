@@ -12,7 +12,7 @@ On your computer, not on the server:
 ssh -N -L 8080:127.0.0.1:8080 root@203.0.113.10
 ```
 
-Leave it running, and open <http://127.0.0.1:8080/login?with=token>. The link opens the sign-in on
+Leave it running, and open <http://localhost:8080/login?with=token>. The link opens the sign-in on
 the access token. The installer printed this command with your server's address in it.
 
 When the installer could not tell the server's public address (a machine behind NAT, or one whose

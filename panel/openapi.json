@@ -28725,7 +28725,7 @@
         "type": "object"
       },
       "InvitationIssued": {
-        "description": "An invitation code, shown exactly once.\n\nAttributes:\n    account: The account it is for.\n    code: The code; only its digest is stored.\n    expires_in: Seconds it is valid for.\n    emailed: Whether the invitation was also mailed to the address given.\n    email_error: Why it was not, when it was asked for and did not go: the invitation\n        exists, and its code is handed over by hand.\n    email_error_hint: How to fix it, when there is a way.\n    email_error_coded: ``email_error`` as a code and its values, for the console to say\n        in its language (``mail.no_transport``, ``mail.no_public_url``,\n        ``invitation.mail_failed``).",
+        "description": "An invitation code, shown exactly once.\n\nAttributes:\n    account: The account it is for.\n    code: The code; only its digest is stored.\n    expires_in: Seconds it is valid for.\n    public_url: The address the console's links are built from (``web.public_url``), or\n        None when the server was never told one. Without it the console can only build the\n        link from the address it was opened at, which through an SSH tunnel is a local one\n        that means nothing to the person invited, and says so.\n    emailed: Whether the invitation was also mailed to the address given.\n    email_error: Why it was not, when it was asked for and did not go: the invitation\n        exists, and its code is handed over by hand.\n    email_error_hint: How to fix it, when there is a way.\n    email_error_coded: ``email_error`` as a code and its values, for the console to say\n        in its language (``mail.no_transport``, ``mail.no_public_url``,\n        ``invitation.mail_failed``).",
         "properties": {
           "account": {
             "$ref": "#/components/schemas/AccountInfo"
@@ -28774,6 +28774,17 @@
           "expires_in": {
             "title": "Expires In",
             "type": "integer"
+          },
+          "public_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Url"
           }
         },
         "required": [

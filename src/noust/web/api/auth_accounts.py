@@ -31,7 +31,7 @@ from noust.core.access.builtin import ROLE_OWNER
 from noust.core.access.roles import RoleStore
 from noust.core.accounts import Account, AuthenticationFailed, SodException
 from noust.core.accounts.local_login import load_policy as load_local_login
-from noust.core.accounts.mail import AccountMailer, mail_invitation
+from noust.core.accounts.mail import AccountMailer, console_public_url, mail_invitation
 from noust.core.accounts.model import ROLE_ADMIN, AccountError, clean_email
 from noust.core.accounts.reset import (
     LIFETIME_MINUTES,
@@ -331,6 +331,10 @@ class InvitationIssued(BaseModel):
         account: The account it is for.
         code: The code; only its digest is stored.
         expires_in: Seconds it is valid for.
+        public_url: The address the console's links are built from (``web.public_url``), or
+            None when the server was never told one. Without it the console can only build the
+            link from the address it was opened at, which through an SSH tunnel is a local one
+            that means nothing to the person invited, and says so.
         emailed: Whether the invitation was also mailed to the address given.
         email_error: Why it was not, when it was asked for and did not go: the invitation
             exists, and its code is handed over by hand.
@@ -343,6 +347,7 @@ class InvitationIssued(BaseModel):
     account: AccountInfo
     code: str
     expires_in: int
+    public_url: str | None = None
     emailed: bool = False
     email_error: str | None = None
     email_error_hint: str | None = None
@@ -992,6 +997,7 @@ def create_invitation(
         account=AccountInfo.of(account),
         code=code,
         expires_in=body.expires_hours * 3600,
+        public_url=console_public_url() or None,
         emailed=mailed.emailed,
         email_error=mailed.problem.text if mailed.problem else None,
         email_error_hint=mailed.problem.hint if mailed.problem else None,
