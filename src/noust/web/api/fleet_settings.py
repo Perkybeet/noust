@@ -169,9 +169,13 @@ class FleetSettingsModeIn(BaseModel):
 
     Attributes:
         mode: ``managed`` (it follows them) or ``independent`` (it is left out).
+        adopt: Only with ``managed``: when it follows them again, take over the settings it kept
+            as its own under the fleet's names, instead of leaving each as a conflict. What it
+            would be given is in the status (``if_followed``) before this is asked.
     """
 
     mode: str
+    adopt: bool = False
 
 
 class FleetSettingsModeOut(BaseModel):
@@ -574,19 +578,29 @@ async def set_mode(node: str, body: FleetSettingsModeIn, session: Elevated) -> F
     Make a server follow the fleet's settings, or leave it out of them.
 
     An independent server is pushed nothing and is let go of what it had (it keeps it, as its own);
-    it still appears in every fleet view. A server that follows them again is applied everything.
+    it still appears in every fleet view. A server that follows them again is applied everything:
+    what it does not have is created, and what it kept under a name of the fleet's is a conflict
+    unless ``adopt`` says to take it over. The status says beforehand what each setting would
+    bring (``if_followed``), so the person deciding knows what will change.
 
     Args:
         node: The server.
-        body: The mode.
+        body: The mode, and whether to take over what the server kept.
         session: The elevated session.
 
     Returns:
         The mode and the job that settles it.
 
     Raises:
-        ValidationError: 400 for a mode that is not one, or a server that is not in the fleet.
+        ValidationError: 400 for a mode that is not one, a server that is not in the fleet, or
+            ``adopt`` asked of a server that is leaving.
     """
+    if body.adopt and body.mode != "managed":
+        raise ValidationError(
+            "adopt is for a server that follows the fleet's settings again",
+            details="Leave it out when the mode is independent.",
+            field="adopt",
+        )
     settings = _settings()
     mode = await run_in_threadpool(
         lambda: settings.set_mode(node, body.mode, person=_person(session))
@@ -595,9 +609,10 @@ async def set_mode(node: str, body: FleetSettingsModeIn, session: Elevated) -> F
         "fleet.setting.mode",
         actor=session_actor(session),
         target=f"node:{node}",
-        details={"mode": mode},
+        details={"mode": mode, **({"adopt": True} if body.adopt else {})},
     )
-    return FleetSettingsModeOut(node=node, mode=mode, apply=await _queue(session, [node]))
+    applying = await _queue(session, [node], {"adopt": True} if body.adopt else None)
+    return FleetSettingsModeOut(node=node, mode=mode, apply=applying)
 
 
 @router.post("/settings/apply")

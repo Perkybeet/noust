@@ -377,6 +377,152 @@ class TestAServerThatLeavesTheFleetsSettings:
         assert refused.status_code == 400
 
 
+MODE = "/api/fleet/servers/web-2/settings-mode"
+
+
+def web_2_cells(client: TestClient) -> dict[str, dict[str, Any]]:
+    status = client.get(f"{URL}/status").json()
+    return {
+        entry["name"]: cell
+        for entry in status["settings"]
+        for cell in entry["servers"]
+        if cell["node"] == "web-2"
+    }
+
+
+def items_of(client: TestClient, job_id: str, node: str) -> dict[str, str]:
+    job = client.get(f"/api/fleet/jobs/{job_id}").json()
+    server = next(n for n in job["nodes"] if n["node"] == node)
+    return {f"{i['resource']}/{i['name']}": i["state"] for i in server["items"]}
+
+
+class TestLeavingTheFleetsSettingsAndComingBack:
+    """A server decides it on its own page: who may, what is recorded, and what it is given when it returns."""
+
+    def test_it_asks_sudo_mode_and_the_permission_to_manage_the_fleet(
+        self, client: TestClient, central: Central
+    ) -> None:
+        sign_in(client)
+        assert client.put(MODE, json={"mode": "independent"}).status_code == 403
+
+        issued = get_token_manager().create_api_token("reader", "read")
+        headers = {"Authorization": f"Bearer {issued['token']}"}
+        refused = client.put(MODE, json={"mode": "independent"}, headers=headers)
+
+        assert refused.status_code == 403
+        assert FleetSettings(central.store, central.manager.secrets).mode("web-2") == "managed"
+
+    def test_each_change_is_in_the_audit_trail_with_the_server_and_the_mode(
+        self, operator: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        events: list[dict[str, Any]] = []
+        monkeypatch.setattr(
+            "noust.core.audit.record", lambda event, **kw: events.append({"event": event, **kw})
+        )
+
+        operator.put(MODE, json={"mode": "independent"})
+        operator.put(MODE, json={"mode": "managed"})
+
+        recorded = [e for e in events if e["event"] == "fleet.setting.mode"]
+        assert [(e["target"], e["details"]["mode"]) for e in recorded] == [
+            ("node:web-2", "independent"),
+            ("node:web-2", "managed"),
+        ]
+
+    def test_it_is_off_until_somebody_decides_it(self, operator: TestClient) -> None:
+        status = operator.get(f"{URL}/status").json()
+
+        assert {s["node"]: s["mode"] for s in status["servers"]} == {
+            "web-2": "managed",
+            "web-3": "managed",
+        }
+
+    def test_what_following_again_would_give_it_is_said_before_it_does(
+        self, operator: TestClient, nodes: dict[str, ManagedNode]
+    ) -> None:
+        wait(operator, set_channel(operator).json()["apply"]["job_id"])
+        wait(operator, operator.put(MODE, json={"mode": "independent"}).json()["apply"]["job_id"])
+        saved = operator.put(
+            f"{URL}/variable/REGION", json={"value": {"value": "eu"}, "apply": False}
+        )
+        assert saved.status_code == 200, saved.text
+
+        written = list(nodes["web-2"].writes)
+
+        cells = web_2_cells(operator)
+
+        assert cells["REGION"]["origin"] == "independent"
+        assert cells["REGION"]["if_followed"] == "pending"
+        assert cells["REGION"]["waiting"] is False
+        assert ("variable", "REGION") not in nodes["web-2"].held
+        assert nodes["web-2"].writes == written  # looking writes nothing to the server
+
+    def test_following_again_gives_it_what_was_waiting(
+        self, operator: TestClient, nodes: dict[str, ManagedNode]
+    ) -> None:
+        wait(operator, set_channel(operator).json()["apply"]["job_id"])
+        wait(operator, operator.put(MODE, json={"mode": "independent"}).json()["apply"]["job_id"])
+        operator.put(f"{URL}/variable/REGION", json={"value": {"value": "eu"}, "apply": False})
+
+        back = operator.put(MODE, json={"mode": "managed"}).json()
+
+        assert back["mode"] == "managed"
+        wait(operator, back["apply"]["job_id"])
+        assert ("variable", "REGION") in nodes["web-2"].rows
+        assert items_of(operator, back["apply"]["job_id"], "web-2")["variable/REGION"] == "created"
+        assert web_2_cells(operator)["REGION"]["sync"] == "in_sync"
+
+    def test_what_it_kept_as_its_own_is_not_taken_over_unless_it_is_said(
+        self, operator: TestClient, nodes: dict[str, ManagedNode]
+    ) -> None:
+        wait(operator, set_channel(operator).json()["apply"]["job_id"])
+        wait(operator, operator.put(MODE, json={"mode": "independent"}).json()["apply"]["job_id"])
+        nodes["web-2"].edit_by_hand("channel", "ops", enabled=False)
+
+        back = operator.put(MODE, json={"mode": "managed"}).json()
+        wait(operator, back["apply"]["job_id"])
+
+        assert items_of(operator, back["apply"]["job_id"], "web-2")["channel/ops"] == "conflict"
+        assert nodes["web-2"].held[("channel", "ops")]["enabled"] is False
+
+    def test_it_is_taken_over_when_the_person_who_decides_says_so(
+        self, operator: TestClient, nodes: dict[str, ManagedNode]
+    ) -> None:
+        wait(operator, set_channel(operator).json()["apply"]["job_id"])
+        wait(operator, operator.put(MODE, json={"mode": "independent"}).json()["apply"]["job_id"])
+        nodes["web-2"].edit_by_hand("channel", "ops", enabled=False)
+
+        back = operator.put(MODE, json={"mode": "managed", "adopt": True}).json()
+        wait(operator, back["apply"]["job_id"])
+
+        assert items_of(operator, back["apply"]["job_id"], "web-2")["channel/ops"] == "updated"
+        assert nodes["web-2"].held[("channel", "ops")]["enabled"] is True
+        assert nodes["web-2"].rows[("channel", "ops")]["state"] == "managed"
+
+    def test_taking_over_is_not_a_thing_to_ask_of_a_server_that_leaves(
+        self, operator: TestClient
+    ) -> None:
+        response = operator.put(MODE, json={"mode": "independent", "adopt": True})
+
+        assert response.status_code == 400, response.text
+        assert "adopt" in response.json()["fields"]
+        status = operator.get(f"{URL}/status").json()
+        assert {s["node"]: s["mode"] for s in status["servers"]}["web-2"] == "managed"
+
+    def test_a_server_that_leaves_waits_for_nothing_and_is_not_counted(
+        self, operator: TestClient
+    ) -> None:
+        set_channel(operator, apply=False)
+        operator.put(MODE, json={"mode": "independent"})
+
+        status = operator.get(f"{URL}/status").json()
+
+        entry = status["settings"][0]
+        assert (entry["following"], entry["of"]) == (1, 2)
+        cell = next(c for c in entry["servers"] if c["node"] == "web-2")
+        assert (cell["origin"], cell["waiting"]) == ("independent", False)
+
+
 class TestApplyingToTheFleet:
     def test_it_is_planned_before_it_runs(self, operator: TestClient) -> None:
         set_channel(operator, apply=False)
