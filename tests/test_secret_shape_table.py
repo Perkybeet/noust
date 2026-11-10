@@ -23,8 +23,14 @@ from types import ModuleType
 import pytest
 
 from noust.core import secret_detection
-from noust.core.secret_detection import TEXT_SHAPES, TextShape, mask_secret_shapes
-from tests.support.secret_shape_cases import CASES, MASK, ShapeCase
+from noust.core.secret_detection import TEXT_SHAPES, TextShape, classify, mask_secret_shapes
+from tests.support.secret_shape_cases import (
+    CASES,
+    MASK,
+    VARIABLE_CASES,
+    ShapeCase,
+    VariableCase,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 GENERATED = ROOT / "panel" / "src" / "api" / "secretShapes.gen.ts"
@@ -45,6 +51,20 @@ def _generator() -> ModuleType:
 @pytest.mark.parametrize("case", CASES, ids=[case.name for case in CASES])
 def test_python_hides_what_the_table_says_and_leaves_the_rest(case: ShapeCase) -> None:
     assert mask_secret_shapes(case.text) == case.masked
+
+
+@pytest.mark.parametrize(
+    "case", VARIABLE_CASES, ids=[f"{case.name}={case.value}" for case in VARIABLE_CASES]
+)
+def test_python_judges_each_variable_as_the_table_says(case: VariableCase) -> None:
+    # The console hides a variable it adds by hand by this verdict (item 148), so the table is Python's own.
+    assert classify(case.name, case.value).secret is case.secret
+
+
+def test_the_variable_table_has_both_kinds_and_no_name_twice_with_one_value() -> None:
+    assert sum(case.secret for case in VARIABLE_CASES) >= 15
+    assert sum(not case.secret for case in VARIABLE_CASES) >= 15
+    assert len({(case.name, case.value) for case in VARIABLE_CASES}) == len(VARIABLE_CASES)
 
 
 def test_the_table_says_the_placeholder_python_writes() -> None:
@@ -119,6 +139,37 @@ def test_the_generated_file_carries_every_shape_and_every_case() -> None:
         assert json.dumps(shape.name) in text, shape.name
     for case in CASES:
         assert json.dumps(case.name) in text, case.name
+
+
+def test_the_generated_file_carries_what_the_console_judges_a_variable_by() -> None:
+    text = _generator().typescript_shapes()
+
+    rules = secret_detection.variable_rules()
+    for word in (*rules["name_substrings"], *rules["name_words"], *rules["public_prefixes"]):
+        assert json.dumps(word) in text, word
+    for case in VARIABLE_CASES:
+        assert f"name: {json.dumps(case.name)}, value: {json.dumps(case.value)}" in text, case.name
+    assert "SECRET_VARIABLE_CASES" in text and "SECRET_VARIABLE_RULES" in text
+
+
+def test_the_rules_say_what_the_server_decides_by() -> None:
+    rules = secret_detection.variable_rules()
+
+    assert set(rules["name_substrings"]) == set(secret_detection.NAME_PATTERNS)
+    assert "token" in rules["name_words"] and "key" in rules["name_words"]
+    assert "token_expiration_hours" in rules["non_secret_names"]
+    assert "NEXT_PUBLIC_" in rules["public_prefixes"]
+    assert "PASSWORD" in rules["never_public_words"]
+    assert rules["entropy"] == {"min_length": 24, "min_bits": 4.0, "min_classes": 3}
+
+
+def test_a_shape_that_reads_an_assignment_does_not_judge_a_value_alone() -> None:
+    by_name = {shape.name: shape for shape in TEXT_SHAPES}
+
+    assert not by_name["assigned secret"].of_value
+    assert not by_name["bearer"].of_value
+    assert by_name["stripe"].of_value and by_name["url credentials"].of_value
+    assert by_name["private key block"].of_value and by_name["jwt"].of_value
 
 
 def test_the_generator_script_checks_and_writes_the_same_file(tmp_path: Path) -> None:

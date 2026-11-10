@@ -70,9 +70,10 @@ import re
 from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import Any
 
 from noust.core import legacy_names
-from noust.core.config import REDACTED, is_secret_key
+from noust.core.config import NON_SECRET_KEYS, REDACTED, SECRET_KEY_MARKERS, is_secret_key
 
 #: A credential embedded in a connection string. ``DATABASE_URL`` is the
 #: canonical example: nothing in the *name* marks it as a secret, yet the
@@ -488,6 +489,38 @@ def classify(name: str, value: str, marks: Mapping[str, bool] | None = None) -> 
     return Secrecy(secret=False, reason="plain")
 
 
+def variable_rules() -> dict[str, Any]:
+    """
+    What the console is given to judge a variable by its name and its value, as :func:`classify` does.
+
+    ``scripts/generate_secret_shapes.py`` writes this into ``panel/src/api/secretShapes.gen.ts``, so
+    the wizard that adds a variable by hand hides one that looks like a secret by the same words,
+    prefixes and thresholds, and not by a list of its own. The shapes of a value are
+    :data:`TEXT_SHAPES` with :attr:`TextShape.of_value`; what a UUID, a hash, a path or an address
+    is, which are random-looking and not secrets, the console spells itself, and the table of
+    ``tests/support/secret_shape_cases.py`` holds both sides to the same verdicts.
+
+    Returns:
+        ``name_substrings`` (:data:`NAME_PATTERNS`, matched in the upper-case name),
+        ``name_words`` and ``non_secret_names`` (the words :func:`noust.core.config.is_secret_key`
+        reads in a name split on separators and camel case, and the names it excuses),
+        ``public_prefixes`` and ``never_public_words`` (what makes a name public, and what stops
+        it from being so), and ``entropy`` (the thresholds of a value random enough to be one).
+    """
+    return {
+        "name_substrings": list(NAME_PATTERNS),
+        "name_words": sorted(SECRET_KEY_MARKERS),
+        "non_secret_names": sorted(NON_SECRET_KEYS),
+        "public_prefixes": list(_PUBLIC_NAME_PREFIXES),
+        "never_public_words": list(_NEVER_PUBLIC_NAME_WORDS),
+        "entropy": {
+            "min_length": _MIN_ENTROPY_LENGTH,
+            "min_bits": _MIN_ENTROPY_BITS,
+            "min_classes": _MIN_CHAR_CLASSES,
+        },
+    }
+
+
 def classify_all(
     values: Mapping[str, str], marks: Mapping[str, bool] | None = None
 ) -> dict[str, Secrecy]:
@@ -549,11 +582,16 @@ class TextShape:
             ``panel/src/api/secretShapes.gen.ts`` and refuses what the two would read differently.
         keep_head: Whether group 1 is left as it was (the word ``Bearer``, the name of a
             ``password=``, the address up to a password) and only what follows it is replaced.
+        of_value: Whether the shape is a credential on its own, wherever it stands (a vendor's
+            token, a key, a JWT, a password in an address), as against one that reads the words
+            around it (``password=...``, ``Bearer ...``). The console judges a value typed in a
+            field by the first kind only (``panel/src/lib/looksSecret.ts``).
     """
 
     name: str
     pattern: re.Pattern[str]
     keep_head: bool = False
+    of_value: bool = True
 
     def mask(self, text: str, placeholder: str) -> str:
         """
@@ -581,8 +619,8 @@ TEXT_SHAPES: tuple[TextShape, ...] = (
     TextShape("private key", _PRIVATE_KEY_PEM),
     *(TextShape(kind, pattern) for kind, pattern in _VALUE_PATTERNS),
     TextShape("jwt", _JWT_TEXT),
-    TextShape("assigned secret", _ASSIGNED_SECRET, keep_head=True),
-    TextShape("bearer", _BEARER, keep_head=True),
+    TextShape("assigned secret", _ASSIGNED_SECRET, keep_head=True, of_value=False),
+    TextShape("bearer", _BEARER, keep_head=True, of_value=False),
     TextShape("url credentials", URL_CREDENTIALS, keep_head=True),
 )
 
