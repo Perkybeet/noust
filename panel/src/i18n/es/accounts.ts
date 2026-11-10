@@ -115,7 +115,7 @@ export const accounts: Catalog<typeof en> = {
     mailLabel: "Correo",
     localTitle: "Este enlace solo funciona en este ordenador",
     localBody:
-      "Has abierto la consola en {address}, una dirección que solo alcanza este ordenador (un túnel SSH hace eso), y el enlace la lleva dentro, así que la persona invitada no puede abrirlo. Define la dirección de la consola y vuelve a invitar, o envíale el enlace con la dirección de este servidor en su lugar.",
+      "Has abierto la consola en {address}, que solo alcanza este ordenador, así que la persona invitada no podrá abrir el enlace. Define la dirección de la consola e invita de nuevo.",
     localAction: "Define la dirección de la consola",
     linkLabel: "Enlace de invitación",
     copyLink: "Copiar enlace",

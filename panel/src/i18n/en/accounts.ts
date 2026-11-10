@@ -116,7 +116,7 @@ export const accounts = {
     mailLabel: "Email",
     localTitle: "This link only works on this computer",
     localBody:
-      "You opened the console at {address}, an address that only this computer reaches (an SSH tunnel does that), and the link carries it, so the person you invite cannot open it. Set the console's address and invite again, or send them the link with this server's address in its place.",
+      "You opened the console at {address}, which only this computer reaches, so the person you invite cannot open the link. Set the console's address and invite again.",
     localAction: "Set the console's address",
     linkLabel: "Invitation link",
     copyLink: "Copy link",
