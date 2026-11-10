@@ -2,12 +2,20 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { renderConsole } from "../../test/console";
-import { fakeBackend, json, signedInRoutes } from "../../test/fakes";
+import { SESSION, fakeBackend, json, signedInRoutes } from "../../test/fakes";
+import type { SessionInfo } from "../../api/queries/auth";
 import type { RecordedCall } from "../../test/fakes";
 import { organisation } from "../teams/testFixtures";
 import { NO_REACH, reachBody, reachReady } from "./tokenReach";
 
 const NOW = Date.now() / 1000;
+
+const PERSON: SessionInfo = {
+  ...SESSION,
+  grant: null,
+  role: "admin",
+  account: { id: 4, username: "dani", display_name: "", role: "admin", status: "active", mfa_enabled: true, passkeys: 0, backup_codes_remaining: 8, owner: false, failures_since_login: 0, created_at: NOW },
+};
 
 beforeEach(() => {
   vi.stubGlobal("matchMedia", (query: string) => ({
@@ -40,7 +48,8 @@ describe("Settings > API tokens bound to a project", () => {
       { id: 2, name: "acme-ci", scope: "deploy", created_at: NOW - 3_600, expires_at: null, last_used_at: null, revoked_at: null, bound: "acme/web" },
     ];
     const backend = fakeBackend({
-      ...signedInRoutes(),
+      // A person: a token tied to a team belongs to an account, which the access token is not.
+      ...signedInRoutes(PERSON),
       ...organisation(),
       "GET /api/auth/tokens": () => json(200, { tokens }),
       "GET /api/auth/roles": () => json(200, { roles: { viewer: ["self", "apps.read"], admin: ["self", "apps.read", "apps.deploy"] }, descriptions: {} }),
@@ -75,6 +84,21 @@ describe("Settings > API tokens bound to a project", () => {
       expect(backend.callsTo("POST /api/auth/tokens")).toHaveLength(1);
     });
     expect(backend.callsTo("POST /api/auth/tokens")[0]?.body).toMatchObject({ name: "staging-ci", team: "acme", project: "web", environment: "staging" });
+  });
+
+  it("does not offer it to the access token, which owns nothing to tie it to, and says why (item 133)", { timeout: 30_000 }, async () => {
+    fakeBackend({
+      ...signedInRoutes(),
+      ...organisation(),
+      "GET /api/auth/tokens": () => json(200, { tokens: [] }),
+      "GET /api/auth/roles": () => json(200, { roles: { viewer: ["self", "apps.read"] }, descriptions: {} }),
+    });
+    const { user } = renderConsole("/settings/tokens");
+    await user.click(await screen.findByRole("button", { name: "Create token" }));
+    const dialog = await screen.findByRole("dialog", { name: "Create an API token" });
+
+    expect(await within(dialog).findByText(/needs a token that belongs to an account/)).toBeInTheDocument();
+    expect(within(dialog).queryByRole("radio", { name: /One environment/ })).not.toBeInTheDocument();
   });
 
   it("offers no reach on a server with no teams to bind to", { timeout: 30_000 }, async () => {

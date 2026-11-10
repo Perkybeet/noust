@@ -232,6 +232,7 @@ export const accounts = {
     capped: "Capped by what {name} may do",
     cappedMaster: "What the token may do",
     dropped: "Left out, since the owner may not: {permissions}.",
+    droppedBound: "Left out, since a token tied to a team never reaches the server: {permissions}.",
     scopeDeploy: "Read, plus deploy and roll back applications. The one for CI.",
     scopeAdmin: "Everything an administrator may do, never more than its owner. Not accounts or security settings.",
   },
