@@ -125,6 +125,10 @@ STREAMS_ALLOWED: dict[tuple[str, str], str] = {
         "src/noust/web/machine.py",
         "classify_apps",
     ): "the machine snapshot of the `machine` event, which a team member's stream never carries",
+    (
+        "src/noust/web/machine.py",
+        "standby_units",
+    ): "the same snapshot's tally of units: the idle instances of the instance's applications",
 }
 
 
@@ -451,6 +455,10 @@ class TestEveryRouteIsHeldToTheScope:
             "DELETE /api/deploy-freezes/{freeze_id}",
             "GET /api/backup-schedules",
             "GET /api/deployments",
+            # A first deployment that failed has no application to be a resource of: the data
+            # layer keeps each to the project it was queued for.
+            "GET /api/first-deploys",
+            "POST /api/first-deploys/{attempt}/dismiss",
             "GET /api/jobs",
             "GET /api/terminal/sessions",
             "DELETE /api/terminal/sessions/{session_id}",
@@ -675,6 +683,13 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
     "deployments": (
         ("GET", "/api/deployments", SCOPED),
         ("GET", "/api/deployments/{deployment_id}", RESOURCE),
+    ),
+    # What a first deployment that failed leaves for its domain: its application's own row is gone
+    # by design, so a row is held to the project the deployment was queued for, in SQL, and not
+    # through an application.
+    "first_deploys": (
+        ("GET", "/api/first-deploys", SCOPED),
+        ("POST", "/api/first-deploys/{attempt}/dismiss", SCOPED),
     ),
     # A key is found by repository: listed by the repositories the caller's applications are built
     # from, and changed through the application that is.

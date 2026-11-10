@@ -295,6 +295,9 @@ RULES: tuple[Rule, ...] = (
     _rule(
         "/api/deployments/{deployment_id}/**", RESOURCE, Ref(DEPLOYMENT, PATH, ("deployment_id",))
     ),
+    # A first deployment that failed has no application to be a resource of: the handler reads and
+    # puts away only those of the projects the caller sees (``FirstDeploys``).
+    _rule("/api/first-deploys/**", SCOPED),
     # A freeze covers the server or one application: the list shows a team the server's and its
     # own, and the handler holds a team to its own applications.
     _rule("/api/deploy-freezes", SCOPED),

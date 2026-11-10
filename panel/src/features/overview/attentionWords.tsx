@@ -57,6 +57,8 @@ export function reasonText(t: T, reason: OverviewAttentionReason): string {
       return t("overview.attention.noAnswer");
     case "deploy_failed":
       return t("overview.attention.deployFailed");
+    case "first_deploy_failed":
+      return t("overview.attention.firstDeployFailed");
     case "deploy_rolled_back":
       return t("overview.attention.deployRolledBack");
     case "certificate_expired":

@@ -9,6 +9,7 @@ import type { OverviewAttentionItem } from "../../api/queries/overview";
 import { Button, buttonClassName } from "../../components/ui/Button";
 import { textLinkClassName } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
+import { cx } from "../../lib/cx";
 import type { T } from "../../i18n";
 import { reportActionError } from "../apps/useAppActions";
 import { attentionAction } from "../overview/attentionTarget";
@@ -20,6 +21,8 @@ function wordsOf(t: T, action: OpenAction): { label: string; aria: string } {
   switch (action.kind) {
     case "viewLog":
       return { label: t("overview.attention.viewLog"), aria: t("overview.attention.viewLogAria", { domain: name }) };
+    case "viewFailure":
+      return { label: t("overview.attention.viewFailure"), aria: t("overview.attention.viewFailureAria", { domain: name }) };
     case "diagnose":
       return { label: t("overview.attention.diagnose"), aria: t("overview.attention.diagnoseAria", { domain: name }) };
     case "renew":
@@ -44,7 +47,7 @@ function wordsOf(t: T, action: OpenAction): { label: string; aria: string } {
  * is on it, and it never resolves the alert: the row changes in place, which is the answer, so
  * there is no toast for it (a toast is for what is not on screen).
  */
-function AlertButton({ action, node, iconFor, ghost = false }: { action: AlertAction; node: string | null | undefined; iconFor: ((action: AttentionAction) => ReactNode) | undefined; ghost?: boolean }) {
+function AlertButton({ action, node, iconFor, ghost = false, compact = false }: { action: AlertAction; node: string | null | undefined; iconFor: ((action: AttentionAction) => ReactNode) | undefined; ghost?: boolean; compact?: boolean }) {
   const t = useT();
   const queryClient = useQueryClient();
   const reopening = action.kind === "reopen";
@@ -75,7 +78,7 @@ function AlertButton({ action, node, iconFor, ghost = false }: { action: AlertAc
         change.mutate();
       }}
     >
-      {t(reopening ? "inbox.actions.reopen" : "inbox.actions.acknowledge")}
+      {compact ? <span className="hidden w-wide:inline">{t(reopening ? "inbox.actions.reopen" : "inbox.actions.acknowledge")}</span> : t(reopening ? "inbox.actions.reopen" : "inbox.actions.acknowledge")}
     </Button>
   );
 }
@@ -96,14 +99,20 @@ export interface AttentionActionButtonProps {
    * widget of what needs attention), a link in the accent. The words and where it leads are the same.
    */
   appearance?: "button" | "link";
+  /**
+   * Where the line has room for the word only when its band is wide (Home's widget, whose container is the band): the word is
+   * drawn from there on and the icon of what the button acts on before it, so a phone's line can be opened too and still has
+   * one link. The accessible name is the same words at every width.
+   */
+  compact?: boolean;
 }
 
 /** The one button of a row that needs attention: the fix, or the screen that fixes it (2.7). */
-export function AttentionActionButton({ item, onNavigate, iconFor, node, appearance = "button" }: AttentionActionButtonProps) {
+export function AttentionActionButton({ item, onNavigate, iconFor, node, appearance = "button", compact = false }: AttentionActionButtonProps) {
   const t = useT();
   const action = attentionAction(item);
   if (action === null) return null;
-  if (action.mode === "alert") return <AlertButton action={action} node={node} iconFor={iconFor} {...(appearance === "link" ? { ghost: true } : {})} />;
+  if (action.mode === "alert") return <AlertButton action={action} node={node} iconFor={iconFor} compact={compact} {...(appearance === "link" ? { ghost: true } : {})} />;
   const { label, aria } = wordsOf(t, action);
   const { to, params, search } = action.target;
   const icon = iconFor?.(action);
@@ -114,10 +123,10 @@ export function AttentionActionButton({ item, onNavigate, iconFor, node, appeara
       {...(search !== undefined || node !== undefined ? { search: { ...search, node: node ?? undefined } as never } : {})}
       aria-label={aria}
       {...(onNavigate ? { onClick: onNavigate } : {})}
-      className={appearance === "link" ? textLinkClassName("ui") : buttonClassName("secondary", "sm")}
+      className={cx(appearance === "link" ? textLinkClassName("ui") : buttonClassName("secondary", "sm"), compact && "inline-flex min-h-6 min-w-6 items-center justify-center gap-1.5")}
     >
       {icon}
-      {label}
+      {compact ? <span className="hidden w-wide:inline">{label}</span> : label}
     </Link>
   );
 }

@@ -13,6 +13,7 @@ import { Field, FieldGroup } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { useT } from "../../../i18n";
 import { validTime } from "../../databases/backups/schedule";
+import { focusFirstInvalid } from "../../settings/formErrors";
 import { KeepFields } from "../policy/KeepFields";
 import { GbField } from "../policy/GbField";
 import { MAX_COUNT, MAX_DAYS, destinationsValid, validGb, validLimit } from "../policy/limits";
@@ -39,6 +40,7 @@ export interface ScheduleDrawerProps {
  */
 export function ScheduleDrawer({ schedule, open, onOpenChange }: ScheduleDrawerProps) {
   const t = useT();
+  const formId = "self-backup-schedule-form";
   const queryClient = useQueryClient();
   const [form, setForm] = useState<SelfForm>(() => formOf(schedule));
   const [errors, setErrors] = useState<Partial<Record<ErrorKey, string>>>({});
@@ -78,9 +80,10 @@ export function ScheduleDrawer({ schedule, open, onOpenChange }: ScheduleDrawerP
     }
     setErrors(found);
     if (Object.keys(found).length === 0) save.mutate();
+    // The form is long and the drawer scrolls: pressing Save takes the person to the first field that stops it, where its message is
+    // (docs/DESIGN.md, FM-4), instead of leaving them to look for it.
+    else focusFirstInvalid(formId);
   };
-
-  const formId = "self-backup-schedule-form";
 
   return (
     <Drawer

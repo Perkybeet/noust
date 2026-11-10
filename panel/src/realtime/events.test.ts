@@ -7,6 +7,7 @@ import { appKeys } from "../api/queries/apps";
 import { certKeys } from "../api/queries/certs";
 import { databaseKeys } from "../api/queries/databases";
 import { deploymentKeys } from "../api/queries/deployments";
+import { firstDeployKeys } from "../api/queries/firstDeploys";
 import { jobKeys } from "../api/queries/jobs";
 import { queueKeys } from "../api/queries/queue";
 import { serviceKeys } from "../api/queries/services";
@@ -123,6 +124,17 @@ describe("applyServerEvent", () => {
     fresh();
     applyServerEvent(client, "job", { ...waiting, queue_position: 1, waiting_for: null, cancel_requested: true, progress: 40 });
     expect(stale()).toEqual([false, false]);
+  });
+
+  it("reads the first deployments that failed again when a job changes status: the failure is found a moment after the job ends", () => {
+    const client = new QueryClient();
+    client.setQueryData(firstDeployKeys.list("shop.example.com"), { items: [] });
+    applyServerEvent(client, "job", { id: "j1", status: "running", progress: 10, metadata: { domain: "shop.example.com" } });
+    client.setQueryData(firstDeployKeys.list("shop.example.com"), { items: [] });
+
+    applyServerEvent(client, "job", { id: "j1", status: "failed", progress: 10, metadata: { domain: "shop.example.com" } });
+
+    expect(client.getQueryState(firstDeployKeys.list("shop.example.com"))?.isInvalidated).toBe(true);
   });
 
   it("refreshes the app a finished job acted on", () => {

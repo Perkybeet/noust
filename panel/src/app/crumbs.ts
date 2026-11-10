@@ -8,7 +8,7 @@
  */
 
 import type { PlainKey } from "../i18n";
-import { DESTS, EXCEPTION_CRUMBS, areaTarget, crumbsOf, dest } from "./nav";
+import { DESTS, EXCEPTION_CRUMBS, areaLabelKey, areaTarget, crumbsOf, dest } from "./nav";
 import type { ConsolePath, Dest, Scope } from "./nav";
 
 /** What names a step: a catalog key, or a parameter of the route (the resource's name, which is never translated). */
@@ -59,7 +59,7 @@ export function crumbsFor(route: string, scope: Scope): CrumbStep[] {
     const resource = entry.kind === "hidden" && entry.exact === true && param !== undefined;
     steps.push({
       id: entry.id,
-      name: resource ? { param } : { key: entry.label },
+      name: resource ? { param } : { key: areaLabelKey(entry, scope) },
       to: entry.kind === "area" ? areaTarget(entry, scope) : entry.to,
       resource,
       entry,

@@ -113,11 +113,11 @@ export function useApprovalPrompt(): ApprovalPrompt | null {
 let toInbox: (() => void) | null = null;
 
 /** How the dialog (mounted outside the router) reaches the approvals inbox. */
-export function setInboxNavigator(navigate: (() => void) | null): void {
+export function setApprovalsNavigator(navigate: (() => void) | null): void {
   toInbox = navigate;
 }
 
 /** Opens the approvals inbox, when the console is up. */
-export function openInbox(): void {
+export function openApprovals(): void {
   toInbox?.();
 }

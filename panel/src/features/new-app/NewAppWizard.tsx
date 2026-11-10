@@ -88,6 +88,7 @@ import {
   stepAsks,
   stepOfField,
   typeName,
+  withDomain,
 } from "./wizard";
 import { createBodyFor, forServer, leaseFor } from "./sourceLease";
 import type { CreateAppBody, Inspection, ReviewErrors, ReviewForm, SourceErrors, SourceForm, StartKind, Step, WebServer } from "./wizard";
@@ -251,6 +252,13 @@ export function NewAppWizard() {
   // Back from connecting GitHub (`?resume=1`): where the operator was, from the draft this tab kept.
   // Read, not taken: a render that runs twice must find it twice.
   const [resumed] = useState(() => (wizardSearch.resume === 1 ? readDraft() : null));
+  // A first deploy that failed, tried again: the address starts on the domain it was for, once, whichever way in comes first.
+  const retryDomain = useRef<string | null>(resumed?.domain ?? null);
+  const takeRetryDomain = (): string | null => {
+    const taken = retryDomain.current;
+    retryDomain.current = null;
+    return taken;
+  };
   const [source, setSource] = useState<SourceForm>(resumed !== null ? { source: resumed.source, branch: resumed.branch } : { source: "", branch: "" });
   const start = wizardStart(wizardSearch.start);
   // The recipe the link already chose (`&recipe=wordpress`, from the catalog): opened for the operator.
@@ -274,7 +282,7 @@ export function NewAppWizard() {
   }
   const [sourceErrors, setSourceErrors] = useState<SourceErrors>({});
   // An image from a registry, as a container application starts from it: no repository to read.
-  const [imageRef, setImageRef] = useState("");
+  const [imageRef, setImageRef] = useState(resumed?.mode === "image" ? resumed.source : "");
   const [imageError, setImageError] = useState<string | undefined>(undefined);
   const [inspected, setInspected] = useState<{ inspection: Inspection; for: SourceForm; document?: string } | null>(null);
   const [review, setReview] = useState<ReviewForm | null>(null);
@@ -384,7 +392,9 @@ export function NewAppWizard() {
       return { inspection, form, temporary };
     },
     onSuccess: ({ inspection, form, temporary }, { read }) => {
-      const proposed = reviewFor(inspection, temporary, review);
+      const first = reviewFor(inspection, temporary, review);
+      const retry = review === null ? takeRetryDomain() : null;
+      const proposed = retry === null ? first : withDomain(first, retry);
       setInspected({ inspection, for: form });
       setReview(proposed);
       setReviewErrors({});
@@ -449,7 +459,11 @@ export function NewAppWizard() {
     },
     onSuccess: ({ full, temporary }) => {
       setRecipe(full);
-      setRecipeForm((previous) => initialRecipeForm(full, previous, { temporary, ownDomains: context.ownDomains }));
+      const retry = takeRetryDomain();
+      setRecipeForm((previous) => {
+        const form = initialRecipeForm(full, previous, { temporary, ownDomains: context.ownDomains });
+        return retry === null ? form : withDomain(form, retry);
+      });
       setRecipeErrors({});
       go("setup");
     },

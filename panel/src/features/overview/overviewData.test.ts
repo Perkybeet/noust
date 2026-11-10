@@ -13,6 +13,19 @@ describe("isEmptyServer", () => {
     expect(isEmptyServer(overviewFixture())).toBe(false);
     expect(isEmptyServer(overviewFixture({ apps: { running: 0, failed: 0, stopped: 0, static: 0, unmanaged: 0, error: "systemctl: not found" } }))).toBe(false);
   });
+
+  it("is not one that has something to say, though it runs nothing: a first deploy that failed leaves no application", () => {
+    const none = { running: 0, failed: 0, stopped: 0, static: 0, unmanaged: 0, error: null };
+    const failure = {
+      id: "app:shop.example.com",
+      subject: { kind: "app", domain: "shop.example.com" },
+      title: "shop.example.com",
+      severity: "fail",
+      reasons: [{ kind: "first_deploy", severity: "fail", code: "first_deploy_failed", params: {}, detail: null, when: null, deployment_id: null, actions: ["view_first_deploy"] }],
+    };
+    expect(isEmptyServer(overviewFixture({ apps: none, attention: [failure], attention_total: 1 }))).toBe(false);
+    expect(isEmptyServer(overviewFixture({ apps: none, attention: [], attention_total: 0 }))).toBe(true);
+  });
 });
 
 describe("an overview from a node before 3.3", () => {

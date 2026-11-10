@@ -3138,7 +3138,7 @@
         "type": "object"
       },
       "AppInfo": {
-        "description": "A deployed application and the live state of its service.\n\nAttributes:\n    name: Application name, which is its domain.\n    domain: Domain the application is served on.\n    status: What is true about it right now, resolved by\n        :func:`noust.core.app_state.resolve_state` - the one place the CLI\n        and the panel agree on this: ``running``, ``restarting`` (systemd\n        is crash-looping the unit), ``no_answer`` (the unit is up but\n        nothing accepts connections on its port), ``stopped``, ``failed``\n        (systemd gave up on it), ``static`` (served directly by the web\n        server, there is no unit), ``running_unmanaged`` (a Compose stack\n        whose containers run while its unit is stopped: hand it back with\n        ``POST .../reclaim``), ``degraded`` (an application of several units, some\n        serving and some not) or ``unknown`` (systemd could not be asked).\n    active: Whether the unit is active.\n    enabled: Whether the unit starts on boot.\n    pid: Main PID when running.\n    uptime: How long the unit has been up.\n    port: Upstream port.\n    app_type: Deployer that owns it.\n    path: Application directory.\n    source: Git URL or local path it was deployed from.\n    branch: Git branch it tracks, or None for a source that has none.\n    follow_tags: The glob of git tags it deploys instead of a branch\n        (``v*``), or None when it follows its branch.\n    layout: ``inplace`` or ``releases``.\n    keep_releases: Release directories kept before older ones are pruned.\n        Meaningful only on ``releases``; the in-place default otherwise.\n    build_command: Argv the deployer runs to build the project, read off\n        the same ``get_build_command()`` the deploy used. Empty in a\n        list response - computing it means instantiating the deployer\n        once per application, which this endpoint does not do for a\n        list - and filled in when this application is fetched on its own.\n    start_command: What its unit runs, exactly as the deploy recorded it\n        on the service row. None for a static site, which has no unit.\n    memory_max_mb: Memory limit of its unit, in MB, or None.\n    cpu_quota_percent: CPU quota of its unit, in percent of one CPU, or None.\n    tasks_max: Task limit of its unit, or None.\n    health_path: Path the health gate probes, or None for ``/``.\n    health_expect: Statuses the health gate accepts, such as\n        ``200-399``, or None for any status below 500.\n    health_timeout: Seconds the health gate waits, or None for its\n        default of 30.\n    webhook_enabled: Whether a webhook secret is set for it. The secret\n        itself is never part of this or any other response; it is set\n        through ``POST /api/apps/{domain}/webhook-secret`` and cleared\n        through the ``DELETE`` of the same path.\n    unit: The systemd unit that runs it, or None for a static site.\n    run_as: The account its unit runs as, or None for a static site.\n    last_deployment: Its most recent deployment attempt, or None when\n        nothing has ever been recorded for it.\n    zero_downtime: Whether it runs as two instances behind an nginx\n        upstream (blue/green); details at ``/zero-downtime``.\n    preview_parent: The application it previews a pull request of, or\n        None when it is not a preview.\n    backup_before_update: Whether an update of a Docker Compose stack\n        copies its databases first (on by default; meaningless for any\n        other kind). Set through ``PATCH .../backup-before-update``.\n    team: The slug of the team it belongs to.\n    project: The slug of its project.\n    environment: The slug of its environment. Change them with\n        ``POST /api/apps/{domain}/move``.\n    tags: The free labels it carries (``PUT /api/apps/{domain}/tags``).",
+        "description": "A deployed application and the live state of its service.\n\nAttributes:\n    name: Application name, which is its domain.\n    domain: Domain the application is served on.\n    status: What is true about it right now, resolved by\n        :func:`noust.core.app_state.resolve_state` - the one place the CLI\n        and the panel agree on this: ``running``, ``restarting`` (systemd\n        is crash-looping the unit), ``no_answer`` (the unit is up but\n        nothing accepts connections on its port), ``stopped``, ``failed``\n        (systemd gave up on it), ``static`` (served directly by the web\n        server, there is no unit), ``running_unmanaged`` (a Compose stack\n        whose containers run while its unit is stopped: hand it back with\n        ``POST .../reclaim``), ``degraded`` (an application of several units, some\n        serving and some not) or ``unknown`` (systemd could not be asked).\n    active: Whether the unit is active.\n    enabled: Whether the unit starts on boot.\n    pid: Main PID when running.\n    uptime: How long the unit has been up.\n    port: Upstream port.\n    serving_port: The port that answers now: the serving instance's in zero-downtime\n        mode (green is on the port after the record's), ``port`` otherwise.\n    app_type: Deployer that owns it.\n    path: Application directory.\n    source: Git URL or local path it was deployed from.\n    branch: Git branch it tracks, or None for a source that has none.\n    follow_tags: The glob of git tags it deploys instead of a branch\n        (``v*``), or None when it follows its branch.\n    layout: ``inplace`` or ``releases``.\n    keep_releases: Release directories kept before older ones are pruned.\n        Meaningful only on ``releases``; the in-place default otherwise.\n    build_command: Argv the deployer runs to build the project, read off\n        the same ``get_build_command()`` the deploy used. Empty in a\n        list response - computing it means instantiating the deployer\n        once per application, which this endpoint does not do for a\n        list - and filled in when this application is fetched on its own.\n    start_command: What its unit runs, exactly as the deploy recorded it\n        on the service row. None for a static site, which has no unit.\n    memory_max_mb: Memory limit of its unit, in MB, or None.\n    cpu_quota_percent: CPU quota of its unit, in percent of one CPU, or None.\n    tasks_max: Task limit of its unit, or None.\n    health_path: Path the health gate probes, or None for ``/``.\n    health_expect: Statuses the health gate accepts, such as\n        ``200-399``, or None for any status below 500.\n    health_timeout: Seconds the health gate waits, or None for its\n        default of 30.\n    webhook_enabled: Whether a webhook secret is set for it. The secret\n        itself is never part of this or any other response; it is set\n        through ``POST /api/apps/{domain}/webhook-secret`` and cleared\n        through the ``DELETE`` of the same path.\n    unit: The systemd unit that runs it, or None for a static site.\n    run_as: The account its unit runs as, or None for a static site.\n    last_deployment: Its most recent deployment attempt, or None when\n        nothing has ever been recorded for it.\n    zero_downtime: Whether it runs as two instances behind an nginx\n        upstream (blue/green); details at ``/zero-downtime``.\n    preview_parent: The application it previews a pull request of, or\n        None when it is not a preview.\n    backup_before_update: Whether an update of a Docker Compose stack\n        copies its databases first (on by default; meaningless for any\n        other kind). Set through ``PATCH .../backup-before-update``.\n    team: The slug of the team it belongs to.\n    project: The slug of its project.\n    environment: The slug of its environment. Change them with\n        ``POST /api/apps/{domain}/move``.\n    tags: The free labels it carries (``PUT /api/apps/{domain}/tags``).",
         "properties": {
           "active": {
             "title": "Active",
@@ -3352,6 +3352,17 @@
               }
             ],
             "title": "Run As"
+          },
+          "serving_port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Serving Port"
           },
           "source": {
             "anyOf": [
@@ -23537,6 +23548,128 @@
           "error"
         ],
         "title": "FirewallStateOut",
+        "type": "object"
+      },
+      "FirstDeployOut": {
+        "description": "One first deployment that failed.\n\nAttributes:\n    job_id: The deployment's job: its log is at ``/api/jobs/{job_id}/log``.\n    domain: The domain it was for.\n    origin: How the application was to start: ``source``, ``image``, ``compose`` or ``recipe``.\n    source: What to read again (an address, a path or an image), with every credential\n        masked; null for a recipe or a typed document.\n    branch: The branch asked for, when one was.\n    app_type: The type asked for (``auto`` or a name).\n    recipe: The recipe's name, for a recipe.\n    created_at: When it was asked for.\n    error: How it failed, verbatim, as the job kept it.\n    error_coded: Its first line as a sentence of Noust's, when it is one, for the console to\n        say in its own language.\n    finished_at: When the job ended.",
+        "properties": {
+          "app_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Type"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "error_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "origin": {
+            "title": "Origin",
+            "type": "string"
+          },
+          "recipe": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipe"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          }
+        },
+        "required": [
+          "job_id",
+          "domain",
+          "origin",
+          "created_at"
+        ],
+        "title": "FirstDeployOut",
+        "type": "object"
+      },
+      "FirstDeploysResponse": {
+        "description": "The first deployments that failed and are still the last word on their domain.\n\nAttributes:\n    items: Newest first, of the projects the caller sees.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FirstDeployOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "FirstDeploysResponse",
         "type": "object"
       },
       "FixOwnerRequest": {
@@ -100993,6 +101126,96 @@
           "Teams"
         ],
         "x-noust-permission": "teams.read"
+      }
+    },
+    "/api/first-deploys": {
+      "get": {
+        "description": "List the first deployments that failed and left no application behind.\n\nA domain with an application of its own, one whose newest attempt is running or worked, one\nthat was dismissed and one older than two weeks are not listed.\n\nArgs:\n    session: The authenticated session.\n    domain: Only this domain's.\n\nReturns:\n    The failures the caller may see.",
+        "operationId": "list_first_deploys_api_first_deploys_get",
+        "parameters": [
+          {
+            "description": "Only this domain's.",
+            "in": "query",
+            "name": "domain",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this domain's.",
+              "title": "Domain"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirstDeploysResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List First Deploys",
+        "tags": [
+          "Deployments"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/first-deploys/{attempt}/dismiss": {
+      "post": {
+        "description": "Put a failed first deployment away: it stops being listed, here and in what needs attention.\n\nArgs:\n    attempt: The deployment's job id: the failure is the job's.\n    session: The authenticated session.\n\nReturns:\n    An empty answer.\n\nRaises:\n    ValidationError: 400 when the id is not a job's.\n    HTTPException: 404 when there is no such failure, or it belongs to a project the caller\n        does not see (which reads as absent).",
+        "operationId": "dismiss_first_deploy_api_first_deploys__attempt__dismiss_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "attempt",
+            "required": true,
+            "schema": {
+              "title": "Attempt",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Dismiss First Deploy",
+        "tags": [
+          "Deployments"
+        ],
+        "x-noust-permission": "apps.manage"
       }
     },
     "/api/fleet/actions": {

@@ -246,6 +246,21 @@ describe("the Noust tab", () => {
     });
   });
 
+  it("takes the focus to the field that stops the save, which the drawer's own scroll had left out of sight (item 135)", async () => {
+    const { user } = await pageAt(OFF, [], {});
+    await user.click(await screen.findByRole("button", { name: "Set a schedule" }));
+    const drawer = await screen.findByRole("dialog", { name: "Backups of Noust's own state" });
+
+    await user.click(within(drawer).getByRole("button", { name: "Save schedule" }));
+
+    // The passphrase is the last field of a long form: pressing Save does not leave the person to look for what is wrong.
+    expect(await within(drawer).findByText("Type the passphrase bundles are sealed with.")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(within(drawer).getByLabelText("Passphrase")).toHaveFocus();
+    });
+    expect(within(drawer).getByLabelText("Passphrase")).toHaveAttribute("aria-invalid", "true");
+  });
+
   it("leaves the stored passphrase alone when the box is left empty", async () => {
     const { user, backend } = await pageAt(ON, [bundle(NAME)], { "PUT /api/self-backup/schedule": (call) => json(200, { ...ON, ...(call.body as object) }) });
     await user.click(await screen.findByRole("button", { name: "Edit the schedule" }));

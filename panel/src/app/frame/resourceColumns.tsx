@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 
+import { isApiError } from "../../api/client";
 import { appQuery, appsQuery } from "../../api/queries/apps";
 import { deploymentsQuery } from "../../api/queries/deployments";
 import { databaseOverviewQuery, databasesQuery, enginesQuery } from "../../api/queries/databases";
@@ -12,7 +13,9 @@ import { StatusGlyph, StatusPill } from "../../components/ui/StatusPill";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { isAdopted } from "../../features/app/adopted";
 import { RECENT_APP_DEPLOYS } from "../../features/app/AppBanner";
+import { appViewOf } from "../../features/app/appView";
 import { usePendingChanges } from "../../features/app/PendingChanges";
+import { useAppJob } from "../../features/app/useAppJob";
 import { AppTypeMark } from "../../features/apps/AppTypeMark";
 import { answers, useEngineOf } from "../../features/databases/engineOf";
 import { logoFor, serverTitle } from "../../features/databases/servers";
@@ -58,7 +61,11 @@ export function AppColumn({ domain }: { domain: string }) {
   const unapplied = (pending.data?.items ?? []).filter((item) => item.area === "environment").length;
   const counts = { ...(building > 0 ? { "/apps/$domain/deployments": building } : {}), ...(unapplied > 0 ? { "/apps/$domain/environment": unapplied } : {}) };
   const groups = toListGroups(appColumn({ can }, app.data !== undefined && isAdopted(app.data)), t, { domain }, counts);
-  const state = app.data === undefined ? undefined : appStatus(app.data.status, t.locale);
+  // The state the page's header draws: a job running on the application is its state, and one that is gone (a first deploy that
+  // failed undoes the application) has none, whatever the last answer kept in the cache said.
+  const job = useAppJob(domain);
+  const gone = app.isError && isApiError(app.error) && app.error.status === 404;
+  const state = app.data === undefined || gone ? undefined : appViewOf(app.data.status, job.running, domain, t.locale);
   const siblings: Sibling[] = (apps.data ?? []).slice(0, SIBLINGS + 1).map((other) => {
     const view = appStatus(other.status, t.locale);
     return {

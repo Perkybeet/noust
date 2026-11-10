@@ -1502,14 +1502,21 @@ grouped by server, a server not yet updated saying it will count its tasks when 
 
 - **Pinning is a choice.** A running task can be pinned as a chip at the foot of every page, with its progress
   and step; it keeps its result until it is let go, and a reload keeps the pin. Nothing is pinned by itself.
-- **The end is told once, to the one it concerns.** A task of yours that ends while you are on another page
-  is one toast with "See"; on its own page (or the page of the application it acts on) it says nothing,
-  because you are looking at it; and the server's own notice for it is not said a second time. What is not
-  yours keeps the server's notice.
+- **The end is told once, to the one it concerns.** A task of yours that ends after you left the page you
+  launched it from (the page you were on when the console first heard of it) is one toast with "See"; on that
+  page, on its own page or on the page of the application it acts on it says nothing, because you are looking
+  at it; and the server's own notice for it is not said a second time. What is not yours keeps the server's
+  notice. A failure is the exception on an application's page, which does not announce its own job's failure:
+  the page of a domain whose first deploy failed has no application left to draw it.
 - **The browser's notification is offered, never started.** The first time you leave a long task of yours, a
   toast offers it; only your yes asks the browser for its permission, and it is shown only while the tab is hidden.
 - **A task has a page** (Activity > Tasks > one): its steps (a deploy's five phases), who and where, its log as
   it is written, Pin, Cancel where the queue allows it and Try again for a failed deploy.
+- **A first deploy that fails has a page too** (4.3, item 141): a first deploy that fails undoes the application's
+  own row, so the page of its domain says that the first deploy failed instead of "no application at this domain":
+  when, the system's own words (the fix above them), and Try again (the wizard opens on the source, the branch and
+  the domain it was asked with; a credential that was masked is typed again) or Forget this failure. What needs
+  attention lists it, and the server keeps it for two weeks (`GET /api/first-deploys`).
 
 ### 6.5 Errors and system output
 

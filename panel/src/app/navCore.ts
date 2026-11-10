@@ -104,6 +104,15 @@ function under(parent: Dest, name: string): ConsolePath {
 // The helpers build plain data and touch nothing, so a group nobody imports is dropped from a
 // build, and the order of the register is the order app/nav.ts lists the groups in.
 
+/**
+ * The name an area carries, in the bar and in the trail of breadcrumbs: the one decision of it, so the two cannot say
+ * different things. The Server area is "Server" on a server's own pages and "Servers" from All servers, the only area
+ * that has two names; every other is its own label wherever the person is.
+ */
+export function areaLabelKey(entry: Dest, scope: Scope): PlainKey {
+  return entry.id === "server" ? (scope === "fleet" ? "nav.server.label" : "nav.server.labelOne") : entry.label;
+}
+
 /** A destination of the sidebar. */
 export const area = /* @__NO_SIDE_EFFECTS__ */ (id: string, to: ConsolePath, label: PlainKey, more: More = {}): Dest => ({
   id,

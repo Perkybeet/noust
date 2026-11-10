@@ -1,5 +1,5 @@
 import { FolderGit2, Search, Upload, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode, SyntheticEvent } from "react";
 
 import type { GitHubStatus } from "../../api/queries/github";
@@ -274,6 +274,7 @@ export function SourceStep({
 }: SourceStepProps) {
   const t = useT();
   const [workspaces, setWorkspaces] = useState(false);
+  const failureRef = useRef<HTMLDivElement>(null);
   // What the box shows: what was typed, or the source a repository list or an upload gave. A recipe's name is not kept.
   const [text, setText] = useState(() => (mode === "image" ? image.value : mode === "manual" ? form.source : ""));
   const kind = sourceKind(form.source);
@@ -289,14 +290,23 @@ export function SourceStep({
   const shown = form.source.trim();
   const startMode: SourceMode = github?.configured === true ? "github" : "manual";
   // The answer to what was typed or chosen: it reads under that, before the other ways of giving the code.
+  const failed = inspecting === null && failure !== null && failure !== undefined;
   const reading =
     inspecting !== null ? (
       <Inspecting source={shown} branch={form.branch.trim()} since={inspecting.since} onCancel={onCancel} />
-    ) : failure !== null && failure !== undefined ? (
-      <InspectFailure failure={failure} source={shown} onManual={onManual} onRetry={onRetry} />
+    ) : failed ? (
+      // Kept clear of the wizard's bar at the foot, which would cover what it brings into view.
+      <div ref={failureRef} className="scroll-mb-28">
+        <InspectFailure failure={failure} source={shown} onManual={onManual} onRetry={onRetry} />
+      </div>
     ) : (
       (detected ?? null)
     );
+  // The answer to Continue is what the person is waiting for: on a screen of 1366x768 it was below the fold, and Continue seemed to do
+  // nothing. It is brought into view the moment it arrives (docs/DESIGN.md, FM-4: what stops the step is where the person is looking).
+  useEffect(() => {
+    if (failed) failureRef.current?.scrollIntoView({ block: "nearest" });
+  }, [failed, failure]);
 
   const origin = originOf(mode, form.source);
   const connected = github?.configured === true;
