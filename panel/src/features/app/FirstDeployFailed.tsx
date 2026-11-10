@@ -115,8 +115,8 @@ export function FirstDeployFailed({ domain, attempt, header }: { domain: string;
             </>
           ) : null}
           {t("appPages.firstFailed.nothing")}
-          {sourceWasMasked(attempt) ? <> {t("appPages.firstFailed.sourceMasked")}</> : null}
         </p>
+        {sourceWasMasked(attempt) ? <p className="text-13 text-pretty text-fg-muted">{t("appPages.firstFailed.sourceMasked")}</p> : null}
       </div>
     </DetailPage>
   );
