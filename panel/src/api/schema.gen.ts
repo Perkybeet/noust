@@ -57802,6 +57802,16 @@ export interface components {
         /**
          * RuleRequestIn
          * @description A rule: ``allow`` or ``deny`` a port, from everyone (``any``) or an address or network.
+         *
+         *     Attributes:
+         *         action: ``allow`` or ``deny``.
+         *         port: The port.
+         *         proto: ``tcp``, ``udp`` or ``any``.
+         *         source: ``any``, or an address or network.
+         *         comment: A short note.
+         *         replaces: Ids of rules (``GET /firewall``) to delete in the same change: opening a port to
+         *             some addresses only, while a rule for everybody stands, takes that rule away with it
+         *             and is confirmed once. Each must allow this port; SSH and the console stay protected.
          */
         RuleRequestIn: {
             /** Action */
@@ -57818,6 +57828,8 @@ export interface components {
              * @default tcp
              */
             proto: string;
+            /** Replaces */
+            replaces?: string[];
             /**
              * Source
              * @default any

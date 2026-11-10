@@ -48111,7 +48111,7 @@
         "type": "object"
       },
       "RuleRequestIn": {
-        "description": "A rule: ``allow`` or ``deny`` a port, from everyone (``any``) or an address or network.",
+        "description": "A rule: ``allow`` or ``deny`` a port, from everyone (``any``) or an address or network.\n\nAttributes:\n    action: ``allow`` or ``deny``.\n    port: The port.\n    proto: ``tcp``, ``udp`` or ``any``.\n    source: ``any``, or an address or network.\n    comment: A short note.\n    replaces: Ids of rules (``GET /firewall``) to delete in the same change: opening a port to\n        some addresses only, while a rule for everybody stands, takes that rule away with it\n        and is confirmed once. Each must allow this port; SSH and the console stay protected.",
         "properties": {
           "action": {
             "title": "Action",
@@ -48130,6 +48130,14 @@
             "default": "tcp",
             "title": "Proto",
             "type": "string"
+          },
+          "replaces": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Replaces",
+            "type": "array"
           },
           "source": {
             "default": "any",

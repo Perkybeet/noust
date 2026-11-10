@@ -40,7 +40,7 @@ import hashlib
 import ipaddress
 import json
 import shlex
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -1433,17 +1433,83 @@ class Firewall:
             [["systemctl", "disable", "firewalld"]],
         )
 
-    def add_rule(self, request: RuleRequest) -> PendingChange:
+    def add_rule(self, request: RuleRequest, replaces: Sequence[str] = ()) -> PendingChange:
         """
-        Add a rule, pending confirmation.
+        Add a rule, pending confirmation, and take away the wider rules it makes pointless.
 
         Args:
             request: The rule.
+            replaces: Ids of rules to delete in the same change (:meth:`plan_replace`).
 
         Returns:
             The change.
         """
+        if replaces:
+            return self._apply(self.plan_replace(request, replaces))
         return self._apply(self.plan_add(request))
+
+    def plan_replace(self, request: RuleRequest, replaces: Sequence[str]) -> FirewallPlan:
+        """
+        Work out adding a rule and deleting the rules it replaces, as one change.
+
+        Opening a port to some addresses only leaves it as open as before while a rule for everybody
+        stands, and doing the two as two changes means a confirmation window between them (one
+        change at a time can be undone safely). One plan holds both: the narrow rule goes in first,
+        so the port is never closed to the people it was opened for, and the undo puts the wide rule
+        back before it takes the narrow one away.
+
+        Each deletion keeps the guard of :meth:`plan_delete`: the last rule that opens SSH or the
+        console to everyone stays, replacement or not. A rule is replaced only when it allows what
+        this one allows (the same port and protocol), so this is never a way to delete something
+        else.
+
+        Args:
+            request: The rule to add.
+            replaces: Ids of the rules to delete, from :attr:`FirewallRule.id`.
+
+        Returns:
+            The commands that make the change, undo it and make it permanent.
+
+        Raises:
+            AccessGuardError: The added rule or a deletion would close SSH or the console.
+            SecurityError: A rule does not exist or is not an allow rule for this port.
+            ValidationError: A field is invalid.
+        """
+        added = self.plan_add(request)
+        rule = request.validated()
+        state = self._editable()
+        wanted = list(dict.fromkeys(replaces))
+        titles: list[str] = []
+        deletions: list[FirewallPlan] = []
+        for rule_id in wanted:
+            old = next((item for item in state.rules if item.id == rule_id), None)
+            if old is None:
+                raise SecurityError(
+                    f"There is no firewall rule {rule_id}",
+                    details="List the rules with 'noust server security firewall status'.",
+                )
+            protocols = ("tcp", "udp") if rule.proto == "any" else (rule.proto,)
+            if old.action != "allow" or not any(old.covers(rule.port, p) for p in protocols):
+                raise SecurityError(
+                    f"The rule '{old.spec}' is not about port {rule.port}",
+                    details="Only a rule that allows the port being opened is replaced with it.",
+                )
+            if old.ports != ((rule.port, rule.port),):
+                # It would close the other ports it names for everybody as well.
+                raise SecurityError(
+                    f"The rule '{old.spec}' covers more than port {rule.port}",
+                    details="Delete it on its own from the firewall's rules, and add the ones "
+                    "you want for each port.",
+                )
+            deletions.append(self.plan_delete(rule_id))
+            titles.append(f"'{old.spec}'")
+        title = f"{added.title}, and delete {', '.join(titles)}"
+        return FirewallPlan(
+            title,
+            [*added.apply, *(command for plan in deletions for command in plan.apply)],
+            [*(command for plan in reversed(deletions) for command in plan.undo), *added.undo],
+            [*added.commit, *(command for plan in deletions for command in plan.commit)],
+        )
 
     def delete_rule(self, rule_id: str) -> PendingChange:
         """

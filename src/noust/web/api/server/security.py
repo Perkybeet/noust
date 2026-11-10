@@ -40,6 +40,7 @@ from noust.web.api.deps import JobAcceptedResponse, require_elevated
 from noust.web.api.server.common import ServerRoute, accepted, require_job_context
 from noust.web.auth import actor_label, get_client_ip
 from noust.web.jobs import JobContext, JobType, get_job_manager
+from noust.web.pydantic_compat import bounded_list
 
 router = APIRouter(route_class=ServerRoute, prefix="/security")
 
@@ -426,13 +427,26 @@ class RemoveKeyRequest(BaseModel):
 
 
 class RuleRequestIn(BaseModel):
-    """A rule: ``allow`` or ``deny`` a port, from everyone (``any``) or an address or network."""
+    """
+    A rule: ``allow`` or ``deny`` a port, from everyone (``any``) or an address or network.
+
+    Attributes:
+        action: ``allow`` or ``deny``.
+        port: The port.
+        proto: ``tcp``, ``udp`` or ``any``.
+        source: ``any``, or an address or network.
+        comment: A short note.
+        replaces: Ids of rules (``GET /firewall``) to delete in the same change: opening a port to
+            some addresses only, while a rule for everybody stands, takes that rule away with it
+            and is confirmed once. Each must allow this port; SSH and the console stay protected.
+    """
 
     action: str
     port: int
     proto: str = "tcp"
     source: str = "any"
     comment: str = ""
+    replaces: list[str] = bounded_list(16)
 
 
 class Fail2banInstallRequest(BaseModel):
@@ -923,6 +937,7 @@ def add_firewall_rule(
         "proto": body.proto,
         "source": body.source,
         "comment": body.comment,
+        "replaces": body.replaces,
     }
     return _queue(request, session, "firewall.add", params)
 

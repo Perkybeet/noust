@@ -7,7 +7,7 @@ import { SESSION, fakeBackend, json, onNode, signedInRoutes } from "../../test/f
 import type { RouteHandler } from "../../test/fakes";
 import { fleetRoutes, WEB2, DB1 } from "../fleet/testFixtures";
 import { FIREWALL, PORT_CLAIMS, onDesktop, serverRoutes } from "../server/testing";
-import type { Firewall, PortClaim } from "../server/queries";
+import type { Firewall, FirewallRule, PortClaim } from "../server/queries";
 
 beforeEach(onDesktop);
 
@@ -196,6 +196,80 @@ describe("the one dialog that opens a port", () => {
       expect(backend.callsTo("POST /api/server/security/firewall/rules")).toHaveLength(1);
     });
     expect(backend.callsTo("POST /api/server/security/firewall/rules")[0]?.body).toMatchObject({ port: 25565, proto: "any", source: "10.0.0.0/24" });
+  });
+
+  describe("opening a port only to some addresses while a rule for everybody stands (item 139)", () => {
+    const WIDE: FirewallRule = { id: "w5432", backend: "ufw", action: "allow", ports: [[5432, 5432]], proto: "tcp", source: "any", spec: "5432/tcp ALLOW IN Anywhere", comment: "", noust: false, known: true };
+    const BOTH: FirewallRule = { ...WIDE, id: "w80", ports: [[80, 80], [5432, 5432]], spec: "80,5432/tcp ALLOW IN Anywhere" };
+    const withRules = (...rules: Firewall["firewall"]["rules"]) => ({ "GET /api/server/security/firewall": () => json(200, firewallWith([], { rules: [...FIREWALL.firewall.rules, ...rules] })) });
+
+    async function restrictTo(user: ReturnType<typeof network>["user"], port: string, address: string): Promise<HTMLElement> {
+      await user.click(await screen.findByRole("button", { name: "Open port 25565" }));
+      const dialog = await screen.findByRole("alertdialog", { name: "Open a port" });
+      await user.clear(within(dialog).getByLabelText("Port"));
+      await user.type(within(dialog).getByLabelText("Port"), port);
+      await user.click(within(dialog).getByRole("radio", { name: "Only these addresses" }));
+      await user.type(within(dialog).getByLabelText("Address or network"), address);
+      return dialog;
+    }
+
+    it("names the rule that keeps the port open to everyone, and offers to remove it in the same step", async () => {
+      const { user, backend } = network("/network/listening?q=25565", { ...withRules(WIDE), "POST /api/server/security/firewall/rules": queued });
+      const dialog = await restrictTo(user, "5432", "10.0.4.12");
+
+      expect(await within(dialog).findByText("Port 5432 stays open to everyone")).toBeInTheDocument();
+      expect(within(dialog).getByText("5432/tcp ALLOW IN Anywhere")).toBeInTheDocument();
+      const remove = within(dialog).getByRole("checkbox", { name: "Remove it in the same step" });
+      // Nothing is taken away unless it is asked for.
+      expect(remove).not.toBeChecked();
+      await user.click(remove);
+      expect(await within(dialog).findByText(/Server firewall: remove/)).toBeInTheDocument();
+      await expectNoAxeViolations(dialog);
+      await user.click(within(dialog).getByRole("button", { name: "Open 5432" }));
+
+      await waitFor(() => {
+        expect(backend.callsTo("POST /api/server/security/firewall/rules")).toHaveLength(1);
+      });
+      expect(backend.callsTo("POST /api/server/security/firewall/rules")[0]?.body).toEqual({ action: "allow", port: 5432, proto: "tcp", source: "10.0.4.12", comment: "", replaces: ["w5432"] });
+    });
+
+    it("sends the rule alone when the box is left alone: the wide rule stays and the warning said so", async () => {
+      const { user, backend } = network("/network/listening?q=25565", { ...withRules(WIDE), "POST /api/server/security/firewall/rules": queued });
+      const dialog = await restrictTo(user, "5432", "10.0.4.12");
+      await within(dialog).findByText("Port 5432 stays open to everyone");
+
+      await user.click(within(dialog).getByRole("button", { name: "Open 5432" }));
+
+      await waitFor(() => {
+        expect(backend.callsTo("POST /api/server/security/firewall/rules")).toHaveLength(1);
+      });
+      expect(backend.callsTo("POST /api/server/security/firewall/rules")[0]?.body).not.toHaveProperty("replaces");
+    });
+
+    it("says a rule that names other ports too stays, and offers nothing to remove it with", async () => {
+      const { user } = network("/network/listening?q=25565", withRules(BOTH));
+      const dialog = await restrictTo(user, "5432", "10.0.4.12");
+
+      expect(await within(dialog).findByText("80,5432/tcp ALLOW IN Anywhere")).toBeInTheDocument();
+      expect(within(dialog).getByText(/also names other ports/)).toBeInTheDocument();
+      expect(within(dialog).queryByRole("checkbox", { name: /same step/ })).not.toBeInTheDocument();
+    });
+
+    it("says nothing of it when the port is opened to everyone, or no rule for everybody stands", async () => {
+      const { user } = network("/network/listening?q=25565", withRules(WIDE));
+      await user.click(await screen.findByRole("button", { name: "Open port 25565" }));
+      const dialog = await screen.findByRole("alertdialog", { name: "Open a port" });
+      await user.clear(within(dialog).getByLabelText("Port"));
+      await user.type(within(dialog).getByLabelText("Port"), "5432");
+      // Everyone, as asked: nothing to warn of.
+      expect(within(dialog).queryByText("Port 5432 stays open to everyone")).not.toBeInTheDocument();
+
+      await user.click(within(dialog).getByRole("radio", { name: "Only these addresses" }));
+      expect(await within(dialog).findByText("Port 5432 stays open to everyone")).toBeInTheDocument();
+      await user.clear(within(dialog).getByLabelText("Port"));
+      await user.type(within(dialog).getByLabelText("Port"), "9999");
+      expect(within(dialog).queryByText(/stays open to everyone/)).not.toBeInTheDocument();
+    });
   });
 
   it("does not offer a rule while the firewall is off, and leads to where it is turned on", async () => {

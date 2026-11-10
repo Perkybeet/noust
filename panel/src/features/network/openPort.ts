@@ -14,6 +14,8 @@
 import type { StreamBody } from "../../api/queries/network";
 import { parseAddresses } from "../../lib/addresses";
 import type { Holder, PortRow } from "../server/network/data";
+import type { Firewall, FirewallRule } from "../server/queries";
+import { isProtected } from "./firewallRules";
 
 /** The most addresses a relay may be restricted to (the server's `MAX_SOURCES`). */
 export const MAX_RELAY_SOURCES = 20;
@@ -137,10 +139,34 @@ export function planOf(form: OpenForm, rows: readonly PortRow[], firewall: Firew
   return { plan: { mode: "rule", port, proto: form.proto, source: form.who === "some" ? (sources[0] ?? "any") : "any", fact }, problems };
 }
 
-/** The firewall rule a form asks for: what `POST /api/server/security/firewall/rules` takes. */
-export function ruleBody(form: OpenForm): { action: "allow"; port: number; proto: OpenProto; source: string; comment: string } {
+/** A rule that already lets everybody in on the port being opened, and whether opening it for fewer can take it away. */
+export interface WideRule {
+  rule: FirewallRule;
+  /** It names this port and no other, and the server does not hold the port open with it (SSH, the console). */
+  removable: boolean;
+}
+
+/**
+ * The rules that keep a port open to everyone, which opening it "only to these addresses" leaves in place (item 139): an
+ * allow rule for every origin that names the port and the protocol. A rule the firewall does not know the ports of is not
+ * counted, as the server does not count it. One that names the port among others, or every port, is said but is not the
+ * one this dialog takes away: deleting `80,443/tcp` to open 443 for some would close 80 for everybody.
+ */
+export function openToEveryone(rules: readonly FirewallRule[], port: number, proto: OpenProto, guard: Firewall["protected_ports"]): WideRule[] {
+  const protocols: readonly string[] = proto === "any" ? ["tcp", "udp"] : [proto];
+  return rules
+    .filter((rule) => rule.action === "allow" && rule.source === "any" && rule.known && (rule.proto === "any" || protocols.includes(rule.proto)))
+    .filter((rule) => rule.ports.length === 0 || rule.ports.some(([from = 0, to = 0]) => from <= port && port <= to))
+    .map((rule) => ({ rule, removable: rule.ports.length === 1 && rule.ports[0]?.[0] === port && rule.ports[0][1] === port && isProtected(rule, guard) === null }));
+}
+
+/** The firewall rule a form asks for: what `POST /api/server/security/firewall/rules` takes, with the rules it takes away, when there are any. */
+export function ruleBody(
+  form: OpenForm,
+  replaces: readonly string[] = [],
+): { action: "allow"; port: number; proto: OpenProto; source: string; comment: string; replaces?: string[] } {
   const sources = form.who === "some" ? parseAddresses(form.source).entries : [];
-  return { action: "allow", port: parsePort(form.port) ?? 0, proto: form.proto, source: sources[0] ?? "any", comment: "" };
+  return { action: "allow", port: parsePort(form.port) ?? 0, proto: form.proto, source: sources[0] ?? "any", comment: "", ...(replaces.length > 0 ? { replaces: [...replaces] } : {}) };
 }
 
 /** A file name for the relay: what it carries, then the port it answers on (`redis-server-16379`). */
