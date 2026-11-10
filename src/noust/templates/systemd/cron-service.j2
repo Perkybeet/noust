@@ -24,6 +24,12 @@ WorkingDirectory={{ esc.line(working_directory) }}
 {% for key, value in (environment | default({})).items() %}
 Environment="{{ esc.env_value(key) }}={{ esc.env_value(value) }}"
 {% endfor %}
+{# An application's task loads what the application's unit loads, in the same order: its .env,
+   which is where its secrets are (this unit is world-readable), then what Noust says of the
+   release. Each is optional, as in the application's unit. #}
+{% for file in environment_files | default([]) %}
+EnvironmentFile=-{{ esc.path(file) }}
+{% endfor %}
 {# exec_start is built by CronManager.build_exec_start from a shlex-parsed
    argv: bare tokens or double-quoted systemd tokens, '%' always doubled.
    There is no shell anywhere in this line. #}

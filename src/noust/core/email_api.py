@@ -162,6 +162,32 @@ def missing(provider: str, settings: Mapping[str, Any]) -> list[str]:
     return [name for name in needed if not str(settings.get(name) or "").strip()]
 
 
+def can_send(smtp_host: Any, api_settings: Mapping[str, Any] | None) -> bool:
+    """
+    Say whether mail can leave this server at all.
+
+    The one answer the notifier and the email channel both ask. A provider replaces SMTP, never
+    adds to it, so a provider that lacks a setting is no way to send and does not fall back to the
+    server. A provider this version does not speak is read as SMTP, as the notifier reads it.
+
+    Args:
+        smtp_host: ``monitor.smtp.host``.
+        api_settings: ``monitor.email_api``.
+
+    Returns:
+        True when the provider the settings name has everything it needs, or, with none named,
+        when an SMTP server is set.
+    """
+    settings = api_settings or {}
+    try:
+        provider = validate_provider(settings.get("provider"))
+    except ValueError:
+        provider = ""
+    if provider:
+        return not missing(provider, settings)
+    return bool(str(smtp_host or "").strip())
+
+
 def request_for(
     provider: str,
     mail: ApiMail,

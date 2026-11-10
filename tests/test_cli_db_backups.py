@@ -390,6 +390,25 @@ class TestBackupRun:
         assert data["dump"]["kind"] == "scheduled"
         assert data["destinations"]["nas"]["ok"] is True
 
+    def test_a_run_started_by_hand_with_manual_keeps_its_dump_out_of_retention(
+        self, cli_runner: CliRunner, engine: type[BaseDatabaseManager]
+    ) -> None:
+        invoke(cli_runner, "backup-schedule", "set", "shop", "-e", "postgresql")
+
+        result = invoke(cli_runner, "backup-run", "shop", "-e", "postgresql", "--manual", "--json")
+
+        assert json.loads(result.output)["dump"]["kind"] == "manual"
+
+    def test_the_command_the_timers_unit_runs_makes_a_scheduled_dump(
+        self, cli_runner: CliRunner, engine: type[BaseDatabaseManager]
+    ) -> None:
+        # The unit written by every earlier version has no --manual and must keep meaning this.
+        invoke(cli_runner, "backup-schedule", "set", "shop", "-e", "postgresql")
+
+        result = invoke(cli_runner, "backup-run", "shop", "-e", "postgresql", "--json")
+
+        assert json.loads(result.output)["dump"]["kind"] == "scheduled"
+
     def test_a_failure_exits_1_says_the_tools_words_and_is_announced(
         self,
         cli_runner: CliRunner,

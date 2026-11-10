@@ -20,14 +20,15 @@ from __future__ import annotations
 
 import logging
 import platform
+import shlex
 import sqlite3
 from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
-from noust.core import paths
-from noust.core.config import DEFAULT_APPS_DIR, DEFAULT_CONFIG_PATH, DEFAULT_LOG_DIR
+from noust.core import descriptors, paths
+from noust.core.config import DEFAULT_APPS_DIR, DEFAULT_CONFIG_PATH, DEFAULT_LOG_DIR, SYSTEMD_DIR
 from noust.core.dependencies import NODE_RUNTIME_TYPES
 from noust.core.exceptions import NoustError
 from noust.core.package_family import INSTALL_COMMANDS, detect_family
@@ -748,6 +749,12 @@ def collect(env: DoctorEnvironment | None = None) -> DoctorReport:
     names = _names_section()
     if names is not None:
         sections.append(names)
+    tasks = cron_section()
+    if tasks is not None:
+        sections.append(tasks)
+    limits = limits_section()
+    if limits is not None:
+        sections.append(limits)
     return DoctorReport(tuple(sections))
 
 
@@ -824,6 +831,118 @@ def _names_section() -> DoctorSection | None:
         key="names",
         explain_coded=explained,
     )
+
+
+#: What writes each of Noust's own units again, which is what gives it the limit of open files a
+#: unit is written with now. Both run when the package is upgraded, and by hand when it is not.
+_UNIT_REWRITES: dict[str, str] = {
+    paths.WEB_UNIT: "noust web refresh-unit",
+    paths.MONITOR_UNIT: "noust monitor install",
+}
+
+
+def limits_section(systemd_dir: Path | None = None) -> DoctorSection | None:
+    """
+    Name the units of Noust's own that still have the limit of open files from before 4.3.
+
+    A console that reached 1024 open files answered every request with "Too many open files"
+    (issue 19). The units written now carry :data:`~noust.core.descriptors.SERVICE_LIMIT`; one that
+    was written before keeps what it had until it is written again, which a package upgrade does
+    and a console installed another way does not.
+
+    Args:
+        systemd_dir: Where the units are; the system's unless a test describes another machine.
+
+    Returns:
+        The section, or None when none is to be named (a unit that is not there is not a finding:
+        a console run as a daemon, a monitor never installed).
+    """
+    directory = systemd_dir if systemd_dir is not None else SYSTEMD_DIR
+    items: list[DoctorItem] = []
+    for unit, command in _UNIT_REWRITES.items():
+        try:
+            text = (directory / f"{unit}.service").read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if not descriptors.has_old_limit(text):
+            continue
+        limit = descriptors.unit_limit(text)
+        new = str(descriptors.SERVICE_LIMIT)
+        if limit is None:
+            items.append(item("warn", "doctor.limits.default", fix=command, unit=unit, new=new))
+        else:
+            items.append(
+                item("warn", "doctor.limits.old", fix=command, unit=unit, limit=str(limit), new=new)
+            )
+    if not items:
+        return None
+    return DoctorSection("Noust's own units", tuple(items), key="limits")
+
+
+def cron_section() -> DoctorSection | None:
+    """
+    Name the tasks of an application that still run without its environment.
+
+    A task tied to an application loads the application's ``.env`` and tools since 4.3, but the
+    ones written before change only when they are written again. Each is named with the command
+    that writes it again exactly as it is.
+
+    Returns:
+        The section, or None when there is none to name (or the tasks could not be read: the other
+        checks still stand).
+    """
+    from noust.managers.cron_manager import CronManager
+
+    try:
+        found = CronManager().tasks_without_their_environment()
+    except (NoustError, OSError, sqlite3.Error) as exc:
+        logger.debug("The scheduled tasks were not read: %s", exc)
+        return None
+    if not found:
+        return None
+    return DoctorSection(
+        "Scheduled tasks",
+        tuple(
+            item(
+                "warn",
+                "doctor.cron.without_environment",
+                fix=_cron_rewrite_command(task),
+                name=task["name"],
+                domain=task["app_domain"],
+            )
+            for task in found
+        ),
+        key="cron",
+    )
+
+
+def _cron_rewrite_command(task: dict[str, Any]) -> str:
+    """
+    Write the command that writes a task again as it is, now loading its application's environment.
+
+    Args:
+        task: One entry of :meth:`~noust.managers.cron_manager.CronManager.tasks_without_their_environment`.
+
+    Returns:
+        ``noust cron create NAME COMMAND ...``, with everything the task has.
+    """
+    parts = [
+        "noust",
+        "cron",
+        "create",
+        task["name"],
+        task["command"],
+        "--schedule",
+        task["on_calendar"],
+        "--app",
+        task["app_domain"],
+    ]
+    for flag, key in (("--user", "user"), ("--working-directory", "working_directory")):
+        if task[key]:
+            parts += [flag, task[key]]
+    if task["timeout"]:
+        parts += ["--timeout", str(task["timeout"])]
+    return " ".join(shlex.quote(part) for part in parts)
 
 
 def _relays_section() -> DoctorSection | None:

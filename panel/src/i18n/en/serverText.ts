@@ -231,6 +231,9 @@ export const serverText = {
       crash_loop: {
         text: "The process exits with status {status} at start; see the last journal lines below.",
       },
+      descriptors: {
+        text: "The console ran out of file descriptors (Too many open files) while it was checking {domain}, so the checks it could not run say nothing about the application. Restart the console to free them: {command}",
+      },
       disk_full: {
         text: "The disk holding the apps directory is {percent}% full.",
       },
@@ -314,6 +317,11 @@ export const serverText = {
       },
       worker_with_port: {
         text: "A worker: {summary}; port {port} is recorded for it, and it publishes none. Clear it with: {command}",
+      },
+    },
+    descriptors: {
+      exhausted: {
+        text: "The console ran out of file descriptors while checking",
       },
     },
     disk: {
@@ -536,6 +544,11 @@ export const serverText = {
         text: "Processors: could not be read",
       },
     },
+    cron: {
+      without_environment: {
+        text: "The task {name} of {domain} runs without the application's .env and tools: it was written before a task loaded them",
+      },
+    },
     disk: {
       below_floor: {
         text: "Free disk: {free} free of {total} at {path}, under the {floor} Noust needs to run",
@@ -551,6 +564,14 @@ export const serverText = {
       },
       unreadable: {
         text: "Free disk: could not be read",
+      },
+    },
+    limits: {
+      default: {
+        text: "{unit} sets no limit of open files, so it has the system's default; a unit written now gets {new}",
+      },
+      old: {
+        text: "{unit} is limited to {limit} open files, and a unit written now gets {new}",
       },
     },
     memory: {
@@ -692,6 +713,10 @@ export const serverText = {
     },
   },
   fleet: {
+    node_descriptors_exhausted: {
+      text: "{node} ran out of file descriptors",
+      hint: "Its console cannot open a file or a socket until some are freed. On {node}, run: {command}. Then run 'noust setup doctor' there: it says whether the console's unit still has the limit from before 4.3 (1024 files).",
+    },
     refused: {
       permission: {
         text: "Your role {role} does not hold the permission {permission} on these servers",
@@ -1259,6 +1284,7 @@ export const serverText = {
       app_exec_any: { text: "Run a command in an application" },
       backup: { text: "Back up {domain}" },
       backup_any: { text: "Back up an application" },
+      backup_database: { text: "Back up the database {database}" },
       cert_acme_account: { text: "Register the ACME account" },
       cert_create: { text: "Get a certificate for {domain}" },
       cert_create_any: { text: "Get a certificate" },
@@ -1565,6 +1591,12 @@ export const serverText = {
     unknown: {
       text: "There is no role named {name}",
       hint: "List the roles with: {command}",
+    },
+  },
+  server: {
+    descriptors_exhausted: {
+      text: "File descriptors exhausted: the console has no file left to open, so what needs one fails",
+      hint: "Restart the console to free them: {command}. Then run 'noust setup doctor': it says whether its unit still has the limit from before 4.3 (1024 files) and how to write the new one.",
     },
   },
   sign_in_image: {

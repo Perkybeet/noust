@@ -92,6 +92,7 @@ def _print_report(logger: Logger, report: HealthReport) -> None:
     logger.blank()
     logger.info("Checking system resources...")
     _print_check(logger, report.memory)
+    _print_check(logger, report.descriptors)
 
     if (
         report.builds is not None

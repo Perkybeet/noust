@@ -85,6 +85,14 @@ CATALOG: dict[str, str] = {
         "Noust installs it from Cloudflare's own package repository, {url}, with the key Cloudflare "
         "signs it with: run 'noust tunnel install-cloudflared', then this command again."
     ),
+    "server.descriptors_exhausted": (
+        "File descriptors exhausted: the console has no file left to open, so what needs one fails"
+    ),
+    "server.descriptors_exhausted.hint": (
+        "Restart the console to free them: {command}. Then run 'noust setup doctor': it says "
+        "whether its unit still has the limit from before 4.3 (1024 files) and how to write the "
+        "new one."
+    ),
     "tunnels.store_sealed": "The secret store is sealed",
     "tunnels.store_sealed.hint": (
         "A tunnel's connector reads its token at boot, with nobody to type a passphrase. "
@@ -215,6 +223,13 @@ CATALOG: dict[str, str] = {
     "fleet.refused.permission.hint": (
         "Ask a security officer of each of them for an account with a role that holds it, "
         "or have that permission added to your role there."
+    ),
+    # A server whose console has no file left to open answers every request with the same error.
+    "fleet.node_descriptors_exhausted": "{node} ran out of file descriptors",
+    "fleet.node_descriptors_exhausted.hint": (
+        "Its console cannot open a file or a socket until some are freed. On {node}, run: "
+        "{command}. Then run 'noust setup doctor' there: it says whether the console's unit still "
+        "has the limit from before 4.3 (1024 files)."
     ),
     # -- A fleet job's title (noust.core.fleet_job_titles): the name its console job carries ----
     # One sentence for one server and one for several, because the plural of "server" is not a
@@ -466,6 +481,17 @@ CATALOG: dict[str, str] = {
     "doctor.ssh.github_refused": "GitHub SSH: not configured",
     "doctor.ssh.github_note": "Add your key to GitHub: https://github.com/settings/keys",
     "doctor.ssh.github_untested": "GitHub SSH: not tested here",
+    "doctor.limits.default": (
+        "{unit} sets no limit of open files, so it has the system's default; a unit written now "
+        "gets {new}"
+    ),
+    "doctor.limits.old": (
+        "{unit} is limited to {limit} open files, and a unit written now gets {new}"
+    ),
+    "doctor.cron.without_environment": (
+        "The task {name} of {domain} runs without the application's .env and tools: it was "
+        "written before a task loaded them"
+    ),
     "doctor.relays.left": "{domain}: {what}",
     "doctor.relays.unread": "Not checked: {reason}",
     "doctor.names.explain": (
@@ -1040,6 +1066,7 @@ CATALOG: dict[str, str] = {
     "jobs.title.update_any": "Update an application",
     "jobs.title.backup": "Back up {domain}",
     "jobs.title.backup_any": "Back up an application",
+    "jobs.title.backup_database": "Back up the database {database}",
     "jobs.title.restore": "Restore a backup into {domain}",
     "jobs.title.restore_any": "Restore a backup",
     "jobs.title.rollback": "Roll back {domain}",
@@ -1416,6 +1443,12 @@ CATALOG: dict[str, str] = {
     "diagnose.cause.no_unit": (
         "No systemd unit found for {unit}; it has never been started or its unit was removed."
     ),
+    "diagnose.cause.descriptors": (
+        "The console ran out of file descriptors (Too many open files) while it was checking "
+        "{domain}, so the checks it could not run say nothing about the application. Restart "
+        "the console to free them: {command}"
+    ),
+    "diagnose.descriptors.exhausted": "The console ran out of file descriptors while checking",
     "diagnose.cause.oom": "Killed by the kernel for running out of memory (limit or machine).",
     "diagnose.cause.crash_loop": (
         "The process exits with status {status} at start; see the last journal lines below."

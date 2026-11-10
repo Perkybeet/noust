@@ -1024,19 +1024,32 @@ def _refuse_smtp_password_move(
     old_destination, old_password = before
     if entered or not old_password or password != old_password or destination == old_destination:
         return
-    raise HTTPException(
+    raise _field_refusal(
+        "password",
+        "Enter the password again: the server, port, username or "
+        "transport changed, and the stored password is only kept "
+        "for the server it was entered for.",
+    )
+
+
+def _field_refusal(field: str, message: str) -> HTTPException:
+    """
+    Build the 422 a form draws under one of its fields.
+
+    Args:
+        field: The body's field.
+        message: What to say there.
+
+    Returns:
+        The exception to raise.
+    """
+    return HTTPException(
         status_code=422,
         detail={
             "error": "validation_error",
             "detail": "Validation failed",
             "hint": None,
-            "fields": {
-                "password": (
-                    "Enter the password again: the server, port, username or "
-                    "transport changed, and the stored password is only kept "
-                    "for the server it was entered for."
-                )
-            },
+            "fields": {field: message},
         },
     )
 
@@ -1071,10 +1084,21 @@ def update_smtp_config(
         ConfigError: 400, through the error boundary, for a host that is not
             a hostname, a port out of range, both ``use_ssl`` and ``use_tls``
             enabled, or an invalid ``from_address`` or recipient.
-        HTTPException: 422 on ``password`` when it is blank, a password is
-            stored, and the host, port, username or transport changed; or if
-            the configuration cannot be written.
+        HTTPException: 422 on ``host`` when there is none, since saving the
+            account of a server that is not named leaves mail that never
+            leaves (the email service is ``PUT /api/config/email-api``, and
+            taking the account away is a write of the whole block); 422 on
+            ``password`` when it is blank, a password is stored, and the host,
+            port, username or transport changed; or if the configuration
+            cannot be written.
     """
+    if not body.host.strip():
+        raise _field_refusal(
+            "host",
+            "Enter the address of the mail server, such as smtp.example.com. Without it no "
+            "message can be sent. To send through Resend, Postmark, Brevo or Amazon SES "
+            "instead, set up that service.",
+        )
     config = load_config()
     before = _smtp_destination(config)
     config.set(

@@ -394,6 +394,17 @@ class ServiceError(NoustError):
     pass
 
 
+class DescriptorsExhaustedError(NoustError):
+    """
+    Raised when the process has no file descriptor left (``EMFILE`` or ``ENFILE``).
+
+    A request that needs a file, a socket or a database connection fails until some are freed:
+    the API answers it 503 with this name, not a 500 with none (issue 19).
+    """
+
+    pass
+
+
 class SiteError(NoustError):
     """Raised when site configuration fails."""
 

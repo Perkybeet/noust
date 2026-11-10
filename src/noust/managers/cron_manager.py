@@ -61,15 +61,16 @@ from jinja2 import TemplateError
 
 from noust.central import require_server_role
 from noust.core import paths
-from noust.core.appdir.layout import code_path_for
+from noust.core.appdir.layout import code_path_for, env_file_for
 from noust.core.config import SYSTEMD_DIR as _SYSTEMD_DIR
 from noust.core.config import Config
 from noust.core.exceptions import BackupError, NoustError, ServiceError, ValidationError
 from noust.core.fs import FileSystem, get_fs
 from noust.core.logger import Logger
 from noust.core.runner import CommandRunner, get_runner
-from noust.core.store import get_store
+from noust.core.store import App, get_store
 from noust.core.templates import text_environment
+from noust.deployers.helpers.app_run_environment import RunEnvironment, run_environment
 from noust.deployers.helpers.compose_exec import ComposeExec, compose_exec
 from noust.managers import cron_ledger
 from noust.managers.app_identity import service_account_for
@@ -440,7 +441,9 @@ class CronManager:
             ) from exc
         return checked
 
-    def parse_command(self, command: str, *, resolve: bool = True) -> list[str]:
+    def parse_command(
+        self, command: str, *, resolve: bool = True, search_path: str | None = None
+    ) -> list[str]:
         """
         Split a command line into the argv systemd will execute.
 
@@ -455,6 +458,9 @@ class CronManager:
             resolve: Look the program up on this server and make its path
                 absolute. False for a command that runs in a container, whose
                 program is the container's.
+            search_path: Where to look first, as a ``PATH``: the one the task will run with, so
+                that ``python`` of an application is its virtual environment's. What it does not
+                have is looked for on this server's ``PATH``, as it always was.
 
         Returns:
             The argv, with an absolute path in the first position when it was
@@ -490,7 +496,9 @@ class CronManager:
                     "for example /usr/bin/node.",
                 )
         else:
-            resolved = shutil.which(program)
+            resolved = (shutil.which(program, path=search_path) if search_path else None) or (
+                shutil.which(program)
+            )
             if resolved is None:
                 raise ServiceError(
                     f"Command not found: {program}",
@@ -561,8 +569,14 @@ class CronManager:
             )
         # Parsing is validation here: an unparseable or unresolvable command
         # must be refused before anything is written. A command in a container
-        # is the container's to find.
-        self.parse_command(job.command, resolve=service is None)
+        # is the container's to find; one of an application on this server is
+        # found among the application's own tools first, as it will run.
+        environment = self._run_environment(app_domain) if service is None and app_domain else None
+        self.parse_command(
+            job.command,
+            resolve=service is None,
+            search_path=environment.path if environment else None,
+        )
 
         # A job of an application with its own account (3.2) runs as it. One in
         # a service of a stack runs as root, like the stack's own unit: the
@@ -583,14 +597,7 @@ class CronManager:
 
         working_directory = (job.working_directory or "").strip() or None
         if app_domain is not None:
-            validate_unit_value(app_domain, field="Description")
-            app = get_store().get_app(app_domain)
-            if app is None:
-                raise ServiceError(
-                    f"No application is deployed at {app_domain}",
-                    details="Associate the job with a deployed domain, or leave the "
-                    "application empty.",
-                )
+            app = self._known_app(app_domain)
             if service is not None:
                 # Refused now, with the reason, not when the unit is rendered:
                 # the application is not a stack, or Docker is missing.
@@ -672,16 +679,78 @@ class CronManager:
                 f"No application is deployed at {app_domain}",
                 details="Associate the job with a deployed domain.",
             )
+        try:
+            return compose_exec(app, service, self._app_unit_text(app))
+        except ValidationError as exc:
+            raise ServiceError(exc.message, details=exc.details) from exc
+
+    def _known_app(self, app_domain: str) -> App:
+        """
+        Find the application a task is tied to.
+
+        Args:
+            app_domain: Its domain.
+
+        Returns:
+            The application's row.
+
+        Raises:
+            ServiceError: The domain holds no application, or is not safe to write into a unit.
+        """
+        validate_unit_value(app_domain, field="Description")
+        app = get_store().get_app(app_domain)
+        if app is None:
+            raise ServiceError(
+                f"No application is deployed at {app_domain}",
+                details="Associate the job with a deployed domain, or leave the application empty.",
+            )
+        return app
+
+    def _app_unit_text(self, app: App) -> str | None:
+        """
+        Read the text of the unit an application runs as.
+
+        Args:
+            app: The application.
+
+        Returns:
+            The unit file's text; None when Noust manages none for it.
+
+        Raises:
+            ServiceError: The unit is not Noust's.
+            ValidationError: The name is not a safe unit name.
+        """
         from noust.core.appdir.layout import app_root
         from noust.managers.service_manager import ServiceManager
 
+        return ServiceManager(verbose=self.verbose, runner=self._runner).get_service_config(
+            app_root(app).name
+        )
+
+    def _run_environment(self, app_domain: str) -> RunEnvironment:
+        """
+        Work out what a task of an application on this server runs with: what its unit gives it.
+
+        Args:
+            app_domain: The application.
+
+        Returns:
+            Its files and variables, with its own tools first on the ``PATH``.
+
+        Raises:
+            ServiceError: The domain holds no application.
+        """
+        app = self._known_app(app_domain)
         try:
-            unit_text = ServiceManager(
-                verbose=self.verbose, runner=self._runner
-            ).get_service_config(app_root(app).name)
-            return compose_exec(app, service, unit_text)
-        except ValidationError as exc:
-            raise ServiceError(exc.message, details=exc.details) from exc
+            unit_text = self._app_unit_text(app)
+        except (ServiceError, ValidationError) as exc:
+            # The files and the tools do not need the unit; what it sets inline does.
+            self.logger.warning(
+                f"Could not read the unit of {app_domain}, so its task gets the files and tools "
+                f"but not what the unit sets inline: {exc}"
+            )
+            unit_text = None
+        return run_environment(app, unit_text)
 
     # Ownership ------------------------------------------------------------
 
@@ -804,10 +873,18 @@ class CronManager:
             The unit file content, with every interpolated value escaped.
         """
         environment: dict[str, str] = {}
+        environment_files: tuple[Path, ...] = ()
         if job.service:
             context = self._compose_context(job.app_domain or "", job.service)
             argv = [*context.prefix, *self.parse_command(job.command, resolve=False)]
             environment = context.environment
+        elif job.app_domain:
+            # What the application's own unit gives its process, so a task of it runs with its
+            # .env and its virtual environment or pinned runtime (item 150).
+            run = self._run_environment(job.app_domain)
+            argv = self.parse_command(job.command, search_path=run.path)
+            environment = run.variables
+            environment_files = run.environment_files
         else:
             argv = self.parse_command(job.command)
         return self._render(
@@ -822,6 +899,7 @@ class CronManager:
             timeout=str(job.timeout) if job.timeout else "",
             service=job.service or "",
             environment=environment,
+            environment_files=[str(path) for path in environment_files],
         )
 
     # Operations -----------------------------------------------------------
@@ -1172,6 +1250,96 @@ class CronManager:
                     info["last_exit_code"] = None
                 info["last_result"] = properties.get("Result", "") or "unknown"
         return info
+
+    def tasks_without_their_environment(self) -> list[dict[str, Any]]:
+        """
+        Name the tasks of an application that were written before a task loaded its environment.
+
+        A task tied to an application on this server loads the application's ``.env`` (item 150),
+        but a unit that exists changes only when it is written again, which nothing does on its
+        own: an operator may have edited it. This reads the unit files and asks no one.
+
+        Returns:
+            One entry per task, with what writing it again needs: ``name``, ``app_domain``,
+            ``command`` (as typed), ``on_calendar``, ``user``, ``working_directory`` and
+            ``timeout`` (None for none). A task in a service of a stack, one of no application or
+            of an application that is gone, and a unit that is not Noust's are not named.
+        """
+        named: list[dict[str, Any]] = []
+        for timer in sorted(self.SYSTEMD_DIR.glob(f"{UNIT_PREFIX}*.timer")):
+            name = timer.name[len(UNIT_PREFIX) : -len(".timer")]
+            try:
+                self._validate_name(name)
+            except ServiceError:
+                continue
+            if not self._is_owned_unit(name):
+                continue
+            fields = self._read_service_fields(name)
+            if not fields["app_domain"] or fields["service"]:
+                continue
+            app = get_store().get_app(fields["app_domain"])
+            if app is None:
+                continue
+            loaded = self._environment_files_of(name)
+            if str(env_file_for(app)).replace("%", "%%") in loaded:
+                continue
+            named.append(
+                {
+                    "name": name,
+                    "app_domain": fields["app_domain"],
+                    "command": fields["command"],
+                    "on_calendar": self._calendar_of(timer),
+                    "user": fields["user"],
+                    "working_directory": fields["working_directory"],
+                    "timeout": int(fields["timeout"]) if fields["timeout"].isdigit() else None,
+                }
+            )
+        return named
+
+    @staticmethod
+    def _calendar_of(timer: Path) -> str:
+        """
+        Read the schedule a timer unit this module wrote carries.
+
+        Args:
+            timer: The timer unit's path.
+
+        Returns:
+            Its ``OnCalendar`` expression; empty when the unit cannot be read or has none.
+        """
+        try:
+            lines = timer.read_text().split("\n")
+        except OSError:
+            return ""
+        return next(
+            (
+                line[len("OnCalendar=") :].strip()
+                for line in lines
+                if line.startswith("OnCalendar=")
+            ),
+            "",
+        )
+
+    def _environment_files_of(self, name: str) -> list[str]:
+        """
+        Read the files a task's unit loads.
+
+        Args:
+            name: Validated job name.
+
+        Returns:
+            Each ``EnvironmentFile=`` path, without its optional ``-``; empty when the unit cannot
+            be read.
+        """
+        try:
+            content = (self.SYSTEMD_DIR / f"{UNIT_PREFIX}{name}.service").read_text()
+        except OSError:
+            return []
+        return [
+            line[len("EnvironmentFile=") :].strip().removeprefix("-")
+            for line in content.split("\n")
+            if line.startswith("EnvironmentFile=")
+        ]
 
     def _is_owned_unit(self, name: str) -> bool:
         """

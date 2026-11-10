@@ -47,6 +47,7 @@ from pathlib import Path
 from typing import Any, Literal
 from urllib.error import HTTPError, URLError
 
+from noust.core import descriptors
 from noust.core.appdir.layout import app_root
 from noust.core.appdir.releases import Release, ReleaseManager
 from noust.core.config import Config
@@ -1151,6 +1152,13 @@ def _decide(
     disk = facts.get("disk", {})
     oom = facts.get("oom", {})
 
+    if facts.get("descriptors", {}).get("exhausted"):
+        # First: what could not be read says nothing of the application, and every other rule
+        # reads what was.
+        return "degraded", say(
+            "diagnose.cause.descriptors", domain=ctx.domain, command="noust web restart"
+        )
+
     active_state = unit.get("active_state", "")
     sub_state = unit.get("sub_state", "")
     crash_looping = sub_state == "auto-restart" or active_state == "activating"
@@ -1321,6 +1329,8 @@ def diagnose(
 
     checks: list[Check] = []
     facts: dict[str, dict[str, Any]] = {}
+    #: What the first probe that ran out of file descriptors said; empty while none did.
+    ran_out = ""
     from noust.deployers.helpers.php_fpm import is_php_fpm
 
     probes = _PROBES
@@ -1341,8 +1351,15 @@ def diagnose(
         except (NoustError, OSError, ValueError) as exc:
             check = _check(name, "skip", say("diagnose.check.incomplete"), str(exc))
             probe_facts = {}
+            if descriptors.is_exhaustion(exc) and not ran_out:
+                ran_out = str(exc)
         checks.append(check)
         facts[name] = probe_facts
+
+    if ran_out:
+        # The console itself, not the application: say it once, beside the checks it spoiled.
+        checks.append(_check("descriptors", "fail", say("diagnose.descriptors.exhausted"), ran_out))
+        facts["descriptors"] = {"exhausted": True}
 
     if app is not None and could_update_without_downtime(app, store=resolved_store):
         # Not a cause of anything: what an operator who just watched an update

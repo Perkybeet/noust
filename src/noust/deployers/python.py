@@ -12,8 +12,10 @@ from pathlib import Path
 from typing import ClassVar
 
 from noust.core.fs import FileSystem
+from noust.core.package_family import PackageFamily
 from noust.core.runner import CommandRunner
 from noust.deployers.base import BaseDeployer
+from noust.deployers.compiled import install_command_for
 from noust.deployers.registry import DeployerRegistry
 
 #: Directories that hold other people's Python, never the application's: a
@@ -70,7 +72,21 @@ class PythonDeployer(BaseDeployer):
     # See DEFAULT_DETECTION_PRIORITY in interface.py for the full order.
     DETECTION_PRIORITY = 50
 
-    SYSTEM_DEPS: ClassVar[list[str]] = ["python3", "pip3"]
+    #: Not ``pip3``: nothing in a deployment runs the system's pip. The dependencies are installed
+    #: by the pip the virtual environment was seeded with, and :meth:`_toolchain_issues` asks that
+    #: ``python3`` can make one.
+    SYSTEM_DEPS: ClassVar[list[str]] = ["python3"]
+
+    #: What makes ``python3 -m venv`` seed an environment with pip: Debian and Ubuntu split
+    #: ``venv`` and ``ensurepip`` out of ``python3``, and the rpm family keeps the wheels it seeds
+    #: with in the pip package.
+    ENVIRONMENT_PACKAGES: ClassVar[dict[PackageFamily, str]] = {
+        PackageFamily.APT: "python3-venv python3-pip",
+        PackageFamily.DNF: "python3-pip",
+    }
+
+    #: Imports what ``python3 -m venv`` needs to put a pip in a new environment.
+    ENVIRONMENT_PROBE: ClassVar[tuple[str, ...]] = ("python3", "-c", "import ensurepip, venv")
 
     RUNTIME_LANGUAGES: ClassVar[frozenset[str]] = frozenset({"python"})
     PRIMARY_RUNTIME: ClassVar[str | None] = "python"
@@ -100,6 +116,24 @@ class PythonDeployer(BaseDeployer):
         self.use_poetry = False
         self.use_pipenv = False
         self.venv_path: Path = Path()
+
+    def _toolchain_issues(self) -> list[str]:
+        """
+        Ask that ``python3`` can make the virtual environment a deployment installs into.
+
+        Returns:
+            One line when it cannot, with the server's own words and the package that provides
+            it on this server; none when it can.
+        """
+        found = self.runner.run(list(self.ENVIRONMENT_PROBE), timeout=15)
+        if found.success:
+            return []
+        said = (found.stderr or found.stdout).strip().splitlines()
+        line = "python3 cannot make a virtual environment with pip in it"
+        if said:
+            line += f" ({said[-1]})"
+        fix = install_command_for(self.ENVIRONMENT_PACKAGES, self.runner)
+        return [f"{line}. Install it with: {fix}" if fix else line]
 
     def detect(self, path: Path) -> bool:
         """Detect if path contains a Python project."""

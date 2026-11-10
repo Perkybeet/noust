@@ -33,7 +33,12 @@ noust db backup-schedule set --all -e postgresql --exclude-database scratch
 noust db backup-schedule set app_db -e postgresql --exclude-schema audit --exclude-table logs
 noust db backup-schedule set app_db -e mongodb --exclude-table sessions   # a MongoDB collection
 noust db backup-run app_db -e postgresql                                 # now, the way the timer does it
+noust db backup-run app_db -e postgresql --manual                        # now, and the dump is yours to delete
 ```
+
+Retention only ever deletes what a schedule made, here and on a destination. "Back up now" in the
+console and `--manual` take a dump that stays until you delete it. A dump taken that way before
+4.3 was recorded as a scheduled one and cannot be told apart from the rest, so it is left as it is.
 
 An all-databases policy skips the databases that have a policy of their own and the ones it
 excludes. When one database fails the others are still dumped, and the run reports the failure

@@ -34,7 +34,13 @@ from noust.cli.commands.retention_options import KEEP_GB_HELP, add_size, gigabyt
 from noust.cli.commands.timer_options import describe_timer_options, timer_options
 from noust.core.exceptions import NoustError, ValidationError
 from noust.core.logger import Logger
-from noust.managers.database.backups import DatabaseBackups, DumpView, PolicyView
+from noust.managers.database.backups import (
+    ORIGIN_MANUAL,
+    ORIGIN_SCHEDULED,
+    DatabaseBackups,
+    DumpView,
+    PolicyView,
+)
 from noust.managers.database.scope import ALL_DATABASES, Exclusions
 
 
@@ -566,15 +572,25 @@ def remove_schedule(
 @click.option(
     "--all", "everything", is_flag=True, help="Run the policy that covers every database."
 )
+@click.option(
+    "--manual",
+    is_flag=True,
+    help="Keep the dump as one of your own: retention never deletes it. The timer does not "
+    "pass this.",
+)
 @json_option("Print what the run did as JSON.")
 @pass_context
-def backup_run(ctx: Context, database: str | None, engine: str, everything: bool) -> None:
+def backup_run(
+    ctx: Context, database: str | None, engine: str, everything: bool, manual: bool
+) -> None:
     """
     Run a database's backup policy now: dump, check, send, prune.
 
     This is what the policy's timer runs. A failure is announced through the
     notification channels, and the exit status is 1, so the timer's unit shows
-    as failed.
+    as failed. A run you start yourself with --manual keeps its dump until you
+    delete it; without the flag it is a scheduled dump, and retention may
+    delete it in its turn.
     """
     try:
         with _quiet(ctx):
@@ -583,6 +599,7 @@ def backup_run(ctx: Context, database: str | None, engine: str, everything: bool
                 _database_or_all(database, everything),
                 notify=True,
                 on_step=lambda text: ctx.logger.info(text),
+                origin=ORIGIN_MANUAL if manual else ORIGIN_SCHEDULED,
             )
     except NoustError as exc:
         _exit(_fail(ctx.logger, exc))

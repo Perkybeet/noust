@@ -183,6 +183,15 @@ def server(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Any:
     # The hardening checks have their own tests (test_server_security_checks.py);
     # here they must not probe the machine running the suite.
     monkeypatch.setattr(health_module, "run_checks", lambda **_kw: None)
+    # No Noust unit runs on the machine described: its descriptors have their own tests
+    # (test_health_descriptors.py), and the suite's own processes must not be asked about.
+    monkeypatch.setattr(
+        health_module,
+        "_check_descriptors",
+        lambda issues, warnings: health_module.HealthCheck(
+            "File descriptors", "No Noust service is running as a unit", "info"
+        ),
+    )
     # The audit trail's directory exists, as it does on an installed server;
     # the trail's own states are tested in test_health_builds_and_audit.py.
     (tmp_path / "audit-state").mkdir(exist_ok=True)

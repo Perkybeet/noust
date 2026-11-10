@@ -677,6 +677,8 @@ class TestEmailChannel:
         """The event becomes one message through the injected transport."""
         config.set("notifications.enabled", True)
         config.set("notifications.channels.email.enabled", True)
+        # The channel is configured when mail can leave this server (item 137).
+        config.set("monitor.smtp.host", "smtp.example.com")
         opener = CapturingOpener()
         email = FakeEmailNotifier()
 
@@ -702,6 +704,18 @@ class TestEmailChannel:
         config.set("notifications.enabled", True)
         config.set("notifications.channels.email.enabled", True)
         email = FakeEmailNotifier(configured=False)
+
+        Notifier(config, opener=CapturingOpener(), email_notifier=email).notify(make_event())
+
+        assert email.sent == []
+
+    def test_a_channel_on_with_no_server_is_skipped_before_the_transport_is_asked(
+        self, config: Config
+    ) -> None:
+        """Not configured (item 137): the channel is passed over like any other without its URL."""
+        config.set("notifications.enabled", True)
+        config.set("notifications.channels.email.enabled", True)
+        email = FakeEmailNotifier(configured=True)
 
         Notifier(config, opener=CapturingOpener(), email_notifier=email).notify(make_event())
 

@@ -86,7 +86,7 @@ from jinja2 import Environment, TemplateNotFound
 from jinja2 import TemplateError as JinjaTemplateError
 
 from noust.central import require_server_role
-from noust.core import legacy_names, paths
+from noust.core import descriptors, legacy_names, paths
 from noust.core.config import SYSTEMD_DIR
 from noust.core.exceptions import NoustError, ServiceError, TemplateError, ValidationError
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, DryRunFileSystem, FileSystem
@@ -2221,7 +2221,7 @@ class ServiceManager(BaseManager):
 
         try:
             template_obj = self.jinja_env.get_template(f"{template}.service.j2")
-            return template_obj.render(**context)
+            return template_obj.render(service_nofile=descriptors.SERVICE_LIMIT, **context)
         except TemplateNotFound as exc:
             raise TemplateError(f"Template not found: {template}.service.j2") from exc
         except JinjaTemplateError as exc:
