@@ -213,6 +213,34 @@ describe("Confirm it's you, for an account that has no second factor yet (item 1
     expect(backend.callsTo("DELETE /api/apps/shop.example.com")).toHaveLength(2);
   });
 
+  it("asks for the password over itself when the session is old, and is still there, with its action, once it is given", { timeout: 20_000 }, async () => {
+    let asked = 0;
+    const backend = backendOfSomeoneWithoutAFactor({
+      "POST /api/auth/2fa/enroll": (call: RecordedCall) => {
+        asked += 1;
+        return (call.body as { password?: string } | null)?.password === undefined ? problem(403, "identity_proof_required", "Confirm your password to set up a second factor") : json(200, ENROLMENT);
+      },
+    });
+    const { user } = renderConsole("/apps");
+    await screen.findByRole("heading", { level: 1, name: "Applications" });
+    const deletion = api("DELETE", "/api/apps/shop.example.com").catch((error: unknown) => error);
+    const dialog = await screen.findByRole("dialog", { name: "Confirm it's you" });
+    await within(dialog).findByText(/no second factor yet/);
+
+    await user.click(within(dialog).getByRole("button", { name: "Use an authenticator app" }));
+    const proof = await screen.findByRole("dialog", { name: "Confirm your password" });
+    await user.type(within(proof).getByLabelText("Password"), "correct horse");
+    await user.click(within(proof).getByRole("button", { name: "Continue" }));
+
+    // The press inside the second dialog was outside the first, which is not a reason to close it.
+    expect(await within(dialog).findByLabelText("Authentication code")).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Confirm it's you" })).toBeInTheDocument();
+    expect(asked).toBe(2);
+    expect(backend.callsTo("DELETE /api/apps/shop.example.com")).toHaveLength(1);
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await deletion;
+  });
+
   it("can be left: the action is not run and nothing is set up", async () => {
     const backend = backendOfSomeoneWithoutAFactor();
     const { user } = renderConsole("/apps");

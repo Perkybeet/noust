@@ -33,7 +33,8 @@ import { formatCount } from "../../lib/format";
 import { splitErrors } from "../settings/formErrors";
 import { catalogQuery, recordReview, reviewsQuery, statusQuery, trailKeys, verifyQuery } from "./api";
 import { auditActionLabel } from "../activity/data";
-import { RESULTS, actorRoleWords, actorWordsOf, categoryLabel, isFiltered, matches, outcomeView } from "./data";
+import { actorRoleWords, actorWordsOf } from "./actors";
+import { RESULTS, categoryLabel, isFiltered, matches, outcomeView } from "./data";
 import type { AuditSearch } from "./data";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 

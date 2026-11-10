@@ -16,6 +16,7 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { useT } from "../../i18n";
 import { spokenDuration } from "../settings/security";
 import { cancelElevation, resolveElevation, useElevationRequested } from "./elevation";
+import { usePasswordAsked } from "./identityProof";
 import { elevateWithPasskey, passkeysQuery } from "./passkeys";
 import { CeremonyError, browserLimit } from "./webauthn";
 
@@ -107,8 +108,11 @@ export function ElevateDialog() {
     resolveElevation();
   };
 
+  // "Confirm your password" opens over this dialog while a factor is being set up; a press inside it is outside this one.
+  const passwordAsked = usePasswordAsked();
+
   const onOpenChange = (next: boolean): void => {
-    if (next || pending !== null) return;
+    if (next || pending !== null || passwordAsked) return;
     reset();
     cancelElevation();
   };
