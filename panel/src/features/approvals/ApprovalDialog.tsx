@@ -13,7 +13,7 @@ import type { T } from "../../i18n";
 import { roleLabel } from "../settings/accounts/roles";
 import { approvalPolicyQuery, approvalQuery } from "./api";
 import { ApprovalStateLabel } from "./ApprovalStateLabel";
-import { dismiss, giveReason, openInbox, runNow, useApprovalPrompt } from "./store";
+import { dismiss, giveReason, openApprovals, runNow, useApprovalPrompt } from "./store";
 import type { ApprovalPrompt } from "./store";
 
 /** How often the requester's dialog asks whether the request was decided. */
@@ -142,7 +142,7 @@ function RequestedStep({ prompt }: { prompt: Extract<ApprovalPrompt, { kind: "re
             variant="ghost"
             onClick={() => {
               close();
-              openInbox();
+              openApprovals();
             }}
           >
             {t("approvals.dialog.openInbox")}

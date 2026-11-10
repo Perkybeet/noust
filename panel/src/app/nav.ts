@@ -48,7 +48,7 @@ import { REDIRECT_ROWS } from "./redirects";
 import { shown, tabsOf } from "./navCore";
 import type { ConsolePath, Dest, NavContext, Scope, TabItem } from "./navCore";
 
-export { INTERIM, isStaged, tabsOf, withCounts } from "./navCore";
+export { INTERIM, areaLabelKey, isStaged, tabsOf, withCounts } from "./navCore";
 export type { ConsolePath, Dest, Kind, NavContext, Owner, Scope, Strip, TabItem, When } from "./navCore";
 export { APP_TABS } from "../features/nav/app";
 export { FLEET_APPS_SCREENS, FLEET_SERVERS_SCREENS } from "../features/nav/fleet";

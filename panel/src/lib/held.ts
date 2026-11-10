@@ -8,7 +8,7 @@
 import { ApprovalPendingError, ElevationCancelledError } from "../api/errors";
 import { getLocale } from "../app/locale";
 import { toast } from "../components/ui/toast";
-import { openInbox } from "../features/approvals/store";
+import { openApprovals } from "../features/approvals/store";
 import { translate } from "../i18n";
 
 /**
@@ -49,7 +49,7 @@ export function reportHeld(error: unknown): boolean {
   if (held.kind === "waiting") {
     toast.info(translate(locale, "approvals.held.waitingTitle"), {
       description: translate(locale, "approvals.held.waitingDescription"),
-      action: { label: translate(locale, "approvals.held.openApprovals"), onClick: openInbox },
+      action: { label: translate(locale, "approvals.held.openApprovals"), onClick: openApprovals },
     });
   } else if (held.kind === "decided") {
     toast.info(held.detail, held.hint !== null ? { description: held.hint } : {});

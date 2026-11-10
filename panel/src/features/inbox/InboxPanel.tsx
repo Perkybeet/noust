@@ -163,6 +163,11 @@ function RecentList({ t, named }: { t: T; named: boolean }) {
 export interface InboxPanelProps {
   /** Called when the operator follows a link, so the popover or the drawer closes. */
   onNavigate: () => void;
+  /**
+   * The panel is the phone's sheet, which has the room and scrolls by itself: its list is not cut to a height. The popover's is,
+   * and a list cut to a height inside a sheet hid the rest of its lines under a scroll nobody saw (item 144).
+   */
+  sheet?: boolean;
 }
 
 /**
@@ -170,7 +175,7 @@ export interface InboxPanelProps {
  * true, whether or not the console was open when it happened - and "Recent", only what the server
  * said while this tab was open. The history is Activity, one link away, and the panel says so.
  */
-export default function InboxPanel({ onNavigate }: InboxPanelProps): ReactNode {
+export default function InboxPanel({ onNavigate, sheet = false }: InboxPanelProps): ReactNode {
   const t = useT();
   const [view, setView] = useState<View>("needs");
   const { total } = useAttention(true);
@@ -190,7 +195,7 @@ export default function InboxPanel({ onNavigate }: InboxPanelProps): ReactNode {
         />
         {hasFleet ? <p className="text-12 text-fg-muted">{t.rich("inbox.forServer", { name: <Mono key="name">{node ?? t("fleet.selector.thisServer")}</Mono> })}</p> : null}
       </div>
-      <div className="max-h-96 overflow-y-auto border-y border-border scroll-thin">
+      <div className={cx(!sheet && "max-h-96 overflow-y-auto", "border-y border-border scroll-thin")}>
         {view === "needs" ? <NeedsList t={t} onNavigate={onNavigate} /> : <RecentList t={t} named={hasFleet} />}
       </div>
       <div className="flex items-center justify-between gap-3 px-4 text-12 text-fg-muted">

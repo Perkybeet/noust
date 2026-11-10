@@ -7,7 +7,7 @@ import type { QueryClient } from "@tanstack/react-query";
 
 import { configureApi } from "../../api/client";
 import type { AppRouter } from "../../app/router";
-import { askReason, awaitApproval, dismiss, setInboxNavigator } from "../approvals/store";
+import { askReason, awaitApproval, dismiss, setApprovalsNavigator } from "../approvals/store";
 import { cancelElevation, elevate } from "./elevation";
 
 /** Pages outside the console that must never be a place to come back to after signing in. */
@@ -35,7 +35,7 @@ export function safeNext(next: string | undefined | null): string {
  */
 export function installSessionHandling(router: AppRouter, queryClient: QueryClient): () => void {
   let redirecting = false;
-  setInboxNavigator(() => {
+  setApprovalsNavigator(() => {
     void router.navigate({ to: "/settings/approvals" });
   });
   const restore = configureApi({
@@ -58,7 +58,7 @@ export function installSessionHandling(router: AppRouter, queryClient: QueryClie
     },
   });
   return () => {
-    setInboxNavigator(null);
+    setApprovalsNavigator(null);
     restore();
   };
 }

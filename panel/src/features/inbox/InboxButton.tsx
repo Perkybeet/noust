@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Bell } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "../../components/ui/Button";
 import { Drawer } from "../../components/ui/Drawer";
@@ -9,6 +9,7 @@ import { StatusGlyph } from "../../components/ui/StatusPill";
 import { SM_UP, useMediaQuery } from "../../components/ui/useMediaQuery";
 import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
+import { useBellRequests } from "./bell";
 import InboxPanel from "./InboxPanel";
 import { refreshAttention, useAttention } from "./useAttention";
 
@@ -27,6 +28,14 @@ export function InboxButton() {
     setOpenState(next);
     if (next) refreshAttention(queryClient);
   };
+  // Asked from outside (the head of Home's "Needs attention", "See all"): it opens on what needs the operator, as a press would.
+  const requested = useBellRequests();
+  const asked = useRef(requested);
+  useEffect(() => {
+    if (requested === asked.current) return;
+    asked.current = requested;
+    setOpen(true);
+  });
   const { items, total } = useAttention();
   const worst = items[0]?.severity === "fail" ? "failed" : "warning";
   const bell = (
@@ -48,7 +57,7 @@ export function InboxButton() {
       ) : null}
     </Button>
   );
-  const panel = <InboxPanel onNavigate={() => setOpen(false)} />;
+  const panel = <InboxPanel onNavigate={() => setOpen(false)} sheet={!wide} />;
   if (!wide) {
     return (
       <>
