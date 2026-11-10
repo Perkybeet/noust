@@ -39,6 +39,16 @@ SETTINGS_SCHEMA: dict[str, dict[str, Any]] = {
     "/api/notifications/console-url": {"get": {}, "put": {"x-noust-requires-elevation": True}},
 }
 
+#: The kinds of setting a 4.1 or 4.2 node says it can be managed for (``GET /api/managed-settings``).
+KINDS_OF_A_4_2_NODE: tuple[str, ...] = (
+    "channel",
+    "alert_rule",
+    "backup_destination",
+    "registry",
+    "variable",
+    "console_link",
+)
+
 _LISTS = {
     "/api/notifications/channels": ("channel", "items"),
     "/api/alerts/rules": ("alert_rule", "items"),
@@ -100,6 +110,7 @@ class ManagedNode:
     refusals: dict[tuple[str, str], dict[str, Any]] = field(default_factory=dict)
     ceiling: str = "admin"
     unsigned: int = 0
+    kinds: list[str] = field(default_factory=lambda: list(KINDS_OF_A_4_2_NODE))
 
     def __post_init__(self) -> None:
         self.node.schema.update(SETTINGS_SCHEMA)
@@ -141,7 +152,7 @@ class ManagedNode:
         if path == "/api/managed-settings" and method == "GET":
             self.node.requests.append(request)
             return httpx.Response(
-                200, json={"items": list(self.rows.values()), "kinds": ["channel"]}
+                200, json={"items": list(self.rows.values()), "kinds": list(self.kinds)}
             )
         managed = _MANAGED.fullmatch(path)
         if managed and method in ("PUT", "DELETE"):
