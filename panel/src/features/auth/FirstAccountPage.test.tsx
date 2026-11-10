@@ -138,6 +138,8 @@ describe("the first account", () => {
 
     // No screen that asks to sign in again with what was just typed.
     expect(await screen.findByRole("heading", { level: 1, name: "Protect your account" })).toBeInTheDocument();
+    // What leaving it for later costs, said before it is chosen (item 131).
+    expect(screen.getByText(/until you have it you cannot confirm delicate actions/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Sign in as/ })).toBeNull();
     expect(backend.callsTo("POST /api/auth/accounts").map((call) => call.body)).toEqual([{ username: "ana", role: "admin", password: "a long passphrase here" }]);
     expect(backend.callsTo("POST /api/auth/login").map((call) => call.body)).toEqual([{ username: "ana", password: "a long passphrase here", bearer: false }]);

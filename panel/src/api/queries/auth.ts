@@ -93,7 +93,7 @@ export const sessionsQuery = () =>
 
 /** Begins enrolment: a pending secret and its otpauth URI. The only answer carrying the secret. */
 export function enrollTwoFactor() {
-  return request("post", "/api/auth/2fa/enroll");
+  return request("post", "/api/auth/2fa/enroll", { body: null });
 }
 
 /** Activates the second factor with a code from the app; answers the backup codes, once. */

@@ -148,6 +148,168 @@ const NEEDS_ELEVATION = {
   "DELETE /api/apps/shop.example.com": () => problem(403, "elevation_required", "Confirm it's you"),
 };
 
+/** An account whose second factor was left for later: nothing to confirm an action with yet. */
+const WITHOUT_FACTOR = {
+  ...PERSON,
+  totp_enabled: false,
+  elevation_factors: [] as string[],
+  account: { ...PERSON.account, mfa_enabled: false, passkeys: 0, backup_codes_remaining: 0 },
+};
+
+const ENROLMENT = { secret: "JBSWY3DPEHPK3PXP", uri: "otpauth://totp/Noust:dani@web-01?secret=JBSWY3DPEHPK3PXP&issuer=Noust" };
+const BACKUP_CODES = ["abcd2345wx", "efgh6789yz", "jkmn2345pq", "rstu6789vw", "xyza2345bc", "defg6789hj", "kmnp2345rs", "tuvw6789xy"];
+
+describe("Confirm it's you, for an account that has no second factor yet (item 131)", () => {
+  /** The server as an account in that state meets it: the factor can be set up, and then confirms. */
+  function backendOfSomeoneWithoutAFactor(extra: Record<string, (call: RecordedCall) => Response> = {}) {
+    let enrolled = false;
+    let elevated = false;
+    const backend = fakeBackend({
+      ...signedInRoutes(WITHOUT_FACTOR),
+      "GET /api/auth/session": () => json(200, enrolled ? { ...PERSON, elevation_factors: ["totp", "backup_code"], elevated_until: elevated ? UNTIL : null } : WITHOUT_FACTOR),
+      "GET /api/auth/passkeys": () => json(200, { passkeys: [], availability: { supported: false, reason: "insecure_context", detail: "", hint: "" }, allow_synced: true }),
+      "POST /api/auth/2fa/enroll": () => json(200, ENROLMENT),
+      "POST /api/auth/2fa/confirm": () => {
+        enrolled = true;
+        return json(200, { success: true, backup_codes: BACKUP_CODES });
+      },
+      "POST /api/auth/elevate": (call: RecordedCall) => {
+        if ((call.body as { code?: string }).code !== "654321") return problem(401, "invalid_totp", "Invalid two-factor code.");
+        elevated = true;
+        return json(200, { elevated_until: UNTIL });
+      },
+      "DELETE /api/apps/shop.example.com": () => (elevated ? json(202, { job_id: "j1" }) : problem(403, "elevation_required", "Confirm it's you")),
+      ...extra,
+    });
+    return backend;
+  }
+
+  it("says so without blame, sets the factor up in the same dialog and carries on with the action", { timeout: 20_000 }, async () => {
+    const backend = backendOfSomeoneWithoutAFactor();
+    const { user } = renderConsole("/apps");
+    await screen.findByRole("heading", { level: 1, name: "Applications" });
+    const deletion = api("DELETE", "/api/apps/shop.example.com");
+
+    const dialog = await screen.findByRole("dialog", { name: "Confirm it's you" });
+    // Not a field for a code nobody has: what is missing, and that it takes a minute to put right.
+    expect(await within(dialog).findByText(/no second factor yet/)).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText("Authentication code")).toBeNull();
+    await expectNoAxeViolations(dialog);
+
+    await user.click(within(dialog).getByRole("button", { name: "Use an authenticator app" }));
+    await user.type(await within(dialog).findByLabelText("Authentication code"), "123456");
+    await user.click(within(dialog).getByRole("button", { name: "Turn on" }));
+    // The codes are shown once, and the action waits behind them.
+    await user.click(await within(dialog).findByRole("checkbox", { name: "I have saved these codes somewhere safe" }));
+    await user.click(within(dialog).getByRole("button", { name: "Continue" }));
+
+    // The dialog becomes the one every account has, in the same place, and says the factor is on.
+    expect(await within(dialog).findByText(/Your second factor is on/)).toBeInTheDocument();
+    await user.type(within(dialog).getByLabelText("Authentication code"), "654321");
+    await user.click(within(dialog).getByRole("button", { name: "Continue" }));
+
+    await expect(deletion).resolves.toMatchObject({ job_id: "j1" });
+    expect(backend.callsTo("POST /api/auth/2fa/confirm")).toHaveLength(1);
+    expect(backend.callsTo("DELETE /api/apps/shop.example.com")).toHaveLength(2);
+  });
+
+  it("can be left: the action is not run and nothing is set up", async () => {
+    const backend = backendOfSomeoneWithoutAFactor();
+    const { user } = renderConsole("/apps");
+    await screen.findByRole("heading", { level: 1, name: "Applications" });
+    const deletion = api("DELETE", "/api/apps/shop.example.com").catch((error: unknown) => error);
+
+    const dialog = await screen.findByRole("dialog", { name: "Confirm it's you" });
+    await within(dialog).findByText(/no second factor yet/);
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    await expect(deletion).resolves.toBeInstanceOf(ElevationCancelledError);
+    expect(backend.callsTo("POST /api/auth/2fa/enroll")).toHaveLength(0);
+    expect(backend.callsTo("DELETE /api/apps/shop.example.com")).toHaveLength(1);
+  });
+
+  it("says it in Spanish, in the words of a person and not of a rule", async () => {
+    await act(() => setLocale("es"));
+    backendOfSomeoneWithoutAFactor();
+    const { user } = renderConsole("/apps");
+    await screen.findByRole("heading", { level: 1, name: "Aplicaciones" });
+    const deletion = api("DELETE", "/api/apps/shop.example.com").catch((error: unknown) => error);
+
+    const dialog = await screen.findByRole("dialog", { name: "Confirma que eres tú" });
+    expect(await within(dialog).findByText(/todavía no tiene segundo factor/)).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Usar una app de autenticación" })).toBeInTheDocument();
+    await expectNoAxeViolations(dialog);
+    await user.click(within(dialog).getByRole("button", { name: "Cancelar" }));
+    await deletion;
+  });
+});
+
+describe("the password the server asks for before the first factor (item 132)", () => {
+  const ENROL_ENDPOINT = "POST /api/auth/2fa/enroll";
+
+  it("is asked in a dialog, and the call that needed it goes again with it", { timeout: 20_000 }, async () => {
+    let asked = 0;
+    const backend = fakeBackend({
+      ...signedInRoutes(WITHOUT_FACTOR),
+      [ENROL_ENDPOINT]: (call: RecordedCall) => {
+        asked += 1;
+        const body = call.body as { password?: string } | undefined;
+        if (body?.password === undefined) return problem(403, "identity_proof_required", "Confirm your password to set up a second factor");
+        return body.password === "correct horse" ? json(200, ENROLMENT) : problem(401, "invalid_credentials", "Invalid credentials.");
+      },
+    });
+    const { user } = renderConsole("/apps");
+    await screen.findByRole("heading", { level: 1, name: "Applications" });
+    const enrolment = api("POST", "/api/auth/2fa/enroll");
+
+    const dialog = await screen.findByRole("dialog", { name: "Confirm your password" });
+    expect(dialog).toHaveAccessibleDescription(/signed in a while ago/);
+    await expectNoAxeViolations(dialog);
+    await user.type(within(dialog).getByLabelText("Password"), "correct horse");
+    await user.click(within(dialog).getByRole("button", { name: "Continue" }));
+
+    await expect(enrolment).resolves.toMatchObject({ secret: ENROLMENT.secret });
+    expect(asked).toBe(2);
+    expect(backend.callsTo(ENROL_ENDPOINT).map((call) => call.body)).toEqual([undefined, { password: "correct horse" }]);
+  });
+
+  it("is a wrong password the server's answer, and the call is not sent a third time", { timeout: 20_000 }, async () => {
+    const backend = fakeBackend({
+      ...signedInRoutes(WITHOUT_FACTOR),
+      [ENROL_ENDPOINT]: (call: RecordedCall) =>
+        (call.body as { password?: string } | undefined)?.password === undefined
+          ? problem(403, "identity_proof_required", "Confirm your password to set up a second factor")
+          : problem(401, "invalid_credentials", "Invalid credentials."),
+    });
+    const { user } = renderConsole("/apps");
+    await screen.findByRole("heading", { level: 1, name: "Applications" });
+    const enrolment = api("POST", "/api/auth/2fa/enroll").catch((error: unknown) => error);
+
+    const dialog = await screen.findByRole("dialog", { name: "Confirm your password" });
+    await user.type(within(dialog).getByLabelText("Password"), "nope");
+    await user.click(within(dialog).getByRole("button", { name: "Continue" }));
+
+    expect(await enrolment).toMatchObject({ status: 401, error: "invalid_credentials" });
+    expect(backend.callsTo(ENROL_ENDPOINT)).toHaveLength(2);
+  });
+
+  it("can be declined: the call fails as a confirmation declined does, and nothing is sent again", async () => {
+    const backend = fakeBackend({
+      ...signedInRoutes(WITHOUT_FACTOR),
+      [ENROL_ENDPOINT]: () => problem(403, "identity_proof_required", "Confirm your password to set up a second factor"),
+    });
+    const { user } = renderConsole("/apps");
+    await screen.findByRole("heading", { level: 1, name: "Applications" });
+    const enrolment = api("POST", "/api/auth/2fa/enroll").catch((error: unknown) => error);
+
+    const dialog = await screen.findByRole("dialog", { name: "Confirm your password" });
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    expect(await enrolment).toBeInstanceOf(ElevationCancelledError);
+    expect(backend.callsTo(ENROL_ENDPOINT)).toHaveLength(1);
+  });
+});
+
 /** The server asks for the password again: `auth.sudo.require_password`, and always under ENS. */
 const PERSON_WITH_PASSWORD = { ...PERSON, elevation_requires_password: true };
 

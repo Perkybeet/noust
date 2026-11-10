@@ -288,6 +288,51 @@ describe("api", () => {
     });
   });
 
+  describe("a first second factor asked for from an old session (item 132)", () => {
+    const refusal = () => problem(403, "identity_proof_required", "Confirm your password to set up a second factor");
+
+    it("asks for the password once and sends the same call again with it in the body", async () => {
+      const identityProof = vi.fn(() => Promise.resolve("correct horse"));
+      configureApi({ identityProof });
+      const backend = fakeBackend({
+        "POST /api/auth/2fa/enroll": (call) => ((call.body as { password?: string } | null)?.password === undefined ? refusal() : json(200, { secret: "S" })),
+      });
+
+      await expect(api("POST", "/api/auth/2fa/enroll")).resolves.toEqual({ secret: "S" });
+
+      expect(identityProof).toHaveBeenCalledTimes(1);
+      expect(backend.calls.map((call) => call.body)).toEqual([undefined, { password: "correct horse" }]);
+    });
+
+    it("keeps what the call already carried, and does not ask a second time when the password is refused", async () => {
+      const identityProof = vi.fn(() => Promise.resolve("wrong"));
+      configureApi({ identityProof });
+      const backend = fakeBackend({
+        "POST /api/auth/passkeys/registration/options": (call) =>
+          (call.body as { password?: string } | null)?.password === undefined ? refusal() : problem(401, "invalid_credentials", "Invalid credentials."),
+      });
+
+      await expect(api("POST", "/api/auth/passkeys/registration/options", { name: "laptop" })).rejects.toMatchObject({ status: 401, error: "invalid_credentials" });
+
+      expect(identityProof).toHaveBeenCalledTimes(1);
+      expect(backend.calls.map((call) => call.body)).toEqual([{ name: "laptop" }, { name: "laptop", password: "wrong" }]);
+    });
+
+    it("surfaces the refusal as a cancelled confirmation when the person declines", async () => {
+      configureApi({ identityProof: () => Promise.reject(new ElevationCancelledError("identity_proof_cancelled")) });
+      const backend = fakeBackend({ "POST /api/auth/2fa/enroll": refusal });
+
+      await expect(api("POST", "/api/auth/2fa/enroll")).rejects.toBeInstanceOf(ElevationCancelledError);
+      expect(backend.calls).toHaveLength(1);
+    });
+
+    it("declines by itself where nothing is installed to ask, as a confirmation does", async () => {
+      fakeBackend({ "POST /api/auth/2fa/enroll": refusal });
+
+      await expect(api("POST", "/api/auth/2fa/enroll")).rejects.toBeInstanceOf(ElevationCancelledError);
+    });
+  });
+
   describe("an action that needs elevation", () => {
     const refusal = () =>
       problem(403, "elevation_required", "Confirm it's you to continue", {
