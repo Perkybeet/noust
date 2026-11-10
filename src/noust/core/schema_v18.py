@@ -34,58 +34,58 @@ __all__ = ["VERSION", "apply_v18", "incomplete"]
 #: The schema version this module defines.
 VERSION = 18
 
-# Owned by the states lane (W1-ESTADOS): what a first deployment that failed leaves behind for its
+# Owned by the states lane: what a first deployment that failed leaves behind for its
 # domain (item 141), only if the job the console already keeps does not carry it.
 DEPLOYS_SQL = ""
 DEPLOYS_COLUMNS: list[Column] = []
 
-# Owned by the dates lane (W1-FECHAS): when the registration of a domain expires, read from its
-# registry and off until the operator turns it on (item D3, the domain's half).
+# Owned by the dates lane: when the registration of a domain expires, read from its
+# registry and off until the operator turns it on (item 173).
 DOMAINS_SQL = ""
 DOMAINS_COLUMNS: list[Column] = []
 
-# Owned by the functions lane (W2-FUNCIONES): the tasks that run once and retire themselves
+# Owned by the functions lane: the tasks that run once and retire themselves
 # (item 164).
 TASKS_SQL = ""
 TASKS_COLUMNS: list[Column] = []
 
-# Owned by the settings lane (W2-AJUSTES): what a server follows of its central and which
+# Owned by the settings lane: what a server follows of its central and which
 # servers keep their own, decided on the server's own page and off by default (item 166).
 FLEET_SQL = ""
 FLEET_COLUMNS: list[Column] = []
 
-# Owned by the verdict lane (W3-VEREDICTO): what each release measured in the first two hours,
-# in windows of a minute, and the verdict against the one before (item A1).
+# Owned by the verdict lane: what each release measured in the first two hours,
+# in windows of a minute, and the verdict against the one before (item 176).
 RELEASES_SQL = ""
 RELEASES_COLUMNS: list[Column] = []
 
-# Owned by the sleep lane (W3-DORMIR): which applications sleep when nobody visits them, and the
-# state of each (item A2).
+# Owned by the sleep lane: which applications sleep when nobody visits them, and the
+# state of each (item 177).
 SLEEP_SQL = ""
 SLEEP_COLUMNS: list[Column] = []
 
-# Owned by the copies lane (W3-COPIAS): what a backup destination was found able to do with a file
-# it was given (delete it, overwrite it) and the space its retention could not free (item C1).
+# Owned by the copies lane: what a backup destination was found able to do with a file
+# it was given (delete it, overwrite it) and the space its retention could not free (item 180).
 BACKUPS_SQL = ""
 BACKUPS_COLUMNS: list[Column] = []
 
-# Owned by the clients lane (W3-CLIENTES), first of its two areas: the maintenance window of an
-# application, with the end it cannot be without (item D2).
+# Owned by the clients lane, first of its two areas: the maintenance window of an
+# application, with the end it cannot be without (item 181).
 MAINTENANCE_SQL = ""
 MAINTENANCE_COLUMNS: list[Column] = []
 
-# Owned by the clients lane (W3-CLIENTES), second of its two areas: the monthly record of a project,
-# kept apart because the deployments it summarises are purged to the last 20 (item F1).
+# Owned by the clients lane, second of its two areas: the monthly record of a project,
+# kept apart because the deployments it summarises are purged to the last 20 (item 182).
 REPORTS_SQL = ""
 REPORTS_COLUMNS: list[Column] = []
 
-# Owned by the policy lane (W4-POLITICA): what each credential that is not a person may do, in which
-# environment, and what it did (items H1 and H3).
+# Owned by the policy lane: what each credential that is not a person may do, in which
+# environment, and what it did (items 184 and 185).
 AGENTS_SQL = ""
 AGENTS_COLUMNS: list[Column] = []
 
-# Owned by the assistant's base lane (W4-BASE): the optional assistant's settings, its provider and
-# the limits it runs under (item H4).
+# Owned by the assistant's base lane: the optional assistant's settings, its provider and
+# the limits it runs under (item 171).
 ASSISTANT_SQL = ""
 ASSISTANT_COLUMNS: list[Column] = []
 
