@@ -6,7 +6,11 @@ Part of [Security](security.md).
 hashed with scrypt from the standard library, with fixed, versioned parameters; the shortest
 accepted is `auth.password.min_length` (12; 14 under the ENS profile). Every account enrols a
 second factor, an authenticator app (TOTP) or a passkey, at its first sign-in and can do nothing
-else until it has. Accounts are created with `noust user create` (password at a hidden prompt or
+else until it has. Setting up the first factor asks for a recent proof of who is asking: the
+session signed in (by password or through an identity provider) at most ten minutes ago, or the
+account's password given with the request (`password` in the body of `POST /api/auth/2fa/enroll`
+and of the options of a first passkey); an account with no password signs in again. A cookie left
+in an old session therefore cannot bind an authenticator of its own. Accounts are created with `noust user create` (password at a hidden prompt or
 with `--stdin`, never in argv) or by a one-use invitation (`noust user invite`, valid 24 hours by
 default; only its digest is stored), which is also how a person who lost their authenticator
 gets back in. Disabling an account ends its sessions and tokens at once. Each account's TOTP

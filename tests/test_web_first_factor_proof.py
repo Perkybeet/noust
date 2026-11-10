@@ -83,6 +83,20 @@ class TestAFreshSignIn:
         confirmed = post(client, csrf, CONFIRM, code=totp.totp_now(enrolment.json()["secret"]))
         assert confirmed.status_code == 200, confirmed.text
 
+    def test_a_null_body_is_no_body_which_is_how_the_console_asks(
+        self, sandbox: Path, later: Later
+    ) -> None:
+        client = build(sandbox)
+        csrf = signed_in_without_a_factor(client)
+
+        enrolment = client.post(
+            ENROLL,
+            content="null",
+            headers={CSRF_HEADER_NAME: csrf, "Content-Type": "application/json"},
+        )
+
+        assert enrolment.status_code == 200, enrolment.text
+
     def test_it_asks_for_nothing_when_no_body_is_sent_as_before(
         self, sandbox: Path, later: Later
     ) -> None:
