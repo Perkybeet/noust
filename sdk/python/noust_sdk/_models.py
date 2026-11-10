@@ -526,6 +526,7 @@ AppInfo = TypedDict("AppInfo", {
     "preview_parent": NotRequired[Union[str, None]],
     "project": NotRequired[Union[str, None]],
     "run_as": NotRequired[Union[str, None]],
+    "serving_port": NotRequired[Union[int, None]],
     "source": NotRequired[Union[str, None]],
     "start_command": NotRequired[Union[str, None]],
     "status": Required[str],

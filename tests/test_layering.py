@@ -149,7 +149,7 @@ OVERSIZE_MODULES = {
     "noust.managers.service_manager": 3412,
     "noust.managers.source_manager": 4319,
     "noust.managers.webserver": 3710,
-    "noust.web.api.apps": 3436,
+    "noust.web.api.apps": 3378,
     "noust.web.jobs": 3290,
 }
 

@@ -33520,6 +33520,8 @@ export interface components {
          *         pid: Main PID when running.
          *         uptime: How long the unit has been up.
          *         port: Upstream port.
+         *         serving_port: The port that answers now: the serving instance's in zero-downtime
+         *             mode (green is on the port after the record's), ``port`` otherwise.
          *         app_type: Deployer that owns it.
          *         path: Application directory.
          *         source: Git URL or local path it was deployed from.
@@ -33622,6 +33624,8 @@ export interface components {
             project?: string | null;
             /** Run As */
             run_as?: string | null;
+            /** Serving Port */
+            serving_port?: number | null;
             /** Source */
             source?: string | null;
             /** Start Command */
