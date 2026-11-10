@@ -106,9 +106,12 @@ class TestTheKindsAndWhatIsSet:
             "registry",
             "variable",
             "console_link",
+            "policy",
         ]
         assert kinds["channel"]["permission"] == "settings.manage"
         assert "PUT /api/notifications/channels/{name}" in kinds["channel"]["operations"]
+        assert kinds["policy"]["permission"] == "settings.manage"
+        assert kinds["policy"]["operations"] == ["GET /api/config/policy", "PUT /api/config/policy"]
         for key in ("secret_manager", "dns_provider", "source_integration"):
             assert kinds[key]["available"] is False
             assert kinds[key]["reason"]["code"] == "fleet_settings.kind_not_yet"

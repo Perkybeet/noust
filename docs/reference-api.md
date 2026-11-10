@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-1144 operations.
+1146 operations.
 
 ## Access
 
@@ -420,6 +420,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | PUT | `/api/config/notifications/telegram` | Update Telegram Config | `settings.manage` | yes |  |
 | POST | `/api/config/notifications/telegram/chats` | List Telegram Chats | `settings.manage` |  |  |
 | POST | `/api/config/notifications/{channel}/test` | Test Notification Channel | `apps.operate` |  |  |
+| GET | `/api/config/policy` | Get Policy | `settings.read` |  |  |
+| PUT | `/api/config/policy` | Update Policy | `settings.manage` | yes |  |
 | POST | `/api/config/reload` | Reload Config | `settings.manage` |  |  |
 | GET | `/api/config/smtp` | Get Smtp Config | `settings.read` |  |  |
 | PUT | `/api/config/smtp` | Update Smtp Config | `settings.manage` | yes |  |

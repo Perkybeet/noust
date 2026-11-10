@@ -4165,12 +4165,14 @@ FleetSettingsAppliedOut = TypedDict("FleetSettingsAppliedOut", {
 FleetSettingsApplyIn = TypedDict("FleetSettingsApplyIn", {
     "adopt": NotRequired[bool],
     "nodes": NotRequired[list[str]],
+    "only": NotRequired[list[str]],
     "plan": NotRequired[bool],
     "restore": NotRequired[list[str]],
     "restore_all": NotRequired[bool],
 })
 
 FleetSettingsModeIn = TypedDict("FleetSettingsModeIn", {
+    "adopt": NotRequired[bool],
     "mode": Required[str],
 })
 
@@ -8758,6 +8760,21 @@ ServerKeyResponse = TypedDict("ServerKeyResponse", {
 ServerListResponse = TypedDict("ServerListResponse", {
     "problems": NotRequired[list["ListingProblemResponse"]],
     "servers": Required[list["ServerResponse"]],
+})
+
+ServerPolicyConfig = TypedDict("ServerPolicyConfig", {
+    "backup_max_per_app": Required[int],
+    "delivery_max_minutes": Required[int],
+    "ssl_email": Required[str],
+    "updates_check": Required[bool],
+})
+
+ServerPolicyResponse = TypedDict("ServerPolicyResponse", {
+    "backup_max_per_app": Required[int],
+    "customized": Required[bool],
+    "delivery_max_minutes": Required[int],
+    "ssl_email": Required[str],
+    "updates_check": Required[bool],
 })
 
 ServerResponse = TypedDict("ServerResponse", {

@@ -12119,6 +12119,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/config/policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Policy
+         * @description Get this server's policy.
+         *
+         *     Args:
+         *         session: Authenticated session, injected by the dependency.
+         *
+         *     Returns:
+         *         The four fields, read the way the server itself reads each key, and whether its operator
+         *         chose any of them.
+         */
+        get: operations["get_policy_api_config_policy_get"];
+        /**
+         * Update Policy
+         * @description Set this server's policy: the four fields are written together, and nothing else.
+         *
+         *     A value out of range is refused as a whole, with the words of the key that refused it, before
+         *     anything is written. The queue obeys the new time limit from its next look, with no restart.
+         *
+         *     Args:
+         *         body: The four fields.
+         *         request: The incoming request, for the audit record.
+         *         session: Authenticated session, injected by the dependency.
+         *
+         *     Returns:
+         *         Confirmation message.
+         *
+         *     Raises:
+         *         ConfigError: 400 when a key refuses its value.
+         *         HTTPException: If the configuration cannot be written.
+         */
+        put: operations["update_policy_api_config_policy_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/config/reload": {
         parameters: {
             query?: never;
@@ -19811,18 +19857,22 @@ export interface paths {
          * @description Make a server follow the fleet's settings, or leave it out of them.
          *
          *     An independent server is pushed nothing and is let go of what it had (it keeps it, as its own);
-         *     it still appears in every fleet view. A server that follows them again is applied everything.
+         *     it still appears in every fleet view. A server that follows them again is applied everything:
+         *     what it does not have is created, and what it kept under a name of the fleet's is a conflict
+         *     unless ``adopt`` says to take it over. The status says beforehand what each setting would
+         *     bring (``if_followed``), so the person deciding knows what will change.
          *
          *     Args:
          *         node: The server.
-         *         body: The mode.
+         *         body: The mode, and whether to take over what the server kept.
          *         session: The elevated session.
          *
          *     Returns:
          *         The mode and the job that settles it.
          *
          *     Raises:
-         *         ValidationError: 400 for a mode that is not one, or a server that is not in the fleet.
+         *         ValidationError: 400 for a mode that is not one, a server that is not in the fleet, or
+         *             ``adopt`` asked of a server that is leaving.
          */
         put: operations["set_mode_api_fleet_servers__node__settings_mode_put"];
         post?: never;
@@ -19910,8 +19960,11 @@ export interface paths {
          *     it), ``unsupported`` or ``failed`` with the server's own words. Poll it with
          *     ``GET /api/fleet/jobs/{id}``.
          *
+         *     ``only`` limits it to some settings (``["channel/ops"]``): nothing else is pushed, left or let
+         *     go of, so "apply this one" is one call and the rest stays for the next.
+         *
          *     Args:
-         *         body: The servers, and what to do about conflicts and changed settings.
+         *         body: The servers, what to do about conflicts and changed settings, and ``only``.
          *         request: The request.
          *         session: The authenticated session.
          *
@@ -19922,6 +19975,8 @@ export interface paths {
          *         ValidationError: An unknown server or option, or no server to apply to.
          *         HTTPException: 403 ``elevation_required`` for ``adopt``, ``restore`` and ``restore_all``
          *             without sudo mode: they take over what a server has or undo what its operator did.
+         *             422 naming ``only`` for an entry that is not a setting of a kind the fleet manages,
+         *             or that the fleet does not have.
          */
         post: operations["apply_settings_api_fleet_settings_apply_post"];
         delete?: never;
@@ -44991,6 +45046,9 @@ export interface components {
          *         adopt: Take over a setting a server already has that is not the fleet's.
          *         restore: ``kind/name`` to put back where a server's operator changed it.
          *         restore_all: Put back every one of them.
+         *         only: ``kind/name`` of the only settings to apply, such as ``["channel/ops"]``; every
+         *             setting when empty. Each must be a kind the fleet manages, with a name that kind
+         *             accepts, and a setting the fleet has (its own value or an exception).
          *         plan: Only say what would run.
          */
         FleetSettingsApplyIn: {
@@ -45001,6 +45059,8 @@ export interface components {
             adopt: boolean;
             /** Nodes */
             nodes?: string[];
+            /** Only */
+            only?: string[];
             /**
              * Plan
              * @default false
@@ -45020,8 +45080,16 @@ export interface components {
          *
          *     Attributes:
          *         mode: ``managed`` (it follows them) or ``independent`` (it is left out).
+         *         adopt: Only with ``managed``: when it follows them again, take over the settings it kept
+         *             as its own under the fleet's names, instead of leaving each as a conflict. What it
+         *             would be given is in the status (``if_followed``) before this is asked.
          */
         FleetSettingsModeIn: {
+            /**
+             * Adopt
+             * @default false
+             */
+            adopt: boolean;
             /** Mode */
             mode: string;
         };
@@ -59230,6 +59298,64 @@ export interface components {
             problems?: components["schemas"]["ListingProblemResponse"][];
             /** Servers */
             servers: components["schemas"]["ServerResponse"][];
+        };
+        /**
+         * ServerPolicyConfig
+         * @description The four settings of a server's policy.
+         */
+        ServerPolicyConfig: {
+            /**
+             * Backup Max Per App
+             * @description How many backups are kept of each application
+             */
+            backup_max_per_app: number;
+            /**
+             * Delivery Max Minutes
+             * @description The longest a deployment may build, in minutes; 0 is no limit
+             */
+            delivery_max_minutes: number;
+            /**
+             * Ssl Email
+             * @description Where certificate notices are sent; empty for nowhere
+             */
+            ssl_email: string;
+            /**
+             * Updates Check
+             * @description Whether this server asks for new releases
+             */
+            updates_check: boolean;
+        };
+        /**
+         * ServerPolicyResponse
+         * @description A server's policy and whether anybody chose it.
+         *
+         *     Attributes:
+         *         customized: Some field is something other than what the server does of itself: its own
+         *             operator chose it, so a central that sets the policy asks before taking it over.
+         */
+        ServerPolicyResponse: {
+            /**
+             * Backup Max Per App
+             * @description How many backups are kept of each application
+             */
+            backup_max_per_app: number;
+            /** Customized */
+            customized: boolean;
+            /**
+             * Delivery Max Minutes
+             * @description The longest a deployment may build, in minutes; 0 is no limit
+             */
+            delivery_max_minutes: number;
+            /**
+             * Ssl Email
+             * @description Where certificate notices are sent; empty for nowhere
+             */
+            ssl_email: string;
+            /**
+             * Updates Check
+             * @description Whether this server asks for new releases
+             */
+            updates_check: boolean;
         };
         /**
          * ServerResponse
@@ -82288,6 +82414,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NotificationTestResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_policy_api_config_policy_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServerPolicyResponse"];
+                };
+            };
+        };
+    };
+    update_policy_api_config_policy_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServerPolicyConfig"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
                 };
             };
             /** @description Validation Error */

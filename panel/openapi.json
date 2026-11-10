@@ -24358,7 +24358,7 @@
         "type": "object"
       },
       "FleetSettingsApplyIn": {
-        "description": "Apply the fleet's settings to the servers.\n\nAttributes:\n    nodes: The servers; every one when empty.\n    adopt: Take over a setting a server already has that is not the fleet's.\n    restore: ``kind/name`` to put back where a server's operator changed it.\n    restore_all: Put back every one of them.\n    plan: Only say what would run.",
+        "description": "Apply the fleet's settings to the servers.\n\nAttributes:\n    nodes: The servers; every one when empty.\n    adopt: Take over a setting a server already has that is not the fleet's.\n    restore: ``kind/name`` to put back where a server's operator changed it.\n    restore_all: Put back every one of them.\n    only: ``kind/name`` of the only settings to apply, such as ``[\"channel/ops\"]``; every\n        setting when empty. Each must be a kind the fleet manages, with a name that kind\n        accepts, and a setting the fleet has (its own value or an exception).\n    plan: Only say what would run.",
         "properties": {
           "adopt": {
             "default": false,
@@ -24370,6 +24370,13 @@
               "type": "string"
             },
             "title": "Nodes",
+            "type": "array"
+          },
+          "only": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Only",
             "type": "array"
           },
           "plan": {
@@ -24394,8 +24401,13 @@
         "type": "object"
       },
       "FleetSettingsModeIn": {
-        "description": "How a server follows the fleet's settings.\n\nAttributes:\n    mode: ``managed`` (it follows them) or ``independent`` (it is left out).",
+        "description": "How a server follows the fleet's settings.\n\nAttributes:\n    mode: ``managed`` (it follows them) or ``independent`` (it is left out).\n    adopt: Only with ``managed``: when it follows them again, take over the settings it kept\n        as its own under the fleet's names, instead of leaving each as a conflict. What it\n        would be given is in the status (``if_followed``) before this is asked.",
         "properties": {
+          "adopt": {
+            "default": false,
+            "title": "Adopt",
+            "type": "boolean"
+          },
           "mode": {
             "title": "Mode",
             "type": "string"
@@ -50909,6 +50921,77 @@
           "servers"
         ],
         "title": "ServerListResponse",
+        "type": "object"
+      },
+      "ServerPolicyConfig": {
+        "description": "The four settings of a server's policy.",
+        "properties": {
+          "backup_max_per_app": {
+            "description": "How many backups are kept of each application",
+            "title": "Backup Max Per App",
+            "type": "integer"
+          },
+          "delivery_max_minutes": {
+            "description": "The longest a deployment may build, in minutes; 0 is no limit",
+            "title": "Delivery Max Minutes",
+            "type": "integer"
+          },
+          "ssl_email": {
+            "description": "Where certificate notices are sent; empty for nowhere",
+            "title": "Ssl Email",
+            "type": "string"
+          },
+          "updates_check": {
+            "description": "Whether this server asks for new releases",
+            "title": "Updates Check",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "updates_check",
+          "ssl_email",
+          "backup_max_per_app",
+          "delivery_max_minutes"
+        ],
+        "title": "ServerPolicyConfig",
+        "type": "object"
+      },
+      "ServerPolicyResponse": {
+        "description": "A server's policy and whether anybody chose it.\n\nAttributes:\n    customized: Some field is something other than what the server does of itself: its own\n        operator chose it, so a central that sets the policy asks before taking it over.",
+        "properties": {
+          "backup_max_per_app": {
+            "description": "How many backups are kept of each application",
+            "title": "Backup Max Per App",
+            "type": "integer"
+          },
+          "customized": {
+            "title": "Customized",
+            "type": "boolean"
+          },
+          "delivery_max_minutes": {
+            "description": "The longest a deployment may build, in minutes; 0 is no limit",
+            "title": "Delivery Max Minutes",
+            "type": "integer"
+          },
+          "ssl_email": {
+            "description": "Where certificate notices are sent; empty for nowhere",
+            "title": "Ssl Email",
+            "type": "string"
+          },
+          "updates_check": {
+            "description": "Whether this server asks for new releases",
+            "title": "Updates Check",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "updates_check",
+          "ssl_email",
+          "backup_max_per_app",
+          "delivery_max_minutes",
+          "customized"
+        ],
+        "title": "ServerPolicyResponse",
         "type": "object"
       },
       "ServerResponse": {
@@ -89563,6 +89646,71 @@
         "x-noust-permission": "apps.operate"
       }
     },
+    "/api/config/policy": {
+      "get": {
+        "description": "Get this server's policy.\n\nArgs:\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    The four fields, read the way the server itself reads each key, and whether its operator\n    chose any of them.",
+        "operationId": "get_policy_api_config_policy_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerPolicyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Policy",
+        "tags": [
+          "Configuration"
+        ],
+        "x-noust-permission": "settings.read"
+      },
+      "put": {
+        "description": "Set this server's policy: the four fields are written together, and nothing else.\n\nA value out of range is refused as a whole, with the words of the key that refused it, before\nanything is written. The queue obeys the new time limit from its next look, with no restart.\n\nArgs:\n    body: The four fields.\n    request: The incoming request, for the audit record.\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    Confirmation message.\n\nRaises:\n    ConfigError: 400 when a key refuses its value.\n    HTTPException: If the configuration cannot be written.",
+        "operationId": "update_policy_api_config_policy_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServerPolicyConfig"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Policy",
+        "tags": [
+          "Configuration"
+        ],
+        "x-noust-permission": "settings.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/config/reload": {
       "post": {
         "description": "Reload configuration from disk.\n\nArgs:\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    The redacted configuration and the path it came from.",
@@ -103628,7 +103776,7 @@
     },
     "/api/fleet/servers/{node}/settings-mode": {
       "put": {
-        "description": "Make a server follow the fleet's settings, or leave it out of them.\n\nAn independent server is pushed nothing and is let go of what it had (it keeps it, as its own);\nit still appears in every fleet view. A server that follows them again is applied everything.\n\nArgs:\n    node: The server.\n    body: The mode.\n    session: The elevated session.\n\nReturns:\n    The mode and the job that settles it.\n\nRaises:\n    ValidationError: 400 for a mode that is not one, or a server that is not in the fleet.",
+        "description": "Make a server follow the fleet's settings, or leave it out of them.\n\nAn independent server is pushed nothing and is let go of what it had (it keeps it, as its own);\nit still appears in every fleet view. A server that follows them again is applied everything:\nwhat it does not have is created, and what it kept under a name of the fleet's is a conflict\nunless ``adopt`` says to take it over. The status says beforehand what each setting would\nbring (``if_followed``), so the person deciding knows what will change.\n\nArgs:\n    node: The server.\n    body: The mode, and whether to take over what the server kept.\n    session: The elevated session.\n\nReturns:\n    The mode and the job that settles it.\n\nRaises:\n    ValidationError: 400 for a mode that is not one, a server that is not in the fleet, or\n        ``adopt`` asked of a server that is leaving.",
         "operationId": "set_mode_api_fleet_servers__node__settings_mode_put",
         "parameters": [
           {
@@ -103769,7 +103917,7 @@
     },
     "/api/fleet/settings/apply": {
       "post": {
-        "description": "Apply the fleet's settings to the servers: \"Apply to the fleet\".\n\nA bulk action like the others: a plan first (which servers run, which are skipped and why),\nbatches, and a record per server with each setting's result - ``created``, ``updated``,\n``in_sync``, ``overridden`` (its operator changed it; left unless asked), ``restored``,\n``released``, ``conflict`` (it exists there and is not the fleet's; left unless asked to adopt\nit), ``unsupported`` or ``failed`` with the server's own words. Poll it with\n``GET /api/fleet/jobs/{id}``.\n\nArgs:\n    body: The servers, and what to do about conflicts and changed settings.\n    request: The request.\n    session: The authenticated session.\n\nReturns:\n    ``plan`` and, unless only planning, ``job``.\n\nRaises:\n    ValidationError: An unknown server or option, or no server to apply to.\n    HTTPException: 403 ``elevation_required`` for ``adopt``, ``restore`` and ``restore_all``\n        without sudo mode: they take over what a server has or undo what its operator did.",
+        "description": "Apply the fleet's settings to the servers: \"Apply to the fleet\".\n\nA bulk action like the others: a plan first (which servers run, which are skipped and why),\nbatches, and a record per server with each setting's result - ``created``, ``updated``,\n``in_sync``, ``overridden`` (its operator changed it; left unless asked), ``restored``,\n``released``, ``conflict`` (it exists there and is not the fleet's; left unless asked to adopt\nit), ``unsupported`` or ``failed`` with the server's own words. Poll it with\n``GET /api/fleet/jobs/{id}``.\n\n``only`` limits it to some settings (``[\"channel/ops\"]``): nothing else is pushed, left or let\ngo of, so \"apply this one\" is one call and the rest stays for the next.\n\nArgs:\n    body: The servers, what to do about conflicts and changed settings, and ``only``.\n    request: The request.\n    session: The authenticated session.\n\nReturns:\n    ``plan`` and, unless only planning, ``job``.\n\nRaises:\n    ValidationError: An unknown server or option, or no server to apply to.\n    HTTPException: 403 ``elevation_required`` for ``adopt``, ``restore`` and ``restore_all``\n        without sudo mode: they take over what a server has or undo what its operator did.\n        422 naming ``only`` for an entry that is not a setting of a kind the fleet manages,\n        or that the fleet does not have.",
         "operationId": "apply_settings_api_fleet_settings_apply_post",
         "requestBody": {
           "content": {
