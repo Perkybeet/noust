@@ -197,10 +197,22 @@ class TestStrictReadOnly:
             ["node", "--version"],
             ["dnf", "--cacheonly", "info", "--available", "noust"],
             ["openssl", "enc", "-d", "-aes-256-cbc", "-pass", "env:K", "-a", "-A"],
+            ["python3", "-c", "import ensurepip, venv"],
         ],
     )
     def test_these_only_look(self, argv: list[str]) -> None:
         assert is_read_only(argv)
+
+    @pytest.mark.parametrize(
+        "argv",
+        [
+            ["python3", "-c", "import os; os.remove('/etc/passwd')"],
+            ["python3", "-c", "import ensurepip, venv; import os"],
+            ["python3", "-m", "venv", "/x"],
+        ],
+    )
+    def test_python_only_looks_when_it_is_the_one_declared_probe(self, argv: list[str]) -> None:
+        assert not is_read_only(argv)
 
     def test_a_managers_own_declarations_count(self) -> None:
         from noust.managers.server.probes import READ_ONLY_PROBES
