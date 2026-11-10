@@ -9,7 +9,7 @@ import { Sections } from "../../components/page/Section";
 import { Button, buttonClassName } from "../../components/ui/Button";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { HelpPopover } from "../../components/ui/HelpPopover";
-import { LG_UP, useMediaQuery } from "../../components/ui/useMediaQuery";
+import { COARSE_POINTER, LG_UP, useMediaQuery } from "../../components/ui/useMediaQuery";
 import { ICONS } from "../../components/ui/icons";
 import { OBJECT_ICONS, VERB_ICONS } from "../../components/ui/objectIcons";
 import { faceFor, newPlaced } from "../../components/widgets/catalog";
@@ -111,6 +111,8 @@ function PanelView({ panel, panels, customising }: { panel: Panel; panels: Panel
   const t = useT();
   const can = useCan();
   const phone = !useMediaQuery(LG_UP);
+  // A finger lifts a widget by holding it, and says so: there is no pointer to take hold of its handle with.
+  const touch = useMediaQuery(COARSE_POINTER);
   const home = useScopedHome(panel.scope);
   // What is being arranged is kept here as the person moves it: the order the board works with is the one they made,
   // and not the one the stored document reads back as (a narrow widget may sit above a wide one it comes after).
@@ -121,7 +123,7 @@ function PanelView({ panel, panels, customising }: { panel: Panel; panels: Panel
     panels.save(panel, next);
   };
   const faceOf = useMemo(() => faceFor(t, panel.scope), [t, panel.scope]);
-  const board = useWidgetBoard({ layout, onLayoutChange, faceOf, phone });
+  const board = useWidgetBoard({ layout, onLayoutChange, faceOf, phone, enabled: customising });
   const [sheet, setSheet] = useState(false);
   const full = layout.length >= panels.limits.widgets;
   const route = panel.scope === "fleet" ? "/fleet" : "/";
@@ -165,6 +167,8 @@ function PanelView({ panel, panels, customising }: { panel: Panel; panels: Panel
                 <Button
                   icon={<VERB_ICONS.reset />}
                   onClick={() => {
+                    // What the offer to undo would put back is the panel that is being thrown away.
+                    board.forgetUndo();
                     setDraft(null);
                     panels.reset(panel);
                   }}
@@ -203,7 +207,7 @@ function PanelView({ panel, panels, customising }: { panel: Panel; panels: Panel
     <DashboardPage header={header}>
       {customising ? (
         <div className="-mt-4 mb-4 flex items-center gap-1 text-13 text-fg-muted">
-          <p>{t("overview.panels.moveHint")}</p>
+          <p>{t(touch ? "overview.panels.moveHintTouch" : "overview.panels.moveHint")}</p>
           <HelpPopover label={t("overview.panels.withoutMouse")} title={t("overview.panels.withoutMouse")}>
             <p>{t("overview.panels.withoutMouseHelp")}</p>
           </HelpPopover>

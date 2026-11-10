@@ -4,7 +4,7 @@
  * dragged corner has grown a widget to. Positions come from the layout (`slotsOf`), never from measuring
  * the cells, which are in the middle of sliding while a person drags and would answer where they were.
  */
-import { GAP_PX, ROW_PX, SIZES, slotsOf } from "./model";
+import { GAP_PX, ROW_PX, SIZES, nearestSize, slotsOf } from "./model";
 import type { Placed, Size, SizeKey, Slot } from "./model";
 
 /** The grid as the browser laid it out: where it starts, how wide it is, and how many columns it has. */
@@ -88,4 +88,60 @@ export function cellsAfterDrag(start: { w: number; h: number }, geometry: Geomet
 /** The width and height of a size on the grid of twelve: where a drag starts from. */
 export function cellsOf(size: SizeKey): { w: number; h: number } {
   return { ...SIZES[size] };
+}
+
+/** Which edge of a widget a hand has taken to resize it: the right one changes its width, the bottom one its height, the corner both. */
+export type ResizeHandle = "right" | "bottom" | "corner";
+
+/** The sizes a handle can take a widget to: the right edge keeps the height and the bottom edge the width. */
+function reachable(allowed: readonly SizeKey[], from: SizeKey, handle: ResizeHandle): SizeKey[] {
+  const here = SIZES[from];
+  if (handle === "corner") return [...allowed];
+  return allowed.filter((key) => (handle === "right" ? SIZES[key].h === here.h : SIZES[key].w === here.w));
+}
+
+/** The handles a widget has: an edge only where the widget takes another size along it, and the corner when it takes any other. */
+export function handlesFor(allowed: readonly SizeKey[], from: SizeKey): ResizeHandle[] {
+  const here = SIZES[from];
+  const handles: ResizeHandle[] = [];
+  if (reachable(allowed, from, "right").some((key) => SIZES[key].w !== here.w)) handles.push("right");
+  if (reachable(allowed, from, "bottom").some((key) => SIZES[key].h !== here.h)) handles.push("bottom");
+  if (allowed.some((key) => key !== from)) handles.push("corner");
+  return handles;
+}
+
+/**
+ * The size a handle dragged by (dx, dy) pixels from `from` is on its way to: the nearest the widget takes among the
+ * ones that handle can reach. The edge of a widget that takes no other size that way has nothing to snap to and keeps
+ * the size it has.
+ */
+export function resizeTarget(allowed: readonly SizeKey[], from: SizeKey, handle: ResizeHandle, geometry: Geometry, dx: number, dy: number): SizeKey {
+  const among = reachable(allowed, from, handle);
+  if (among.length === 0) return from;
+  const cells = cellsAfterDrag(cellsOf(from), geometry, dx, dy);
+  return nearestSize(among, cells.w, cells.h);
+}
+
+/** Where a place of the grid is inside the grid, for something drawn in it and not over the page. */
+export function localRect(slot: Slot, geometry: Geometry): Rect {
+  return rectOf(slot, { ...geometry, left: 0, top: 0 });
+}
+
+/** How near the top or bottom edge of the window a drag has to be for the page to scroll under it, and how fast it goes at the edge itself. */
+export const EDGE_PX = 60;
+export const SCROLL_PX_PER_S = 840;
+/** The top of the window is the top bar's: a pointer that has gone up under it is asking for the page above. */
+const TOP_EDGE_PX = EDGE_PX + 20;
+
+/**
+ * How fast the page should scroll for a pointer at height `y` of a window `height` high, in pixels per second and
+ * signed (up is negative): none away from the edges, and faster the nearer the edge, so a hand can slow the page by
+ * easing off instead of fighting it. Asked once a frame, because a pointer that stays where it is has not moved.
+ */
+export function edgeSpeed(y: number, height: number): number {
+  // From a fifth of the top speed at the first pixel inside the zone to all of it at the edge: a crawl would not be felt.
+  const ramp = (depth: number): number => Math.round(SCROLL_PX_PER_S * (0.2 + 0.8 * Math.min(1, depth)));
+  if (y > height - EDGE_PX) return ramp((y - (height - EDGE_PX)) / EDGE_PX);
+  if (y < TOP_EDGE_PX) return -ramp((TOP_EDGE_PX - y) / TOP_EDGE_PX);
+  return 0;
 }

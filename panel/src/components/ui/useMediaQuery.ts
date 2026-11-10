@@ -32,3 +32,5 @@ export const SM_UP = "(min-width: 40rem)";
 export const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
 /** Tailwind's `lg` breakpoint, where the sidebar appears. */
 export const LG_UP = "(min-width: 64rem)";
+/** The main way in is a finger: nothing to hover with, and a lift that is a long press. */
+export const COARSE_POINTER = "(pointer: coarse)";
