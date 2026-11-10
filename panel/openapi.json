@@ -2020,7 +2020,7 @@
         "type": "object"
       },
       "ApiTokenRequest": {
-        "description": "Request to issue an API token.\n\nAttributes:\n    name: Human-chosen name, unique across all tokens ever issued.\n    scope: ``read``, ``deploy`` or ``admin``; narrowed to what the\n        issuing account holds.\n    expires_hours: Lifetime in hours; omit for a token that only dies by\n        revocation (under the ENS profile, the longest allowed).\n    permissions: Permissions to narrow it to instead of its scope's; all\n        must be held by the issuing account.\n    allowed_cidrs: Networks it is accepted from; any when omitted.\n    allow_elevated: Let it act where sudo mode is asked, with nobody confirming each\n        time. Off by default; only whoever governs accounts (``accounts.manage``) may\n        issue one, never where the ``restricted_tokens`` control is on, and each action\n        it takes there is audited as ``auth.token.elevated``.\n    team: Bind the token to this team (and, with ``project`` and\n        ``environment``, to a project or an environment of it): it sees\n        that and nothing else of the server (I-34).\n    project: Bind it to this project of the team.\n    environment: Bind it to this environment of the project.",
+        "description": "Request to issue an API token.\n\nAttributes:\n    name: Human-chosen name, unique across all tokens ever issued.\n    scope: ``read``, ``deploy`` or ``admin``; narrowed to what the\n        issuing account holds.\n    expires_hours: Lifetime in hours; omit for a token that only dies by\n        revocation (under the ENS profile, the longest allowed).\n    permissions: Permissions to narrow it to instead of its scope's; all\n        must be held by the issuing account.\n    preset: A named set of permissions to narrow it to instead (``GET /api/auth/roles``\n        lists them as ``token_presets``): \"deploy only\" for a pipeline. Not with\n        ``permissions``.\n    allowed_cidrs: Networks it is accepted from; any when omitted.\n    allow_elevated: Let it act where sudo mode is asked, with nobody confirming each\n        time. Off by default; only whoever governs accounts (``accounts.manage``) may\n        issue one, never where the ``restricted_tokens`` control is on, and each action\n        it takes there is audited as ``auth.token.elevated``.\n    team: Bind the token to this team (and, with ``project`` and\n        ``environment``, to a project or an environment of it): it sees\n        that and nothing else of the server (I-34).\n    project: Bind it to this project of the team.\n    environment: Bind it to this environment of the project.",
         "properties": {
           "allow_elevated": {
             "default": false,
@@ -2085,6 +2085,18 @@
               }
             ],
             "title": "Permissions"
+          },
+          "preset": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preset"
           },
           "project": {
             "anyOf": [
@@ -59904,6 +59916,28 @@
         "title": "TokenInfo",
         "type": "object"
       },
+      "TokenPresetInfo": {
+        "description": "A named set of permissions an API token can be narrowed to (item 163).\n\nAttributes:\n    id: Its stable name; what ``preset`` takes when a token is issued.\n    permissions: What a token made with it holds.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Permissions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "permissions"
+        ],
+        "title": "TokenPresetInfo",
+        "type": "object"
+      },
       "ToolInfo": {
         "description": "One tool, as the console describes it.\n\nAttributes:\n    name: What the model calls it.\n    title: A short title.\n    group: ``inspect``, ``deploy`` or ``control``.\n    permission: The permission its route needs.\n    read_only: It changes nothing.\n    destructive: It needs ``confirm: true``.\n    description: What it does.",
         "properties": {
@@ -66542,7 +66576,7 @@
         "type": "object"
       },
       "noust__web__api__auth__RolesResponse": {
-        "description": "What each role may do, for the console's account screens.\n\nAttributes:\n    roles: Role name to its permissions.\n    permissions: Every permission, with what it allows.",
+        "description": "What each role may do, for the console's account screens.\n\nAttributes:\n    roles: Role name to its permissions.\n    permissions: Every permission, with what it allows.\n    token_presets: The sets of permissions a token can be narrowed to by name: the one\n        list the command line, the API and the console's dialog take.\n    tenant_permissions: What a token bound to a team, a project or an environment can ever\n        hold, whatever its owner does: the permissions about applications, databases and\n        backups, never the server's.",
         "properties": {
           "permissions": {
             "additionalProperties": {
@@ -66560,6 +66594,20 @@
             },
             "title": "Roles",
             "type": "object"
+          },
+          "tenant_permissions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tenant Permissions",
+            "type": "array"
+          },
+          "token_presets": {
+            "items": {
+              "$ref": "#/components/schemas/TokenPresetInfo"
+            },
+            "title": "Token Presets",
+            "type": "array"
           }
         },
         "required": [

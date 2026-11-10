@@ -36,6 +36,7 @@ from noust.core.accounts import Account, AuthenticationFailed
 from noust.core.accounts.local_login import LOCAL_METHODS, LocalLoginRefused, refuse_local_sign_in
 from noust.core.accounts.model import AccountError
 from noust.core.accounts.passkeys import PasskeyManager
+from noust.core.token_presets import TOKEN_PRESETS
 from noust.core.totp import provisioning_uri
 from noust.web.api.auth_accounts import AccountInfo
 from noust.web.api.auth_accounts import router as accounts_router
@@ -64,6 +65,7 @@ from noust.web.permissions import ALL_PERMISSIONS, DESCRIPTIONS, Permission
 from noust.web.permissions.access import AccessManager
 from noust.web.permissions.enforce import ensure_notice_accepted, has_permission
 from noust.web.permissions.roles import GRANT_COMPAT, role_table
+from noust.web.permissions.team_roles import TENANT_PERMISSIONS
 from noust.web.server import get_brute_force, get_token_manager
 
 # The error boundary every other API router already has: without it a
@@ -2165,6 +2167,19 @@ def accept_notice(
     return SuccessResponse(success=True, message="Notice accepted")
 
 
+class TokenPresetInfo(BaseModel):
+    """
+    A named set of permissions an API token can be narrowed to (item 163).
+
+    Attributes:
+        id: Its stable name; what ``preset`` takes when a token is issued.
+        permissions: What a token made with it holds.
+    """
+
+    id: str
+    permissions: list[str]
+
+
 class RolesResponse(BaseModel):
     """
     What each role may do, for the console's account screens.
@@ -2172,10 +2187,17 @@ class RolesResponse(BaseModel):
     Attributes:
         roles: Role name to its permissions.
         permissions: Every permission, with what it allows.
+        token_presets: The sets of permissions a token can be narrowed to by name: the one
+            list the command line, the API and the console's dialog take.
+        tenant_permissions: What a token bound to a team, a project or an environment can ever
+            hold, whatever its owner does: the permissions about applications, databases and
+            backups, never the server's.
     """
 
     roles: dict[str, list[str]]
     permissions: dict[str, str]
+    token_presets: list[TokenPresetInfo] = Field(default_factory=list)
+    tenant_permissions: list[str] = Field(default_factory=list)
 
 
 @router.get("/roles", response_model=RolesResponse)
@@ -2192,6 +2214,11 @@ def list_roles(session: dict[str, Any] = Depends(require_auth)) -> RolesResponse
     return RolesResponse(
         roles={role: sorted(held) for role, held in role_table().items()},
         permissions={name: DESCRIPTIONS.get(name, "") for name in sorted(ALL_PERMISSIONS)},
+        token_presets=[
+            TokenPresetInfo(id=preset.id, permissions=sorted(preset.permissions))
+            for preset in TOKEN_PRESETS
+        ],
+        tenant_permissions=sorted(TENANT_PERMISSIONS),
     )
 
 
@@ -2207,6 +2234,9 @@ class ApiTokenRequest(BaseModel):
             revocation (under the ENS profile, the longest allowed).
         permissions: Permissions to narrow it to instead of its scope's; all
             must be held by the issuing account.
+        preset: A named set of permissions to narrow it to instead (``GET /api/auth/roles``
+            lists them as ``token_presets``): "deploy only" for a pipeline. Not with
+            ``permissions``.
         allowed_cidrs: Networks it is accepted from; any when omitted.
         allow_elevated: Let it act where sudo mode is asked, with nobody confirming each
             time. Off by default; only whoever governs accounts (``accounts.manage``) may
@@ -2223,6 +2253,7 @@ class ApiTokenRequest(BaseModel):
     scope: str
     expires_hours: int | None = Field(default=None, ge=1, le=24 * 3650)
     permissions: list[str] | None = None
+    preset: str | None = Field(default=None, max_length=32)
     allowed_cidrs: list[str] | None = None
     allow_elevated: bool = False
     team: str | None = Field(default=None, max_length=64)
@@ -2423,6 +2454,7 @@ def create_api_token(
         body.expires_hours,
         owner=owner,
         permissions=body.permissions,
+        preset=body.preset,
         allowed_cidrs=body.allowed_cidrs,
         allow_elevated=body.allow_elevated,
         created_by=actor_label(session),

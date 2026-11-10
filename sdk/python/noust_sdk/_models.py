@@ -340,6 +340,7 @@ ApiTokenRequest = TypedDict("ApiTokenRequest", {
     "expires_hours": NotRequired[Union[int, None]],
     "name": Required[str],
     "permissions": NotRequired[Union[list[str], None]],
+    "preset": NotRequired[Union[str, None]],
     "project": NotRequired[Union[str, None]],
     "scope": Required[str],
     "team": NotRequired[Union[str, None]],
@@ -4018,6 +4019,10 @@ FirewallStateOut = TypedDict("FirewallStateOut", {
     "zone": NotRequired[Union[str, None]],
 })
 
+FirstFactorProof = TypedDict("FirstFactorProof", {
+    "password": NotRequired[Union[str, None]],
+})
+
 FixOwnerRequest = TypedDict("FixOwnerRequest", {
     "owner": NotRequired[Union[str, None]],
 })
@@ -4930,6 +4935,7 @@ InvitationIssued = TypedDict("InvitationIssued", {
     "email_error_hint": NotRequired[Union[str, None]],
     "emailed": NotRequired[bool],
     "expires_in": Required[int],
+    "public_url": NotRequired[Union[str, None]],
 })
 
 InvitationNotice = TypedDict("InvitationNotice", {
@@ -8305,6 +8311,7 @@ RuleRequestIn = TypedDict("RuleRequestIn", {
     "comment": NotRequired[str],
     "port": Required[int],
     "proto": NotRequired[str],
+    "replaces": NotRequired[list[str]],
     "source": NotRequired[str],
 })
 
@@ -10278,6 +10285,11 @@ TokenInfo = TypedDict("TokenInfo", {
     "valid": Required[bool],
 })
 
+TokenPresetInfo = TypedDict("TokenPresetInfo", {
+    "id": Required[str],
+    "permissions": Required[list[str]],
+})
+
 ToolInfo = TypedDict("ToolInfo", {
     "description": Required[str],
     "destructive": Required[bool],
@@ -11417,6 +11429,8 @@ NoustWebApiAuditCatalogResponse = TypedDict("NoustWebApiAuditCatalogResponse", {
 NoustWebApiAuthRolesResponse = TypedDict("NoustWebApiAuthRolesResponse", {
     "permissions": Required[dict[str, str]],
     "roles": Required[dict[str, list[str]]],
+    "tenant_permissions": NotRequired[list[str]],
+    "token_presets": NotRequired[list["TokenPresetInfo"]],
 })
 
 NoustWebApiBackupSchedulesScheduleDestination = TypedDict("NoustWebApiBackupSchedulesScheduleDestination", {

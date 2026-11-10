@@ -2928,13 +2928,13 @@ class Authentication:
         Needs: permission `self`, sudo mode."""
         return self._call("POST", "/api/auth/2fa/disable", query=None, body=body)
 
-    def two_factor_enroll(self) -> "TwoFactorEnrollment":
+    def two_factor_enroll(self, *, body: Union["FirstFactorProof", None] = None) -> "TwoFactorEnrollment":
         """POST /api/auth/2fa/enroll
 
         Two Factor Enroll
 
         Needs: permission `self`."""
-        return self._call("POST", "/api/auth/2fa/enroll", query=None, body=None)
+        return self._call("POST", "/api/auth/2fa/enroll", query=None, body=body)
 
     def list_accounts(self) -> "AccountsResponse":
         """GET /api/auth/accounts
@@ -7866,13 +7866,13 @@ class Passkeys:
         Needs: permission `self`."""
         return self._call("POST", "/api/auth/passkeys/registration", query=None, body=body)
 
-    def registration_options(self) -> "CeremonyOptions":
+    def registration_options(self, *, body: Union["FirstFactorProof", None] = None) -> "CeremonyOptions":
         """POST /api/auth/passkeys/registration/options
 
         Registration Options
 
         Needs: permission `self`."""
-        return self._call("POST", "/api/auth/passkeys/registration/options", query=None, body=None)
+        return self._call("POST", "/api/auth/passkeys/registration/options", query=None, body=body)
 
     def rename_passkey(self, passkey_id: int | str, body: "PasskeyRename") -> "PasskeyInfo":
         """PATCH /api/auth/passkeys/{passkey_id}

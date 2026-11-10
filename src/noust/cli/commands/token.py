@@ -30,6 +30,7 @@ import click
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.cli.web_state import access_manager, token_manager
 from noust.core.access import AccessStore
+from noust.core.token_presets import PRESET_IDS
 
 #: Scopes ``POST /api/auth/tokens`` accepts, in the order shown by --help.
 SCOPES: tuple[str, ...] = ("read", "deploy", "admin")
@@ -218,6 +219,15 @@ def list_command(ctx: Context) -> None:
     help="Narrow the token to this permission (repeat). The owner must hold it.",
 )
 @click.option(
+    "--preset",
+    type=click.Choice(PRESET_IDS),
+    default=None,
+    help=(
+        "Narrow the token to what a job needs, by name: it holds those permissions and "
+        "nothing else of its scope. Instead of --permission."
+    ),
+)
+@click.option(
     "--team",
     default=None,
     help="Bind the token to this team: it sees nothing else (needs --owner).",
@@ -246,6 +256,7 @@ def create_command(
     expires_hours: int | None,
     owner: str | None,
     permissions: tuple[str, ...],
+    preset: str | None,
     team: str | None,
     project: str | None,
     environment: str | None,
@@ -271,6 +282,8 @@ def create_command(
             "--elevated needs --owner: sudo mode is a person's, and a token that acts in it "
             "must name whose."
         )
+    if preset is not None and permissions:
+        raise click.UsageError("Give --preset or --permission, not both.")
     manager = token_manager()
     account = manager.accounts.require(owner) if owner else None
     bound = access_manager().bound_scope(team=team, project=project, environment=environment)
@@ -281,6 +294,7 @@ def create_command(
         owner=account,
         created_by="cli",
         permissions=list(permissions) or None,
+        preset=preset,
         allowed_cidrs=list(allow_ips) or None,
         bound=bound,
         allow_elevated=elevated,
@@ -289,7 +303,10 @@ def create_command(
     logger = ctx.logger
     where = f", bound to {AccessStore().scope_label(*bound)}" if bound is not None else ""
     sudo = ", acts in sudo mode" if elevated else ""
-    logger.success(f"API token issued: {issued['name']} (scope: {issued['scope']}{where}{sudo})")
+    narrowed = f", holding {', '.join(issued['permissions'])}" if preset else ""
+    logger.success(
+        f"API token issued: {issued['name']} (scope: {issued['scope']}{where}{sudo}{narrowed})"
+    )
     if not ctx.dry_run:
         from noust.core.audit import record
 

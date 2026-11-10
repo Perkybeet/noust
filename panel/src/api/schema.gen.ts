@@ -32876,6 +32876,9 @@ export interface components {
          *             revocation (under the ENS profile, the longest allowed).
          *         permissions: Permissions to narrow it to instead of its scope's; all
          *             must be held by the issuing account.
+         *         preset: A named set of permissions to narrow it to instead (``GET /api/auth/roles``
+         *             lists them as ``token_presets``): "deploy only" for a pipeline. Not with
+         *             ``permissions``.
          *         allowed_cidrs: Networks it is accepted from; any when omitted.
          *         allow_elevated: Let it act where sudo mode is asked, with nobody confirming each
          *             time. Off by default; only whoever governs accounts (``accounts.manage``) may
@@ -32903,6 +32906,8 @@ export interface components {
             name: string;
             /** Permissions */
             permissions?: string[] | null;
+            /** Preset */
+            preset?: string | null;
             /** Project */
             project?: string | null;
             /** Scope */
@@ -63934,6 +63939,20 @@ export interface components {
             valid: boolean;
         };
         /**
+         * TokenPresetInfo
+         * @description A named set of permissions an API token can be narrowed to (item 163).
+         *
+         *     Attributes:
+         *         id: Its stable name; what ``preset`` takes when a token is issued.
+         *         permissions: What a token made with it holds.
+         */
+        TokenPresetInfo: {
+            /** Id */
+            id: string;
+            /** Permissions */
+            permissions: string[];
+        };
+        /**
          * ToolInfo
          * @description One tool, as the console describes it.
          *
@@ -67427,6 +67446,11 @@ export interface components {
          *     Attributes:
          *         roles: Role name to its permissions.
          *         permissions: Every permission, with what it allows.
+         *         token_presets: The sets of permissions a token can be narrowed to by name: the one
+         *             list the command line, the API and the console's dialog take.
+         *         tenant_permissions: What a token bound to a team, a project or an environment can ever
+         *             hold, whatever its owner does: the permissions about applications, databases and
+         *             backups, never the server's.
          */
         noust__web__api__auth__RolesResponse: {
             /** Permissions */
@@ -67437,6 +67461,10 @@ export interface components {
             roles: {
                 [key: string]: string[];
             };
+            /** Tenant Permissions */
+            tenant_permissions?: string[];
+            /** Token Presets */
+            token_presets?: components["schemas"]["TokenPresetInfo"][];
         };
         /**
          * ScheduleDestination

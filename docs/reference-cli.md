@@ -15684,6 +15684,7 @@ Arguments: `name`
 | `--expires-hours` | Lifetime in hours. Omitted: the token only dies by revocation. |  |
 | `--owner` | Account the token acts for, with at most its role. Required under the ENS profile. |  |
 | `--permission` | Narrow the token to this permission (repeat). The owner must hold it. |  |
+| `--preset` | Narrow the token to what a job needs, by name: it holds those permissions and nothing else of its scope. Instead of --permission. |  |
 | `--team` | Bind the token to this team: it sees nothing else (needs --owner). |  |
 | `--project` | Bind it to this project of the team. |  |
 | `--env` | Bind it to this environment. |  |
