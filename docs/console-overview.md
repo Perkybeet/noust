@@ -15,12 +15,18 @@ answers: what needs attention anywhere (each with its server), a row for each se
 applications, the updates, the work, the certificates, the backups, the activity and the alerts.
 
 **Customize** turns the second column into the gallery of widgets and puts a handle, a size and a
-cross on each widget of the panel. A widget is dragged to move it, its corner drags its size to the
-nearest one it takes, and the gallery's cards are dragged onto the panel or added with their **+**.
-Nothing needs the pointer: Space on the handle lifts a widget, the arrow keys move it and Space drops it
-(Escape puts it back), and the button with its size has the sizes, drawn as their proportion, and **Move
-earlier** and **Move later**. **Reset** puts the panel back as it came; **Done** leaves the gallery.
-On a phone the gallery is a sheet from **Add a widget**.
+cross on each widget of the panel. A widget is dragged to move it: where it will land is drawn as an
+outline of its real size, with the name of that size ("Medium, 2 x 1": quarters of the panel wide and
+bands of two rows high), and the page scrolls under it for as long as you hold it near the top or the
+bottom of the window. Its right edge, its bottom edge and its corner change its size: while you hold one
+an outline shows the size the widget will have when you let go, and **Escape** puts it back. The
+gallery's cards are dragged to the place you want them, or added at the end with their **+**. Moving,
+resizing and removing a widget each offer **Undo** in the message that says it was done (the last change
+only). Nothing needs the pointer: Space on the handle lifts a widget, the arrow keys move it, Shift with
+the arrow keys makes it wider, narrower, taller or shorter, and Space drops it (Escape puts it back);
+the button with its size has the sizes, drawn as their proportion, and **Move earlier** and **Move
+later**. On a touch screen you press and hold a widget to lift it. **Reset** puts the panel back as it
+came; **Done** leaves the gallery. On a phone the gallery is a sheet from **Add a widget**.
 
 You can make panels of your own (**New panel**: a name, whether it follows the chosen server or the
 whole fleet, and whether it starts as a copy or empty), rename them and delete them. An account's
