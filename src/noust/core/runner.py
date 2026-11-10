@@ -3515,9 +3515,6 @@ READ_ONLY_PROBES: tuple[tuple[object, ...], ...] = (
     # A version, and nothing else: "--version" among other arguments is an
     # option of whatever the command does.
     ("*", "--version"),
-    # Whether python3 can seed a virtual environment with pip (the pre-flight of a Python
-    # deployment): two imports, exactly this text and no other code.
-    ("python3", "-c", "import ensurepip, venv"),
     ("hostname",),
     ("hostname", "-f"),
     ("hostname", "--fqdn"),
