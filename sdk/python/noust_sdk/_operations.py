@@ -377,6 +377,8 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("configuration", "update_telegram_config"): ("PUT", "/api/config/notifications/telegram", "settings.manage", True),
     ("configuration", "list_telegram_chats"): ("POST", "/api/config/notifications/telegram/chats", "settings.manage", False),
     ("configuration", "test_notification_channel"): ("POST", "/api/config/notifications/{channel}/test", "apps.operate", False),
+    ("configuration", "get_policy"): ("GET", "/api/config/policy", "settings.read", False),
+    ("configuration", "update_policy"): ("PUT", "/api/config/policy", "settings.manage", True),
     ("configuration", "reload_config"): ("POST", "/api/config/reload", "settings.manage", False),
     ("configuration", "get_smtp_config"): ("GET", "/api/config/smtp", "settings.read", False),
     ("configuration", "update_smtp_config"): ("PUT", "/api/config/smtp", "settings.manage", True),
@@ -3915,7 +3917,7 @@ class Compose:
 
 
 class Configuration:
-    """Configuration: 25 operations."""
+    """Configuration: 27 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -4047,6 +4049,22 @@ class Configuration:
 
         Needs: permission `apps.operate`."""
         return self._call("POST", f"/api/config/notifications/{quote(str(channel), safe='')}/test", query=None, body=None)
+
+    def get_policy(self) -> "ServerPolicyResponse":
+        """GET /api/config/policy
+
+        Get Policy
+
+        Needs: permission `settings.read`."""
+        return self._call("GET", "/api/config/policy", query=None, body=None)
+
+    def update_policy(self, body: "ServerPolicyConfig") -> "MessageResponse":
+        """PUT /api/config/policy
+
+        Update Policy
+
+        Needs: permission `settings.manage`, sudo mode."""
+        return self._call("PUT", "/api/config/policy", query=None, body=body)
 
     def reload_config(self) -> "ConfigReloadResponse":
         """POST /api/config/reload

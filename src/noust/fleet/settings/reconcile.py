@@ -24,6 +24,8 @@ server's own typed routes. The rules:
   again, the version decides as always. If the applications that decide it could not be read, it
   is held back too, and says so.
 - What another central manages is not this one's to touch.
+- An apply can be limited to some settings (``only``): nothing else is looked at, so nothing else
+  is pushed, left or let go of.
 """
 
 from __future__ import annotations
@@ -74,6 +76,7 @@ def plan_node(
     central: str | None = None,
     out_of_reach: Mapping[tuple[str, str], str] | None = None,
     reach_unknown: Collection[tuple[str, str]] = (),
+    only: Collection[str] = (),
 ) -> list[Step]:
     """
     Work out the steps for one server.
@@ -90,18 +93,28 @@ def plan_node(
             server, with what cannot (:func:`noust.fleet.settings.reach.explain`).
         reach_unknown: ``(kind, name)`` of the settings whose reach depends on applications that
             could not be read.
+        only: ``kind/name`` of the only settings to do anything about, what the server is let go
+            of included; every setting when empty. What is left out is not looked at, so it is
+            neither pushed nor said.
 
     Returns:
         The steps, by kind and name.
     """
+
+    def meant(key: tuple[str, str]) -> bool:
+        return not only or f"{key[0]}/{key[1]}" in only
+
     rows = {
         (str(row["resource"]), str(row["name"])): row
         for row in managed
-        if central is None or row.get("central") == central
+        if (central is None or row.get("central") == central)
+        and meant((str(row["resource"]), str(row["name"])))
     }
     steps: dict[tuple[str, str], Step] = {}
     for setting in [] if independent else desired:
         key = (setting.resource, setting.name)
+        if not meant(key):
+            continue
         row = rows.pop(key, None)
         if out_of_reach is not None and key in out_of_reach:
             steps[key] = Step(*key, "keep", "out_of_reach", setting, row, why=out_of_reach[key])

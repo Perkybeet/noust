@@ -21,12 +21,12 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from noust.core import audit
-from noust.core.exceptions import ValidationError
+from noust.core.exceptions import NoustError, ValidationError
 from noust.core.server_text import say
 from noust.core.teams.model import ResourceNotFoundError
 from noust.fleet.client import actor_label as fleet_actor_label
@@ -37,6 +37,7 @@ from noust.web.api.deps import NoustErrorRoute, ensure_elevated, require_auth, r
 from noust.web.api.fleet import _plan_and_start, asker_for
 from noust.web.auth import actor_label
 from noust.web.permissions.principal import permissions_of
+from noust.web.pydantic_compat import field_validator
 
 router = APIRouter(route_class=NoustErrorRoute)
 
@@ -168,9 +169,13 @@ class FleetSettingsModeIn(BaseModel):
 
     Attributes:
         mode: ``managed`` (it follows them) or ``independent`` (it is left out).
+        adopt: Only with ``managed``: when it follows them again, take over the settings it kept
+            as its own under the fleet's names, instead of leaving each as a conflict. What it
+            would be given is in the status (``if_followed``) before this is asked.
     """
 
     mode: str
+    adopt: bool = False
 
 
 class FleetSettingsModeOut(BaseModel):
@@ -197,6 +202,9 @@ class FleetSettingsApplyIn(BaseModel):
         adopt: Take over a setting a server already has that is not the fleet's.
         restore: ``kind/name`` to put back where a server's operator changed it.
         restore_all: Put back every one of them.
+        only: ``kind/name`` of the only settings to apply, such as ``["channel/ops"]``; every
+            setting when empty. Each must be a kind the fleet manages, with a name that kind
+            accepts, and a setting the fleet has (its own value or an exception).
         plan: Only say what would run.
     """
 
@@ -204,7 +212,34 @@ class FleetSettingsApplyIn(BaseModel):
     adopt: bool = False
     restore: list[str] = Field(default_factory=list)
     restore_all: bool = False
+    only: list[str] = Field(default_factory=list)
     plan: bool = False
+
+    @field_validator("only")
+    @classmethod
+    def _only_names_settings(cls, value: list[str]) -> list[str]:
+        """
+        Judge each entry as the setting it names would be judged when it is set.
+
+        Args:
+            value: The list as it arrived.
+
+        Returns:
+            The list, unchanged.
+
+        Raises:
+            ValueError: An entry is not ``kind/name``, its kind is not one the fleet manages or
+                its name is not one that kind accepts.
+        """
+        for entry in value:
+            parts = entry.split("/")
+            if len(parts) != 2 or not all(parts):
+                raise ValueError(f"{entry!r} is not 'kind/name', such as 'channel/ops'")
+            try:
+                kind_of(parts[0]).check_name(parts[1])
+            except NoustError as exc:
+                raise ValueError(exc.message) from exc
+        return value
 
 
 def _settings() -> FleetSettings:
@@ -228,6 +263,39 @@ def _out(settings: FleetSettings, setting: Any) -> FleetSettingOut:
         Its API shape.
     """
     return FleetSettingOut(**settings.shown(setting))
+
+
+def _require_the_fleet_has(only: list[str]) -> None:
+    """
+    Refuse an ``only`` that names a setting the fleet does not have.
+
+    A name with a typo would otherwise apply nothing and say it succeeded.
+
+    Args:
+        only: ``kind/name`` entries whose shape and kind were already judged.
+
+    Raises:
+        HTTPException: 422, naming the field and carrying the sentence, for the first one the
+            fleet has no setting of (its own value, or an exception for some server).
+    """
+    if not only:
+        return
+    have = {f"{row.resource}/{row.name}" for row in _settings().list()}
+    for entry in only:
+        if entry in have:
+            continue
+        resource, name = entry.split("/")
+        text = say("fleet_settings.no_such_setting", kind=resource, name=name)
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "validation_error",
+                "detail": text.text,
+                "hint": text.hint,
+                "fields": {"only": text.text},
+                "coded": text.to_dict(),
+            },
+        )
 
 
 def _person(session: dict[str, Any]) -> str:
@@ -510,19 +578,29 @@ async def set_mode(node: str, body: FleetSettingsModeIn, session: Elevated) -> F
     Make a server follow the fleet's settings, or leave it out of them.
 
     An independent server is pushed nothing and is let go of what it had (it keeps it, as its own);
-    it still appears in every fleet view. A server that follows them again is applied everything.
+    it still appears in every fleet view. A server that follows them again is applied everything:
+    what it does not have is created, and what it kept under a name of the fleet's is a conflict
+    unless ``adopt`` says to take it over. The status says beforehand what each setting would
+    bring (``if_followed``), so the person deciding knows what will change.
 
     Args:
         node: The server.
-        body: The mode.
+        body: The mode, and whether to take over what the server kept.
         session: The elevated session.
 
     Returns:
         The mode and the job that settles it.
 
     Raises:
-        ValidationError: 400 for a mode that is not one, or a server that is not in the fleet.
+        ValidationError: 400 for a mode that is not one, a server that is not in the fleet, or
+            ``adopt`` asked of a server that is leaving.
     """
+    if body.adopt and body.mode != "managed":
+        raise ValidationError(
+            "adopt is for a server that follows the fleet's settings again",
+            details="Leave it out when the mode is independent.",
+            field="adopt",
+        )
     settings = _settings()
     mode = await run_in_threadpool(
         lambda: settings.set_mode(node, body.mode, person=_person(session))
@@ -531,9 +609,10 @@ async def set_mode(node: str, body: FleetSettingsModeIn, session: Elevated) -> F
         "fleet.setting.mode",
         actor=session_actor(session),
         target=f"node:{node}",
-        details={"mode": mode},
+        details={"mode": mode, **({"adopt": True} if body.adopt else {})},
     )
-    return FleetSettingsModeOut(node=node, mode=mode, apply=await _queue(session, [node]))
+    applying = await _queue(session, [node], {"adopt": True} if body.adopt else None)
+    return FleetSettingsModeOut(node=node, mode=mode, apply=applying)
 
 
 @router.post("/settings/apply")
@@ -550,8 +629,11 @@ async def apply_settings(
     it), ``unsupported`` or ``failed`` with the server's own words. Poll it with
     ``GET /api/fleet/jobs/{id}``.
 
+    ``only`` limits it to some settings (``["channel/ops"]``): nothing else is pushed, left or let
+    go of, so "apply this one" is one call and the rest stays for the next.
+
     Args:
-        body: The servers, and what to do about conflicts and changed settings.
+        body: The servers, what to do about conflicts and changed settings, and ``only``.
         request: The request.
         session: The authenticated session.
 
@@ -562,11 +644,14 @@ async def apply_settings(
         ValidationError: An unknown server or option, or no server to apply to.
         HTTPException: 403 ``elevation_required`` for ``adopt``, ``restore`` and ``restore_all``
             without sudo mode: they take over what a server has or undo what its operator did.
+            422 naming ``only`` for an entry that is not a setting of a kind the fleet manages,
+            or that the fleet does not have.
     """
     from noust.fleet.nodes import NodeManager
     from noust.web.fleet_jobs import FleetRequest
     from noust.web.fleet_settings_actions import ACTION
 
+    _require_the_fleet_has(body.only)
     if not body.plan and (body.adopt or body.restore or body.restore_all):
         # Applying what somebody already approved asks nothing more of whoever presses the
         # button; taking over what a server has, or undoing what its own operator did, is a
@@ -586,6 +671,7 @@ async def apply_settings(
             "adopt": body.adopt,
             "restore": list(body.restore),
             "restore_all": body.restore_all,
+            "only": list(body.only),
         },
     )
     return await _plan_and_start(request, session, fleet_request, body.plan)

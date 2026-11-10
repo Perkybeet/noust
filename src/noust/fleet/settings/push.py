@@ -81,6 +81,9 @@ _LISTS: dict[str, tuple[str, str]] = {
 #: The route that says where a node's notification links open.
 CONSOLE_URL_PATH = "/api/notifications/console-url"
 
+#: The route a node's policy is read and written by.
+POLICY_PATH = "/api/config/policy"
+
 
 def find(node: PushTarget, resource: str, name: str) -> dict[str, Any] | None:
     """
@@ -99,6 +102,16 @@ def find(node: PushTarget, resource: str, name: str) -> dict[str, Any] | None:
         answer = node.call("GET", CONSOLE_URL_PATH)
         url = answer.get("url") if isinstance(answer, Mapping) else None
         return {"name": name, "url": url} if isinstance(url, str) and url else None
+    if resource == "policy":
+        # A server always has a policy: it only has its own when its operator chose one, and
+        # only that is not the fleet's to overwrite on a first look.
+        answer = node.call("GET", POLICY_PATH)
+        chosen = isinstance(answer, Mapping) and answer.get("customized") is True
+        return (
+            {"name": name, **{k: v for k, v in answer.items() if k != "customized"}}
+            if chosen
+            else None
+        )
     path, key = _LISTS[resource]
     for item in _listed(node, path, key):
         if item.get("name") != name:
@@ -173,6 +186,23 @@ def _console_link(
     return "updated" if found is not None else "created"
 
 
+def _policy(
+    node: PushTarget, name: str, value: dict[str, Any], found: dict[str, Any] | None
+) -> str:
+    """
+    Args:
+        node: The node.
+        name: The policy.
+        value: Its four fields.
+        found: The node's own policy, when its operator chose one.
+
+    Returns:
+        ``created`` or ``updated``.
+    """
+    node.call("PUT", POLICY_PATH, body=value)
+    return "updated" if found is not None else "created"
+
+
 def _registry(
     node: PushTarget, name: str, value: dict[str, Any], found: dict[str, Any] | None
 ) -> str:
@@ -234,6 +264,7 @@ _WRITERS: dict[str, Callable[[PushTarget, str, dict[str, Any], dict[str, Any] | 
     "registry": _registry,
     "variable": _put("/api/variables/server/{name}"),
     "console_link": _console_link,
+    "policy": _policy,
 }
 
 

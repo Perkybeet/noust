@@ -65,6 +65,7 @@ from noust.web.api.cloud import router as cloud_router
 from noust.web.api.compliance import router as compliance_router
 from noust.web.api.compose import router as compose_router
 from noust.web.api.config import router as config_router
+from noust.web.api.config_policy import router as config_policy_router
 from noust.web.api.console_exposure import router as console_exposure_router
 from noust.web.api.cron import router as cron_router
 from noust.web.api.dashboards import router as dashboards_router
@@ -272,6 +273,7 @@ router.include_router(app_metrics_router, prefix="/apps", tags=["Metrics"])
 router.include_router(jobs_router, tags=["Jobs"])
 router.include_router(operations_router, prefix="/operations", tags=["Jobs"])
 router.include_router(config_router, prefix="/config", tags=["Configuration"])
+router.include_router(config_policy_router, prefix="/config/policy", tags=["Configuration"])
 # The console's own reach: published on a name of its own, over TLS (4.0).
 router.include_router(console_exposure_router, prefix="/console", tags=["Console"])
 # Before the backups router: its "/{backup_id}" would take "failures" and "encryption" for a
