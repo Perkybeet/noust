@@ -647,16 +647,15 @@ def test_a_job_queued_through_the_api_records_its_actor(client: TestClient, stor
     """
     The cookie session queuing a job is recorded, not lost.
 
-    The client fixture signs in through ``POST /api/auth/login``, which
-    issues a cookie session with its own opaque id - see
-    :func:`noust.web.auth.actor_label` for why a job records a 12 character
-    prefix of it rather than the id in full.
+    The client fixture signs in with the master token through
+    ``POST /api/auth/login``: the job records the credential, ``master``, as the
+    audit trail does (:func:`noust.web.auth.actor_label`), not a prefix of the
+    id of the session it used.
     """
     response = client.post("/api/jobs/update", json={"domain": "nope.example.com"})
     assert response.status_code == 202, response.text
     actor = response.json()["job"]["actor"]
-    assert actor is not None
-    assert len(actor) == 12
+    assert actor == "master"
 
     record = store.get_job(response.json()["job"]["id"])
     assert record is not None
