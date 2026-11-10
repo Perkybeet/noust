@@ -125,6 +125,10 @@ STREAMS_ALLOWED: dict[tuple[str, str], str] = {
         "src/noust/web/machine.py",
         "classify_apps",
     ): "the machine snapshot of the `machine` event, which a team member's stream never carries",
+    (
+        "src/noust/web/machine.py",
+        "standby_units",
+    ): "the same snapshot's tally of units: the idle instances of the instance's applications",
 }
 
 

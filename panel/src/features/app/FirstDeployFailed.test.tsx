@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { setLocale } from "../../app/locale";
@@ -40,9 +40,9 @@ async function missingAt(extra: Record<string, RouteHandler> = {}, items: unknow
   return { ...harness, backend };
 }
 
-afterEach(() => {
+afterEach(async () => {
   window.sessionStorage.clear();
-  setLocale("en");
+  await act(() => setLocale("en"));
 });
 
 describe("the page of a domain whose first deploy failed", () => {
@@ -61,7 +61,7 @@ describe("the page of a domain whose first deploy failed", () => {
   });
 
   it("says it in Spanish", async () => {
-    setLocale("es");
+    await act(() => setLocale("es"));
     await missingAt();
 
     expect(await screen.findByText("El primer despliegue de shop.example.com falló")).toBeInTheDocument();

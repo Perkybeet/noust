@@ -36,6 +36,6 @@ export function retryOf(attempt: FirstDeploy): Retry {
  * Whether the address the server kept had a password or a token in it, which it masks and does not keep: the operator
  * has to type that part again, and the page says so.
  */
-export function sourceWasMasked(attempt: FirstDeploy): boolean {
+export function sourceHidesASecret(attempt: FirstDeploy): boolean {
   return attempt.source !== null && attempt.source !== undefined && attempt.source.includes("***");
 }

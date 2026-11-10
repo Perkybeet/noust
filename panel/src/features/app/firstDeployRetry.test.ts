@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { FirstDeploy } from "../../api/queries/firstDeploys";
-import { retryOf, sourceWasMasked } from "./firstDeployRetry";
+import { retryOf, sourceHidesASecret } from "./firstDeployRetry";
 
 const ATTEMPT: FirstDeploy = {
   job_id: "aa11",
@@ -50,10 +50,10 @@ describe("trying a failed first deploy again", () => {
   });
 
   it("says when the address had a credential that was masked, so the operator types it again", () => {
-    expect(sourceWasMasked(ATTEMPT)).toBe(false);
-    expect(sourceWasMasked({ ...ATTEMPT, source: "https://***@github.com/acme/shop.git" })).toBe(true);
-    expect(sourceWasMasked({ ...ATTEMPT, source: "https://ana:***@git.example.com/a.git" })).toBe(true);
-    expect(sourceWasMasked({ ...ATTEMPT, source: "https://host.example.com/a.zip?token=***" })).toBe(true);
-    expect(sourceWasMasked({ ...ATTEMPT, source: null })).toBe(false);
+    expect(sourceHidesASecret(ATTEMPT)).toBe(false);
+    expect(sourceHidesASecret({ ...ATTEMPT, source: "https://***@github.com/acme/shop.git" })).toBe(true);
+    expect(sourceHidesASecret({ ...ATTEMPT, source: "https://ana:***@git.example.com/a.git" })).toBe(true);
+    expect(sourceHidesASecret({ ...ATTEMPT, source: "https://host.example.com/a.zip?token=***" })).toBe(true);
+    expect(sourceHidesASecret({ ...ATTEMPT, source: null })).toBe(false);
   });
 });

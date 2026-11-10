@@ -6,6 +6,7 @@ import type { FirstDeploy } from "../../api/queries/firstDeploys";
 import type { PageHeaderProps } from "../../app/PageHeader";
 import { DetailPage } from "../../components/page/DetailPage";
 import { ErrorBlock } from "../../components/page/QueryState";
+import { Can, GuardedButton } from "../../components/page/permissions";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { Button, buttonClassName } from "../../components/ui/Button";
 import { StatusPill } from "../../components/ui/StatusPill";
@@ -15,7 +16,7 @@ import { useTypeName } from "../apps/data";
 import { reportActionError } from "../apps/useAppActions";
 import { saveDraft } from "../new-app/draft";
 import { shortSource } from "../new-app/shortSource";
-import { retryOf, sourceWasMasked } from "./firstDeployRetry";
+import { retryOf, sourceHidesASecret } from "./firstDeployRetry";
 
 /**
  * The page of a domain whose first deploy failed. A first deploy that fails undoes every step it took, the
@@ -80,20 +81,24 @@ export function FirstDeployFailed({ domain, attempt, header }: { domain: string;
               ),
             }
           : {}),
+        // Putting it away and deploying again are what whoever may manage applications does: the failure is read by anyone who
+        // may read them, and a role that cannot sees the way on, locked, and why.
         secondaryActions: (
-          <Button
-            loading={dismiss.isPending}
-            onClick={() => {
-              dismiss.mutate();
-            }}
-          >
-            {t("appPages.firstFailed.dismiss")}
-          </Button>
+          <Can permission="apps.manage">
+            <Button
+              loading={dismiss.isPending}
+              onClick={() => {
+                dismiss.mutate();
+              }}
+            >
+              {t("appPages.firstFailed.dismiss")}
+            </Button>
+          </Can>
         ),
         primaryAction: (
-          <Button variant="primary" onClick={retry}>
+          <GuardedButton permission="apps.manage" variant="primary" onClick={retry}>
             {t("appPages.firstFailed.retry")}
-          </Button>
+          </GuardedButton>
         ),
       }}
     >
@@ -116,7 +121,7 @@ export function FirstDeployFailed({ domain, attempt, header }: { domain: string;
           ) : null}
           {t("appPages.firstFailed.nothing")}
         </p>
-        {sourceWasMasked(attempt) ? <p className="text-13 text-pretty text-fg-muted">{t("appPages.firstFailed.sourceMasked")}</p> : null}
+        {sourceHidesASecret(attempt) ? <p className="text-13 text-pretty text-fg-muted">{t("appPages.firstFailed.sourceMasked")}</p> : null}
       </div>
     </DetailPage>
   );
