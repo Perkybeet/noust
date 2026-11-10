@@ -429,6 +429,94 @@ class TestApplyingToTheFleet:
         assert operator.post(f"{URL}/apply", json={"nodes": ["web-9"]}).status_code == 400
         assert operator.post(f"{URL}/apply", json={"restore": ["nope"]}).status_code == 400
 
+    def two(self, operator: TestClient) -> None:
+        set_channel(operator, apply=False)
+        saved = operator.put(
+            f"{URL}/variable/REGION", json={"value": {"value": "eu"}, "apply": False}
+        )
+        assert saved.status_code == 200, saved.text
+
+    def test_only_the_setting_named_is_applied(
+        self, operator: TestClient, nodes: dict[str, ManagedNode]
+    ) -> None:
+        self.two(operator)
+
+        body = operator.post(f"{URL}/apply", json={"only": ["variable/REGION"]}).json()
+
+        assert body["plan"]["options"]["only"] == ["variable/REGION"]
+        wait(operator, body["job"]["job_id"])
+        for node in nodes.values():
+            assert ("variable", "REGION") in node.rows
+            assert ("channel", "ops") not in node.rows
+
+    def test_it_can_be_planned_and_asks_nothing_more_than_applying_does(
+        self, operator: TestClient
+    ) -> None:
+        self.two(operator)
+
+        body = operator.post(f"{URL}/apply", json={"only": ["channel/ops"], "plan": True}).json()
+
+        assert body["job"] is None
+        assert body["plan"]["options"]["only"] == ["channel/ops"]
+
+    def test_an_empty_list_limits_nothing(
+        self, operator: TestClient, nodes: dict[str, ManagedNode]
+    ) -> None:
+        self.two(operator)
+
+        body = operator.post(f"{URL}/apply", json={"only": []}).json()
+
+        wait(operator, body["job"]["job_id"])
+        assert all(len(node.rows) == 2 for node in nodes.values())
+
+    @pytest.mark.parametrize(
+        "only",
+        [
+            ["firewall_rule/ssh"],  # not a kind the fleet manages
+            ["secret_manager/vault"],  # one it will manage, not yet
+            ["nope"],  # not kind/name
+            ["channel/Not A Name"],  # a name the kind would not have
+            ["channel/"],
+            ["channel/ops/extra"],
+            ["variable/REGION", "channel/ops\n"],
+        ],
+    )
+    def test_what_is_not_a_setting_of_a_kind_is_a_422_naming_the_field(
+        self, operator: TestClient, only: list[str]
+    ) -> None:
+        self.two(operator)
+
+        response = operator.post(f"{URL}/apply", json={"only": only})
+
+        assert response.status_code == 422, response.text
+        assert "only" in (response.json()["fields"] or {})
+        assert response.json()["error"] == "validation_error"
+
+    def test_a_setting_the_fleet_does_not_have_is_a_422_that_says_so(
+        self, operator: TestClient, nodes: dict[str, ManagedNode]
+    ) -> None:
+        self.two(operator)
+
+        response = operator.post(f"{URL}/apply", json={"only": ["channel/missing"]})
+
+        assert response.status_code == 422, response.text
+        body = response.json()
+        assert "only" in body["fields"]
+        assert body["coded"]["code"] == "fleet_settings.no_such_setting"
+        assert all(not node.rows for node in nodes.values())
+
+    def test_an_exception_alone_counts_as_a_setting_of_the_fleet(
+        self, operator: TestClient
+    ) -> None:
+        operator.put(
+            f"{URL}/variable/CITY",
+            json={"value": {"value": "x"}, "scope": "node:web-2", "apply": False},
+        )
+
+        response = operator.post(f"{URL}/apply", json={"only": ["variable/CITY"], "plan": True})
+
+        assert response.status_code == 200, response.text
+
     def test_putting_one_back_is_one_call(
         self, operator: TestClient, nodes: dict[str, ManagedNode]
     ) -> None:
