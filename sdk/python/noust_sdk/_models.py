@@ -4018,6 +4018,24 @@ FirewallStateOut = TypedDict("FirewallStateOut", {
     "zone": NotRequired[Union[str, None]],
 })
 
+FirstDeployOut = TypedDict("FirstDeployOut", {
+    "app_type": NotRequired[Union[str, None]],
+    "branch": NotRequired[Union[str, None]],
+    "created_at": Required[str],
+    "domain": Required[str],
+    "error": NotRequired[Union[str, None]],
+    "error_coded": NotRequired[Union["CodedText", None]],
+    "finished_at": NotRequired[Union[str, None]],
+    "job_id": Required[str],
+    "origin": Required[str],
+    "recipe": NotRequired[Union[str, None]],
+    "source": NotRequired[Union[str, None]],
+})
+
+FirstDeploysResponse = TypedDict("FirstDeploysResponse", {
+    "items": Required[list["FirstDeployOut"]],
+})
+
 FixOwnerRequest = TypedDict("FixOwnerRequest", {
     "owner": NotRequired[Union[str, None]],
 })

@@ -18328,6 +18328,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/first-deploys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List First Deploys
+         * @description List the first deployments that failed and left no application behind.
+         *
+         *     A domain with an application of its own, one whose newest attempt is running or worked, one
+         *     that was dismissed and one older than two weeks are not listed.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         domain: Only this domain's.
+         *
+         *     Returns:
+         *         The failures the caller may see.
+         */
+        get: operations["list_first_deploys_api_first_deploys_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/first-deploys/{attempt}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss First Deploy
+         * @description Put a failed first deployment away: it stops being listed, here and in what needs attention.
+         *
+         *     Args:
+         *         attempt: The deployment's job id: the failure is the job's.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         An empty answer.
+         *
+         *     Raises:
+         *         ValidationError: 400 when the id is not a job's.
+         *         HTTPException: 404 when there is no such failure, or it belongs to a project the caller
+         *             does not see (which reads as absent).
+         */
+        post: operations["dismiss_first_deploy_api_first_deploys__attempt__dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/fleet/actions": {
         parameters: {
             query?: never;
@@ -44530,6 +44592,59 @@ export interface components {
             warnings: string[];
             /** Zone */
             zone?: string | null;
+        };
+        /**
+         * FirstDeployOut
+         * @description One first deployment that failed.
+         *
+         *     Attributes:
+         *         job_id: The deployment's job: its log is at ``/api/jobs/{job_id}/log``.
+         *         domain: The domain it was for.
+         *         origin: How the application was to start: ``source``, ``image``, ``compose`` or ``recipe``.
+         *         source: What to read again (an address, a path or an image), with every credential
+         *             masked; null for a recipe or a typed document.
+         *         branch: The branch asked for, when one was.
+         *         app_type: The type asked for (``auto`` or a name).
+         *         recipe: The recipe's name, for a recipe.
+         *         created_at: When it was asked for.
+         *         error: How it failed, verbatim, as the job kept it.
+         *         error_coded: Its first line as a sentence of Noust's, when it is one, for the console to
+         *             say in its own language.
+         *         finished_at: When the job ended.
+         */
+        FirstDeployOut: {
+            /** App Type */
+            app_type?: string | null;
+            /** Branch */
+            branch?: string | null;
+            /** Created At */
+            created_at: string;
+            /** Domain */
+            domain: string;
+            /** Error */
+            error?: string | null;
+            error_coded?: components["schemas"]["CodedText"] | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Job Id */
+            job_id: string;
+            /** Origin */
+            origin: string;
+            /** Recipe */
+            recipe?: string | null;
+            /** Source */
+            source?: string | null;
+        };
+        /**
+         * FirstDeploysResponse
+         * @description The first deployments that failed and are still the last word on their domain.
+         *
+         *     Attributes:
+         *         items: Newest first, of the projects the caller sees.
+         */
+        FirstDeploysResponse: {
+            /** Items */
+            items: components["schemas"]["FirstDeployOut"][];
         };
         /**
          * FixOwnerRequest
@@ -89417,6 +89532,67 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["EnvironmentListResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_first_deploys_api_first_deploys_get: {
+        parameters: {
+            query?: {
+                /** @description Only this domain's. */
+                domain?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FirstDeploysResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dismiss_first_deploy_api_first_deploys__attempt__dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attempt: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

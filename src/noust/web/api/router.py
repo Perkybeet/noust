@@ -82,6 +82,7 @@ from noust.web.api.dns import router as dns_providers_router
 from noust.web.api.domains import dns_router
 from noust.web.api.domains import router as domains_router
 from noust.web.api.ens import router as ens_router
+from noust.web.api.first_deploys import router as first_deploys_router
 from noust.web.api.fleet import router as fleet_router
 from noust.web.api.fleet_builders import router as fleet_builders_router
 from noust.web.api.fleet_databases import router as fleet_databases_router
@@ -288,6 +289,7 @@ router.include_router(databases_router, prefix="/databases", tags=["Databases"])
 router.include_router(databases_apps_router, prefix="/apps", tags=["Databases"])
 router.include_router(cron_router, prefix="/cron", tags=["Cron Jobs"])
 router.include_router(deployments_router, prefix="/deployments", tags=["Deployments"])
+router.include_router(first_deploys_router, prefix="/first-deploys", tags=["Deployments"])
 # Mounted at the same "/apps" prefix as apps_router: diagnose.py owns exactly
 # one path, "/{domain}/diagnose", that apps.py does not define, so the two
 # routers compose without colliding. Kept separate because apps.py is owned

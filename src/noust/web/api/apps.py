@@ -100,6 +100,7 @@ from noust.terminal.targets import validate_service
 from noust.validators.environment import EnvironmentValidationError
 from noust.validators.source import is_upload_tree, validate_source
 from noust.web.api.app_container import ContainerSettingsRequest, request_to_changes
+from noust.web.api.app_initial_health import check_initial_health
 from noust.web.api.app_inspection import SourceInspectionResponse, inspection_response
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import (
@@ -109,6 +110,7 @@ from noust.web.api.deps import (
     require_elevated,
     strict_domain,
 )
+from noust.web.api.first_deploys import remember_attempt
 from noust.web.api.recipe_root import confirm_root_equivalent
 from noust.web.api.scope import resolve_target_for
 from noust.web.auth import (
@@ -1052,39 +1054,6 @@ def list_apps(
     return AppListResponse(apps=result, total=len(result))
 
 
-def _check_initial_health(path: str | None, expect: str | None, timeout: int | None) -> None:
-    """
-    Refuse health settings the gate could not use, naming the field.
-
-    Args:
-        path: Path to probe, or None.
-        expect: Accepted statuses, or None.
-        timeout: Seconds to wait, or None.
-
-    Raises:
-        ValidationError: A value is not usable; ``field`` names it.
-    """
-    from noust.validators.health import (
-        check_health_expect,
-        check_health_path,
-        check_health_timeout,
-    )
-
-    checks: tuple[tuple[str, Callable[[Any], Any], Any], ...] = (
-        ("health_path", check_health_path, path),
-        ("health_expect", check_health_expect, expect),
-        ("health_timeout", check_health_timeout, timeout),
-    )
-    for field, check, value in checks:
-        if value is None:
-            continue
-        try:
-            check(value)
-        except ValidationError as exc:
-            exc.field = field
-            raise
-
-
 def _database_for_job(body: CreateAppRequest) -> dict[str, Any]:
     """
     Describe the new application's database the way the deploy job takes it.
@@ -1290,7 +1259,7 @@ def create_app(
     ).validated()
     # Checked before the job is queued, the same way PATCH .../health checks
     # them: a value the gate cannot use is a 400 now, not a failed deploy.
-    _check_initial_health(body.health_path, body.health_expect, body.health_timeout)
+    check_initial_health(body.health_path, body.health_expect, body.health_timeout)
 
     if body.package_manager is not None and body.package_manager not in SUPPORTED_PACKAGE_MANAGERS:
         raise ValidationError(
@@ -1359,6 +1328,19 @@ def create_app(
         },
         actor=actor_label(session),
         ownership=(target.project_id, target.environment_id),
+    )
+    # A first deployment that fails undoes the application's row, so what was asked for is kept
+    # for the page of the domain (item 141).
+    remember_attempt(
+        job.id,
+        domain,
+        owner=(target.project_id, target.environment_id),
+        source=body.source,
+        branch=body.branch,
+        app_type=app_type,
+        recipe=recipe.name if recipe is not None else None,
+        image=container.image if container is not None else None,
+        typed_document=body.compose_document is not None,
     )
 
     return JobAcceptedResponse(

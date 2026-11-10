@@ -602,6 +602,8 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("deployments", "list_deployments"): ("GET", "/api/deployments", "apps.read", False),
     ("deployments", "get_deployment"): ("GET", "/api/deployments/{deployment_id}", "apps.read", False),
     ("deployments", "get_deployment_log"): ("GET", "/api/deployments/{deployment_id}/log", "apps.read", False),
+    ("deployments", "list_first_deploys"): ("GET", "/api/first-deploys", "apps.read", False),
+    ("deployments", "dismiss_first_deploy"): ("POST", "/api/first-deploys/{attempt}/dismiss", "apps.manage", False),
     ("domains", "list_client_certificates"): ("GET", "/api/apps/{domain}/client-certs", "apps.read", False),
     ("domains", "issue_client_certificate"): ("POST", "/api/apps/{domain}/client-certs", "apps.manage", True),
     ("domains", "get_client_authority"): ("GET", "/api/apps/{domain}/client-certs/ca", "apps.read", False),
@@ -5859,7 +5861,7 @@ class DeployKeys:
 
 
 class Deployments:
-    """Deployments: 5 operations."""
+    """Deployments: 7 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -5903,6 +5905,22 @@ class Deployments:
 
         Needs: permission `apps.read`."""
         return self._call("GET", f"/api/deployments/{quote(str(deployment_id), safe='')}/log", query={"tail": tail, "level": level, "search": search, "timestamps": timestamps, "sanitize": sanitize}, body=None)
+
+    def list_first_deploys(self, *, domain: Union[str, None] = None) -> "FirstDeploysResponse":
+        """GET /api/first-deploys
+
+        List First Deploys
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", "/api/first-deploys", query={"domain": domain}, body=None)
+
+    def dismiss_first_deploy(self, attempt: str) -> Any:
+        """POST /api/first-deploys/{attempt}/dismiss
+
+        Dismiss First Deploy
+
+        Needs: permission `apps.manage`."""
+        return self._call("POST", f"/api/first-deploys/{quote(str(attempt), safe='')}/dismiss", query=None, body=None)
 
 
 
