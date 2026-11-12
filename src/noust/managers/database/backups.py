@@ -105,6 +105,15 @@ from noust.managers.retention import (
 
 __all__ = ["DatabaseBackups", "DumpView", "PolicyView"]
 
+#: What a policy's timer makes, and the only dumps retention may delete.
+ORIGIN_SCHEDULED = "scheduled"
+
+#: What somebody asked for ("back up now"): kept until they delete it.
+ORIGIN_MANUAL = "manual"
+
+#: The origins a run of a policy can have.
+RUN_ORIGINS = (ORIGIN_SCHEDULED, ORIGIN_MANUAL)
+
 #: Folder a destination keeps database dumps under, then ``<engine>/<database>``.
 REMOTE_ROOT = "databases"
 
@@ -1733,6 +1742,7 @@ class DatabaseBackups:
         *,
         notify: bool = False,
         on_step: Callable[[str], None] | None = None,
+        origin: str = ORIGIN_SCHEDULED,
     ) -> dict[str, Any]:
         """
         Do everything a database's policy promises: dump, check, send, prune.
@@ -1759,6 +1769,11 @@ class DatabaseBackups:
                 the success) through the notifier. A console job leaves this
                 off: the job manager announces its failure.
             on_step: Told what is happening, for a job's progress.
+            origin: ``scheduled`` for what the policy's timer runs (the default, which is
+                what a unit written before this argument existed asks for) or ``manual`` for
+                a run somebody asked for. Only a scheduled dump is ever deleted by
+                retention, here or on a destination: a copy taken by hand stays until its
+                owner deletes it.
 
         Returns:
             ``dump`` (the dump as :meth:`DumpView.to_dict` describes it),
@@ -1768,17 +1783,24 @@ class DatabaseBackups:
             ``{"ok": False, "error": ...}``) and ``skipped``.
 
         Raises:
+            ValidationError: When ``origin`` is neither of the two.
             DatabaseBackupError: When the dump fails or does not verify.
             BackupError: When at least one destination could not be sent it,
                 or any database of an all-databases run failed; what was
                 dumped is kept either way.
         """
+        if origin not in RUN_ORIGINS:
+            raise ValidationError(
+                f"A backup run cannot have the origin {origin!r}",
+                details=f"Use one of: {', '.join(RUN_ORIGINS)}.",
+                field="origin",
+            )
         # Not ``running()``: an engine that is down is a failed run to announce, and the
         # dump below is what finds it out, inside the block that announces.
         manager = self.service.manager(engine)
         engine_name = manager.ENGINE_NAME
         if database == ALL_DATABASES:
-            return self._run_all(manager, notify=notify, on_step=on_step)
+            return self._run_all(manager, notify=notify, on_step=on_step, origin=origin)
         name = manager.validate_database_name(database)
         policy = self.records.policy(engine_name, name)
         if policy is None:
@@ -1787,7 +1809,9 @@ class DatabaseBackups:
                 "retention and no destinations. Save the policy again with: "
                 "noust db backup-schedule set"
             )
-        return self._run_one(engine_name, name, policy, notify=notify, on_step=on_step)
+        return self._run_one(
+            engine_name, name, policy, notify=notify, on_step=on_step, origin=origin
+        )
 
     def _run_all(
         self,
@@ -1795,6 +1819,7 @@ class DatabaseBackups:
         *,
         notify: bool,
         on_step: Callable[[str], None] | None,
+        origin: str,
     ) -> dict[str, Any]:
         """
         Run the all-databases policy: every database the engine holds, one by one.
@@ -1803,6 +1828,7 @@ class DatabaseBackups:
             manager: The engine.
             notify: See :meth:`run_policy`.
             on_step: See :meth:`run_policy`.
+            origin: See :meth:`run_policy`.
 
         Returns:
             See :meth:`run_policy`.
@@ -1846,7 +1872,13 @@ class DatabaseBackups:
                 result["databases"][name] = {
                     "ok": True,
                     **self._run_one(
-                        engine_name, name, policy, notify=notify, on_step=on_step, record=False
+                        engine_name,
+                        name,
+                        policy,
+                        notify=notify,
+                        on_step=on_step,
+                        origin=origin,
+                        record=False,
                     ),
                 }
                 dumped.append(name)
@@ -1883,6 +1915,7 @@ class DatabaseBackups:
         *,
         notify: bool,
         on_step: Callable[[str], None] | None,
+        origin: str,
         record: bool = True,
     ) -> dict[str, Any]:
         """
@@ -1895,6 +1928,7 @@ class DatabaseBackups:
                 one; None to dump with no retention and no destinations.
             notify: See :meth:`run_policy`.
             on_step: See :meth:`run_policy`.
+            origin: See :meth:`run_policy`.
             record: Note how the run ended on the policy row of this database.
                 An all-databases run notes it once, on its own row.
 
@@ -1934,7 +1968,7 @@ class DatabaseBackups:
             view = self.dump(
                 engine_name,
                 name,
-                origin="scheduled",
+                origin=origin,
                 dump_format=policy.dump_format if policy else None,
                 exclusions=Exclusions.from_json(policy.exclusions if policy else None).per_dump(),
             )
@@ -1972,7 +2006,7 @@ class DatabaseBackups:
                         engine_name,
                         view.name,
                         target,
-                        scheduled=True,
+                        scheduled=origin == ORIGIN_SCHEDULED,
                         retention_count=entry.get("retention_count"),
                         retention_days=entry.get("retention_days"),
                         retention_gb=entry.get("retention_gb"),

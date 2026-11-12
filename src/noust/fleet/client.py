@@ -28,6 +28,7 @@ from collections.abc import Iterable
 from types import ModuleType
 from typing import TYPE_CHECKING, Any
 
+from noust.core import descriptors
 from noust.core.exceptions import (
     FleetUnavailableError,
     NodeError,
@@ -35,6 +36,7 @@ from noust.core.exceptions import (
     NodeUnreachableError,
 )
 from noust.core.secrets import SecretStore
+from noust.core.server_text import say
 from noust.core.store import NoustStore, get_store
 from noust.fleet.central_calls import MAX_HEARTBEAT
 from noust.fleet.keys import TOKEN, secret_name
@@ -446,6 +448,33 @@ class NodeClient:
             raise refused
         return response
 
+    def _starved(self, response: httpx.Response) -> NodeError | None:
+        """
+        Recognise the answer of a node whose console has run out of file descriptors.
+
+        Args:
+            response: What the node answered, at an error status.
+
+        Returns:
+            The error that says so, with the node's own words beside what to do; None for any
+            other answer.
+        """
+        if response.status_code != 503:
+            return None
+        try:
+            body = response.json()
+        except ValueError:
+            return None
+        if not isinstance(body, dict) or body.get("error") != descriptors.ERROR_CODE:
+            return None
+        said = say("fleet.node_descriptors_exhausted", node=self.node, command="noust web restart")
+        return NodeError(
+            said.text,
+            f"{said.hint}\n\nThe node said: {_quoted(response)}",
+            output=_quoted(response),
+            coded=said,
+        )
+
     def get_json(self, path: str, **kw: Any) -> Any:
         """
         GET a path and return the JSON the node answered.
@@ -465,6 +494,9 @@ class NodeClient:
         """
         response = self.request("GET", path, **kw)
         if response.status_code >= 400:
+            starved = self._starved(response)
+            if starved is not None:
+                raise starved
             raise NodeError(
                 f"{self.node} answered {response.status_code} to GET {path}",
                 details=_quoted(response),

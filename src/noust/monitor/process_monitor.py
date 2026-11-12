@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
-from noust.core import paths
+from noust.core import descriptors, paths
 from noust.core.alerts.rules import AlertRules
 from noust.core.config import SYSTEMD_DIR, Config
 from noust.core.exceptions import MonitorError, NoustError
@@ -1659,6 +1659,9 @@ Environment=HOME=/root USER=root LOGNAME=root
 ExecStart={noust_path} monitor run
 Restart=always
 RestartSec=30
+# The same number of open files as the console's unit (issue 19: the system's default of 1024 is
+# what a console ran out of).
+LimitNOFILE={descriptors.SERVICE_LIMIT}
 # It samples every few seconds for as long as the server runs: it must never
 # compete with the applications it is measuring.
 Nice=10

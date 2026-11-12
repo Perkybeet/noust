@@ -81,6 +81,47 @@ def test_an_app_whose_idle_instance_failed_its_gate_counts_as_running(
     assert read_machine(apps_root="/tmp").apps == AppTally(running=1, failed=0, stopped=0, static=0)
 
 
+def test_the_idle_instance_is_standing_by_and_the_top_bar_does_not_count_it_as_stopped(
+    tmp_path: Path, runner: FakeRunner, unit_dir: Path, store: NoustStore
+) -> None:
+    """Item 146: the application said "Running" and the units said "1 stopped" of the same pair."""
+    root = tmp_path / "apps" / BASE
+    bg_app(store, root, color="green")
+    install_template(root)
+    listed(runner, green="active running", blue="inactive dead")
+
+    units = read_machine(apps_root="/tmp").units
+
+    assert (units.running, units.failed, units.stopped) == (1, 0, 0)
+
+
+def test_the_instance_that_serves_is_counted_whichever_colour_it_is(
+    tmp_path: Path, runner: FakeRunner, unit_dir: Path, store: NoustStore
+) -> None:
+    root = tmp_path / "apps" / BASE
+    bg_app(store, root, color="blue")
+    install_template(root)
+    listed(runner, green="inactive dead", blue="active running")
+
+    units = read_machine(apps_root="/tmp").units
+
+    assert (units.running, units.failed, units.stopped) == (1, 0, 0)
+
+
+def test_a_serving_instance_that_stopped_is_still_a_stopped_unit(
+    tmp_path: Path, runner: FakeRunner, unit_dir: Path, store: NoustStore
+) -> None:
+    """Only the copy that is waiting its turn is left out: what should be serving and is not, counts."""
+    root = tmp_path / "apps" / BASE
+    bg_app(store, root, color="green")
+    install_template(root)
+    listed(runner, green="inactive dead", blue="inactive dead")
+
+    units = read_machine(apps_root="/tmp").units
+
+    assert (units.running, units.stopped) == (0, 1)
+
+
 def test_an_app_whose_serving_instance_failed_counts_as_failed(
     tmp_path: Path, runner: FakeRunner, unit_dir: Path, store: NoustStore
 ) -> None:

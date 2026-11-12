@@ -245,9 +245,10 @@ server is `noust db move` ([databases.md](databases-move.md#moving-a-database-or
 ## Settings of the fleet
 
 Some settings are the fleet's: you write them once, on the central, and every server it manages has
-them. Six kinds are managed this way: **notification channels**, **alert rules**, **backup
-destinations**, **registry logins**, **shared variables** of the server and **the address of the
-central's console** that the links of their notifications open ([below](#where-the-links-of-a-notification-open)).
+them. Seven kinds are managed this way: **notification channels**, **alert rules**, **backup
+destinations**, **registry logins**, **shared variables** of the server, **the address of the
+central's console** that the links of their notifications open ([below](#where-the-links-of-a-notification-open))
+and **a server's policy** ([below](#a-servers-policy)).
 (Secret managers, DNS and
 cloud providers and source integrations are named by the design and are not managed from the central
 yet: set them on each server.) What belongs to the machine - the web server, the firewall, SSH,
@@ -268,8 +269,9 @@ GET    /settings                          # the kinds, and every setting in ever
 GET    /settings/status                   # where each server stands on each setting
 PUT    /settings/{kind}/{name}            # {"value": {...}, "scope": "fleet" | "node:web-2", "apply": true}
 DELETE /settings/{kind}/{name}?scope=...  # the servers keep what they applied
-PUT    /servers/{node}/settings-mode      # {"mode": "managed" | "independent"}
+PUT    /servers/{node}/settings-mode      # {"mode": "managed" | "independent", "adopt": false}
 POST   /settings/apply                    # "Apply to the fleet": a fleet job, with each server's progress
+                                          # {"nodes": [...], "only": ["channel/ops"], "adopt": false, "plan": false}
 POST   /servers/{node}/settings/{kind}/{name}/restore   # back to the fleet's value on that server
 ```
 
@@ -285,7 +287,7 @@ recorded with an id and the person who approved it. The pushes that apply it - a
 later, when a server comes back, with nobody in front of the console - carry
 `X-Noust-Actor: fleet-sync on behalf of <person> (change <id>)` and `X-Noust-Elevated:
 change:<id>`. A server takes that as the confirmation of sudo mode **only** for the routes of these
-six kinds and the routes that record what was applied, and **only** when its ceiling is `admin`;
+seven kinds and the routes that record what was applied, and **only** when its ceiling is `admin`;
 anything else signed that way is refused (`fleet_sync_refused`, `fleet_sync_ceiling`), and its audit
 trail names the person and the change.
 
@@ -295,6 +297,72 @@ did not get done); and when someone presses **Apply to the fleet**. A setting th
 and is not the fleet's is not taken over unless you say so (`adopt`), and one its operator changed is
 left unless you name it (`restore`) or the operator asked for it back on that server. A server on an
 older Noust (before 4.1) is skipped as `unsupported`.
+
+**Applying one setting.** `only` limits an apply to the settings it names, `kind/name` each
+(`{"only": ["channel/ops"], "nodes": ["web-2"]}` applies that channel to that server and nothing
+else). Nothing outside the list is pushed, left or let go of, so what was not named is still waiting
+for the next apply. An entry that is not a kind the fleet manages, whose name that kind would not
+have, or that the fleet has no setting of (its own value or an exception) is a `422` naming `only`.
+
+### Where each server stands
+
+`GET /settings/status` says it for every setting and server, and the console draws it from this
+and counts nothing itself:
+
+- **`sync`** of a server's cell: `in_sync`, `pending` (it does not have it, or has an older one),
+  `diverged` (its own operator changed it), `release_pending`, `not_applicable` (a channel's route
+  cannot match there, or the server is independent), `unreachable`, `unknown`, and two that say the
+  setting cannot be put there at all: `unsupported` (the server runs a Noust that lacks this kind,
+  which it says itself in `GET /api/managed-settings`) and `refused` (the server's published
+  ceiling does not let the central set this kind, or it will not answer the central). Neither is a
+  server that is only behind.
+- **`waiting`** of a cell: the central holds a version for that server that it has not seen the
+  server hold. It is a separate fact because a server that cannot be read says `unreachable` and
+  that must not hide that a change is waiting for it: a server that is behind is waiting, and a
+  server that cannot be read is waiting when the setting changed after the last time it answered
+  (nothing could have been pushed in between), or when it never answered. A server whose own
+  operator changed the setting, one that cannot take the kind, one the setting cannot match on and
+  one that is independent wait for nothing.
+- **`following` of `of`**, on each setting: how many of the servers the setting is meant for follow
+  it. Following is holding the fleet's value or being behind it, and a server that cannot be reached
+  without a change of its own still follows. An exception the central set, a change of the server's
+  own, independence, a refusal by the ceiling and a Noust that lacks the kind do not. The central is
+  never counted, and neither is a server a channel's route cannot match on. The central counts it
+  once, in `noust.fleet.settings.status`, so a client does not count it again.
+- **`if_followed`** of the cell of an independent server: the `sync` it would have if it followed
+  the fleet again, worked out the way it is for a server that does (`pending` is what it would be
+  sent). `null` for a server that follows. It is how the person who is about to change the switch
+  is told what will change.
+
+**A server decides on its own page whether it follows.** `PUT /servers/{node}/settings-mode` takes
+sudo mode and `fleet.manage`, is recorded as `fleet.setting.mode` in the audit trail (with the
+server and the mode) and is off until somebody decides it: every server follows. Leaving lets go of
+what the server had, and it keeps it as its own. Following again applies everything: what the
+server does not have is created, and what it kept under a name of the fleet's is a `conflict` unless
+the same request says `"adopt": true`, which takes it over (it is refused with `independent`).
+
+### A server's policy
+
+A server's policy is the four settings of **General** that say how it behaves and not what it is,
+set for the fleet as one setting called `general`:
+
+| Field | Server's key | Meaning |
+|---|---|---|
+| `updates_check` | `updates.check` | whether it asks for new releases |
+| `ssl_email` | `ssl.email` | where certificate notices go; empty for nowhere |
+| `backup_max_per_app` | `backup.max_per_app` | how many backups it keeps of each application (1 to 100) |
+| `delivery_max_minutes` | `deploy.max_minutes` | the longest a deployment may build, in minutes (0 to 1440; 0 is no limit) |
+
+All four are given together: a setting that does not mention one would not say what the fleet
+wants of it. The server's own route for it is `GET` and `PUT /api/config/policy` (permission
+`settings.read` and `settings.manage`, sudo mode to write), one request that writes the four and
+nothing else, each judged by the rule of its own key, so the backup folder, the builds that run at
+once and the certificate provider that sit in the same sections are left as they were: they are
+the machine's. `GET` also says whether anybody chose any of the four (`customized`), and a server
+whose operator did is not overwritten on a first look but left as a `conflict` until you say
+`adopt`, like any other setting. Changing one of the four on the server makes the policy that
+server's own exception, and changing the folders does not. A server on a Noust that lacks the route
+(before 4.3) says `unsupported` for it and is not written to; the rest of its settings go on.
 
 ### Where a channel is heard
 
@@ -340,6 +408,11 @@ A 3.2 central drives 3.1 servers the same way: the pages that call routes a 3.1 
 have (a site's structure and diagram, the time zone list, the timeline, hooks) say that the
 server runs an older Noust, and the rest works as before. See
 [UPGRADING-3.2.md](UPGRADING-3.2.md#upgrading-a-fleet).
+
+A 4.3 central drives 4.2 servers too. What a 4.2 server lacks is the route a server's policy is set
+by, so its cell of that setting says `unsupported` (it is not counted among the servers that follow
+it and nothing waits for it), a job writes nothing to it for that setting and says why, and every
+other setting of its row goes on as before. It starts to follow the policy when it is updated.
 
 ## Notifications
 

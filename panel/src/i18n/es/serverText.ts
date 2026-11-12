@@ -220,6 +220,9 @@ export const serverText: Catalog<typeof en> = {
       crash_loop: {
         text: "El proceso termina con el estado {status} al arrancar; mira las últimas líneas del diario más abajo.",
       },
+      descriptors: {
+        text: "La consola se quedó sin descriptores de archivo (Too many open files) mientras comprobaba {domain}, así que las comprobaciones que no pudo hacer no dicen nada de la aplicación. Reinicia la consola para liberarlos: {command}",
+      },
       disk_full: {
         text: "El disco que contiene el directorio de aplicaciones está al {percent}%.",
       },
@@ -303,6 +306,11 @@ export const serverText: Catalog<typeof en> = {
       },
       worker_with_port: {
         text: "Un worker: {summary}; tiene registrado el puerto {port} y no publica ninguno. Quítalo con: {command}",
+      },
+    },
+    descriptors: {
+      exhausted: {
+        text: "La consola se quedó sin descriptores de archivo mientras comprobaba",
       },
     },
     disk: {
@@ -525,6 +533,11 @@ export const serverText: Catalog<typeof en> = {
         text: "Procesadores: no se pudieron leer",
       },
     },
+    cron: {
+      without_environment: {
+        text: "La tarea {name} de {domain} se ejecuta sin el .env ni las herramientas de la aplicación: se escribió antes de que una tarea los cargara",
+      },
+    },
     disk: {
       below_floor: {
         text: "Disco libre: {free} libres de {total} en {path}, por debajo de los {floor} que Noust necesita para funcionar",
@@ -540,6 +553,14 @@ export const serverText: Catalog<typeof en> = {
       },
       unreadable: {
         text: "Disco libre: no se pudo leer",
+      },
+    },
+    limits: {
+      default: {
+        text: "{unit} no fija ningún límite de archivos abiertos, así que tiene el del sistema; una unidad escrita ahora recibe {new}",
+      },
+      old: {
+        text: "{unit} está limitada a {limit} archivos abiertos, y una unidad escrita ahora recibe {new}",
       },
     },
     memory: {
@@ -681,6 +702,10 @@ export const serverText: Catalog<typeof en> = {
     },
   },
   fleet: {
+    node_descriptors_exhausted: {
+      text: "{node} se quedó sin descriptores de archivo",
+      hint: "Su consola no puede abrir un archivo ni un socket hasta que se liberen algunos. En {node}, ejecuta: {command}. Después ejecuta 'noust setup doctor' allí: dice si la unidad de la consola aún tiene el límite de antes de la 4.3 (1024 archivos).",
+    },
     refused: {
       permission: {
         text: "Tu rol {role} no tiene el permiso {permission} en estos servidores",
@@ -1248,6 +1273,7 @@ export const serverText: Catalog<typeof en> = {
       app_exec_any: { text: "Ejecutar un comando en una aplicación" },
       backup: { text: "Hacer una copia de {domain}" },
       backup_any: { text: "Hacer una copia de una aplicación" },
+      backup_database: { text: "Hacer una copia de la base de datos {database}" },
       cert_acme_account: { text: "Registrar la cuenta ACME" },
       cert_create: { text: "Conseguir un certificado para {domain}" },
       cert_create_any: { text: "Conseguir un certificado" },
@@ -1554,6 +1580,12 @@ export const serverText: Catalog<typeof en> = {
     unknown: {
       text: "No existe ningún rol llamado {name}",
       hint: "Lista los roles con: {command}",
+    },
+  },
+  server: {
+    descriptors_exhausted: {
+      text: "Descriptores agotados: la consola no tiene ningún archivo más que abrir, así que falla lo que necesite uno",
+      hint: "Reinicia la consola para liberarlos: {command}. Después ejecuta 'noust setup doctor': dice si su unidad aún tiene el límite de antes de la 4.3 (1024 archivos) y cómo escribir el nuevo.",
     },
   },
   sign_in_image: {

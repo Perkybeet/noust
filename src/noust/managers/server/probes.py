@@ -31,6 +31,9 @@ READ_ONLY_PROBES: tuple[tuple[object, ...], ...] = (
     # What machine this is.
     ("systemd-detect-virt", "-c"),
     ("dnf", "--version"),
+    # Whether python3 can seed a virtual environment with pip, which is what the pre-flight of a
+    # Python deployment asks: two imports, exactly this text and no other code.
+    ("python3", "-c", "import ensurepip, venv"),
     # apt: the simulation is what the upgrade would do, and changes nothing.
     ("apt-get", "-s", "-o", "Debug::NoLocking=1", "--with-new-pkgs", "upgrade"),
     ("apt-get", "-s", "-o", "Debug::NoLocking=1", "full-upgrade"),

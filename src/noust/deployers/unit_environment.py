@@ -176,6 +176,19 @@ def movable(unit_text: str) -> dict[str, str]:
     }
 
 
+def kept_inline(unit_text: str) -> dict[str, str]:
+    """
+    Name the variables a unit is right to carry inline.
+
+    Args:
+        unit_text: The unit file.
+
+    Returns:
+        Every inline variable that is in :data:`INLINE`: what is Noust's to decide, and not secret.
+    """
+    return {name: value for name, value in inline_variables(unit_text).items() if name in INLINE}
+
+
 def secret_names(variables: Mapping[str, str]) -> list[str]:
     """
     Pick the variables Noust treats as secrets, by name or by value.
@@ -209,7 +222,7 @@ def rewritten(unit_text: str, env_file: Path) -> str:
         with ``EnvironmentFile=-<env_file>`` before ``ExecStart=`` unless it
         already loads that file.
     """
-    kept = {name: value for name, value in inline_variables(unit_text).items() if name in INLINE}
+    kept = kept_inline(unit_text)
     target = f"EnvironmentFile=-{str(env_file).replace('%', '%%')}"
     has_file = any(
         line.strip() in (target, target.replace("=-", "=", 1)) for line in unit_text.splitlines()

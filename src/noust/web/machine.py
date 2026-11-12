@@ -31,7 +31,7 @@ import sqlite3
 import threading
 import time
 from collections import deque
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -82,7 +82,9 @@ class UnitTally:
     A service a timer starts (a backup, a cron job) is neither: between two runs it
     waits for its timer, and counted as stopped it made a server with eight
     scheduled backups say "13 stopped" with everything in order. It is
-    ``scheduled``. One that is running now counts as running, one that failed as failed.
+    ``scheduled``. One that is running now counts as running, one that failed as failed. The idle
+    instance of a zero-downtime application is stopped by design and counts in none
+    (:func:`standby_units`).
     """
 
     running: int
@@ -205,18 +207,58 @@ def fetch_service_states() -> list[dict[str, Any]]:
         return []
 
 
-def _count_units(services: list[dict[str, Any]]) -> UnitTally:
+def standby_units(services: list[dict[str, Any]]) -> set[str]:
+    """
+    Name the units that are waiting their turn: the idle instance of a zero-downtime application.
+
+    The idle instance of blue/green is stopped by design, and is the next one to serve; counted as
+    a stopped unit it made the top bar say "1 stopped" of an application that said "Running". The
+    instance that serves is :meth:`~noust.managers.service_manager.ServiceManager.serving_units`,
+    the same answer :func:`classify_apps` uses for the application's own state.
+
+    Args:
+        services: What :func:`fetch_service_states` returned.
+
+    Returns:
+        The names of the instances that do not serve, of every application in the mode; empty when
+        none is, or when the store cannot be read.
+    """
+    from noust.core.store import get_store, runs_as_instances
+
+    try:
+        instanced = [app for app in get_store().list_apps() if runs_as_instances(app)]
+    except (NoustError, sqlite3.Error) as exc:
+        log.warning("Could not read applications for the standby units: %s", exc)
+        return set()
+    if not instanced:
+        return set()
+
+    from noust.managers.service_manager import ServiceManager
+
+    manager = ServiceManager(verbose=False)
+    standing_by: set[str] = set()
+    for app in instanced:
+        named = {str(s.get("name", "")) for s in services if s.get("app") == app.domain}
+        standing_by |= named - set(manager.serving_units(app))
+    return standing_by
+
+
+def _count_units(services: list[dict[str, Any]], standby: Collection[str] = ()) -> UnitTally:
     """
     Tally the JSON snapshot's three unit buckets.
 
     Args:
         services: What :func:`fetch_service_states` returned.
+        standby: Units that wait their turn (:func:`standby_units`): in no bucket, neither
+            running nor stopped, because nothing is wrong with them and nothing is meant to run.
 
     Returns:
         The tally.
     """
     running = failed = stopped = scheduled = 0
     for service in services:
+        if classify_unit(service) == "stopped" and str(service.get("name", "")) in standby:
+            continue
         bucket = classify_unit(service)
         if bucket == "active":
             running += 1
@@ -515,6 +557,6 @@ def read_machine(apps_root: str | None = None) -> MachineState:
         cpu_percent=cpu_percent,
         memory=memory_snapshot,
         disk=disk_snapshot,
-        units=_count_units(services),
+        units=_count_units(services, standby_units(services)),
         apps=_count_apps(services),
     )

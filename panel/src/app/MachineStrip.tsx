@@ -251,6 +251,9 @@ function FleetStrip({ className }: { className?: string | undefined }) {
   const t = useT();
   const { data: view, isError } = useQuery(fleetViewQuery("summary"));
   const total = view?.nodes.length ?? 0;
+  // A central that runs applications of its own is a row of the summary, but when it is all there is, the fleet has no server
+  // yet: the page under the strip says so, and the strip does not count the central as one (item 145).
+  const none = view !== undefined && !view.nodes.some((outcome) => !outcome.local);
   const down = view?.nodes.filter((outcome) => {
     const kind = outcomeKind(outcome);
     return kind === "unreachable" || kind === "stale" || kind === "error";
@@ -261,8 +264,7 @@ function FleetStrip({ className }: { className?: string | undefined }) {
   // (WCAG 2.5.3, label in name): what a person reads off the strip is what they can say to reach it, and no spacing of the
   // drawn words can make the name miss them. A zero that is not drawn is not said either.
   const readings = [
-    t("shell.fleetStrip.servers", { count: total }),
-    t("shell.fleetStrip.answering", { count: answering }),
+    ...(none ? [t("shell.fleetStrip.none")] : [t("shell.fleetStrip.servers", { count: total }), t("shell.fleetStrip.answering", { count: answering })]),
     ...(down > 0 ? [t("shell.fleetStrip.down", { count: down })] : []),
     ...(failedApps > 0 ? [t("shell.fleetStrip.failedApps", { count: failedApps })] : []),
   ];
@@ -279,13 +281,21 @@ function FleetStrip({ className }: { className?: string | undefined }) {
         <Tooltip content={summary}>
           <Link to="/fleet" className={cx("flex min-w-0 items-center gap-3", STRIP_LINK)}>
             <span className="sr-only">{summary}</span>
-            <span aria-hidden="true" className="hidden shrink-0 text-13 font-medium text-fg tabular-nums @min-[20rem]:inline">
-              {t("shell.fleetStrip.servers", { count: total })}
-            </span>
-            <span aria-hidden="true" className="hidden items-center gap-1 text-13 whitespace-nowrap text-ok @min-[24rem]:inline-flex">
-              <StatusGlyph state="running" size={10} />
-              <span className="text-fg tabular-nums">{t("shell.fleetStrip.answering", { count: answering })}</span>
-            </span>
+            {none ? (
+              <span aria-hidden="true" className="hidden shrink-0 text-13 text-fg-muted @min-[20rem]:inline">
+                {t("shell.fleetStrip.none")}
+              </span>
+            ) : (
+              <>
+                <span aria-hidden="true" className="hidden shrink-0 text-13 font-medium text-fg tabular-nums @min-[20rem]:inline">
+                  {t("shell.fleetStrip.servers", { count: total })}
+                </span>
+                <span aria-hidden="true" className="hidden items-center gap-1 text-13 whitespace-nowrap text-ok @min-[24rem]:inline-flex">
+                  <StatusGlyph state="running" size={10} />
+                  <span className="text-fg tabular-nums">{t("shell.fleetStrip.answering", { count: answering })}</span>
+                </span>
+              </>
+            )}
             {down > 0 ? (
               // Where not even the short word fits (a phone) the count is left out, not cut to "1 dow": the summary is the link's name.
               <span aria-hidden="true" className="inline-flex min-w-0 items-center gap-1 truncate text-13 font-medium whitespace-nowrap text-fail @max-[7rem]:hidden">

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pytest
 
-from noust.core.config import DEFAULT_CONFIG
+from noust.core.config import DEFAULT_CONFIG, Config
 from noust.core.notifications.instances import (
     MAX_INSTANCES,
     TYPE_NAMES,
@@ -21,6 +21,9 @@ from noust.core.notifications.instances import (
     resolve_instances,
     validate_channels,
 )
+from tests.support.notifier import config  # noqa: F401  (pytest resolves fixtures by name)
+
+# ruff: noqa: F811
 
 SLACK = "https://hooks.slack.test/services/T0/B0/secret"
 
@@ -84,7 +87,6 @@ def test_an_unconfigured_instance_is_not_configured() -> None:
         ("gotify", {"webhook_url": "https://g.test", "token": "t"}, True),
         ("ntfy", {"webhook_url": "https://ntfy.test/x"}, True),
         ("teams", {"webhook_url": "https://x.test/x"}, True),
-        ("email", {"enabled": True}, True),
         ("email", {}, False),
     ],
 )
@@ -92,6 +94,49 @@ def test_what_each_type_needs(name: str, block: dict, configured: bool) -> None:
     (instance,) = resolve_instances({name: block})
 
     assert instance.configured is configured
+
+
+class TestTheEmailChannelNeedsAWayToSend:
+    """
+    Email has no destination of its own: it is the monitor's SMTP server or its email service.
+    It counted as configured when it was on, so a channel saved with no server said "configured"
+    and the day something failed no mail left (item 137).
+    """
+
+    def test_on_without_a_server_or_a_service_is_not_configured(self, config: Config) -> None:
+        (instance,) = resolve_instances({"email": {"enabled": True}})
+
+        assert instance.enabled is True
+        assert instance.configured is False
+
+    def test_a_server_makes_it_configured(self, config: Config) -> None:
+        config.set("monitor.smtp.host", "smtp.example.com")
+
+        (instance,) = resolve_instances({"email": {"enabled": True}})
+
+        assert instance.configured is True
+
+    def test_an_email_service_with_its_settings_makes_it_configured(self, config: Config) -> None:
+        config.set(
+            "monitor.email_api",
+            {"provider": "resend", "api_key": "re_key", "from_address": "alerts@example.com"},
+        )
+
+        (instance,) = resolve_instances({"email": {"enabled": True}})
+
+        assert instance.configured is True
+
+    def test_a_server_does_not_configure_a_channel_that_is_off(self, config: Config) -> None:
+        config.set("monitor.smtp.host", "smtp.example.com")
+
+        (instance,) = resolve_instances({"email": {}})
+
+        assert instance.configured is False
+
+    def test_another_channel_type_does_not_depend_on_it(self, config: Config) -> None:
+        (instance,) = resolve_instances({"slack": {"webhook_url": SLACK}})
+
+        assert instance.configured is True
 
 
 def test_email_is_off_unless_enabled_and_the_rest_are_on_unless_disabled() -> None:

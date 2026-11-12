@@ -23,6 +23,14 @@ describe("the breadcrumbs the register gives a page", () => {
     expect(crumbsFor("/network/firewall", "fleet")[0]?.to).toBe("/fleet/network");
   });
 
+  it("names the Server step as the bar does: Server on a server's own pages, Servers from All servers", () => {
+    // "Servers" in the trail under a bar that said "Server" read as two different places (item 154).
+    expect(nameOf(crumbsFor("/server/files", "server")[0]?.name ?? { param: "?" })).toBe("nav.server.labelOne");
+    expect(nameOf(crumbsFor("/server/files", "fleet")[0]?.name ?? { param: "?" })).toBe("nav.server.label");
+    // No other area has a name of one: Applications is Applications wherever the person is.
+    expect(nameOf(crumbsFor("/apps/$domain/deployments", "server")[0]?.name ?? { param: "?" })).toBe("nav.apps.label");
+  });
+
   it("says the area, the application by its domain, and the section, for an application's page", () => {
     expect(ids("/apps/$domain/deployments")).toEqual(["apps", "app", "app.deployments"]);
     const steps = crumbsFor("/apps/$domain/deployments", "server");

@@ -164,6 +164,30 @@ def _console_link(
     return {"url": str(url)} if url else None
 
 
+def _policy(
+    name: str, store: NoustStore | None, secrets: SecretStore | None
+) -> dict[str, Any] | None:
+    """
+    Args:
+        name: The policy.
+        store: Unused: the four fields live in the configuration.
+        secrets: Unused.
+
+    Returns:
+        The four fields of the policy and nothing else of the configuration (the folders and the
+        web server beside them are the machine's, and changing one must not make the policy the
+        operator's own); None for a name that is not the one policy.
+    """
+    from noust.core.config import Config
+    from noust.fleet.settings import policy
+
+    if name != policy.NAME:
+        return None
+    config = Config()
+    config.reload()
+    return policy.read(config)
+
+
 #: How a node reads each kind of setting.
 READERS: dict[str, Reader] = {
     "channel": _channel,
@@ -172,6 +196,7 @@ READERS: dict[str, Reader] = {
     "registry": _registry,
     "variable": _variable,
     "console_link": _console_link,
+    "policy": _policy,
 }
 
 

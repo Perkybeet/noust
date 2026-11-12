@@ -20,6 +20,40 @@ them before the rest):
   `panel/openapi.baseline.json` in the same commit (`python scripts/api_compat.py --update
   --accept-breaking`).
 
+## 4.3.0
+
+API version 1. No operation is removed or deprecated, and `python scripts/api_compat.py` keeps passing
+against the schema of 4.2.0.
+
+### Added
+
+- **What the fleet's settings say of who follows them** (`GET /api/fleet/settings/status`, permission
+  `fleet.read`). Each setting carries `following` and `of`: how many of the servers it is meant for follow
+  it, counted once by the server (the central is never one, and neither is a server a channel's route cannot
+  match on). Each cell of a server carries `waiting` (the central holds a version for it that it has not seen
+  the server hold, also when the server cannot be read: `sync` keeps its meaning) and `if_followed` (for an
+  independent server, the `sync` it would have if it followed the fleet again; `null` otherwise). `sync` is
+  now also `unsupported` for a server that runs a Noust without that kind of setting and `refused` for one
+  whose published ceiling does not let the central set it, where both were only ever said of the whole server.
+  [central-operate.md](central-operate.md#where-each-server-stands) says each.
+- **Apply one setting.** `POST /api/fleet/settings/apply` takes `only`, a list of `kind/name` that limits what
+  is pushed, left or let go of on every server. An entry that is not a kind the fleet manages, with a name
+  that kind accepts, and a setting the fleet has is a `422` naming `only`. The fleet action `settings_apply`
+  takes the same option, `400` for a bad one.
+- **Take over when a server follows again.** `PUT /api/fleet/servers/{node}/settings-mode` takes `adopt`
+  (default `false`): with `managed`, the settings the server kept under a name of the fleet's are taken over
+  instead of left as a `conflict`. With `independent` it is a `400` naming `adopt`. The audit event
+  `fleet.setting.mode` carries `adopt` when it was asked.
+- **A server's policy as a setting of the fleet.** `GET /api/fleet/settings` lists a seventh kind, `policy`, with
+  one setting called `general`: `updates_check`, `ssl_email`, `backup_max_per_app` and `delivery_max_minutes`,
+  all four required, no secret. Setting it needs `settings.manage` and sudo mode like the other kinds.
+  `GET /api/config/policy` (permission `settings.read`) and `PUT /api/config/policy` (`settings.manage`, sudo
+  mode) are the server's own route for it: the four are written together and nothing else, each judged by the
+  rule of its own key (`400` naming the field), and `GET` also says whether the server's operator chose any of
+  them (`customized`). A server that lacks the route (before 4.3) lists `policy` in none of the `kinds` of
+  `GET /api/managed-settings` and its cell says `unsupported`. A central never reaches a server's
+  `PATCH /api/config` for it: a signed push may use the route and nothing else of `/api/config`.
+
 ## 4.2.0
 
 API version 1. No operation is removed or deprecated, no documented response code changes, and

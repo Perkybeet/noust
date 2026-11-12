@@ -39,6 +39,30 @@ SETTINGS_SCHEMA: dict[str, dict[str, Any]] = {
     "/api/notifications/console-url": {"get": {}, "put": {"x-noust-requires-elevation": True}},
 }
 
+#: The kinds of setting a 4.1 or 4.2 node says it can be managed for (``GET /api/managed-settings``).
+KINDS_OF_A_4_2_NODE: tuple[str, ...] = (
+    "channel",
+    "alert_rule",
+    "backup_destination",
+    "registry",
+    "variable",
+    "console_link",
+)
+
+#: What a node of 4.3 adds: the route the server policy is set by, and the kind that says so.
+POLICY_PATH = "/api/config/policy"
+POLICY_SCHEMA: dict[str, dict[str, Any]] = {
+    POLICY_PATH: {"get": {}, "put": {"x-noust-requires-elevation": True}},
+}
+
+#: What a node answers of its policy when its operator never touched it.
+DEFAULT_POLICY: dict[str, Any] = {
+    "updates_check": True,
+    "ssl_email": "",
+    "backup_max_per_app": 10,
+    "delivery_max_minutes": 60,
+}
+
 _LISTS = {
     "/api/notifications/channels": ("channel", "items"),
     "/api/alerts/rules": ("alert_rule", "items"),
@@ -100,13 +124,22 @@ class ManagedNode:
     refusals: dict[tuple[str, str], dict[str, Any]] = field(default_factory=dict)
     ceiling: str = "admin"
     unsigned: int = 0
+    kinds: list[str] = field(default_factory=lambda: list(KINDS_OF_A_4_2_NODE))
 
     def __post_init__(self) -> None:
+        self._offers_policy = False
         self.node.schema.update(SETTINGS_SCHEMA)
         self._fallback = self.node.handler
         self.node.handler = self.handle  # type: ignore[method-assign]
 
     # -- what a test sets up ---------------------------------------------------------
+
+    def offer_policy(self) -> None:
+        """Make this a node of 4.3: it has the policy route and says it can be managed for it."""
+        self.node.schema.update(POLICY_SCHEMA)
+        if "policy" not in self.kinds:
+            self.kinds.append("policy")
+        self._offers_policy = True
 
     def hold(self, kind: str, name: str, **value: Any) -> None:
         """The node's own operator made this setting."""
@@ -141,7 +174,7 @@ class ManagedNode:
         if path == "/api/managed-settings" and method == "GET":
             self.node.requests.append(request)
             return httpx.Response(
-                200, json={"items": list(self.rows.values()), "kinds": ["channel"]}
+                200, json={"items": list(self.rows.values()), "kinds": list(self.kinds)}
             )
         managed = _MANAGED.fullmatch(path)
         if managed and method in ("PUT", "DELETE"):
@@ -150,6 +183,12 @@ class ManagedNode:
             self.node.requests.append(request)
             held = self.held.get(("console_link", "console"))
             return httpx.Response(200, json={"url": held["url"] if held else ""})
+        if method == "GET" and path == POLICY_PATH and self._offers_policy:
+            self.node.requests.append(request)
+            held = self.held.get(("policy", "general"))
+            return httpx.Response(
+                200, json={**DEFAULT_POLICY, **(held or {}), "customized": held is not None}
+            )
         if method == "GET" and path in _LISTS:
             self.node.requests.append(request)
             kind, key = _LISTS[path]
@@ -195,6 +234,8 @@ class ManagedNode:
         name: str | None = None
         if path == _CONSOLE_URL and method == "PUT":
             kind, name = "console_link", "console"
+        if path == POLICY_PATH and method == "PUT" and self._offers_policy:
+            kind, name = "policy", "general"
         if kind is None:
             for pattern, item_kind, methods in _ITEM_PATHS:
                 found = pattern.fullmatch(path)

@@ -21,10 +21,15 @@ export function appsTotal(apps: Overview["apps"]): number {
   return apps.running + apps.failed + apps.stopped + apps.static + unmanagedApps(apps);
 }
 
-/** Whether this server runs nothing yet: the Overview is a list of first steps instead. */
+/**
+ * Whether this server runs nothing yet and has nothing to say: the Overview is a list of first steps instead. A first deploy
+ * that failed leaves no application, so a server whose only news is that one is not empty: the first steps would hide the one
+ * thing the person has to look at, on the day they matter most (item 141).
+ */
 export function isEmptyServer(overview: Overview): boolean {
   const { apps } = overview;
   if (apps.error) return false;
+  if ((overview.attention?.length ?? 0) > 0 || (overview.attention_total ?? 0) > 0) return false;
   return appsTotal(apps) === 0;
 }
 

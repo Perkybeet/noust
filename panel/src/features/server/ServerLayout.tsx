@@ -33,6 +33,7 @@ import { useNode } from "../../nodes/useNode";
 import { attentionItems, verdictOf } from "./attention";
 import type { Verdict } from "./attention";
 import { HeaderSlot } from "./headerSlot";
+import { ExpiredChanges, useExpiredChanges } from "./ExpiredChanges";
 import { PendingChanges } from "./PendingChanges";
 import { PowerProvider, ScheduledPowerBanner, usePowerDialog } from "./PowerDialog";
 import { SERVER_CAPABILITY, changesQuery, firewallQuery, securityOverviewQuery, summaryQuery } from "./queries";
@@ -115,6 +116,8 @@ function Layout() {
   const name = node ?? sessionHostname ?? t("server.title");
   const verdict = available && summary.data !== undefined ? verdictOf(attentionItems(summary.data, security.data)) : null;
   const pending = (changes.data ?? []).filter((change) => change.status === "pending");
+  // A change its timer undid because nobody confirmed it: the banner of the pending one is gone, and this says why.
+  const expired = useExpiredChanges(changes.data ?? []);
   const scheduled = summary.data?.power.scheduled ?? null;
   // The reboot is asked for where the machine is looked at as a whole: Status and This machine. Everywhere else it is a
   // distraction from the section's own work.
@@ -123,9 +126,10 @@ function Layout() {
   const isCentral = hasFleet && node === null;
 
   const banner =
-    pending.length > 0 || scheduled !== null ? (
+    pending.length > 0 || scheduled !== null || expired.shown.length > 0 ? (
       <div className="flex min-w-0 flex-col gap-2">
         {pending.length > 0 ? <PendingChanges changes={pending} /> : null}
+        {expired.shown.length > 0 ? <ExpiredChanges {...expired} /> : null}
         {scheduled !== null ? <ScheduledPowerBanner scheduled={scheduled} /> : null}
       </div>
     ) : undefined;

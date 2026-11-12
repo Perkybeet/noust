@@ -317,6 +317,9 @@ class TestTheNotifierSendsThroughTheProvider:
         opener = Opener()
         # Built first: an EmailNotifier reloads the shared configuration from disk.
         email = api_notifier({"provider": "postmark", **KEYED}, opener)
+        # The channel is configured when mail can leave this server (item 137): the settings
+        # the injected notifier was built with are the ones a real server has stored.
+        config.set("monitor.email_api", {"provider": "postmark", **KEYED})
         config.set("notifications.enabled", True)
         config.set("notifications.channels.email", {"enabled": True})
         sender = Notifier(config, email_notifier=email, record=False)
@@ -324,6 +327,46 @@ class TestTheNotifierSendsThroughTheProvider:
         sender.notify(note())
 
         assert opener.requests[0].full_url == "https://api.postmarkapp.com/email"
+
+
+class TestWhetherMailCanLeave:
+    """The one answer the notifier and the email channel both ask (item 137)."""
+
+    def test_a_server_is_enough_when_no_provider_is_named(self) -> None:
+        assert email_api.can_send("smtp.example.com", {}) is True
+        assert email_api.can_send("smtp.example.com", {"provider": ""}) is True
+
+    def test_no_server_and_no_provider_is_no_way_to_send(self) -> None:
+        assert email_api.can_send("", {}) is False
+        assert email_api.can_send("  ", {"provider": ""}) is False
+        assert email_api.can_send(None, None) is False
+
+    def test_a_provider_with_what_it_needs_replaces_the_server(self) -> None:
+        assert email_api.can_send("", {"provider": "resend", **KEYED}) is True
+        assert email_api.can_send("", SES) is True
+
+    def test_a_provider_that_lacks_a_setting_is_not_a_way_and_does_not_fall_back_to_smtp(
+        self,
+    ) -> None:
+        # The provider replaces SMTP, never adds to it: half a provider is no mail at all.
+        assert email_api.can_send("smtp.example.com", {"provider": "resend"}) is False
+        assert email_api.can_send("", {"provider": "ses", "region": "eu-west-1"}) is False
+
+    def test_a_provider_this_version_does_not_speak_is_read_as_smtp(self) -> None:
+        assert email_api.can_send("smtp.example.com", {"provider": "mailgun"}) is True
+        assert email_api.can_send("", {"provider": "mailgun", **KEYED}) is False
+
+    def test_the_notifier_asks_the_same_function(self) -> None:
+        def transport(host: str, api: dict[str, Any]) -> bool:
+            notifier = EmailNotifier(
+                SMTPConfig(host=host, port=465), recipients=[], api_settings=api
+            )
+            return notifier.has_transport
+
+        assert transport("smtp.example.com", {}) is True
+        assert transport("", {}) is False
+        assert transport("", {"provider": "resend", **KEYED}) is True
+        assert transport("smtp.example.com", {"provider": "resend"}) is False
 
 
 class TestTheSettings:

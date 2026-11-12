@@ -12,10 +12,11 @@ import { activeJobsQuery } from "../../../api/queries/jobs";
 import { fleetActiveQuery, operationsActiveQuery } from "../../../api/queries/operations";
 import type { Job } from "../../../api/queries/jobs";
 import type { Operation } from "../../../api/queries/operations";
-import { openInbox } from "../../../features/approvals/store";
+import { openBell } from "../../../features/inbox/bell";
 import { describeActor, jobActionLabel } from "../../../features/activity/data";
 import { objectOf, textOf } from "../../../features/fleet/data";
 import { AttentionActionButton } from "../../../features/inbox/AttentionActionButton";
+import { attentionIcon } from "../../../features/inbox/attentionIcons";
 import { attentionAction, attentionTarget } from "../../../features/overview/attentionTarget";
 import { reasonDetail, reasonText } from "../../../features/overview/attentionWords";
 import { sinceOf } from "../../../features/overview/homeData";
@@ -88,8 +89,8 @@ function AttentionRow({ t, entry, showServer }: { t: T; entry: HomeAttention; sh
         ) : null}
       </span>
       {since !== null ? <RelativeTime value={since} className="hidden shrink-0 text-12 text-fg-faint w-xwide:inline" /> : null}
-      <span className="hidden shrink-0 w-wide:inline">
-        <AttentionActionButton item={item} node={node} appearance="link" />
+      <span className="shrink-0">
+        <AttentionActionButton item={item} node={node} appearance="link" iconFor={attentionIcon} compact />
       </span>
     </li>
   );
@@ -122,14 +123,26 @@ export function AttentionBody({ scope }: WidgetBodyProps) {
   );
 }
 
-/** "See all 7": what needs attention is the inbox's list, and the head of the widget opens it. */
+/**
+ * "See all 7": what needs attention is the inbox's list, and on a server the head of the widget opens the bell. The bell is the
+ * selected server's, so on the fleet's panel, which gathers every server's list, it leads to the servers instead, where each says
+ * what is wrong with it.
+ */
 export function AttentionLink({ scope }: Pick<WidgetBodyProps, "scope">) {
   const t = useT();
   const home = useScopedHome(scope);
   const count = Math.max(home.total, home.entries?.length ?? 0);
   if (count === 0) return null;
+  const className = cx(textLinkClassName("ui"), "shrink-0 cursor-pointer px-1 text-12");
+  if (scope === "fleet") {
+    return (
+      <Link to="/fleet/servers" className={className}>
+        {t("widgets.attention.seeAll", { count })}
+      </Link>
+    );
+  }
   return (
-    <button type="button" onClick={openInbox} className={cx(textLinkClassName("ui"), "shrink-0 cursor-pointer px-1 text-12")}>
+    <button type="button" onClick={openBell} className={className}>
       {t("widgets.attention.seeAll", { count })}
     </button>
   );

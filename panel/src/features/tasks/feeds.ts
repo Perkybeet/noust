@@ -12,7 +12,7 @@
 
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import { sessionQuery, sessionsQuery } from "../../api/queries/auth";
 import { activeJobsQuery, jobQuery, jobsQuery } from "../../api/queries/jobs";
@@ -25,9 +25,11 @@ import { endedTask, endingOf, isLeavingLongTask, noticeStateOf } from "./endings
 import { markJobEndHandled } from "../../realtime/jobEnds";
 import { taskKey } from "./model";
 import type { Me, Place, ServerKey } from "./model";
+import { noteArrivals } from "./launches";
 import { offerNotifications, sayEnding } from "./notices";
 import { readOperationEvent } from "./model";
 import { taskStore, useTaskState, withActiveJobs, withFleetItems, withJob, withJobs, withOperationEvent, withOperations } from "./store";
+import type { TaskState } from "./store";
 
 /**
  * How long before an answer arrived a read is taken to have begun. TanStack Query does not say when a request
@@ -82,6 +84,15 @@ function useFeeds(): void {
     meRef.current = me;
     goRef.current = go;
   });
+  // Every change to the store goes through here, so that the page the person is on when the console first hears of a task is
+  // noted as the one they launched it from: "you left that page" is only said of a person who did (item 136).
+  const record = useCallback(
+    (change: (state: TaskState) => TaskState): void => {
+      taskStore.update(change);
+      noteArrivals(taskStore.get().tasks.values(), router.state.location.pathname, Date.now());
+    },
+    [router],
+  );
 
   const server = scope === "server";
   const active = useQuery({ ...activeJobsQuery(), enabled: server, retry: false });
@@ -93,35 +104,35 @@ function useFeeds(): void {
     if (active.data === undefined) return;
     const { jobs } = active.data;
     const at = active.dataUpdatedAt;
-    taskStore.update((state) => withActiveJobs(state, jobs, node, at, at - READ_SLACK_MS));
-  }, [active.data, active.dataUpdatedAt, node]);
+    record((state) => withActiveJobs(state, jobs, node, at, at - READ_SLACK_MS));
+  }, [active.data, active.dataUpdatedAt, node, record]);
 
   useEffect(() => {
     if (recent.data === undefined) return;
     const { jobs } = recent.data;
     const at = recent.dataUpdatedAt;
-    taskStore.update((state) => withJobs(state, jobs, node, at, at - READ_SLACK_MS));
-  }, [recent.data, recent.dataUpdatedAt, node]);
+    record((state) => withJobs(state, jobs, node, at, at - READ_SLACK_MS));
+  }, [recent.data, recent.dataUpdatedAt, node, record]);
 
   useEffect(() => {
     if (operations.data === undefined) return;
     const list = operations.data.operations;
     const at = operations.dataUpdatedAt;
-    taskStore.update((state) => withOperations(state, list, node, at, at - READ_SLACK_MS));
-  }, [operations.data, operations.dataUpdatedAt, node]);
+    record((state) => withOperations(state, list, node, at, at - READ_SLACK_MS));
+  }, [operations.data, operations.dataUpdatedAt, node, record]);
 
   useEffect(() => {
     if (fleet.data === undefined) return;
     const { items, nodes } = fleet.data;
     const at = fleet.dataUpdatedAt;
-    taskStore.update((state) => withFleetItems(state, items, nodes, at, at - READ_SLACK_MS));
-  }, [fleet.data, fleet.dataUpdatedAt]);
+    record((state) => withFleetItems(state, items, nodes, at, at - READ_SLACK_MS));
+  }, [fleet.data, fleet.dataUpdatedAt, record]);
 
   // A job that ended is told to the person here: the event is what moves it, and the page on screen decides.
   useServerEvent("job", (job) => {
     const key = taskKey(node, "job", job.id);
     const before = taskStore.get().tasks.get(key);
-    taskStore.update((state) => withJob(state, job, node, Date.now()));
+    record((state) => withJob(state, job, node, Date.now()));
     const ended = endedTask(before, taskStore.get().tasks.get(key));
     if (ended === null) return;
     const ending = endingOf(ended, meRef.current, router.state.location.pathname);
@@ -133,7 +144,7 @@ function useFeeds(): void {
 
   useServerEvent("operation", (data) => {
     const event = readOperationEvent(data);
-    if (event !== null) taskStore.update((state) => withOperationEvent(state, event, node, Date.now()));
+    if (event !== null) record((state) => withOperationEvent(state, event, node, Date.now()));
   });
 
   // The first time the person leaves a long task of theirs, the browser's notification is offered, once.

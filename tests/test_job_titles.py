@@ -146,6 +146,48 @@ class TestWhatASubjectChanges:
         assert title("server_action", {"component": "fail2ban"}).code == "jobs.title.server_action"
         assert title("server_action", {"action": "install"}).code == "jobs.title.server_action"
 
+    def test_a_copy_of_a_database_is_not_a_copy_of_an_application(self) -> None:
+        # The store keeps a job's name and its application, and a database has no application:
+        # the name is the sentence, as a fleet job's is, so the title survives a restart.
+        name = job_titles.database_backup_name("shop_db")
+
+        sentence = title("backup", {"engine": "postgresql", "database": "shop_db"}, name)
+
+        assert name == "Back up the database shop_db"
+        assert (sentence.code, sentence.params) == (
+            "jobs.title.backup_database",
+            {"database": "shop_db"},
+        )
+        assert title("backup", {}, name) == sentence
+
+    def test_a_backup_of_an_application_is_still_one_whatever_its_name(self) -> None:
+        assert (
+            title("backup", {"domain": "shop.example.com"}, "Backup shop.example.com").code
+            == "jobs.title.backup"
+        )
+        assert title("backup", {}, "Backup shop.example.com").code == "jobs.title.backup_any"
+        # A name that only starts like the sentence is not it.
+        assert title("backup", {}, "Back up the database shop and more").code == (
+            "jobs.title.backup_any"
+        )
+
+    def test_a_stored_copy_of_a_database_keeps_its_title(self) -> None:
+        from noust.core.store import JobRecord
+        from noust.web.api.jobs import _from_record
+
+        record = JobRecord(
+            id="job-2",
+            type="backup",
+            name=job_titles.database_backup_name("shop_db"),
+            status="completed",
+        )
+
+        response = _from_record(record)
+
+        assert response.title is not None
+        assert response.title.code == "jobs.title.backup_database"
+        assert response.title.params == {"database": "shop_db"}
+
     def test_a_fleet_job_keeps_the_sentence_its_name_already_is(self) -> None:
         from noust.core.fleet_job_titles import title as fleet_title
 

@@ -52,6 +52,7 @@ from pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictInt, Stric
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from noust.central import RoleError
+from noust.core import descriptors
 from noust.core.access import AccessConflictError, AccessError, AccessNotFoundError
 from noust.core.accounts import AccountNotFoundError, AuthenticationFailed
 from noust.core.applock import AppBusyError
@@ -66,6 +67,7 @@ from noust.core.exceptions import (
     DeploymentCancelled,
     DeploysFrozenError,
     DeploysPausedError,
+    DescriptorsExhaustedError,
     DomainConflictError,
     DomainError,
     DomainOverlapError,
@@ -196,6 +198,8 @@ _STATUS_BY_ERROR: tuple[tuple[type[NoustError], int], ...] = (
     # A freeze of deploys, or an application whose pushes are paused: a state, not a fault.
     (DeploysFrozenError, 409),
     (DeploysPausedError, 409),
+    # No file left to open: the server cannot serve this until some are freed.
+    (DescriptorsExhaustedError, 503),
     (SecurityError, 400),
     (ValidationError, 400),
     # A port that is not a port, or is taken: the request names it.
@@ -247,6 +251,7 @@ _CODE_BY_ERROR: tuple[tuple[type[NoustError], str], ...] = (
     (TeamNotFoundError, "not_found"),
     (AccessNotFoundError, "not_found"),
     (IncidentLockdownError, "incident_lockdown"),
+    (DescriptorsExhaustedError, descriptors.ERROR_CODE),
     (AuthenticationFailed, "invalid_credentials"),
     (WrongPassphraseError, "wrong_passphrase"),
     (SecretsLockedError, "central_locked"),
@@ -406,8 +411,12 @@ def error_response(exc: NoustError) -> JSONResponse:
         exc: The raised error.
 
     Returns:
-        The JSON response, with the status implied by the error class.
+        The JSON response, with the status implied by the error class. An error that was made of
+        the process running out of file descriptors is answered as that, whatever it was called on
+        the way up: the cause is what the operator has to act on.
     """
+    if not isinstance(exc, DescriptorsExhaustedError) and descriptors.is_exhaustion(exc):
+        exc = descriptors.exhausted_error()
     # NoustError.__str__ appends "\n  Details: ..." when details is set, which
     # would repeat the hint inside detail too; .message is the bare sentence,
     # and details travels only in hint.  NoustError defaults ``details`` to an
@@ -732,7 +741,26 @@ def install_error_handlers(app: FastAPI) -> None:
             raise exc
         return await handle_validation_error(request, exc)
 
+    async def handle_os(request: Request, exc: Exception) -> Response:
+        """
+        Name the process running out of file descriptors, and leave every other ``OSError`` alone.
+
+        Args:
+            request: The request being served. Unused.
+            exc: The exception Starlette caught.
+
+        Returns:
+            The 503 that says descriptors are exhausted and what to do.
+
+        Raises:
+            Exception: The original exception, when it is not that: it is a 500 as it always was.
+        """
+        if not descriptors.is_exhaustion(exc):
+            raise exc
+        return error_response(descriptors.exhausted_error())
+
     app.add_exception_handler(NoustError, handle)
+    app.add_exception_handler(OSError, handle_os)
     app.add_exception_handler(StarletteHTTPException, handle_http)
     app.add_exception_handler(RequestValidationError, handle_validation)
 

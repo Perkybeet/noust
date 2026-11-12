@@ -36,6 +36,10 @@ ExecStart={{ esc.line(exec_start) }}
 Environment=PYTHONUNBUFFERED=1
 Restart=on-failure
 RestartSec=10
+# The system's default soft limit of 1024 open files is what a central's console ran out of, with
+# every request answered "Too many open files". The same number as the monitor's unit; a unit
+# written before 'noust web refresh-unit' keeps the old one, and 'noust setup doctor' names it.
+LimitNOFILE={{ service_nofile }}
 
 # Hardening that leaves every root operation the console performs intact.
 # Deliberately absent: ProtectSystem (the console installs packages into /usr

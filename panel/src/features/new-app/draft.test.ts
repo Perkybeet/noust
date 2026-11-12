@@ -15,6 +15,15 @@ describe("the wizard's draft", () => {
     expect(hasDraft()).toBe(true);
   });
 
+  it("keeps the domain too when a failed first deploy is tried again, and says nothing of it otherwise", () => {
+    saveDraft({ mode: "manual", source: "https://github.com/acme/api.git", branch: "main", domain: "api.example.com" });
+    expect(readDraft()).toEqual({ mode: "manual", source: "https://github.com/acme/api.git", branch: "main", domain: "api.example.com", step: "source" });
+    saveDraft({ mode: "manual", source: "https://github.com/acme/api.git", branch: "main" });
+    expect(readDraft()?.domain).toBeUndefined();
+    window.sessionStorage.setItem("noust.newApp.draft", '{"mode":"manual","source":"","branch":"","domain":7}');
+    expect(readDraft()?.domain).toBeUndefined();
+  });
+
   it("is read without being removed, so rendering twice finds it twice", () => {
     saveDraft({ mode: "manual", source: "https://github.com/acme/api.git", branch: "" });
     expect(readDraft()).not.toBeNull();

@@ -12132,6 +12132,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/config/policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Policy
+         * @description Get this server's policy.
+         *
+         *     Args:
+         *         session: Authenticated session, injected by the dependency.
+         *
+         *     Returns:
+         *         The four fields, read the way the server itself reads each key, and whether its operator
+         *         chose any of them.
+         */
+        get: operations["get_policy_api_config_policy_get"];
+        /**
+         * Update Policy
+         * @description Set this server's policy: the four fields are written together, and nothing else.
+         *
+         *     A value out of range is refused as a whole, with the words of the key that refused it, before
+         *     anything is written. The queue obeys the new time limit from its next look, with no restart.
+         *
+         *     Args:
+         *         body: The four fields.
+         *         request: The incoming request, for the audit record.
+         *         session: Authenticated session, injected by the dependency.
+         *
+         *     Returns:
+         *         Confirmation message.
+         *
+         *     Raises:
+         *         ConfigError: 400 when a key refuses its value.
+         *         HTTPException: If the configuration cannot be written.
+         */
+        put: operations["update_policy_api_config_policy_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/config/reload": {
         parameters: {
             query?: never;
@@ -12202,9 +12248,13 @@ export interface paths {
          *         ConfigError: 400, through the error boundary, for a host that is not
          *             a hostname, a port out of range, both ``use_ssl`` and ``use_tls``
          *             enabled, or an invalid ``from_address`` or recipient.
-         *         HTTPException: 422 on ``password`` when it is blank, a password is
-         *             stored, and the host, port, username or transport changed; or if
-         *             the configuration cannot be written.
+         *         HTTPException: 422 on ``host`` when there is none, since saving the
+         *             account of a server that is not named leaves mail that never
+         *             leaves (the email service is ``PUT /api/config/email-api``, and
+         *             taking the account away is a write of the whole block); 422 on
+         *             ``password`` when it is blank, a password is stored, and the host,
+         *             port, username or transport changed; or if the configuration
+         *             cannot be written.
          */
         put: operations["update_smtp_config_api_config_smtp_put"];
         post?: never;
@@ -18341,6 +18391,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/first-deploys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List First Deploys
+         * @description List the first deployments that failed and left no application behind.
+         *
+         *     A domain with an application of its own, one whose newest attempt is running or worked, one
+         *     that was dismissed and one older than two weeks are not listed.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         domain: Only this domain's.
+         *
+         *     Returns:
+         *         The failures the caller may see.
+         */
+        get: operations["list_first_deploys_api_first_deploys_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/first-deploys/{attempt}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss First Deploy
+         * @description Put a failed first deployment away: it stops being listed, here and in what needs attention.
+         *
+         *     Args:
+         *         attempt: The deployment's job id: the failure is the job's.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         An empty answer.
+         *
+         *     Raises:
+         *         ValidationError: 400 when the id is not a job's.
+         *         HTTPException: 404 when there is no such failure, or it belongs to a project the caller
+         *             does not see (which reads as absent).
+         */
+        post: operations["dismiss_first_deploy_api_first_deploys__attempt__dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/fleet/actions": {
         parameters: {
             query?: never;
@@ -19820,18 +19932,22 @@ export interface paths {
          * @description Make a server follow the fleet's settings, or leave it out of them.
          *
          *     An independent server is pushed nothing and is let go of what it had (it keeps it, as its own);
-         *     it still appears in every fleet view. A server that follows them again is applied everything.
+         *     it still appears in every fleet view. A server that follows them again is applied everything:
+         *     what it does not have is created, and what it kept under a name of the fleet's is a conflict
+         *     unless ``adopt`` says to take it over. The status says beforehand what each setting would
+         *     bring (``if_followed``), so the person deciding knows what will change.
          *
          *     Args:
          *         node: The server.
-         *         body: The mode.
+         *         body: The mode, and whether to take over what the server kept.
          *         session: The elevated session.
          *
          *     Returns:
          *         The mode and the job that settles it.
          *
          *     Raises:
-         *         ValidationError: 400 for a mode that is not one, or a server that is not in the fleet.
+         *         ValidationError: 400 for a mode that is not one, a server that is not in the fleet, or
+         *             ``adopt`` asked of a server that is leaving.
          */
         put: operations["set_mode_api_fleet_servers__node__settings_mode_put"];
         post?: never;
@@ -19919,8 +20035,11 @@ export interface paths {
          *     it), ``unsupported`` or ``failed`` with the server's own words. Poll it with
          *     ``GET /api/fleet/jobs/{id}``.
          *
+         *     ``only`` limits it to some settings (``["channel/ops"]``): nothing else is pushed, left or let
+         *     go of, so "apply this one" is one call and the rest stays for the next.
+         *
          *     Args:
-         *         body: The servers, and what to do about conflicts and changed settings.
+         *         body: The servers, what to do about conflicts and changed settings, and ``only``.
          *         request: The request.
          *         session: The authenticated session.
          *
@@ -19931,6 +20050,8 @@ export interface paths {
          *         ValidationError: An unknown server or option, or no server to apply to.
          *         HTTPException: 403 ``elevation_required`` for ``adopt``, ``restore`` and ``restore_all``
          *             without sudo mode: they take over what a server has or undo what its operator did.
+         *             422 naming ``only`` for an entry that is not a setting of a kind the fleet manages,
+         *             or that the fleet does not have.
          */
         post: operations["apply_settings_api_fleet_settings_apply_post"];
         delete?: never;
@@ -33476,6 +33597,8 @@ export interface components {
          *         pid: Main PID when running.
          *         uptime: How long the unit has been up.
          *         port: Upstream port.
+         *         serving_port: The port that answers now: the serving instance's in zero-downtime
+         *             mode (green is on the port after the record's), ``port`` otherwise.
          *         app_type: Deployer that owns it.
          *         path: Application directory.
          *         source: Git URL or local path it was deployed from.
@@ -33578,6 +33701,8 @@ export interface components {
             project?: string | null;
             /** Run As */
             run_as?: string | null;
+            /** Serving Port */
+            serving_port?: number | null;
             /** Source */
             source?: string | null;
             /** Start Command */
@@ -39500,7 +39625,7 @@ export interface components {
         CreateCronJobRequest: {
             /**
              * App Domain
-             * @description Associate with a deployed app; its directory becomes the default
+             * @description Associate with a deployed app: the task runs in its directory, as its account, with its .env and its own tools first on the PATH
              */
             app_domain?: string | null;
             /**
@@ -44550,6 +44675,59 @@ export interface components {
             zone?: string | null;
         };
         /**
+         * FirstDeployOut
+         * @description One first deployment that failed.
+         *
+         *     Attributes:
+         *         job_id: The deployment's job: its log is at ``/api/jobs/{job_id}/log``.
+         *         domain: The domain it was for.
+         *         origin: How the application was to start: ``source``, ``image``, ``compose`` or ``recipe``.
+         *         source: What to read again (an address, a path or an image), with every credential
+         *             masked; null for a recipe or a typed document.
+         *         branch: The branch asked for, when one was.
+         *         app_type: The type asked for (``auto`` or a name).
+         *         recipe: The recipe's name, for a recipe.
+         *         created_at: When it was asked for.
+         *         error: How it failed, verbatim, as the job kept it.
+         *         error_coded: Its first line as a sentence of Noust's, when it is one, for the console to
+         *             say in its own language.
+         *         finished_at: When the job ended.
+         */
+        FirstDeployOut: {
+            /** App Type */
+            app_type?: string | null;
+            /** Branch */
+            branch?: string | null;
+            /** Created At */
+            created_at: string;
+            /** Domain */
+            domain: string;
+            /** Error */
+            error?: string | null;
+            error_coded?: components["schemas"]["CodedText"] | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Job Id */
+            job_id: string;
+            /** Origin */
+            origin: string;
+            /** Recipe */
+            recipe?: string | null;
+            /** Source */
+            source?: string | null;
+        };
+        /**
+         * FirstDeploysResponse
+         * @description The first deployments that failed and are still the last word on their domain.
+         *
+         *     Attributes:
+         *         items: Newest first, of the projects the caller sees.
+         */
+        FirstDeploysResponse: {
+            /** Items */
+            items: components["schemas"]["FirstDeployOut"][];
+        };
+        /**
          * FirstFactorProof
          * @description What a request that sets up an account's first second factor may carry to prove who is asking.
          *
@@ -45017,6 +45195,9 @@ export interface components {
          *         adopt: Take over a setting a server already has that is not the fleet's.
          *         restore: ``kind/name`` to put back where a server's operator changed it.
          *         restore_all: Put back every one of them.
+         *         only: ``kind/name`` of the only settings to apply, such as ``["channel/ops"]``; every
+         *             setting when empty. Each must be a kind the fleet manages, with a name that kind
+         *             accepts, and a setting the fleet has (its own value or an exception).
          *         plan: Only say what would run.
          */
         FleetSettingsApplyIn: {
@@ -45027,6 +45208,8 @@ export interface components {
             adopt: boolean;
             /** Nodes */
             nodes?: string[];
+            /** Only */
+            only?: string[];
             /**
              * Plan
              * @default false
@@ -45046,8 +45229,16 @@ export interface components {
          *
          *     Attributes:
          *         mode: ``managed`` (it follows them) or ``independent`` (it is left out).
+         *         adopt: Only with ``managed``: when it follows them again, take over the settings it kept
+         *             as its own under the fleet's names, instead of leaving each as a conflict. What it
+         *             would be given is in the status (``if_followed``) before this is asked.
          */
         FleetSettingsModeIn: {
+            /**
+             * Adopt
+             * @default false
+             */
+            adopt: boolean;
             /** Mode */
             mode: string;
         };
@@ -59274,6 +59465,64 @@ export interface components {
             problems?: components["schemas"]["ListingProblemResponse"][];
             /** Servers */
             servers: components["schemas"]["ServerResponse"][];
+        };
+        /**
+         * ServerPolicyConfig
+         * @description The four settings of a server's policy.
+         */
+        ServerPolicyConfig: {
+            /**
+             * Backup Max Per App
+             * @description How many backups are kept of each application
+             */
+            backup_max_per_app: number;
+            /**
+             * Delivery Max Minutes
+             * @description The longest a deployment may build, in minutes; 0 is no limit
+             */
+            delivery_max_minutes: number;
+            /**
+             * Ssl Email
+             * @description Where certificate notices are sent; empty for nowhere
+             */
+            ssl_email: string;
+            /**
+             * Updates Check
+             * @description Whether this server asks for new releases
+             */
+            updates_check: boolean;
+        };
+        /**
+         * ServerPolicyResponse
+         * @description A server's policy and whether anybody chose it.
+         *
+         *     Attributes:
+         *         customized: Some field is something other than what the server does of itself: its own
+         *             operator chose it, so a central that sets the policy asks before taking it over.
+         */
+        ServerPolicyResponse: {
+            /**
+             * Backup Max Per App
+             * @description How many backups are kept of each application
+             */
+            backup_max_per_app: number;
+            /** Customized */
+            customized: boolean;
+            /**
+             * Delivery Max Minutes
+             * @description The longest a deployment may build, in minutes; 0 is no limit
+             */
+            delivery_max_minutes: number;
+            /**
+             * Ssl Email
+             * @description Where certificate notices are sent; empty for nowhere
+             */
+            ssl_email: string;
+            /**
+             * Updates Check
+             * @description Whether this server asks for new releases
+             */
+            updates_check: boolean;
         };
         /**
          * ServerResponse
@@ -82394,6 +82643,59 @@ export interface operations {
             };
         };
     };
+    get_policy_api_config_policy_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServerPolicyResponse"];
+                };
+            };
+        };
+    };
+    update_policy_api_config_policy_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServerPolicyConfig"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     reload_config_api_config_reload_post: {
         parameters: {
             query?: never;
@@ -89514,6 +89816,67 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["EnvironmentListResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_first_deploys_api_first_deploys_get: {
+        parameters: {
+            query?: {
+                /** @description Only this domain's. */
+                domain?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FirstDeploysResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dismiss_first_deploy_api_first_deploys__attempt__dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attempt: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

@@ -795,6 +795,38 @@ class TestSMTPSettings:
         assert "password" not in response.json()
         assert "hunter2" not in response.text
 
+    @pytest.mark.parametrize("host", ["", "   "])
+    def test_put_without_a_server_says_what_is_missing_and_writes_nothing(
+        self, client: TestClient, config_path: Path, host: str
+    ) -> None:
+        """
+        The regression (item 137): the form answered 200 "SMTP configuration updated" with no
+        server, so an email channel looked set up and no mail ever left. The refusal names the
+        field, in the shape the form already draws under a field.
+        """
+        response = client.put(
+            "/api/config/smtp",
+            json={
+                "host": host,
+                "port": 587,
+                "use_ssl": False,
+                "use_tls": True,
+                "username": "wasm",
+                "password": "hunter2",
+                "from_address": "wasm@example.com",
+                "recipients": ["ops@example.com"],
+            },
+        )
+
+        assert response.status_code == 422, response.text
+        body = response.json()
+        assert body["error"] == "validation_error"
+        assert set(body["fields"]) == {"host"}
+        assert "smtp.example.com" in body["fields"]["host"]
+        assert "hunter2" not in response.text
+        # Nothing was written, not even the file.
+        assert not config_path.exists()
+
     def test_put_stores_every_field_and_reports_password_set(
         self, client: TestClient, config_path: Path
     ) -> None:
@@ -1144,7 +1176,7 @@ class TestSMTPSettings:
         self, client: TestClient, config_path: Path, body: dict[str, Any]
     ) -> None:
         payload = {
-            "host": "",
+            "host": "smtp.example.com",
             "port": 465,
             "use_ssl": True,
             "use_tls": False,

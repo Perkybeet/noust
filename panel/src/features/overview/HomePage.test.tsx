@@ -158,6 +158,35 @@ describe("Home, the panel of a server", () => {
     expect(within(card).getByText("Certificate expires in 12 days")).toBeInTheDocument();
   });
 
+  it("gives each line its action in every width: the word where the band is wide, its icon where it is not", async () => {
+    // A phone draws a narrow band, and the button of a line was drawn only from the wide one: a line with nothing to open (item 143).
+    await home();
+    const card = (await screen.findByRole("heading", { level: 2, name: "Needs attention" })).closest("article");
+    if (card === null) throw new Error("no widget");
+
+    const log = await within(card).findByRole("link", { name: "View log of the deploy of admin.example.com" });
+    expect(log).toHaveAttribute("href", "/apps/admin.example.com/deployments/12");
+    expect(within(card).getByRole("link", { name: "Open service queue-worker" })).toHaveAttribute("href", "/server/services/queue-worker");
+    expect(within(card).getByRole("link", { name: "Certificate of shop.example.com" })).toHaveAttribute("href", "/apps/shop.example.com/domains");
+    // One link a line, which is its button; the icon is what a narrow band draws and the word is what a wide one adds.
+    expect(log.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    expect(log.querySelector("span.hidden")).toHaveTextContent("View log");
+  });
+
+  it("opens the bell from 'See all', where what needs attention is listed, and not the approvals", async () => {
+    // The widget's head said "See all 3" and led to Settings > Approvals: the module of approvals called its own page "the
+    // inbox" and the bell is the inbox of the console (item 142).
+    const { user, location } = await home();
+    const card = (await screen.findByRole("heading", { level: 2, name: "Needs attention" })).closest("article");
+    if (card === null) throw new Error("no widget");
+
+    await user.click(await within(card).findByRole("button", { name: "See all 3" }));
+
+    const bell = await screen.findByRole("dialog", { name: "Inbox" });
+    expect(await within(bell).findByText("npm ERR! code ELIFECYCLE")).toBeInTheDocument();
+    expect(location().pathname).toBe("/");
+  });
+
   it("adds an application nothing answers on, which only the console knows", async () => {
     await home({ "GET /api/apps": () => json(200, { total: 1, apps: [{ domain: "api.example.com", name: "api", status: "no_answer", active: true, enabled: true, layout: "inplace" }] }) });
     expect(await screen.findByText("The service runs, but nothing answers on its port")).toBeInTheDocument();

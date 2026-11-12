@@ -3150,7 +3150,7 @@
         "type": "object"
       },
       "AppInfo": {
-        "description": "A deployed application and the live state of its service.\n\nAttributes:\n    name: Application name, which is its domain.\n    domain: Domain the application is served on.\n    status: What is true about it right now, resolved by\n        :func:`noust.core.app_state.resolve_state` - the one place the CLI\n        and the panel agree on this: ``running``, ``restarting`` (systemd\n        is crash-looping the unit), ``no_answer`` (the unit is up but\n        nothing accepts connections on its port), ``stopped``, ``failed``\n        (systemd gave up on it), ``static`` (served directly by the web\n        server, there is no unit), ``running_unmanaged`` (a Compose stack\n        whose containers run while its unit is stopped: hand it back with\n        ``POST .../reclaim``), ``degraded`` (an application of several units, some\n        serving and some not) or ``unknown`` (systemd could not be asked).\n    active: Whether the unit is active.\n    enabled: Whether the unit starts on boot.\n    pid: Main PID when running.\n    uptime: How long the unit has been up.\n    port: Upstream port.\n    app_type: Deployer that owns it.\n    path: Application directory.\n    source: Git URL or local path it was deployed from.\n    branch: Git branch it tracks, or None for a source that has none.\n    follow_tags: The glob of git tags it deploys instead of a branch\n        (``v*``), or None when it follows its branch.\n    layout: ``inplace`` or ``releases``.\n    keep_releases: Release directories kept before older ones are pruned.\n        Meaningful only on ``releases``; the in-place default otherwise.\n    build_command: Argv the deployer runs to build the project, read off\n        the same ``get_build_command()`` the deploy used. Empty in a\n        list response - computing it means instantiating the deployer\n        once per application, which this endpoint does not do for a\n        list - and filled in when this application is fetched on its own.\n    start_command: What its unit runs, exactly as the deploy recorded it\n        on the service row. None for a static site, which has no unit.\n    memory_max_mb: Memory limit of its unit, in MB, or None.\n    cpu_quota_percent: CPU quota of its unit, in percent of one CPU, or None.\n    tasks_max: Task limit of its unit, or None.\n    health_path: Path the health gate probes, or None for ``/``.\n    health_expect: Statuses the health gate accepts, such as\n        ``200-399``, or None for any status below 500.\n    health_timeout: Seconds the health gate waits, or None for its\n        default of 30.\n    webhook_enabled: Whether a webhook secret is set for it. The secret\n        itself is never part of this or any other response; it is set\n        through ``POST /api/apps/{domain}/webhook-secret`` and cleared\n        through the ``DELETE`` of the same path.\n    unit: The systemd unit that runs it, or None for a static site.\n    run_as: The account its unit runs as, or None for a static site.\n    last_deployment: Its most recent deployment attempt, or None when\n        nothing has ever been recorded for it.\n    zero_downtime: Whether it runs as two instances behind an nginx\n        upstream (blue/green); details at ``/zero-downtime``.\n    preview_parent: The application it previews a pull request of, or\n        None when it is not a preview.\n    backup_before_update: Whether an update of a Docker Compose stack\n        copies its databases first (on by default; meaningless for any\n        other kind). Set through ``PATCH .../backup-before-update``.\n    team: The slug of the team it belongs to.\n    project: The slug of its project.\n    environment: The slug of its environment. Change them with\n        ``POST /api/apps/{domain}/move``.\n    tags: The free labels it carries (``PUT /api/apps/{domain}/tags``).",
+        "description": "A deployed application and the live state of its service.\n\nAttributes:\n    name: Application name, which is its domain.\n    domain: Domain the application is served on.\n    status: What is true about it right now, resolved by\n        :func:`noust.core.app_state.resolve_state` - the one place the CLI\n        and the panel agree on this: ``running``, ``restarting`` (systemd\n        is crash-looping the unit), ``no_answer`` (the unit is up but\n        nothing accepts connections on its port), ``stopped``, ``failed``\n        (systemd gave up on it), ``static`` (served directly by the web\n        server, there is no unit), ``running_unmanaged`` (a Compose stack\n        whose containers run while its unit is stopped: hand it back with\n        ``POST .../reclaim``), ``degraded`` (an application of several units, some\n        serving and some not) or ``unknown`` (systemd could not be asked).\n    active: Whether the unit is active.\n    enabled: Whether the unit starts on boot.\n    pid: Main PID when running.\n    uptime: How long the unit has been up.\n    port: Upstream port.\n    serving_port: The port that answers now: the serving instance's in zero-downtime\n        mode (green is on the port after the record's), ``port`` otherwise.\n    app_type: Deployer that owns it.\n    path: Application directory.\n    source: Git URL or local path it was deployed from.\n    branch: Git branch it tracks, or None for a source that has none.\n    follow_tags: The glob of git tags it deploys instead of a branch\n        (``v*``), or None when it follows its branch.\n    layout: ``inplace`` or ``releases``.\n    keep_releases: Release directories kept before older ones are pruned.\n        Meaningful only on ``releases``; the in-place default otherwise.\n    build_command: Argv the deployer runs to build the project, read off\n        the same ``get_build_command()`` the deploy used. Empty in a\n        list response - computing it means instantiating the deployer\n        once per application, which this endpoint does not do for a\n        list - and filled in when this application is fetched on its own.\n    start_command: What its unit runs, exactly as the deploy recorded it\n        on the service row. None for a static site, which has no unit.\n    memory_max_mb: Memory limit of its unit, in MB, or None.\n    cpu_quota_percent: CPU quota of its unit, in percent of one CPU, or None.\n    tasks_max: Task limit of its unit, or None.\n    health_path: Path the health gate probes, or None for ``/``.\n    health_expect: Statuses the health gate accepts, such as\n        ``200-399``, or None for any status below 500.\n    health_timeout: Seconds the health gate waits, or None for its\n        default of 30.\n    webhook_enabled: Whether a webhook secret is set for it. The secret\n        itself is never part of this or any other response; it is set\n        through ``POST /api/apps/{domain}/webhook-secret`` and cleared\n        through the ``DELETE`` of the same path.\n    unit: The systemd unit that runs it, or None for a static site.\n    run_as: The account its unit runs as, or None for a static site.\n    last_deployment: Its most recent deployment attempt, or None when\n        nothing has ever been recorded for it.\n    zero_downtime: Whether it runs as two instances behind an nginx\n        upstream (blue/green); details at ``/zero-downtime``.\n    preview_parent: The application it previews a pull request of, or\n        None when it is not a preview.\n    backup_before_update: Whether an update of a Docker Compose stack\n        copies its databases first (on by default; meaningless for any\n        other kind). Set through ``PATCH .../backup-before-update``.\n    team: The slug of the team it belongs to.\n    project: The slug of its project.\n    environment: The slug of its environment. Change them with\n        ``POST /api/apps/{domain}/move``.\n    tags: The free labels it carries (``PUT /api/apps/{domain}/tags``).",
         "properties": {
           "active": {
             "title": "Active",
@@ -3364,6 +3364,17 @@
               }
             ],
             "title": "Run As"
+          },
+          "serving_port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Serving Port"
           },
           "source": {
             "anyOf": [
@@ -14191,7 +14202,7 @@
                 "type": "null"
               }
             ],
-            "description": "Associate with a deployed app; its directory becomes the default",
+            "description": "Associate with a deployed app: the task runs in its directory, as its account, with its .env and its own tools first on the PATH",
             "title": "App Domain"
           },
           "command": {
@@ -23551,6 +23562,128 @@
         "title": "FirewallStateOut",
         "type": "object"
       },
+      "FirstDeployOut": {
+        "description": "One first deployment that failed.\n\nAttributes:\n    job_id: The deployment's job: its log is at ``/api/jobs/{job_id}/log``.\n    domain: The domain it was for.\n    origin: How the application was to start: ``source``, ``image``, ``compose`` or ``recipe``.\n    source: What to read again (an address, a path or an image), with every credential\n        masked; null for a recipe or a typed document.\n    branch: The branch asked for, when one was.\n    app_type: The type asked for (``auto`` or a name).\n    recipe: The recipe's name, for a recipe.\n    created_at: When it was asked for.\n    error: How it failed, verbatim, as the job kept it.\n    error_coded: Its first line as a sentence of Noust's, when it is one, for the console to\n        say in its own language.\n    finished_at: When the job ended.",
+        "properties": {
+          "app_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Type"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "error_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "origin": {
+            "title": "Origin",
+            "type": "string"
+          },
+          "recipe": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipe"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          }
+        },
+        "required": [
+          "job_id",
+          "domain",
+          "origin",
+          "created_at"
+        ],
+        "title": "FirstDeployOut",
+        "type": "object"
+      },
+      "FirstDeploysResponse": {
+        "description": "The first deployments that failed and are still the last word on their domain.\n\nAttributes:\n    items: Newest first, of the projects the caller sees.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FirstDeployOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "FirstDeploysResponse",
+        "type": "object"
+      },
       "FirstFactorProof": {
         "description": "What a request that sets up an account's first second factor may carry to prove who is asking.\n\nAttributes:\n    password: The account's password. Needed only when the session signed in more than ten\n        minutes ago (:mod:`noust.web.api.identity_proof`); ignored while it is recent.",
         "properties": {
@@ -24389,7 +24522,7 @@
         "type": "object"
       },
       "FleetSettingsApplyIn": {
-        "description": "Apply the fleet's settings to the servers.\n\nAttributes:\n    nodes: The servers; every one when empty.\n    adopt: Take over a setting a server already has that is not the fleet's.\n    restore: ``kind/name`` to put back where a server's operator changed it.\n    restore_all: Put back every one of them.\n    plan: Only say what would run.",
+        "description": "Apply the fleet's settings to the servers.\n\nAttributes:\n    nodes: The servers; every one when empty.\n    adopt: Take over a setting a server already has that is not the fleet's.\n    restore: ``kind/name`` to put back where a server's operator changed it.\n    restore_all: Put back every one of them.\n    only: ``kind/name`` of the only settings to apply, such as ``[\"channel/ops\"]``; every\n        setting when empty. Each must be a kind the fleet manages, with a name that kind\n        accepts, and a setting the fleet has (its own value or an exception).\n    plan: Only say what would run.",
         "properties": {
           "adopt": {
             "default": false,
@@ -24401,6 +24534,13 @@
               "type": "string"
             },
             "title": "Nodes",
+            "type": "array"
+          },
+          "only": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Only",
             "type": "array"
           },
           "plan": {
@@ -24425,8 +24565,13 @@
         "type": "object"
       },
       "FleetSettingsModeIn": {
-        "description": "How a server follows the fleet's settings.\n\nAttributes:\n    mode: ``managed`` (it follows them) or ``independent`` (it is left out).",
+        "description": "How a server follows the fleet's settings.\n\nAttributes:\n    mode: ``managed`` (it follows them) or ``independent`` (it is left out).\n    adopt: Only with ``managed``: when it follows them again, take over the settings it kept\n        as its own under the fleet's names, instead of leaving each as a conflict. What it\n        would be given is in the status (``if_followed``) before this is asked.",
         "properties": {
+          "adopt": {
+            "default": false,
+            "title": "Adopt",
+            "type": "boolean"
+          },
           "mode": {
             "title": "Mode",
             "type": "string"
@@ -50959,6 +51104,77 @@
           "servers"
         ],
         "title": "ServerListResponse",
+        "type": "object"
+      },
+      "ServerPolicyConfig": {
+        "description": "The four settings of a server's policy.",
+        "properties": {
+          "backup_max_per_app": {
+            "description": "How many backups are kept of each application",
+            "title": "Backup Max Per App",
+            "type": "integer"
+          },
+          "delivery_max_minutes": {
+            "description": "The longest a deployment may build, in minutes; 0 is no limit",
+            "title": "Delivery Max Minutes",
+            "type": "integer"
+          },
+          "ssl_email": {
+            "description": "Where certificate notices are sent; empty for nowhere",
+            "title": "Ssl Email",
+            "type": "string"
+          },
+          "updates_check": {
+            "description": "Whether this server asks for new releases",
+            "title": "Updates Check",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "updates_check",
+          "ssl_email",
+          "backup_max_per_app",
+          "delivery_max_minutes"
+        ],
+        "title": "ServerPolicyConfig",
+        "type": "object"
+      },
+      "ServerPolicyResponse": {
+        "description": "A server's policy and whether anybody chose it.\n\nAttributes:\n    customized: Some field is something other than what the server does of itself: its own\n        operator chose it, so a central that sets the policy asks before taking it over.",
+        "properties": {
+          "backup_max_per_app": {
+            "description": "How many backups are kept of each application",
+            "title": "Backup Max Per App",
+            "type": "integer"
+          },
+          "customized": {
+            "title": "Customized",
+            "type": "boolean"
+          },
+          "delivery_max_minutes": {
+            "description": "The longest a deployment may build, in minutes; 0 is no limit",
+            "title": "Delivery Max Minutes",
+            "type": "integer"
+          },
+          "ssl_email": {
+            "description": "Where certificate notices are sent; empty for nowhere",
+            "title": "Ssl Email",
+            "type": "string"
+          },
+          "updates_check": {
+            "description": "Whether this server asks for new releases",
+            "title": "Updates Check",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "updates_check",
+          "ssl_email",
+          "backup_max_per_app",
+          "delivery_max_minutes",
+          "customized"
+        ],
+        "title": "ServerPolicyResponse",
         "type": "object"
       },
       "ServerResponse": {
@@ -89703,6 +89919,71 @@
         "x-noust-permission": "apps.operate"
       }
     },
+    "/api/config/policy": {
+      "get": {
+        "description": "Get this server's policy.\n\nArgs:\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    The four fields, read the way the server itself reads each key, and whether its operator\n    chose any of them.",
+        "operationId": "get_policy_api_config_policy_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerPolicyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Policy",
+        "tags": [
+          "Configuration"
+        ],
+        "x-noust-permission": "settings.read"
+      },
+      "put": {
+        "description": "Set this server's policy: the four fields are written together, and nothing else.\n\nA value out of range is refused as a whole, with the words of the key that refused it, before\nanything is written. The queue obeys the new time limit from its next look, with no restart.\n\nArgs:\n    body: The four fields.\n    request: The incoming request, for the audit record.\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    Confirmation message.\n\nRaises:\n    ConfigError: 400 when a key refuses its value.\n    HTTPException: If the configuration cannot be written.",
+        "operationId": "update_policy_api_config_policy_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServerPolicyConfig"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Policy",
+        "tags": [
+          "Configuration"
+        ],
+        "x-noust-permission": "settings.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/config/reload": {
       "post": {
         "description": "Reload configuration from disk.\n\nArgs:\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    The redacted configuration and the path it came from.",
@@ -89749,7 +90030,7 @@
         "x-noust-permission": "settings.read"
       },
       "put": {
-        "description": "Update the monitor's SMTP settings.\n\nGoes through :meth:`~noust.core.config.Config.set`, so the same rule 'noust\nconfig set monitor.smtp.*' enforces - a hostname for ``host``, a port in\nrange, ``use_ssl`` and ``use_tls`` not both on, a valid address for\n``from_address`` and every recipient - rejects a value here too, in the\nsame words. An empty ``password`` is translated to the\n:data:`~noust.core.config.REDACTED` placeholder before the write, which is\nwhat actually keeps the stored password, and is refused when the\npassword would go somewhere else: see :class:`SMTPConfig`.\n\nArgs:\n    body: Body carrying the SMTP settings.\n    request: The incoming request, for the audit record.\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    Confirmation message.\n\nRaises:\n    ConfigError: 400, through the error boundary, for a host that is not\n        a hostname, a port out of range, both ``use_ssl`` and ``use_tls``\n        enabled, or an invalid ``from_address`` or recipient.\n    HTTPException: 422 on ``password`` when it is blank, a password is\n        stored, and the host, port, username or transport changed; or if\n        the configuration cannot be written.",
+        "description": "Update the monitor's SMTP settings.\n\nGoes through :meth:`~noust.core.config.Config.set`, so the same rule 'noust\nconfig set monitor.smtp.*' enforces - a hostname for ``host``, a port in\nrange, ``use_ssl`` and ``use_tls`` not both on, a valid address for\n``from_address`` and every recipient - rejects a value here too, in the\nsame words. An empty ``password`` is translated to the\n:data:`~noust.core.config.REDACTED` placeholder before the write, which is\nwhat actually keeps the stored password, and is refused when the\npassword would go somewhere else: see :class:`SMTPConfig`.\n\nArgs:\n    body: Body carrying the SMTP settings.\n    request: The incoming request, for the audit record.\n    session: Authenticated session, injected by the dependency.\n\nReturns:\n    Confirmation message.\n\nRaises:\n    ConfigError: 400, through the error boundary, for a host that is not\n        a hostname, a port out of range, both ``use_ssl`` and ``use_tls``\n        enabled, or an invalid ``from_address`` or recipient.\n    HTTPException: 422 on ``host`` when there is none, since saving the\n        account of a server that is not named leaves mail that never\n        leaves (the email service is ``PUT /api/config/email-api``, and\n        taking the account away is a write of the whole block); 422 on\n        ``password`` when it is blank, a password is stored, and the host,\n        port, username or transport changed; or if the configuration\n        cannot be written.",
         "operationId": "update_smtp_config_api_config_smtp_put",
         "requestBody": {
           "content": {
@@ -100987,6 +101268,96 @@
         "x-noust-permission": "teams.read"
       }
     },
+    "/api/first-deploys": {
+      "get": {
+        "description": "List the first deployments that failed and left no application behind.\n\nA domain with an application of its own, one whose newest attempt is running or worked, one\nthat was dismissed and one older than two weeks are not listed.\n\nArgs:\n    session: The authenticated session.\n    domain: Only this domain's.\n\nReturns:\n    The failures the caller may see.",
+        "operationId": "list_first_deploys_api_first_deploys_get",
+        "parameters": [
+          {
+            "description": "Only this domain's.",
+            "in": "query",
+            "name": "domain",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this domain's.",
+              "title": "Domain"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirstDeploysResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List First Deploys",
+        "tags": [
+          "Deployments"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/first-deploys/{attempt}/dismiss": {
+      "post": {
+        "description": "Put a failed first deployment away: it stops being listed, here and in what needs attention.\n\nArgs:\n    attempt: The deployment's job id: the failure is the job's.\n    session: The authenticated session.\n\nReturns:\n    An empty answer.\n\nRaises:\n    ValidationError: 400 when the id is not a job's.\n    HTTPException: 404 when there is no such failure, or it belongs to a project the caller\n        does not see (which reads as absent).",
+        "operationId": "dismiss_first_deploy_api_first_deploys__attempt__dismiss_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "attempt",
+            "required": true,
+            "schema": {
+              "title": "Attempt",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Dismiss First Deploy",
+        "tags": [
+          "Deployments"
+        ],
+        "x-noust-permission": "apps.manage"
+      }
+    },
     "/api/fleet/actions": {
       "get": {
         "description": "Describe the bulk actions: what each uses on a node, and its defaults.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    ``actions``: each with ``name``, ``title``, ``operations``, ``serial``\n    and ``max_failures``.",
@@ -103768,7 +104139,7 @@
     },
     "/api/fleet/servers/{node}/settings-mode": {
       "put": {
-        "description": "Make a server follow the fleet's settings, or leave it out of them.\n\nAn independent server is pushed nothing and is let go of what it had (it keeps it, as its own);\nit still appears in every fleet view. A server that follows them again is applied everything.\n\nArgs:\n    node: The server.\n    body: The mode.\n    session: The elevated session.\n\nReturns:\n    The mode and the job that settles it.\n\nRaises:\n    ValidationError: 400 for a mode that is not one, or a server that is not in the fleet.",
+        "description": "Make a server follow the fleet's settings, or leave it out of them.\n\nAn independent server is pushed nothing and is let go of what it had (it keeps it, as its own);\nit still appears in every fleet view. A server that follows them again is applied everything:\nwhat it does not have is created, and what it kept under a name of the fleet's is a conflict\nunless ``adopt`` says to take it over. The status says beforehand what each setting would\nbring (``if_followed``), so the person deciding knows what will change.\n\nArgs:\n    node: The server.\n    body: The mode, and whether to take over what the server kept.\n    session: The elevated session.\n\nReturns:\n    The mode and the job that settles it.\n\nRaises:\n    ValidationError: 400 for a mode that is not one, a server that is not in the fleet, or\n        ``adopt`` asked of a server that is leaving.",
         "operationId": "set_mode_api_fleet_servers__node__settings_mode_put",
         "parameters": [
           {
@@ -103909,7 +104280,7 @@
     },
     "/api/fleet/settings/apply": {
       "post": {
-        "description": "Apply the fleet's settings to the servers: \"Apply to the fleet\".\n\nA bulk action like the others: a plan first (which servers run, which are skipped and why),\nbatches, and a record per server with each setting's result - ``created``, ``updated``,\n``in_sync``, ``overridden`` (its operator changed it; left unless asked), ``restored``,\n``released``, ``conflict`` (it exists there and is not the fleet's; left unless asked to adopt\nit), ``unsupported`` or ``failed`` with the server's own words. Poll it with\n``GET /api/fleet/jobs/{id}``.\n\nArgs:\n    body: The servers, and what to do about conflicts and changed settings.\n    request: The request.\n    session: The authenticated session.\n\nReturns:\n    ``plan`` and, unless only planning, ``job``.\n\nRaises:\n    ValidationError: An unknown server or option, or no server to apply to.\n    HTTPException: 403 ``elevation_required`` for ``adopt``, ``restore`` and ``restore_all``\n        without sudo mode: they take over what a server has or undo what its operator did.",
+        "description": "Apply the fleet's settings to the servers: \"Apply to the fleet\".\n\nA bulk action like the others: a plan first (which servers run, which are skipped and why),\nbatches, and a record per server with each setting's result - ``created``, ``updated``,\n``in_sync``, ``overridden`` (its operator changed it; left unless asked), ``restored``,\n``released``, ``conflict`` (it exists there and is not the fleet's; left unless asked to adopt\nit), ``unsupported`` or ``failed`` with the server's own words. Poll it with\n``GET /api/fleet/jobs/{id}``.\n\n``only`` limits it to some settings (``[\"channel/ops\"]``): nothing else is pushed, left or let\ngo of, so \"apply this one\" is one call and the rest stays for the next.\n\nArgs:\n    body: The servers, what to do about conflicts and changed settings, and ``only``.\n    request: The request.\n    session: The authenticated session.\n\nReturns:\n    ``plan`` and, unless only planning, ``job``.\n\nRaises:\n    ValidationError: An unknown server or option, or no server to apply to.\n    HTTPException: 403 ``elevation_required`` for ``adopt``, ``restore`` and ``restore_all``\n        without sudo mode: they take over what a server has or undo what its operator did.\n        422 naming ``only`` for an entry that is not a setting of a kind the fleet manages,\n        or that the fleet does not have.",
         "operationId": "apply_settings_api_fleet_settings_apply_post",
         "requestBody": {
           "content": {

@@ -18,7 +18,7 @@ Where the system lives:
 | Page header and URL tabs | `panel/src/app/PageHeader.tsx`, `panel/src/app/LinkTabs.tsx` |
 | The frame: the main bar, the second column, the phone's bar and section selector, the breadcrumbs | `panel/src/app/frame/`, with the layout rules in `panel/src/app/navLayout.ts` and the saved choices in `panel/src/app/preferences.ts` |
 | The executable specification | the gallery, `/__design` (development builds only; `panel/src/dev/`) |
-| Enforcement | `styles/tokens.test.ts`, `styles/design-rules.test.ts`, `styles/design-structure.test.ts`, `styles/setting-copy.test.ts`, `styles/concept-doors.test.ts`, `styles/dead-class.test.ts`, `i18n/verbs.test.ts`, `i18n/glossary.test.ts`, `eslint.config.js`, `e2e/design-contract.spec.ts`, `e2e/indicator.spec.ts`, `e2e/field-edge.spec.ts`, `e2e/tab-switch-layout.spec.ts`, `e2e/leave-guard.spec.ts`, `e2e/settings-length.spec.ts` |
+| Enforcement | `styles/tokens.test.ts`, `styles/design-rules.test.ts`, `styles/design-structure.test.ts`, `styles/setting-copy.test.ts`, `styles/concept-doors.test.ts`, `styles/dead-class.test.ts`, `i18n/verbs.test.ts`, `i18n/glossary.test.ts`, `eslint.config.js`, `e2e/design-contract.spec.ts`, `e2e/indicator.spec.ts`, `e2e/field-edge.spec.ts`, `e2e/tab-switch-layout.spec.ts`, `e2e/leave-guard.spec.ts`, `e2e/settings-length.spec.ts`, `e2e/home-arrange.spec.ts`, `e2e/home-customise-length.spec.ts` |
 
 The brand (the mark, its violet, its construction) is `docs/brand/BRAND.md`. Copy rules and the
 English/Spanish glossary are `panel/src/i18n/README.md`. This document says how the console
@@ -372,7 +372,7 @@ staggered cascade. **Each curve has a job**, and no curve is the default of ever
 - **M-1** With `prefers-reduced-motion`, every duration token is 0, every animation stops and every
   transition is instant, except the spinner (`animate-spin`), which keeps turning slower: frozen, it
   would say nothing is happening. What is in progress also stays readable by its shape and word.
-- **M-2** Nothing animates layout; lists do not reorder with animation; a state never slides.
+- **M-2** Nothing animates layout; lists do not reorder with animation; a state never slides. The one exception is the panel of Home, whose widgets slide from where they were to where they are (transform only, in `--duration-move`) because a person arranges them by hand and has to see where each went (AR-7).
 - **M-3** An animation is a CSS animation declared in `app.css`, never SMIL (`<animate>` in an
   SVG): the reduced-motion rule stops CSS animations and does not reach SMIL. A component that
   marks something as moving also reads `REDUCED_MOTION` and leaves the class off.
@@ -1502,14 +1502,21 @@ grouped by server, a server not yet updated saying it will count its tasks when 
 
 - **Pinning is a choice.** A running task can be pinned as a chip at the foot of every page, with its progress
   and step; it keeps its result until it is let go, and a reload keeps the pin. Nothing is pinned by itself.
-- **The end is told once, to the one it concerns.** A task of yours that ends while you are on another page
-  is one toast with "See"; on its own page (or the page of the application it acts on) it says nothing,
-  because you are looking at it; and the server's own notice for it is not said a second time. What is not
-  yours keeps the server's notice.
+- **The end is told once, to the one it concerns.** A task of yours that ends after you left the page you
+  launched it from (the page you were on when the console first heard of it) is one toast with "See"; on that
+  page, on its own page or on the page of the application it acts on it says nothing, because you are looking
+  at it; and the server's own notice for it is not said a second time. What is not yours keeps the server's
+  notice. A failure is the exception on an application's page, which does not announce its own job's failure:
+  the page of a domain whose first deploy failed has no application left to draw it.
 - **The browser's notification is offered, never started.** The first time you leave a long task of yours, a
   toast offers it; only your yes asks the browser for its permission, and it is shown only while the tab is hidden.
 - **A task has a page** (Activity > Tasks > one): its steps (a deploy's five phases), who and where, its log as
   it is written, Pin, Cancel where the queue allows it and Try again for a failed deploy.
+- **A first deploy that fails has a page too** (4.3, item 141): a first deploy that fails undoes the application's
+  own row, so the page of its domain says that the first deploy failed instead of "no application at this domain":
+  when, the system's own words (the fix above them), and Try again (the wizard opens on the source, the branch and
+  the domain it was asked with; a credential that was masked is typed again) or Forget this failure. What needs
+  attention lists it, and the server keeps it for two weeks (`GET /api/first-deploys`).
 
 ### 6.5 Errors and system output
 
@@ -1702,7 +1709,7 @@ An event is said in one channel, never two:
 | Inline notice | Something persistent about a form, section or dialog | `Notice` | Until resolved or dismissed | none, or `status` if `live` |
 | Banner | The state of the page or the server | `Notice variant="banner"` | Until resolved | none |
 | Error block | A load or an action failed, with the system's words | `ErrorBlock`, `QueryState` | Until retried | `alert` only if `live` |
-| Toast | The outcome of an action not visible on screen; a job queued | `toast.*` | Success and info 5s; error and warning until closed; 3 at most | the announcer's polite or assertive region |
+| Toast | The outcome of an action not visible on screen; a job queued; the way back from a change that is on screen (AR-5) | `toast.*` | Success and info 5s (8s when it offers to undo); error and warning until closed; 3 at most | the announcer's polite or assertive region |
 | Inbox | What failed on its own or needs a decision, while the operator was elsewhere; the bell in the top bar | the inbox (`Needs you`, `Recent`) | Until resolved | the announcer's polite region, never a counter that changes every few seconds |
 | Dialog | A decision that blocks | `Dialog`, `ConfirmDialog` | Until decided | `dialog`, `alertdialog` |
 
@@ -1862,6 +1869,59 @@ each held by the test it names:
   says so and what to run there, which is a command with a reason (`otro-servidor`, CL-1). A page does not write its own
   paragraph about a missing program, a `Notice` with an "install" button of its own, or a command to paste. *Enforced by:*
   `MissingSoftware.test.tsx`; G-7.
+
+### 6.17 Arranging a panel
+
+The panel of Home (a grid of widgets, `components/widgets/`) is arranged by hand: dragged, resized from its edges, brought
+in from the gallery and put back. What the pointer holds is never drawn as an empty box; it is drawn as the place it
+will take. The rules, each held by the test it names (owner items 167, 168 and 169); the specimens are in the gallery
+under "Arranging a panel":
+
+- **AR-1** What a held widget will take is an **outline of its place**, at its real size, with the name of that size
+  ("Medium, 2 x 1": a width in quarters of the panel and a height in bands of two rows): `border` 1px `--accent` on
+  `--accent-soft`, the label in `--accent-text`. It is solid: a dashed outline is the mark of an empty list (2.12,
+  `dashed-empty`), and this is a place that something is about to fill. What the hand holds is the widget itself with a 2px
+  `--accent` outline, a little lifted and turned, or, from the gallery, the card that was taken. *Enforced by:*
+  `WidgetGrid.test.tsx` ("what a held widget shows"); `e2e/home-arrange.spec.ts`.
+- **AR-2** A size is taken by its **edges and its corner**, drawn while the panel is arranged, each with a grip of 24px
+  or more (A-3) and a knob with an edge of its own, never a bare bar, which reads as a scrollbar. An edge is drawn only
+  where the widget has another size along it, the corner where it has any other, and a phone has the corner only (a finger
+  down an edge is scrolling the page). While it is held the widget keeps the size it has, so what is around it does not
+  jump through every size it passes, and an **outline of the size it is on its way to** lies over the page: 2px `--accent`,
+  no ground (a ground would hide what is under it), with the name of the size in a chip of `--accent` and `--on-accent`.
+  It changes the widget when it is let go; Escape puts it back. *Enforced by:* `dragMath.test.ts`,
+  `WidgetGrid.test.tsx` ("changing a size by the edges and the corner"); `e2e/home-arrange.spec.ts`.
+- **AR-3** **The page scrolls under what is held** near the top and the bottom of the window (60px; 80px at the top, under the
+  bar), a frame at a time and faster the nearer the edge (up to 840px a second), for as long as the pointer is there: a hand
+  that rests at the edge has not moved, so a move event is no clock. It stops when the widget is let go or put back, and
+  what is under the pointer is asked again as the page moves. *Enforced by:* `dragMath.test.ts` (`edgeSpeed`),
+  `WidgetGrid.test.tsx` ("the page under a held widget"); `e2e/home-arrange.spec.ts`.
+- **AR-4** **A finger lifts by holding** (380ms, 8px of drift allowed): before that it is scrolling the page and nothing is
+  lifted; from then on the page does not scroll under it. The handle is a grip and takes at once. The widget that is held
+  stays in the document, unseen: a finger sends its touch events to the element it pressed, and from one that has left the
+  page they go nowhere. The menu a browser opens on a long press is kept away. *Enforced by:* `WidgetGrid.test.tsx` ("a
+  finger").
+- **AR-5** **Every change made on purpose can be undone**: moving, resizing and removing offer it in the toast that says it
+  was done (`Moved X`, `Resized X`, `Removed X`, one action, "Undo", 8s). It is the way back from something that is on screen,
+  not a success message (FM-7). One level: the last change. The offer goes when something that it would not put back comes
+  after it (adding, resetting, leaving). The keyboard goes to the widget that was put back. *Enforced by:*
+  `WidgetGrid.test.tsx` ("undoing").
+- **AR-6** **Nothing needs the pointer** (WCAG 2.5.7): Space on the handle lifts a widget, the arrows move it, Shift with the
+  arrows makes it wider, narrower, taller or shorter, Space drops it and Escape puts it back; the button with its size has
+  the sizes and Move earlier and Move later. Each step is announced, and so is the end of the road ("has no wider size").
+  *Enforced by:* `WidgetGrid.test.tsx` ("arranging with the keyboard", "the size with the keyboard").
+- **AR-7** **Motion**: the widgets around the one that moves slide from where they were (transform only); with reduced motion
+  nothing slides and the copy does not glide to its place. A widget brought in from the gallery settles where the panel made
+  room for it. *Enforced by:* `e2e/overview.spec.ts` (reduced motion).
+- **AR-8** **A card of the gallery** is a row (the icon, the name, the "+") with the description and the sizes under it, across
+  the whole card: nothing is cut with an ellipsis, and no card grows or shrinks under the pointer, which would push the ones
+  under it while the pointer goes down the list. *Enforced by:* `Gallery.test.tsx`; `e2e/home-arrange.spec.ts`.
+- **AR-9** **What is kept for a screen reader is placed against its card.** An element that is `position: absolute`
+  (`sr-only` is) takes the nearest positioned ancestor for its anchor; in a column that is as tall as the window and scrolls
+  its own list, one without a positioned ancestor inside it is placed against the column and makes the page as long as the
+  labels are low. The list and each card of the gallery are positioned. *Enforced by:* `Gallery.test.tsx`;
+  `e2e/home-customise-length.spec.ts` (the page is no longer than its content while it is customised).
+
 ---
 
 ## 7. Content

@@ -92,6 +92,20 @@ describe("the fleet's Home", () => {
     expect(screen.queryByText(/^Server /)).not.toBeInTheDocument();
   });
 
+  it("does not count the central as a server of the fleet when it is all there is: the strip and the page say the same", { timeout: 20_000 }, async () => {
+    // A central that runs applications of its own is a row of the summary (`local`), but a fleet of nothing else is not a
+    // fleet of one server: the page under the strip says "No servers in this fleet yet" (item 145).
+    const centralOnly = { ...SUMMARY_VIEW, nodes: SUMMARY_VIEW.nodes.filter((node) => node.local), items: SUMMARY_VIEW.items.filter((row) => row["local"] === true) };
+    fakeBackend({ ...fleetRoutes(centralSession(), []), "GET /api/fleet/summary": () => json(200, centralOnly) });
+    renderConsole("/fleet");
+
+    expect(await screen.findByRole("heading", { level: 2, name: "No servers in this fleet yet" })).toBeInTheDocument();
+    await screen.findByRole("heading", { level: 2, name: "No servers in this fleet yet" });
+    expect(await screen.findByRole("link", { name: /^In the fleet: no servers added yet/ })).toHaveAttribute("href", "/fleet");
+    expect(screen.queryByText("1 server")).not.toBeInTheDocument();
+    expect(screen.queryByText(/1 answering/)).not.toBeInTheDocument();
+  });
+
   it("explains what a fleet is when there is no server yet", { timeout: 20_000 }, async () => {
     fakeBackend(fleetRoutes(centralSession(), []));
     renderConsole("/fleet");

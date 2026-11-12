@@ -11,6 +11,7 @@ import type { AttentionAction } from "../overview/attentionTarget";
  */
 const OPEN_ICON: Readonly<Record<Extract<AttentionAction, { mode: "open" }>["kind"], LucideIcon>> = {
   viewLog: OBJECT_ICONS.log,
+  viewFailure: OBJECT_ICONS.deployment,
   diagnose: OBJECT_ICONS.app,
   renew: OBJECT_ICONS.certificate,
   openService: OBJECT_ICONS.service,

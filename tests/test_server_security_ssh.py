@@ -1451,11 +1451,27 @@ class TestAudit:
         assert entry["result"] == "denied"
         assert entry["details"]["fix"] == "disable-passwords"
 
-    def test_the_timer_revert_is_on_record_as_well(self, sshd, host, ledger):
+    def test_the_timer_revert_is_on_record_as_a_change_nobody_confirmed(self, sshd, host, ledger):
+        """Item 138: the trail said "SSH changed" of a change that was undone because nobody kept it."""
         _journal(sshd, accepted("root", ED_FP, at=NOW - 3600))
         change = _security(sshd, host, ledger).apply("disable-passwords")
 
         ledger.revert(change.id, by="timer", expired=True)
 
-        actions = [entry["details"].get("action") for entry in _events("server.ssh")]
-        assert actions == ["expire", "fix"]
+        # The change itself stays what it was, and the undoing is an event of its own, whose name says it.
+        assert [entry["details"].get("action") for entry in _events("server.ssh")] == ["fix"]
+        [undone] = _events("server.ssh_expired")
+        assert undone["details"]["by"] == "timer"
+        assert undone["details"]["title"] == change.title
+
+    def test_an_undo_asked_for_is_not_one_nobody_confirmed(self, sshd, host, ledger):
+        _journal(sshd, accepted("root", ED_FP, at=NOW - 3600))
+        change = _security(sshd, host, ledger).apply("disable-passwords")
+
+        ledger.revert(change.id, by="ana")
+
+        assert _events("server.ssh_expired") == []
+        assert [entry["details"].get("action") for entry in _events("server.ssh")] == [
+            "revert",
+            "fix",
+        ]

@@ -5,8 +5,8 @@
 The fleet's settings: what a central wants every server to have, and what each server applied.
 
 A setting of the fleet is a notification channel, an alert rule, a backup destination, a registry
-login or a shared variable that is written once, on the central, and reaches every server it
-manages (item 90). The central keeps the state it wants (:mod:`~noust.fleet.settings.desired`),
+login, a shared variable, the address of the central's console or a server's policy that is
+written once, on the central, and reaches every server it manages (items 90 and 166). The central keeps the state it wants (:mod:`~noust.fleet.settings.desired`),
 each node keeps what it applied of it without the values (:mod:`~noust.fleet.settings.managed`),
 and the reconciler of :mod:`noust.web.fleet_settings_actions` brings the second to the first
 through the node's own typed routes: the central validates nothing a node validates (rule 3).
@@ -17,6 +17,8 @@ Modules:
     signature: how a push says which person approved the change it carries.
     desired: the central's table, ``fleet_desired``, with the secrets in its secret store.
     managed: the node's table, ``fleet_managed``: fingerprints, never values.
+    policy: the four settings of "General" that say how a server behaves, and the one place that
+        knows which key of the configuration holds each.
     snapshots: a node reads what it holds of a setting, to fingerprint it.
     push: the typed calls that write one setting on a node.
     reconcile: what a node needs, given what the central wants and what it applied.

@@ -61,7 +61,7 @@ def stamp(path: Path, version: int) -> None:
 
 def test_the_version_follows_v16() -> None:
     assert schema_v17.VERSION == 17
-    assert SCHEMA_VERSION == schema_v17.VERSION
+    assert SCHEMA_VERSION >= schema_v17.VERSION
 
 
 def test_each_area_of_4_2_has_its_own_pair() -> None:
@@ -72,12 +72,12 @@ def test_each_area_of_4_2_has_its_own_pair() -> None:
     assert isinstance(schema_v17.SOFTWARE_COLUMNS, list)
 
 
-def test_a_fresh_store_is_born_at_v17_with_the_home_panels(tmp_path: Path, fresh: None) -> None:
+def test_a_fresh_store_is_born_with_the_home_panels(tmp_path: Path, fresh: None) -> None:
     path = tmp_path / "noust.db"
 
     NoustStore(path)
 
-    assert version_of(path) == 17
+    assert version_of(path) == SCHEMA_VERSION
     assert "account_dashboards" in tables_of(path)
 
 
@@ -94,7 +94,7 @@ def test_a_store_at_v16_climbs_to_v17_and_keeps_its_rows(tmp_path: Path, fresh: 
 
     reopened = NoustStore(path)
 
-    assert version_of(path) == 17
+    assert version_of(path) == SCHEMA_VERSION
     assert "account_dashboards" in tables_of(path)
     assert reopened.get_app("shop.example.com") is not None
 
@@ -112,7 +112,7 @@ def test_a_store_that_climbs_from_v16_has_the_tables_of_v17_the_first_time_it_op
     # The climb itself adds them: waiting for the next opening leaves a process that has just
     # upgraded a server running on a store without the tables its own code reads.
     assert "v17_probe" in tables_of(path)
-    assert version_of(path) == 17
+    assert version_of(path) == SCHEMA_VERSION
 
 
 def test_a_fragment_written_after_a_store_was_stamped_v17_is_added_when_it_opens(
@@ -127,7 +127,7 @@ def test_a_fragment_written_after_a_store_was_stamped_v17_is_added_when_it_opens
     NoustStore(path)
 
     assert "v17_probe" in tables_of(path)
-    assert version_of(path) == 17
+    assert version_of(path) == SCHEMA_VERSION
 
 
 def test_a_column_written_later_is_added_and_a_complete_store_is_left_alone(
@@ -165,7 +165,7 @@ def test_a_store_a_development_build_stamped_v16_early_is_completed_before_it_cl
     NoustStore(path)
 
     assert "db_server_defaults" in tables_of(path)
-    assert version_of(path) == 17
+    assert version_of(path) == SCHEMA_VERSION
 
 
 class TestAccountDashboards:

@@ -427,6 +427,18 @@ class CommandsMixin(ExecutionMixin):
         """
         return f"Missing system dependencies: {', '.join(missing)}"
 
+    def _toolchain_issues(self) -> list[str]:
+        """
+        Name what the programs of :attr:`SYSTEM_DEPS` cannot do here, beyond being installed.
+
+        A type overrides it when the deployment needs more of a program than its presence (Python
+        makes a virtual environment with pip in it). It runs only when no program is missing.
+
+        Returns:
+            One line per problem; none by default.
+        """
+        return []
+
     def pre_flight_check(self) -> bool:
         """
         Validate the machine before anything is changed.
@@ -449,6 +461,8 @@ class CommandsMixin(ExecutionMixin):
         missing = preflight.missing_programs(self.runner, self.SYSTEM_DEPS)
         if missing:
             issues.append(self._missing_dependencies_issue(missing))
+        else:
+            issues += self._toolchain_issues()
 
         if self.source:
             issues += preflight.repository_unreachable(self.runner, self.source)

@@ -6,7 +6,7 @@ import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { describeError } from "../../lib/errors";
 import { heldOf } from "../../lib/held";
-import { openInbox } from "../../features/approvals/store";
+import { openApprovals } from "../../features/approvals/store";
 import { nodeErrorWords } from "../../nodes/nodeErrors";
 import { useNode } from "../../nodes/useNode";
 import { Button } from "../ui/Button";
@@ -74,7 +74,7 @@ export function ErrorBlock({ error, title: pageTitle, hint, onRetry, retrying = 
       <Notice
         title={t("approvals.held.waitingTitle")}
         action={
-          <Button size="sm" onClick={openInbox}>
+          <Button size="sm" onClick={openApprovals}>
             {t("approvals.held.openApprovals")}
           </Button>
         }

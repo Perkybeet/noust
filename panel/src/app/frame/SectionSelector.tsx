@@ -9,7 +9,8 @@ import { useT } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
 import { RESOURCE_PARENT } from "../columns";
 import type { ColumnKind } from "../columns";
-import { DESTS, dest } from "../nav";
+import { DESTS, areaLabelKey, dest } from "../nav";
+import { useNavScope } from "../useNavScope";
 import { columnLabel } from "./columnBodies";
 import { ColumnContent } from "./NavColumn";
 
@@ -21,6 +22,7 @@ function useTitle(kind: ColumnKind): string {
   const t = useT();
   const params = useParams({ strict: false });
   const { node } = useNode();
+  const scope = useNavScope();
   switch (kind) {
     case "app":
       return params.domain ?? "";
@@ -32,7 +34,8 @@ function useTitle(kind: ColumnKind): string {
     case "account":
       return t("account.title");
     case "server":
-      return node ?? t(dest("server").label);
+      // "Server" over one server and "Servers" from All servers, as the bar and the trail say it (item 154).
+      return node ?? t(areaLabelKey(dest("server"), scope));
     default:
       return t(dest(kind).label);
   }

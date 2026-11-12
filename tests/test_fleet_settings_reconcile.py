@@ -113,3 +113,58 @@ def test_the_steps_are_in_order_of_kind_then_name() -> None:
         ("channel", "b"),
         ("variable", "a"),
     ]
+
+
+class TestOnlyTheSettingsNamed:
+    """``only`` limits what one apply does, at the one place that decides what is done."""
+
+    def test_nothing_else_is_pushed_and_nothing_else_is_said(self) -> None:
+        plan = plan_node(
+            [wanted("a", 1), wanted("b", 2), wanted("a", 3, resource="variable")],
+            [applied("b", 1)],
+            only={"channel/b"},
+        )
+
+        assert steps(plan) == [("channel", "b", "apply", "outdated")]
+
+    def test_it_names_a_kind_as_well_as_a_name(self) -> None:
+        plan = plan_node(
+            [wanted("a", 1), wanted("a", 3, resource="variable")], [], only={"variable/a"}
+        )
+
+        assert steps(plan) == [("variable", "a", "apply", "new")]
+
+    def test_what_the_central_no_longer_wants_is_let_go_only_when_it_is_named(self) -> None:
+        managed = [applied("old", 2), applied("older", 3)]
+
+        assert steps(plan_node([], managed, only={"channel/old"})) == [
+            ("channel", "old", "release", "removed")
+        ]
+        assert plan_node([], managed, only={"channel/other"}) == []
+
+    def test_an_independent_server_is_let_go_of_only_what_is_named(self) -> None:
+        plan = plan_node(
+            [wanted("ops", 3)],
+            [applied("ops", 3), applied("old", 1)],
+            independent=True,
+            only={"channel/ops"},
+        )
+
+        assert steps(plan) == [("channel", "ops", "release", "independent")]
+
+    def test_an_empty_list_is_no_limit(self) -> None:
+        plan = plan_node([wanted("a", 1), wanted("b", 2)], [], only=())
+
+        assert [s.name for s in plan] == ["a", "b"]
+
+    def test_putting_back_works_on_the_one_named(self) -> None:
+        row = applied("ops", 3, "overridden")
+
+        plan = plan_node(
+            [wanted("ops", 5), wanted("other", 6)],
+            [row],
+            restore={"channel/ops"},
+            only={"channel/ops"},
+        )
+
+        assert steps(plan) == [("channel", "ops", "apply", "restore")]

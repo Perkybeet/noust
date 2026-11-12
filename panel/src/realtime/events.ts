@@ -27,6 +27,7 @@ import { sessionQuery } from "../api/queries/auth";
 import { certKeys } from "../api/queries/certs";
 import { databaseKeys } from "../api/queries/databases";
 import { deploymentKeys } from "../api/queries/deployments";
+import { firstDeployKeys } from "../api/queries/firstDeploys";
 import { jobKeys } from "../api/queries/jobs";
 import type { Job } from "../api/queries/jobs";
 import { metricKeys } from "../api/queries/metrics";
@@ -262,6 +263,8 @@ export function applyServerEvent(queryClient: QueryClient, name: ServerEventName
       void queryClient.invalidateQueries({ queryKey: jobKeys.all });
       void queryClient.invalidateQueries({ queryKey: deploymentKeys.all });
       void queryClient.invalidateQueries({ queryKey: overviewKeys.all });
+      // A first deployment that failed leaves no application: the page of its domain finds the failure here.
+      void queryClient.invalidateQueries({ queryKey: firstDeployKeys.all });
       const domain = job.metadata?.["domain"];
       if (typeof domain === "string" && TERMINAL_JOB_STATES.has(job.status)) {
         void queryClient.invalidateQueries({ queryKey: appKeys.detail(domain) });

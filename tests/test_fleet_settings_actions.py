@@ -258,6 +258,91 @@ class TestWhatTheServerOwnerChanged:
         assert states(snapshot, "web-1") == [("channel", "ops", "in_sync")]
 
 
+class TestOnlyTheSettingsNamed:
+    def two(self, settings: FleetSettings) -> None:
+        save(settings)
+        save(settings, "REGION", "variable", value={"value": "eu"})
+
+    def test_only_what_is_named_is_pushed(
+        self, central: Central, nodes: dict[str, ManagedNode], settings: FleetSettings
+    ) -> None:
+        self.two(settings)
+
+        snapshot = apply(central, only=["variable/REGION"])
+
+        assert states(snapshot, "web-1") == [("variable", "REGION", "created")]
+        assert ("channel", "ops") not in nodes["web-1"].held
+        assert [w.path for w in nodes["web-1"].writes] == [
+            "/api/variables/server/REGION",
+            "/api/managed-settings/variable/REGION",
+        ]
+
+    def test_the_rest_is_still_there_to_apply_afterwards(
+        self, central: Central, nodes: dict[str, ManagedNode], settings: FleetSettings
+    ) -> None:
+        self.two(settings)
+        apply(central, only=["variable/REGION"])
+
+        snapshot = apply(central)
+
+        assert states(snapshot, "web-1") == [
+            ("channel", "ops", "created"),
+            ("variable", "REGION", "in_sync"),
+        ]
+
+    def test_what_a_server_holds_that_the_central_dropped_is_let_go_only_when_named(
+        self, central: Central, nodes: dict[str, ManagedNode], settings: FleetSettings
+    ) -> None:
+        self.two(settings)
+        apply(central)
+        settings.remove("channel", "ops", person="carol", held=HELD)
+
+        untouched = apply(central, only=["variable/REGION"])
+        let_go = apply(central, only=["channel/ops"])
+
+        assert states(untouched, "web-1") == [("variable", "REGION", "in_sync")]
+        assert states(let_go, "web-1") == [("channel", "ops", "released")]
+
+    @pytest.mark.parametrize("only", ["channel/ops", ["nope"], ["a/b/c"], [3], ["channel/"]])
+    def test_a_list_that_is_not_kind_slash_name_is_refused(
+        self, central: Central, only: object
+    ) -> None:
+        from noust.core.exceptions import ValidationError
+
+        request = FleetRequest("settings_apply", nodes=["web-1"], options={"only": only})
+
+        with pytest.raises(ValidationError) as caught:
+            plan(request, manager=central.manager, asker=ADMIN, probe=False)
+
+        assert caught.value.field == "options"
+
+    def test_a_kind_that_is_not_one_is_refused_naming_the_option(self, central: Central) -> None:
+        from noust.core.exceptions import ValidationError
+
+        request = FleetRequest(
+            "settings_apply", nodes=["web-1"], options={"only": ["firewall_rule/ssh"]}
+        )
+
+        with pytest.raises(ValidationError) as caught:
+            plan(request, manager=central.manager, asker=ADMIN, probe=False)
+
+        assert caught.value.field == "options"
+        assert "firewall_rule" in caught.value.message
+
+    def test_the_names_are_kept_sorted_and_without_repeats_in_the_record_of_the_job(
+        self, central: Central
+    ) -> None:
+        request = FleetRequest(
+            "settings_apply",
+            nodes=["web-1"],
+            options={"only": ["variable/B", "channel/a", "variable/B"]},
+        )
+
+        checked = plan(request, manager=central.manager, asker=ADMIN, probe=False)
+
+        assert checked.options["only"] == ["channel/a", "variable/B"]
+
+
 class TestWhatTheCentralNoLongerWants:
     def test_the_server_stops_treating_it_as_the_fleets_and_keeps_it(
         self, central: Central, nodes: dict[str, ManagedNode], settings: FleetSettings

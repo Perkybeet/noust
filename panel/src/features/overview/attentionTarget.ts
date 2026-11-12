@@ -18,7 +18,7 @@ export interface AttentionTarget {
 /** A button that opens the screen where the item is dealt with. `name` is what it is about, for its accessible name. */
 export interface OpenAction {
   mode: "open";
-  kind: "viewLog" | "diagnose" | "renew" | "openService" | "openFinding" | "openProbes" | "review" | "openUpdates" | "reviewRecipe";
+  kind: "viewLog" | "viewFailure" | "diagnose" | "renew" | "openService" | "openFinding" | "openProbes" | "review" | "openUpdates" | "reviewRecipe";
   name: string;
   target: AttentionTarget;
 }
@@ -48,6 +48,8 @@ export function attentionTarget(item: OverviewAttentionItem): AttentionTarget | 
   switch (subject["kind"]) {
     case "app": {
       if (domain === null) return null;
+      // A first deploy that failed left no application and so no deployment to open: the page of its domain says what happened.
+      if (item.reasons.some((candidate) => candidate.kind === "first_deploy")) return { to: "/apps/$domain", params: { domain } };
       // A deploy that failed or was rolled back is the likeliest cause of whatever else is wrong with the
       // application, and its log has the system's words: that is where the item leads, ahead of the state it left.
       const deployment = item.reasons.find((candidate) => candidate.kind === "deploy" && candidate.deployment_id !== null && candidate.deployment_id !== undefined)?.deployment_id ?? null;
@@ -84,6 +86,7 @@ export function attentionAction(item: OverviewAttentionItem): AttentionAction | 
   const name = text(item.subject["domain"]) ?? item.title;
   switch (item.subject["kind"]) {
     case "app":
+      if (reason.kind === "first_deploy") return { mode: "open", kind: "viewFailure", name, target };
       if (target.to.endsWith("/deployments/$id")) return { mode: "open", kind: "viewLog", name, target };
       return { mode: "open", kind: reason.kind === "certificate" ? "renew" : "diagnose", name, target };
     case "certificate":

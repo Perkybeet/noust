@@ -276,3 +276,11 @@ with a preview of the next runs, run it now, enable, disable, and see each task'
 output and exit status. Under **More options** a task can be stopped if it runs longer than a limit you
 choose and, for an application that is a Compose stack, run in a service of the stack (see
 [compose.md](compose.md#scheduled-tasks-of-a-stack)).
+
+Choose an **Application** and the task runs the way the application does: in its folder, as its
+account, with its `.env` (so `python manage.py migrate` finds `DATABASE_URL`), with what its unit sets
+for the process (the port, the mode, the runtime it is pinned to) and with its own tools first on the
+`PATH`: the virtual environment's `python`, `node_modules/.bin`. The same from the command line with
+`noust cron create NAME COMMAND --app DOMAIN`. A task written before 4.3 changes only when it is written
+again, because a unit an operator may have edited is not rewritten behind their back: `noust setup doctor`
+names each one with the command that writes it again. A task with no application is as it was.
