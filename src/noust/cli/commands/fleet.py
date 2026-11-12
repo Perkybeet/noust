@@ -25,6 +25,7 @@ from noust.cli.app import Context, json_option, pass_context
 # importing them here is what makes them part of 'noust fleet'.
 from noust.cli.commands import fleet_builder as _fleet_builder  # noqa: F401
 from noust.cli.commands import fleet_cloud as _fleet_cloud  # noqa: F401
+from noust.cli.commands import fleet_collect as _fleet_collect  # noqa: F401
 from noust.cli.commands import fleet_enroll as _fleet_enroll  # noqa: F401
 from noust.cli.commands import fleet_placement as _fleet_placement  # noqa: F401
 from noust.cli.commands import fleet_views as _fleet_views  # noqa: F401

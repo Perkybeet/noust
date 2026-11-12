@@ -59,6 +59,7 @@ from noust.web.api.backup_returns import router as backup_returns_router
 from noust.web.api.backup_schedules import router as backup_schedules_router
 from noust.web.api.backups import router as backups_router
 from noust.web.api.central import router as central_router
+from noust.web.api.central_backups import router as central_backups_router
 from noust.web.api.cert_settings import apps_router as app_certificate_router
 from noust.web.api.cert_settings import router as cert_settings_router
 from noust.web.api.certs import router as certs_router
@@ -295,6 +296,7 @@ router.include_router(
 router.include_router(
     backup_returns_router, prefix="/backup-collection", tags=["Backup Collection"]
 )
+router.include_router(central_backups_router, prefix="/central-backups", tags=["Central Backups"])
 router.include_router(databases_router, prefix="/databases", tags=["Databases"])
 router.include_router(databases_apps_router, prefix="/apps", tags=["Databases"])
 router.include_router(cron_router, prefix="/cron", tags=["Cron Jobs"])

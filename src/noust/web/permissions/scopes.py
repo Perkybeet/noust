@@ -415,6 +415,15 @@ RULES: tuple[Rule, ...] = (
     # What a central takes away from this server, and what it says it holds: the server's whole
     # data, so only a central (which sees every team) reads it.
     _rule("/api/backup-collection/**", INSTANCE),
+    # The copies this central holds of its servers: seen through the servers a person's teams are
+    # assigned (the list and the status filter by them, as the list of servers does); a copy named in
+    # a path is answered as one that does not exist for a server the person does not see. How
+    # collecting works, who is followed and a pass now are the instance's.
+    _rule("/api/central-backups", SCOPED, methods=("GET",)),
+    _rule("/api/central-backups/status", SCOPED, methods=("GET",)),
+    _rule("/api/central-backups/{node}/{kind}", RESOURCE, _NODE_REF, methods=("DELETE",)),
+    _rule("/api/central-backups/{node}/{kind}/restore", RESOURCE, _NODE_REF, methods=("POST",)),
+    _rule("/api/central-backups/**", INSTANCE),
     # What a central gives this server to deploy from its repositories: a token to clone with and
     # the events of the repository. Only a central's, which sees every team.
     _rule("/api/sources/**", INSTANCE),
