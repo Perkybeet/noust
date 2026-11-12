@@ -46,10 +46,12 @@ ACCESS_LEVELS: tuple[AccessLevel, ...] = ("read", "deploy", "admin")
 
 #: What a ``deploy`` ceiling adds to reading: moving the applications that
 #: already run here - start, stop, restart, update, roll back, redeploy - and
-#: taking the backups that make those safe (``backups.run``; deleting backups
-#: or changing where they go is ``backups.manage``, which is ``admin``).
-#: Creating, deleting or configuring anything is ``admin``.
-DEPLOY_PERMISSIONS = frozenset({"apps.operate", "apps.deploy", "backups.run"})
+#: taking the backups that make those safe (``backups.run``) and carrying them
+#: away (``backups.collect``: reading the files, never deleting one; a ``read``
+#: ceiling leaves the data where it is). Deleting backups or changing where
+#: they go is ``backups.manage``, which is ``admin``. Creating, deleting or
+#: configuring anything is ``admin``.
+DEPLOY_PERMISSIONS = frozenset({"apps.operate", "apps.deploy", "backups.run", "backups.collect"})
 
 #: What no central may ever do on a node, whatever its ceiling: manage who
 #: signs in here, the security settings and the audit trail. A compromised

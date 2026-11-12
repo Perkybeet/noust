@@ -115,6 +115,24 @@ business and Noust's retention does not know about it: a lifecycle rule that del
 than the schedule keeps them makes a backup disappear from under the schedule, and `noust backup
 verify` is how you find out.
 
+## The central, as a place for copies
+
+On a central (`noust fleet`), the central itself is a place the copies of its servers can go, and the
+one that needs nothing opened on the router. It is not a destination a server sends to (a server never
+reaches back to its central: the tunnel goes one way, on purpose) but one the central *collects* from:
+it asks each server, through the tunnel it already has, which copies it holds that it does not, and
+downloads them one at a time, resumably, checking each against the checksum the server computed. A
+server holds no credential of where its copies end up.
+
+It is turned on in the console under **Backups > Destinations > The central**, for the whole fleet or
+server by server, and from a terminal with `noust fleet collect enable`; the knobs (speed limit,
+retention, room kept free, which kinds) and the copies held are in
+[Taking the copies of your servers](central-maintain.md#taking-the-copies-of-your-servers). What is
+collected counts as a copy away from the server in `noust health`, in the checks and in the ENS
+profile, with its place named (`central:<name>`); it is **one** copy, on one machine, so it does not
+replace a destination outside it, and the console says so and offers to add one. Moving a copy
+between two servers is not what it is for: it would pass the whole copy through the central's line.
+
 ## Destinations are encrypted, and watched
 
 A destination made without a word about encryption wraps the remote in rclone's `crypt` backend with a

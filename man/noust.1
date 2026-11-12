@@ -10740,6 +10740,134 @@ Forget which machine NAME runs on. The machine and the server are not touched.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
+.SS noust fleet collect
+Take the copies of the servers this central manages, through its tunnels.
+
+.SS noust fleet collect delete
+Let a copy go: its files are deleted here, and NODE is not asked for it again.
+.TP
+.B Arguments
+.br
+\fInode\fR
+.br
+\fIkind\fR
+.br
+\fIitem\fR
+.TP
+.B \-\-yes, \-y
+Do not ask.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust fleet collect disable
+Stop collecting from the servers that follow the fleet. What is held stays.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust fleet collect enable
+Collect the copies of every server that has no answer of its own.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust fleet collect follow
+Give NODE its own answer (on or off), or take it back to the fleet's (fleet).
+.TP
+.B Arguments
+.br
+\fInode\fR
+.br
+\fIanswer\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust fleet collect list
+List the copies this central holds.
+.TP
+.B \-\-node
+Only this server's copies.
+.TP
+.B \-\-kind
+Only this kind: app, database, volume or noust.
+.TP
+.B \-\-json
+Print the copies as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust fleet collect restore
+Give a copy back to a server and restore it there.
+.TP
+.B Arguments
+.br
+\fInode\fR
+.br
+\fIkind\fR
+.br
+\fIitem\fR
+.TP
+.B \-\-to
+The server it goes to (default: NODE).
+.TP
+.B \-\-domain
+The application it goes into (applications, data).
+.TP
+.B \-\-database
+The database it is loaded into (dumps).
+.TP
+.B \-\-engine
+The engine of that database.
+.TP
+.B \-\-new\-name
+Load a dump into a new database of this name.
+.TP
+.B \-\-yes, \-y
+Do not ask.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust fleet collect run
+Take what is new from NODE (or from every followed server) now, in this terminal.
+.TP
+.B Arguments
+.br
+\fInode\fR
+.TP
+.B \-\-force
+Read the whole list even when nothing changed.
+.TP
+.B \-\-json
+Print how each pass went as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust fleet collect set
+Change a knob: rate_limit_kbps, poll_seconds, pass_hours, retention_count, retention_days, retention_gb, min_free_gb or kinds (comma\-separated). VALUE none takes a limit off.
+.TP
+.B Arguments
+.br
+\fIknob\fR
+.br
+\fIvalue\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust fleet collect status
+Say how collecting is going: who is followed, the disk, what each server holds.
+.TP
+.B \-\-json
+Print the status as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
 .SS noust fleet deauthorize
 Stop trusting a central: remove its SSH key lines and revoke its tokens.
 .TP

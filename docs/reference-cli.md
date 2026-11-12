@@ -9492,7 +9492,7 @@ Enroll this server in a fleet, or see the fleet from its central.
 noust fleet [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`access`](#noust-fleet-access), [`activity`](#noust-fleet-activity), [`apps`](#noust-fleet-apps), [`authorize`](#noust-fleet-authorize), [`backups`](#noust-fleet-backups), [`builder`](#noust-fleet-builder), [`certs`](#noust-fleet-certs), [`cloud`](#noust-fleet-cloud), [`deauthorize`](#noust-fleet-deauthorize), [`enroll`](#noust-fleet-enroll), [`jobs`](#noust-fleet-jobs), [`link`](#noust-fleet-link), [`logs`](#noust-fleet-logs), [`metrics`](#noust-fleet-metrics), [`placement`](#noust-fleet-placement), [`retry`](#noust-fleet-retry), [`run`](#noust-fleet-run), [`status`](#noust-fleet-status), [`unlink`](#noust-fleet-unlink), [`updates`](#noust-fleet-updates)
+Subcommands: [`access`](#noust-fleet-access), [`activity`](#noust-fleet-activity), [`apps`](#noust-fleet-apps), [`authorize`](#noust-fleet-authorize), [`backups`](#noust-fleet-backups), [`builder`](#noust-fleet-builder), [`certs`](#noust-fleet-certs), [`cloud`](#noust-fleet-cloud), [`collect`](#noust-fleet-collect), [`deauthorize`](#noust-fleet-deauthorize), [`enroll`](#noust-fleet-enroll), [`jobs`](#noust-fleet-jobs), [`link`](#noust-fleet-link), [`logs`](#noust-fleet-logs), [`metrics`](#noust-fleet-metrics), [`placement`](#noust-fleet-placement), [`retry`](#noust-fleet-retry), [`run`](#noust-fleet-run), [`status`](#noust-fleet-status), [`unlink`](#noust-fleet-unlink), [`updates`](#noust-fleet-updates)
 
 ### noust fleet access
 
@@ -9997,6 +9997,147 @@ Arguments: `name`
 
 | Option | What it does | Default |
 |---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust fleet collect
+
+Take the copies of the servers this central manages, through its tunnels.
+
+```bash
+noust fleet collect [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`delete`](#noust-fleet-collect-delete), [`disable`](#noust-fleet-collect-disable), [`enable`](#noust-fleet-collect-enable), [`follow`](#noust-fleet-collect-follow), [`list`](#noust-fleet-collect-list), [`restore`](#noust-fleet-collect-restore), [`run`](#noust-fleet-collect-run), [`set`](#noust-fleet-collect-set), [`status`](#noust-fleet-collect-status)
+
+### noust fleet collect delete
+
+Let a copy go: its files are deleted here, and NODE is not asked for it again.
+
+```bash
+noust fleet collect delete [OPTIONS] NODE KIND ITEM
+```
+
+Arguments: `node`, `kind`, `item`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--yes`, `-y` | Do not ask. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust fleet collect disable
+
+Stop collecting from the servers that follow the fleet. What is held stays.
+
+```bash
+noust fleet collect disable [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust fleet collect enable
+
+Collect the copies of every server that has no answer of its own.
+
+```bash
+noust fleet collect enable [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust fleet collect follow
+
+Give NODE its own answer (on or off), or take it back to the fleet's (fleet).
+
+```bash
+noust fleet collect follow [OPTIONS] NODE {on|off|fleet}
+```
+
+Arguments: `node`, `answer`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust fleet collect list
+
+List the copies this central holds.
+
+```bash
+noust fleet collect list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--node` | Only this server's copies. |  |
+| `--kind` | Only this kind: app, database, volume or noust. |  |
+| `--json` | Print the copies as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust fleet collect restore
+
+Give a copy back to a server and restore it there.
+
+```bash
+noust fleet collect restore [OPTIONS] NODE KIND ITEM
+```
+
+Arguments: `node`, `kind`, `item`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--to` | The server it goes to (default: NODE). |  |
+| `--domain` | The application it goes into (applications, data). |  |
+| `--database` | The database it is loaded into (dumps). |  |
+| `--engine` | The engine of that database. |  |
+| `--new-name` | Load a dump into a new database of this name. |  |
+| `--yes`, `-y` | Do not ask. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust fleet collect run
+
+Take what is new from NODE (or from every followed server) now, in this terminal.
+
+```bash
+noust fleet collect run [OPTIONS] [NODE]
+```
+
+Arguments: `node`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--force` | Read the whole list even when nothing changed. |  |
+| `--json` | Print how each pass went as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust fleet collect set
+
+Change a knob: rate_limit_kbps, poll_seconds, pass_hours, retention_count, retention_days, retention_gb, min_free_gb or kinds (comma-separated). VALUE none takes a limit off.
+
+```bash
+noust fleet collect set [OPTIONS] KNOB VALUE
+```
+
+Arguments: `knob`, `value`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust fleet collect status
+
+Say how collecting is going: who is followed, the disk, what each server holds.
+
+```bash
+noust fleet collect status [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the status as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust fleet deauthorize

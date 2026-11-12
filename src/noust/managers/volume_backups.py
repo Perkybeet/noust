@@ -67,7 +67,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from noust.central import require_server_role
-from noust.core import audit
+from noust.core import audit, backup_hold
 from noust.core.appdir.layout import RELEASES, app_root
 from noust.core.appdir.releases import SHARED_DIR, persistent_path
 from noust.core.applock import AppBusyError, app_lock
@@ -1704,6 +1704,8 @@ class VolumeBackupManager:
         self.fs.remove(self.archive_path(metadata))
         self.fs.remove(self._directory(metadata.app_name) / f"{metadata.id}.json")
         self._audit("volume_backup.delete", metadata.domain, id=metadata.id, reason=reason)
+        if reason == "retention":
+            backup_hold.note_rotated_out("volume", metadata.id, owner=metadata.domain)
 
     # ---------------------------------------------------------- destinations
 
@@ -1881,8 +1883,12 @@ class VolumeBackupManager:
         if not retention_count and not retention_days and not retention_bytes:
             return []
         by_target: dict[str, list[VolumeBackupMetadata]] = {}
-        for entry in self.list_backups(domain):
-            if entry.scheduled and entry.id not in protect:
+        scheduled = [entry for entry in self.list_backups(domain) if entry.scheduled]
+        # A backup a central that follows this server has not taken yet is not rotated away
+        # (core/backup_hold.py): it counts neither toward the limit nor as a candidate.
+        waiting = backup_hold.spared("volume", [(e.id, e.created_at) for e in scheduled])
+        for entry in scheduled:
+            if entry.id not in protect and entry.id not in waiting:
                 by_target.setdefault(entry.target, []).append(entry)
         deleted: list[str] = []
         for entries in by_target.values():

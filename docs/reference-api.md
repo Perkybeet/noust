@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-1182 operations.
+1199 operations.
 
 ## Access
 
@@ -292,6 +292,21 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/auth/verify` | Verify Token | `self` |  |  |
 | POST | `/api/auth/ws-ticket` | Create Ws Ticket | `self` |  |  |
 
+## Backup Collection
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| GET | `/api/backup-collection` | List Collection | `backups.collect` |  |  |
+| GET | `/api/backup-collection/files` | Read File | `backups.collect` |  |  |
+| GET | `/api/backup-collection/held` | Held By Centrals | `backups.read` |  |  |
+| PUT | `/api/backup-collection/held` | Say What Is Held | `backups.collect` |  |  |
+| POST | `/api/backup-collection/restore` | Restore Returned Copy | `backups.manage` | yes |  |
+| POST | `/api/backup-collection/returns` | Start Return | `backups.manage` |  |  |
+| GET | `/api/backup-collection/returns/{upload_id}` | Return Status | `backups.manage` |  |  |
+| PUT | `/api/backup-collection/returns/{upload_id}` | Send Return Chunk | `backups.manage` |  |  |
+| DELETE | `/api/backup-collection/returns/{upload_id}` | Discard Return | `backups.manage` |  |  |
+| POST | `/api/backup-collection/returns/{upload_id}/complete` | Complete Return | `backups.manage` |  |  |
+
 ## Backup Destinations
 
 | Method | Path | What it does | Permission | Sudo | Approval |
@@ -347,6 +362,18 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | Method | Path | What it does | Permission | Sudo | Approval |
 |---|---|---|---|---|---|
 | POST | `/api/central/unlock` | Unlock Central | `security.manage` | yes |  |
+
+## Central Backups
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| GET | `/api/central-backups` | List Copies | `backups.read` |  |  |
+| POST | `/api/central-backups/collect` | Collect Now | `backups.run` |  |  |
+| PUT | `/api/central-backups/nodes/{node}` | Follow Node | `backups.manage` | yes |  |
+| PUT | `/api/central-backups/settings` | Change Settings | `backups.manage` | yes |  |
+| GET | `/api/central-backups/status` | Collecting Status | `backups.read` |  |  |
+| DELETE | `/api/central-backups/{node}/{kind}` | Delete Copy | `backups.manage` | yes |  |
+| POST | `/api/central-backups/{node}/{kind}/restore` | Restore Copy | `backups.manage` | yes |  |
 
 ## Certificates
 

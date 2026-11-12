@@ -25,6 +25,7 @@ import { describeError } from "../../lib/errors";
 import { backendLabel } from "./backendCatalog";
 import { BackupsListPage } from "./BackupsListPage";
 import { BrowseDestinationDialog } from "./BrowseDestinationDialog";
+import { CentralDestinationCard } from "./central/CentralDestinationCard";
 import { DestinationDialog } from "./DestinationDialog";
 import { ShowKeyDialog } from "./ShowKeyDialog";
 import { useDestinationActions } from "./useDestinationActions";
@@ -314,6 +315,8 @@ export function DestinationsPage() {
         : {})}
       primaryAction={addButton("primary")}
     >
+      {/* The central's own place for copies, offered only on the central's own page of Backups. */}
+      <CentralDestinationCard />
       {inClear.length > 0 ? (
         <Notice
           tone="warning"

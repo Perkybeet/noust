@@ -337,6 +337,7 @@ only what recovering an account takes.
 | `apps.terminal` | A terminal and one-off commands as an application's own account, with its secrets |  |  | yes |  |  | yes | yes |
 | `audit.manage` | Manage the audit log and activity history |  |  | yes | yes |  |  | yes |
 | `audit.read` | Read the whole audit log |  |  | yes | yes | yes |  | yes |
+| `backups.collect` | Read the files of the backups, to carry them to the central |  |  | yes |  |  | yes | yes |
 | `backups.manage` | Restore, delete, and configure destinations |  |  | yes |  |  | yes | yes |
 | `backups.read` | See backups, schedules and destinations | yes | yes | yes | yes | yes | yes | yes |
 | `backups.run` | Create and verify backups |  | yes | yes |  |  | yes | yes |
@@ -365,8 +366,8 @@ only what recovering an account takes.
 ### The routes
 
 <!-- generated:routes -->
-- **1182** API operations. **1138** need a permission (`x-noust-permission`) and **44** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
-- **388** operations need sudo mode and **59** can need a second person.
+- **1199** API operations. **1155** need a permission (`x-noust-permission`) and **44** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
+- **393** operations need sudo mode and **59** can need a second person.
 - **7** WebSocket routes, each with its permission, checked at the handshake.
 
 | Permission | Operations |
@@ -380,9 +381,10 @@ only what recovering an account takes.
 | `apps.terminal` | 12 |
 | `audit.manage` | 1 |
 | `audit.read` | 10 |
-| `backups.manage` | 28 |
-| `backups.read` | 25 |
-| `backups.run` | 14 |
+| `backups.collect` | 3 |
+| `backups.manage` | 38 |
+| `backups.read` | 28 |
+| `backups.run` | 15 |
 | `compliance.read` | 4 |
 | `databases.manage` | 56 |
 | `databases.read` | 71 |
@@ -493,15 +495,15 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **543** events.
+The catalogue holds **550** events.
 
 | Category | Events |
 |---|---|
 | access | 49 |
 | account | 40 |
 | config | 32 |
-| change | 359 |
-| read | 21 |
+| change | 365 |
+| read | 22 |
 | denial | 17 |
 | system | 22 |
 | host | 3 |

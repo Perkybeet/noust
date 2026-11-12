@@ -44,6 +44,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from noust.core import backup_hold
 from noust.core.exceptions import (
     BackupError,
     ConfirmationRequired,
@@ -1223,6 +1224,12 @@ class DatabaseBackups:
             file=view.name,
             reason=reason,
         )
+        if reason == "retention":
+            backup_hold.note_rotated_out(
+                "database",
+                f"{view.info.engine}:{view.name}",
+                owner=f"{view.info.engine}/{view.info.database}",
+            )
 
     # -------------------------------------------------------------- offsite
 
@@ -2154,6 +2161,16 @@ class DatabaseBackups:
                     record.verify_status != STATUS_FAILED
                     and record.restore_test_status != STATUS_FAILED
                 )
+        # A dump a central that follows this server has not taken yet is not rotated away
+        # (core/backup_hold.py): it counts neither toward the limit nor as a candidate.
+        waiting = backup_hold.spared(
+            "database", [(f"{policy.engine}:{name}", moment) for name, moment in candidates]
+        )
+        candidates = [
+            (name, moment)
+            for name, moment in candidates
+            if f"{policy.engine}:{name}" not in waiting
+        ]
         expired = select_expired(
             candidates,
             count=policy.retention_count,

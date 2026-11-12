@@ -89,6 +89,7 @@ const PAGES: readonly (readonly [route: string, address: string])[] = [
   ["/fleet/alerts", "/fleet/alerts"],
   ["/fleet/apps", "/fleet/apps"],
   ["/fleet/backups", "/fleet/backups"],
+  ["/fleet/central-backups", "/fleet/central-backups"],
   ["/fleet/certificates", "/fleet/certificates"],
   ["/fleet/jobs/$id", "/fleet/jobs/a1b2c3d4"],
   ["/fleet/network", "/fleet/network"],

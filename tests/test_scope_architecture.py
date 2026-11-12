@@ -454,6 +454,11 @@ class TestEveryRouteIsHeldToTheScope:
             "POST /api/deploy-freezes",
             "DELETE /api/deploy-freezes/{freeze_id}",
             "GET /api/backup-schedules",
+            # The copies a central holds of its servers, and how collecting is going with each: the
+            # handler shows a person of a team the servers assigned to their teams and what is held of
+            # them, and the central's own disk and knobs only to the instance.
+            "GET /api/central-backups",
+            "GET /api/central-backups/status",
             "GET /api/deployments",
             # A first deployment that failed has no application to be a resource of: the data
             # layer keeps each to the project it was queued for.

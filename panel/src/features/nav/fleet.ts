@@ -48,6 +48,15 @@ const backups = face("fleet.backups", "/fleet/backups", "nav.fleetBar.backups.la
   keywords: "fleet.tabs.keywords.backups",
   command: "fleet.tabs.command.backups",
 });
+// The copies the central holds of its servers are the second view of the fleet's Backups, as "On several servers" is of its
+// Applications: a tab of the page, found by the palette, and the area stays Backups.
+const centralBackups = tab(backups, "central", "centralBackups.nav.label", {
+  to: "/fleet/central-backups",
+  scope: "fleet",
+  exact: true,
+  keywords: "centralBackups.nav.keywords",
+  command: "centralBackups.nav.command",
+});
 const updates = tab(servers, "updates", "nav.fleetBar.updates.label", {
   to: "/fleet/updates",
   scope: "fleet",
@@ -81,7 +90,7 @@ const alerts = face("fleet.alerts", "/fleet/alerts", "nav.fleetBar.alerts.label"
  * second view, the ones that run on several servers, is a tab of the fleet's Applications. The
  * register is app/nav.ts; this is one group of it.
  */
-export const FLEET_SCREENS: Strip = [overview, servers, network, security, apps, placements, certificates, backups, updates, software, activity, alerts];
+export const FLEET_SCREENS: Strip = [overview, servers, network, security, apps, placements, certificates, backups, centralBackups, updates, software, activity, alerts];
 
 /** The two views of the fleet's applications, every server's and those that run on several. */
 export const FLEET_APPS_SCREENS: Strip = [apps, placements];

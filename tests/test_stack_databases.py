@@ -611,7 +611,8 @@ class TestPuttingADumpBack:
 
         restore_stack_database(host, POSTGRES, dump, sleep=lambda _s: None)
 
-        restores = [call for call in exec_calls(runner) if "pg_restore" in call]
+        # The load itself: before it, the dump is only read for the roles it names.
+        restores = [call for call in exec_calls(runner) if "--single-transaction" in call]
         assert len(restores) == 1
         assert client_args(restores[0]) == [
             "--single-transaction",
@@ -631,7 +632,8 @@ class TestPuttingADumpBack:
 
         restore_stack_database(host, POSTGRES, dump, sleep=lambda _s: None)
 
-        assert runner.stdin_contents == [b"PGDMP-contents"]
+        # Read for its roles, then loaded: the client gets the same plain bytes both times.
+        assert runner.stdin_contents == [b"PGDMP-contents"] * 2
         assert not any(str(dump) in part for call in runner.calls for part in call)
 
     def test_a_dump_that_is_not_compressed_is_passed_as_it_is(
@@ -643,7 +645,7 @@ class TestPuttingADumpBack:
 
         restore_stack_database(host, POSTGRES, plain, sleep=lambda _s: None)
 
-        assert runner.stdin_contents == [b"PGDMP-plain"]
+        assert runner.stdin_contents == [b"PGDMP-plain"] * 2
 
     def test_a_service_that_was_not_running_is_started_alone_and_stopped_again(
         self, host: FakeHost, runner: RecordingRunner, dump: Path
@@ -662,7 +664,7 @@ class TestPuttingADumpBack:
         order = [
             "up" if "up" in call else "stop" if "stop" in call else "exec"
             for call in runner.calls
-            if "up" in call or "stop" in call or "pg_restore" in call
+            if "up" in call or "stop" in call or "--single-transaction" in call
         ]
         assert order == ["up", "exec", "stop"], verbs
 

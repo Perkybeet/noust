@@ -11750,6 +11750,209 @@
         "title": "CodedText",
         "type": "object"
       },
+      "CollectIn": {
+        "description": "Ask for a pass now.",
+        "properties": {
+          "force": {
+            "default": true,
+            "description": "Read the whole list, not only what changed",
+            "title": "Force",
+            "type": "boolean"
+          },
+          "node": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Only this server; every followed one",
+            "title": "Node"
+          }
+        },
+        "title": "CollectIn",
+        "type": "object"
+      },
+      "CollectedFileOut": {
+        "description": "One file of a copy the central holds.",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "size",
+          "sha256",
+          "role"
+        ],
+        "title": "CollectedFileOut",
+        "type": "object"
+      },
+      "CollectedListOut": {
+        "description": "The copies the central holds.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CollectedOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "CollectedListOut",
+        "type": "object"
+      },
+      "CollectedOut": {
+        "description": "A copy the central holds of a server.",
+        "properties": {
+          "collected_at": {
+            "description": "When the central finished taking it",
+            "title": "Collected At",
+            "type": "string"
+          },
+          "created_at": {
+            "description": "When the server took it",
+            "title": "Created At",
+            "type": "string"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/CollectedFileOut"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "id": {
+            "description": "The server's identifier of it",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "meta": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Meta",
+            "type": "object"
+          },
+          "node": {
+            "title": "Node",
+            "type": "string"
+          },
+          "origin": {
+            "description": "`scheduled`, `manual` or `safety`",
+            "title": "Origin",
+            "type": "string"
+          },
+          "owner": {
+            "description": "What it is a copy of",
+            "title": "Owner",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "verified": {
+            "description": "`digest` (matched the server's) or `size`",
+            "title": "Verified",
+            "type": "string"
+          }
+        },
+        "required": [
+          "node",
+          "kind",
+          "id",
+          "owner",
+          "origin",
+          "created_at",
+          "collected_at",
+          "size",
+          "files",
+          "verified",
+          "state"
+        ],
+        "title": "CollectedOut",
+        "type": "object"
+      },
+      "CollectionOut": {
+        "description": "The copies of this server.",
+        "properties": {
+          "fingerprint": {
+            "description": "Changes when a copy appears, goes or changes size",
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CopyOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "max_piece": {
+            "default": 8388608,
+            "description": "The most a piece may weigh",
+            "title": "Max Piece",
+            "type": "integer"
+          },
+          "piece_size": {
+            "default": 4194304,
+            "description": "What a piece weighs by default",
+            "title": "Piece Size",
+            "type": "integer"
+          },
+          "problems": {
+            "items": {
+              "$ref": "#/components/schemas/noust__web__api__backup_collection__ProblemOut"
+            },
+            "title": "Problems",
+            "type": "array"
+          },
+          "unchanged": {
+            "default": false,
+            "description": "True when `known` was the fingerprint: nothing is listed",
+            "title": "Unchanged",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "fingerprint"
+        ],
+        "title": "CollectionOut",
+        "type": "object"
+      },
       "CollectorModel": {
         "description": "Whether history is being recorded, and by whom.\n\nAttributes:\n    recording: True while a collector holds a live lease.\n    host: ``daemon`` (``noust-monitor``) or ``console``; null when nobody\n        is recording.\n    since: When the collector started, epoch seconds.\n    last_sample_at: Its newest tick, epoch seconds.\n    interval_s: Seconds between its ticks.\n    last_error: The newest failure it logged, verbatim.\n    reason: Why nothing is being recorded, with the fix.\n    advice: A hint when recording works but could be better (it only runs\n        while the console does).\n    retention_days: How long the hourly tier is kept.",
         "properties": {
@@ -13821,6 +14024,43 @@
         "title": "CoolifyImportRequest",
         "type": "object"
       },
+      "CopyFileOut": {
+        "description": "One file of a copy.",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "role": {
+            "description": "`archive` is the copy; `sidecar` says what it is",
+            "title": "Role",
+            "type": "string"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The digest Noust recorded for it; none for a file it did not",
+            "title": "Sha256"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "size",
+          "role"
+        ],
+        "title": "CopyFileOut",
+        "type": "object"
+      },
       "CopyIn": {
         "description": "Put the application on servers that do not have it.\n\nAttributes:\n    from_node: The server to copy it from; a member that serves it, by default.\n    to: The servers to copy it to; the members that lack it, by default.\n    new_domain: Make the copy under another domain.\n    secrets: Carry the secret values with it.\n    match_commit: Bring each copy to the commit the source serves.\n    plan: Only say what would happen.",
         "properties": {
@@ -13877,6 +14117,90 @@
           }
         },
         "title": "CopyIn",
+        "type": "object"
+      },
+      "CopyOut": {
+        "description": "One copy, as the files it is made of.",
+        "properties": {
+          "blocked": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why a central may not take it: `sealing_required` when this server lets a copy leave only encrypted and this one is not",
+            "title": "Blocked"
+          },
+          "created_at": {
+            "description": "When it was taken, UTC",
+            "title": "Created At",
+            "type": "string"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/CopyFileOut"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "folder": {
+            "description": "The same as one plain name",
+            "title": "Folder",
+            "type": "string"
+          },
+          "id": {
+            "description": "Its identifier on this server, unique for its kind",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "description": "`app`, `database`, `volume` or `noust`",
+            "title": "Kind",
+            "type": "string"
+          },
+          "meta": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Meta",
+            "type": "object"
+          },
+          "origin": {
+            "description": "`scheduled`, `manual` or `safety`",
+            "title": "Origin",
+            "type": "string"
+          },
+          "owner": {
+            "description": "What it is a copy of",
+            "title": "Owner",
+            "type": "string"
+          },
+          "sealed": {
+            "description": "Whether its file is encrypted where it lies",
+            "title": "Sealed",
+            "type": "boolean"
+          },
+          "size": {
+            "description": "What all its files weigh",
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "owner",
+          "folder",
+          "created_at",
+          "origin",
+          "sealed",
+          "size",
+          "files"
+        ],
+        "title": "CopyOut",
         "type": "object"
       },
       "CpuInfo": {
@@ -16903,7 +17227,7 @@
           "error": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/ProblemOut"
+                "$ref": "#/components/schemas/noust__web__api__fleet_sources__ProblemOut"
               },
               {
                 "type": "null"
@@ -27509,6 +27833,32 @@
         "title": "FollowTagsResponse",
         "type": "object"
       },
+      "FollowingOut": {
+        "description": "How many servers are collected from.",
+        "properties": {
+          "exceptions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Exceptions",
+            "type": "array"
+          },
+          "following": {
+            "title": "Following",
+            "type": "integer"
+          },
+          "of": {
+            "title": "Of",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "following",
+          "of"
+        ],
+        "title": "FollowingOut",
+        "type": "object"
+      },
       "ForecastReason": {
         "description": "Why there is no disk forecast.\n\nAttributes:\n    code: ``no_history``, ``insufficient_history`` or ``not_growing``.\n    message: One sentence.",
         "properties": {
@@ -28428,6 +28778,45 @@
         "title": "GitLabStatusOut",
         "type": "object"
       },
+      "GiveBackIn": {
+        "description": "Give a copy back.",
+        "properties": {
+          "item": {
+            "description": "The server's identifier of the copy",
+            "title": "Item",
+            "type": "string"
+          },
+          "options": {
+            "additionalProperties": true,
+            "description": "`restore_env`, `safety_backup`, `drop_existing`, `schema_changed_ok`",
+            "title": "Options",
+            "type": "object"
+          },
+          "target": {
+            "additionalProperties": true,
+            "description": "Where it goes on that server: `domain`, or `engine`, `database`, `new_name`",
+            "title": "Target",
+            "type": "object"
+          },
+          "target_node": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The server it goes to; the one it came from when omitted",
+            "title": "Target Node"
+          }
+        },
+        "required": [
+          "item"
+        ],
+        "title": "GiveBackIn",
+        "type": "object"
+      },
       "GrantPrivilegesRequest": {
         "description": "Request to grant or revoke privileges.",
         "properties": {
@@ -29010,6 +29399,122 @@
           "effective_timeout"
         ],
         "title": "HealthCheckResponse",
+        "type": "object"
+      },
+      "HeldCentralOut": {
+        "description": "A central that has said what it holds.",
+        "properties": {
+          "central": {
+            "title": "Central",
+            "type": "string"
+          },
+          "fresh": {
+            "description": "It spoke recently enough to count",
+            "title": "Fresh",
+            "type": "boolean"
+          },
+          "held": {
+            "title": "Held",
+            "type": "integer"
+          },
+          "synced_at": {
+            "title": "Synced At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "central",
+          "held",
+          "synced_at",
+          "fresh"
+        ],
+        "title": "HeldCentralOut",
+        "type": "object"
+      },
+      "HeldIn": {
+        "description": "Everything a central holds of this server.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/HeldItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "title": "HeldIn",
+        "type": "object"
+      },
+      "HeldItem": {
+        "description": "A copy a central says it holds.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The digest it checked the copy against",
+            "title": "Sha256"
+          }
+        },
+        "required": [
+          "kind",
+          "id"
+        ],
+        "title": "HeldItem",
+        "type": "object"
+      },
+      "HeldListOut": {
+        "description": "The centrals that collect from this server.",
+        "properties": {
+          "centrals": {
+            "items": {
+              "$ref": "#/components/schemas/HeldCentralOut"
+            },
+            "title": "Centrals",
+            "type": "array"
+          }
+        },
+        "required": [
+          "centrals"
+        ],
+        "title": "HeldListOut",
+        "type": "object"
+      },
+      "HeldOut": {
+        "description": "What was recorded.",
+        "properties": {
+          "central": {
+            "title": "Central",
+            "type": "string"
+          },
+          "held": {
+            "title": "Held",
+            "type": "integer"
+          },
+          "synced_at": {
+            "title": "Synced At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "central",
+          "held",
+          "synced_at"
+        ],
+        "title": "HeldOut",
         "type": "object"
       },
       "HistoryEntryResponse": {
@@ -37161,6 +37666,28 @@
         "title": "NodeAddRequest",
         "type": "object"
       },
+      "NodeFollowIn": {
+        "description": "A server's own answer to being collected from.",
+        "properties": {
+          "follow": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "True or false for its own; null to follow the fleet",
+            "title": "Follow"
+          }
+        },
+        "required": [
+          "follow"
+        ],
+        "title": "NodeFollowIn",
+        "type": "object"
+      },
       "NodeKeyResponse": {
         "description": "Response for ``GET /api/nodes/{node}/key``.\n\nAttributes:\n    name: The node the key is for.\n    public_key: The central's public key for that node.\n    authorize_command: The command to run on the node, as root, which\n        installs the key restricted to the tunnel and prints the join code.",
         "properties": {
@@ -37685,7 +38212,7 @@
           "error": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/ProblemOut"
+                "$ref": "#/components/schemas/noust__web__api__fleet_sources__ProblemOut"
               },
               {
                 "type": "null"
@@ -37705,7 +38232,7 @@
           },
           "problems": {
             "items": {
-              "$ref": "#/components/schemas/ProblemOut"
+              "$ref": "#/components/schemas/noust__web__api__fleet_sources__ProblemOut"
             },
             "title": "Problems",
             "type": "array"
@@ -37727,6 +38254,127 @@
           "state"
         ],
         "title": "NodeSourcesOut",
+        "type": "object"
+      },
+      "NodeStatusOut": {
+        "description": "How collecting is going with one server.",
+        "properties": {
+          "failures": {
+            "default": 0,
+            "title": "Failures",
+            "type": "integer"
+          },
+          "follow": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its own answer; none follows the fleet's",
+            "title": "Follow"
+          },
+          "following": {
+            "description": "Whether it is collected from",
+            "title": "Following",
+            "type": "boolean"
+          },
+          "held": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "`count` and `bytes` the central holds of it",
+            "title": "Held",
+            "type": "object"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "last_error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error Code"
+          },
+          "last_ok_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Ok At"
+          },
+          "last_pass_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Pass At"
+          },
+          "moving": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What is being taken now",
+            "title": "Moving"
+          },
+          "newest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Newest"
+          },
+          "node": {
+            "title": "Node",
+            "type": "string"
+          },
+          "support": {
+            "additionalProperties": true,
+            "description": "What it can be collected for",
+            "title": "Support",
+            "type": "object"
+          }
+        },
+        "required": [
+          "node",
+          "follow",
+          "following",
+          "held"
+        ],
+        "title": "NodeStatusOut",
         "type": "object"
       },
       "NodeTeamRequest": {
@@ -42142,48 +42790,6 @@
           }
         },
         "title": "ProbeResult",
-        "type": "object"
-      },
-      "ProblemOut": {
-        "description": "Something that could not be done, and why.\n\nAttributes:\n    text: The sentence in English.\n    hint: How to fix it.\n    coded: The same sentence as ``{code, params}``, for the console to translate.\n    output: The words of GitHub or of the server, verbatim; never a token.",
-        "properties": {
-          "coded": {
-            "additionalProperties": true,
-            "title": "Coded",
-            "type": "object"
-          },
-          "hint": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Hint"
-          },
-          "output": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Output"
-          },
-          "text": {
-            "title": "Text",
-            "type": "string"
-          }
-        },
-        "required": [
-          "text",
-          "coded"
-        ],
-        "title": "ProblemOut",
         "type": "object"
       },
       "ProcessChangeResponse": {
@@ -49698,6 +50304,139 @@
         "title": "RetentionResponse",
         "type": "object"
       },
+      "ReturnOut": {
+        "description": "A copy on its way back.",
+        "properties": {
+          "chunk_size": {
+            "description": "The most one chunk request may carry",
+            "title": "Chunk Size",
+            "type": "integer"
+          },
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "received": {
+            "description": "Bytes held, which is where to resume",
+            "title": "Received",
+            "type": "integer"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "size",
+          "received",
+          "sha256",
+          "complete",
+          "chunk_size"
+        ],
+        "title": "ReturnOut",
+        "type": "object"
+      },
+      "ReturnRestore": {
+        "description": "Restore a copy that came back.",
+        "properties": {
+          "kind": {
+            "description": "The kind of copy",
+            "title": "Kind",
+            "type": "string"
+          },
+          "meta": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "The small facts the central recorded of it",
+            "title": "Meta",
+            "type": "object"
+          },
+          "options": {
+            "additionalProperties": true,
+            "description": "`restore_env`, `safety_backup`, `drop_existing`, `schema_changed_ok`",
+            "title": "Options",
+            "type": "object"
+          },
+          "sidecar": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the copy's sidecar said, when it had one",
+            "title": "Sidecar"
+          },
+          "target": {
+            "additionalProperties": true,
+            "description": "Where it goes: `domain`, or `engine`, `database` and `new_name`",
+            "title": "Target",
+            "type": "object"
+          },
+          "upload_id": {
+            "description": "The finished upload that holds the copy",
+            "title": "Upload Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "upload_id",
+          "kind"
+        ],
+        "title": "ReturnRestore",
+        "type": "object"
+      },
+      "ReturnStart": {
+        "description": "Start the return of a copy.",
+        "properties": {
+          "file_name": {
+            "description": "Its name",
+            "maxLength": 255,
+            "title": "File Name",
+            "type": "string"
+          },
+          "sha256": {
+            "description": "Its digest, 64 hex digits",
+            "maxLength": 64,
+            "minLength": 64,
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size": {
+            "description": "Its size in bytes",
+            "exclusiveMinimum": 0.0,
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "size",
+          "sha256",
+          "file_name"
+        ],
+        "title": "ReturnStart",
+        "type": "object"
+      },
       "ReviewListResponse": {
         "description": "Response for ``GET /api/audit/reviews``.\n\nAttributes:\n    items: Reviews, newest first.",
         "properties": {
@@ -55677,6 +56416,124 @@
         "title": "SetVolumePolicyRequest",
         "type": "object"
       },
+      "SettingsIn": {
+        "description": "Change how collecting works. A knob not named is left as it is.",
+        "properties": {
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Collect the fleet",
+            "title": "Enabled"
+          },
+          "kinds": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Which kinds of copy are taken",
+            "title": "Kinds"
+          },
+          "min_free_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Room always left on the disk",
+            "title": "Min Free Gb"
+          },
+          "pass_hours": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Hours between whole lists",
+            "title": "Pass Hours"
+          },
+          "poll_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How often each server is looked at",
+            "title": "Poll Seconds"
+          },
+          "rate_limit_kbps": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Kilobytes a second; 0 for none",
+            "title": "Rate Limit Kbps"
+          },
+          "retention_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Scheduled copies kept; 0 for no limit",
+            "title": "Retention Count"
+          },
+          "retention_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Days a scheduled copy is kept; 0 for no limit",
+            "title": "Retention Days"
+          },
+          "retention_gb": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Gigabytes kept per application; 0 for no limit",
+            "title": "Retention Gb"
+          }
+        },
+        "title": "SettingsIn",
+        "type": "object"
+      },
       "ShipIn": {
         "description": "Build the application on one server and run that build on the placement's servers.\n\nAttributes:\n    builder: The server that builds; the one recorded for the application when absent.\n    to: The servers that receive the release; every member of the placement when absent.\n    commit: Build exactly this commit (7 to 40 hex characters) instead of the branch head.\n    keep: Keep the release the build made on the builder.\n    schema_changed_ok: Confirm taking a release older than a deployment that changed the\n        database's schema, on the servers that would refuse it.\n    frozen_ok: Confirm switching although deploys are frozen.\n    force: Send it even to a server already on its commit.\n    rollback_on_failure: Put the servers already moved back if it stops; the placement's own\n        setting when absent.\n    serial: Servers at a time; the placement's own when absent.\n    max_failures: Failures that stop it; the placement's own when absent.\n    canary: The server that goes first; the placement's own when absent.\n    plan: Only say what would happen.",
         "properties": {
@@ -59650,6 +60507,65 @@
           "failures"
         ],
         "title": "StatusModel",
+        "type": "object"
+      },
+      "StatusOut": {
+        "description": "How collecting is going.",
+        "properties": {
+          "directory": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where the copies are; the instance's",
+            "title": "Directory"
+          },
+          "following": {
+            "$ref": "#/components/schemas/FollowingOut"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/NodeStatusOut"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "settings": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The knobs; the instance's",
+            "title": "Settings"
+          },
+          "space": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The disk; the instance's",
+            "title": "Space"
+          }
+        },
+        "required": [
+          "following",
+          "nodes"
+        ],
+        "title": "StatusOut",
         "type": "object"
       },
       "StatusPageBody": {
@@ -69755,6 +70671,25 @@
         "title": "RolesResponse",
         "type": "object"
       },
+      "noust__web__api__backup_collection__ProblemOut": {
+        "description": "A kind of copy that could not be listed.",
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "message"
+        ],
+        "title": "ProblemOut",
+        "type": "object"
+      },
       "noust__web__api__backup_schedules__ScheduleDestination": {
         "description": "One remote destination a schedule pushes its backups to.",
         "properties": {
@@ -71232,7 +72167,7 @@
           "error": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/ProblemOut"
+                "$ref": "#/components/schemas/noust__web__api__fleet_sources__ProblemOut"
               },
               {
                 "type": "null"
@@ -71299,6 +72234,48 @@
           "state"
         ],
         "title": "LeaseOut",
+        "type": "object"
+      },
+      "noust__web__api__fleet_sources__ProblemOut": {
+        "description": "Something that could not be done, and why.\n\nAttributes:\n    text: The sentence in English.\n    hint: How to fix it.\n    coded: The same sentence as ``{code, params}``, for the console to translate.\n    output: The words of GitHub or of the server, verbatim; never a token.",
+        "properties": {
+          "coded": {
+            "additionalProperties": true,
+            "title": "Coded",
+            "type": "object"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "coded"
+        ],
+        "title": "ProblemOut",
         "type": "object"
       },
       "noust__web__api__gitlab__BranchListOut": {
@@ -90041,6 +91018,500 @@
         "x-noust-permission": "self"
       }
     },
+    "/api/backup-collection": {
+      "get": {
+        "description": "List the copies of this server.\n\nArgs:\n    session: The authenticated session.\n    kinds: Only these kinds.\n    known: A fingerprint the caller already holds: when it is still the list's, nothing is\n        listed and ``unchanged`` says so.\n\nReturns:\n    The copies and the fingerprint of the list.\n\nRaises:\n    ValidationError: A kind that is not one.",
+        "operationId": "list_collection_api_backup_collection_get",
+        "parameters": [
+          {
+            "description": "Only these kinds, separated by commas",
+            "in": "query",
+            "name": "kinds",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these kinds, separated by commas",
+              "title": "Kinds"
+            }
+          },
+          {
+            "description": "The fingerprint the caller already has",
+            "in": "query",
+            "name": "known",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The fingerprint the caller already has",
+              "title": "Known"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Collection",
+        "tags": [
+          "Backup Collection"
+        ],
+        "x-noust-permission": "backups.collect"
+      }
+    },
+    "/api/backup-collection/files": {
+      "get": {
+        "description": "Read a range of one file of a copy.\n\nThe file is the one the list names for that copy, found by exactly what the list said; the\nrequest's text never reaches a path. The reading is recorded where it begins (offset 0), once\nper file; a piece asked again in the middle records nothing more.\n\nArgs:\n    session: The authenticated session.\n    kind: The kind of copy.\n    item: Its identifier.\n    name: The file's name.\n    offset: Where to start.\n    length: How many bytes at most.\n\nReturns:\n    The raw bytes; fewer at the end of the file and none past it.\n\nRaises:\n    HTTPException: 404 when this server lists no such file, or it went away since.\n    SecurityError: 400 when this server lets a copy leave only encrypted and this one is not.",
+        "operationId": "read_file_api_backup_collection_files_get",
+        "parameters": [
+          {
+            "description": "The kind of copy",
+            "in": "query",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "description": "The kind of copy",
+              "title": "Kind",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The copy's identifier, as listed",
+            "in": "query",
+            "name": "item",
+            "required": true,
+            "schema": {
+              "description": "The copy's identifier, as listed",
+              "title": "Item",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The file's name, as listed",
+            "in": "query",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "description": "The file's name, as listed",
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Where to start in the file",
+            "in": "query",
+            "name": "offset",
+            "required": true,
+            "schema": {
+              "description": "Where to start in the file",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "How many bytes at most",
+            "in": "query",
+            "name": "length",
+            "required": false,
+            "schema": {
+              "default": 4194304,
+              "description": "How many bytes at most",
+              "maximum": 8388608,
+              "minimum": 1,
+              "title": "Length",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The bytes asked for: fewer at the end of the file, none past it."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read File",
+        "tags": [
+          "Backup Collection"
+        ],
+        "x-noust-permission": "backups.collect"
+      }
+    },
+    "/api/backup-collection/held": {
+      "get": {
+        "description": "Say which centrals collect the copies of this server.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Each central that has said what it holds, and whether it spoke recently.",
+        "operationId": "held_by_centrals_api_backup_collection_held_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeldListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Held By Centrals",
+        "tags": [
+          "Backup Collection"
+        ],
+        "x-noust-permission": "backups.read"
+      },
+      "put": {
+        "description": "Record which copies the calling central holds, in place of what it said before.\n\nOnly a central says it: the name comes from the fleet token it presented, never from the body.\n\nArgs:\n    body: Every copy it holds of this server.\n    session: The authenticated session.\n\nReturns:\n    What was recorded.\n\nRaises:\n    ValidationError: The caller is not a central, or a copy is not one.",
+        "operationId": "say_what_is_held_api_backup_collection_held_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HeldIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeldOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Say What Is Held",
+        "tags": [
+          "Backup Collection"
+        ],
+        "x-noust-permission": "backups.collect"
+      }
+    },
+    "/api/backup-collection/restore": {
+      "post": {
+        "description": "Queue restoring a copy that the central gave back.\n\nA restore replaces what an application, a database or Noust's own state holds, so it asks for\nsudo mode exactly as restoring a backup does, and it goes through the manager of the kind of\ncopy it is: its safety copy, its health gate, its refusals. Noust's own state is not restored\nhere: it is put where ``noust self-backup restore`` reads it.\n\nArgs:\n    body: The upload and what the operator confirms.\n    session: The authenticated, elevated session; only the one that started the upload.\n\nReturns:\n    The queued job.\n\nRaises:\n    ValidationError: 400 for an unknown kind or an upload that is not finished.",
+        "operationId": "restore_returned_copy_api_backup_collection_restore_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReturnRestore"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore Returned Copy",
+        "tags": [
+          "Backup Collection"
+        ],
+        "x-noust-permission": "backups.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/backup-collection/returns": {
+      "post": {
+        "description": "Start the arrival of a copy the central gives back. Nothing is sent yet.\n\nArgs:\n    body: The copy's size, digest and name.\n    session: The authenticated session, which owns the upload.\n\nReturns:\n    The upload, with the offset to start at and the most a chunk may carry.\n\nRaises:\n    ValidationError: 400 for a name, size or digest that is not usable, or a disk with no room.",
+        "operationId": "start_return_api_backup_collection_returns_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReturnStart"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReturnOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Return",
+        "tags": [
+          "Backup Collection"
+        ],
+        "x-noust-permission": "backups.manage"
+      }
+    },
+    "/api/backup-collection/returns/{upload_id}": {
+      "delete": {
+        "description": "Throw an upload away.\n\nArgs:\n    upload_id: The upload.\n    session: The authenticated session; only the one that started it.",
+        "operationId": "discard_return_api_backup_collection_returns__upload_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Discard Return",
+        "tags": [
+          "Backup Collection"
+        ],
+        "x-noust-permission": "backups.manage"
+      },
+      "get": {
+        "description": "Say how much of a copy the server holds, which is where to resume.\n\nArgs:\n    upload_id: The upload.\n    session: The authenticated session; only the one that started it.\n\nReturns:\n    The upload.",
+        "operationId": "return_status_api_backup_collection_returns__upload_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReturnOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Return Status",
+        "tags": [
+          "Backup Collection"
+        ],
+        "x-noust-permission": "backups.manage"
+      },
+      "put": {
+        "description": "Add the next chunk of a copy.\n\nA chunk at an offset other than the one the server holds is refused with 409 and the offset to\nresume from.\n\nArgs:\n    upload_id: The upload.\n    request: The request, whose body is the chunk.\n    offset: Where the chunk starts.\n    session: The authenticated session; only the one that started it.\n\nReturns:\n    The upload, with the new offset.\n\nRaises:\n    ValidationError: 400 for an unknown or finished upload, or a chunk past the size.",
+        "operationId": "send_return_chunk_api_backup_collection_returns__upload_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "title": "Upload Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Where this chunk starts in the file",
+            "in": "query",
+            "name": "offset",
+            "required": true,
+            "schema": {
+              "description": "Where this chunk starts in the file",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReturnOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Send Return Chunk",
+        "tags": [
+          "Backup Collection"
+        ],
+        "x-noust-permission": "backups.manage"
+      }
+    },
+    "/api/backup-collection/returns/{upload_id}/complete": {
+      "post": {
+        "description": "Close an upload: every byte is in and the digest matches.\n\nArgs:\n    upload_id: The upload.\n    session: The authenticated session; only the one that started it.\n\nReturns:\n    The finished upload.\n\nRaises:\n    ValidationError: 400 when the digest does not match (the data is discarded) or the upload\n        is unknown.",
+        "operationId": "complete_return_api_backup_collection_returns__upload_id__complete_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReturnOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Complete Return",
+        "tags": [
+          "Backup Collection"
+        ],
+        "x-noust-permission": "backups.manage"
+      }
+    },
     "/api/backup-destinations": {
       "get": {
         "description": "List every configured backup destination.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The destinations, with every secret redacted.",
@@ -91426,6 +92897,401 @@
           "Backups"
         ],
         "x-noust-permission": "backups.run"
+      }
+    },
+    "/api/central-backups": {
+      "get": {
+        "description": "List the copies the central holds.\n\nA person of a team sees the copies of the servers assigned to their teams, and a server that is\nnot one of those is as if it had none.\n\nArgs:\n    session: The authenticated session.\n    node: Only this server's.\n    kind: Only this kind.\n    owner: Only copies of this application, database or ``noust``.\n    limit: The most to return.\n\nReturns:\n    The copies, newest first.",
+        "operationId": "list_copies_api_central_backups_get",
+        "parameters": [
+          {
+            "description": "Only this server's",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this server's",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Only this kind",
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this kind",
+              "title": "Kind"
+            }
+          },
+          {
+            "description": "Only copies of this",
+            "in": "query",
+            "name": "owner",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only copies of this",
+              "title": "Owner"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 1000,
+              "maximum": 5000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectedListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Copies",
+        "tags": [
+          "Central Backups"
+        ],
+        "x-noust-permission": "backups.read"
+      }
+    },
+    "/api/central-backups/collect": {
+      "post": {
+        "description": "Ask for a pass now: what is followed is looked at at once, instead of at its turn.\n\nThe pass runs in the background: what it takes shows in the status while it does.\n\nArgs:\n    body: Which server, or every followed one.\n    session: The authenticated session.\n\nReturns:\n    How collecting is going.\n\nRaises:\n    ValidationError: The server is not one this central manages.",
+        "operationId": "collect_now_api_central_backups_collect_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CollectIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Collect Now",
+        "tags": [
+          "Central Backups"
+        ],
+        "x-noust-permission": "backups.run"
+      }
+    },
+    "/api/central-backups/nodes/{node}": {
+      "put": {
+        "description": "Give a server its own answer to being collected from, or take it back to the fleet's.\n\nArgs:\n    node: The server.\n    body: ``true`` or ``false`` for its own; ``null`` to follow the fleet.\n    session: The authenticated, elevated session.\n\nReturns:\n    How collecting is going now.\n\nRaises:\n    ValidationError: The server is not one this central manages.",
+        "operationId": "follow_node_api_central_backups_nodes__node__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node",
+            "required": true,
+            "schema": {
+              "title": "Node",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NodeFollowIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Follow Node",
+        "tags": [
+          "Central Backups"
+        ],
+        "x-noust-permission": "backups.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/central-backups/settings": {
+      "put": {
+        "description": "Change how collecting works.\n\nA limit given as 0 is taken off. Turning ``enabled`` on is what makes the central come for the\ncopies of every server that has no answer of its own, so it asks for sudo mode, and the audit\ntrail records who did.\n\nArgs:\n    body: The knobs to change.\n    session: The authenticated, elevated session.\n\nReturns:\n    How collecting is going now.\n\nRaises:\n    ValidationError: A knob is not right; nothing was changed.",
+        "operationId": "change_settings_api_central_backups_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change Settings",
+        "tags": [
+          "Central Backups"
+        ],
+        "x-noust-permission": "backups.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/central-backups/status": {
+      "get": {
+        "description": "Say how collecting is going.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Who is followed (``N of M``), how each server is doing and what is moving; for the instance,\n    also the knobs and the disk.",
+        "operationId": "collecting_status_api_central_backups_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Collecting Status",
+        "tags": [
+          "Central Backups"
+        ],
+        "x-noust-permission": "backups.read"
+      }
+    },
+    "/api/central-backups/{node}/{kind}": {
+      "delete": {
+        "description": "Let a copy go: its files are deleted from the central, and the server is not asked for it again.\n\nArgs:\n    node: The server it is a copy of.\n    kind: The kind of copy.\n    item: The server's identifier of it.\n    session: The authenticated, elevated session.\n\nReturns:\n    What the central holds of that server now.\n\nRaises:\n    ResourceNotFoundError: The central holds no such copy.",
+        "operationId": "delete_copy_api_central_backups__node___kind__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node",
+            "required": true,
+            "schema": {
+              "title": "Node",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "title": "Kind",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The server's identifier of the copy",
+            "in": "query",
+            "name": "item",
+            "required": true,
+            "schema": {
+              "description": "The server's identifier of the copy",
+              "title": "Item",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectedListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Copy",
+        "tags": [
+          "Central Backups"
+        ],
+        "x-noust-permission": "backups.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/central-backups/{node}/{kind}/restore": {
+      "post": {
+        "description": "Give a copy back to a server and restore it there, as a job.\n\nTo the server it came from, or to another of the fleet. The copy is checked whole on the central\nbefore a byte leaves, the file travels as an upload that resumes, and the server restores it with\nthe manager of its kind, as the person who asked. Moving a copy between two servers passes it\nthrough this central's line; that is why it is asked for and never done by itself.\n\nArgs:\n    node: The server the copy is of.\n    kind: The kind of copy.\n    body: Which copy, where it goes and what is confirmed.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    ResourceNotFoundError: The central holds no such copy, or the target is not a server the\n        caller sees.",
+        "operationId": "restore_copy_api_central_backups__node___kind__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node",
+            "required": true,
+            "schema": {
+              "title": "Node",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "title": "Kind",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GiveBackIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore Copy",
+        "tags": [
+          "Central Backups"
+        ],
+        "x-noust-permission": "backups.manage",
+        "x-noust-requires-elevation": true
       }
     },
     "/api/central/unlock": {

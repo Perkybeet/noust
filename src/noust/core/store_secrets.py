@@ -74,6 +74,7 @@ RULES: dict[str, dict[str, str]] = {
 #: A column whose name reads as a secret and is not one, or whose value is kept by another rule.
 #: ``(table, column) -> why``. A new table's column that looks like a secret goes in RULES or here.
 NOT_SECRET: dict[tuple[str, str], str] = {
+    ("collect_settings", "key"): "the name of a setting of how the central collects copies",
     ("account_invitations", "code_hash"): "a hash of a long random code, spent once",
     ("account_password_resets", "code_hash"): "a hash of a long random code, spent once, expiring",
     ("account_passkeys", "credential_id"): "a public identifier",

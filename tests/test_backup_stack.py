@@ -403,7 +403,8 @@ class TestPuttingTheDatabaseBack:
         return backup.id
 
     def restores(self, runner: StackRunner) -> list[tuple[str, ...]]:
-        return [call for call in runner.exec_calls() if "pg_restore" in call]
+        # The load itself; the dump is also read once before it, for the roles it names.
+        return [call for call in runner.exec_calls() if "--single-transaction" in call]
 
     def test_restore_puts_the_dump_back_into_its_service(
         self, manager: BackupManager, runner: StackRunner, backup_id: str
@@ -412,7 +413,8 @@ class TestPuttingTheDatabaseBack:
 
         (restore,) = self.restores(runner)
         assert "postgres" in restore and "--clean" in restore and "--if-exists" in restore
-        assert runner.stdin_contents == [b"PGDMP"]
+        # Read for the roles it names, then loaded: the same plain bytes both times.
+        assert runner.stdin_contents == [b"PGDMP"] * 2
 
     def test_the_application_is_stopped_before_and_started_after(
         self, manager: BackupManager, runner: StackRunner, backup_id: str
@@ -758,7 +760,9 @@ class TestDatabasesOnlyIsCarefulWithTheApplication:
             if "systemctl stop" in joined:
                 words.append("stop")
             elif "pg_restore" in joined:
-                words.append("restore")
+                # The client runs twice: once to read the roles the dump names, once to load it.
+                if not words or words[-1] != "restore":
+                    words.append("restore")
             elif "systemctl start" in joined:
                 words.append("start")
         return words
@@ -1079,7 +1083,7 @@ class TestATrackedDatabaseOfTheStackItself:
 
         calls = [" ".join(call) for call in runner.calls]
         stop = next(i for i, call in enumerate(calls) if "systemctl stop" in call)
-        restore = [i for i, call in enumerate(calls) if "pg_restore" in call]
+        restore = [i for i, call in enumerate(calls) if "--single-transaction" in call]
         assert len(restore) == 1 and stop < restore[0]
 
     def test_a_container_of_another_project_is_not_held_by_the_stack_s_copy(

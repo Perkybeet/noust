@@ -2328,6 +2328,154 @@ class TestWhatAComposeFileBringsInThatItDoesNotWrite:
         assert all(isinstance(sentence, str) for sentence in findings.refused + findings.warned)
 
 
+class TestTheRolesADumpNames:
+    """
+    The text of a dump taken elsewhere names roles, and Noust makes some of them (item 193).
+
+    Whatever the schema script says, reading it answers with names and never crashes, and a name is
+    made by Noust only when it is one of Noust's own prefixes followed by plain characters: nothing
+    a dump carries is ever spliced into a statement as anything but a quoted identifier.
+    """
+
+    @SETTINGS
+    @given(script=st.text(max_size=400))
+    def test_any_text_is_read_without_a_crash(self, script: str) -> None:
+        from noust.managers.stack_roles import roles_named_by
+
+        names = roles_named_by(script)
+
+        assert names == sorted(set(names))
+        assert all(isinstance(name, str) for name in names)
+
+    @SETTINGS
+    @given(name=st.text(max_size=60))
+    def test_what_is_made_is_a_name_noust_could_have_made(self, name: str) -> None:
+        from noust.managers.stack_roles import create_statement, is_noust_role
+
+        if not is_noust_role(name):
+            return
+        statement = create_statement(name)
+
+        assert statement == f'CREATE ROLE "{name}" NOLOGIN'
+        assert not re.search(r'["\x00-\x1f;\s]', name)
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            'noust_ro_x"; DROP ROLE postgres; --',
+            "noust_ro_x\nDROP ROLE postgres",
+            "noust_ro_x;",
+            "noust_ro_\x00",
+            "NOUST_RO_x",
+            "noust_ro_",
+        ],
+    )
+    def test_the_payloads_that_have_beaten_validators_are_not_made(self, name: str) -> None:
+        from noust.managers.stack_roles import is_noust_role, plan_roles
+
+        assert not is_noust_role(name)
+        assert plan_roles([name], existing=set()).create == []
+
+
+class TestWhatAServerSaysItsCopiesAre:
+    """
+    A server lists its copies and the central makes folders and files of what it says (item 195).
+
+    A server the central manages is still outside what it trusts, so whatever the list holds is read
+    without a crash, and a name becomes part of a path on the central's disk only when it is one plain
+    segment that stays where the central put it.
+    """
+
+    @SETTINGS
+    @given(name=st.text(max_size=300))
+    def test_a_name_that_is_accepted_cannot_leave_its_folder(self, name: str) -> None:
+        from noust.fleet.collect.names import safe_segment
+
+        accepted = safe_segment(name)
+        if accepted is None:
+            return
+        base = Path("/srv/collected")
+
+        assert accepted == name
+        assert not re.search(r"[/\\\x00-\x1f\x7f\s]", accepted)
+        assert accepted not in {".", ".."} and not accepted.startswith(".")
+        assert (base / accepted).parent == base
+
+    @SETTINGS
+    @given(
+        body=st.recursive(
+            st.none() | st.booleans() | st.integers() | st.text(max_size=40),
+            lambda children: st.lists(children, max_size=4)
+            | st.dictionaries(st.text(max_size=12), children, max_size=6),
+            max_leaves=40,
+        )
+    )
+    def test_any_answer_is_read_without_a_crash(self, body: Any) -> None:
+        from noust.fleet.collect.names import parse_catalogue
+
+        catalogue = parse_catalogue(body)
+
+        assert isinstance(catalogue.items, tuple)
+
+    @SETTINGS
+    @given(
+        folder=st.text(max_size=80),
+        owner=st.text(max_size=80),
+        name=st.text(max_size=80),
+        kind=st.text(max_size=12),
+    )
+    def test_what_is_accepted_names_only_plain_places(
+        self, folder: str, owner: str, name: str, kind: str
+    ) -> None:
+        from noust.fleet.collect.names import parse_catalogue, safe_segment
+        from noust.managers.backup_catalogue import KINDS
+
+        digest = "a" * 64
+        catalogue = parse_catalogue(
+            {
+                "fingerprint": "f",
+                "items": [
+                    {
+                        "kind": kind,
+                        "id": "x_1",
+                        "owner": owner,
+                        "folder": folder,
+                        "created_at": "2026-11-10T02:00:00+00:00",
+                        "origin": "manual",
+                        "sealed": False,
+                        "size": 1,
+                        "files": [{"name": name, "size": 1, "sha256": digest, "role": "archive"}],
+                    }
+                ],
+            }
+        )
+
+        for item in catalogue.items:
+            assert item.kind in KINDS
+            assert safe_segment(item.folder) == item.folder
+            assert all(safe_segment(file.name) == file.name for file in item.files)
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "../../etc/passwd",
+            "..",
+            ".hidden",
+            "a/../../b",
+            "a\\..\\b",
+            "shop\x00.tar.gz",
+            "shop\n.tar.gz",
+            "/etc/cron.d/x",
+            "",
+            "a" * 300,
+        ],
+    )
+    def test_the_payloads_that_have_beaten_validators_are_refused(self, name: str) -> None:
+        from noust.fleet.collect.names import safe_segment
+
+        assert safe_segment(name) is None
+
+
 class TestTheMomentAOneTimeTaskRunsAt:
     """
     A moment typed for a one-time task becomes the ``OnCalendar=`` of a root-owned timer (item 164).

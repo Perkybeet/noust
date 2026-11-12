@@ -423,6 +423,20 @@ EVENTS: dict[str, EventSpec] = {
             "self_backup.schedule": "The schedule of Noust's own state backup was set or changed.",
             "self_backup.schedule.remove": "The schedule of Noust's own state backup was removed.",
             "restore_server.run": "A server was restored from a backup of Noust's own state.",
+            "backup.collection.held": (
+                "A central said which copies of this server it holds, so they count as kept "
+                "elsewhere and this server's retention waits for the others."
+            ),
+            "backup.uncollected_delete": (
+                "A retention deleted a copy that a central that follows this server had not "
+                "taken yet."
+            ),
+            "central_backup.collect": "The central took copies away from a server.",
+            "central_backup.delete": "A copy the central holds was deleted.",
+            "central_backup.restore": "A copy the central holds was returned to a server and restored.",
+            "central_backup.settings": (
+                "How the central collects the copies of its servers was set or changed."
+            ),
             "db.create": "A database was created.",
             "db.link.record": "A database use found in an application's environment was recorded as a link.",
             "db.credentials.set": "The account Noust signs in to a database engine with was changed.",
@@ -720,6 +734,7 @@ EVENTS: dict[str, EventSpec] = {
             "db.query.export": "A SQL console result was exported.",
             "db.browse": "Rows or key values were read in the data explorer.",
             "db.backup.download": "A database dump was downloaded.",
+            "backup.collection.read": "A central read the files of a copy, to carry them away.",
             "db.connection_string": "A database connection string was shown.",
             "db.user.password.show": "A database user's password was shown.",
             "backup.destination.key": "A backup destination's encryption key was shown.",

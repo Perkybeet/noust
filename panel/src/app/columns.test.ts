@@ -48,6 +48,7 @@ describe("which column a path has", () => {
     expect(columnKindOf("/fleet/placements")).toBe("apps");
     expect(columnKindOf("/fleet/certificates")).toBe("domains");
     expect(columnKindOf("/fleet/backups")).toBe("backups");
+    expect(columnKindOf("/fleet/central-backups")).toBe("backups");
     expect(columnKindOf("/fleet/servers")).toBe("server");
     expect(columnKindOf("/fleet/updates")).toBe("server");
     expect(columnKindOf("/fleet/activity")).toBe("activity");
@@ -239,7 +240,7 @@ describe("the column of an area", () => {
     expect(paths("apps")).toEqual(["/fleet/apps", "/fleet/placements"]);
     expect(paths("domains")).toEqual(["/fleet/certificates"]);
     expect(paths("server")).toEqual(["/fleet/servers", "/fleet/updates", "/fleet/software"]);
-    expect(paths("backups")).toEqual(["/fleet/backups"]);
+    expect(paths("backups")).toEqual(["/fleet/backups", "/fleet/central-backups"]);
   });
 });
 

@@ -35,6 +35,17 @@
 #   Back up the whole volume (/data). Stop the container first, or copy
 #   while it runs and accept that the last minute may be missing.
 #
+# THE COPIES OF YOUR SERVERS
+#   The central can take the backups of the servers it manages, through the
+#   tunnel it already has to each one (console > Backups > Destinations >
+#   "The central", or: docker exec -it noust noust fleet collect enable).
+#   Nothing is opened on your router. They land in /data/backups/.collected,
+#   one folder per server, and they can be large: put /data/backups on a disk
+#   or a NAS folder of its own (the second volume below) and keep an eye on
+#   its room in the console. Nothing is deleted to make room; the central
+#   stops taking copies, and says so, while less than "min free" is left.
+#   It is ONE copy, on the NAS: add a destination outside it as well.
+#
 # The central only dials out (SSH to each server it manages); nothing needs
 # opening on your router. Keep it that way: do not forward 8443 to the
 # internet. The console only answers loopback and the private networks
@@ -55,6 +66,10 @@ services:
       # Or a folder on the NAS, which must belong to uid 10001 first:
       #   sudo mkdir -p /volume1/docker/noust && sudo chown 10001:10001 /volume1/docker/noust
       # - /volume1/docker/noust:/data
+      # The copies taken from your servers, on a disk of their own (it must
+      # belong to uid 10001 as well):
+      #   sudo mkdir -p /volume1/docker/noust-copies && sudo chown 10001:10001 /volume1/docker/noust-copies
+      # - /volume1/docker/noust-copies:/data/backups
     environment:
       # Who may open the console, space-separated addresses or networks.
       # Default: loopback, 10/8, 172.16/12, 192.168/16 and fc00::/7.

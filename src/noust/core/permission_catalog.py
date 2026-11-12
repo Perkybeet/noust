@@ -51,6 +51,10 @@ class Permission:
     BACKUPS_READ = "backups.read"
     BACKUPS_RUN = "backups.run"
     BACKUPS_MANAGE = "backups.manage"
+    # What a central holds to take the copies away: read the list, read the files, say which it
+    # holds. Never delete, never change; not a `.read` permission on purpose, because a server
+    # that only lets its central read does not let it carry off every application's data.
+    BACKUPS_COLLECT = "backups.collect"
 
     FLEET_READ = "fleet.read"
     FLEET_MANAGE = "fleet.manage"
@@ -113,6 +117,7 @@ DESCRIPTIONS: dict[str, str] = {
     Permission.BACKUPS_READ: "See backups, schedules and destinations",
     Permission.BACKUPS_RUN: "Create and verify backups",
     Permission.BACKUPS_MANAGE: "Restore, delete, and configure destinations",
+    Permission.BACKUPS_COLLECT: "Read the files of the backups, to carry them to the central",
     Permission.FLEET_READ: "See the servers this central manages",
     Permission.FLEET_MANAGE: "Add and remove servers",
     Permission.SETTINGS_READ: "Read the configuration, secrets redacted",

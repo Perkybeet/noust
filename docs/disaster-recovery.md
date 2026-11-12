@@ -80,6 +80,14 @@ never run. What cannot be put back (a tablespace's directory, a setting for a da
 there) is listed. Noust's own state carries the same file, so `noust restore-server` has the roles
 before the databases.
 
+The database of a Compose stack is put back the same way, one step earlier: before a real restore loads
+the dump, Noust reads which roles it names (`pg_restore --schema-only`, which runs nothing) and asks the
+container's server which it has. The roles Noust made itself (`noust_ro_<database>`, the account the
+console's SQL signs in as) that are missing are made again, without a login; the next read of the database
+gives them theirs. A role the dump names that is not Noust's and is missing stops the restore before
+anything is touched, and the error names it and the `docker compose exec ... psql` command that makes it:
+a role somebody else owns is not made up for them.
+
 ```bash
 noust db globals dump [-o FILE]            # take them now (root-only file: it holds password hashes)
 noust db globals list                      # the files this server has dumped
@@ -209,6 +217,13 @@ both keys is kept in `/var/backups/noust/store-move/`, the secrets are sealed ag
 `/etc/noust` (the file would be ciphertext nothing opens otherwise), the copy is checked before the store
 is switched and anything that fails is undone. The old store file is renamed, not deleted.
 
+A restore does the same when the bundle and the server keep the key in different places (a bundle of a
+user's store onto a server that keeps its store in `/var/lib/noust`, or the other way round): each
+protected secret is opened with the key the bundle carries and sealed again under the key this server
+reads, and the bundle's key is not left beside ciphertext it no longer opens. The report says how many
+were sealed again. A bundle whose own key does not open one of its secrets is refused before anything
+changes, and the error names the secret and what to do.
+
 `verify` proves a bundle restorable without restoring it: the envelope, every file's digest,
 the store's integrity check and that this Noust can migrate its schema. `restore` first checks
 every path in the bundle against this server's own directories (a bundle never decides where a
@@ -285,6 +300,18 @@ readable: they hold ids, sizes and digests, never the data.
   directory, written by PostgreSQL itself one segment at a time), Noust's own state (already an
   envelope under its own passphrase), a dump handed to `noust db import`, files no record describes
   (a restore's safety copy, a dump put in the directory by hand) and what a destination already holds.
+
+## Restoring from the central
+
+If the server's own copies are gone with its disk, the central still holds the ones it collected
+(`noust fleet collect list`). `noust fleet collect restore SERVER KIND ITEM [--to OTHER]` (or **Restore on
+a server** on the console's **Copies on the central**) checks the copy whole, sends it to the server through
+its tunnel and restores it with the manager of its kind, so what it replaces and what it asks first are those
+of any restore of that kind. It works to another server of the fleet as well, which is how an application or
+a database is brought back on a new machine; the copy then crosses the central's own connection, so it is
+always asked for. A copy of Noust's own state is put on the server but not restored from here, and the command
+that restores it is printed: restoring it replaces the store the console runs on. See
+[Taking the copies of your servers](central-maintain.md#taking-the-copies-of-your-servers).
 
 ## Does a backup come back?
 

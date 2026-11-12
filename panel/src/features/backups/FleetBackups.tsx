@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { Play } from "lucide-react";
 import { useMemo } from "react";
 
@@ -5,7 +6,7 @@ import { FilterBar } from "../../components/page/FilterBar";
 import { ListPage } from "../../components/page/ListPage";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
-import { Button } from "../../components/ui/Button";
+import { Button, buttonClassName } from "../../components/ui/Button";
 import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
 import { EmptyCell } from "../../components/ui/EmptyCell";
@@ -192,13 +193,18 @@ export function FleetBackups({ search, onSearchChange }: FleetBackupsProps) {
         title: t("backups.page.title"),
         description: t("backups.page.description"),
         secondaryActions: (
-          <Button
-            onClick={() => {
-              actions.open({ action: "backups_verify" });
-            }}
-          >
-            {t("fleet.backups.verify")}
-          </Button>
+          <>
+            <Link to="/fleet/central-backups" className={buttonClassName("secondary", "md")}>
+              {t("centralBackups.nav.label")}
+            </Link>
+            <Button
+              onClick={() => {
+                actions.open({ action: "backups_verify" });
+              }}
+            >
+              {t("fleet.backups.verify")}
+            </Button>
+          </>
         ),
         primaryAction: (
           <Button

@@ -149,6 +149,7 @@ const COLUMN_OBJECT: Readonly<Record<string, ObjectName>> = {
   "fleet.apps.placements": "node",
   "fleet.certificates": "certificate",
   "fleet.backups": "backup",
+  "fleet.backups.central": "central",
   "fleet.activity": "activity",
   "fleet.alerts": "alert",
   // A database, a service and a team.

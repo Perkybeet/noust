@@ -54,6 +54,7 @@ from __future__ import annotations
 import gzip
 import json
 import re
+import shlex
 import shutil
 import tarfile
 import tempfile
@@ -619,13 +620,14 @@ def stack_dump_filename(database: StackDatabase) -> str:
 
 #: What a client is asked to do. ``tables`` counts what a database holds, which is how a drill
 #: tells a dump that loaded from one that loaded nothing.
-Action = Literal["dump", "restore", "ping", "tables"]
+Action = Literal["dump", "restore", "ping", "tables", "script", "roles", "sql"]
 
 #: What ``tables`` asks each SQL engine. The system schemas are not the application's.
 _POSTGRES_TABLES = (
     "SELECT count(*) FROM information_schema.tables "
     "WHERE table_schema NOT IN ('pg_catalog', 'information_schema')"
 )
+_POSTGRES_ROLES = "SELECT rolname FROM pg_catalog.pg_roles"
 _MYSQL_TABLES = (
     "SELECT count(*) FROM information_schema.tables WHERE table_schema NOT IN "
     "('mysql', 'sys', 'information_schema', 'performance_schema')"
@@ -637,7 +639,12 @@ _MONGO_TABLES = (
 
 
 def client_command(
-    database: StackDatabase, action: Action, *, tcp: bool = False, keep_grants: bool = True
+    database: StackDatabase,
+    action: Action,
+    *,
+    tcp: bool = False,
+    keep_grants: bool = True,
+    statement: str | None = None,
 ) -> list[str]:
     """
     Build the command that runs one client inside a database's container.
@@ -651,7 +658,10 @@ def client_command(
     Args:
         database: The database to act on.
         action: ``dump``, ``restore``, ``ping`` (is the engine accepting
-            connections) or ``tables`` (how many tables or collections it holds).
+            connections) or ``tables`` (how many tables or collections it holds). PostgreSQL has
+            three more, which a real restore asks before it loads a dump: ``script`` (the SQL of
+            the dump's structure, read from standard input), ``roles`` (the roles the server has)
+            and ``sql`` (run ``statement``, one statement, as the application's user).
         tcp: Make ``ping`` ask over the network port. The first start of an image
             runs a server that answers on its socket only, then restarts: a ping
             on the socket is answered by the server that is about to go away.
@@ -662,14 +672,20 @@ def client_command(
             is not there: it turns the roles off. PostgreSQL's dumps are the ones that carry
             them; a mysqldump of one database names none, so for the other engines this
             changes nothing.
+        statement: The statement ``sql`` runs; it is one argument, never part of a shell line.
 
     Returns:
         The argv to run after ``docker compose exec -T <service>``.
+
+    Raises:
+        ValueError: ``script``, ``roles`` or ``sql`` asked of an engine that is not PostgreSQL.
     """
     engine, name, user = database.engine, database.database, database.user
     mode, target, sources = "env", "NOUST_UNUSED", ""
     programs: str
     arguments: list[str]
+    if action in ("script", "roles", "sql") and engine != "postgres":
+        raise ValueError(f"{action!r} is asked of PostgreSQL only, not of {engine}")
 
     if engine == "postgres":
         mode, target, sources = "env", "PGPASSWORD", ",".join(_PASSWORD_SOURCES["postgres"])
@@ -678,6 +694,9 @@ def client_command(
             "restore": "pg_restore",
             "ping": "pg_isready",
             "tables": "psql",
+            "script": "pg_restore",
+            "roles": "psql",
+            "sql": "psql",
         }[action]
         connection = ["-U", user, "-d", name]
         arguments = {
@@ -692,6 +711,10 @@ def client_command(
             ],
             "ping": [*(["-h", "127.0.0.1"] if tcp else []), *connection],
             "tables": ["-X", "-A", "-t", *connection, "-c", _POSTGRES_TABLES],
+            # What a restore will have to find in the target: read, never run.
+            "script": ["--schema-only", "-f", "-"],
+            "roles": ["-X", "-A", "-t", *connection, "-c", _POSTGRES_ROLES],
+            "sql": ["-X", "-v", "ON_ERROR_STOP=1", *connection, "-c", statement or ""],
         }[action]
     elif engine == "mongo":
         if action != "ping":
@@ -747,7 +770,9 @@ def client_command(
     return ["sh", "-c", CLIENT_SCRIPT, "sh", mode, target, sources, programs, *arguments]
 
 
-def _exec(host: StackHost, database: StackDatabase, action: Action) -> list[str]:
+def _exec(
+    host: StackHost, database: StackDatabase, action: Action, *, statement: str | None = None
+) -> list[str]:
     """
     Build the full command for one client action.
 
@@ -755,11 +780,15 @@ def _exec(host: StackHost, database: StackDatabase, action: Action) -> list[str]
         host: The stack's deployer.
         database: The database.
         action: What to do.
+        statement: What ``sql`` runs.
 
     Returns:
         The ``docker compose exec`` argv.
     """
-    return [*host._compose("exec", "-T", database.service), *client_command(database, action)]
+    return [
+        *host._compose("exec", "-T", database.service),
+        *client_command(database, action, statement=statement),
+    ]
 
 
 def _failed(
@@ -896,6 +925,103 @@ def _wait_until_ready(
     )
 
 
+def _provide_roles(host: StackHost, database: StackDatabase, plain: Path) -> None:
+    """
+    Make the roles Noust made that a dump names and the target lacks, before the dump is loaded.
+
+    A real restore puts back who owns what and who may read it, so it needs every role the dump
+    names (:mod:`noust.managers.stack_roles`). The ones Noust made (``noust_ro_<database>``, the
+    console's read-only SQL account) are made again without a login; one that is somebody else's
+    stops the restore here, before the database is touched, with the command that makes it.
+
+    Args:
+        host: The deployer of the stack.
+        database: The PostgreSQL database the dump is loaded into.
+        plain: The dump, decompressed.
+
+    Raises:
+        BackupError: The dump or the server could not be read, a role cannot be made, or the
+            dump names a role the server lacks that is not Noust's.
+    """
+    from noust.managers.stack_roles import create_statement, plan_roles, roles_named_by
+
+    read = host.runner.run(
+        _exec(host, database, "script"),
+        cwd=host.app_path,
+        stdin_path=plain,
+        timeout=RESTORE_TIMEOUT,
+    )
+    if not read.success:
+        raise BackupError(
+            f"Could not read which roles the dump of {database.label} names",
+            details="The dump is not a PostgreSQL archive pg_restore can read; nothing was "
+            "restored.",
+            output=read.stderr.strip() or f"exit code {read.exit_code}",
+        )
+    named = roles_named_by(read.stdout)
+    if not named:
+        return
+    listed = host.runner.run(
+        _exec(host, database, "roles"), cwd=host.app_path, timeout=COMPOSE_TIMEOUT
+    )
+    if not listed.success:
+        raise BackupError(
+            f"Could not list the roles of the {database.engine} server of {database.service}",
+            details="Nothing was restored.",
+            output=listed.stderr.strip() or f"exit code {listed.exit_code}",
+        )
+    plan = plan_roles(named, {line.strip() for line in listed.stdout.splitlines() if line.strip()})
+    if plan.missing:
+        raise BackupError(
+            f"The dump of {database.label} names a role this server does not have: "
+            f"{', '.join(plan.missing)}",
+            details="That role is not one Noust made, so it is not made for you. Make it "
+            "(with the attributes it should have), then restore again; nothing was restored. "
+            "For example:\n"
+            + "\n".join(_make_role_command(host, database, r) for r in plan.missing),
+        )
+    for role in plan.create:
+        made = host.runner.run(
+            _exec(host, database, "sql", statement=create_statement(role)),
+            cwd=host.app_path,
+            timeout=COMPOSE_TIMEOUT,
+        )
+        if not made.success:
+            raise BackupError(
+                f"Could not make the role {role} the dump of {database.label} names",
+                details="Noust made that role in the first place; the user the application "
+                "connects as may not be allowed to create roles. Nothing was restored.",
+                output=made.stderr.strip() or f"exit code {made.exit_code}",
+            )
+
+
+def _make_role_command(host: StackHost, database: StackDatabase, role: str) -> str:
+    """
+    Args:
+        host: The stack's deployer.
+        database: The database.
+        role: A role the server lacks.
+
+    Returns:
+        The command, ready to paste, that makes it.
+    """
+    from noust.managers.stack_roles import create_statement
+
+    statement = create_statement(role)
+    return shlex.join(
+        [
+            *host._compose("exec", "-T", database.service),
+            "psql",
+            "-U",
+            str(database.user),
+            "-d",
+            str(database.database),
+            "-c",
+            statement,
+        ]
+    )
+
+
 def restore_stack_database(
     host: StackHost,
     database: StackDatabase,
@@ -938,10 +1064,13 @@ def restore_stack_database(
     try:
         _wait_until_ready(host, database, sleep)
         with tempfile.TemporaryDirectory(prefix="noust-stack-restore-") as workspace:
+            plain = inflated(dump, Path(workspace))
+            if database.engine == "postgres":
+                _provide_roles(host, database, plain)
             result = host.runner.run(
                 _exec(host, database, "restore"),
                 cwd=host.app_path,
-                stdin_path=inflated(dump, Path(workspace)),
+                stdin_path=plain,
                 timeout=RESTORE_TIMEOUT,
             )
         if not result.success:

@@ -167,6 +167,8 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "fleet", path: "/fleet" },
   // 3.4: the applications that run on more than one server (none recorded on a plain server).
   { name: "fleet-placements", path: "/fleet/placements" },
+  // 4.3: the copies the central holds of its servers, and how collecting is going (none on a plain server).
+  { name: "fleet-central-backups", path: "/fleet/central-backups" },
   // 3.4: servers made at a cloud provider, and the boot scripts they start with.
   { name: "settings-cloud", path: "/settings/cloud" },
   // Where GitHub sends the browser back. The states that change nothing: an installation an

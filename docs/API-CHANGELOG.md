@@ -27,6 +27,30 @@ against the schema of 4.2.0.
 
 ### Added
 
+- **The copies a central holds of its servers** (`/api/central-backups`). The central comes for each server's
+  copies through the tunnel it already has (the tunnel goes one way on purpose: the central collects, a server
+  never sends). `GET /api/central-backups` lists what it holds (`node`, `kind`, `owner`, `size`, `files`,
+  `verified`, `state`) and `GET /api/central-backups/status` says how collecting is going: `following` (`following`
+  of `of`, and the servers whose answer differs), one row per server (`following`, `last_error` with a stable
+  `last_error_code`: `unreachable`, `refused`, `ceiling`, `disk_full`, `mismatch`, `support.mode`: `full` or
+  `databases_only`, what it `held`, what is `moving`) and, for the instance, `settings`, `space` and `directory`.
+  Both need `backups.read` and show a team the servers of its teams. `PUT /api/central-backups/settings` (the knobs;
+  a limit given as `0` is taken off) and `PUT /api/central-backups/nodes/{node}` (`follow`: `true`, `false` or `null`
+  for the fleet's answer) need `backups.manage` and sudo mode; `POST /api/central-backups/collect` (`node`, `force`;
+  `202`) needs `backups.run`. `DELETE /api/central-backups/{node}/{kind}?item=` lets a copy go (`backups.manage`,
+  sudo mode) and `POST /api/central-backups/{node}/{kind}/restore` (`item`, `target_node`, `target`, `options`; `202`,
+  a job; `backups.manage`, sudo mode) gives a copy back to the server it came from or to another and restores it with
+  the manager of its kind. The audit events are `central_backup.settings`, `.collect`, `.delete` and `.restore`.
+- **What a server offers its central** (`/api/backup-collection`, all of it `instance`: a team never reaches it).
+  `GET /api/backup-collection` lists the copies the server holds (`known` is the fingerprint the central has: an
+  unchanged list is a short answer), `GET /api/backup-collection/files` serves one file by `offset` and `length`
+  with its checksum, `PUT` and `GET /api/backup-collection/held` tell it which copies the central has so that its
+  retention waits for the rest (at most 14 days), and `/api/backup-collection/returns` (`POST`, `PUT`, `complete`) and
+  `POST /api/backup-collection/restore` receive a copy the central gives back (`backups.manage` and sudo mode, as
+  any restore). Reading is the new permission `backups.collect`, held by `admin` and refused to a server's `read`
+  ceiling. The audit events are
+  `backup.collection.held` and `backup.collection.read`, and `backup.uncollected_delete` when retention had to delete
+  a copy the central did not have yet.
 - **What the fleet's settings say of who follows them** (`GET /api/fleet/settings/status`, permission
   `fleet.read`). Each setting carries `following` and `of`: how many of the servers it is meant for follow
   it, counted once by the server (the central is never one, and neither is a server a channel's route cannot

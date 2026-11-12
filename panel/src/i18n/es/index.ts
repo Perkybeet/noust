@@ -26,6 +26,7 @@ export { autoUpdate } from "./autoUpdate";
 export { backups } from "./backups";
 export { buildExtras } from "./buildExtras";
 export { catalog } from "./catalog";
+export { centralBackups } from "./centralBackups";
 export { changeSource } from "./changeSource";
 export { cloud } from "./cloud";
 export { common } from "./common";

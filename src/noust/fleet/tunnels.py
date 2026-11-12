@@ -81,6 +81,14 @@ logger = logging.getLogger(__name__)
 #: Close a tunnel nothing has used for this long.
 IDLE_SECONDS = 600.0
 
+#: The connections a central keeps to one server. The console and its events go through the first;
+#: the copies a central collects go through the second (item 195), because a request a person waits
+#: for must never queue behind gigabytes sharing its ssh connection. Both are the same kind of
+#: tunnel, with the same key and the same restrictions, to the same one port.
+CONSOLE = "console"
+TRANSFER = "transfer"
+CHANNELS: tuple[str, ...] = (CONSOLE, TRANSFER)
+
 #: How long a new tunnel may take to authenticate and start listening.
 READY_TIMEOUT = 20.0
 
@@ -703,6 +711,9 @@ class _Tunnel:
     #: The operator was told this node presented another host key; told once
     #: until a tunnel opens again.
     host_key_alerted: bool = False
+    #: Whether a host key that changed is announced from this tunnel: the console's tunnel says
+    #: it, and the transfer's fails with the same words without telling the operator twice.
+    announces: bool = True
 
 
 class TunnelManager:
@@ -776,37 +787,68 @@ class TunnelManager:
             self._keys = NodeKeys(runner=self._runner)
         return self._keys
 
-    def _entry(self, node: str) -> _Tunnel:
+    @staticmethod
+    def _key(node: str, channel: str) -> str:
         """
-        Find or create a node's entry.
+        Name the entry of a node's connection.
 
         Args:
             node: The node's name.
+            channel: One of :data:`CHANNELS`.
+
+        Returns:
+            The node's name for the console's connection, and ``<node>/<channel>`` for another: a
+            node's name has no slash, so no two collide.
+
+        Raises:
+            NodeError: When the channel is not one.
+        """
+        if channel not in CHANNELS:
+            raise NodeError(
+                f"No such connection to a node: {channel!r}",
+                details=f"A node is reached over one of: {', '.join(CHANNELS)}.",
+            )
+        return node if channel == CONSOLE else f"{node}/{channel}"
+
+    def _entry(self, node: str, channel: str = CONSOLE) -> _Tunnel:
+        """
+        Find or create the entry of one of a node's connections.
+
+        Args:
+            node: The node's name.
+            channel: One of :data:`CHANNELS`.
 
         Returns:
             Its entry.
         """
+        key = self._key(node, channel)
         with self._lock:
-            return self._tunnels.setdefault(node, _Tunnel())
+            entry = self._tunnels.get(key)
+            if entry is None:
+                entry = self._tunnels[key] = _Tunnel(announces=channel == CONSOLE)
+            return entry
 
-    def endpoint(self, node: str) -> tuple[str, int]:
+    def endpoint(self, node: str, channel: str = CONSOLE) -> tuple[str, int]:
         """
         Return where the node's console answers on this machine, opening the tunnel if needed.
 
         Args:
             node: The node's name.
+            channel: Which connection: the console's, or the one the copies a central collects go
+                over (:data:`TRANSFER`). A server that dials in has one forward, so both are it.
 
         Returns:
             ``("127.0.0.1", local_port)``.
 
         Raises:
-            NodeError: When the node is not registered.
+            NodeError: When the node is not registered, or the channel is not one.
             NodeUnreachableError: When the tunnel cannot be opened, or failed
                 recently and is waiting out its backoff. The message says why;
                 the details carry ssh's stderr verbatim.
             SecretsLockedError: When this central's secrets are sealed and it
                 has not been unlocked; nothing is dialled.
         """
+        self._key(node, channel)
         if self._stopping.is_set():
             # close_all ran: the console is stopping, and a tunnel opened now
             # (by a job still finishing) would be closed by nothing.
@@ -822,7 +864,7 @@ class TunnelManager:
         link = self._link_of(node)
         if link is not None:
             return self._link_endpoint(node, link)
-        tunnel = self._entry(node)
+        tunnel = self._entry(node, channel)
         with tunnel.lock:
             if tunnel.handle is not None and tunnel.handle.is_alive():
                 tunnel.last_used = self._clock()
@@ -1018,7 +1060,7 @@ class TunnelManager:
                 stderr = handle.stderr_tail()
                 self._failed(tunnel, stderr)
                 message = explain_ssh_failure(stderr, record, handle.exit_code, options.bastion)
-                if host_key_changed(stderr):
+                if tunnel.announces and host_key_changed(stderr):
                     self._alert_host_key(tunnel, record, stderr, options.bastion)
                 if key_was_revoked(stderr, options.bastion):
                     # Mirrors NodeClient.mark_refused(): persisted at the
@@ -1111,7 +1153,7 @@ class TunnelManager:
         )
 
     @contextlib.contextmanager
-    def lease(self, node: str) -> Iterator[tuple[str, int]]:
+    def lease(self, node: str, channel: str = CONSOLE) -> Iterator[tuple[str, int]]:
         """
         Hold a node's tunnel open for as long as the block runs.
 
@@ -1121,6 +1163,7 @@ class TunnelManager:
 
         Args:
             node: The node's name.
+            channel: Which connection to hold.
 
         Yields:
             The local endpoint.
@@ -1128,13 +1171,13 @@ class TunnelManager:
         Raises:
             NodeError: As :meth:`endpoint`.
         """
-        endpoint, release = self.hold(node)
+        endpoint, release = self.hold(node, channel)
         try:
             yield endpoint
         finally:
             release()
 
-    def hold(self, node: str) -> tuple[tuple[str, int], Callable[[], None]]:
+    def hold(self, node: str, channel: str = CONSOLE) -> tuple[tuple[str, int], Callable[[], None]]:
         """
         Take a lease on a node's tunnel, for a caller that cannot use a ``with`` block.
 
@@ -1144,6 +1187,7 @@ class TunnelManager:
 
         Args:
             node: The node's name.
+            channel: Which connection to hold.
 
         Returns:
             The local endpoint, and the function that returns the lease. It
@@ -1152,8 +1196,8 @@ class TunnelManager:
         Raises:
             NodeError: As :meth:`endpoint`.
         """
-        endpoint = self.endpoint(node)
-        tunnel = self._entry(node)
+        endpoint = self.endpoint(node, channel)
+        tunnel = self._entry(node, channel)
         with tunnel.lock:
             tunnel.leases += 1
         once = threading.Lock()
@@ -1171,19 +1215,19 @@ class TunnelManager:
 
     def close(self, node: str) -> None:
         """
-        Stop a node's tunnel and forget its failures.
+        Stop a node's tunnels, whichever connections it has, and forget their failures.
 
         Args:
-            node: The node's name.
+            node: The node's name; or ``<node>/<channel>`` for one connection of it.
         """
         with self._lock:
-            tunnel = self._tunnels.pop(node, None)
-        if tunnel is None:
-            return
-        with tunnel.lock:
-            if tunnel.handle is not None:
-                tunnel.handle.terminate()
-                tunnel.handle = None
+            keys = [k for k in self._tunnels if k == node or k.startswith(f"{node}/")]
+            popped = [self._tunnels.pop(key) for key in keys]
+        for tunnel in popped:
+            with tunnel.lock:
+                if tunnel.handle is not None:
+                    tunnel.handle.terminate()
+                    tunnel.handle = None
 
     def close_all(self) -> None:
         """Stop every tunnel. Called at interpreter and server shutdown."""
@@ -1198,7 +1242,7 @@ class TunnelManager:
         Close the tunnels nothing has used for :attr:`idle_seconds`.
 
         Returns:
-            The nodes whose tunnels were closed.
+            The tunnels that were closed: a node's name, or `<node>/<channel>` for a second connection.
         """
         now = self._clock()
         with self._lock:
@@ -1217,12 +1261,13 @@ class TunnelManager:
             closed.append(name)
         return closed
 
-    def status(self, node: str) -> dict[str, Any]:
+    def status(self, node: str, channel: str = CONSOLE) -> dict[str, Any]:
         """
-        Describe a node's tunnel.
+        Describe one of a node's tunnels.
 
         Args:
             node: The node's name.
+            channel: Which connection: the console's unless said.
 
         Returns:
             ``open``, ``local_port``, ``since`` (ISO 8601 UTC), ``last_error``
@@ -1243,7 +1288,7 @@ class TunnelManager:
                 "transport": "link",
             }
         with self._lock:
-            tunnel = self._tunnels.get(node)
+            tunnel = self._tunnels.get(self._key(node, channel))
         if tunnel is None:
             return {
                 "open": False,

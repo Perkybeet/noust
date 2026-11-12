@@ -949,9 +949,13 @@ async def lifespan(app: FastAPI):
     settings_watcher = start_watcher()
     # The access to clone with that the servers hold, the events of their repositories and the
     # status of what they deploy are the central's to keep while the console runs (item 90, D6).
+    from noust.fleet.collect.worker import start_worker as start_collecting
+    from noust.fleet.collect.worker import stop_worker as stop_collecting
     from noust.fleet.sources.worker import start_worker, stop_worker
 
     start_worker()
+    # The copies of the servers the central collects, a minute behind each one a server finishes.
+    start_collecting()
     # What the server did while the console was not running: a reboot, or an
     # update that kept going in its own systemd unit.
     from noust.web.api.server.lifecycle import on_console_start
@@ -984,6 +988,7 @@ async def lifespan(app: FastAPI):
         if warming.is_alive():
             warming.join(15)
         settings_watcher.stop()
+        stop_collecting()
         stop_worker()
         fleet_probe.stop()
         stop_metrics_collector()
