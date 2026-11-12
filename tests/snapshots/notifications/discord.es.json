@@ -3293,6 +3293,74 @@
       "parse": []
     }
   },
+  "domain.expiring": {
+    "embeds": [
+      {
+        "title": "▲ Registro de dominio a punto de caducar · example.com",
+        "description": "El registro de example.com caduca en 20 días (30 nov 2026).\n\n**Míralos todos con:** `noust domain expiry`",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Nombres que cubre",
+            "value": "shop.example.com, www.shop.example.com",
+            "inline": true
+          },
+          {
+            "name": "Registro",
+            "value": "rdap.verisign.com",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/domains"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "domain.expired": {
+    "embeds": [
+      {
+        "title": "✕ Registro de dominio caducado · example.com",
+        "description": "El registro de example.com caducó hace 3 días (7 nov 2026).\n\n**Míralos todos con:** `noust domain expiry`",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Nombres que cubre",
+            "value": "shop.example.com",
+            "inline": true
+          },
+          {
+            "name": "Registro",
+            "value": "rdap.verisign.com",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/domains"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
   "app.oom_killed": {
     "embeds": [
       {

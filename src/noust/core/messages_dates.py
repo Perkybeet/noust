@@ -74,4 +74,28 @@ DATES_MESSAGES: dict[str, dict[Locale, str]] = {
     "fact.oom_peak": {"en": "Most it used", "es": "Lo máximo que usó"},
     "fact.oom_since": {"en": "Counting since", "es": "Contando desde"},
     "fact.oom_none": {"en": "none", "es": "ninguno"},
+    # -- the registration of a domain --------------------------------------------------------
+    "title.domain.expiring": {
+        "en": "Domain registration expiring",
+        "es": "Registro de dominio a punto de caducar",
+    },
+    "title.domain.expired": {
+        "en": "Domain registration expired",
+        "es": "Registro de dominio caducado",
+    },
+    "summary.domain.expiring": {
+        "en": "The registration of {domain} expires in {days} {unit} ({date}).",
+        "es": "El registro de {domain} caduca en {days} {unit} ({date}).",
+    },
+    "summary.domain.expiring_today": {
+        "en": "The registration of {domain} expires today ({date}).",
+        "es": "El registro de {domain} caduca hoy ({date}).",
+    },
+    "summary.domain.expired": {
+        "en": "The registration of {domain} expired {days} {unit} ago ({date}).",
+        "es": "El registro de {domain} caducó hace {days} {unit} ({date}).",
+    },
+    "fact.domain_names": {"en": "Names it covers", "es": "Nombres que cubre"},
+    "fact.domain_registry": {"en": "Registry", "es": "Registro"},
+    "fact.domain_expiry": {"en": "See them all with", "es": "Míralos todos con"},
 }

@@ -15,7 +15,8 @@ verbatim in the excerpt), for:
 - the **central** that manages the server going quiet, and calling again: said by the
   server, because the central cannot say it of itself;
 - the **renewal of certificates** that failed or whose timer is not running (item 172);
-- an **application the kernel killed** for running out of memory (item 175).
+- an **application the kernel killed** for running out of memory (item 175);
+- the **registration of a domain** that is about to lapse, or has (item 173).
 
 Pure: whoever watches reads the machine and hands these functions the facts.
 """
@@ -29,7 +30,12 @@ from noust.core.messages import message, plural
 from noust.core.notifications.composers import _fact, build
 from noust.core.notifications.context import NotificationContext
 from noust.core.notifications.excerpt import make_excerpt
-from noust.core.notifications.formatting import format_bytes, format_duration, format_utc
+from noust.core.notifications.formatting import (
+    format_bytes,
+    format_date,
+    format_duration,
+    format_utc,
+)
 from noust.core.notifications.model import Fact, Notification, State
 
 
@@ -356,4 +362,71 @@ def compose_app_oom(
         command=_fact("diagnose", f"noust diagnose {domain}", ctx, mono=True),
         path=f"/apps/{domain}",
         domain=domain,
+    )
+
+
+def compose_domain_registration(
+    domain: str,
+    expiry: str,
+    days_left: int,
+    ctx: NotificationContext,
+    *,
+    names: Sequence[str] = (),
+    registry: str = "",
+) -> Notification:
+    """
+    Compose the notification for the registration of a domain that is about to lapse, or has.
+
+    Args:
+        domain: The registrable domain, as the registry recognised it.
+        expiry: When the registration expires, ISO ``YYYY-MM-DD``.
+        days_left: Whole days until it expires; negative once it has.
+        ctx: The context.
+        names: The names Noust serves under it.
+        registry: The registry that said so, by its host.
+
+    Returns:
+        ``domain.expiring`` (a warning, under ``domain_expiring``) or, for a negative
+        ``days_left``, ``domain.expired`` (a failure, under ``domain_expired``).
+    """
+    when = format_date(expiry, ctx.locale)
+    if days_left < 0:
+        code, kind, state = "domain.expired", "domain_expired", State.FAILED
+        summary = message(
+            "summary.domain.expired",
+            ctx.locale,
+            domain=domain,
+            days=-days_left,
+            unit=plural("day", ctx.locale, -days_left),
+            date=when,
+        )
+    else:
+        code, kind, state = "domain.expiring", "domain_expiring", State.WARNING
+        summary = (
+            message("summary.domain.expiring_today", ctx.locale, domain=domain, date=when)
+            if days_left == 0
+            else message(
+                "summary.domain.expiring",
+                ctx.locale,
+                domain=domain,
+                days=days_left,
+                unit=plural("day", ctx.locale, days_left),
+                date=when,
+            )
+        )
+    facts: list[Fact] = []
+    if names:
+        facts.append(_fact("domain_names", ", ".join(names), ctx))
+    if registry:
+        facts.append(_fact("domain_registry", registry, ctx))
+    return build(
+        ctx,
+        kind=kind,
+        code=code,
+        state=state,
+        subject=domain,
+        summary=summary,
+        facts=facts,
+        command=_fact("domain_expiry", "noust domain expiry", ctx, mono=True),
+        path="/domains",
     )

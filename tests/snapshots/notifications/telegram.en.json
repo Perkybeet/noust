@@ -1734,6 +1734,44 @@
       ]
     }
   },
+  "domain.expiring": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Domain registration expiring</b> · example.com\nThe registration of example.com expires in 20 days (30 Nov 2026).\n\n<b>Server:</b> web-1\n<b>Names it covers:</b> shop.example.com, www.shop.example.com\n<b>Registry:</b> rdap.verisign.com\n<b>See them all with:</b> <code>noust domain expiry</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/domains"
+          }
+        ]
+      ]
+    }
+  },
+  "domain.expired": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Domain registration expired</b> · example.com\nThe registration of example.com expired 3 days ago (7 Nov 2026).\n\n<b>Server:</b> web-1\n<b>Names it covers:</b> shop.example.com\n<b>Registry:</b> rdap.verisign.com\n<b>See them all with:</b> <code>noust domain expiry</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/domains"
+          }
+        ]
+      ]
+    }
+  },
   "app.oom_killed": {
     "chat_id": "-1001234567890",
     "text": "✕ <b>Application killed for lack of memory</b> · shop.example.com\nThe kernel killed shop.example.com for running out of memory.\n\n<b>Server:</b> web-1\n<b>Killed:</b> 2 times\n<b>Memory limit:</b> 512.0 MB\n<b>Most it used:</b> 511.0 MB\n<b>Counting since:</b> Tue 2026-11-10 03:00:00 UTC\n<b>Diagnose with:</b> <code>noust diagnose shop.example.com</code>",

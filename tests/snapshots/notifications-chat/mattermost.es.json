@@ -2877,6 +2877,66 @@
       }
     ]
   },
+  "domain.expiring": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Registro de dominio a punto de caducar · example.com",
+        "color": "#e3a73c",
+        "title": "▲ Registro de dominio a punto de caducar · example.com",
+        "text": "El registro de example.com caduca en 20 días (30 nov 2026).\n\n**Míralos todos con:** `noust domain expiry`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Servidor",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Nombres que cubre",
+            "value": "shop.example.com, www.shop.example.com"
+          },
+          {
+            "short": true,
+            "title": "Registro",
+            "value": "rdap.verisign.com"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/domains"
+      }
+    ]
+  },
+  "domain.expired": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Registro de dominio caducado · example.com",
+        "color": "#cf3a30",
+        "title": "✕ Registro de dominio caducado · example.com",
+        "text": "El registro de example.com caducó hace 3 días (7 nov 2026).\n\n**Míralos todos con:** `noust domain expiry`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Servidor",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Nombres que cubre",
+            "value": "shop.example.com"
+          },
+          {
+            "short": true,
+            "title": "Registro",
+            "value": "rdap.verisign.com"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/domains"
+      }
+    ]
+  },
   "app.oom_killed": {
     "username": "Noust",
     "attachments": [

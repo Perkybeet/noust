@@ -745,6 +745,22 @@
     "url": "https://console.example.com/n/web-1/domains",
     "url_title": "Abrir en la consola"
   },
+  "domain.expiring": {
+    "title": "▲ Registro de dominio a punto de caducar · example.com",
+    "message": "El registro de example.com caduca en 20 días (30 nov 2026).\n\nServidor: web-1\nNombres que cubre: shop.example.com, www.shop.example.com\nRegistro: rdap.verisign.com\nMíralos todos con: noust domain expiry",
+    "priority": "0",
+    "timestamp": "1790678751",
+    "url": "https://console.example.com/n/web-1/domains",
+    "url_title": "Abrir en la consola"
+  },
+  "domain.expired": {
+    "title": "✕ Registro de dominio caducado · example.com",
+    "message": "El registro de example.com caducó hace 3 días (7 nov 2026).\n\nServidor: web-1\nNombres que cubre: shop.example.com\nRegistro: rdap.verisign.com\nMíralos todos con: noust domain expiry",
+    "priority": "1",
+    "timestamp": "1790678751",
+    "url": "https://console.example.com/n/web-1/domains",
+    "url_title": "Abrir en la consola"
+  },
   "app.oom_killed": {
     "title": "✕ Aplicación cerrada por falta de memoria · shop.example.com",
     "message": "El núcleo ha cerrado shop.example.com por falta de memoria.\n\nServidor: web-1\nCerrada: 2 veces\nLímite de memoria: 512.0 MB\nLo máximo que usó: 511.0 MB\nContando desde: Tue 2026-11-10 03:00:00 UTC\nDiagnostícala con: noust diagnose shop.example.com",

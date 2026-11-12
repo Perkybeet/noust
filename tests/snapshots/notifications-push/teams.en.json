@@ -5871,6 +5871,124 @@
       }
     ]
   },
+  "domain.expiring": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "▲ Domain registration expiring · example.com",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Warning",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "The registration of example.com expires in 20 days (30 Nov 2026).",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Server",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Names it covers",
+                  "value": "shop.example.com, www.shop.example.com"
+                },
+                {
+                  "title": "Registry",
+                  "value": "rdap.verisign.com"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "See them all with: noust domain expiry",
+              "fontType": "Monospace",
+              "wrap": true
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Open in the console",
+              "url": "https://console.example.com/n/web-1/domains"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "domain.expired": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "✕ Domain registration expired · example.com",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Attention",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "The registration of example.com expired 3 days ago (7 Nov 2026).",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Server",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Names it covers",
+                  "value": "shop.example.com"
+                },
+                {
+                  "title": "Registry",
+                  "value": "rdap.verisign.com"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "See them all with: noust domain expiry",
+              "fontType": "Monospace",
+              "wrap": true
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Open in the console",
+              "url": "https://console.example.com/n/web-1/domains"
+            }
+          ]
+        }
+      }
+    ]
+  },
   "app.oom_killed": {
     "type": "message",
     "attachments": [

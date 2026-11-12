@@ -22,6 +22,7 @@ the quick ones itself (``hardening="live"``).
 
 from __future__ import annotations
 
+import logging
 import shutil
 import sqlite3
 from dataclasses import dataclass, field
@@ -30,6 +31,7 @@ from typing import Literal
 from noust.core import cert_life, descriptors, paths
 from noust.core.app_state import RUNNING, RUNNING_UNMANAGED, STATIC, resolve_states
 from noust.core.config import Config
+from noust.core.domain_registrations import Registration, RegistrationStore
 from noust.core.exceptions import NoustError
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import App, WebServer, get_store
@@ -106,6 +108,9 @@ class HealthReport:
             upstream. Warnings only, each with what to change.
         descriptors: The files the console and the monitor hold open against their limit
             (issue 19); a warning from 80 %, an issue where requests are failing.
+        domains: When the registrations of the domains served expire, as their registries last
+            said (item 173); None while none was ever asked, which is how a server that never
+            turned ``monitor.domain_expiry`` on looks. Reading it asks nobody.
     """
 
     disk: HealthCheck | None
@@ -125,6 +130,7 @@ class HealthReport:
     recipes: HealthCheck | None = None
     names: HealthCheck | None = None
     descriptors: HealthCheck | None = None
+    domains: HealthCheck | None = None
 
     @property
     def checks(self) -> list[HealthCheck]:
@@ -137,6 +143,7 @@ class HealthReport:
                 self.apache,
                 self.applications,
                 self.certificates,
+                self.domains,
                 self.memory,
                 self.descriptors,
                 self.builds,
@@ -466,6 +473,64 @@ def _check_renewal(
         )
         return TIMER_STOPPED
     return "ok"
+
+
+#: A registration this close to its end is an issue: renewing a domain takes a payment and, at some
+#: registrars, days. A month is a warning.
+DOMAIN_CRITICAL_DAYS = 7
+DOMAIN_WARNING_DAYS = 30
+
+
+def _check_domain_registrations(issues: list[str], warnings: list[str]) -> HealthCheck | None:
+    """
+    Show when the registrations of the domains served expire, as their registries last said.
+
+    A registration that expires takes down every site under it and the certificates with it. This
+    reads what the monitor's daily look kept (``monitor.domain_expiry``, off by default because the
+    domain name goes to the registry) and asks nobody: with nothing kept there is no line.
+
+    Args:
+        issues: Issue list to append to.
+        warnings: Warning list to append to.
+
+    Returns:
+        The check; None when no registry was ever asked or the record cannot be read.
+    """
+    try:
+        kept = RegistrationStore().all()
+    except (NoustError, sqlite3.Error) as exc:
+        logging.getLogger(__name__).debug("The domain registrations were not read: %s", exc)
+        return None
+    if not kept:
+        return None
+    dated: list[tuple[Registration, int]] = []
+    for item in kept:
+        left = item.days_left() if item.status == "ok" else None
+        if left is not None:
+            dated.append((item, left))
+    status = "ok"
+    for item, days in dated:
+        if days < 0:
+            issues.append(f"The registration of {item.domain} expired {-days} days ago")
+            status = "error"
+        elif days < DOMAIN_CRITICAL_DAYS:
+            issues.append(f"The registration of {item.domain} expires in {days} days")
+            status = "error"
+        elif days <= DOMAIN_WARNING_DAYS:
+            warnings.append(f"The registration of {item.domain} expires in {days} days")
+            status = status if status == "error" else "warning"
+    if not dated:
+        return HealthCheck(
+            "Domain registrations",
+            f"{len(kept)} domain(s), no expiry published by their registries",
+            "info",
+        )
+    soonest = min(dated, key=lambda pair: pair[1])
+    unknown = len(kept) - len(dated)
+    value = f"{len(kept)} domain(s), next to expire: {soonest[0].domain} in {soonest[1]} days"
+    if unknown:
+        value += f", {unknown} with no expiry"
+    return HealthCheck("Domain registrations", value, status)
 
 
 def _check_internal_authority(issues: list[str], warnings: list[str]) -> str:
@@ -895,6 +960,7 @@ def collect_health_report(
     certificates = _check_certificates(verbose, issues, warnings)
     memory = _check_memory(issues, warnings)
     descriptors_check = _check_descriptors(issues, warnings)
+    domains_check = _check_domain_registrations(issues, warnings)
     builds = _check_builds(warnings)
     accounts = _check_accounts(warnings)
     names = _check_names(warnings)
@@ -922,4 +988,5 @@ def collect_health_report(
         audit=audit_check,
         security=security_check,
         descriptors=descriptors_check,
+        domains=domains_check,
     )

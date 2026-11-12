@@ -99,6 +99,7 @@ def test_list_prints_json_on_either_side_of_the_command(calls: list[Any], args: 
                 "certificate": "shared",
                 "served_by": APP,
                 "certificate_pending": False,
+                "registration": None,
             },
             {
                 "domain": "shop.example.com",
@@ -110,6 +111,7 @@ def test_list_prints_json_on_either_side_of_the_command(calls: list[Any], args: 
                 "certificate": "shared",
                 "served_by": "shop.example.com",
                 "certificate_pending": False,
+                "registration": None,
             },
         ],
     }

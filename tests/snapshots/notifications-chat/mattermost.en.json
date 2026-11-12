@@ -2877,6 +2877,66 @@
       }
     ]
   },
+  "domain.expiring": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Domain registration expiring · example.com",
+        "color": "#e3a73c",
+        "title": "▲ Domain registration expiring · example.com",
+        "text": "The registration of example.com expires in 20 days (30 Nov 2026).\n\n**See them all with:** `noust domain expiry`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Names it covers",
+            "value": "shop.example.com, www.shop.example.com"
+          },
+          {
+            "short": true,
+            "title": "Registry",
+            "value": "rdap.verisign.com"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/domains"
+      }
+    ]
+  },
+  "domain.expired": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Domain registration expired · example.com",
+        "color": "#cf3a30",
+        "title": "✕ Domain registration expired · example.com",
+        "text": "The registration of example.com expired 3 days ago (7 Nov 2026).\n\n**See them all with:** `noust domain expiry`",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Names it covers",
+            "value": "shop.example.com"
+          },
+          {
+            "short": true,
+            "title": "Registry",
+            "value": "rdap.verisign.com"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/domains"
+      }
+    ]
+  },
   "app.oom_killed": {
     "username": "Noust",
     "attachments": [

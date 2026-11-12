@@ -76,6 +76,7 @@ from noust.core.notifications.composers_watch import (
     compose_cert_renewal,
     compose_cleanup,
     compose_cron_timer,
+    compose_domain_registration,
     compose_probe,
 )
 from noust.core.notifications.context import NotificationContext
@@ -519,8 +520,9 @@ def _central_events(ctx: NotificationContext) -> dict[str, Notification]:
 
 def _dates_events(ctx: NotificationContext) -> dict[str, Notification]:
     """
-    What 4.3 says of what ends and of what was killed: certificates that stopped renewing, and an
-    application the kernel killed for running out of memory.
+    What 4.3 says of what ends and of what was killed: certificates that stopped renewing, the
+    registration of a domain about to lapse, and an application the kernel killed for running out of
+    memory.
 
     Kept after every other so the fixed ids of the earlier events do not move.
 
@@ -550,6 +552,22 @@ def _dates_events(ctx: NotificationContext) -> dict[str, Notification]:
             unit="certbot.timer",
             next_run="Wed 2026-11-11 00:41:10 UTC",
             certificates=["shop.example.com"],
+        ),
+        "domain.expiring": compose_domain_registration(
+            "example.com",
+            "2026-11-30",
+            20,
+            ctx,
+            names=["shop.example.com", "www.shop.example.com"],
+            registry="rdap.verisign.com",
+        ),
+        "domain.expired": compose_domain_registration(
+            "example.com",
+            "2026-11-07",
+            -3,
+            ctx,
+            names=["shop.example.com"],
+            registry="rdap.verisign.com",
         ),
         "app.oom_killed": compose_app_oom(
             "shop.example.com",

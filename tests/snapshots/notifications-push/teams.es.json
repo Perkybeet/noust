@@ -5871,6 +5871,124 @@
       }
     ]
   },
+  "domain.expiring": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "▲ Registro de dominio a punto de caducar · example.com",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Warning",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "El registro de example.com caduca en 20 días (30 nov 2026).",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Servidor",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Nombres que cubre",
+                  "value": "shop.example.com, www.shop.example.com"
+                },
+                {
+                  "title": "Registro",
+                  "value": "rdap.verisign.com"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "Míralos todos con: noust domain expiry",
+              "fontType": "Monospace",
+              "wrap": true
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Abrir en la consola",
+              "url": "https://console.example.com/n/web-1/domains"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "domain.expired": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "✕ Registro de dominio caducado · example.com",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Attention",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "El registro de example.com caducó hace 3 días (7 nov 2026).",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Servidor",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Nombres que cubre",
+                  "value": "shop.example.com"
+                },
+                {
+                  "title": "Registro",
+                  "value": "rdap.verisign.com"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "Míralos todos con: noust domain expiry",
+              "fontType": "Monospace",
+              "wrap": true
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Abrir en la consola",
+              "url": "https://console.example.com/n/web-1/domains"
+            }
+          ]
+        }
+      }
+    ]
+  },
   "app.oom_killed": {
     "type": "message",
     "attachments": [

@@ -215,6 +215,7 @@ How the console's terminal behaves. `docs/terminal.md` explains what each limit 
 | `monitor.backup_missing_renotify_hours` | `24` | While a backup stays missing, announce it again every this many hours. |
 | `monitor.os_patches_check_hours` | `24` | How often the monitor asks the package manager what is waiting (`os_patches`). 0 turns the check off. |
 | `monitor.token_warning_days` | `7` | An API token is announced (`token_expiring`) this many days before it expires. 0 turns the check off. |
+| `monitor.domain_expiry` | `false` | Ask the registry of each domain Noust serves when its registration expires (RDAP), once a day, and announce it at 30 and 7 days and when it has (`domain_expiring`, `domain_expired`). Off by default, and no profile turns it on: the domain name goes to the registry, which `docs/PRIVACY.md` says. `noust domain expiry` shows what they said. |
 | `monitor.webserver_check_seconds` | `60` | How often the monitor looks at nginx (or Apache); 0 turns the watch off, 3600 at most. A web server that fell is started again after its configuration test passes ([MONITOR.md](MONITOR.md#the-web-server)). |
 | `monitor.restart_webserver` | `true` | Start the web server again when it fell. `false` announces it and does nothing else. |
 | `monitor.webserver_restart_limit` | `3` | Restarts of the web server in an hour; past it the monitor says so once and stops, 1 to 20. |
@@ -259,6 +260,8 @@ How the console's terminal behaves. `docs/terminal.md` explains what each limit 
 | `notifications.events.restore_failed` | `true` | Notify when a restore fails. |
 | `notifications.events.cert_expiring` | `true` | Notify when a certificate is late to renew or expired. |
 | `notifications.events.cert_renewal_failed` | `true` | certbot's last renewal failed, or the timer that runs it is not running; with certbot's own words. |
+| `notifications.events.domain_expiring` | `true` | The registration of a domain is within 30 or 7 days of expiring (needs `monitor.domain_expiry`). |
+| `notifications.events.domain_expired` | `true` | The registration of a domain has expired (needs `monitor.domain_expiry`). |
 | `notifications.events.app_oom_killed` | `true` | The kernel killed an application for running out of memory (cgroup v2), with how many times, its memory limit and the most it used. |
 | `notifications.events.unit_failed` | `true` | Notify when a watched unit fails. |
 | `notifications.events.app_unreachable` | `true` | Notify when an application whose unit is running stops answering its health check: three failed probes over at least a minute, once per outage; not asked while the application is being deployed or runs a job, nor when its unit was stopped on purpose or failed (that is `unit_failed`). A stack with no published port is judged by its containers instead. |

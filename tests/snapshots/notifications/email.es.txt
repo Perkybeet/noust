@@ -2359,6 +2359,52 @@ Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
 Cambia lo que recibes en Ajustes > Notificaciones
 
 ========================================================================
+### domain.expiring
+Subject: [Noust] Registro de dominio a punto de caducar: example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: domain_expiring
+X-Noust-Code: domain.expiring
+X-Noust-Server: web-1
+
+▲ Registro de dominio a punto de caducar · example.com
+El registro de example.com caduca en 20 días (30 nov 2026).
+
+Servidor: web-1
+Nombres que cubre: shop.example.com, www.shop.example.com
+Registro: rdap.verisign.com
+Míralos todos con: noust domain expiry
+
+Abrir en la consola: https://console.example.com/n/web-1/domains
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### domain.expired
+Subject: [Noust] Registro de dominio caducado: example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: domain_expired
+X-Noust-Code: domain.expired
+X-Noust-Server: web-1
+
+✕ Registro de dominio caducado · example.com
+El registro de example.com caducó hace 3 días (7 nov 2026).
+
+Servidor: web-1
+Nombres que cubre: shop.example.com
+Registro: rdap.verisign.com
+Míralos todos con: noust domain expiry
+
+Abrir en la consola: https://console.example.com/n/web-1/domains
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
 ### app.oom_killed
 Subject: [Noust] Aplicación cerrada por falta de memoria: shop.example.com (web-1)
 Auto-Submitted: auto-generated

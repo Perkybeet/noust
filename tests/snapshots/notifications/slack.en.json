@@ -5996,6 +5996,130 @@
       }
     ]
   },
+  "domain.expiring": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Domain registration expiring · example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Domain registration expiring · example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "The registration of example.com expires in 20 days (30 Nov 2026)."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Names it covers*\nshop.example.com, www.shop.example.com"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Registry*\nrdap.verisign.com"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*See them all with:* `noust domain expiry`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/domains|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "domain.expired": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Domain registration expired · example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Domain registration expired · example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "The registration of example.com expired 3 days ago (7 Nov 2026)."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Names it covers*\nshop.example.com"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Registry*\nrdap.verisign.com"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*See them all with:* `noust domain expiry`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/domains|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
   "app.oom_killed": {
     "attachments": [
       {

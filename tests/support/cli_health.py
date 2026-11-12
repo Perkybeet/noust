@@ -187,6 +187,8 @@ def server(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Any:
     # How certbot renews has its own tests (test_cert_renewal.py); the machine running the suite
     # must not be asked about its timer.
     monkeypatch.setattr(health_module, "read_renewal", lambda runner: RenewalStatus())
+    # What registries said of the domains has its own tests (test_health_domain_registrations.py).
+    monkeypatch.setattr(health_module, "RegistrationStore", lambda: SimpleNamespace(all=lambda: []))
     # No Noust unit runs on the machine described: its descriptors have their own tests
     # (test_health_descriptors.py), and the suite's own processes must not be asked about.
     monkeypatch.setattr(

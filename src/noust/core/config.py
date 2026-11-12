@@ -157,8 +157,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # applications that start in zero-downtime mode (0 to 300).
         "drain_seconds": 10,
         # How many applications build at the same time on this server. A
-        # build is heavy on the processor and the memory; the others wait
-        # their turn in the queue.
+        # build is heavy on the processor and the memory; the others wait their turn in the queue.
         "max_concurrent_builds": 2,
         # How many deployments and updates may wait in the queue before the
         # next one is refused (429 from the API and the webhooks).
@@ -169,8 +168,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "install_timeout": 1800,
         "build_timeout": 2700,
         # How many deployments of each application's history are kept, with
-        # their build logs; an application can ask for another number
-        # (`noust deploy keep`).
+        # their build logs; an application can ask for another number (`noust deploy keep`).
         "history_keep": 20,
         # The longest a deployment may build, in minutes (0 is no limit). A
         # build past it is stopped and the job fails saying why, so a hung
@@ -237,6 +235,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "os_patches_check_hours": 24,
         # An API token is announced this many days before it expires (0 turns it off).
         "token_warning_days": 7,
+        # Ask each served domain's registry when its registration expires: docs/PRIVACY.md.
+        "domain_expiry": False,
         # The web server (nginx or Apache) is looked at every this many seconds (0 turns
         # it off). One that crashed is started again after its own configuration test
         # passes, at most webserver_restart_limit times an hour; restart_webserver: false
@@ -344,8 +344,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
             # decision, for the person who asked.
             "approval_requested": True,
             "approval_decided": True,
-            # A user-defined alert rule (noust alert) started or stopped
-            # breaching its threshold.
+            # A user-defined alert rule (noust alert) started or stopped breaching its threshold.
             "alert_firing": True,
             "alert_resolved": True,
             "alert_acknowledged": True,
@@ -378,6 +377,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "central_silent": True,
             "cert_renewal_failed": True,
             "app_oom_killed": True,
+            "domain_expiring": True,
+            "domain_expired": True,
         },
         "channels": {
             # A webhook URL is a capability: Slack and Discord embed the
@@ -436,8 +437,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "public_url": "",
         # The public base of /hooks/ that code hosts deliver to, written by
         # `noust web expose-hooks`; unset while webhooks can only reach this
-        # server through an address of the operator's own. See
-        # _validate_hooks_url.
+        # server through an address of the operator's own. See _validate_hooks_url.
         "hooks_url": "",
         # These values are enforced by noust.web.auth.SecurityConfig, whose
         # dataclass defaults must say the same numbers - core cannot import
@@ -492,8 +492,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # Hosts the machine may send a request to though they resolve to its
         # own network (a NAS for backups, an artifact server for a source
         # archive, a webhook on the LAN). Names or address literals, compared
-        # exactly. Empty refuses every internal destination: see
-        # noust.core.outbound.
+        # exactly. Empty refuses every internal destination: see noust.core.outbound.
         "allow_private_hosts": [],
         # Compliance controls (noust.core.compliance.controls): friction chosen, never the
         # default. Each is off or permissive here; a framework above turns on what it names,
@@ -2232,6 +2231,7 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
         "monitor.os_patches_check_hours", 0, 720
     ),
     "monitor.token_warning_days": _int_range_validator("monitor.token_warning_days", 0, 365),
+    "monitor.domain_expiry": _validate_flag("monitor.domain_expiry"),
     # The bounds noust.monitor.timeseries clamps to (MIN_RETENTION_DAYS, MAX_RETENTION_DAYS): a
     # test pins that they agree, because this module cannot import the monitor.
     "metrics.retention_days": _int_range_validator("metrics.retention_days", 35, 3650),

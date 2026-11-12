@@ -5996,6 +5996,130 @@
       }
     ]
   },
+  "domain.expiring": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Registro de dominio a punto de caducar · example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Registro de dominio a punto de caducar · example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "El registro de example.com caduca en 20 días (30 nov 2026)."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Nombres que cubre*\nshop.example.com, www.shop.example.com"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Registro*\nrdap.verisign.com"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Míralos todos con:* `noust domain expiry`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/domains|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "domain.expired": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Registro de dominio caducado · example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Registro de dominio caducado · example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "El registro de example.com caducó hace 3 días (7 nov 2026)."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Nombres que cubre*\nshop.example.com"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Registro*\nrdap.verisign.com"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Míralos todos con:* `noust domain expiry`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/domains|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
   "app.oom_killed": {
     "attachments": [
       {

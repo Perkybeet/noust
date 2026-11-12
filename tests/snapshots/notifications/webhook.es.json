@@ -4216,9 +4216,97 @@
     ],
     "excerpt": null
   },
-  "app.oom_killed": {
+  "domain.expiring": {
     "version": 1,
     "id": "00000000-0000-4000-8000-000000000095",
+    "event": "domain_expiring",
+    "code": "domain.expiring",
+    "state": "warning",
+    "locale": "es",
+    "title": "Registro de dominio a punto de caducar: example.com",
+    "summary": "El registro de example.com caduca en 20 días (30 nov 2026).",
+    "body": "El registro de example.com caduca en 20 días (30 nov 2026).\n\nServidor: web-1\nNombres que cubre: shop.example.com, www.shop.example.com\nRegistro: rdap.verisign.com\nMíralos todos con: noust domain expiry\n\nAbrir en la consola: https://console.example.com/n/web-1/domains",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "domain_names",
+        "label": "Nombres que cubre",
+        "value": "shop.example.com, www.shop.example.com"
+      },
+      {
+        "key": "domain_registry",
+        "label": "Registro",
+        "value": "rdap.verisign.com"
+      },
+      {
+        "key": "domain_expiry",
+        "label": "Míralos todos con",
+        "value": "noust domain expiry"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/domains"
+      }
+    ],
+    "excerpt": null
+  },
+  "domain.expired": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000096",
+    "event": "domain_expired",
+    "code": "domain.expired",
+    "state": "failed",
+    "locale": "es",
+    "title": "Registro de dominio caducado: example.com",
+    "summary": "El registro de example.com caducó hace 3 días (7 nov 2026).",
+    "body": "El registro de example.com caducó hace 3 días (7 nov 2026).\n\nServidor: web-1\nNombres que cubre: shop.example.com\nRegistro: rdap.verisign.com\nMíralos todos con: noust domain expiry\n\nAbrir en la consola: https://console.example.com/n/web-1/domains",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "domain_names",
+        "label": "Nombres que cubre",
+        "value": "shop.example.com"
+      },
+      {
+        "key": "domain_registry",
+        "label": "Registro",
+        "value": "rdap.verisign.com"
+      },
+      {
+        "key": "domain_expiry",
+        "label": "Míralos todos con",
+        "value": "noust domain expiry"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/domains"
+      }
+    ],
+    "excerpt": null
+  },
+  "app.oom_killed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000097",
     "event": "app_oom_killed",
     "code": "app.oom_killed",
     "state": "failed",

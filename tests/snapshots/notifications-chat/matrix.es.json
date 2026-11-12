@@ -664,6 +664,20 @@
     "formatted_body": "<b>▲ La renovación de certificados está parada · certbot.timer</b><br>El temporizador que hace que certbot renueve los certificados no está en marcha, así que no se renovarán solos.<ul><li><b>Servidor:</b> web-1</li><li><b>Certificados:</b> shop.example.com</li><li><b>Próximo intento:</b> Wed 2026-11-11 00:41:10 UTC</li><li><b>Vuelve a ponerlo en marcha con:</b> <code>systemctl enable --now certbot.timer</code></li></ul><a href=\"https://console.example.com/n/web-1/domains\">Abrir en la consola</a>",
     "m.mentions": {}
   },
+  "domain.expiring": {
+    "msgtype": "m.text",
+    "body": "▲ Registro de dominio a punto de caducar · example.com\nEl registro de example.com caduca en 20 días (30 nov 2026).\n\nServidor: web-1\nNombres que cubre: shop.example.com, www.shop.example.com\nRegistro: rdap.verisign.com\nMíralos todos con: noust domain expiry\n\nAbrir en la consola: https://console.example.com/n/web-1/domains",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Registro de dominio a punto de caducar · example.com</b><br>El registro de example.com caduca en 20 días (30 nov 2026).<ul><li><b>Servidor:</b> web-1</li><li><b>Nombres que cubre:</b> shop.example.com, www.shop.example.com</li><li><b>Registro:</b> rdap.verisign.com</li><li><b>Míralos todos con:</b> <code>noust domain expiry</code></li></ul><a href=\"https://console.example.com/n/web-1/domains\">Abrir en la consola</a>",
+    "m.mentions": {}
+  },
+  "domain.expired": {
+    "msgtype": "m.text",
+    "body": "✕ Registro de dominio caducado · example.com\nEl registro de example.com caducó hace 3 días (7 nov 2026).\n\nServidor: web-1\nNombres que cubre: shop.example.com\nRegistro: rdap.verisign.com\nMíralos todos con: noust domain expiry\n\nAbrir en la consola: https://console.example.com/n/web-1/domains",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Registro de dominio caducado · example.com</b><br>El registro de example.com caducó hace 3 días (7 nov 2026).<ul><li><b>Servidor:</b> web-1</li><li><b>Nombres que cubre:</b> shop.example.com</li><li><b>Registro:</b> rdap.verisign.com</li><li><b>Míralos todos con:</b> <code>noust domain expiry</code></li></ul><a href=\"https://console.example.com/n/web-1/domains\">Abrir en la consola</a>",
+    "m.mentions": {}
+  },
   "app.oom_killed": {
     "msgtype": "m.text",
     "body": "✕ Aplicación cerrada por falta de memoria · shop.example.com\nEl núcleo ha cerrado shop.example.com por falta de memoria.\n\nServidor: web-1\nCerrada: 2 veces\nLímite de memoria: 512.0 MB\nLo máximo que usó: 511.0 MB\nContando desde: Tue 2026-11-10 03:00:00 UTC\nDiagnostícala con: noust diagnose shop.example.com\n\nAbrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com",

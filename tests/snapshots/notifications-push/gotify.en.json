@@ -1090,6 +1090,30 @@
       }
     }
   },
+  "domain.expiring": {
+    "title": "▲ Domain registration expiring · example.com",
+    "message": "The registration of example.com expires in 20 days (30 Nov 2026).\n\nServer: web-1\nNames it covers: shop.example.com, www.shop.example.com\nRegistry: rdap.verisign.com\nSee them all with: noust domain expiry",
+    "priority": 5,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/domains"
+        }
+      }
+    }
+  },
+  "domain.expired": {
+    "title": "✕ Domain registration expired · example.com",
+    "message": "The registration of example.com expired 3 days ago (7 Nov 2026).\n\nServer: web-1\nNames it covers: shop.example.com\nRegistry: rdap.verisign.com\nSee them all with: noust domain expiry",
+    "priority": 8,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/domains"
+        }
+      }
+    }
+  },
   "app.oom_killed": {
     "title": "✕ Application killed for lack of memory · shop.example.com",
     "message": "The kernel killed shop.example.com for running out of memory.\n\nServer: web-1\nKilled: 2 times\nMemory limit: 512.0 MB\nMost it used: 511.0 MB\nCounting since: Tue 2026-11-10 03:00:00 UTC\nDiagnose with: noust diagnose shop.example.com",

@@ -2359,6 +2359,52 @@ Sent by Noust · web-1 · 2026-09-29 10:45 UTC
 Change what you receive in Settings > Notifications
 
 ========================================================================
+### domain.expiring
+Subject: [Noust] Domain registration expiring: example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: domain_expiring
+X-Noust-Code: domain.expiring
+X-Noust-Server: web-1
+
+▲ Domain registration expiring · example.com
+The registration of example.com expires in 20 days (30 Nov 2026).
+
+Server: web-1
+Names it covers: shop.example.com, www.shop.example.com
+Registry: rdap.verisign.com
+See them all with: noust domain expiry
+
+Open in the console: https://console.example.com/n/web-1/domains
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### domain.expired
+Subject: [Noust] Domain registration expired: example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: domain_expired
+X-Noust-Code: domain.expired
+X-Noust-Server: web-1
+
+✕ Domain registration expired · example.com
+The registration of example.com expired 3 days ago (7 Nov 2026).
+
+Server: web-1
+Names it covers: shop.example.com
+Registry: rdap.verisign.com
+See them all with: noust domain expiry
+
+Open in the console: https://console.example.com/n/web-1/domains
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
 ### app.oom_killed
 Subject: [Noust] Application killed for lack of memory: shop.example.com (web-1)
 Auto-Submitted: auto-generated

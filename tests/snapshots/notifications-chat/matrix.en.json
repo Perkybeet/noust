@@ -664,6 +664,20 @@
     "formatted_body": "<b>▲ Certificate renewal stopped · certbot.timer</b><br>The timer that makes certbot renew the certificates is not running, so they will not renew by themselves.<ul><li><b>Server:</b> web-1</li><li><b>Certificates:</b> shop.example.com</li><li><b>Next attempt:</b> Wed 2026-11-11 00:41:10 UTC</li><li><b>Start it again with:</b> <code>systemctl enable --now certbot.timer</code></li></ul><a href=\"https://console.example.com/n/web-1/domains\">Open in the console</a>",
     "m.mentions": {}
   },
+  "domain.expiring": {
+    "msgtype": "m.text",
+    "body": "▲ Domain registration expiring · example.com\nThe registration of example.com expires in 20 days (30 Nov 2026).\n\nServer: web-1\nNames it covers: shop.example.com, www.shop.example.com\nRegistry: rdap.verisign.com\nSee them all with: noust domain expiry\n\nOpen in the console: https://console.example.com/n/web-1/domains",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Domain registration expiring · example.com</b><br>The registration of example.com expires in 20 days (30 Nov 2026).<ul><li><b>Server:</b> web-1</li><li><b>Names it covers:</b> shop.example.com, www.shop.example.com</li><li><b>Registry:</b> rdap.verisign.com</li><li><b>See them all with:</b> <code>noust domain expiry</code></li></ul><a href=\"https://console.example.com/n/web-1/domains\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "domain.expired": {
+    "msgtype": "m.text",
+    "body": "✕ Domain registration expired · example.com\nThe registration of example.com expired 3 days ago (7 Nov 2026).\n\nServer: web-1\nNames it covers: shop.example.com\nRegistry: rdap.verisign.com\nSee them all with: noust domain expiry\n\nOpen in the console: https://console.example.com/n/web-1/domains",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Domain registration expired · example.com</b><br>The registration of example.com expired 3 days ago (7 Nov 2026).<ul><li><b>Server:</b> web-1</li><li><b>Names it covers:</b> shop.example.com</li><li><b>Registry:</b> rdap.verisign.com</li><li><b>See them all with:</b> <code>noust domain expiry</code></li></ul><a href=\"https://console.example.com/n/web-1/domains\">Open in the console</a>",
+    "m.mentions": {}
+  },
   "app.oom_killed": {
     "msgtype": "m.text",
     "body": "✕ Application killed for lack of memory · shop.example.com\nThe kernel killed shop.example.com for running out of memory.\n\nServer: web-1\nKilled: 2 times\nMemory limit: 512.0 MB\nMost it used: 511.0 MB\nCounting since: Tue 2026-11-10 03:00:00 UTC\nDiagnose with: noust diagnose shop.example.com\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com",

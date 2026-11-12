@@ -87,6 +87,7 @@ from noust.monitor.watch_certs import CertRenewalWatch
 from noust.monitor.watch_containers import ContainerWatch
 from noust.monitor.watch_cron import CronWatch
 from noust.monitor.watch_destinations import DestinationWatch
+from noust.monitor.watch_domains import DomainExpiryWatch
 from noust.monitor.watch_oom import OomWatch
 from noust.monitor.watch_patches import PatchWatch
 from noust.monitor.watch_probes import ProbeWatch
@@ -478,6 +479,7 @@ class ProcessMonitor:
                 CentralWatch(),
                 CertRenewalWatch(),
                 OomWatch(),
+                DomainExpiryWatch(),
             ]
         )
         self._alert_engine = alert_engine

@@ -74,6 +74,7 @@ Every configuration key and the value it has until you change it. Set one with `
 | `monitor.disk_check_seconds` | `0` |
 | `monitor.disk_renotify_hours` | `0` |
 | `monitor.disk_threshold` | `90.0` |
+| `monitor.domain_expiry` | `false` |
 | `monitor.email_api.access_key_id` | `""` |
 | `monitor.email_api.api_key` | `""` |
 | `monitor.email_api.from_address` | `""` |
@@ -157,6 +158,8 @@ Every configuration key and the value it has until you change it. Set one with `
 | `notifications.events.deploy_success` | `true` |
 | `notifications.events.destination_unreachable` | `true` |
 | `notifications.events.disk_threshold` | `true` |
+| `notifications.events.domain_expired` | `true` |
+| `notifications.events.domain_expiring` | `true` |
 | `notifications.events.node_host_key_changed` | `true` |
 | `notifications.events.node_recovered` | `true` |
 | `notifications.events.node_unreachable` | `true` |

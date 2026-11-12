@@ -41,7 +41,28 @@ DEPLOYS_COLUMNS: list[Column] = []
 
 # Owned by the dates lane: when the registration of a domain expires, read from its
 # registry and off until the operator turns it on (item 173).
-DOMAINS_SQL = ""
+# domain_registrations: one row per registrable domain, what its registry last said
+#   (noust.core.domain_registrations): when the registration expires, how the last look ended
+#   and when to look again.
+# domain_registrables: which registrable domain each name Noust serves was found to belong to,
+#   so that the registry is not asked label by label every day.
+DOMAINS_SQL = """
+CREATE TABLE IF NOT EXISTS domain_registrations (
+    domain TEXT PRIMARY KEY,
+    status TEXT NOT NULL,
+    expires_at TEXT,
+    rdap_base TEXT,
+    checked_at TEXT NOT NULL,
+    next_check_at TEXT NOT NULL,
+    detail TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS domain_registrables (
+    name TEXT PRIMARY KEY,
+    registrable TEXT NOT NULL,
+    found_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_domain_registrables_domain ON domain_registrables(registrable);
+"""
 DOMAINS_COLUMNS: list[Column] = []
 
 # Owned by the functions lane: the tasks that run once and retire themselves

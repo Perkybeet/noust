@@ -1734,6 +1734,44 @@
       ]
     }
   },
+  "domain.expiring": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Registro de dominio a punto de caducar</b> · example.com\nEl registro de example.com caduca en 20 días (30 nov 2026).\n\n<b>Servidor:</b> web-1\n<b>Nombres que cubre:</b> shop.example.com, www.shop.example.com\n<b>Registro:</b> rdap.verisign.com\n<b>Míralos todos con:</b> <code>noust domain expiry</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/domains"
+          }
+        ]
+      ]
+    }
+  },
+  "domain.expired": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Registro de dominio caducado</b> · example.com\nEl registro de example.com caducó hace 3 días (7 nov 2026).\n\n<b>Servidor:</b> web-1\n<b>Nombres que cubre:</b> shop.example.com\n<b>Registro:</b> rdap.verisign.com\n<b>Míralos todos con:</b> <code>noust domain expiry</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/domains"
+          }
+        ]
+      ]
+    }
+  },
   "app.oom_killed": {
     "chat_id": "-1001234567890",
     "text": "✕ <b>Aplicación cerrada por falta de memoria</b> · shop.example.com\nEl núcleo ha cerrado shop.example.com por falta de memoria.\n\n<b>Servidor:</b> web-1\n<b>Cerrada:</b> 2 veces\n<b>Límite de memoria:</b> 512.0 MB\n<b>Lo máximo que usó:</b> 511.0 MB\n<b>Contando desde:</b> Tue 2026-11-10 03:00:00 UTC\n<b>Diagnostícala con:</b> <code>noust diagnose shop.example.com</code>",

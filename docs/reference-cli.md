@@ -8884,7 +8884,7 @@ Serve an application on more domains: aliases and redirects.
 noust domain [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`add`](#noust-domain-add), [`canonical`](#noust-domain-canonical), [`certificate`](#noust-domain-certificate), [`disable`](#noust-domain-disable), [`enable`](#noust-domain-enable), [`list`](#noust-domain-list), [`port`](#noust-domain-port), [`remove`](#noust-domain-remove), [`temporary`](#noust-domain-temporary)
+Subcommands: [`add`](#noust-domain-add), [`canonical`](#noust-domain-canonical), [`certificate`](#noust-domain-certificate), [`disable`](#noust-domain-disable), [`enable`](#noust-domain-enable), [`expiry`](#noust-domain-expiry), [`list`](#noust-domain-list), [`port`](#noust-domain-port), [`remove`](#noust-domain-remove), [`temporary`](#noust-domain-temporary)
 
 ### noust domain add
 
@@ -8969,6 +8969,22 @@ Arguments: `app_domain`, `domain`
 | Option | What it does | Default |
 |---|---|---|
 | `--no-cert` | Do not extend the certificate now. Run the command again to. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust domain expiry
+
+Show when the registration of each domain expires.
+
+```bash
+noust domain expiry [OPTIONS] [APP]
+```
+
+Arguments: `app_domain`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--refresh` | Ask the registries now: the domain name goes to each one (docs/PRIVACY.md). |  |
+| `--json` | Print the registrations as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust domain list

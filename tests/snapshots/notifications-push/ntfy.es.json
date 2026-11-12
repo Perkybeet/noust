@@ -1653,6 +1653,42 @@
       }
     ]
   },
+  "domain.expiring": {
+    "topic": "noust-alerts",
+    "title": "▲ Registro de dominio a punto de caducar · example.com",
+    "message": "El registro de example.com caduca en 20 días (30 nov 2026).\n\nServidor: web-1\nNombres que cubre: shop.example.com, www.shop.example.com\nRegistro: rdap.verisign.com\nMíralos todos con: noust domain expiry",
+    "priority": 3,
+    "tags": [
+      "domain_expiring",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/domains",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/domains"
+      }
+    ]
+  },
+  "domain.expired": {
+    "topic": "noust-alerts",
+    "title": "✕ Registro de dominio caducado · example.com",
+    "message": "El registro de example.com caducó hace 3 días (7 nov 2026).\n\nServidor: web-1\nNombres que cubre: shop.example.com\nRegistro: rdap.verisign.com\nMíralos todos con: noust domain expiry",
+    "priority": 4,
+    "tags": [
+      "domain_expired",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/domains",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/domains"
+      }
+    ]
+  },
   "app.oom_killed": {
     "topic": "noust-alerts",
     "title": "✕ Aplicación cerrada por falta de memoria · shop.example.com",
