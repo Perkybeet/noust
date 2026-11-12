@@ -13,12 +13,18 @@ door in the sentence).
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from noust.core.exceptions import DockerError, PrerequisiteError
 from noust.core.teams.model import ResourceNotFoundError
+
+if TYPE_CHECKING:
+    from noust.core.docker.cleanup import CleanupPlan
 
 __all__ = [
     "DockerNotFoundError",
     "DockerOwnedError",
+    "DockerPlanChangedError",
     "DockerUnavailableError",
 ]
 
@@ -67,3 +73,26 @@ class DockerOwnedError(DockerError, PrerequisiteError):
         super().__init__(message, details)
         self.owner_kind = owner_kind
         self.subject = subject
+
+
+class DockerPlanChangedError(DockerError, PrerequisiteError):
+    """
+    A cleanup plan is not the one that was shown, so it was not applied.
+
+    Something came into the plan or left it between the moment a person looked at it and the moment
+    they confirmed (a container started, an image was pulled): what they agreed to is not what would
+    be removed. Nothing was changed; ``plan`` is the plan as it is now, to be shown again.
+
+    Attributes:
+        plan: The plan as it is now.
+    """
+
+    def __init__(self, message: str, details: str = "", *, plan: CleanupPlan) -> None:
+        """
+        Args:
+            message: What happened.
+            details: What to do.
+            plan: The plan as it is now.
+        """
+        super().__init__(message, details)
+        self.plan = plan

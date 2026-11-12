@@ -16,6 +16,7 @@ Nothing here runs Docker.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -182,7 +183,7 @@ class DockerMachine(FakeRunner):
         Returns:
             Its id.
         """
-        ident = ("n" + name.encode().hex() * 8)[:64]
+        ident = hashlib.sha256(name.encode()).hexdigest()
         self.networks.append({"id": ident, "name": name, "driver": driver, **labels})
         return ident
 

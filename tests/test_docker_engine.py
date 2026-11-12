@@ -390,6 +390,46 @@ class TestWhatDoesNotFit:
         assert body["info"]["server_version"] == "29.1.3"
 
 
+class TestWhereTheEngineStandsForTheZone:
+    """The Docker zone looks at containers whenever the engine answers and speaks an API Noust does."""
+
+    def report(self, **options: Any) -> engine.EngineReport:
+        return diagnose(read_engine(machine(**options), stat_socket=socket_of_root))
+
+    def test_an_engine_that_fits_is_ok_and_usable(self) -> None:
+        found = self.report()
+
+        assert (found.state, found.usable) == ("ok", True)
+
+    def test_no_docker_is_missing_and_not_usable(self) -> None:
+        found = diagnose(EngineInfo(installed=False, reachable=False))
+
+        assert (found.state, found.usable) == ("missing", False)
+
+    def test_a_daemon_that_does_not_answer_is_unreachable(self) -> None:
+        found = self.report(version=version_json(server=None))
+
+        assert (found.state, found.usable) == ("unreachable", False)
+
+    def test_an_api_under_the_minimum_is_too_old_and_not_usable(self) -> None:
+        found = self.report(
+            version=version_json(client_api="1.40", server_api="1.40", min_api="1.12"),
+        )
+
+        assert (found.state, found.usable) == ("too_old", False)
+
+    def test_a_machine_without_compose_is_still_a_machine_with_containers_to_look_at(self) -> None:
+        found = self.report(compose=None)
+
+        assert found.state == "ok" and found.usable is True
+        assert found.ok is False  # stacks need Compose; containers do not
+
+    def test_the_report_carries_both_in_its_dictionary(self) -> None:
+        body = self.report().to_dict()
+
+        assert body["state"] == "ok" and body["usable"] is True
+
+
 def test_the_oldest_engine_noust_works_with_is_the_one_compose_v2_needs() -> None:
     assert engine.MIN_API == (1, 41)
     assert engine.MIN_COMPOSE == (2, 0)

@@ -37,11 +37,12 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
+from noust.core.docker import cleanup as cleanup_module
 from noust.core.docker import engine as engine_module
 from noust.core.docker import events, inspect, reading, states, stats
 from noust.core.docker import restart_loss as restart_loss_module
 from noust.core.docker import summary as summary_module
-from noust.core.docker.errors import DockerUnavailableError
+from noust.core.docker.errors import DockerPlanChangedError, DockerUnavailableError
 from noust.core.docker.judge import Can, can, judge, not_found, visible
 from noust.core.docker.models import (
     Action,
@@ -91,6 +92,9 @@ MAX_LOG_CHARS = 2_000_000
 
 #: Seconds a read of a container's log gets.
 LOGS_TIMEOUT = 60
+
+#: Seconds pruning the build cache gets: Docker walks every layer.
+CLEANUP_TIMEOUT = 900
 
 #: What a container, a volume or a network is called, and what an image is called.
 _NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,254}")
@@ -1294,7 +1298,9 @@ class DockerGate:
         self._run(self.remove_image_argv(target.id), f"remove {label}")
         return Removal(ObjectKind.IMAGE, label, target.size_bytes)
 
-    def remove_volume(self, name: str, *, confirm_name: str | None = None) -> Removal:
+    def remove_volume(
+        self, name: str, *, confirm_name: str | None = None, known_size: int | None = None
+    ) -> Removal:
         """
         Remove a volume: it must be named a second time, and what it holds is said first.
 
@@ -1302,6 +1308,8 @@ class DockerGate:
             name: The volume's name.
             confirm_name: The name again, typed by the person. Without it, or when it is another
                 name, nothing is removed and the error says what is at stake.
+            known_size: How much it holds, when the caller has just measured it: measuring walks
+                every volume of the machine, and a cleanup of several should not do it for each.
 
         Returns:
             What was removed, with the size it held when it could be measured.
@@ -1320,7 +1328,11 @@ class DockerGate:
                 f"The volume {target.name} is mounted by {', '.join(target.used_by)}",
                 details="Remove those containers first, or leave the volume where it is.",
             )
-        size = reading.volume_sizes(self.runner).get(target.name)
+        size = (
+            known_size
+            if known_size is not None
+            else reading.volume_sizes(self.runner).get(target.name)
+        )
         if confirm_name != target.name:
             raise ConfirmationRequired(
                 [
@@ -1353,6 +1365,166 @@ class DockerGate:
         )
         self._run(["docker", "network", "rm", target.id], f"remove {target.name}")
         return Removal(ObjectKind.NETWORK, target.name)
+
+    # -- cleaning --------------------------------------------------------------------------
+
+    def cleanup_plan(self) -> cleanup_module.CleanupPlan:
+        """
+        Work out what a cleanup would do, without doing it (see :mod:`noust.core.docker.cleanup`).
+
+        Returns:
+            The plan: what would go, whose it is, how much it holds and why, what stays, and the
+            token it is applied with. Empty for a principal that sees only what teams own: nothing
+            that goes into a plan is a team's.
+
+        Raises:
+            DockerUnavailableError: Docker cannot be asked.
+        """
+        owned, index = self._look()
+        shown = [c for c in owned if self._visible(c.owner)]
+        images = self._images_of(owned, index)
+        volumes = self._volumes_of(owned, index)
+        networks = self._networks_of(owned, index)
+        sizes: dict[str, int] = {}
+        if any(v.owner.kind is OwnerKind.NOBODY and not v.used_by for v in volumes):
+            sizes = reading.volume_sizes(self.runner)
+        cache = None
+        if not self.scope.restricted:
+            cache = (
+                (reading.disk_usage(self.runner) or {}).get("Build Cache", {}).get("reclaimable")
+            )
+        return cleanup_module.build_plan(
+            images=images,
+            containers=shown,
+            volumes=volumes,
+            networks=networks,
+            volume_sizes=sizes,
+            cache_bytes=cache,
+        )
+
+    def apply_cleanup(
+        self,
+        token: str,
+        select: Sequence[str],
+        *,
+        confirm_names: Mapping[str, str] | None = None,
+        on_line: Callable[[str], None] | None = None,
+    ) -> cleanup_module.CleanupResult:
+        """
+        Apply a cleanup plan as it was shown.
+
+        The plan is worked out again and must be the one the token names; what is chosen must be in
+        it, and each volume chosen must have been named by the person before anything is touched.
+        Then each thing is removed through the gate, which judges its owner once more, and one that
+        Docker refuses is told and does not stop the rest.
+
+        Args:
+            token: The token of the plan that was shown.
+            select: The ids of what to remove: ``PlanItem.id`` of items of the plan.
+            confirm_names: For each volume chosen, its name as the person typed it.
+            on_line: Told each thing that was removed, as a sentence.
+
+        Returns:
+            What was removed, what Docker refused and what was freed.
+
+        Raises:
+            DockerPlanChangedError: The plan is not the one that was shown; nothing was changed.
+            ValidationError: Something chosen is not in the plan, or nothing was chosen.
+            ConfirmationRequired: A volume was chosen and not named; nothing was changed.
+            DockerUnavailableError: Docker cannot be asked.
+        """
+        say = on_line or (lambda line: None)
+        plan = self.cleanup_plan()
+        if plan.token != token:
+            raise DockerPlanChangedError(
+                "The cleanup plan is not the one that was shown",
+                details="What is in it changed since you looked. Look at the plan again.",
+                plan=plan,
+            )
+        by_id = {item.id: item for item in plan.items}
+        chosen = []
+        for ident in dict.fromkeys(select):
+            if ident not in by_id:
+                raise ValidationError(
+                    f"{ident!r} is not in the cleanup plan",
+                    details="Choose from what the plan shows.",
+                    field="select",
+                )
+            chosen.append(by_id[ident])
+        if not chosen:
+            raise ValidationError(
+                "Nothing was chosen to clean up", details="Tick what to remove.", field="select"
+            )
+        typed = confirm_names or {}
+        unnamed = [item for item in chosen if item.type_name and typed.get(item.name) != item.name]
+        if unnamed:
+            raise ConfirmationRequired(
+                [
+                    f"Removing the volume {item.name} deletes its data ({_human(item.size_bytes)}), "
+                    "and it cannot be undone. Type its name to confirm."
+                    for item in unnamed
+                ],
+                field="confirm_names",
+            )
+        result = cleanup_module.CleanupResult()
+        for item in chosen:
+            try:
+                freed = self._remove_planned(item, say)
+            except (DockerError, ValidationError) as exc:
+                result.failed.append(
+                    {
+                        "kind": item.kind,
+                        "name": item.name,
+                        "error": (getattr(exc, "output", "") or exc.message).strip(),
+                    }
+                )
+                continue
+            result.removed.append(
+                {"kind": item.kind, "name": item.name, "size_bytes": item.size_bytes}
+            )
+            result.freed_bytes += freed if freed is not None else (item.size_bytes or 0)
+        return result
+
+    def _remove_planned(
+        self, item: cleanup_module.PlanItem, say: Callable[[str], None]
+    ) -> int | None:
+        """
+        Remove one thing of a plan.
+
+        Args:
+            item: What to remove.
+            say: Told that it was removed.
+
+        Returns:
+            What the removal said it freed, when it said; None otherwise.
+
+        Raises:
+            DockerError: Docker refused; its own words are in ``output``.
+            ValidationError: Something still uses it.
+        """
+        if item.kind == "container":
+            self.remove_container(item.id)
+        elif item.kind == "image":
+            self.remove_image(item.id)
+        elif item.kind == "network":
+            self.remove_network(item.id)
+        elif item.kind == "volume":
+            self.remove_volume(item.name, confirm_name=item.name, known_size=item.size_bytes)
+        else:
+            collected: list[str] = []
+            outcome = self.runner.stream(
+                self.prune_build_cache_argv(), on_line=collected.append, timeout=CLEANUP_TIMEOUT
+            )
+            if not outcome.success:
+                raise DockerError(
+                    "Docker could not prune the build cache",
+                    details="Docker's own message is below.",
+                    output="\n".join(collected[-40:]) or outcome.stderr,
+                )
+            say("Pruned the build cache")
+            return cleanup_module.parse_reclaimed("\n".join(collected))
+        say(f"Removed {item.kind} {item.name}")
+        return None
 
     def _run(self, argv: list[str], what: str) -> None:
         """
