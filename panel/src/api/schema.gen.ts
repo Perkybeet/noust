@@ -10071,6 +10071,269 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/backup-collection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Collection
+         * @description List the copies of this server.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         kinds: Only these kinds.
+         *         known: A fingerprint the caller already holds: when it is still the list's, nothing is
+         *             listed and ``unchanged`` says so.
+         *
+         *     Returns:
+         *         The copies and the fingerprint of the list.
+         *
+         *     Raises:
+         *         ValidationError: A kind that is not one.
+         */
+        get: operations["list_collection_api_backup_collection_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backup-collection/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read File
+         * @description Read a range of one file of a copy.
+         *
+         *     The file is the one the list names for that copy, found by exactly what the list said; the
+         *     request's text never reaches a path. The reading is recorded where it begins (offset 0), once
+         *     per file; a piece asked again in the middle records nothing more.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         kind: The kind of copy.
+         *         item: Its identifier.
+         *         name: The file's name.
+         *         offset: Where to start.
+         *         length: How many bytes at most.
+         *
+         *     Returns:
+         *         The raw bytes; fewer at the end of the file and none past it.
+         *
+         *     Raises:
+         *         HTTPException: 404 when this server lists no such file, or it went away since.
+         *         SecurityError: 400 when this server lets a copy leave only encrypted and this one is not.
+         */
+        get: operations["read_file_api_backup_collection_files_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backup-collection/held": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Held By Centrals
+         * @description Say which centrals collect the copies of this server.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Each central that has said what it holds, and whether it spoke recently.
+         */
+        get: operations["held_by_centrals_api_backup_collection_held_get"];
+        /**
+         * Say What Is Held
+         * @description Record which copies the calling central holds, in place of what it said before.
+         *
+         *     Only a central says it: the name comes from the fleet token it presented, never from the body.
+         *
+         *     Args:
+         *         body: Every copy it holds of this server.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         What was recorded.
+         *
+         *     Raises:
+         *         ValidationError: The caller is not a central, or a copy is not one.
+         */
+        put: operations["say_what_is_held_api_backup_collection_held_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backup-collection/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Returned Copy
+         * @description Queue restoring a copy that the central gave back.
+         *
+         *     A restore replaces what an application, a database or Noust's own state holds, so it asks for
+         *     sudo mode exactly as restoring a backup does, and it goes through the manager of the kind of
+         *     copy it is: its safety copy, its health gate, its refusals. Noust's own state is not restored
+         *     here: it is put where ``noust self-backup restore`` reads it.
+         *
+         *     Args:
+         *         body: The upload and what the operator confirms.
+         *         session: The authenticated, elevated session; only the one that started the upload.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         ValidationError: 400 for an unknown kind or an upload that is not finished.
+         */
+        post: operations["restore_returned_copy_api_backup_collection_restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backup-collection/returns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Return
+         * @description Start the arrival of a copy the central gives back. Nothing is sent yet.
+         *
+         *     Args:
+         *         body: The copy's size, digest and name.
+         *         session: The authenticated session, which owns the upload.
+         *
+         *     Returns:
+         *         The upload, with the offset to start at and the most a chunk may carry.
+         *
+         *     Raises:
+         *         ValidationError: 400 for a name, size or digest that is not usable, or a disk with no room.
+         */
+        post: operations["start_return_api_backup_collection_returns_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backup-collection/returns/{upload_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Return Status
+         * @description Say how much of a copy the server holds, which is where to resume.
+         *
+         *     Args:
+         *         upload_id: The upload.
+         *         session: The authenticated session; only the one that started it.
+         *
+         *     Returns:
+         *         The upload.
+         */
+        get: operations["return_status_api_backup_collection_returns__upload_id__get"];
+        /**
+         * Send Return Chunk
+         * @description Add the next chunk of a copy.
+         *
+         *     A chunk at an offset other than the one the server holds is refused with 409 and the offset to
+         *     resume from.
+         *
+         *     Args:
+         *         upload_id: The upload.
+         *         request: The request, whose body is the chunk.
+         *         offset: Where the chunk starts.
+         *         session: The authenticated session; only the one that started it.
+         *
+         *     Returns:
+         *         The upload, with the new offset.
+         *
+         *     Raises:
+         *         ValidationError: 400 for an unknown or finished upload, or a chunk past the size.
+         */
+        put: operations["send_return_chunk_api_backup_collection_returns__upload_id__put"];
+        post?: never;
+        /**
+         * Discard Return
+         * @description Throw an upload away.
+         *
+         *     Args:
+         *         upload_id: The upload.
+         *         session: The authenticated session; only the one that started it.
+         */
+        delete: operations["discard_return_api_backup_collection_returns__upload_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/backup-collection/returns/{upload_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete Return
+         * @description Close an upload: every byte is in and the digest matches.
+         *
+         *     Args:
+         *         upload_id: The upload.
+         *         session: The authenticated session; only the one that started it.
+         *
+         *     Returns:
+         *         The finished upload.
+         *
+         *     Raises:
+         *         ValidationError: 400 when the digest does not match (the data is discarded) or the upload
+         *             is unknown.
+         */
+        post: operations["complete_return_api_backup_collection_returns__upload_id__complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/backup-destinations": {
         parameters: {
             query?: never;
@@ -10943,6 +11206,233 @@ export interface paths {
          *         The verification result.
          */
         post: operations["verify_backup_api_backups__backup_id__verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/central-backups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Copies
+         * @description List the copies the central holds.
+         *
+         *     A person of a team sees the copies of the servers assigned to their teams, and a server that is
+         *     not one of those is as if it had none.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         node: Only this server's.
+         *         kind: Only this kind.
+         *         owner: Only copies of this application, database or ``noust``.
+         *         limit: The most to return.
+         *
+         *     Returns:
+         *         The copies, newest first.
+         */
+        get: operations["list_copies_api_central_backups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/central-backups/collect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Collect Now
+         * @description Ask for a pass now: what is followed is looked at at once, instead of at its turn.
+         *
+         *     The pass runs in the background: what it takes shows in the status while it does.
+         *
+         *     Args:
+         *         body: Which server, or every followed one.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         How collecting is going.
+         *
+         *     Raises:
+         *         ValidationError: The server is not one this central manages.
+         */
+        post: operations["collect_now_api_central_backups_collect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/central-backups/nodes/{node}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Follow Node
+         * @description Give a server its own answer to being collected from, or take it back to the fleet's.
+         *
+         *     Args:
+         *         node: The server.
+         *         body: ``true`` or ``false`` for its own; ``null`` to follow the fleet.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         How collecting is going now.
+         *
+         *     Raises:
+         *         ValidationError: The server is not one this central manages.
+         */
+        put: operations["follow_node_api_central_backups_nodes__node__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/central-backups/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change Settings
+         * @description Change how collecting works.
+         *
+         *     A limit given as 0 is taken off. Turning ``enabled`` on is what makes the central come for the
+         *     copies of every server that has no answer of its own, so it asks for sudo mode, and the audit
+         *     trail records who did.
+         *
+         *     Args:
+         *         body: The knobs to change.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         How collecting is going now.
+         *
+         *     Raises:
+         *         ValidationError: A knob is not right; nothing was changed.
+         */
+        put: operations["change_settings_api_central_backups_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/central-backups/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Collecting Status
+         * @description Say how collecting is going.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Who is followed (``N of M``), how each server is doing and what is moving; for the instance,
+         *         also the knobs and the disk.
+         */
+        get: operations["collecting_status_api_central_backups_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/central-backups/{node}/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Copy
+         * @description Let a copy go: its files are deleted from the central, and the server is not asked for it again.
+         *
+         *     Args:
+         *         node: The server it is a copy of.
+         *         kind: The kind of copy.
+         *         item: The server's identifier of it.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What the central holds of that server now.
+         *
+         *     Raises:
+         *         ResourceNotFoundError: The central holds no such copy.
+         */
+        delete: operations["delete_copy_api_central_backups__node___kind__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/central-backups/{node}/{kind}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Copy
+         * @description Give a copy back to a server and restore it there, as a job.
+         *
+         *     To the server it came from, or to another of the fleet. The copy is checked whole on the central
+         *     before a byte leaves, the file travels as an upload that resumes, and the server restores it with
+         *     the manager of its kind, as the person who asked. Moving a copy between two servers passes it
+         *     through this central's line; that is why it is asked for and never done by itself.
+         *
+         *     Args:
+         *         node: The server the copy is of.
+         *         kind: The kind of copy.
+         *         body: Which copy, where it goes and what is confirmed.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         ResourceNotFoundError: The central holds no such copy, or the target is not a server the
+         *             caller sees.
+         */
+        post: operations["restore_copy_api_central_backups__node___kind__restore_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -38255,6 +38745,130 @@ export interface components {
             };
         };
         /**
+         * CollectIn
+         * @description Ask for a pass now.
+         */
+        CollectIn: {
+            /**
+             * Force
+             * @description Read the whole list, not only what changed
+             * @default true
+             */
+            force: boolean;
+            /**
+             * Node
+             * @description Only this server; every followed one
+             */
+            node?: string | null;
+        };
+        /**
+         * CollectedFileOut
+         * @description One file of a copy the central holds.
+         */
+        CollectedFileOut: {
+            /** Name */
+            name: string;
+            /** Role */
+            role: string;
+            /** Sha256 */
+            sha256: string;
+            /** Size */
+            size: number;
+        };
+        /**
+         * CollectedListOut
+         * @description The copies the central holds.
+         */
+        CollectedListOut: {
+            /** Items */
+            items: components["schemas"]["CollectedOut"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * CollectedOut
+         * @description A copy the central holds of a server.
+         */
+        CollectedOut: {
+            /**
+             * Collected At
+             * @description When the central finished taking it
+             */
+            collected_at: string;
+            /**
+             * Created At
+             * @description When the server took it
+             */
+            created_at: string;
+            /** Files */
+            files: components["schemas"]["CollectedFileOut"][];
+            /**
+             * Id
+             * @description The server's identifier of it
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Meta */
+            meta?: {
+                [key: string]: string;
+            };
+            /** Node */
+            node: string;
+            /**
+             * Origin
+             * @description `scheduled`, `manual` or `safety`
+             */
+            origin: string;
+            /**
+             * Owner
+             * @description What it is a copy of
+             */
+            owner: string;
+            /** Size */
+            size: number;
+            /** State */
+            state: string;
+            /**
+             * Verified
+             * @description `digest` (matched the server's) or `size`
+             */
+            verified: string;
+        };
+        /**
+         * CollectionOut
+         * @description The copies of this server.
+         */
+        CollectionOut: {
+            /**
+             * Fingerprint
+             * @description Changes when a copy appears, goes or changes size
+             */
+            fingerprint: string;
+            /** Items */
+            items?: components["schemas"]["CopyOut"][];
+            /**
+             * Max Piece
+             * @description The most a piece may weigh
+             * @default 8388608
+             */
+            max_piece: number;
+            /**
+             * Piece Size
+             * @description What a piece weighs by default
+             * @default 4194304
+             */
+            piece_size: number;
+            /** Problems */
+            problems?: components["schemas"]["noust__web__api__backup_collection__ProblemOut"][];
+            /**
+             * Unchanged
+             * @description True when `known` was the fingerprint: nothing is listed
+             * @default false
+             */
+            unchanged: boolean;
+        };
+        /**
          * CollectorModel
          * @description Whether history is being recorded, and by whom.
          *
@@ -39371,6 +39985,26 @@ export interface components {
             template?: string | null;
         };
         /**
+         * CopyFileOut
+         * @description One file of a copy.
+         */
+        CopyFileOut: {
+            /** Name */
+            name: string;
+            /**
+             * Role
+             * @description `archive` is the copy; `sidecar` says what it is
+             */
+            role: string;
+            /**
+             * Sha256
+             * @description The digest Noust recorded for it; none for a file it did not
+             */
+            sha256?: string | null;
+            /** Size */
+            size: number;
+        };
+        /**
          * CopyIn
          * @description Put the application on servers that do not have it.
          *
@@ -39404,6 +40038,63 @@ export interface components {
             secrets: boolean;
             /** To */
             to?: string[] | null;
+        };
+        /**
+         * CopyOut
+         * @description One copy, as the files it is made of.
+         */
+        CopyOut: {
+            /**
+             * Blocked
+             * @description Why a central may not take it: `sealing_required` when this server lets a copy leave only encrypted and this one is not
+             */
+            blocked?: string | null;
+            /**
+             * Created At
+             * @description When it was taken, UTC
+             */
+            created_at: string;
+            /** Files */
+            files: components["schemas"]["CopyFileOut"][];
+            /**
+             * Folder
+             * @description The same as one plain name
+             */
+            folder: string;
+            /**
+             * Id
+             * @description Its identifier on this server, unique for its kind
+             */
+            id: string;
+            /**
+             * Kind
+             * @description `app`, `database`, `volume` or `noust`
+             */
+            kind: string;
+            /** Meta */
+            meta?: {
+                [key: string]: string;
+            };
+            /**
+             * Origin
+             * @description `scheduled`, `manual` or `safety`
+             */
+            origin: string;
+            /**
+             * Owner
+             * @description What it is a copy of
+             */
+            owner: string;
+            /**
+             * Sealed
+             * @description Whether its file is encrypted where it lies
+             */
+            sealed: boolean;
+            /**
+             * Size
+             * @description What all its files weigh
+             */
+            size: number;
         };
         /**
          * CpuInfo
@@ -41064,7 +41755,7 @@ export interface components {
             delivered_at?: string | null;
             /** Delivery */
             delivery: string;
-            error?: components["schemas"]["ProblemOut"] | null;
+            error?: components["schemas"]["noust__web__api__fleet_sources__ProblemOut"] | null;
             /** Follows */
             follows?: components["schemas"]["FollowOut"][];
             /** Id */
@@ -45435,6 +46126,18 @@ export interface components {
             previous?: string | null;
         };
         /**
+         * FollowingOut
+         * @description How many servers are collected from.
+         */
+        FollowingOut: {
+            /** Exceptions */
+            exceptions?: string[];
+            /** Following */
+            following: number;
+            /** Of */
+            of: number;
+        };
+        /**
          * ForecastReason
          * @description Why there is no disk forecast.
          *
@@ -45932,6 +46635,36 @@ export interface components {
             redirect_uri: string | null;
         };
         /**
+         * GiveBackIn
+         * @description Give a copy back.
+         */
+        GiveBackIn: {
+            /**
+             * Item
+             * @description The server's identifier of the copy
+             */
+            item: string;
+            /**
+             * Options
+             * @description `restore_env`, `safety_backup`, `drop_existing`, `schema_changed_ok`
+             */
+            options?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Target
+             * @description Where it goes on that server: `domain`, or `engine`, `database`, `new_name`
+             */
+            target?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Target Node
+             * @description The server it goes to; the one it came from when omitted
+             */
+            target_node?: string | null;
+        };
+        /**
          * GrantPrivilegesRequest
          * @description Request to grant or revoke privileges.
          */
@@ -46231,6 +46964,66 @@ export interface components {
             start_period?: number | null;
             /** Timeout */
             timeout?: number | null;
+        };
+        /**
+         * HeldCentralOut
+         * @description A central that has said what it holds.
+         */
+        HeldCentralOut: {
+            /** Central */
+            central: string;
+            /**
+             * Fresh
+             * @description It spoke recently enough to count
+             */
+            fresh: boolean;
+            /** Held */
+            held: number;
+            /** Synced At */
+            synced_at: string;
+        };
+        /**
+         * HeldIn
+         * @description Everything a central holds of this server.
+         */
+        HeldIn: {
+            /** Items */
+            items?: components["schemas"]["HeldItem"][];
+        };
+        /**
+         * HeldItem
+         * @description A copy a central says it holds.
+         */
+        HeldItem: {
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /**
+             * Sha256
+             * @description The digest it checked the copy against
+             */
+            sha256?: string | null;
+        };
+        /**
+         * HeldListOut
+         * @description The centrals that collect from this server.
+         */
+        HeldListOut: {
+            /** Centrals */
+            centrals: components["schemas"]["HeldCentralOut"][];
+        };
+        /**
+         * HeldOut
+         * @description What was recorded.
+         */
+        HeldOut: {
+            /** Central */
+            central: string;
+            /** Held */
+            held: number;
+            /** Synced At */
+            synced_at: string;
         };
         /**
          * HistoryEntryResponse
@@ -50591,6 +51384,17 @@ export interface components {
             ssh_target: string;
         };
         /**
+         * NodeFollowIn
+         * @description A server's own answer to being collected from.
+         */
+        NodeFollowIn: {
+            /**
+             * Follow
+             * @description True or false for its own; null to follow the fleet
+             */
+            follow: boolean | null;
+        };
+        /**
          * NodeKeyResponse
          * @description Response for ``GET /api/nodes/{node}/key``.
          *
@@ -50870,17 +51674,71 @@ export interface components {
         NodeSourcesOut: {
             /** Checked At */
             checked_at?: string | null;
-            error?: components["schemas"]["ProblemOut"] | null;
+            error?: components["schemas"]["noust__web__api__fleet_sources__ProblemOut"] | null;
             /** Leases */
             leases?: components["schemas"]["noust__web__api__fleet_sources__LeaseOut"][];
             /** Node */
             node: string;
             /** Problems */
-            problems?: components["schemas"]["ProblemOut"][];
+            problems?: components["schemas"]["noust__web__api__fleet_sources__ProblemOut"][];
             /** State */
             state: string;
             /** Uncovered */
             uncovered?: string[];
+        };
+        /**
+         * NodeStatusOut
+         * @description How collecting is going with one server.
+         */
+        NodeStatusOut: {
+            /**
+             * Failures
+             * @default 0
+             */
+            failures: number;
+            /**
+             * Follow
+             * @description Its own answer; none follows the fleet's
+             */
+            follow: boolean | null;
+            /**
+             * Following
+             * @description Whether it is collected from
+             */
+            following: boolean;
+            /**
+             * Held
+             * @description `count` and `bytes` the central holds of it
+             */
+            held: {
+                [key: string]: number;
+            };
+            /** Last Error */
+            last_error?: string | null;
+            /** Last Error Code */
+            last_error_code?: string | null;
+            /** Last Ok At */
+            last_ok_at?: string | null;
+            /** Last Pass At */
+            last_pass_at?: string | null;
+            /**
+             * Moving
+             * @description What is being taken now
+             */
+            moving?: {
+                [key: string]: unknown;
+            } | null;
+            /** Newest */
+            newest?: string | null;
+            /** Node */
+            node: string;
+            /**
+             * Support
+             * @description What it can be collected for
+             */
+            support?: {
+                [key: string]: unknown;
+            };
         };
         /**
          * NodeTeamRequest
@@ -53254,28 +54112,6 @@ export interface components {
              * @default
              */
             output: string;
-        };
-        /**
-         * ProblemOut
-         * @description Something that could not be done, and why.
-         *
-         *     Attributes:
-         *         text: The sentence in English.
-         *         hint: How to fix it.
-         *         coded: The same sentence as ``{code, params}``, for the console to translate.
-         *         output: The words of GitHub or of the server, verbatim; never a token.
-         */
-        ProblemOut: {
-            /** Coded */
-            coded: {
-                [key: string]: unknown;
-            };
-            /** Hint */
-            hint?: string | null;
-            /** Output */
-            output?: string | null;
-            /** Text */
-            text: string;
         };
         /**
          * ProcessChangeResponse
@@ -57312,6 +58148,95 @@ export interface components {
             pruned: string[];
         };
         /**
+         * ReturnOut
+         * @description A copy on its way back.
+         */
+        ReturnOut: {
+            /**
+             * Chunk Size
+             * @description The most one chunk request may carry
+             */
+            chunk_size: number;
+            /** Complete */
+            complete: boolean;
+            /** Id */
+            id: string;
+            /**
+             * Received
+             * @description Bytes held, which is where to resume
+             */
+            received: number;
+            /** Sha256 */
+            sha256: string | null;
+            /** Size */
+            size: number;
+        };
+        /**
+         * ReturnRestore
+         * @description Restore a copy that came back.
+         */
+        ReturnRestore: {
+            /**
+             * Kind
+             * @description The kind of copy
+             */
+            kind: string;
+            /**
+             * Meta
+             * @description The small facts the central recorded of it
+             */
+            meta?: {
+                [key: string]: string;
+            };
+            /**
+             * Options
+             * @description `restore_env`, `safety_backup`, `drop_existing`, `schema_changed_ok`
+             */
+            options?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Sidecar
+             * @description What the copy's sidecar said, when it had one
+             */
+            sidecar?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Target
+             * @description Where it goes: `domain`, or `engine`, `database` and `new_name`
+             */
+            target?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Upload Id
+             * @description The finished upload that holds the copy
+             */
+            upload_id: string;
+        };
+        /**
+         * ReturnStart
+         * @description Start the return of a copy.
+         */
+        ReturnStart: {
+            /**
+             * File Name
+             * @description Its name
+             */
+            file_name: string;
+            /**
+             * Sha256
+             * @description Its digest, 64 hex digits
+             */
+            sha256: string;
+            /**
+             * Size
+             * @description Its size in bytes
+             */
+            size: number;
+        };
+        /**
          * ReviewListResponse
          * @description Response for ``GET /api/audit/reviews``.
          *
@@ -60526,6 +61451,57 @@ export interface components {
             timezone?: string | null;
         };
         /**
+         * SettingsIn
+         * @description Change how collecting works. A knob not named is left as it is.
+         */
+        SettingsIn: {
+            /**
+             * Enabled
+             * @description Collect the fleet
+             */
+            enabled?: boolean | null;
+            /**
+             * Kinds
+             * @description Which kinds of copy are taken
+             */
+            kinds?: string[] | null;
+            /**
+             * Min Free Gb
+             * @description Room always left on the disk
+             */
+            min_free_gb?: number | null;
+            /**
+             * Pass Hours
+             * @description Hours between whole lists
+             */
+            pass_hours?: number | null;
+            /**
+             * Poll Seconds
+             * @description How often each server is looked at
+             */
+            poll_seconds?: number | null;
+            /**
+             * Rate Limit Kbps
+             * @description Kilobytes a second; 0 for none
+             */
+            rate_limit_kbps?: number | null;
+            /**
+             * Retention Count
+             * @description Scheduled copies kept; 0 for no limit
+             */
+            retention_count?: number | null;
+            /**
+             * Retention Days
+             * @description Days a scheduled copy is kept; 0 for no limit
+             */
+            retention_days?: number | null;
+            /**
+             * Retention Gb
+             * @description Gigabytes kept per application; 0 for no limit
+             */
+            retention_gb?: number | null;
+        };
+        /**
          * ShipIn
          * @description Build the application on one server and run that build on the placement's servers.
          *
@@ -62566,6 +63542,34 @@ export interface components {
             since: number;
             /** State */
             state: string;
+        };
+        /**
+         * StatusOut
+         * @description How collecting is going.
+         */
+        StatusOut: {
+            /**
+             * Directory
+             * @description Where the copies are; the instance's
+             */
+            directory?: string | null;
+            following: components["schemas"]["FollowingOut"];
+            /** Nodes */
+            nodes: components["schemas"]["NodeStatusOut"][];
+            /**
+             * Settings
+             * @description The knobs; the instance's
+             */
+            settings?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Space
+             * @description The disk; the instance's
+             */
+            space?: {
+                [key: string]: unknown;
+            } | null;
         };
         /**
          * StatusPageBody
@@ -67782,6 +68786,16 @@ export interface components {
             token_presets?: components["schemas"]["TokenPresetInfo"][];
         };
         /**
+         * ProblemOut
+         * @description A kind of copy that could not be listed.
+         */
+        noust__web__api__backup_collection__ProblemOut: {
+            /** Kind */
+            kind: string;
+            /** Message */
+            message: string;
+        };
+        /**
          * ScheduleDestination
          * @description One remote destination a schedule pushes its backups to.
          */
@@ -68680,7 +69694,7 @@ export interface components {
          *         error: Why the last try failed.
          */
         noust__web__api__fleet_sources__LeaseOut: {
-            error?: components["schemas"]["ProblemOut"] | null;
+            error?: components["schemas"]["noust__web__api__fleet_sources__ProblemOut"] | null;
             /** Expires At */
             expires_at?: string | null;
             /** Expires In */
@@ -68695,6 +69709,28 @@ export interface components {
             repositories: string[];
             /** State */
             state: string;
+        };
+        /**
+         * ProblemOut
+         * @description Something that could not be done, and why.
+         *
+         *     Attributes:
+         *         text: The sentence in English.
+         *         hint: How to fix it.
+         *         coded: The same sentence as ``{code, params}``, for the console to translate.
+         *         output: The words of GitHub or of the server, verbatim; never a token.
+         */
+        noust__web__api__fleet_sources__ProblemOut: {
+            /** Coded */
+            coded: {
+                [key: string]: unknown;
+            };
+            /** Hint */
+            hint?: string | null;
+            /** Output */
+            output?: string | null;
+            /** Text */
+            text: string;
         };
         /**
          * BranchListOut
@@ -80516,6 +81552,324 @@ export interface operations {
             };
         };
     };
+    list_collection_api_backup_collection_get: {
+        parameters: {
+            query?: {
+                /** @description Only these kinds, separated by commas */
+                kinds?: string | null;
+                /** @description The fingerprint the caller already has */
+                known?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollectionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_file_api_backup_collection_files_get: {
+        parameters: {
+            query: {
+                /** @description The kind of copy */
+                kind: string;
+                /** @description The copy's identifier, as listed */
+                item: string;
+                /** @description The file's name, as listed */
+                name: string;
+                /** @description Where to start in the file */
+                offset: number;
+                /** @description How many bytes at most */
+                length?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The bytes asked for: fewer at the end of the file, none past it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    held_by_centrals_api_backup_collection_held_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HeldListOut"];
+                };
+            };
+        };
+    };
+    say_what_is_held_api_backup_collection_held_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HeldIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HeldOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_returned_copy_api_backup_collection_restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReturnRestore"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_return_api_backup_collection_returns_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReturnStart"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReturnOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    return_status_api_backup_collection_returns__upload_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReturnOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_return_chunk_api_backup_collection_returns__upload_id__put: {
+        parameters: {
+            query: {
+                /** @description Where this chunk starts in the file */
+                offset: number;
+            };
+            header?: never;
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReturnOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discard_return_api_backup_collection_returns__upload_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_return_api_backup_collection_returns__upload_id__complete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReturnOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_destinations_api_backup_destinations_get: {
         parameters: {
             query?: never;
@@ -81445,6 +82799,235 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VerifyBackupResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_copies_api_central_backups_get: {
+        parameters: {
+            query?: {
+                /** @description Only this server's */
+                node?: string | null;
+                /** @description Only this kind */
+                kind?: string | null;
+                /** @description Only copies of this */
+                owner?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollectedListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    collect_now_api_central_backups_collect_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CollectIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    follow_node_api_central_backups_nodes__node__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NodeFollowIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_settings_api_central_backups_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettingsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    collecting_status_api_central_backups_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusOut"];
+                };
+            };
+        };
+    };
+    delete_copy_api_central_backups__node___kind__delete: {
+        parameters: {
+            query: {
+                /** @description The server's identifier of the copy */
+                item: string;
+            };
+            header?: never;
+            path: {
+                node: string;
+                kind: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollectedListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_copy_api_central_backups__node___kind__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node: string;
+                kind: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GiveBackIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
                 };
             };
             /** @description Validation Error */

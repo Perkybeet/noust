@@ -1994,6 +1994,47 @@ CodedText = TypedDict("CodedText", {
     "params": NotRequired[dict[str, Union[bool, int, float, str]]],
 })
 
+CollectIn = TypedDict("CollectIn", {
+    "force": NotRequired[bool],
+    "node": NotRequired[Union[str, None]],
+})
+
+CollectedFileOut = TypedDict("CollectedFileOut", {
+    "name": Required[str],
+    "role": Required[str],
+    "sha256": Required[str],
+    "size": Required[int],
+})
+
+CollectedListOut = TypedDict("CollectedListOut", {
+    "items": Required[list["CollectedOut"]],
+    "total": Required[int],
+})
+
+CollectedOut = TypedDict("CollectedOut", {
+    "collected_at": Required[str],
+    "created_at": Required[str],
+    "files": Required[list["CollectedFileOut"]],
+    "id": Required[str],
+    "kind": Required[str],
+    "meta": NotRequired[dict[str, str]],
+    "node": Required[str],
+    "origin": Required[str],
+    "owner": Required[str],
+    "size": Required[int],
+    "state": Required[str],
+    "verified": Required[str],
+})
+
+CollectionOut = TypedDict("CollectionOut", {
+    "fingerprint": Required[str],
+    "items": NotRequired[list["CopyOut"]],
+    "max_piece": NotRequired[int],
+    "piece_size": NotRequired[int],
+    "problems": NotRequired[list["NoustWebApiBackupCollectionProblemOut"]],
+    "unchanged": NotRequired[bool],
+})
+
 CollectorModel = TypedDict("CollectorModel", {
     "advice": NotRequired[Union["ReasonModel", None]],
     "host": NotRequired[Union[str, None]],
@@ -2343,6 +2384,13 @@ CoolifyImportRequest = TypedDict("CoolifyImportRequest", {
     "template": NotRequired[Union[str, None]],
 })
 
+CopyFileOut = TypedDict("CopyFileOut", {
+    "name": Required[str],
+    "role": Required[str],
+    "sha256": NotRequired[Union[str, None]],
+    "size": Required[int],
+})
+
 CopyIn = TypedDict("CopyIn", {
     "from_node": NotRequired[Union[str, None]],
     "match_commit": NotRequired[bool],
@@ -2350,6 +2398,20 @@ CopyIn = TypedDict("CopyIn", {
     "plan": NotRequired[bool],
     "secrets": NotRequired[bool],
     "to": NotRequired[Union[list[str], None]],
+})
+
+CopyOut = TypedDict("CopyOut", {
+    "blocked": NotRequired[Union[str, None]],
+    "created_at": Required[str],
+    "files": Required[list["CopyFileOut"]],
+    "folder": Required[str],
+    "id": Required[str],
+    "kind": Required[str],
+    "meta": NotRequired[dict[str, str]],
+    "origin": Required[str],
+    "owner": Required[str],
+    "sealed": Required[bool],
+    "size": Required[int],
 })
 
 CpuInfo = TypedDict("CpuInfo", {
@@ -2819,7 +2881,7 @@ DeliveryOut = TypedDict("DeliveryOut", {
     "created_at": Required[str],
     "delivered_at": NotRequired[Union[str, None]],
     "delivery": Required[str],
-    "error": NotRequired[Union["ProblemOut", None]],
+    "error": NotRequired[Union["NoustWebApiFleetSourcesProblemOut", None]],
     "follows": NotRequired[list["FollowOut"]],
     "id": Required[str],
     "jobs": NotRequired[list[dict[str, Any]]],
@@ -4259,6 +4321,12 @@ FollowTagsResponse = TypedDict("FollowTagsResponse", {
     "previous": NotRequired[Union[str, None]],
 })
 
+FollowingOut = TypedDict("FollowingOut", {
+    "exceptions": NotRequired[list[str]],
+    "following": Required[int],
+    "of": Required[int],
+})
+
 ForecastReason = TypedDict("ForecastReason", {
     "code": Required[str],
     "message": Required[str],
@@ -4421,6 +4489,13 @@ GitLabStatusOut = TypedDict("GitLabStatusOut", {
     "redirect_uri": Required[Union[str, None]],
 })
 
+GiveBackIn = TypedDict("GiveBackIn", {
+    "item": Required[str],
+    "options": NotRequired[dict[str, Any]],
+    "target": NotRequired[dict[str, Any]],
+    "target_node": NotRequired[Union[str, None]],
+})
+
 GrantPrivilegesRequest = TypedDict("GrantPrivilegesRequest", {
     "database": Required[str],
     "engine": Required[str],
@@ -4518,6 +4593,33 @@ HealthCheckResponse = TypedDict("HealthCheckResponse", {
     "service": NotRequired[Union[str, None]],
     "start_period": NotRequired[Union[int, None]],
     "timeout": NotRequired[Union[int, None]],
+})
+
+HeldCentralOut = TypedDict("HeldCentralOut", {
+    "central": Required[str],
+    "fresh": Required[bool],
+    "held": Required[int],
+    "synced_at": Required[str],
+})
+
+HeldIn = TypedDict("HeldIn", {
+    "items": NotRequired[list["HeldItem"]],
+})
+
+HeldItem = TypedDict("HeldItem", {
+    "id": Required[str],
+    "kind": Required[str],
+    "sha256": NotRequired[Union[str, None]],
+})
+
+HeldListOut = TypedDict("HeldListOut", {
+    "centrals": Required[list["HeldCentralOut"]],
+})
+
+HeldOut = TypedDict("HeldOut", {
+    "central": Required[str],
+    "held": Required[int],
+    "synced_at": Required[str],
 })
 
 HistoryEntryResponse = TypedDict("HistoryEntryResponse", {
@@ -5981,6 +6083,10 @@ NodeAddRequest = TypedDict("NodeAddRequest", {
     "ssh_target": Required[str],
 })
 
+NodeFollowIn = TypedDict("NodeFollowIn", {
+    "follow": Required[Union[bool, None]],
+})
+
 NodeKeyResponse = TypedDict("NodeKeyResponse", {
     "authorize_command": Required[str],
     "name": Required[str],
@@ -6065,12 +6171,27 @@ NodeRotationResponse = TypedDict("NodeRotationResponse", {
 
 NodeSourcesOut = TypedDict("NodeSourcesOut", {
     "checked_at": NotRequired[Union[str, None]],
-    "error": NotRequired[Union["ProblemOut", None]],
+    "error": NotRequired[Union["NoustWebApiFleetSourcesProblemOut", None]],
     "leases": NotRequired[list["NoustWebApiFleetSourcesLeaseOut"]],
     "node": Required[str],
-    "problems": NotRequired[list["ProblemOut"]],
+    "problems": NotRequired[list["NoustWebApiFleetSourcesProblemOut"]],
     "state": Required[str],
     "uncovered": NotRequired[list[str]],
+})
+
+NodeStatusOut = TypedDict("NodeStatusOut", {
+    "failures": NotRequired[int],
+    "follow": Required[Union[bool, None]],
+    "following": Required[bool],
+    "held": Required[dict[str, int]],
+    "last_error": NotRequired[Union[str, None]],
+    "last_error_code": NotRequired[Union[str, None]],
+    "last_ok_at": NotRequired[Union[str, None]],
+    "last_pass_at": NotRequired[Union[str, None]],
+    "moving": NotRequired[Union[dict[str, Any], None]],
+    "newest": NotRequired[Union[str, None]],
+    "node": Required[str],
+    "support": NotRequired[dict[str, Any]],
 })
 
 NodeTeamRequest = TypedDict("NodeTeamRequest", {
@@ -6824,13 +6945,6 @@ ProbeModel = TypedDict("ProbeModel", {
 ProbeResult = TypedDict("ProbeResult", {
     "exit_code": NotRequired[Union[int, None]],
     "output": NotRequired[str],
-})
-
-ProblemOut = TypedDict("ProblemOut", {
-    "coded": Required[dict[str, Any]],
-    "hint": NotRequired[Union[str, None]],
-    "output": NotRequired[Union[str, None]],
-    "text": Required[str],
 })
 
 ProcessChangeResponse = TypedDict("ProcessChangeResponse", {
@@ -8105,6 +8219,30 @@ RetentionResponse = TypedDict("RetentionResponse", {
     "pruned": Required[list[str]],
 })
 
+ReturnOut = TypedDict("ReturnOut", {
+    "chunk_size": Required[int],
+    "complete": Required[bool],
+    "id": Required[str],
+    "received": Required[int],
+    "sha256": Required[Union[str, None]],
+    "size": Required[int],
+})
+
+ReturnRestore = TypedDict("ReturnRestore", {
+    "kind": Required[str],
+    "meta": NotRequired[dict[str, str]],
+    "options": NotRequired[dict[str, Any]],
+    "sidecar": NotRequired[Union[dict[str, Any], None]],
+    "target": NotRequired[dict[str, Any]],
+    "upload_id": Required[str],
+})
+
+ReturnStart = TypedDict("ReturnStart", {
+    "file_name": Required[str],
+    "sha256": Required[str],
+    "size": Required[int],
+})
+
 ReviewListResponse = TypedDict("ReviewListResponse", {
     "items": Required[list["ReviewOut"]],
 })
@@ -9086,6 +9224,18 @@ SetVolumePolicyRequest = TypedDict("SetVolumePolicyRequest", {
     "timezone": NotRequired[Union[str, None]],
 })
 
+SettingsIn = TypedDict("SettingsIn", {
+    "enabled": NotRequired[Union[bool, None]],
+    "kinds": NotRequired[Union[list[str], None]],
+    "min_free_gb": NotRequired[Union[float, None]],
+    "pass_hours": NotRequired[Union[int, None]],
+    "poll_seconds": NotRequired[Union[int, None]],
+    "rate_limit_kbps": NotRequired[Union[int, None]],
+    "retention_count": NotRequired[Union[int, None]],
+    "retention_days": NotRequired[Union[int, None]],
+    "retention_gb": NotRequired[Union[float, None]],
+})
+
 ShipIn = TypedDict("ShipIn", {
     "builder": NotRequired[Union[str, None]],
     "canary": NotRequired[Union[str, None]],
@@ -9728,6 +9878,14 @@ StatusModel = TypedDict("StatusModel", {
     "last_status": NotRequired[Union[int, None]],
     "since": Required[float],
     "state": Required[str],
+})
+
+StatusOut = TypedDict("StatusOut", {
+    "directory": NotRequired[Union[str, None]],
+    "following": Required["FollowingOut"],
+    "nodes": Required[list["NodeStatusOut"]],
+    "settings": NotRequired[Union[dict[str, Any], None]],
+    "space": NotRequired[Union[dict[str, Any], None]],
 })
 
 StatusPageBody = TypedDict("StatusPageBody", {
@@ -11485,6 +11643,11 @@ NoustWebApiAuthRolesResponse = TypedDict("NoustWebApiAuthRolesResponse", {
     "token_presets": NotRequired[list["TokenPresetInfo"]],
 })
 
+NoustWebApiBackupCollectionProblemOut = TypedDict("NoustWebApiBackupCollectionProblemOut", {
+    "kind": Required[str],
+    "message": Required[str],
+})
+
 NoustWebApiBackupSchedulesScheduleDestination = TypedDict("NoustWebApiBackupSchedulesScheduleDestination", {
     "name": Required[str],
     "retention_count": NotRequired[Union[int, None]],
@@ -11748,7 +11911,7 @@ NoustWebApiFleetSourcesDeliveriesOut = TypedDict("NoustWebApiFleetSourcesDeliver
 })
 
 NoustWebApiFleetSourcesLeaseOut = TypedDict("NoustWebApiFleetSourcesLeaseOut", {
-    "error": NotRequired[Union["ProblemOut", None]],
+    "error": NotRequired[Union["NoustWebApiFleetSourcesProblemOut", None]],
     "expires_at": NotRequired[Union[str, None]],
     "expires_in": NotRequired[Union[int, None]],
     "host": NotRequired[Union[str, None]],
@@ -11756,6 +11919,13 @@ NoustWebApiFleetSourcesLeaseOut = TypedDict("NoustWebApiFleetSourcesLeaseOut", {
     "key": Required[str],
     "repositories": Required[list[str]],
     "state": Required[str],
+})
+
+NoustWebApiFleetSourcesProblemOut = TypedDict("NoustWebApiFleetSourcesProblemOut", {
+    "coded": Required[dict[str, Any]],
+    "hint": NotRequired[Union[str, None]],
+    "output": NotRequired[Union[str, None]],
+    "text": Required[str],
 })
 
 NoustWebApiGitlabBranchListOut = TypedDict("NoustWebApiGitlabBranchListOut", {

@@ -301,6 +301,18 @@ readable: they hold ids, sizes and digests, never the data.
   envelope under its own passphrase), a dump handed to `noust db import`, files no record describes
   (a restore's safety copy, a dump put in the directory by hand) and what a destination already holds.
 
+## Restoring from the central
+
+If the server's own copies are gone with its disk, the central still holds the ones it collected
+(`noust fleet collect list`). `noust fleet collect restore SERVER KIND ITEM [--to OTHER]` (or **Restore on
+a server** on the console's **Copies on the central**) checks the copy whole, sends it to the server through
+its tunnel and restores it with the manager of its kind, so what it replaces and what it asks first are those
+of any restore of that kind. It works to another server of the fleet as well, which is how an application or
+a database is brought back on a new machine; the copy then crosses the central's own connection, so it is
+always asked for. A copy of Noust's own state is put on the server but not restored from here, and the command
+that restores it is printed: restoring it replaces the store the console runs on. See
+[Taking the copies of your servers](central-maintain.md#taking-the-copies-of-your-servers).
+
 ## Does a backup come back?
 
 A backup nobody restored is a hope. `noust backup drill` rehearses it:

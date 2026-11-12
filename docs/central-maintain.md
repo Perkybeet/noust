@@ -88,6 +88,74 @@ docker run --rm -v noust-data:/data -v "$PWD":/backup debian:bookworm-slim \
   tar czf /backup/noust-data.tgz -C /data .
 ```
 
+## Taking the copies of your servers
+
+A server makes its own backups and keeps them on its own disk. The central can come for them: it
+asks each server, through the tunnel it already has, which copies it holds that the central does
+not, and downloads them one at a time. This is how the copies get to a NAS without an SFTP
+destination, and without opening a port on the router: the tunnel goes one way on purpose (the
+central dials, a server cannot reach back), so a server never *sends* anything. The central
+*collects*, and a server holds no credential of the place its copies end up in.
+
+```bash
+docker exec -it noust noust fleet collect enable      # every server, unless one says otherwise
+docker exec -it noust noust fleet collect follow web-2 off      # one server apart (on, off, fleet)
+docker exec -it noust noust fleet collect status      # followed N of M, each server, the room left
+docker exec -it noust noust fleet collect run         # a pass now (add --force to read every list again)
+docker exec -it noust noust fleet collect list        # what the central holds, newest first
+docker exec -it noust noust fleet collect set rate_limit_kbps 4096   # a speed limit; "none" takes it off
+```
+
+The console has the same: **Backups > Destinations > The central** turns collecting on for the fleet
+and **Backups on every server > Copies on the central** lists what is held, how each server is doing,
+and restores or deletes a copy. The knobs are `kinds` (applications, databases, volumes and Noust's own
+state; all by default), `rate_limit_kbps`, `poll_seconds`, `pass_hours`, `retention_count` (30 scheduled
+copies of each application by default), `retention_days`, `retention_gb` and `min_free_gb` (1 GB).
+
+**Where they are.** In `<backup directory>/.collected/<server>/<folder>/<kind>/<copy>/`, which in the
+container is `/data/backups/.collected`. They can be large: mount a disk or a NAS folder of its own at
+`/data/backups` (`packaging/container/compose.yaml` shows how, and the folder must belong to uid
+10001). A central that has less than `min_free_gb` left stops taking copies, says so in the console and
+in a notification, and **deletes nothing to make room**: which copies to let go is yours to decide or
+the retention's. The central's retention is its own and only ever lets go scheduled copies, never the
+newest one of an application; a manual or safety copy stays until you delete it.
+
+**How it goes.** Each copy travels in pieces to a file that is not the copy until its checksum matches
+the one the server computed, so a dropped connection resumes where it stopped and a copy that was cut
+is never mistaken for a good one. Transfers use a connection of their own (the same key, the same
+restrictions) so the console and its events are not held back, one at a time per server and at the
+speed you set. The central looks at each server about once a minute for what is new and reads the whole
+list again every few hours. If the central was off, it takes what it missed when it returns, and a
+server does not delete a copy the central has not taken yet while its own retention lets it keep it
+(never more than 14 days beyond it); if it has to, it says so in its audit trail.
+
+**What a server must allow.** The server's access ceiling (`noust fleet access`) has to be `deploy` or
+`admin`: reading copies is the permission `backups.collect`, which a server held to `read` never gives
+its central, because a copy holds `.env` files and database dumps. Under the ENS profile, or with
+`backup.encryption: required`, a server whose copies are not sealed refuses to hand them over
+(`sealing_required`) and the central says so in that server's row. A server before 4.3 has no such
+routes: the central takes only the database dumps it already could, and says "only database dumps"
+until the server is updated.
+
+**It is one copy.** A copy on the central is on one machine. `noust health`, the checks and the ENS
+profile count it as a copy away from the server and say where it is (`central:<name>`), but it does
+not replace a destination outside the central: the console says so and offers to add one.
+
+**Restoring.** `noust fleet collect restore web-1 app shop_1 --to web-2` (or **Restore on a server** in
+the console) checks the copy whole on the central, sends it to the server through its tunnel as an
+upload that resumes, and the server restores it with the manager of its kind, as the person who asked
+and with sudo mode like any restore. To another server of the fleet it passes the whole copy through the
+central's own connection; that is why it is always asked for. A copy of Noust's own state is put on the
+server and not restored from here: its command (`noust self-backup restore ...`) is shown, because
+restoring it replaces the store the console runs on. Going back past a deployment that changed the
+database schema needs the same confirmation as any other restore.
+
+**Moving from an SFTP destination.** Turn collecting on and wait for a pass to finish (`noust fleet
+collect status` says "up to date" for each server and `list` shows the copies). Check one copy by
+restoring it somewhere harmless. Then take the SFTP destination off the schedules that used it, remove
+it, and close the router port and the container that served it. A server on an older Noust than 4.3 only
+gives its database dumps, so update it first, or keep its destination until you have.
+
 ## Rotating a server's key
 
 ```bash

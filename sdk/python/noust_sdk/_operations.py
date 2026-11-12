@@ -287,6 +287,16 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("authentication", "revoke_api_token"): ("DELETE", "/api/auth/tokens/{token_id}", "self", False),
     ("authentication", "verify_token"): ("GET", "/api/auth/verify", "self", False),
     ("authentication", "create_ws_ticket"): ("POST", "/api/auth/ws-ticket", "self", False),
+    ("backup_collection", "list_collection"): ("GET", "/api/backup-collection", "backups.collect", False),
+    ("backup_collection", "read_file"): ("GET", "/api/backup-collection/files", "backups.collect", False),
+    ("backup_collection", "held_by_centrals"): ("GET", "/api/backup-collection/held", "backups.read", False),
+    ("backup_collection", "say_what_is_held"): ("PUT", "/api/backup-collection/held", "backups.collect", False),
+    ("backup_collection", "restore_returned_copy"): ("POST", "/api/backup-collection/restore", "backups.manage", True),
+    ("backup_collection", "start_return"): ("POST", "/api/backup-collection/returns", "backups.manage", False),
+    ("backup_collection", "return_status"): ("GET", "/api/backup-collection/returns/{upload_id}", "backups.manage", False),
+    ("backup_collection", "send_return_chunk"): ("PUT", "/api/backup-collection/returns/{upload_id}", "backups.manage", False),
+    ("backup_collection", "discard_return"): ("DELETE", "/api/backup-collection/returns/{upload_id}", "backups.manage", False),
+    ("backup_collection", "complete_return"): ("POST", "/api/backup-collection/returns/{upload_id}/complete", "backups.manage", False),
     ("backup_destinations", "list_destinations"): ("GET", "/api/backup-destinations", "backups.read", False),
     ("backup_destinations", "create_destination"): ("POST", "/api/backup-destinations", "backups.manage", True),
     ("backup_destinations", "list_backends"): ("GET", "/api/backup-destinations/backends", "backups.read", False),
@@ -323,6 +333,13 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("backups", "restore_backup"): ("POST", "/api/backups/{backup_id}/restore", "backups.manage", True),
     ("backups", "verify_backup"): ("POST", "/api/backups/{backup_id}/verify", "backups.run", False),
     ("central", "unlock_central"): ("POST", "/api/central/unlock", "security.manage", True),
+    ("central_backups", "list_copies"): ("GET", "/api/central-backups", "backups.read", False),
+    ("central_backups", "collect_now"): ("POST", "/api/central-backups/collect", "backups.run", False),
+    ("central_backups", "follow_node"): ("PUT", "/api/central-backups/nodes/{node}", "backups.manage", True),
+    ("central_backups", "change_settings"): ("PUT", "/api/central-backups/settings", "backups.manage", True),
+    ("central_backups", "collecting_status"): ("GET", "/api/central-backups/status", "backups.read", False),
+    ("central_backups", "delete_copy"): ("DELETE", "/api/central-backups/{node}/{kind}", "backups.manage", True),
+    ("central_backups", "restore_copy"): ("POST", "/api/central-backups/{node}/{kind}/restore", "backups.manage", True),
     ("certificates", "get_app_certificate"): ("GET", "/api/apps/{domain}/certificate", "apps.read", False),
     ("certificates", "put_app_certificate"): ("PUT", "/api/apps/{domain}/certificate", "apps.manage", False),
     ("certificates", "list_certificates"): ("GET", "/api/certs", "apps.read", False),
@@ -3270,6 +3287,94 @@ class Authentication:
 
 
 
+class BackupCollection:
+    """Backup Collection: 10 operations."""
+
+    def __init__(self, call: Call) -> None:
+        self._call = call
+
+    def list_collection(self, *, kinds: Union[str, None] = None, known: Union[str, None] = None) -> "CollectionOut":
+        """GET /api/backup-collection
+
+        List Collection
+
+        Needs: permission `backups.collect`."""
+        return self._call("GET", "/api/backup-collection", query={"kinds": kinds, "known": known}, body=None)
+
+    def read_file(self, *, offset: int, name: str, item: str, kind: str, length: Union[int, None] = None) -> bytes:
+        """GET /api/backup-collection/files
+
+        Read File
+
+        Needs: permission `backups.collect`."""
+        return self._call("GET", "/api/backup-collection/files", query={"kind": kind, "item": item, "name": name, "offset": offset, "length": length}, body=None, binary=True)
+
+    def held_by_centrals(self) -> "HeldListOut":
+        """GET /api/backup-collection/held
+
+        Held By Centrals
+
+        Needs: permission `backups.read`."""
+        return self._call("GET", "/api/backup-collection/held", query=None, body=None)
+
+    def say_what_is_held(self, body: "HeldIn") -> "HeldOut":
+        """PUT /api/backup-collection/held
+
+        Say What Is Held
+
+        Needs: permission `backups.collect`."""
+        return self._call("PUT", "/api/backup-collection/held", query=None, body=body)
+
+    def restore_returned_copy(self, body: "ReturnRestore") -> "JobAcceptedResponse":
+        """POST /api/backup-collection/restore
+
+        Restore Returned Copy
+
+        Needs: permission `backups.manage`, sudo mode."""
+        return self._call("POST", "/api/backup-collection/restore", query=None, body=body)
+
+    def start_return(self, body: "ReturnStart") -> "ReturnOut":
+        """POST /api/backup-collection/returns
+
+        Start Return
+
+        Needs: permission `backups.manage`."""
+        return self._call("POST", "/api/backup-collection/returns", query=None, body=body)
+
+    def return_status(self, upload_id: str) -> "ReturnOut":
+        """GET /api/backup-collection/returns/{upload_id}
+
+        Return Status
+
+        Needs: permission `backups.manage`."""
+        return self._call("GET", f"/api/backup-collection/returns/{quote(str(upload_id), safe='')}", query=None, body=None)
+
+    def send_return_chunk(self, upload_id: str, *, offset: int) -> "ReturnOut":
+        """PUT /api/backup-collection/returns/{upload_id}
+
+        Send Return Chunk
+
+        Needs: permission `backups.manage`."""
+        return self._call("PUT", f"/api/backup-collection/returns/{quote(str(upload_id), safe='')}", query={"offset": offset}, body=None)
+
+    def discard_return(self, upload_id: str) -> Any:
+        """DELETE /api/backup-collection/returns/{upload_id}
+
+        Discard Return
+
+        Needs: permission `backups.manage`."""
+        return self._call("DELETE", f"/api/backup-collection/returns/{quote(str(upload_id), safe='')}", query=None, body=None)
+
+    def complete_return(self, upload_id: str) -> "ReturnOut":
+        """POST /api/backup-collection/returns/{upload_id}/complete
+
+        Complete Return
+
+        Needs: permission `backups.manage`."""
+        return self._call("POST", f"/api/backup-collection/returns/{quote(str(upload_id), safe='')}/complete", query=None, body=None)
+
+
+
 class BackupDestinations:
     """Backup Destinations: 10 operations."""
 
@@ -3587,6 +3692,70 @@ class Central:
 
         Needs: permission `security.manage`, sudo mode."""
         return self._call("POST", "/api/central/unlock", query=None, body=body)
+
+
+
+class CentralBackups:
+    """Central Backups: 7 operations."""
+
+    def __init__(self, call: Call) -> None:
+        self._call = call
+
+    def list_copies(self, *, node: Union[str, None] = None, kind: Union[str, None] = None, owner: Union[str, None] = None, limit: Union[int, None] = None) -> "CollectedListOut":
+        """GET /api/central-backups
+
+        List Copies
+
+        Needs: permission `backups.read`."""
+        return self._call("GET", "/api/central-backups", query={"node": node, "kind": kind, "owner": owner, "limit": limit}, body=None)
+
+    def collect_now(self, body: "CollectIn") -> "StatusOut":
+        """POST /api/central-backups/collect
+
+        Collect Now
+
+        Needs: permission `backups.run`."""
+        return self._call("POST", "/api/central-backups/collect", query=None, body=body)
+
+    def follow_node(self, node: str, body: "NodeFollowIn") -> "StatusOut":
+        """PUT /api/central-backups/nodes/{node}
+
+        Follow Node
+
+        Needs: permission `backups.manage`, sudo mode."""
+        return self._call("PUT", f"/api/central-backups/nodes/{quote(str(node), safe='')}", query=None, body=body)
+
+    def change_settings(self, body: "SettingsIn") -> "StatusOut":
+        """PUT /api/central-backups/settings
+
+        Change Settings
+
+        Needs: permission `backups.manage`, sudo mode."""
+        return self._call("PUT", "/api/central-backups/settings", query=None, body=body)
+
+    def collecting_status(self) -> "StatusOut":
+        """GET /api/central-backups/status
+
+        Collecting Status
+
+        Needs: permission `backups.read`."""
+        return self._call("GET", "/api/central-backups/status", query=None, body=None)
+
+    def delete_copy(self, node: str, kind: str, *, item: str) -> "CollectedListOut":
+        """DELETE /api/central-backups/{node}/{kind}
+
+        Delete Copy
+
+        Needs: permission `backups.manage`, sudo mode."""
+        return self._call("DELETE", f"/api/central-backups/{quote(str(node), safe='')}/{quote(str(kind), safe='')}", query={"item": item}, body=None)
+
+    def restore_copy(self, node: str, kind: str, body: "GiveBackIn") -> "JobAcceptedResponse":
+        """POST /api/central-backups/{node}/{kind}/restore
+
+        Restore Copy
+
+        Needs: permission `backups.manage`, sudo mode."""
+        return self._call("POST", f"/api/central-backups/{quote(str(node), safe='')}/{quote(str(kind), safe='')}/restore", query=None, body=body)
 
 
 
@@ -10872,10 +11041,12 @@ class Api:
     approvals: Approvals
     audit: Audit
     authentication: Authentication
+    backup_collection: BackupCollection
     backup_destinations: BackupDestinations
     backup_schedules: BackupSchedules
     backups: Backups
     central: Central
+    central_backups: CentralBackups
     certificates: Certificates
     compliance: Compliance
     compose: Compose
@@ -10935,10 +11106,12 @@ class Api:
         self.approvals = Approvals(call)
         self.audit = Audit(call)
         self.authentication = Authentication(call)
+        self.backup_collection = BackupCollection(call)
         self.backup_destinations = BackupDestinations(call)
         self.backup_schedules = BackupSchedules(call)
         self.backups = Backups(call)
         self.central = Central(call)
+        self.central_backups = CentralBackups(call)
         self.certificates = Certificates(call)
         self.compliance = Compliance(call)
         self.compose = Compose(call)
