@@ -12576,6 +12576,8 @@ export interface paths {
          *
          *     Raises:
          *         ServiceError: When systemd itself refuses the expression.
+         *         ValidationError: ``once_at`` is not a moment, has passed or is too far ahead; the
+         *             error names the field and says what time it is on the server.
          */
         post: operations["preview_schedule_api_cron_preview_post"];
         delete?: never;
@@ -39725,7 +39727,7 @@ export interface components {
             name: string;
             /**
              * Once At
-             * @description Run it once, at this moment in the server's time (YYYY-MM-DD HH:MM, or with an offset), and retire it; schedule is then ignored. Omitted: it repeats. A moment that has passed is refused
+             * @description Run it once, at this moment in the server's time (YYYY-MM-DD HH:MM, or with an offset), and retire it; schedule is then ignored. Omitted: it repeats. A moment that has passed is a 400 naming once_at, judged by the manager
              */
             once_at?: string | null;
             /**

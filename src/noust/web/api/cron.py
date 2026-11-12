@@ -29,7 +29,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from noust.core.exceptions import ServiceError, ValidationError
+from noust.core.exceptions import ServiceError
 from noust.managers import cron_once
 from noust.managers.backup_scheduler import SCHEDULE_ALIASES
 from noust.managers.cron_manager import CronJob, CronManager, validate_cron_calendar
@@ -136,7 +136,7 @@ class CreateCronJobRequest(BaseModel):
         default=None,
         description="Run it once, at this moment in the server's time (YYYY-MM-DD HH:MM, or "
         "with an offset), and retire it; schedule is then ignored. Omitted: it repeats. A "
-        "moment that has passed is refused",
+        "moment that has passed is a 400 naming once_at, judged by the manager",
     )
 
     @field_validator("schedule")
@@ -160,47 +160,6 @@ class CreateCronJobRequest(BaseModel):
         except ServiceError as exc:
             raise ValueError(f"{exc}. {exc.details}".strip()) from exc
         return value
-
-    @field_validator("once_at")
-    @classmethod
-    def _moment_the_manager_accepts(cls, value: str | None) -> str | None:
-        """
-        Refuse here a moment the manager would refuse, in the manager's words.
-
-        Args:
-            value: The moment as it arrived.
-
-        Returns:
-            The value unchanged; the manager writes the unit from the moment it reads, never from
-            the text.
-
-        Raises:
-            ValueError: It is not a moment, has passed or is too far ahead. FastAPI answers it as
-                a 422 naming ``once_at``.
-        """
-        return _checked_moment(value)
-
-
-def _checked_moment(value: str | None) -> str | None:
-    """
-    Judge a moment a request carries.
-
-    Args:
-        value: The moment, or None for a task that repeats.
-
-    Returns:
-        The value unchanged.
-
-    Raises:
-        ValueError: With the validator's message and what it advises.
-    """
-    if value is None:
-        return None
-    try:
-        cron_once.moment_of_text(value)
-    except ValidationError as exc:
-        raise ValueError(f"{exc.message}. {exc.details}".strip()) from exc
-    return value
 
 
 class CronActionResponse(BaseModel):
@@ -271,23 +230,6 @@ class CronPreviewRequest(BaseModel):
         except ServiceError as exc:
             raise ValueError(f"{exc}. {exc.details}".strip()) from exc
         return value
-
-    @field_validator("once_at")
-    @classmethod
-    def _moment_the_manager_accepts(cls, value: str | None) -> str | None:
-        """
-        Refuse here a moment the manager would refuse, in the manager's words.
-
-        Args:
-            value: The moment as it arrived.
-
-        Returns:
-            The value unchanged.
-
-        Raises:
-            ValueError: It is not a moment, has passed or is too far ahead.
-        """
-        return _checked_moment(value)
 
 
 class CronPreviewResponse(BaseModel):
@@ -427,6 +369,8 @@ def preview_schedule(
 
     Raises:
         ServiceError: When systemd itself refuses the expression.
+        ValidationError: ``once_at`` is not a moment, has passed or is too far ahead; the
+            error names the field and says what time it is on the server.
     """
     if data.once_at:
         # One moment, on the server's own clock: systemd-analyze is not asked, since it reads

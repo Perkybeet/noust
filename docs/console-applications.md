@@ -297,6 +297,8 @@ noust cron history              # what ran, how it ended, which were late
 noust cron history reindex      # and what that one printed
 ```
 
-A failure is announced like the failure of any task (`cron_failed`), and points at `noust cron history`. A task written before 4.3 changes only when it is written
+A failure is announced like the failure of any task (`cron_failed`), and points at `noust cron history`.
+**Run now** on a one-time task runs it and uses it up: it records its result and retires itself like
+the run it replaced. A task written before 4.3 changes only when it is written
 again, because a unit an operator may have edited is not rewritten behind their back: `noust setup doctor`
 names each one with the command that writes it again. A task with no application is as it was.

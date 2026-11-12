@@ -14268,7 +14268,7 @@
                 "type": "null"
               }
             ],
-            "description": "Run it once, at this moment in the server's time (YYYY-MM-DD HH:MM, or with an offset), and retire it; schedule is then ignored. Omitted: it repeats. A moment that has passed is refused",
+            "description": "Run it once, at this moment in the server's time (YYYY-MM-DD HH:MM, or with an offset), and retire it; schedule is then ignored. Omitted: it repeats. A moment that has passed is a 400 naming once_at, judged by the manager",
             "title": "Once At"
           },
           "schedule": {
@@ -90851,7 +90851,7 @@
     },
     "/api/cron/preview": {
       "post": {
-        "description": "Preview a schedule's next five runs before it is saved as a job.\n\nDeclared before ``/{name}`` on purpose, the same reason ``/{name}/run``\nand friends are: a parametrised route registered first would match\n``preview`` as a job name.\n\nArgs:\n    data: The preview request. Its calendar expression was already\n        checked against the manager's own rules by the request model.\n    session: The authenticated session.\n\nReturns:\n    The normalised calendar and its next runs.\n\nRaises:\n    ServiceError: When systemd itself refuses the expression.",
+        "description": "Preview a schedule's next five runs before it is saved as a job.\n\nDeclared before ``/{name}`` on purpose, the same reason ``/{name}/run``\nand friends are: a parametrised route registered first would match\n``preview`` as a job name.\n\nArgs:\n    data: The preview request. Its calendar expression was already\n        checked against the manager's own rules by the request model.\n    session: The authenticated session.\n\nReturns:\n    The normalised calendar and its next runs.\n\nRaises:\n    ServiceError: When systemd itself refuses the expression.\n    ValidationError: ``once_at`` is not a moment, has passed or is too far ahead; the\n        error names the field and says what time it is on the server.",
         "operationId": "preview_schedule_api_cron_preview_post",
         "requestBody": {
           "content": {

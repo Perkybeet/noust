@@ -118,25 +118,28 @@ class TestCreate:
             in (systemd_dir / "noust-cron-reindex.timer").read_text()
         )
 
-    def test_a_moment_that_has_passed_is_a_422_that_names_the_field_and_the_time_here(
+    def test_a_moment_that_has_passed_names_the_field_and_says_the_time_here(
         self, client: TestClient, runner: FakeRunner, systemd_dir: Path
     ) -> None:
         response = client.post("/api/cron", json=body(ahead(hours=-3)))
 
-        assert response.status_code == 422, response.text
-        message = response.json()["fields"]["once_at"]
-        assert "has already passed" in message and "It is " in message
+        assert response.status_code == 400, response.text
+        error = response.json()
+        # The manager's own words, as a field and a hint: not a validation error's "Value error, ...".
+        assert "has already passed" in error["fields"]["once_at"]
+        assert not error["fields"]["once_at"].startswith("Value error")
+        assert "It is " in error["hint"] and "here (UTC" in error["hint"]
         assert list(systemd_dir.iterdir()) == []
 
     @pytest.mark.parametrize(
         "text", ["tomorrow", "2030-01-01 10:00\nOnBootSec=1", "2030-13-01 10:00"]
     )
-    def test_what_is_not_a_moment_is_a_422_and_writes_nothing(
+    def test_what_is_not_a_moment_is_refused_and_writes_nothing(
         self, client: TestClient, runner: FakeRunner, systemd_dir: Path, text: str
     ) -> None:
         response = client.post("/api/cron", json=body(text))
 
-        assert response.status_code == 422
+        assert response.status_code == 400
         assert "once_at" in response.json()["fields"]
         assert list(systemd_dir.iterdir()) == []
 
@@ -178,7 +181,7 @@ class TestPreview:
             "/api/cron/preview", json={"once_at": ahead(hours=-1).strftime("%Y-%m-%d %H:%M")}
         )
 
-        assert response.status_code == 422
+        assert response.status_code == 400
         assert "has already passed" in response.json()["fields"]["once_at"]
 
 

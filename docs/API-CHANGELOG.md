@@ -76,7 +76,7 @@ against the schema of 4.2.0.
 - **A task that runs once** (`POST /api/cron`, `POST /api/cron/preview`). Both take `once_at`, the moment in
   the server's time (`YYYY-MM-DD HH:MM`, or with an offset, which is converted), and then `schedule` is
   ignored. A moment that has passed, one that is not a date and a time, or one more than two years ahead is a
-  `422` naming `once_at`, with the time it is on the server. The task is a timer with that one date and
+  `400` naming `once_at` in `fields`, and `hint` says the time it is on the server. The task is a timer with that one date and
   `Persistent=true`, so a server that was off at that moment runs it when it comes back; its service records
   how it ended and removes both units. Each task in `GET /api/cron` carries `once` and `once_at` (ISO 8601 with
   the server's offset), and its `schedule` is `once`. A server before 4.3 ignores `once_at` and would make a
