@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download } from "lucide-react";
+import { Download, FileSpreadsheet } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 
 import { announce } from "../../app/Announcer";
@@ -12,7 +12,7 @@ import type { KeyValueItem } from "../../components/page/KeyValueList";
 import { ErrorBlock, QueryState } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { Section, Sections } from "../../components/page/Section";
-import { Button, buttonClassName } from "../../components/ui/Button";
+import { Button } from "../../components/ui/Button";
 import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
 import { Dialog } from "../../components/ui/Dialog";
@@ -21,6 +21,7 @@ import { EmptyCell } from "../../components/ui/EmptyCell";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
+import { Menu, MenuItem } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
 import { Select } from "../../components/ui/Select";
@@ -29,12 +30,13 @@ import { SystemOutput } from "../../components/ui/SystemOutput";
 import { Textarea } from "../../components/ui/Textarea";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
+import { downloadAddress } from "../../lib/clipboard";
 import { formatCount } from "../../lib/format";
 import { roleLabel } from "../settings/accounts/roles";
 import { splitErrors } from "../settings/formErrors";
 import { catalogQuery, recordReview, reviewsQuery, statusQuery, trailKeys, verifyQuery } from "./api";
 import { auditActionLabel } from "../activity/data";
-import { RESULTS, actorName, categoryLabel, isFiltered, matches, outcomeView } from "./data";
+import { RESULTS, actorName, categoryLabel, exportUrl, isFiltered, matches, outcomeView } from "./data";
 import type { AuditSearch } from "./data";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
@@ -383,10 +385,23 @@ export function AuditPage({ search, onSearchChange }: AuditPageProps) {
         description={t("audit.page.description")}
         actions={
           <>
-            <a href="/api/audit/export" download className={buttonClassName("secondary", "md")}>
-              <Download aria-hidden="true" className="size-icon-md" />
-              {t("audit.page.export")}
-            </a>
+            <Menu
+              align="end"
+              trigger={
+                <Button icon={<Download aria-hidden="true" />}>{t("audit.page.export")}</Button>
+              }
+            >
+              <MenuItem
+                icon={<FileSpreadsheet />}
+                description={isFiltered(search) ? t("audit.page.exportCsvFiltered") : t("audit.page.exportCsvAll")}
+                onClick={() => downloadAddress(exportUrl(search, "csv"))}
+              >
+                {t("audit.page.exportCsv")}
+              </MenuItem>
+              <MenuItem icon={<OBJECT_ICONS.audit aria-hidden="true" />} description={t("audit.page.exportNdjsonDescription")} onClick={() => downloadAddress(exportUrl(search, "ndjson"))}>
+                {t("audit.page.exportNdjson")}
+              </MenuItem>
+            </Menu>
             {/* Secondary, as the access review's is: this page reads the log, it changes nothing. */}
             <Button icon={<OBJECT_ICONS.audit aria-hidden="true" />} onClick={() => setReviewing(true)}>
               {t("audit.page.review")}

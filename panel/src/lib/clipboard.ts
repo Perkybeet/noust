@@ -44,6 +44,19 @@ function offer(filename: string, blob: Blob): void {
   }, 0);
 }
 
+/**
+ * Sends the browser to a file the server makes, so it is saved as it arrives and never held in the page. The
+ * address carries the session, as a link does; what the server records of the request is its own.
+ */
+export function downloadAddress(href: string): void {
+  const link = document.createElement("a");
+  link.href = href;
+  link.rel = "noopener";
+  document.body.append(link);
+  link.click();
+  link.remove();
+}
+
 /** Offers text as a file download without a server round trip. */
 export function downloadText(filename: string, text: string, type = "text/plain"): void {
   offer(filename, new Blob([text], { type: `${type};charset=utf-8` }));

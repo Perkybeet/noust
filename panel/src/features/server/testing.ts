@@ -306,7 +306,7 @@ export const FIREWALL: Firewall = {
     backend: "ufw",
     active: true,
     default_incoming: "deny",
-    rules: [{ id: "1", backend: "ufw", action: "allow", ports: [[22, 22]], proto: "tcp", source: "any", spec: "22/tcp ALLOW IN Anywhere", comment: "", noust: false, known: true }],
+    rules: [{ id: "1", backend: "ufw", action: "allow", ports: [[22, 22]], proto: "tcp", source: "any", spec: "22/tcp ALLOW IN Anywhere", comment: "", noust: false, known: true, source_changeable: false }],
     installed: true,
     status: "active",
     others: [],

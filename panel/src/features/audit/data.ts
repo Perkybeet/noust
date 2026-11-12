@@ -34,6 +34,25 @@ export function validateAuditSearch(search: Record<string, unknown>): AuditSearc
   };
 }
 
+export type ExportFormat = "csv" | "ndjson";
+
+/**
+ * The address of the export: the CSV keeps what the page is filtered on (the category, the outcome, one
+ * request, and the words typed in the search box), the NDJSON is the whole log, since a part of it cannot prove
+ * the chain it was cut from.
+ */
+export function exportUrl(search: AuditSearch, format: ExportFormat): string {
+  const query = new URLSearchParams({ format });
+  if (format === "csv") {
+    if (search.category !== undefined) query.set("category", search.category);
+    if (search.result !== undefined) query.set("result", search.result);
+    if (search.correlation !== undefined) query.set("correlation_id", search.correlation);
+    const words = search.q?.trim() ?? "";
+    if (words !== "") query.set("q", words);
+  }
+  return `/api/audit/export?${query.toString()}`;
+}
+
 export function isFiltered(search: AuditSearch): boolean {
   return search.q !== undefined || search.category !== undefined || search.result !== undefined || search.correlation !== undefined;
 }

@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import type { FirewallRule, PortClaim } from "../server/queries";
 import { portRows } from "../server/network/data";
-import { isProtected, ruleMaker, rulePorts, ruleSubject } from "./firewallRules";
+import { isProtected, ruleMaker, rulePorts, ruleSubject, sourceBody, sourceProblem } from "./firewallRules";
 
-const rule = (over: Partial<FirewallRule>): FirewallRule => ({ id: "1", backend: "ufw", comment: "", known: true, noust: false, ports: [[22, 22]], proto: "tcp", service: null, source: "any", spec: "", action: "allow", ...over });
+const rule = (over: Partial<FirewallRule>): FirewallRule => ({ id: "1", backend: "ufw", comment: "", known: true, noust: false, ports: [[22, 22]], proto: "tcp", service: null, source: "any", source_changeable: false, spec: "", action: "allow", ...over });
 const claim = (over: Partial<PortClaim> & Pick<PortClaim, "port" | "protocol" | "kind" | "owner">): PortClaim => ({ address: null, detail: "", processes: [], ...over });
 
 const ROWS = portRows(
@@ -71,5 +71,33 @@ describe("a port Noust keeps open", () => {
     expect(isProtected(rule({ ports: [[22, 22]] }), guard)?.reason).toBe("SSH");
     expect(isProtected(rule({ ports: [[20, 30]] }), guard)?.reason).toBe("SSH");
     expect(isProtected(rule({ ports: [[80, 80]] }), guard)).toBeNull();
+  });
+});
+
+describe("where a rule is asked to admit from", () => {
+  it("is one address or network, written whole", () => {
+    expect(sourceProblem("some", "203.0.113.7", "10.0.0.0/24")).toBeNull();
+    expect(sourceProblem("some", "  10.1.0.0/16  ", "any")).toBeNull();
+    expect(sourceBody("some", "  10.1.0.0/16  ")).toBe("10.1.0.0/16");
+  });
+
+  it("says what is missing, what is not an address and that a rule has one origin", () => {
+    expect(sourceProblem("some", "", "any")).toBe("needed");
+    expect(sourceProblem("some", "   ", "any")).toBe("needed");
+    expect(sourceProblem("some", "office", "any")).toBe("invalid");
+    expect(sourceProblem("some", "10.0.0.1, 10.0.0.2", "any")).toBe("one");
+  });
+
+  it("refuses the origin the rule has, however a host is spelled", () => {
+    expect(sourceProblem("some", "10.0.0.0/24", "10.0.0.0/24")).toBe("same");
+    expect(sourceProblem("some", "10.0.0.5", "10.0.0.5/32")).toBe("same");
+    expect(sourceProblem("some", "2001:db8::1", "2001:db8::1/128")).toBe("same");
+    expect(sourceProblem("some", "10.0.0.0/24", "10.0.0.0/16")).toBeNull();
+  });
+
+  it("can be anyone, unless the rule is for anyone already", () => {
+    expect(sourceProblem("any", "", "10.0.0.0/24")).toBeNull();
+    expect(sourceProblem("any", "", "any")).toBe("same");
+    expect(sourceBody("any", "ignored")).toBe("any");
   });
 });

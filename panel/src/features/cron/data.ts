@@ -176,3 +176,9 @@ export function runTimes(value: string, locale: Locale = getLocale()): RunTimes 
   const local = -date.getTimezoneOffset() === minutes ? null : formatClock(date, locale);
   return { server, zone, local };
 }
+
+/** The moment a one-time task runs at, as the server's clock reads it: "Tue, Dec 1, 14:30 UTC+01:00". */
+export function onceWhen(onceAt: string, locale: Locale = getLocale()): string {
+  const times = runTimes(onceAt, locale);
+  return times.zone === "" ? times.server : `${times.server} ${times.zone}`;
+}

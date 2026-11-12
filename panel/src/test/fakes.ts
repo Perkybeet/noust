@@ -179,6 +179,8 @@ export const CRON_JOBS: CronJobList["jobs"] = [
     last_run: "Thu 2026-09-25 02:00:00 UTC",
     last_exit_code: 0,
     last_result: "success",
+    once: false,
+    once_at: "",
   },
 ];
 

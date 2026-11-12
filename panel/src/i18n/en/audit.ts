@@ -45,6 +45,11 @@ export const audit = {
     correlationTitle: "One request",
     correlation: "Only the events of {id}: what one request, command or job did.",
     correlationClear: "Show all",
+    exportCsv: "CSV, for a spreadsheet",
+    exportCsvAll: "Every event, with what each one recorded.",
+    exportCsvFiltered: "The events these filters and this search keep, with what each one recorded.",
+    exportNdjson: "NDJSON, with the chain",
+    exportNdjsonDescription: "Every event with every field and the chain, for an auditor or a SIEM. The filters do not apply.",
   },
   table: {
     event: "Event",
