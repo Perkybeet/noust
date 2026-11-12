@@ -967,7 +967,7 @@ def adopt(
             could not be created; nothing stays registered.
         AppBusyError: Another operation is running on the domain.
     """
-    require_server_role("Applications")
+    require_server_role("container_deploy")
     if is_rehearsal():
         return AdoptionResult(plan=plan, adopted=False, unit=plan.app_name, deployment_id=None)
     runner = runner if runner is not None else get_runner()

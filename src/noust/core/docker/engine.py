@@ -169,15 +169,6 @@ class EngineInfo:
     os: str = ""
     error: str = ""
 
-    @property
-    def usable(self) -> bool:
-        """
-        Whether Noust can look at and control containers with this Docker: there is a program,
-        its daemon answers and its API is one Noust speaks. Compose is not part of it: a machine
-        without it still has containers to see, start and stop.
-        """
-        return self.installed and self.reachable and version_tuple(self.api) >= MIN_API
-
     def to_dict(self) -> dict[str, Any]:
         """
         Returns:
@@ -205,25 +196,35 @@ class EngineReport:
     ok: bool
 
     @property
+    def problem(self) -> ServerText | None:
+        """
+        The first limit of the kind that stops Noust using this Docker, the one a person is told when
+        a function needs it and it cannot be had (no engine, no answer, too old, no Compose v2).
+
+        It is the one thing that says what is wrong with the engine: :attr:`state` and :attr:`usable`
+        are read from it, never decided apart.
+
+        Returns:
+            The sentence, or None when Noust can use this Docker.
+        """
+        return next((limit for limit in self.limits if limit.code in _BLOCKING), None)
+
+    @property
     def state(self) -> str:
         """
-        Where this Docker stands, as one word: ``missing`` (no program), ``unreachable`` (its
-        daemon does not answer), ``too_old`` (its API is below what Noust speaks) or ``ok``.
-        A Compose that is missing or old is a limit and not a state: containers are still there.
+        Where this Docker stands, as one word, from :attr:`problem`: ``missing`` (no program),
+        ``unreachable`` (its daemon does not answer), ``too_old`` (its API is below what Noust
+        speaks) or ``ok``. A Compose that is missing or old is a limit and not a state: the
+        containers are still there to be looked at. The engine's limits come before Compose's, so
+        when both are in the way the engine's is the problem.
         """
-        codes = {limit.code for limit in self.limits}
-        if "docker.engine.missing" in codes:
-            return "missing"
-        if "docker.engine.unreachable" in codes:
-            return "unreachable"
-        if "docker.engine.too_old" in codes:
-            return "too_old"
-        return "ok"
+        problem = self.problem
+        return _STATE_OF.get(problem.code, "ok") if problem is not None else "ok"
 
     @property
     def usable(self) -> bool:
-        """Whether containers can be looked at and controlled: :attr:`EngineInfo.usable`."""
-        return self.info.usable
+        """Whether containers can be looked at and controlled: the engine's state is ``ok``."""
+        return self.state == "ok"
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -470,6 +471,14 @@ _BLOCKING = frozenset(
         "docker.compose.v1",
     }
 )
+
+
+#: The state each limit of the engine itself is. A limit of Compose is none of these.
+_STATE_OF = {
+    "docker.engine.missing": "missing",
+    "docker.engine.unreachable": "unreachable",
+    "docker.engine.too_old": "too_old",
+}
 
 
 def diagnose(info: EngineInfo) -> EngineReport:

@@ -278,7 +278,7 @@ def update_recipe(
     from noust.deployers.helpers.app_env import read_app_env, write_app_env
     from noust.deployers.lifecycle import health_gate_for, update_app
 
-    require_server_role("Applications")
+    require_server_role("applications")
     store = store or get_store()
     log = logger or Logger(verbose=verbose)
     domain = validate_domain(domain)

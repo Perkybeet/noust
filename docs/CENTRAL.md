@@ -13,6 +13,13 @@ Applications, sites, certificates, databases and the rest are refused there with
 and the console hides them. Everything else (the console, tokens, two-factor, the fleet)
 works as on any Noust.
 
+What a Noust can do is one table, `src/noust/central/features.py`: each function says what it needs, the server
+role and/or a fact of the machine (systemd, a web server, Docker, root, the journal). The refusal of a hub and
+the console's choice of what to offer both read it: the session (`GET /api/auth/session`, `central.features`)
+says for every function whether it works here and, when it does not, why, in a sentence with a code. A hub in a
+container has none of the machine's facts either, so the machine's own pages (its clock, its system log, its
+root shell, its firewall) are not offered there; a hub on a VPS keeps them.
+
 The console's own fleet pages (a central's, never a plain server's: **All servers** in the scope
 selector) show every server it manages side by side - whether it answers, what it runs, what needs
 attention on each - and the selector switches the whole console to one of them; see

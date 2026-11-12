@@ -193,7 +193,7 @@ def use_acme(
             that served keeps serving.
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Certificates")
+    require_server_role("certificates")
     check_choice(challenge, dns_provider)
     with app_lock(validate_domain(app_domain), "certificate change"):
         return _use_acme(
@@ -307,7 +307,7 @@ def serve_ordered(app_domain: str, *, verbose: bool = False) -> bool:
         ValidationError: The web server refused the new site (the old file is back).
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Certificates")
+    require_server_role("certificates")
     app = get_store().get_app(validate_domain(app_domain))
     if app is None or app.app_type in UNSUPPORTED_TYPES:
         return False
@@ -347,7 +347,7 @@ def use_uploaded(app_domain: str, name: str, *, verbose: bool = False) -> Certif
             refuses the new site (the choice is put back).
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Certificates")
+    require_server_role("certificates")
     with app_lock(validate_domain(app_domain), "certificate change"):
         app = domains.application(app_domain)
         _require_supported(app)

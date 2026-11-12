@@ -284,7 +284,7 @@ class AuthDnsServers:
             UnsupportedHostError: It cannot be installed here.
             EngineError: A step failed or the version is too old.
         """
-        require_server_role("Noust DNS")
+        require_server_role("noust_dns")
         self.engine.install(epel=epel, on_output=on_output)
         return self.status()
 
@@ -300,7 +300,7 @@ class AuthDnsServers:
             ConfirmationRequiredError: EPEL is needed and ``epel`` is False.
             UnsupportedHostError: Knot cannot be installed here.
         """
-        require_server_role("Noust DNS")
+        require_server_role("noust_dns")
         if not self.engine.installed():
             self.engine.installation_plan(epel=epel)
 
@@ -330,7 +330,7 @@ class AuthDnsServers:
             ValidationError: A value is not usable, a secondary has no primary or no key, or
                 there is no address to answer on.
         """
-        require_server_role("Noust DNS")
+        require_server_role("noust_dns")
         if role not in (PRIMARY, SECONDARY):
             raise ValidationError("A server is a primary or a secondary", field="role")
         name = None if not hostname else check_hostname(hostname, field="hostname")

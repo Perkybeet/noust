@@ -1127,7 +1127,7 @@ def set_backup_before_update(domain: str, enabled: bool) -> bool:
         ValidationError: The application is not a Docker Compose stack, which
             is the only kind whose update has databases to copy.
     """
-    require_server_role("Applications")
+    require_server_role("applications")
     store = get_store()
     app = store.get_app(domain)
     if app is None:

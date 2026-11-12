@@ -25430,6 +25430,260 @@
         "title": "Fail2banWebRequest",
         "type": "object"
       },
+      "FeatureReason": {
+        "description": "Why a function is not available here, as a sentence with a code.\n\nAttributes:\n    text: The sentence in English, always sent.\n    hint: How to fix it in English, when the sentence has a fix.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "params": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Params",
+            "type": "object"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "text"
+        ],
+        "title": "FeatureReason",
+        "type": "object"
+      },
+      "FeatureState": {
+        "description": "Whether one function of this Noust works here.\n\nAttributes:\n    available: It would work here now.\n    reason: Why it would not: ``features.hub_role`` on a hub, ``features.needs_*`` for what\n        the machine lacks, and the engine's own sentences (``docker.*``) for Docker. None when\n        ``available``.",
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FeatureReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "available"
+        ],
+        "title": "FeatureState",
+        "type": "object"
+      },
+      "FeatureStates": {
+        "properties": {
+          "application_backups": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "application_diagnosis": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "application_environments": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "applications": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "certificates": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "checking_a_moved_server": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "console_exposure": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "container_deploy": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "database_backups": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "database_instances": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "databases": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "dns_accounts": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "dns_records": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "domains": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "firewall": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "importing_applications": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "log_destinations": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "moving_a_server": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "native_deploy": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "noust_dns": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "point_in_time_recovery": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "power": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "preview_environments": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "process_monitor": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "public_database_access": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "published_ports": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "recipes": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "releases": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "restoring_a_server": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "rollbacks": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "root_shell": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "scheduled_jobs": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "server_health": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "server_security": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "server_setup": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "services": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "sites": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "software": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "status_page": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "system_clock": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "system_logs": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "tunnels": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "volume_backups": {
+            "$ref": "#/components/schemas/FeatureState"
+          }
+        },
+        "required": [
+          "applications",
+          "native_deploy",
+          "container_deploy",
+          "releases",
+          "rollbacks",
+          "preview_environments",
+          "importing_applications",
+          "recipes",
+          "application_environments",
+          "application_diagnosis",
+          "process_monitor",
+          "server_health",
+          "server_setup",
+          "domains",
+          "sites",
+          "certificates",
+          "console_exposure",
+          "status_page",
+          "published_ports",
+          "tunnels",
+          "noust_dns",
+          "dns_records",
+          "dns_accounts",
+          "databases",
+          "database_instances",
+          "public_database_access",
+          "database_backups",
+          "point_in_time_recovery",
+          "application_backups",
+          "volume_backups",
+          "restoring_a_server",
+          "moving_a_server",
+          "checking_a_moved_server",
+          "scheduled_jobs",
+          "services",
+          "software",
+          "log_destinations",
+          "system_clock",
+          "power",
+          "system_logs",
+          "root_shell",
+          "server_security",
+          "firewall"
+        ],
+        "title": "FeatureStates",
+        "type": "object"
+      },
       "FileActionResponse": {
         "description": "What a change to a file did.",
         "properties": {
@@ -54418,6 +54672,40 @@
         "title": "ServiceTagsResponse",
         "type": "object"
       },
+      "SessionCentral": {
+        "description": "What the session says of the central: :class:`CentralInfo` and what it can do.\n\nAttributes:\n    features: For each function of this Noust, whether it works here and why not. Absent from a\n        server older than 4.3, which the console reads as \"what its role allows\", as it always\n        did.",
+        "properties": {
+          "features": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FeatureStates"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "locked": {
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "sealed": {
+            "title": "Sealed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "role",
+          "sealed",
+          "locked"
+        ],
+        "title": "SessionCentral",
+        "type": "object"
+      },
       "SessionEndedResponse": {
         "description": "A terminal that was ended.",
         "properties": {
@@ -54523,7 +54811,7 @@
           "central": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/CentralInfo"
+                "$ref": "#/components/schemas/SessionCentral"
               },
               {
                 "type": "null"

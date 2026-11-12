@@ -1407,7 +1407,7 @@ def apply_import(
     Raises:
         NoustError: The deploy failed.
     """
-    require_server_role("Importing applications")
+    require_server_role("importing_applications")
     log = logger or Logger()
     doc = plan.document
     app = doc["app"]

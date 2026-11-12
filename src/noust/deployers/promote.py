@@ -164,7 +164,7 @@ def plan_promotion(
             same environment), are not the same type or repository, or the
             release does not exist or cannot be used.
     """
-    require_server_role("Applications")
+    require_server_role("applications")
     source_domain = validate_domain(source_domain)
     target_domain = validate_domain(target_domain)
     if source_domain == target_domain:

@@ -412,7 +412,7 @@ class AutoDeployer(AppDeployer):
             NoustError: Whatever the chosen deployer raised.
             AppBusyError: Another operation is running on the application.
         """
-        require_server_role("Applications")
+        require_server_role("applications")
         if not self.domain:
             raise DeploymentError(
                 "Deployer was not configured",

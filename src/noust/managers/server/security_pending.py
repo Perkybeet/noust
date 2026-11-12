@@ -123,7 +123,8 @@ class PendingChange:
     Attributes:
         id: Short random identifier, also in the timer's name.
         kind: ``sshd`` or ``firewall``.
-        title: What was changed, in a sentence.
+        title: What was changed, in a sentence: the English of ``what`` and ``values`` when the record
+            has them, the sentence the change was recorded with when it does not.
         actor: Who applied it.
         applied_at: When, epoch seconds.
         expires_at: When the timer undoes it.
@@ -142,6 +143,10 @@ class PendingChange:
         resolved_at: When it was confirmed or undone.
         resolved_by: Who did it: an actor, or ``timer``.
         resolution: The proof that confirmed it, or what undoing printed.
+        what: The code of the sentence that says what it is (``firewall_allow``,
+            :mod:`noust.core.access_changes`); empty in a record from before 4.3, which has only
+            ``title``.
+        values: What that sentence puts in (the port, the source), as text.
     """
 
     id: str
@@ -161,6 +166,8 @@ class PendingChange:
     resolved_at: float | None = None
     resolved_by: str | None = None
     resolution: str = ""
+    what: str = ""
+    values: dict[str, str] = field(default_factory=dict)
 
     @property
     def unit(self) -> str:
@@ -213,6 +220,8 @@ class PendingChange:
                 resolved_at=data.get("resolved_at"),
                 resolved_by=data.get("resolved_by"),
                 resolution=str(data.get("resolution", "")),
+                what=str(data.get("what", "")),
+                values={str(k): str(v) for k, v in data.get("values", {}).items()},
             )
         except (KeyError, TypeError, ValueError) as exc:
             raise SecurityError("A pending change record is damaged", details=str(exc)) from exc

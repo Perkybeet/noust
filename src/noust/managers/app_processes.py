@@ -657,7 +657,7 @@ class ProcessManager:
             ServiceError: A unit could not be written.
             AppBusyError: Another operation is running on the application.
         """
-        require_server_role("Applications")
+        require_server_role("applications")
         app = self._app(domain)
         record = validate_record(app, record)
         with app_lock(app.domain, "process change"):
@@ -783,7 +783,7 @@ class ProcessManager:
             ValidationError: There is no such process.
             AppBusyError: Another operation is running on the application.
         """
-        require_server_role("Applications")
+        require_server_role("applications")
         app = self._app(domain)
         record = store_module.get_process(app.domain, name, store=self.store)
         if record is None:
@@ -843,7 +843,7 @@ class ProcessManager:
         Raises:
             ServiceError: A unit could not be written; nothing is left half done.
         """
-        require_server_role("Applications")
+        require_server_role("applications")
         side = [process for process in found if not process.started_by_noust]
         if not side and not any(
             record.source == SOURCE_REPOSITORY

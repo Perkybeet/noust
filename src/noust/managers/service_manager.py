@@ -659,7 +659,7 @@ class ServiceManager(BaseManager):
         Raises:
             RoleError: When this Noust is a hub.
         """
-        require_server_role("Services")
+        require_server_role("services")
         return super().runner
 
     def _exec(self, argv: list[str], *, timeout: int = DEFAULT_TIMEOUT) -> CommandResult:

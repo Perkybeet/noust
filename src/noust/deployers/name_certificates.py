@@ -178,7 +178,7 @@ def set_certificate(
             certificate that served keeps serving.
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Certificates")
+    require_server_role("certificates")
     mode = check_mode(certificate)
     if challenge is not None:
         check_choice(challenge, dns_provider)

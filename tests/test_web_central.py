@@ -67,7 +67,11 @@ class TestSession:
 
         body = central.get("/api/auth/session").json()
 
-        assert body["central"] == {"role": "server", "sealed": False, "locked": False}
+        assert {key: body["central"][key] for key in ("role", "sealed", "locked")} == {
+            "role": "server",
+            "sealed": False,
+            "locked": False,
+        }
 
     def test_an_anonymous_caller_is_told_nothing_about_it(self, central: TestClient) -> None:
         assert central.get("/api/auth/session").json()["central"] is None
@@ -125,7 +129,11 @@ class TestHubRefusesServices:
 
         assert body["authenticated"] is True
         assert body["elevated_until"]
-        assert body["central"] == {"role": "server", "sealed": True, "locked": True}
+        assert {key: body["central"][key] for key in ("role", "sealed", "locked")} == {
+            "role": "server",
+            "sealed": True,
+            "locked": True,
+        }
 
 
 class TestUnlock:

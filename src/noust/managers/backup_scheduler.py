@@ -451,7 +451,7 @@ class BackupScheduler:
             BackupError: If a value is unusable, a unit cannot be written or
                 the timer cannot be enabled.
         """
-        require_server_role("Application backups")
+        require_server_role("application_backups")
         domain, app_name, calendar = self._validate(schedule)
         if schedule.remote_only and not schedule.destinations:
             raise ValidationError(
@@ -928,7 +928,7 @@ class BackupScheduler:
                 something that is not a database timer, a unit cannot be
                 written or the timer cannot be enabled.
         """
-        require_server_role("Database backups")
+        require_server_role("database_backups")
         calendar = validate_calendar(schedule)
         unit, timer_path, service_path = self._database_unit_paths(engine, database)
         if not self._is_ours(timer_path):
@@ -1185,7 +1185,7 @@ class BackupScheduler:
         Raises:
             BackupError: When a value is unusable or the timer cannot be made.
         """
-        require_server_role("Volume backups")
+        require_server_role("volume_backups")
         calendar = validate_calendar(schedule)
         try:
             domain = validate_domain(domain)
@@ -1309,7 +1309,7 @@ class BackupScheduler:
             BackupError: When the unit name belongs to something else, a unit cannot be
                 written or the timer cannot be enabled.
         """
-        require_server_role("Point-in-time recovery")
+        require_server_role("point_in_time_recovery")
         unit = self.pitr_timer_name(engine)
         self.install_unit_pair(
             unit,

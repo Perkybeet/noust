@@ -51,7 +51,7 @@ class DeployMixin(UpdateMixin):
             NoustError: Whatever the failing step raised, after the rollback.
             AppBusyError: Another operation is running on the application.
         """
-        require_server_role("Applications")
+        require_server_role("native_deploy")
         if not self.domain:
             raise DeploymentError(
                 "Deployer was not configured",

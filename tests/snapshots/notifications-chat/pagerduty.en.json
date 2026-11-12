@@ -1770,7 +1770,7 @@
     "event_action": "trigger",
     "dedup_key": "noust/web-1/access_change_reverted/Allow 5432/tcp from 10.0.4.12",
     "payload": {
-      "summary": "Firewall change undone · Allow 5432/tcp from 10.0.4.12: The firewall change “Allow 5432/tcp from 10.0.4.12” was undone because nobody confirmed it within 5 minutes.",
+      "summary": "Firewall change undone · Allow 5432/tcp from 10.0.4.12: Nobody confirmed it within 5 minutes, so the firewall is as it was before the change. Make the change again and confirm it from a new session.",
       "source": "web-1",
       "severity": "warning",
       "timestamp": "2026-09-29T10:45:51.000Z",
@@ -1796,9 +1796,9 @@
   "access.ssh_reverted": {
     "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
     "event_action": "trigger",
-    "dedup_key": "noust/web-1/access_change_reverted/Turn password logins off",
+    "dedup_key": "noust/web-1/access_change_reverted/Turn off SSH password logins",
     "payload": {
-      "summary": "SSH change undone · Turn password logins off: The SSH change “Turn password logins off” was undone because nobody confirmed it within 5 minutes.",
+      "summary": "SSH change undone · Turn off SSH password logins: Nobody confirmed it within 5 minutes, so sshd uses the configuration it had before the change. Apply the change again and confirm it from a new login.",
       "source": "web-1",
       "severity": "warning",
       "timestamp": "2026-09-29T10:45:51.000Z",
@@ -1806,7 +1806,7 @@
       "class": "access.ssh_reverted",
       "custom_details": {
         "server": "web-1",
-        "change": "Turn password logins off",
+        "change": "Turn off SSH password logins",
         "change_by": "ana",
         "change_at": "2026-11-12 10:40 UTC",
         "excerpt": "Restored /etc/ssh/sshd_config.d/99-noust.conf\n$ sshd -t"

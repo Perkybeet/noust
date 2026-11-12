@@ -922,7 +922,7 @@ class CronManager:
             ServiceError: If a value is unusable, a unit belongs to someone
                 else, a unit cannot be written or the timer cannot be enabled.
         """
-        require_server_role("Scheduled jobs")
+        require_server_role("scheduled_jobs")
         checked = self._validate(job)
 
         timer_path = self._unit_path(f"{checked.unit_name}.timer")
@@ -1001,7 +1001,7 @@ class CronManager:
             ServiceError: When no such job exists, the units are not Noust's,
                 or systemd refuses the start.
         """
-        require_server_role("Scheduled jobs")
+        require_server_role("scheduled_jobs")
         checked, _, _ = self._require_owned(name, operation="run")
         unit = f"{UNIT_PREFIX}{checked}.service"
 
@@ -1027,7 +1027,7 @@ class CronManager:
             ServiceError: When no such job exists, the units are not Noust's,
                 or systemd refuses.
         """
-        require_server_role("Scheduled jobs")
+        require_server_role("scheduled_jobs")
         return self._timer_verb(name, "enable", "--now")
 
     def disable_job(self, name: str) -> str:

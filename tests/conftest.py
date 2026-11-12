@@ -273,6 +273,28 @@ def machine_ports_unread(request: pytest.FixtureRequest, monkeypatch: pytest.Mon
 
 
 @pytest.fixture(autouse=True)
+def machine_facts_modelled(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Keep a test from asking the machine what it has, and give it an ordinary server.
+
+    The session says which functions work here, and for that it reads the machine: systemd, a
+    web server, Docker (four questions to the engine), root and the journal
+    (:func:`noust.central.machine.read_machine_facts`). A test that signs in has neither a
+    runner to answer nor any wish for the answer to depend on the machine it runs on (a
+    developer's has Docker, CI's may not), so by default the machine has all of it. The tests of
+    the facts themselves call the function they import by name, which this does not replace, and
+    the tests of what a machine without something is given say it with their own facts.
+
+    Args:
+        monkeypatch: Patching helper, scoped to the test.
+    """
+    from noust.central.machine import MachineFacts
+
+    everything = MachineFacts(systemd=True, web_server=True, docker=True, root=True, journal=True)
+    monkeypatch.setattr("noust.central.machine.read_machine_facts", lambda *a, **k: everything)
+
+
+@pytest.fixture(autouse=True)
 def platform_detected_per_test() -> Iterator[None]:
     """
     Make every test detect the platform from its own runner and its own files.

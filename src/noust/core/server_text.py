@@ -1585,6 +1585,33 @@ CATALOG: dict[str, str] = {
     "docker.compose.too_old.hint": (
         "Updating the Compose plugin is enough: deploying and updating work as they are."
     ),
+    # -- What this Noust can do (noust.central.features): why a function is not offered here. The --
+    # refusal of a hub is the sentence its guard has always said; the others name the one thing
+    # of the machine that is missing. A missing Docker is said by the engine's doctor above.
+    "features.hub_role": "{feature}: not available on this central, which is a hub",
+    "features.hub_role.hint": (
+        "A hub (central.role = hub) manages other servers and deploys nothing itself. "
+        "Pick the server in the console, or run the command against a node. "
+        "On a machine that should also deploy, set '{command}'; a container cannot, "
+        "it has no nginx or systemd."
+    ),
+    "features.needs_systemd": "This machine does not run systemd",
+    "features.needs_systemd.hint": (
+        "Noust keeps services and timers with systemd, which a container, or a system that "
+        "boots another way, does not have."
+    ),
+    "features.needs_web_server": "There is no web server on this machine",
+    "features.needs_web_server.hint": (
+        "Noust writes its sites for nginx or Apache: install one from Server > Software."
+    ),
+    "features.needs_root": "Noust does not run as root on this machine",
+    "features.needs_root.hint": (
+        "Changing the system takes root, and Noust runs here as an account that cannot."
+    ),
+    "features.needs_journal": "This machine has no journal to read",
+    "features.needs_journal.hint": (
+        "Noust reads the system's log from journald (journalctl), which is not here."
+    ),
     # -- Files > Storage (noust.managers.server.storage): what a cleanup would do, one sentence ----
     # for each action, said before anything is deleted.
     "storage.effect.journal": (

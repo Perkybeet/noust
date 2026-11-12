@@ -38,6 +38,7 @@ from .fleet import (
     run_internal_seal,
     seal_sandbox_before_serving,
 )
+from .host_profile import PROFILES, use
 from .host_reads import model_host_reads
 from .machine import Unit
 from .recipes_and_export import seed_catalog_apps, seed_exportable_app, seed_fleet_node_app
@@ -112,7 +113,11 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
     ports: dict[str, int] = {}
     domains: dict[str, str] = {}
     certs: list[str] = []
-    set_runner(make_runner(units, ports, domains, certs, sandbox.systemd_dir))
+    profile = PROFILES[args.host_profile]
+    use(profile)
+    set_runner(
+        make_runner(units, ports, domains, certs, sandbox.systemd_dir, programs=profile.programs)
+    )
     # Managers report progress on stdout, which belongs to the one JSON line
     # the caller parses.
     with contextlib.redirect_stdout(sys.stderr):
@@ -169,7 +174,7 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
     domains.update(seeded_domains)
     certs.extend(seeded_certs)
     # The VPS the Server area manages (/api/server): see model_server_host.
-    host = model_server_host(sandbox, args.hostname or socket.gethostname(), units)
+    host = model_server_host(sandbox, args.hostname or socket.gethostname(), units, profile)
     if video:
         from .video import settle_server_host
 
