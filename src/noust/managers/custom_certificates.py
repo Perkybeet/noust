@@ -289,7 +289,7 @@ class CustomCertificates:
                 not the certificate's, or it has expired.
             CertificateError: openssl could not read it.
         """
-        require_server_role("Certificates")
+        require_server_role("certificates")
         if not _NAME.fullmatch(name):
             raise ValidationError(
                 f"{name!r} cannot be a certificate name",

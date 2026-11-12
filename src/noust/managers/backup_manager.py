@@ -1472,7 +1472,7 @@ class BackupManager:
             ValidationError: If the domain does not yield a usable app name.
             AppBusyError: Another operation holds the application's lock.
         """
-        require_server_role("Application backups")
+        require_server_role("application_backups")
         # Validated before the lock, whose file is named after the domain.
         validate_app_name(domain_to_app_name(domain))
         with app_lock(domain, "backup"):
@@ -2055,7 +2055,7 @@ class BackupManager:
                 over the application the backup is of, past a schema change,
                 and that was not confirmed. Nothing was touched.
         """
-        require_server_role("Application backups")
+        require_server_role("application_backups")
         metadata = self.get_backup(backup_id)
         if not metadata:
             raise BackupError(
@@ -2201,7 +2201,7 @@ class BackupManager:
             SchemaChangedError: Only the files go back, past a schema change,
                 unconfirmed (see :meth:`require_restore_confirmed`).
         """
-        require_server_role("Application backups")
+        require_server_role("application_backups")
         archive = Path(archive)
         if not archive.is_file():
             raise BackupError(
@@ -2570,7 +2570,7 @@ class BackupManager:
                 refused one (the engine's words are in ``output``).
             AppBusyError: Another operation is running on the application.
         """
-        require_server_role("Application backups")
+        require_server_role("application_backups")
         metadata = self.get_backup(backup_id)
         if not metadata:
             raise BackupError(
@@ -4531,7 +4531,7 @@ class BackupManager:
             BackupError: When ``source`` is not a directory or is the backup
                 directory itself.
         """
-        require_server_role("Application backups")
+        require_server_role("application_backups")
         source = Path(source).absolute()
         if not source.is_dir():
             raise BackupError(

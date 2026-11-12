@@ -555,7 +555,7 @@ class RestoreServer:
             BackupError: The state could not be restored; nothing about the
                 applications was attempted.
         """
-        require_server_role("Restoring a server")
+        require_server_role("restoring_a_server")
         if not skip_state and not (name_or_path and passphrase):
             raise ValidationError(
                 "Restoring the state needs the bundle and its passphrase",
@@ -629,7 +629,7 @@ class RestoreServer:
             ``requirements`` (what the machine has and lacks, with the command that installs
             each), ``engines_missing``, ``roles``, ``databases`` and ``apps``.
         """
-        require_server_role("Restoring a server")
+        require_server_role("restoring_a_server")
         store = get_store()
         applications = [app for app in store.list_apps() if not app.preview_parent]
         requirements = self._requirements(store, applications, False, lambda text: None)

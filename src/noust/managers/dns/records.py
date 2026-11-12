@@ -447,7 +447,7 @@ class ManagedDns:
                 was not confirmed (or no longer matches what was confirmed).
             DnsProviderError: The provider failed, or several records are at the name.
         """
-        require_server_role("DNS records")
+        require_server_role("dns_records")
         name, kind, wanted = self._checked(hostname, content, record_type)
         target = self._target(name, account)
         provider = self.accounts.provider(target.account.name)

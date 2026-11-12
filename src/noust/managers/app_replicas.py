@@ -448,7 +448,7 @@ class ReplicaManager:
             ServiceError: A unit could not be written, started or stopped.
             AppBusyError: Another operation is running on the application.
         """
-        require_server_role("Applications")
+        require_server_role("applications")
         app = self._app(domain)
         store_module.check_copies(copies)
         with app_lock(app.domain, "scale"):

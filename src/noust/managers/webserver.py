@@ -1244,7 +1244,7 @@ class WebServerManager(BaseManager):
                 alias or redirect.
             TemplateError: When the template is missing or fails to render.
         """
-        require_server_role("Sites")
+        require_server_role("sites")
         if self.site_exists(domain):
             raise self.backend.error(
                 f"Site already exists: {domain}",
@@ -1296,7 +1296,7 @@ class WebServerManager(BaseManager):
             DomainError: When the domain is not a valid domain name.
             TemplateError: When the template is missing or fails to render.
         """
-        require_server_role("Sites")
+        require_server_role("sites")
         if not self.site_exists(domain):
             raise self.backend.error(
                 f"Site does not exist: {domain}",
@@ -1770,7 +1770,7 @@ class WebServerManager(BaseManager):
             SiteError: The file could not be written, or a symlink stands
                 where it goes (a write through it would land anywhere).
         """
-        require_server_role("Sites")
+        require_server_role("sites")
         path = self.upstream_path(domain)
         if path.is_symlink() or (path.parent.exists() and path.parent.is_symlink()):
             raise self.backend.error(
@@ -1981,7 +1981,7 @@ class WebServerManager(BaseManager):
             ApacheError: When the apache site does not exist or cannot be
                 enabled.
         """
-        require_server_role("Sites")
+        require_server_role("sites")
         if not self.site_exists(domain):
             raise self.backend.error(
                 f"Site does not exist: {domain}",
@@ -2437,7 +2437,7 @@ class WebServerManager(BaseManager):
                 file on disk is left exactly as it was.
             DomainError: When the domain is not a valid domain name.
         """
-        require_server_role("Sites")
+        require_server_role("sites")
         if not self.site_exists(domain):
             raise self.backend.error(
                 f"Site does not exist: {domain}",
@@ -3097,7 +3097,7 @@ def write_servers(app_name: str, service: str, ports: list[int]) -> None:
             cannot be written.
         RoleError: When this Noust is a hub, which writes no sites.
     """
-    require_server_role("Sites")
+    require_server_role("sites")
     path = servers_file(app_name, service)
     lines = "".join(f"server 127.0.0.1:{port};\n" for port in _checked_ports(ports))
 

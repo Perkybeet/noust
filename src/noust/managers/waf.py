@@ -425,7 +425,7 @@ class Waf:
                 are known to exist.
             ValidationError: The package manager failed; its words are the error.
         """
-        require_server_role("Sites")
+        require_server_role("sites")
         if not self._installable():
             raise UnsupportedHostError(
                 "Noust installs the WAF on Debian and Ubuntu only",
@@ -492,7 +492,7 @@ class Waf:
             ValidationError: The WAF is not available, or nginx refused the rules (its own words
                 are the error; nothing is left changed).
         """
-        require_server_role("Sites")
+        require_server_role("sites")
         support = self.support()
         if not support.available:
             raise ValidationError(support.problem, details=support.hint, field="waf")

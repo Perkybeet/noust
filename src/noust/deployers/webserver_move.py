@@ -259,7 +259,7 @@ def move(
             anything, could not be.
         AppBusyError: Another operation is running on one of the applications.
     """
-    require_server_role("Sites")
+    require_server_role("sites")
     log = logger or Logger(verbose=False)
     require_ready(plan, accept_losses=accept_losses, confirm=confirm)
     if is_rehearsal():

@@ -573,7 +573,7 @@ def enable_previews(
         ServiceError: The sweep timer could not be installed; the settings
             are put back as they were.
     """
-    require_server_role("Preview environments")
+    require_server_role("preview_environments")
     parent = _require_previewable(app_domain)
     store = get_store()
     extras = PreviewStore(store)
@@ -2386,7 +2386,7 @@ def create_preview(
             fork; a ref git would refuse; or the limit of previews is reached.
         IntegrationError: The pull request cannot be read.
     """
-    require_server_role("Preview environments")
+    require_server_role("preview_environments")
     parent = _require_previewable(parent_domain)
     store = get_store()
     settings = store.get_preview_settings(parent.domain)
@@ -2534,7 +2534,7 @@ def redeploy_preview(domain: str, *, actor: str = "cli", queue: bool = True) -> 
     Raises:
         ValidationError: Not a preview, or it is being built or removed.
     """
-    require_server_role("Preview environments")
+    require_server_role("preview_environments")
     record, parent, settings = _preview_of(domain)
     if record.status in (DEPLOYING, REMOVING):
         raise ValidationError(
@@ -2671,7 +2671,7 @@ def approve_preview(domain: str, *, actor: str = "cli", queue: bool = True) -> C
     Raises:
         ValidationError: Not a preview, or it is not waiting for approval.
     """
-    require_server_role("Preview environments")
+    require_server_role("preview_environments")
     record, parent, settings = _preview_of(domain)
     if record.status != AWAITING or not record.head_sha:
         raise ValidationError(
@@ -2717,7 +2717,7 @@ def reject_preview(domain: str, *, actor: str = "cli") -> tuple[str, ...]:
     Raises:
         ValidationError: Not a preview, or it is not waiting for approval.
     """
-    require_server_role("Preview environments")
+    require_server_role("preview_environments")
     record, _parent, _settings = _preview_of(domain)
     if record.status != AWAITING:
         raise ValidationError(

@@ -255,7 +255,7 @@ def add_domain(
             the row and the file are put back.
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Domains")
+    require_server_role("domains")
     with app_lock(validate_domain(app_domain), "domain change"):
         return _add_domain(
             app_domain,
@@ -407,7 +407,7 @@ def remove_domain(
             configuration; the row and the file are put back.
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Domains")
+    require_server_role("domains")
     with app_lock(validate_domain(app_domain), "domain change"):
         return _remove_domain(
             app_domain, domain, reduce_cert=reduce_cert, logger=logger, verbose=verbose
@@ -511,7 +511,7 @@ def disable_domain(
         ValidationError: When the web server refuses the new configuration; the name is on again.
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Domains")
+    require_server_role("domains")
     with app_lock(validate_domain(app_domain), "domain change"):
         return _switch(
             app_domain,
@@ -552,7 +552,7 @@ def enable_domain(
         ValidationError: When the web server refuses the new configuration; the name stays off.
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Domains")
+    require_server_role("domains")
     with app_lock(validate_domain(app_domain), "domain change"):
         return _switch(
             app_domain,
@@ -654,7 +654,7 @@ def set_canonical(
             rows and the policy are put back).
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Domains")
+    require_server_role("domains")
     choice = "" if canonical in ("", "none") else canonical
     if choice not in ("", "www", "apex"):
         raise ValidationError("The canonical spelling is www, apex or none", field="canonical")
@@ -750,7 +750,7 @@ def set_domain_port(
             one, or the web server refuses the new site (the previous port is back).
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Domains")
+    require_server_role("domains")
     with app_lock(validate_domain(app_domain), "domain change"):
         app = _application(app_domain)
         name = domain.strip().lower()
@@ -804,7 +804,7 @@ def issue_certificate(
         CertificateError: When certbot fails, carrying its output verbatim.
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Certificates")
+    require_server_role("certificates")
     log = logger or Logger(verbose=verbose)
     with app_lock(validate_domain(app_domain), "certificate order"):
         app = _application(app_domain)
@@ -843,7 +843,7 @@ def reduce_certificate(
             certificate it had keeps serving.
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Certificates")
+    require_server_role("certificates")
     log = logger or Logger(verbose=verbose)
     with app_lock(validate_domain(app_domain), "certificate order"):
         app = _application(app_domain)
@@ -884,7 +884,7 @@ def release_certificate(
             own, or certbot refused (its output is carried verbatim).
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Certificates")
+    require_server_role("certificates")
     log = logger or Logger(verbose=verbose)
     with app_lock(validate_domain(app_domain), "certificate order"):
         app = _application(app_domain)

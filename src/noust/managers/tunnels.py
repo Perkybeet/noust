@@ -520,7 +520,7 @@ class TunnelManager:
             DnsProviderError: Cloudflare refused it (its words are the error).
             ServiceError: The connector did not start; everything made is undone.
         """
-        require_server_role("Tunnels")
+        require_server_role("tunnels")
         if not _NAME.fullmatch(name or ""):
             raise ValidationError(
                 f"{name!r} cannot be the name of a tunnel",
@@ -794,7 +794,7 @@ class TunnelManager:
             PrerequisiteError: The tunnel is not ready.
             DnsProviderError: Cloudflare refused the ingress; the route is not kept.
         """
-        require_server_role("Tunnels")
+        require_server_role("tunnels")
         tunnel = self._ready(tunnel_name)
         name = checked_hostname(hostname)
         app, chosen = self._route_service(name, app_domain, service)
@@ -992,7 +992,7 @@ class TunnelManager:
             ResourceNotFoundError: The tunnel does not exist, or does not carry the name.
             DnsProviderError: Cloudflare refused the ingress; the route is kept.
         """
-        require_server_role("Tunnels")
+        require_server_role("tunnels")
         tunnel = self._ready(tunnel_name)
         name = checked_hostname(hostname)
         route = next((r for r in self.records.routes(tunnel.name) if r.hostname == name), None)
@@ -1063,7 +1063,7 @@ class TunnelManager:
             ResourceNotFoundError: There is no such tunnel.
             DnsProviderError: Cloudflare refused to delete it; the same call finishes it.
         """
-        require_server_role("Tunnels")
+        require_server_role("tunnels")
         tunnel = self.get(name)
         if is_rehearsal():
             return TunnelResult(tunnel, rehearsal=True)
@@ -1095,7 +1095,7 @@ class TunnelManager:
         Returns:
             The names that were put right.
         """
-        require_server_role("Tunnels")
+        require_server_role("tunnels")
         done: list[str] = []
         for tunnel in self.records.all():
             if tunnel.state != READY:

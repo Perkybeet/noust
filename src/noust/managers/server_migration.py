@@ -425,7 +425,7 @@ class ServerMigration:
         Raises:
             NoustError: This server is a hub: it has no applications to move.
         """
-        require_server_role("Moving a server")
+        require_server_role("moving_a_server")
         plan = MigrationPlan(host=self.self_backups.host_slug(), destination=destination)
         plan.passphrase_stored = self.self_backups.stored_passphrase() is not None
         self._check_destination(plan)
@@ -747,7 +747,7 @@ class ServerMigration:
         Raises:
             NoustError: This server is a hub.
         """
-        require_server_role("Checking a moved server")
+        require_server_role("checking_a_moved_server")
         apps = self._applications()
         report = MigrationCheck(
             generated_at=utc_now_iso("seconds"), host=self.self_backups.host_slug()
