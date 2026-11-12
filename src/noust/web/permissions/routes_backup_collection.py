@@ -19,4 +19,12 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/backup-collection/files"): Permission.BACKUPS_COLLECT,
     ("PUT", "/api/backup-collection/held"): Permission.BACKUPS_COLLECT,
     ("GET", "/api/backup-collection/held"): Permission.BACKUPS_READ,
+    # A copy that comes back is restored: the permission to restore a backup, and sudo mode on the
+    # call that does it, exactly as restoring one that is on the server.
+    ("POST", "/api/backup-collection/returns"): Permission.BACKUPS_MANAGE,
+    ("GET", "/api/backup-collection/returns/{upload_id}"): Permission.BACKUPS_MANAGE,
+    ("PUT", "/api/backup-collection/returns/{upload_id}"): Permission.BACKUPS_MANAGE,
+    ("POST", "/api/backup-collection/returns/{upload_id}/complete"): Permission.BACKUPS_MANAGE,
+    ("DELETE", "/api/backup-collection/returns/{upload_id}"): Permission.BACKUPS_MANAGE,
+    ("POST", "/api/backup-collection/restore"): Permission.BACKUPS_MANAGE,
 }

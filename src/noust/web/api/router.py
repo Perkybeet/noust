@@ -55,6 +55,7 @@ from noust.web.api.backup_collection import router as backup_collection_router
 from noust.web.api.backup_destinations import router as backup_destinations_router
 from noust.web.api.backup_encryption import router as backup_encryption_router
 from noust.web.api.backup_failures import router as backup_failures_router
+from noust.web.api.backup_returns import router as backup_returns_router
 from noust.web.api.backup_schedules import router as backup_schedules_router
 from noust.web.api.backups import router as backups_router
 from noust.web.api.central import router as central_router
@@ -290,6 +291,9 @@ router.include_router(volume_backups_router, prefix="/volume-backups", tags=["Vo
 router.include_router(self_backup_router, prefix="/self-backup", tags=["Self Backup"])
 router.include_router(
     backup_collection_router, prefix="/backup-collection", tags=["Backup Collection"]
+)
+router.include_router(
+    backup_returns_router, prefix="/backup-collection", tags=["Backup Collection"]
 )
 router.include_router(databases_router, prefix="/databases", tags=["Databases"])
 router.include_router(databases_apps_router, prefix="/apps", tags=["Databases"])
