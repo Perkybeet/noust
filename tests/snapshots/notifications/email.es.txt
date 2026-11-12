@@ -2430,6 +2430,60 @@ Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
 Cambia lo que recibes en Ajustes > Notificaciones
 
 ========================================================================
+### access.firewall_reverted
+Subject: [Noust] Cambio del cortafuegos deshecho: Allow 5432/tcp from 10.0.4.12 (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: access_change_reverted
+X-Noust-Code: access.firewall_reverted
+X-Noust-Server: web-1
+
+▲ Cambio del cortafuegos deshecho · Allow 5432/tcp from 10.0.4.12
+El cambio del cortafuegos «Allow 5432/tcp from 10.0.4.12» se deshizo porque nadie lo confirmó en 5 minutos.
+
+Servidor: web-1
+Cambio: Allow 5432/tcp from 10.0.4.12
+Lo aplicó: yago
+Aplicado: 2026-11-12 10:40 UTC
+
+Lo que imprimió al deshacerlo:
+  $ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp
+  Rule deleted
+
+Abrir en la consola: https://console.example.com/n/web-1/network/firewall
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### access.ssh_reverted
+Subject: [Noust] Cambio de SSH deshecho: Turn password logins off (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: access_change_reverted
+X-Noust-Code: access.ssh_reverted
+X-Noust-Server: web-1
+
+▲ Cambio de SSH deshecho · Turn password logins off
+El cambio de SSH «Turn password logins off» se deshizo porque nadie lo confirmó en 5 minutos.
+
+Servidor: web-1
+Cambio: Turn password logins off
+Lo aplicó: ana
+Aplicado: 2026-11-12 10:40 UTC
+
+Lo que imprimió al deshacerlo:
+  Restored /etc/ssh/sshd_config.d/99-noust.conf
+  $ sshd -t
+
+Abrir en la consola: https://console.example.com/n/web-1/security/ssh
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
 ### hostile.deploy_failed
 Subject: [Noust] Despliegue fallido: shop.example.com (wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww)
 Auto-Submitted: auto-generated

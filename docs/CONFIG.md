@@ -263,6 +263,7 @@ How the console's terminal behaves. `docs/terminal.md` explains what each limit 
 | `notifications.events.domain_expiring` | `true` | The registration of a domain is within 30 or 7 days of expiring (needs `monitor.domain_expiry`). |
 | `notifications.events.domain_expired` | `true` | The registration of a domain has expired (needs `monitor.domain_expiry`). |
 | `notifications.events.app_oom_killed` | `true` | The kernel killed an application for running out of memory (cgroup v2), with how many times, its memory limit and the most it used. |
+| `notifications.events.access_change_reverted` | `true` | A change to the firewall or to SSH nobody confirmed in time was undone by its timer; says which change, who applied it and what the undo printed. |
 | `notifications.events.unit_failed` | `true` | Notify when a watched unit fails. |
 | `notifications.events.app_unreachable` | `true` | Notify when an application whose unit is running stops answering its health check: three failed probes over at least a minute, once per outage; not asked while the application is being deployed or runs a job, nor when its unit was stopped on purpose or failed (that is `unit_failed`). A stack with no published port is judged by its containers instead. |
 | `notifications.events.app_recovered` | `true` | Notify when an application that was reported unreachable answers again. |

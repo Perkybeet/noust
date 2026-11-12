@@ -1,7 +1,7 @@
 /**
  * Home's reading of `GET /api/overview`, as pure functions so every rule is tested without a
- * page: whether the server runs anything yet and the attention list (the server's, plus the one
- * thing the server cannot see).
+ * page: whether the server runs anything yet, and what the fleet's view adds to the list of a node
+ * before 4.3. What needs attention on a server is the one list the server joins (`GET /api/attention`).
  */
 
 import type { Overview, OverviewAttentionItem, OverviewAttentionReason } from "../../api/queries/overview";
@@ -36,16 +36,9 @@ export function isEmptyServer(overview: Overview): boolean {
 const RANK: Readonly<Record<string, number>> = { fail: 0, warn: 1 };
 
 /**
- * The attention list: the server's, worst first, plus what only the console knows. The server
- * reads an application's state from its systemd units, so a service that runs but answers
- * nothing on its port (the apps list's `no_answer`, found by probing the port) is not in its
- * list: that one reason is added here, on the application's own item.
+ * A node's list with the applications that run and answer nothing added, worst first. A server of 4.3 says it itself (it keeps what the monitor
+ * announced), so this is for the fleet's view of a node before 4.3, whose list cannot see a service that runs and answers nothing on its port.
  */
-export function attentionItems(overview: Overview, apps: readonly Pick<AppInfo, "domain" | "status">[] | undefined): OverviewAttentionItem[] {
-  return withNoAnswer(overview.attention ?? [], apps ?? []);
-}
-
-/** A list of items with the applications that run and answer nothing added, worst first: the server's list and a node's alike. */
 export function withNoAnswer(listed: readonly OverviewAttentionItem[], apps: readonly Pick<AppInfo, "domain" | "status">[]): OverviewAttentionItem[] {
   const items = listed.map((item) => ({ ...item, reasons: [...item.reasons] }));
   for (const app of apps) {
@@ -72,10 +65,4 @@ export function withNoAnswer(listed: readonly OverviewAttentionItem[], apps: rea
     items.push({ id: `app:${app.domain}`, subject: { kind: "app", domain: app.domain }, title: app.domain, severity: "fail", reasons: [reason] });
   }
   return items.sort((a, b) => (RANK[a.severity] ?? 2) - (RANK[b.severity] ?? 2) || a.title.toLowerCase().localeCompare(b.title.toLowerCase()));
-}
-
-/** How many items there are in all: the server may have cut its list. */
-export function attentionTotal(overview: Overview, items: readonly OverviewAttentionItem[]): number {
-  const server = overview.attention ?? [];
-  return Math.max(items.length, overview.attention_total + (items.length - server.length));
 }

@@ -29,6 +29,7 @@ import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { roleLabel } from "../settings/accounts/roles";
+import { attentionKeys } from "../../api/queries/attention";
 import { approvalKeys, approvalPolicyQuery, approvalsQuery, approve, reject } from "./api";
 import type { Approval } from "./api";
 import { ApprovalStateLabel } from "./ApprovalStateLabel";
@@ -77,6 +78,8 @@ function ApprovalDrawer({ approval, onClose }: { approval: Approval; onClose: ()
   const [comment, setComment] = useState("");
   const refresh = (): void => {
     void queryClient.invalidateQueries({ queryKey: approvalKeys.all });
+    // A request that was decided no longer waits for anybody: the list of what needs a person says so.
+    void queryClient.invalidateQueries({ queryKey: attentionKeys.all });
   };
   const decide = useMutation({
     mutationFn: (verdict: "approve" | "reject") => (verdict === "approve" ? approve(approval.id, comment.trim() || null) : reject(approval.id, comment.trim() || null)),

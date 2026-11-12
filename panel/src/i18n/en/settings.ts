@@ -553,6 +553,7 @@ export const settings = {
         appOomKilled: { label: "Application killed for lack of memory", description: "The kernel killed an application for running out of memory: how many times, its limit and the most it used." },
         domainExpiring: { label: "Domain registration expiring", description: "The registry says a domain's registration expires within 30 or 7 days. Needs the check in Alerts > Checks, which is off until you turn it on." },
         domainExpired: { label: "Domain registration expired", description: "The registry says a domain's registration has expired. Needs the check in Alerts > Checks." },
+        accessChangeReverted: { label: "Firewall or SSH change undone", description: "A change to the firewall or to SSH that nobody confirmed in time was undone by its timer, with what the undo printed." },
       },
     },
     messages: {
