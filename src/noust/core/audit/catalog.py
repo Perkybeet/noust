@@ -671,6 +671,25 @@ EVENTS: dict[str, EventSpec] = {
             "terminal.denied": "A terminal was refused: a limit, a ticket that did not match, or a switch that is off.",
         },
     ),
+    # Docker as the machine's (4.3): what the Docker zone of the console changes. A change to what
+    # an application or a database engine owns is refused (and recorded as such): it goes through
+    # the application or the engine.
+    **_events(
+        "change",
+        NOTICE,
+        {
+            "docker.action": "A container was started, stopped or restarted from the Docker zone.",
+            "docker.remove": "A container, an image, a network or a volume was removed from the Docker zone.",
+            "docker.cleanup": "A cleanup plan of Docker was applied.",
+        },
+    ),
+    **_events(
+        "denial",
+        WARNING,
+        {
+            "docker.denied": "A change to something Docker has was refused: it belongs to an application, a database engine or Noust.",
+        },
+    ),
     **_events(
         "change",
         INFO,

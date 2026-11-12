@@ -39,6 +39,11 @@ class Permission:
     SERVER_HOST_ACCESS = "server.host_access"
     SERVER_TERMINAL = "server.terminal"
 
+    # Docker is the machine's: what a container, an image, a volume or a network is, whoever made
+    # it, and the few things that change one (4.3, item 189).
+    DOCKER_READ = "docker.read"
+    DOCKER_MANAGE = "docker.manage"
+
     DATABASES_READ = "databases.read"
     DATABASES_WRITE = "databases.write"
     DATABASES_MANAGE = "databases.manage"
@@ -94,6 +99,14 @@ DESCRIPTIONS: dict[str, str] = {
     Permission.SERVER_MANAGE: "Manage the server: services, the monitor",
     Permission.SERVER_HOST_ACCESS: "Change the host itself: SSH, firewall, packages",
     Permission.SERVER_TERMINAL: "A root shell on the server itself, in the browser",
+    Permission.DOCKER_READ: (
+        "See everything Docker has on the server and whose it is: containers, images, volumes, "
+        "networks, their logs and consumption"
+    ),
+    Permission.DOCKER_MANAGE: (
+        "Start, stop, restart and remove what Docker has, open a console in a container and "
+        "clean up Docker, for what no application or database engine owns"
+    ),
     Permission.DATABASES_READ: "See database engines, databases and users",
     Permission.DATABASES_WRITE: "Create databases and users, run queries",
     Permission.DATABASES_MANAGE: "Install engines, drop databases, restore dumps",

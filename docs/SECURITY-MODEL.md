@@ -344,6 +344,8 @@ only what recovering an account takes.
 | `databases.manage` | Install engines, drop databases, restore dumps |  |  | yes |  |  | yes | yes |
 | `databases.read` | See database engines, databases and users | yes | yes | yes | yes | yes | yes | yes |
 | `databases.write` | Create databases and users, run queries |  |  | yes |  |  | yes | yes |
+| `docker.manage` | Start, stop, restart and remove what Docker has, open a console in a container and clean up Docker, for what no application or database engine owns |  |  | yes |  |  | yes | yes |
+| `docker.read` | See everything Docker has on the server and whose it is: containers, images, volumes, networks, their logs and consumption | yes | yes | yes | yes | yes | yes | yes |
 | `fleet.manage` | Add and remove servers |  |  | yes |  |  | yes | yes |
 | `fleet.read` | See the servers this central manages | yes | yes | yes | yes | yes | yes | yes |
 | `root_equivalent` | Raw units, cron commands, backup hooks, raw site configuration |  |  | yes |  |  | yes | yes |
@@ -489,16 +491,16 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **539** events.
+The catalogue holds **543** events.
 
 | Category | Events |
 |---|---|
 | access | 49 |
 | account | 40 |
 | config | 32 |
-| change | 356 |
+| change | 359 |
 | read | 21 |
-| denial | 16 |
+| denial | 17 |
 | system | 22 |
 | host | 3 |
 <!-- /generated:audit -->
