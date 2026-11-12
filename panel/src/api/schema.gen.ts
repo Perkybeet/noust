@@ -358,6 +358,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/alerts/watching": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Watching
+         * @description Say what Noust watches without being asked and who hears what it finds.
+         *
+         *     Args:
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The watches, the channels, and whether the monitor that watches is running.
+         */
+        get: operations["watching_api_alerts_watching_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/approvals": {
         parameters: {
             query?: never;
@@ -7156,6 +7182,33 @@ export interface paths {
          *         ValidationError: It cannot run as two instances (400, with why).
          */
         put: operations["put_zero_downtime_api_apps__domain__zero_downtime_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/attention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Attention
+         * @description Answer what needs this person, worst first, with one count.
+         *
+         *     Args:
+         *         session: Authenticated session, injected.
+         *         only: ``own`` leaves out the server's own list.
+         *
+         *     Returns:
+         *         The list the bell, Home and the bar of the console show.
+         */
+        get: operations["attention_api_attention_get"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -34247,15 +34300,22 @@ export interface components {
          *         subject: What it is about: ``{"kind": "app", "domain": ...}``,
          *             ``{"kind": "certificate", "domain": ...}``, ``{"kind": "unit",
          *             "name": ...}``, ``{"kind": "monitor", "process": ..., "pid": ...}``,
-         *             ``{"kind": "alert", "rule": ..., "subject": ...}`` or
-         *             ``{"kind": "probe", "name": ...}``.
+         *             ``{"kind": "alert", "rule": ..., "subject": ...}``,
+         *             ``{"kind": "probe", "name": ...}``, ``{"kind": "machine", "fact": ...}`` or
+         *             ``{"kind": "finding", "check": ..., "group": ...}``.
          *         title: A domain, a unit, a process, a rule (and the application it fires for).
+         *         origin: Where the row comes from: that of the reason that made it serious.
          *         severity: The worst of its reasons.
          *         reasons: Each reason, with its own severity.
          */
         AttentionItem: {
             /** Id */
             id: string;
+            /**
+             * Origin
+             * @default state
+             */
+            origin: string;
             /** Reasons */
             reasons: components["schemas"]["AttentionReason"][];
             /** Severity */
@@ -34272,15 +34332,21 @@ export interface components {
          * @description One reason an item needs attention.
          *
          *     Attributes:
-         *         kind: ``state``, ``deploy``, ``certificate``, ``unit``, ``monitor``, ``alert`` or
-         *             ``probe``.
+         *         kind: ``state``, ``deploy``, ``first_deploy``, ``certificate``, ``unit``, ``machine``,
+         *             ``monitor``, ``alert``, ``probe``, ``security``, ``approval``, ``noust`` or
+         *             ``recipe``.
+         *         origin: Where it comes from: ``state`` (what a thing is), ``alert`` (a rule, a probe or what
+         *             the monitor noted) or ``security`` (a finding of the hardening checks). A server
+         *             before 4.3 sends none, and it is a state.
          *         severity: ``fail`` or ``warn``.
          *         code: Machine-readable and stable; the console words it. ``service_failed``,
          *             ``service_restarting``, ``running_outside_unit``, ``deploy_failed``, ``deploy_rolled_back``,
          *             ``certificate_expired``, ``certificate_expires_today``,
          *             ``certificate_expires_in``, ``unit_failed``, ``unit_restarting``,
          *             ``monitor_finding``, ``probe_down``, ``alert_firing`` (nobody has taken it) and ``alert_taken``
-         *             (somebody has; it still fires).
+         *             (somebody has; it still fires); of the machine ``security_updates``, ``packages_broken``,
+         *             ``reboot_required``, ``os_unsupported``, ``os_ending``, ``disk_full``, ``clock_unsynced``,
+         *             ``no_swap`` and ``failed_units``; and ``security_finding`` for a check of the hardening.
          *         params: Values for the console's sentence (days, a signal).
          *         detail: The system's own words, verbatim.
          *         detail_coded: The detail as a sentence with a code and values, when it is one of Noust's
@@ -34291,7 +34357,9 @@ export interface components {
          *         actions: What can be done, as identifiers the console maps to buttons:
          *             ``view_log``, ``diagnose``, ``view_deployment``,
          *             ``renew_certificate``, ``open_service``, ``open_observation``,
-         *             ``acknowledge_alert``, ``reopen_alert``, ``open_probes``.
+         *             ``acknowledge_alert``, ``reopen_alert``, ``open_probes``, and for the machine
+         *             ``open_updates``, ``schedule_reboot``, ``free_space``, ``fix_clock``, ``add_swap``,
+         *             ``open_services``, and ``review_finding`` for a check.
          */
         AttentionReason: {
             /** Actions */
@@ -34305,6 +34373,11 @@ export interface components {
             detail_coded?: components["schemas"]["CodedText"] | null;
             /** Kind */
             kind: string;
+            /**
+             * Origin
+             * @default state
+             */
+            origin: string;
             /** Params */
             params?: {
                 [key: string]: unknown;
@@ -34313,6 +34386,25 @@ export interface components {
             severity: string;
             /** When */
             when?: string | null;
+        };
+        /**
+         * AttentionResponse
+         * @description What needs this person.
+         *
+         *     Attributes:
+         *         items: The rows, the worst first (a state before an alert before a security finding within
+         *             a severity, then by name), each with the ``origin`` it comes from and every reason it
+         *             has; at most 100.
+         *         total: How many there are in all, which is the one number every screen shows.
+         */
+        AttentionResponse: {
+            /** Items */
+            items?: components["schemas"]["AttentionItem"][];
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
         };
         /**
          * AuditActor
@@ -37464,6 +37556,20 @@ export interface components {
             } | null;
             /** Team */
             team?: string | null;
+            /** Type */
+            type: string;
+        };
+        /**
+         * ChannelRef
+         * @description A channel that delivers, without any of its settings.
+         *
+         *     Attributes:
+         *         name: What it is called.
+         *         type: Its type (``slack``, ``telegram``...).
+         */
+        ChannelRef: {
+            /** Name */
+            name: string;
             /** Type */
             type: string;
         };
@@ -50911,6 +51017,23 @@ export interface components {
             ok: boolean;
         };
         /**
+         * NotificationsModel
+         * @description Whether what is found leaves the server at all.
+         *
+         *     Attributes:
+         *         enabled: The master switch (``notifications.enabled``).
+         *         paused_until: When a pause of every notification ends, or null for none.
+         *         channels: The server's channels that are on and have what their type needs.
+         */
+        NotificationsModel: {
+            /** Channels */
+            channels?: components["schemas"]["ChannelRef"][];
+            /** Enabled */
+            enabled: boolean;
+            /** Paused Until */
+            paused_until?: string | null;
+        };
+        /**
          * OAuthApplicationOut
          * @description An OAuth application registered in GitLab, without its secret.
          */
@@ -51037,6 +51160,20 @@ export interface components {
             stats?: {
                 [key: string]: number;
             } | null;
+        };
+        /**
+         * Offer
+         * @description What turning on a watch that ships off writes.
+         *
+         *     Attributes:
+         *         key: The setting, through ``PATCH /api/config``.
+         *         value: The value that turns it on.
+         */
+        Offer: {
+            /** Key */
+            key: string;
+            /** Value */
+            value: unknown;
         };
         /**
          * OperationOut
@@ -54872,6 +55009,27 @@ export interface components {
             count: number;
             /** Key */
             key: string;
+        };
+        /**
+         * Reach
+         * @description A channel that would take what a watch says.
+         *
+         *     Attributes:
+         *         name: The channel.
+         *         type: Its type.
+         *         limited: It does not say everything at once: a route that narrows it, a floor of
+         *             severity, quiet hours or a summary.
+         */
+        Reach: {
+            /**
+             * Limited
+             * @default false
+             */
+            limited: boolean;
+            /** Name */
+            name: string;
+            /** Type */
+            type: string;
         };
         /**
          * ReasonModel
@@ -66526,6 +66684,87 @@ export interface components {
             items?: string[];
         };
         /**
+         * WatchEvent
+         * @description A message a watch can say.
+         *
+         *     Attributes:
+         *         kind: The notification kind, as ``/api/notifications/events`` lists it.
+         *         on: Whether the server-wide switch has it on.
+         */
+        WatchEvent: {
+            /** Kind */
+            kind: string;
+            /** On */
+            on: boolean;
+        };
+        /**
+         * WatchModel
+         * @description One thing Noust looks at without being asked.
+         *
+         *     Attributes:
+         *         id: Stable; the console words it.
+         *         group: ``applications``, ``domains``, ``server``, ``backups`` or ``noust``.
+         *         state: ``on``, ``off`` (its check is turned off) or ``muted`` (none of its messages is
+         *             switched on anywhere).
+         *         events: The messages it can say.
+         *         params: The numbers its sentence quotes (``percent``, ``days``, ``hours``).
+         *         reach: The channels that would take what it says, whether or not it is on now.
+         *         offer: What to write to turn it on, for a watch that ships off and is worth offering.
+         *         asks_outside: It sends a request to somebody else, which the offer says first.
+         */
+        WatchModel: {
+            /**
+             * Asks Outside
+             * @default false
+             */
+            asks_outside: boolean;
+            /** Events */
+            events?: components["schemas"]["WatchEvent"][];
+            /** Group */
+            group: string;
+            /** Id */
+            id: string;
+            offer?: components["schemas"]["Offer"] | null;
+            /** Params */
+            params?: {
+                [key: string]: unknown;
+            };
+            /** Reach */
+            reach?: components["schemas"]["Reach"][];
+            /** State */
+            state: string;
+        };
+        /**
+         * WatcherModel
+         * @description Whether the monitor, which does the watching, runs.
+         *
+         *     Attributes:
+         *         state: ``running``, ``not_running`` (enabled, and not running), ``disabled`` (installed and
+         *             not enabled), ``not_installed`` or ``unknown`` (systemd cannot be asked).
+         *         fix: The command that deals with it, or null when there is nothing to do.
+         */
+        WatcherModel: {
+            /** Fix */
+            fix?: string | null;
+            /** State */
+            state: string;
+        };
+        /**
+         * WatchingResponse
+         * @description What Noust watches by itself, and where what it finds goes.
+         *
+         *     Attributes:
+         *         watcher: Whether the monitor that does the watching runs.
+         *         notifications: Whether it can be heard, and by which channels.
+         *         watches: Each thing watched, in the order the console draws them.
+         */
+        WatchingResponse: {
+            notifications: components["schemas"]["NotificationsModel"];
+            watcher: components["schemas"]["WatcherModel"];
+            /** Watches */
+            watches?: components["schemas"]["WatchModel"][];
+        };
+        /**
          * WebConfig
          * @description Web interface configuration.
          */
@@ -69982,6 +70221,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    watching_api_alerts_watching_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchingResponse"];
                 };
             };
         };
@@ -77664,6 +77923,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    attention_api_attention_get: {
+        parameters: {
+            query?: {
+                /** @description `own`: only what is this person's own (requests to decide, a newer Noust, recipes behind), without the server's list: what a central adds to the lists of its servers. */
+                only?: "own" | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttentionResponse"];
                 };
             };
             /** @description Validation Error */

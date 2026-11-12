@@ -275,15 +275,21 @@ class AttentionReason(BaseModel):
     One reason an item needs attention.
 
     Attributes:
-        kind: ``state``, ``deploy``, ``certificate``, ``unit``, ``monitor``, ``alert`` or
-            ``probe``.
+        kind: ``state``, ``deploy``, ``first_deploy``, ``certificate``, ``unit``, ``machine``,
+            ``monitor``, ``alert``, ``probe``, ``security``, ``approval``, ``noust`` or
+            ``recipe``.
+        origin: Where it comes from: ``state`` (what a thing is), ``alert`` (a rule, a probe or what
+            the monitor noted) or ``security`` (a finding of the hardening checks). A server
+            before 4.3 sends none, and it is a state.
         severity: ``fail`` or ``warn``.
         code: Machine-readable and stable; the console words it. ``service_failed``,
             ``service_restarting``, ``running_outside_unit``, ``deploy_failed``, ``deploy_rolled_back``,
             ``certificate_expired``, ``certificate_expires_today``,
             ``certificate_expires_in``, ``unit_failed``, ``unit_restarting``,
             ``monitor_finding``, ``probe_down``, ``alert_firing`` (nobody has taken it) and ``alert_taken``
-            (somebody has; it still fires).
+            (somebody has; it still fires); of the machine ``security_updates``, ``packages_broken``,
+            ``reboot_required``, ``os_unsupported``, ``os_ending``, ``disk_full``, ``clock_unsynced``,
+            ``no_swap`` and ``failed_units``; and ``security_finding`` for a check of the hardening.
         params: Values for the console's sentence (days, a signal).
         detail: The system's own words, verbatim.
         detail_coded: The detail as a sentence with a code and values, when it is one of Noust's
@@ -294,10 +300,13 @@ class AttentionReason(BaseModel):
         actions: What can be done, as identifiers the console maps to buttons:
             ``view_log``, ``diagnose``, ``view_deployment``,
             ``renew_certificate``, ``open_service``, ``open_observation``,
-            ``acknowledge_alert``, ``reopen_alert``, ``open_probes``.
+            ``acknowledge_alert``, ``reopen_alert``, ``open_probes``, and for the machine
+            ``open_updates``, ``schedule_reboot``, ``free_space``, ``fix_clock``, ``add_swap``,
+            ``open_services``, and ``review_finding`` for a check.
     """
 
     kind: str
+    origin: str = "state"
     severity: str
     code: str
     params: dict[str, Any] = Field(default_factory=dict)
@@ -317,9 +326,11 @@ class AttentionItem(BaseModel):
         subject: What it is about: ``{"kind": "app", "domain": ...}``,
             ``{"kind": "certificate", "domain": ...}``, ``{"kind": "unit",
             "name": ...}``, ``{"kind": "monitor", "process": ..., "pid": ...}``,
-            ``{"kind": "alert", "rule": ..., "subject": ...}`` or
-            ``{"kind": "probe", "name": ...}``.
+            ``{"kind": "alert", "rule": ..., "subject": ...}``,
+            ``{"kind": "probe", "name": ...}``, ``{"kind": "machine", "fact": ...}`` or
+            ``{"kind": "finding", "check": ..., "group": ...}``.
         title: A domain, a unit, a process, a rule (and the application it fires for).
+        origin: Where the row comes from: that of the reason that made it serious.
         severity: The worst of its reasons.
         reasons: Each reason, with its own severity.
     """
@@ -327,6 +338,7 @@ class AttentionItem(BaseModel):
     id: str
     subject: dict[str, Any]
     title: str
+    origin: str = "state"
     severity: str
     reasons: list[AttentionReason]
 
@@ -456,6 +468,48 @@ def server_summary() -> dict[str, Any] | None:
     return build_summary(get_server_context(), wait=False)
 
 
+def security_findings() -> list[dict[str, Any]] | None:
+    """
+    Read the open findings of the hardening checks, as the last run left them.
+
+    The monitor runs the checks again when they are due, so this never starts one and never looks at
+    the machine: a server that has not run them yet has no findings to list, and the list says
+    nothing of it.
+
+    Returns:
+        The checks that failed or warned, most serious first, or None when this Noust has no
+        server area.
+    """
+    try:
+        from noust.managers.server.security_checks import cached_report, reapply_risks
+    except ImportError:
+        return None
+    report = cached_report()
+    if report is None:
+        return []
+    return [check.to_dict() for check in reapply_risks(report).attention()]
+
+
+def current_overview(*, spark: bool = False) -> dict[str, Any]:
+    """
+    Answer with a recent Overview: the one the console, a script and the list of what needs attention
+    read, so they cannot disagree.
+
+    Args:
+        spark: Include the last hour of CPU and memory.
+
+    Returns:
+        The Overview, from the cache when it is recent.
+    """
+    return get_overview(
+        spark=spark,
+        metrics=metrics_collector.get_metrics_store(),
+        updates=server_summary,
+        security=security_findings,
+        recording=metrics_collector.history_status,
+    )
+
+
 @router.get("", response_model=OverviewResponse, response_model_by_alias=True)
 def overview(
     session: Session,
@@ -475,10 +529,4 @@ def overview(
     Returns:
         The Overview.
     """
-    store = metrics_collector.get_metrics_store()
-    return get_overview(
-        spark=spark,
-        metrics=store,
-        updates=server_summary,
-        recording=metrics_collector.history_status,
-    )
+    return current_overview(spark=spark)

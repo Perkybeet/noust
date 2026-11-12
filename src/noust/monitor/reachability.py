@@ -24,11 +24,13 @@ Two things are decided here, apart from the monitor loop that calls them:
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from http.client import HTTPException
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from noust.core import applock
@@ -204,6 +206,18 @@ class OutageTracker:
         for domain in set(self._runs) - domains:
             del self._runs[domain]
 
+    def open_outages(self) -> list[Outage]:
+        """
+        Returns:
+            The outages announced and not yet ended, in the order of the applications' names: what
+            the Overview lists as an application that does not answer.
+        """
+        return [
+            Outage(domain, since=run.first, probe=run.probe)
+            for domain, run in sorted(self._runs.items())
+            if run.announced
+        ]
+
     def to_dict(self) -> dict[str, Any]:
         """
         Returns:
@@ -249,6 +263,25 @@ class OutageTracker:
             except (KeyError, TypeError, ValueError):
                 continue
         return tracker
+
+
+def announced_outages(sidecar: Path) -> list[Outage]:
+    """
+    Read the outages the monitor announced and has not seen end.
+
+    Args:
+        sidecar: The file the monitor keeps each application's run of failed probes in, beside the
+            store.
+
+    Returns:
+        The open outages; none when the file is missing or cannot be read, which means nothing is
+        known and not that every application answers.
+    """
+    try:
+        data = json.loads(sidecar.read_text())
+    except (OSError, ValueError):
+        return []
+    return OutageTracker.from_dict(data).open_outages()
 
 
 # -- what one scan asks about one application ---------------------------------

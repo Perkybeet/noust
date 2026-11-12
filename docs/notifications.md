@@ -277,6 +277,10 @@ goes straight to the channel and shows what it answered.
 
 ## Events
 
+The opening of Alerts in the console lists what Noust watches without being asked and, for each, which of
+your channels would take what it says (`GET /api/alerts/watching`): the table below is the whole list of
+messages, that page is the part of it that is a watch.
+
 `notifications.events.<kind>` switches each one on or off for every channel; those marked
 "off" ship switched off.
 

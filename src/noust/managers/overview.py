@@ -36,6 +36,7 @@ import threading
 import time
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 
 from noust.core import cert_life
@@ -44,6 +45,8 @@ from noust.core.exceptions import NoustError
 from noust.core.first_deploys import FirstDeploys
 from noust.core.server_text import ServerText
 from noust.core.timeutil import to_iso_offset
+from noust.managers.attention import ATTENTION_LIMIT, AttentionList, machine_items, security_items
+from noust.managers.attention import reason as _reason
 from noust.monitor import sampler
 
 log = logging.getLogger(__name__)
@@ -71,10 +74,6 @@ BACKUP_WINDOW_HOURS = 24
 #: certificate and backup reads are the expensive ones.
 CACHE_SECONDS = 15.0
 
-#: Most items the attention list returns; ``attention_total`` says how many
-#: there were.
-ATTENTION_LIMIT = 100
-
 #: Most entries of the activity timeline.
 ACTIVITY_LIMIT = 20
 
@@ -91,8 +90,6 @@ _SECTION_ERRORS: tuple[type[Exception], ...] = (
     ValueError,
     sqlite3.Error,
 )
-
-_RANK = {"fail": 0, "warn": 1}
 
 _cache_lock = threading.Lock()
 _cache: tuple[float, bool, dict[str, Any]] | None = None
@@ -147,6 +144,7 @@ def collect_overview(
     probes: Callable[[], list[tuple[Any, Any]]] | None = None,
     metrics: Any | None = None,
     updates: Callable[[], dict[str, Any] | None] | None = None,
+    security: Callable[[], list[dict[str, Any]] | None] | None = None,
     recording: Callable[[], Any] | None = None,
     now: datetime | None = None,
 ) -> dict[str, Any]:
@@ -172,7 +170,10 @@ def collect_overview(
         updates: Returns the server area's summary (``updates`` and ``reboot``
             sections), or None when this Noust has none. The integration point
             for operating system updates: the manager that reads them is not
-            duplicated here.
+            duplicated here. The same summary says what is wrong with the machine (a disk, a
+            reboot, the clock), read once for both.
+        security: Returns the open findings of the hardening checks, as the last run left them
+            (``attention`` of the server's security overview), or None when this Noust has none.
         recording: Says whether metrics history is being recorded.
         now: The current moment; the clock when None.
 
@@ -191,6 +192,7 @@ def collect_overview(
 
     units = _read("services", services or fetch_service_states, [])
     apps = _read("applications", store.list_apps, [])
+    summary = _once(updates)
 
     overview: dict[str, Any] = {
         "schema": SCHEMA,
@@ -201,9 +203,11 @@ def collect_overview(
         "certificates": _section("certificates", lambda: _certificates(certificates)),
         "backups": _section("backups", lambda: _backups(store, backups, apps, moment)),
         "disk": _section("disk", lambda: _disk(metrics, moment)),
-        "updates": _updates(updates),
+        "updates": _updates(summary),
     }
-    items, total = _attention(store, units, certificates, observations, alerts, probes, apps)
+    items, total = _attention(
+        store, units, certificates, observations, alerts, probes, apps, summary, security
+    )
     overview["attention"] = items
     overview["attention_total"] = total
     overview["activity"] = _section("activity", lambda: _activity(store))
@@ -595,6 +599,38 @@ def _updates(read: Callable[[], dict[str, Any] | None] | None) -> dict[str, Any]
 # ---------------------------------------------------------------------------
 
 
+def _once(read: Callable[[], Any] | None) -> Callable[[], Any] | None:
+    """
+    Make a read that is asked twice answer from one look.
+
+    The server area's summary says the figure of the updates and what is wrong with the machine, and a
+    second read of it, which can be a slow one, is a second wait.
+
+    Args:
+        read: A read, or None.
+
+    Returns:
+        None for None; otherwise a read that asks once and gives the same answer, or raises the
+        same error, every time after.
+    """
+    if read is None:
+        return None
+    outcome: list[tuple[Any, Exception | None]] = []
+
+    def call() -> Any:
+        if not outcome:
+            try:
+                outcome.append((read(), None))
+            except _SECTION_ERRORS as exc:
+                outcome.append((None, exc))
+        value, error = outcome[0]
+        if error is not None:
+            raise error
+        return value
+
+    return call
+
+
 def _attention(
     store: Any,
     services: list[dict[str, Any]],
@@ -603,18 +639,20 @@ def _attention(
     alerts: Callable[[], list[tuple[Any, Any]]] | None,
     probes: Callable[[], list[tuple[Any, Any]]] | None,
     apps: list[Any],
+    summary: Callable[[], dict[str, Any] | None] | None = None,
+    security: Callable[[], list[dict[str, Any]] | None] | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
     """
     Gather every problem that needs an operator, worst first.
 
-    The same sources and rules the console's attention list has always had,
-    computed where the data is: an application whose service failed or is
-    restarting, one whose newest deployment failed or was rolled back, a
-    certificate about to expire or expired, a unit Noust manages that failed
-    beyond the applications' own, a first deployment that failed and left no
-    application at all, an open monitor observation, an alert that is
-    firing and a probe that is down. A source that cannot be read is skipped and
-    logged; what remains is still worth showing.
+    The sources of the one list (:mod:`noust.managers.attention`, which joins, ranks and says where
+    each row comes from): an application whose service failed or is restarting, one whose newest
+    deployment failed or was rolled back, a certificate about to expire or expired, a unit Noust
+    manages that failed beyond the applications' own, a first deployment that failed and left no
+    application at all, an open monitor observation, an alert that is firing, a probe that is down,
+    what is wrong with the machine (a disk, a reboot, the clock) and the open findings of the
+    hardening checks. A source that cannot be read is skipped and logged; what remains is still
+    worth showing.
 
     The alerts and the probes are here, and not added by the console, because a fleet
     reads each server's own list: what only the console that looks at a server adds is
@@ -628,28 +666,16 @@ def _attention(
         alerts: Lists the alerts that are firing.
         probes: Lists the probes that are down.
         apps: The deployed applications.
+        summary: Reads the server area's summary, for what is wrong with the machine.
+        security: Reads the open findings of the hardening checks.
 
     Returns:
         The items, at most :data:`ATTENTION_LIMIT`, and how many there were.
     """
     from noust.web.machine import classify_apps
 
-    items: dict[str, dict[str, Any]] = {}
-
-    def add(key: str, subject: dict[str, Any], title: str, reason: dict[str, Any]) -> None:
-        item = items.get(key)
-        if item is None:
-            items[key] = {
-                "id": key,
-                "subject": subject,
-                "title": title,
-                "severity": reason["severity"],
-                "reasons": [reason],
-            }
-            return
-        item["reasons"].append(reason)
-        if _RANK[reason["severity"]] < _RANK[item["severity"]]:
-            item["severity"] = reason["severity"]
+    rows = AttentionList()
+    add = rows.add
 
     domains = {app.domain for app in apps}
 
@@ -683,6 +709,7 @@ def _attention(
                 _reason("state", "warn", "running_outside_unit"),
             )
 
+    _add_unreachable(store, domains, add)
     _add_deployments(store, domains, add)
     _add_first_deploys(store, add)
     _add_certificates(certificates, domains, add)
@@ -690,54 +717,50 @@ def _attention(
     _add_observations(observations, add)
     _add_alerts(alerts, add)
     _add_probes(probes, add)
+    rows.extend(_machine_facts(summary, services))
+    rows.extend(_findings(security))
+    return rows.result(ATTENTION_LIMIT)
 
-    ordered = sorted(items.values(), key=lambda i: (_RANK[i["severity"]], i["title"].lower()))
-    return ordered[:ATTENTION_LIMIT], len(ordered)
 
-
-def _reason(
-    kind: str,
-    severity: str,
-    code: str,
-    *,
-    params: dict[str, Any] | None = None,
-    detail: str | None = None,
-    detail_coded: dict[str, Any] | None = None,
-    when: str | None = None,
-    deployment_id: int | None = None,
-    actions: list[str] | None = None,
-) -> dict[str, Any]:
+def _machine_facts(
+    summary: Callable[[], dict[str, Any] | None] | None, services: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
     """
-    Build one reason an item needs attention.
-
     Args:
-        kind: Where it comes from: ``state``, ``deploy``, ``first_deploy``,
-            ``certificate``, ``unit``, ``monitor``, ``alert`` or ``probe``.
-        severity: ``fail`` or ``warn``.
-        code: Machine-readable and stable; the console words it.
-        params: Values for the console's sentence.
-        detail: The system's own words, verbatim.
-        detail_coded: The detail as a sentence of Noust's (``noust.core.server_text``), when it
-            is one and not another program's words, for the console to say in its language.
-        when: When it happened, with its UTC offset.
-        deployment_id: A deployment to open for the full story.
-        actions: What the operator can do about it, as identifiers the console
-            maps to buttons (``view_log``, ``diagnose``, ``renew_certificate``...).
+        summary: Reads the server area's summary.
+        services: Noust's systemd units, whose failures the list already names.
 
     Returns:
-        The reason.
+        The rows of what is wrong with the machine; none when the summary cannot be read.
     """
-    return {
-        "kind": kind,
-        "severity": severity,
-        "code": code,
-        "params": params or {},
-        "detail": detail,
-        "detail_coded": detail_coded,
-        "when": when,
-        "deployment_id": deployment_id,
-        "actions": actions or [],
-    }
+    if summary is None:
+        return []
+    try:
+        facts = summary()
+    except _SECTION_ERRORS as exc:
+        log.warning("The attention list could not read the machine's facts: %s", exc)
+        return []
+    return machine_items(facts, {str(service.get("name", "")) for service in services})
+
+
+def _findings(
+    security: Callable[[], list[dict[str, Any]] | None] | None,
+) -> list[dict[str, Any]]:
+    """
+    Args:
+        security: Reads the open findings of the hardening checks.
+
+    Returns:
+        Their rows; none when there are no checks yet or they cannot be read.
+    """
+    if security is None:
+        return []
+    try:
+        checks = security()
+    except _SECTION_ERRORS as exc:
+        log.warning("The attention list could not read the security findings: %s", exc)
+        return []
+    return security_items(checks)
 
 
 def _first_line(text: str | None) -> str | None:
@@ -765,6 +788,47 @@ def _coded_dict(sentence: ServerText | None) -> dict[str, Any] | None:
         Its code and values as the API sends them, or None.
     """
     return sentence.to_dict() if sentence is not None else None
+
+
+def _add_unreachable(store: Any, domains: set[str], add: Callable[..., None]) -> None:
+    """
+    Add the applications whose unit runs and that stopped answering.
+
+    The monitor decides that (three probes in a row over a minute, with the deploy's own health check)
+    and keeps it beside the store, so what the list says does not depend on which page of the console
+    loaded the applications, and is the very outage that was announced through the channels.
+
+    Args:
+        store: The Noust store, which says where the monitor keeps it.
+        domains: The applications that still exist.
+        add: Adds a reason to an item.
+    """
+    from noust.monitor.process_monitor import REACHABILITY_STATE_FILE_NAME
+    from noust.monitor.reachability import announced_outages
+
+    try:
+        sidecar = Path(store.db_path).parent / REACHABILITY_STATE_FILE_NAME
+    except (AttributeError, TypeError):
+        return
+    for outage in announced_outages(sidecar):
+        if outage.domain not in domains:
+            continue
+        add(
+            f"app:{outage.domain}",
+            {"kind": "app", "domain": outage.domain},
+            outage.domain,
+            _reason(
+                "state",
+                "fail",
+                "no_answer",
+                # What the probe said, in its own words and verbatim.
+                detail=_first_line(outage.probe),
+                when=datetime.fromtimestamp(outage.since, tz=timezone.utc).isoformat(
+                    timespec="seconds"
+                ),
+                actions=["view_log", "diagnose"],
+            ),
+        )
 
 
 def _add_deployments(store: Any, domains: set[str], add: Callable[..., None]) -> None:
