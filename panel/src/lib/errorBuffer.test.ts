@@ -89,6 +89,25 @@ describe("listening to the browser", () => {
     }
   });
 
+  it("hands the real console exactly what was logged, line breaks and objects as they came", () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const stop = installErrorBuffer();
+    try {
+      const frame = '{"line": "first\nsecond';
+      const detail = { frame };
+      console.error("Ignored a malformed frame:", frame, detail);
+
+      expect(logged).toHaveBeenCalledOnce();
+      const received: unknown[] = logged.mock.calls[0] ?? [];
+      expect(received).toHaveLength(3);
+      expect(received[0]).toBe("Ignored a malformed frame:");
+      expect(received[1]).toBe(frame);
+      expect(received[2]).toBe(detail);
+    } finally {
+      stop();
+    }
+  });
+
   it("is installed once, and stopping puts the console back", () => {
     const original = console.error;
     const first = installErrorBuffer();

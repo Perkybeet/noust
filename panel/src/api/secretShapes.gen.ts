@@ -43,7 +43,7 @@ export const SECRET_SHAPES: readonly SecretShape[] = [
   { name: "jwt", source: "\\beyJ[A-Za-z0-9_\\-]{8,}\\.eyJ[A-Za-z0-9_\\-]{8,}\\.[A-Za-z0-9_\\-]{8,}", flags: "g", keepHead: false },
   { name: "assigned secret", source: "((?<![A-Za-z])(?:password|passwd|secret|token|api[_-]?key|private[_-]?key|access[_-]?key|authorization)(?![A-Za-z])[A-Za-z0-9_.\\-]*[\\\"']?\\s*[=:]\\s*(?:(?:bearer|basic|token)\\s+)?[\\\"']?)(?!(?:bearer|basic|token)\\b)([^\\s\\\"'&;,<>]{6,})", flags: "gi", keepHead: true },
   { name: "bearer", source: "\\b(Bearer\\s+)[A-Za-z0-9._~+/=\\-]{16,}", flags: "gi", keepHead: true },
-  { name: "url credentials", source: "(?<![A-Za-z0-9+.\\-])([A-Za-z][A-Za-z0-9+.\\-]*://[^:/?#@\\s]*:)[^@\\s/?#]*(?=@)", flags: "g", keepHead: true },
+  { name: "url credentials", source: "((?:^|[^A-Za-z0-9+.\\-])[A-Za-z][A-Za-z0-9+.\\-]*://[^:/?#@\\s]*:)[^@\\s/?#]*(?=@)", flags: "g", keepHead: true },
 ];
 
 /** What the shapes hide and what they leave alone. */
@@ -80,6 +80,13 @@ export const SECRET_SHAPE_CASES: readonly SecretShapeCase[] = [
   { name: "a token in the address of the page", text: "/apps?token=0123456789abcdef&tab=logs", masked: "/apps?token=***&tab=logs" },
   { name: "a password in a connection string", text: "connecting to postgres://app:hunter22@db.internal:5432/shop", masked: "connecting to postgres://app:***@db.internal:5432/shop" },
   { name: "a redis url with only a password", text: "redis://:s3cr3tvalue@cache:6379/0", masked: "redis://:***@cache:6379/0" },
+  { name: "a connection string that is the whole text", text: "postgres://app:hunter22@db.internal/shop", masked: "postgres://app:***@db.internal/shop" },
+  { name: "a connection string in brackets", text: "(postgres://app:hunter22@db.internal)", masked: "(postgres://app:***@db.internal)" },
+  { name: "a connection string in quotes after an equals sign", text: "DATABASE_URL=\"mysql://root:hunter22@db:3306/shop\"", masked: "DATABASE_URL=\"mysql://root:***@db:3306/shop\"" },
+  { name: "a connection string after an underscore", text: "_postgres://app:hunter22@db.internal/shop", masked: "_postgres://app:***@db.internal/shop" },
+  { name: "two connection strings one after the other", text: "primary postgres://app:one11111@a replica postgres://app:two22222@b", masked: "primary postgres://app:***@a replica postgres://app:***@b" },
+  { name: "a connection string right after the at sign of another", text: "a://u:one11111@b://v:two22222@h", masked: "a://u:***@b://v:***@h" },
+  { name: "a scheme with the characters a scheme may have", text: "git+ssh://deploy:hunter22@git.example.test/app.git", masked: "git+ssh://deploy:***@git.example.test/app.git" },
   { name: "a private key block", text: "before\n-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW\n-----END OPENSSH PRIVATE KEY-----\nafter", masked: "before\n***\nafter" },
   { name: "a private key cut off before its footer", text: "key follows\n-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA1234567890", masked: "key follows\n***" },
   { name: "a private key header alone", text: "-----BEGIN RSA PRIVATE KEY-----", masked: "***" },

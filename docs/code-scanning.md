@@ -29,6 +29,12 @@ The cause is fixed in one place, not in the call that happened to be reported (r
   a line break in a domain cannot forge a line; the audit trail's bridge quotes every value so a
   space in one cannot name the actor.
 - A Jinja environment is made once (`core/templates.py`).
+- A pattern that must not start inside a run of its own characters consumes the boundary instead of
+  looking behind for it (`URL_CREDENTIALS` starts a scheme at the beginning of the text or after a
+  character a scheme does not have, and keeps that character in group 1). The analysis of regular
+  expressions does not read a lookbehind, takes every letter of the run for a start and reports the
+  pattern as polynomial, however linear it is in Python; `TestThePasswordOfAnAddressIsFoundInLinearTime`
+  of `tests/test_adversarial_inputs.py` holds the time.
 - A name that becomes a directory of a certificate or a database instance is judged by the function
   that builds the directory, so a route that forgets to is still safe.
 
@@ -77,10 +83,16 @@ GitHub's three and the comment says why in a sentence:
 | Used in tests | The code is a fixture, an example or the harness | what it is for |
 | Won't fix | The finding is true and accepted | what is accepted, why, and who has to be trusted for it to matter |
 
-Two kinds of alert are accepted as they are:
+Three kinds of alert are accepted as they are:
 a route that takes a directory of the server (adopting a stack, a bind mount, a dump to import)
 needs a permission that is root-equivalent and, for the ones that change something, sudo mode; the
-file system seam (`core/fs.py`) takes the path its caller already judged.
+file system seam (`core/fs.py`) takes the path its caller already judged; and a value that reaches
+the browser's console (`js/log-injection` on a `console.error` of the console's code, and on the
+wrapper in `lib/errorBuffer.ts` that hands its arguments to the real one). The browser's console is
+not a line-oriented log: an argument with a line break is inside one entry, never a second record;
+the buffer's own copy stays in memory and reaches a report as JSON, where a line break is written
+out. `errorBuffer.test.ts` holds that the real console gets exactly what was logged and
+`browserBlock.test.ts` that a line break cannot start an entry of the report.
 
 ## What a pull request sees
 
