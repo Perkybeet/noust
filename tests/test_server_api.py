@@ -201,9 +201,9 @@ class TestApplyingUpdates:
             "scope": "security",
             "full": False,
             "allow_removals": False,
-            "actor": "operator",
+            "actor": "master",
         }
-        assert queued["actor"] == "operator"
+        assert queued["actor"] == "master"
         assert api.audit.events() == ["server.update"]
         assert api.audit.records[0]["target"] == "packages"
         assert api.audit.records[0]["details"] == {
@@ -318,7 +318,7 @@ class TestApplyingUpdates:
         assert api.jobs.queued[0]["kwargs"] == {
             "enabled": False,
             "security_only": True,
-            "actor": "operator",
+            "actor": "master",
         }
         assert api.audit.records[0]["details"]["action"] == "auto"
         assert api.audit.records[0]["details"]["enabled"] is False
@@ -330,6 +330,40 @@ class TestApplyingUpdates:
         response = api.client.put("/api/server/updates/auto", json={"enabled": True})
 
         assert response.status_code == 501
+
+
+class TestWhoActed:
+    """What a job and a reboot record is the name of the session's credential (item 152)."""
+
+    def _sign_in_as_an_account(self, api) -> None:
+        api.session.clear()
+        api.session.update(
+            {
+                "type": "session",
+                "sid": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+                "account_id": 7,
+                "username": "lucia",
+                "role": "operator",
+            }
+        )
+
+    def test_an_account_is_its_username_and_not_a_prefix_of_its_session(self, api) -> None:
+        self._sign_in_as_an_account(api)
+
+        response = api.client.put("/api/server/updates/auto", json={"enabled": False})
+
+        assert response.status_code == 202, response.text
+        assert api.jobs.queued[0]["actor"] == "lucia"
+        assert api.jobs.queued[0]["kwargs"]["actor"] == "lucia"
+
+    def test_a_reboot_says_who_asked_for_it_by_that_name(self, api) -> None:
+        self._sign_in_as_an_account(api)
+        api.machine.ctx.power._apps_check = lambda runner: []
+
+        response = api.client.post("/api/server/power/reboot", json={})
+
+        assert response.status_code == 200, response.text
+        assert response.json()["requested_by"] == "lucia"
 
 
 class TestPower:
@@ -357,7 +391,7 @@ class TestPower:
 
         assert response.status_code == 200, response.text
         assert response.json()["action"] == "reboot"
-        assert response.json()["requested_by"] == "operator"
+        assert response.json()["requested_by"] == "master"
         assert any(call[:3] == ("shutdown", "-r", "+1") for call in api.machine.runner.calls)
         assert api.audit.events() == ["server.reboot"]
         assert api.audit.records[0]["details"]["action"] == "reboot"
@@ -596,7 +630,7 @@ class TestSwap:
             "action": "create",
             "size_mb": 2048,
             "swappiness": None,
-            "actor": "operator",
+            "actor": "master",
         }
         assert api.audit.events() == ["server.storage"]
         assert api.audit.records[0]["details"]["action"] == "swap-create"

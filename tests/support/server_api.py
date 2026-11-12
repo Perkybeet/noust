@@ -83,7 +83,9 @@ def api(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, store):
     app = FastAPI()
     install_error_handlers(app)
     app.include_router(server_api.router, prefix="/api/server")
-    session = {"sid": "operator", "type": "master"}
+    # The master token, as a Bearer presents it: its credential has one name wherever it acts, and
+    # the jobs and the audit trail record it as ``master`` (item 152).
+    session = {"sid": "master", "type": "master"}
     app.dependency_overrides[get_current_session] = lambda: session
     app.dependency_overrides[require_elevated] = lambda: session
     client = TestClient(app, raise_server_exceptions=False)
