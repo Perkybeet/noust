@@ -17,7 +17,7 @@ from __future__ import annotations
 import pytest
 
 from noust.core.docker.errors import DockerNotFoundError, DockerOwnedError
-from noust.core.docker.judge import judge, visible
+from noust.core.docker.judge import Can, can, judge, visible
 from noust.core.docker.models import NOBODY, Action, ObjectKind, Owner, OwnerKind
 
 SHOP = Owner(OwnerKind.APP, "shop.example.com", "shop-example-com")
@@ -208,6 +208,83 @@ class TestDockersOwn:
             )
 
         assert "Docker's own" in refused.value.message
+
+
+class TestWhatARowOffersWithoutAskingTheRefusal:
+    """The console draws a button only for what would be done, so it asks the same judgement first."""
+
+    @staticmethod
+    def what(owner: Owner, kind: ObjectKind, **kw: bool) -> Can:
+        return can(owner, kind, "thing", restricted=False, sees_app=see_everything, **kw)
+
+    def test_what_nobody_made_can_be_started_stopped_restarted_and_removed(self) -> None:
+        offered = self.what(NOBODY, ObjectKind.CONTAINER)
+
+        assert (offered.start, offered.stop, offered.restart, offered.remove) == (True,) * 4
+        assert offered.via == ""
+
+    @pytest.mark.parametrize("owner", [SHOP, ENGINE, CENTRAL, HELPER])
+    def test_what_is_anothers_can_be_done_to_nothing_and_says_where_it_is_done(
+        self, owner: Owner
+    ) -> None:
+        offered = self.what(owner, ObjectKind.CONTAINER)
+
+        assert (offered.start, offered.stop, offered.restart, offered.remove) == (False,) * 4
+        assert offered.via
+
+    def test_the_door_is_the_sentence_the_refusal_would_have_carried(self) -> None:
+        offered = self.what(SHOP, ObjectKind.CONTAINER)
+
+        with pytest.raises(DockerOwnedError) as refused:
+            judge(
+                SHOP,
+                Action.RESTART,
+                ObjectKind.CONTAINER,
+                "thing",
+                restricted=False,
+                sees_app=see_everything,
+            )
+        assert offered.via == refused.value.details
+
+    @pytest.mark.parametrize("kind", [ObjectKind.IMAGE, ObjectKind.VOLUME, ObjectKind.NETWORK])
+    def test_only_a_container_is_started_stopped_or_restarted(self, kind: ObjectKind) -> None:
+        offered = self.what(NOBODY, kind)
+
+        assert (offered.start, offered.stop, offered.restart) == (False, False, False)
+        assert offered.remove is True
+
+    def test_a_network_docker_makes_is_not_offered_for_removal(self) -> None:
+        offered = self.what(NOBODY, ObjectKind.NETWORK, builtin=True)
+
+        assert offered.remove is False and offered.via
+
+    def test_what_a_team_may_not_see_is_offered_nothing_and_says_nothing_of_who_has_it(
+        self,
+    ) -> None:
+        offered = can(
+            BLOG,
+            ObjectKind.CONTAINER,
+            "thing",
+            restricted=True,
+            sees_app=see_only_the_shop,
+        )
+
+        assert not (offered.start or offered.stop or offered.restart or offered.remove)
+        assert offered.via == ""
+
+    def test_a_row_is_offered_exactly_what_its_action_would_be_let_through(self) -> None:
+        for owner in (NOBODY, SHOP, ENGINE, CENTRAL, HELPER):
+            for kind, action in ACTIONS:
+                allowed = True
+                try:
+                    judge(owner, action, kind, "thing", restricted=False, sees_app=see_everything)
+                except DockerOwnedError:
+                    allowed = False
+                offered = self.what(owner, kind)
+                assert getattr(offered, action.value) is allowed, (owner, kind, action)
+
+    def test_what_a_person_cannot_change_at_all_is_everything_off(self) -> None:
+        assert not Can.none().remove and Can.none().via == ""
 
 
 def test_every_command_a_refusal_names_is_one_that_exists() -> None:

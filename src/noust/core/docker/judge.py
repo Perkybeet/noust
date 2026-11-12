@@ -29,11 +29,13 @@ The rules, in the order they are applied.
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
 
 from noust.core.docker.errors import DockerNotFoundError, DockerOwnedError
 from noust.core.docker.models import Action, ObjectKind, Owner, OwnerKind
 
-__all__ = ["judge", "not_found", "visible"]
+__all__ = ["Can", "can", "judge", "not_found", "refusal", "visible"]
 
 
 def visible(owner: Owner, *, restricted: bool, sees_app: Callable[[str], bool]) -> bool:
@@ -127,6 +129,65 @@ def _through_the_engine(name: str, action: Action, kind: ObjectKind) -> str:
     )
 
 
+def refusal(
+    owner: Owner, action: Action, kind: ObjectKind, name: str, *, builtin: bool = False
+) -> DockerOwnedError | None:
+    """
+    Say whether the owner of an object lets an action through, and if not, which door to use.
+
+    The rules of the module docstring that are about whose the object is (the second to the fourth);
+    who may see it at all is :func:`visible`, which :func:`judge` and :func:`can` apply first.
+
+    Args:
+        owner: Whose the object is.
+        action: What is asked.
+        kind: Of which kind of object.
+        name: How the object is called, for the words of the refusal.
+        builtin: The object is one Docker makes itself (``bridge``, ``host`` and ``none``).
+
+    Returns:
+        The refusal, not raised; None when the action is the instance's to do.
+    """
+    if owner.kind is OwnerKind.APP:
+        return DockerOwnedError(
+            f"The {kind.value} {name} belongs to {owner.subject}",
+            _through_the_application(owner.subject, action, kind),
+            owner_kind=owner.kind.value,
+            subject=owner.subject,
+        )
+    if owner.kind is OwnerKind.DATABASE:
+        return DockerOwnedError(
+            f"The {kind.value} {name} belongs to the database instance {owner.subject}",
+            _through_the_engine(owner.subject, action, kind),
+            owner_kind=owner.kind.value,
+            subject=owner.subject,
+        )
+    if owner.kind is OwnerKind.NOUST:
+        if owner.subject == "central":
+            return DockerOwnedError(
+                f"{name} is the container Noust runs in: changing it stops Noust",
+                "Change it where Noust was started (its compose file or the NAS's own Docker "
+                "screen), not from inside Noust.",
+                owner_kind=owner.kind.value,
+                subject=owner.subject,
+            )
+        return DockerOwnedError(
+            f"{name} is something Noust started for a copy, and it ends with the copy",
+            "Leave it: it is removed when the copy finishes. If a copy was interrupted, "
+            "the next one cleans up.",
+            owner_kind=owner.kind.value,
+            subject=owner.subject,
+        )
+    if builtin:
+        return DockerOwnedError(
+            f"The network {name} is Docker's own and cannot be removed",
+            "Docker makes it itself and every container without a network of its own is on it.",
+            owner_kind=OwnerKind.NOUST.value,
+            subject="docker",
+        )
+    return None
+
+
 def judge(
     owner: Owner,
     action: Action,
@@ -156,40 +217,98 @@ def judge(
     """
     if not visible(owner, restricted=restricted, sees_app=sees_app):
         raise not_found(kind, name)
-    if owner.kind is OwnerKind.APP:
-        raise DockerOwnedError(
-            f"The {kind.value} {name} belongs to {owner.subject}",
-            _through_the_application(owner.subject, action, kind),
-            owner_kind=owner.kind.value,
-            subject=owner.subject,
-        )
-    if owner.kind is OwnerKind.DATABASE:
-        raise DockerOwnedError(
-            f"The {kind.value} {name} belongs to the database instance {owner.subject}",
-            _through_the_engine(owner.subject, action, kind),
-            owner_kind=owner.kind.value,
-            subject=owner.subject,
-        )
-    if owner.kind is OwnerKind.NOUST:
-        if owner.subject == "central":
-            raise DockerOwnedError(
-                f"{name} is the container Noust runs in: changing it stops Noust",
-                "Change it where Noust was started (its compose file or the NAS's own Docker "
-                "screen), not from inside Noust.",
-                owner_kind=owner.kind.value,
-                subject=owner.subject,
-            )
-        raise DockerOwnedError(
-            f"{name} is something Noust started for a copy, and it ends with the copy",
-            "Leave it: it is removed when the copy finishes. If a copy was interrupted, "
-            "the next one cleans up.",
-            owner_kind=owner.kind.value,
-            subject=owner.subject,
-        )
-    if builtin:
-        raise DockerOwnedError(
-            f"The network {name} is Docker's own and cannot be removed",
-            "Docker makes it itself and every container without a network of its own is on it.",
-            owner_kind=OwnerKind.NOUST.value,
-            subject="docker",
-        )
+    refused = refusal(owner, action, kind, name, builtin=builtin)
+    if refused is not None:
+        raise refused
+
+
+@dataclass(frozen=True)
+class Can:
+    """
+    What a row of the console may offer for an object: the verdict of :func:`judge`, before asking it.
+
+    Attributes:
+        start: A container may be started.
+        stop: A container may be stopped.
+        restart: A container may be restarted.
+        remove: The object may be removed.
+        via: When the owner is somebody else's, the sentence that says where it is changed (a
+            command that exists); empty when the instance does it, or when the principal may not
+            even know the object exists.
+    """
+
+    start: bool = False
+    stop: bool = False
+    restart: bool = False
+    remove: bool = False
+    via: str = ""
+
+    @classmethod
+    def none(cls) -> Can:
+        """
+        Returns:
+            Nothing allowed and nothing to say: what a principal without the permission to change
+            Docker is offered.
+        """
+        return cls()
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Returns:
+            ``start``, ``stop``, ``restart``, ``remove`` and ``via``.
+        """
+        return {
+            "start": self.start,
+            "stop": self.stop,
+            "restart": self.restart,
+            "remove": self.remove,
+            "via": self.via,
+        }
+
+
+def can(
+    owner: Owner,
+    kind: ObjectKind,
+    name: str,
+    *,
+    restricted: bool,
+    sees_app: Callable[[str], bool],
+    builtin: bool = False,
+) -> Can:
+    """
+    Ask :func:`judge` for every action an object has, without raising.
+
+    The console offers a button for what is in the answer and nothing else, so a row never invites a
+    click that ends in a refusal. It is the same judgement an action goes through, asked once for
+    each action, so what is offered and what is let through cannot differ.
+
+    Args:
+        owner: Whose the object is.
+        kind: Of which kind of object.
+        name: How the object is called.
+        restricted: The principal sees only some teams.
+        sees_app: Whether the principal sees the application with a domain.
+        builtin: The object is one Docker makes itself.
+
+    Returns:
+        What may be done to it. Only a container is started, stopped or restarted.
+    """
+    if not visible(owner, restricted=restricted, sees_app=sees_app):
+        return Can.none()
+    actions = (
+        (Action.START, Action.STOP, Action.RESTART, Action.REMOVE)
+        if kind is ObjectKind.CONTAINER
+        else (Action.REMOVE,)
+    )
+    verdicts = {action: refusal(owner, action, kind, name, builtin=builtin) for action in actions}
+    # One sentence for the object: the door of the verb that fits whether it runs or not (a restart
+    # of a container, the removal of anything else).
+    said = verdicts.get(Action.RESTART) or verdicts[Action.REMOVE]
+    door = said.details if said is not None else ""
+    return Can(
+        start=Action.START in verdicts and verdicts[Action.START] is None,
+        stop=Action.STOP in verdicts and verdicts[Action.STOP] is None,
+        restart=Action.RESTART in verdicts and verdicts[Action.RESTART] is None,
+        remove=verdicts[Action.REMOVE] is None,
+        via=door,
+    )

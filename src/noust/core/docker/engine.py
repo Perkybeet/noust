@@ -169,6 +169,15 @@ class EngineInfo:
     os: str = ""
     error: str = ""
 
+    @property
+    def usable(self) -> bool:
+        """
+        Whether Noust can look at and control containers with this Docker: there is a program,
+        its daemon answers and its API is one Noust speaks. Compose is not part of it: a machine
+        without it still has containers to see, start and stop.
+        """
+        return self.installed and self.reachable and version_tuple(self.api) >= MIN_API
+
     def to_dict(self) -> dict[str, Any]:
         """
         Returns:
@@ -195,11 +204,32 @@ class EngineReport:
     limits: tuple[ServerText, ...]
     ok: bool
 
+    @property
+    def state(self) -> str:
+        """
+        Where this Docker stands, as one word: ``missing`` (no program), ``unreachable`` (its
+        daemon does not answer), ``too_old`` (its API is below what Noust speaks) or ``ok``.
+        A Compose that is missing or old is a limit and not a state: containers are still there.
+        """
+        codes = {limit.code for limit in self.limits}
+        if "docker.engine.missing" in codes:
+            return "missing"
+        if "docker.engine.unreachable" in codes:
+            return "unreachable"
+        if "docker.engine.too_old" in codes:
+            return "too_old"
+        return "ok"
+
+    @property
+    def usable(self) -> bool:
+        """Whether containers can be looked at and controlled: :attr:`EngineInfo.usable`."""
+        return self.info.usable
+
     def to_dict(self) -> dict[str, Any]:
         """
         Returns:
-            ``ok``, the facts and the limits as ``{code, params}`` with their English beside, and
-            the information they were made from.
+            ``ok``, the state, whether containers can be looked at, the facts and the limits as
+            ``{code, params}`` with their English beside, and the information they were made from.
         """
 
         def one(text: ServerText) -> dict[str, Any]:
@@ -207,6 +237,8 @@ class EngineReport:
 
         return {
             "ok": self.ok,
+            "state": self.state,
+            "usable": self.usable,
             "facts": [one(text) for text in self.facts],
             "limits": [one(text) for text in self.limits],
             "info": self.info.to_dict(),

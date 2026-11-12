@@ -31,13 +31,18 @@ serves each without showing a team another team's containers.
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Sequence
-from dataclasses import replace
+import shutil
+import time
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from noust.core.docker import engine as engine_module
-from noust.core.docker import reading
-from noust.core.docker.judge import judge, not_found, visible
+from noust.core.docker import events, inspect, reading, states, stats
+from noust.core.docker import restart_loss as restart_loss_module
+from noust.core.docker import summary as summary_module
+from noust.core.docker.errors import DockerUnavailableError
+from noust.core.docker.judge import Can, can, judge, not_found, visible
 from noust.core.docker.models import (
     Action,
     ComposeProject,
@@ -53,13 +58,14 @@ from noust.core.docker.models import (
 )
 from noust.core.docker.owners import OwnerIndex, Registry, registry_from_store
 from noust.core.exceptions import ConfirmationRequired, DockerError, ValidationError
+from noust.core.redact import Scrubber, scrubber_for
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.teams.scope import Scope, current_scope
 
 if TYPE_CHECKING:
     from noust.core.store import NoustStore
 
-__all__ = ["DockerGate"]
+__all__ = ["ContainerDetail", "DockerGate"]
 
 T = TypeVar("T")
 
@@ -74,6 +80,17 @@ MAX_PAGE = 1000
 
 #: How old the build cache has to be to be pruned: a week.
 BUILD_CACHE_HOURS = 168
+
+#: Lines of a container's log that say why it stopped, and the most a page of logs holds.
+WHY_LINES = 20
+MAX_LOG_LINES = 5000
+
+#: The most characters of a log a call returns: a container that writes a megabyte a line is not a
+#: log to put in a response.
+MAX_LOG_CHARS = 2_000_000
+
+#: Seconds a read of a container's log gets.
+LOGS_TIMEOUT = 60
 
 #: What a container, a volume or a network is called, and what an image is called.
 _NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,254}")
@@ -136,6 +153,124 @@ def _page(items: Sequence[T], offset: int, limit: int | None) -> Page[T]:
     return Page(tuple(items[offset:end]), len(items), offset, limit)
 
 
+@dataclass(frozen=True)
+class ContainerDetail:
+    """
+    One container seen from the inside.
+
+    Attributes:
+        container: The container as the listing has it, with its owner.
+        state: Its state as one word, with how its last run ended taken from ``inspect``.
+        inspected: What ``inspect`` said (its policy, limits, mounts, health and times); None when
+            the container went away between the listing and the look.
+        usage: What it uses now, or why that is not known.
+        last_lines: What it wrote last, as it wrote it and with its credentials masked; empty for
+            a container that runs well, whose log is read live.
+        restarts_recent: How many times Docker restarted it in the last ten minutes.
+    """
+
+    container: Container
+    state: states.StateInfo
+    inspected: inspect.Inspected | None
+    usage: stats.Usage
+    last_lines: str
+    restarts_recent: int
+
+    @property
+    def looping(self) -> bool:
+        """Whether it keeps falling: restarting now, or restarted often in the window."""
+        return self.state.kind == "loop" or self.restarts_recent >= summary_module.LOOP_AT
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Returns:
+            The container, how it is, why, where it comes from and what it touches, its policy and
+            its consumption. Nothing of its environment is in it.
+        """
+        seen = self.inspected
+        policy = seen.restart_policy if seen else inspect.RestartPolicy()
+        return {
+            "container": self.container.to_dict(),
+            "state": self.state.to_dict(),
+            "owner": self.container.owner.to_dict(),
+            "job": states.is_job(kind=self.state.kind, policy=policy.name),
+            "why": {
+                "kind": self.state.kind,
+                "exit_code": self.state.exit_code,
+                "oom_killed": bool(seen and seen.oom_killed),
+                "error": seen.error if seen else "",
+                "restart_count": seen.restart_count if seen else 0,
+                "restarts_recent": self.restarts_recent,
+                "window_minutes": events.LOOP_MINUTES,
+                "looping": self.looping,
+                "started_at": seen.started_at.isoformat() if seen and seen.started_at else None,
+                "finished_at": seen.finished_at.isoformat() if seen and seen.finished_at else None,
+                "memory_limit_bytes": seen.memory_limit_bytes if seen else None,
+                "health": seen.health.to_dict() if seen and seen.health else None,
+                "last_lines": self.last_lines,
+            },
+            "origin": {
+                "image": self.container.image,
+                "image_id": seen.image_id if seen else "",
+                "project": self.container.project,
+                "service": self.container.service,
+                "working_dir": self.container.working_dir,
+                "config_files": list(self.container.config_files),
+            },
+            "touches": {
+                "mounts": [mount.to_dict() for mount in seen.mounts] if seen else [],
+                "networks": list(seen.networks) if seen else list(self.container.networks),
+                "ports": self.container.ports,
+                "privileged": bool(seen and seen.privileged),
+            },
+            "restart_policy": policy.to_dict(),
+            "cpu_limit": seen.cpu_limit if seen else None,
+            "usage": self.usage.to_dict(),
+        }
+
+
+def _sum_sizes(usage: Mapping[str, Mapping[str, Any]]) -> int | None:
+    """
+    Args:
+        usage: ``docker system df`` by kind.
+
+    Returns:
+        What Docker holds in all, or None when it said nothing.
+    """
+    sizes = [row["size"] for row in usage.values() if row.get("size") is not None]
+    return sum(sizes) if sizes else None
+
+
+def _sum_reclaimable(usage: Mapping[str, Mapping[str, Any]]) -> int | None:
+    """
+    Args:
+        usage: ``docker system df`` by kind.
+
+    Returns:
+        What a cleanup could give back without touching data, or None when Docker said nothing.
+    """
+    sizes = [row["reclaimable"] for row in usage.values() if row.get("reclaimable") is not None]
+    return sum(sizes) if sizes else None
+
+
+def _free_space(path: str) -> tuple[int, int, int] | None:
+    """
+    Args:
+        path: Where Docker keeps its data.
+
+    Returns:
+        ``(total, used, free)`` of the disk it is on, or None when this process cannot see it (a
+        Noust that runs in a container does not see the host's disks).
+    """
+    if not path:
+        return None
+    try:
+        usage = shutil.disk_usage(path)
+    except OSError:
+        return None
+    return usage.total, usage.used, usage.free
+
+
 class DockerGate:
     """
     Ask Docker what it has and change it, as whoever is asking.
@@ -148,6 +283,9 @@ class DockerGate:
             each look when None.
         scope: Which teams the principal sees; the ambient one when None.
         sees_app: Whether the principal sees an application; its scope's when None.
+        disk: How much room the disk Docker lives on has, as ``(total, used, free)``; looked at
+            with :func:`shutil.disk_usage` when None. A test gives its own.
+        clock: The time, in epoch seconds; the machine's when None.
     """
 
     def __init__(
@@ -158,12 +296,16 @@ class DockerGate:
         registry: Callable[[], Registry] | None = None,
         scope: Scope | None = None,
         sees_app: Callable[[str], bool] | None = None,
+        disk: Callable[[str], tuple[int, int, int] | None] | None = None,
+        clock: Callable[[], float] | None = None,
     ) -> None:
         self._runner = runner
         self._store = store
         self._registry = registry
         self._scope = scope
         self._sees_app = sees_app
+        self._disk = disk or _free_space
+        self._clock = clock or time.time
 
     # -- who is asking and what Noust registered -----------------------------------------------
 
@@ -360,6 +502,17 @@ class DockerGate:
             DockerUnavailableError: Docker cannot be asked.
         """
         owned, index = self._look()
+        return _page(self._images_of(owned, index), offset, limit)
+
+    def _images_of(self, owned: Sequence[Container], index: OwnerIndex) -> list[Image]:
+        """
+        Args:
+            owned: Every container, with its owner.
+            index: Whose each object is.
+
+        Returns:
+            The images the principal sees, by name, each with who runs it.
+        """
         found = []
         for image in reading.list_images(self.runner):
             users = tuple(sorted(c.name for c in owned if self._runs(c.image, image)))
@@ -367,7 +520,7 @@ class DockerGate:
             image = replace(image, owner=index.of_image(image), way_back=index.is_way_back(image))
             if self._visible(image.owner):
                 found.append(image)
-        return _page(sorted(found, key=lambda i: (i.tags or (i.id,))[0]), offset, limit)
+        return sorted(found, key=lambda i: (i.tags or (i.id,))[0])
 
     @staticmethod
     def _runs(reference: str, image: Image) -> bool:
@@ -401,6 +554,17 @@ class DockerGate:
             DockerUnavailableError: Docker cannot be asked.
         """
         owned, index = self._look()
+        return _page(self._volumes_of(owned, index), offset, limit)
+
+    def _volumes_of(self, owned: Sequence[Container], index: OwnerIndex) -> list[Volume]:
+        """
+        Args:
+            owned: Every container, with its owner.
+            index: Whose each object is.
+
+        Returns:
+            The volumes the principal sees, by name, each with who mounts it.
+        """
         found = []
         for volume in reading.list_volumes(self.runner):
             users = tuple(sorted(c.name for c in owned if volume.name in c.mounts))
@@ -408,7 +572,7 @@ class DockerGate:
             volume = replace(volume, owner=index.of_volume(volume))
             if self._visible(volume.owner):
                 found.append(volume)
-        return _page(sorted(found, key=lambda v: v.name), offset, limit)
+        return sorted(found, key=lambda v: v.name)
 
     def volume_sizes(self) -> dict[str, int]:
         """
@@ -441,6 +605,17 @@ class DockerGate:
             DockerUnavailableError: Docker cannot be asked.
         """
         owned, index = self._look()
+        return _page(self._networks_of(owned, index), offset, limit)
+
+    def _networks_of(self, owned: Sequence[Container], index: OwnerIndex) -> list[Network]:
+        """
+        Args:
+            owned: Every container, with its owner.
+            index: Whose each object is.
+
+        Returns:
+            The networks the principal sees, by name, each with the containers on it.
+        """
         found = []
         for network in reading.list_networks(self.runner):
             on_it = tuple(sorted(c.name for c in owned if network.name in c.networks))
@@ -448,7 +623,7 @@ class DockerGate:
             network = replace(network, owner=index.of_network(network))
             if self._visible(network.owner):
                 found.append(network)
-        return _page(sorted(found, key=lambda n: n.name), offset, limit)
+        return sorted(found, key=lambda n: n.name)
 
     def projects(self, *, offset: int = 0, limit: int | None = None) -> Page[ComposeProject]:
         """
@@ -466,24 +641,126 @@ class DockerGate:
             DockerUnavailableError: Docker cannot be asked.
         """
         owned, index = self._look()
+        found = self._projects_of(owned, index)
+        return _page([project for project, _members in found], offset, limit)
+
+    def _projects_of(
+        self,
+        owned: Sequence[Container],
+        index: OwnerIndex,
+        seen: Mapping[str, inspect.Inspected] | None = None,
+    ) -> list[tuple[ComposeProject, list[Container]]]:
+        """
+        Group the containers into the Compose projects the principal sees, each with its state.
+
+        What ended is inspected (once, whatever the number) to know whether it was a job that did
+        its work or a service that stopped: the listing cannot tell, and a stack that holds a setup
+        step that finished is not failing.
+
+        Args:
+            owned: Every container, with its owner.
+            index: Whose each object is.
+            seen: What ``inspect`` already said of the containers, when a caller has asked.
+
+        Returns:
+            Each project with its containers, by name.
+        """
         grouped: dict[str, list[Container]] = {}
         for container in owned:
             if container.project:
                 grouped.setdefault(container.project, []).append(container)
+        if seen is None:
+            ended = [c.id for members in grouped.values() for c in members if not c.running]
+            seen = inspect.read_inspect(self.runner, ended)
         found = []
         for name, members in grouped.items():
             where = next((c.working_dir for c in members if c.working_dir), "")
+            kinds = []
+            for member in members:
+                info = seen.get(member.id)
+                state = states.classify_container(
+                    member,
+                    exit_code=info.exit_code if info else None,
+                    oom=bool(info and info.oom_killed),
+                )
+                kinds.append((state, info.restart_policy.name if info else "no"))
+            verdict, running, workers = states.stack_state(kinds)
             project = ComposeProject(
                 name=name,
                 working_dir=where,
                 config_files=next((c.config_files for c in members if c.config_files), ()),
                 containers=tuple(sorted(c.name for c in members)),
-                running=sum(1 for c in members if c.running),
+                running=running,
+                workers=workers,
+                state=verdict,
                 owner=index.of_project(name, where),
             )
             if self._visible(project.owner):
-                found.append(project)
-        return _page(sorted(found, key=lambda p: p.name), offset, limit)
+                found.append((project, sorted(members, key=lambda c: c.name)))
+        return sorted(found, key=lambda pair: pair[0].name)
+
+    def project(self, name: str) -> tuple[ComposeProject, tuple[Container, ...]]:
+        """
+        Find one Compose project by its name, with its containers.
+
+        Args:
+            name: The project's name.
+
+        Returns:
+            The project and its containers, by name.
+
+        Raises:
+            DockerNotFoundError: There is none, or the principal may not see it.
+            DockerUnavailableError: Docker cannot be asked.
+        """
+        owned, index = self._look()
+        found = [
+            (project, members)
+            for project, members in self._projects_of(owned, index)
+            if project.name == name and _NAME.fullmatch(name)
+        ]
+        if len(found) != 1:
+            raise not_found(ObjectKind.PROJECT, name)
+        return found[0][0], tuple(found[0][1])
+
+    def can(
+        self,
+        thing: Container | Image | Volume | Network,
+        *,
+        manage: bool = True,
+    ) -> Can:
+        """
+        What the principal may do to an object, for a row of the console to offer.
+
+        It is the judgement an action goes through, asked once for each action, so what is offered
+        and what is let through cannot differ.
+
+        Args:
+            thing: A container, an image, a volume or a network, with its owner.
+            manage: Whether the principal may change Docker at all (the permission to). A principal
+                that may not is offered nothing and told nothing of who owns what.
+
+        Returns:
+            What is allowed, and where the rest is done.
+        """
+        if not manage:
+            return Can.none()
+        if isinstance(thing, Container):
+            kind, name = ObjectKind.CONTAINER, thing.name
+        elif isinstance(thing, Image):
+            kind, name = ObjectKind.IMAGE, thing.tags[0] if thing.tags else thing.id
+        elif isinstance(thing, Volume):
+            kind, name = ObjectKind.VOLUME, thing.name
+        else:
+            kind, name = ObjectKind.NETWORK, thing.name
+        return can(
+            thing.owner,
+            kind,
+            name,
+            restricted=self.scope.restricted,
+            sees_app=self._sees,
+            builtin=isinstance(thing, Network) and thing.builtin,
+        )
 
     # -- finding one -----------------------------------------------------------------------
 
@@ -609,6 +886,265 @@ class DockerGate:
         if len(found) != 1:
             raise not_found(kind, ref)
         return found[0]
+
+    # -- a container from the inside ---------------------------------------------------------
+
+    def container_detail(self, ref: str) -> ContainerDetail:
+        """
+        Look at one container: why it is the way it is, where it comes from and what it uses.
+
+        Args:
+            ref: Its name or id.
+
+        Returns:
+            The container, its state, what ``inspect`` says, its consumption and, for one that does
+            not run well, its last lines.
+
+        Raises:
+            DockerNotFoundError: There is none, or the principal may not see it.
+            DockerUnavailableError: Docker cannot be asked.
+        """
+        container = self.container(ref)
+        seen = inspect.read_inspect(self.runner, [container.id]).get(container.id)
+        state = states.classify_container(
+            container,
+            exit_code=seen.exit_code if seen else None,
+            oom=bool(seen and seen.oom_killed),
+        )
+        recent = 0
+        if seen is None or seen.restart_count > 0:
+            recent = events.recent_restarts(self.runner, now=self._clock()).get(container.id, 0)
+        uptime = None
+        if seen and seen.started_at and container.state == "running":
+            uptime = self._clock() - seen.started_at.timestamp()
+        usage = stats.read_usage(
+            self.runner,
+            container.id,
+            state=container.state,
+            uptime_seconds=uptime,
+            memory_limited=(seen.memory_limit_bytes is not None) if seen else None,
+        )
+        last = ""
+        if state.problem or not container.running:
+            last = self._lines(container, WHY_LINES, timestamps=False)
+        return ContainerDetail(container, state, seen, usage, last, recent)
+
+    def _lines(self, container: Container, tail: int, *, timestamps: bool) -> str:
+        """
+        Read the last lines of a container's log.
+
+        Args:
+            container: A container this principal sees.
+            tail: How many lines.
+            timestamps: Ask Docker for the time of each line.
+
+        Returns:
+            The lines, both streams together, with the credentials in them masked: those of its
+            application when it is one, Noust's own, and whatever looks like one. Nothing else is
+            changed.
+        """
+        collected: list[str] = []
+        self.runner.stream(
+            self.logs_argv(container.id, tail=tail, timestamps=timestamps),
+            on_line=collected.append,
+            timeout=LOGS_TIMEOUT,
+        )
+        return self._scrubber_for(container).scrub("\n".join(collected)[-MAX_LOG_CHARS:])
+
+    @staticmethod
+    def _scrubber_for(container: Container) -> Scrubber:
+        """
+        Args:
+            container: The container a text came from.
+
+        Returns:
+            What masks the credentials in it.
+        """
+        return scrubber_for(
+            container.owner.subject if container.owner.kind is OwnerKind.APP else None
+        )
+
+    @staticmethod
+    def logs_argv(
+        container_id: str, *, tail: int, timestamps: bool = True, follow: bool = False
+    ) -> list[str]:
+        """
+        Args:
+            container_id: The id of a container, as Docker listed it.
+            tail: How many lines from the end.
+            timestamps: Ask for the time of each line.
+            follow: Keep going as lines are written.
+
+        Returns:
+            The command that reads its log.
+        """
+        return [
+            "docker",
+            "logs",
+            *(["--follow"] if follow else []),
+            "--tail",
+            str(tail),
+            *(["--timestamps"] if timestamps else []),
+            container_id,
+        ]
+
+    @staticmethod
+    def _checked_tail(tail: int) -> int:
+        """
+        Args:
+            tail: How many lines a person asked for.
+
+        Returns:
+            The same.
+
+        Raises:
+            ValidationError: It is not between 1 and :data:`MAX_LOG_LINES`.
+        """
+        if not 1 <= tail <= MAX_LOG_LINES:
+            raise ValidationError(
+                f"A log is read from 1 to {MAX_LOG_LINES} lines at a time", field="tail"
+            )
+        return tail
+
+    def container_logs(self, ref: str, *, tail: int = 200) -> str:
+        """
+        Read the end of a container's log, as it wrote it with the time of each line.
+
+        Args:
+            ref: Its name or id.
+            tail: How many lines from the end (1 to 5000).
+
+        Returns:
+            The lines, masked and nothing else changed.
+
+        Raises:
+            ValidationError: The tail makes no sense.
+            DockerNotFoundError: There is none, or the principal may not see it.
+            DockerUnavailableError: Docker cannot be asked.
+        """
+        self._checked_tail(tail)
+        return self._lines(self.container(ref), tail, timestamps=True)
+
+    def follow_container_logs(
+        self, ref: str, on_line: Callable[[str], None], *, tail: int = 100, seconds: int = 3600
+    ) -> Container:
+        """
+        Follow a container's log, line by line, until the container ends, the time is up or the
+        enclosing cancellation (:func:`noust.core.runner.cancellable`) is set.
+
+        The container is resolved to its owner first: a principal that may not see it gets the
+        answer for one that does not exist, and nothing is started.
+
+        Args:
+            ref: Its name or id.
+            on_line: Called with each line, masked.
+            tail: How many lines from the end to start with (1 to 5000).
+            seconds: The longest it follows.
+
+        Returns:
+            The container that was followed.
+
+        Raises:
+            ValidationError: The tail makes no sense.
+            DockerNotFoundError: There is none, or the principal may not see it.
+            DockerUnavailableError: Docker cannot be asked.
+        """
+        self._checked_tail(tail)
+        container = self.container(ref)
+        scrubber = self._scrubber_for(container)
+        self.runner.stream(
+            self.logs_argv(container.id, tail=tail, follow=True),
+            on_line=lambda line: on_line(scrubber.scrub(line)),
+            timeout=seconds,
+        )
+        return container
+
+    @staticmethod
+    def exec_argv(container_id: str, shell: str) -> list[str]:
+        """
+        Args:
+            container_id: The id of a container, as Docker listed it.
+            shell: A shell by name (``sh``, ``bash``...): never a path and never a command line.
+
+        Returns:
+            The command that opens that shell in it, on a terminal.
+        """
+        return ["docker", "exec", "-it", "-e", "TERM", "-e", "COLORTERM", container_id, shell]
+
+    # -- the machine in short ------------------------------------------------------------------
+
+    def summary(self) -> summary_module.Summary:
+        """
+        Say what asks for the operator, worst first, and how much there is of each thing.
+
+        One look at the containers, one ``inspect`` of all of them and one question about restarts:
+        a handful of processes however big the machine is.
+
+        Returns:
+            The summary.
+
+        Raises:
+            DockerUnavailableError: Docker is not there, or does not answer, or is below what Noust
+                speaks.
+        """
+        report = self.doctor()
+        if not report.usable:
+            raise self._unusable(report)
+        owned, index = self._look()
+        shown = [c for c in owned if self._visible(c.owner)]
+        seen = inspect.read_inspect(self.runner, [c.id for c in shown])
+        restarts = events.recent_restarts(self.runner, now=self._clock())
+        projects = self._projects_of(owned, index, seen)
+        usage = reading.disk_usage(self.runner) or {}
+        room = self._disk(report.info.root_dir) if report.info.root_dir else None
+        disk = summary_module.DiskInfo(
+            docker_bytes=_sum_sizes(usage),
+            reclaimable_bytes=_sum_reclaimable(usage),
+            free_bytes=room[2] if room else None,
+            total_bytes=room[0] if room else None,
+            path=report.info.root_dir,
+        )
+        return summary_module.Summary(
+            engine=report,
+            counts=summary_module.counts(
+                shown,
+                seen,
+                stacks=len(projects),
+                unowned_stacks=sum(1 for project, _ in projects if project.owner.unowned),
+                images=len(self._images_of(owned, index)),
+                volumes=len(self._volumes_of(owned, index)),
+                networks=len(self._networks_of(owned, index)),
+            ),
+            attention=summary_module.attention(shown, seen, restarts, disk),
+            disk=disk,
+        )
+
+    @staticmethod
+    def _unusable(report: engine_module.EngineReport) -> DockerUnavailableError:
+        """
+        Args:
+            report: The engine's report, whose Docker cannot be used.
+
+        Returns:
+            The error that says so in the doctor's own words.
+        """
+        limit = report.limits[0].text if report.limits else "Docker cannot be used here"
+        return DockerUnavailableError("Docker cannot be used on this server", details=limit)
+
+    def restart_loss(self) -> tuple[restart_loss_module.Lost, ...]:
+        """
+        Find what a restart of the machine would leave down.
+
+        Returns:
+            The containers that would not come back, with why and how each is fixed.
+
+        Raises:
+            DockerUnavailableError: Docker cannot be asked.
+        """
+        owned, _index = self._look()
+        shown = [c for c in owned if self._visible(c.owner)]
+        seen = inspect.read_inspect(self.runner, [c.id for c in shown])
+        return restart_loss_module.find_lost(shown, seen)
 
     # -- what is not an object -------------------------------------------------------------
 
