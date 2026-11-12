@@ -62,6 +62,28 @@ def test_the_restore_of_an_application_backup_runs_in_the_pinned_image(tmp_path:
     assert "alpine" not in argv
 
 
+def test_every_helper_says_it_is_nousts_so_the_gate_to_docker_never_hands_it_to_anybody(
+    tmp_path: Path,
+) -> None:
+    """The label is a claim that can only take access away: see ``noust.core.docker.owners``."""
+    from noust.managers.backup_manager import BackupManager
+
+    archive = docker_archive_argv("v", Path("/b"), "v.tar.gz")
+    restore = docker_restore_argv("v", Path("/b"), "v.tar.gz")
+    runner = FakeRunner()
+    (tmp_path / "volumes").mkdir()
+    (tmp_path / "volumes" / "v.tar.gz").write_bytes(b"x")
+    BackupManager(runner=runner)._restore_docker_volumes(
+        {"volumes": [{"volume": "v", "archive_path": "volumes/v.tar.gz"}]}, tmp_path, None
+    )
+    merge = next(call for call in runner.calls if call[:2] == ("docker", "run"))
+
+    for argv in (archive, restore, merge):
+        index = list(argv).index("--label")
+        assert argv[index + 1] == "io.noust.helper=volume-backup"
+        assert index < list(argv).index(HELPER_IMAGE)
+
+
 def test_no_command_of_the_package_runs_a_bare_alpine() -> None:
     """A new spelling of the helper is a new way to be unpinned: say where it is allowed."""
     found: list[str] = []

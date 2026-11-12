@@ -17,6 +17,11 @@ version of Docker has to print what an older one did not. Three rules keep the r
 - **A size is Docker's, in powers of ten** (``29.98GB`` is 29 980 000 000 bytes).
 
 Nothing here decides whose an object is: that is :mod:`noust.core.docker.owners`.
+
+The templates are written from Docker's documentation of each ``--format`` and tested against the
+shapes it prints; the real-engine harness is what proves them on every engine Noust meets (Docker 20.10
+of Debian 12, 24.0.2 of a Synology, 29.x): ``.Label "name"`` in ``docker ps``, ``docker volume ls`` and
+``docker network ls``, ``.Mountpoint`` and ``.Internal``, and the shape of ``docker system df -v``.
 """
 
 from __future__ import annotations

@@ -2160,7 +2160,7 @@ class TestWhatAComposeFileBringsInThatItDoesNotWrite:
             "name": "shop",
             "services": {
                 "web": {"image": "x"},
-                "agent": {
+                "reporter": {
                     "image": "x",
                     "volumes": [{"type": "bind", "source": "/var/run/docker.sock", "target": "/s"}],
                 },
@@ -2168,7 +2168,7 @@ class TestWhatAComposeFileBringsInThatItDoesNotWrite:
         }
 
         assert [s.split(" mounts")[0] for s in inspect_compose(model, self.APP).refused] == [
-            "service agent"
+            "service reporter"
         ]
 
     def test_a_link_inside_the_application_does_not_make_an_outside_file_inside(

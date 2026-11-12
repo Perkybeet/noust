@@ -22,10 +22,22 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-__all__ = ["DOCKER_VOLUME_NAME", "HELPER_IMAGE", "docker_archive_argv", "docker_restore_argv"]
+from noust.core.docker.reading import HELPER_LABEL
+
+__all__ = [
+    "DOCKER_VOLUME_NAME",
+    "HELPER_IMAGE",
+    "HELPER_LABEL_ARGS",
+    "docker_archive_argv",
+    "docker_restore_argv",
+]
 
 #: The image every copy and restore of a volume runs in (Alpine 3.24, read on 2026-11-12).
 HELPER_IMAGE = "alpine:3.24@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf"
+
+#: What a helper container says of itself, so that the gate to Docker knows it is Noust's and not
+#: somebody's (:mod:`noust.core.docker.owners`): it ends with the copy and nobody changes it.
+HELPER_LABEL_ARGS = ["--label", f"{HELPER_LABEL}=volume-backup"]
 
 #: A Docker volume name, as Docker accepts one.
 DOCKER_VOLUME_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$")
@@ -54,6 +66,7 @@ def docker_archive_argv(volume: str, directory: Path, filename: str) -> list[str
         f"{volume}:/data:ro",
         "-v",
         f"{directory}:/backup",
+        *HELPER_LABEL_ARGS,
         HELPER_IMAGE,
         "tar",
         "czf",
@@ -89,6 +102,7 @@ def docker_restore_argv(volume: str, directory: Path, filename: str) -> list[str
         f"{volume}:/data",
         "-v",
         f"{directory}:/backup:ro",
+        *HELPER_LABEL_ARGS,
         HELPER_IMAGE,
         "sh",
         "-c",

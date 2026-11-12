@@ -297,16 +297,16 @@ class TestTheDeployerJudgesWhatComposeResolves:
     ) -> None:
         runner = FakeRunner()
         resolved_by(
-            runner, model(web={"image": "nginx"}, agent={"image": "x", "volumes": [SOCKET]})
+            runner, model(web={"image": "nginx"}, reporter={"image": "x", "volumes": [SOCKET]})
         )
         compose = stack_at(tmp_path, store, runner)
 
         with pytest.raises(DeploymentError) as raised:
-            compose._check_host_privileges({"include": ["agent.yaml"], "services": {}})
+            compose._check_host_privileges({"include": ["reporter.yaml"], "services": {}})
 
         assert "asks for root" in raised.value.message
         details = raised.value.details or ""
-        assert "service agent mounts the Docker socket" in details
+        assert "service reporter mounts the Docker socket" in details
         assert "noust app sandbox compose-exception stack.example.com --reason" in details
 
     def test_every_profile_is_resolved_and_the_project_is_the_stacks_own(
@@ -397,27 +397,31 @@ class TestTheDeployerJudgesWhatComposeResolves:
         self, tmp_path: Path, store: NoustStore
     ) -> None:
         build_sandbox.set_compose_exception(
-            "stack.example.com", allowed=True, actor="alice", reason="agent", store=store
+            "stack.example.com", allowed=True, actor="alice", reason="reporter", store=store
         )
         runner = FakeRunner()
-        resolved_by(runner, model(agent={"image": "x", "volumes": [SOCKET]}))
+        resolved_by(runner, model(reporter={"image": "x", "volumes": [SOCKET]}))
         said: list[str] = []
         compose = stack_at(tmp_path, store, runner)
         compose.logger.attach_sink(said.append)
 
-        compose._check_host_privileges({"include": ["agent.yaml"], "services": {}})
+        compose._check_host_privileges({"include": ["reporter.yaml"], "services": {}})
 
-        assert any("allowed for stack.example.com by alice (agent)" in line for line in said)
+        assert any("allowed for stack.example.com by alice (reporter)" in line for line in said)
 
     def test_an_existing_stack_is_refused_a_service_an_update_brings_in_through_an_include(
         self, tmp_path: Path, store: NoustStore
     ) -> None:
         runner = FakeRunner()
-        resolved_by(runner, model(web={"image": "nginx"}, agent={"image": "x", "privileged": True}))
+        resolved_by(
+            runner, model(web={"image": "nginx"}, reporter={"image": "x", "privileged": True})
+        )
         compose = stack_at(tmp_path, store, runner, new=False)
 
         with pytest.raises(DeploymentError, match="asks for root"):
-            compose._check_host_privileges({"include": ["agent.yaml"], "services": {}}, accepted=[])
+            compose._check_host_privileges(
+                {"include": ["reporter.yaml"], "services": {}}, accepted=[]
+            )
 
     def test_a_stack_that_ran_with_a_finding_is_warned_about_when_the_model_shows_it_too(
         self, tmp_path: Path, store: NoustStore
