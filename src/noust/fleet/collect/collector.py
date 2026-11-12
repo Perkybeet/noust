@@ -632,10 +632,8 @@ class NodeCollector:
             return
         time_to_say = (code in _IMMEDIATE and before != code) or failures == NOTIFY_AFTER
         if time_to_say:
-            try:
-                self._notify(node, code, text)
-            except Exception:  # noqa: BLE001 - the boundary of a background thread: say and go on
-                _log.exception("Could not tell the operator that collecting from %s failed", node)
+            # Delivery is the notification worker's: this only hands the words over, and it fails nothing here.
+            self._notify(node, code, text)
 
 
 def _refusal_code(exc: NodeRefusedError) -> str:

@@ -12,7 +12,7 @@ all while the central cannot open a tunnel; one pass that blows up takes nothing
 from __future__ import annotations
 
 import threading
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -80,9 +80,19 @@ def make(store: NoustStore, collector: FakeCollector, clock: Clock, **kw: Any) -
     )
 
 
+def wait_for(condition: Callable[[], bool], seconds: float = 5.0) -> None:
+    """Wait for what a test asserts, up to a ceiling, and not for a time."""
+    gate = threading.Event()
+    for _ in range(int(seconds / 0.01)):
+        if condition():
+            return
+        gate.wait(0.01)
+
+
 def finish(worker: CollectWorker) -> None:
+    """Wait for every pass to end, whether it returned or raised (a pass that raised is a defect the worker logs)."""
     for future in list(worker._running.values()):
-        future.result(10)
+        future.exception(10)
 
 
 class TestWhenItLooks:
@@ -201,7 +211,22 @@ class TestABugInOnePass:
         finish(worker)
 
         assert sorted(node for node, _f in collector.calls) == ["web-1", "web-2", "web-3"]
-        assert "web-1 failed" in caplog.text or "web-1" in caplog.text
+        # The line is written by the future's callback, on the pass's own thread just after the pass ends.
+        wait_for(lambda: "A pass of collecting over web-1 failed" in caplog.text)
+        assert "A pass of collecting over web-1 failed" in caplog.text
+        # What it logs is the defect itself, with its traceback, not a sentence that hides it.
+        assert "RuntimeError: a bug" in caplog.text
+
+    def test_the_server_it_hit_backs_off_like_one_that_failed(self, store: NoustStore) -> None:
+        collector, clock = FakeCollector(), Clock()
+        collector.blow_up.add("web-1")
+        worker = make(store, collector, clock)
+        NodeStates(store).record_pass("web-1", ok=False, error="x", code="error")
+
+        worker.tick()
+        finish(worker)
+
+        assert worker._next["web-1"] > worker._next["web-2"]
 
 
 class TestTheThread:
@@ -220,3 +245,63 @@ class TestTheThread:
 
         assert len(collector.calls) >= 3
         assert worker._thread is None
+
+    def test_what_the_disk_or_the_store_refuses_is_logged_and_the_next_look_goes_on(
+        self, store: NoustStore, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        worker = make(store, FakeCollector(), Clock())
+        looks: list[int] = []
+
+        def tick() -> int:
+            looks.append(1)
+            if len(looks) == 1:
+                raise OSError("No space left on device")
+            return 0
+
+        worker.tick = tick  # type: ignore[method-assign]
+        worker.start()
+        deadline = threading.Event()
+        for _ in range(200):
+            worker.wake()
+            if len(looks) >= 2:
+                break
+            deadline.wait(0.05)
+        worker.stop()
+
+        assert len(looks) >= 2
+        assert "Collecting could not look at the servers" in caplog.text
+
+    def test_a_defect_ends_the_thread_loudly_and_the_next_wake_starts_it_again(
+        self, store: NoustStore
+    ) -> None:
+        worker = make(store, FakeCollector(), Clock())
+        looks: list[int] = []
+
+        def tick() -> int:
+            looks.append(1)
+            if len(looks) == 1:
+                raise AttributeError("a defect")
+            return 0
+
+        worker.tick = tick  # type: ignore[method-assign]
+        thread_reports: list[BaseException] = []
+        original = threading.excepthook
+        threading.excepthook = lambda args: thread_reports.append(args.exc_value)  # type: ignore[arg-type]
+        try:
+            worker.start()
+            first = worker._thread
+            assert first is not None
+            first.join(5)
+            assert not first.is_alive()
+            worker.wake()
+            deadline = threading.Event()
+            for _ in range(200):
+                if len(looks) >= 2:
+                    break
+                deadline.wait(0.05)
+            worker.stop()
+        finally:
+            threading.excepthook = original
+
+        assert [type(report).__name__ for report in thread_reports] == ["AttributeError"]
+        assert len(looks) >= 2

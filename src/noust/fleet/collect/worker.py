@@ -23,11 +23,14 @@ ends it, a transfer in the middle stops between two pieces and resumes from the 
 from __future__ import annotations
 
 import logging
+import sqlite3
 import threading
 import time
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
+from functools import partial
 
+from noust.core.exceptions import NoustError
 from noust.core.store import NoustStore, get_store
 from noust.fleet.collect.collector import NodeCollector, PassResult
 from noust.fleet.collect.settings import Follows, SettingsStore
@@ -91,6 +94,10 @@ class CollectWorker:
             node: Only this server; every followed one when None.
             force: Read the whole list even when the server says nothing changed.
         """
+        thread = self._thread
+        if thread is not None and not thread.is_alive() and not self._stop.is_set():
+            # The loop ended on a defect (it said so in the journal): asking for a look is a reason to run it again.
+            self.start()
         with self._lock:
             names = [node] if node else [n.name for n in self.store.list_nodes()]
             for name in names:
@@ -125,7 +132,9 @@ class CollectWorker:
                 self._forced.discard(node.name)
                 if self._pool is None:
                     self._pool = ThreadPoolExecutor(MAX_PASSES, thread_name_prefix="noust-collect")
-                self._running[node.name] = self._pool.submit(self._pass, node.name, force)
+                future = self._pool.submit(self._pass, node.name, force)
+                future.add_done_callback(partial(self._ended, node.name))
+                self._running[node.name] = future
                 started += 1
         return started
 
@@ -141,20 +150,36 @@ class CollectWorker:
             How it went.
         """
         settings = SettingsStore(self.store).get()
+        result: PassResult | None = None
         try:
             result = self.collector.collect(node, force=force)
-        except Exception:  # noqa: BLE001 - the boundary of a background thread: log and go on
-            _log.exception("A pass of collecting over %s failed", node)
-            result = PassResult(node, "failed", code="error")
-        failing = result.state == "failed"
-        wait = float(settings.poll_seconds)
-        if failing:
-            from noust.fleet.collect.records import NodeStates
+            return result
+        finally:
+            # A pass that raised did not finish: it backs off like one that failed, and `_ended` says why it
+            # raised, from the future, so that nothing here has to catch what it does not know.
+            wait = float(settings.poll_seconds)
+            if result is None or result.state == "failed":
+                from noust.fleet.collect.records import NodeStates
 
-            wait = min(wait * (2 ** min(NodeStates(self.store).get(node).failures, 6)), MAX_BACKOFF)
-        with self._lock:
-            self._next[node] = max(self._next.get(node, 0.0), self._clock() + wait)
-        return result
+                wait = min(
+                    wait * (2 ** min(NodeStates(self.store).get(node).failures, 6)), MAX_BACKOFF
+                )
+            with self._lock:
+                self._next[node] = max(self._next.get(node, 0.0), self._clock() + wait)
+
+    def _ended(self, node: str, future: Future[PassResult]) -> None:
+        """
+        Say why a pass raised: what a pass does not handle is a defect, and it is logged with its traceback.
+
+        Args:
+            node: The server.
+            future: The pass, finished.
+        """
+        if future.cancelled():
+            return
+        failure = future.exception()
+        if failure is not None:
+            _log.error("A pass of collecting over %s failed", node, exc_info=failure)
 
     def busy(self) -> bool:
         """
@@ -186,13 +211,19 @@ class CollectWorker:
             self._pool = None
 
     def _loop(self) -> None:
-        """Look, wait, look again, until stopped."""
+        """
+        Look, wait, look again, until stopped.
+
+        What the store, the disk or a server can refuse is logged and tried again at the next look. Anything
+        else is a defect: the thread ends with its traceback in the journal (the interpreter's own report)
+        and is started again by the next :meth:`wake`, instead of being turned into a line that repeats.
+        """
         while not self._stop.is_set():
             try:
                 self.tick()
                 settings = SettingsStore(self.store).get()
                 pause = float(settings.poll_seconds) if settings.enabled else IDLE_SECONDS
-            except Exception:  # noqa: BLE001 - the boundary of a background thread: log and go on
+            except (NoustError, OSError, sqlite3.Error):
                 _log.exception("Collecting could not look at the servers")
                 pause = IDLE_SECONDS
             self._wake.wait(min(pause, 30.0))
