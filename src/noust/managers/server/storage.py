@@ -23,7 +23,6 @@ Three rules shape this module, each from a way a disk page goes wrong:
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import re
@@ -33,12 +32,17 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-from noust.core.exceptions import DependencyError, ValidationError
+from noust.core.docker import names as docker_names
+from noust.core.docker import reading as docker_reading
+from noust.core.docker.errors import DockerUnavailableError
+from noust.core.docker.gate import DockerGate
+from noust.core.docker.models import NOBODY, Image
+from noust.core.docker.owners import Registry
+from noust.core.exceptions import DependencyError, DockerError, ValidationError
 from noust.core.fs import DryRunFileSystem, FileSystem, get_fs
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.server_text import ServerText, say
 from noust.core.timeutil import utc_now_iso
-from noust.deployers.helpers.compose_retention import PREVIOUS_TAGS as PREVIOUS_TAGS_OF_STACKS
 from noust.managers.server.errors import (
     ConfirmationRequiredError,
     ServerError,
@@ -91,10 +95,11 @@ PROBE_TIMEOUT = 60
 #: Deadline of a cleanup command. Pruning a large Docker cache takes minutes.
 CLEANUP_TIMEOUT = 900
 
-#: The tags Docker Compose applications keep their way back under (the current one and the one
-#: before 4.0). Nothing unused-image related may remove them: no container runs the image after
-#: an update, which is exactly what makes it look unused.
-PREVIOUS_TAGS = PREVIOUS_TAGS_OF_STACKS
+#: The tags Docker Compose applications keep their way back under while an update runs (the
+#: current one and the one before 4.0). They are one of the ways an image is a way back: see
+#: :func:`noust.core.docker.names.is_way_back`, which also knows the images of the releases an
+#: application keeps, and which is what no list of unused images may offer for removal.
+PREVIOUS_TAGS = docker_names.PREVIOUS_TAGS
 
 #: Every action a cleanup can be. The closed list is the guard: an endpoint
 #: passes one of these keys and nothing else reaches a command.
@@ -223,6 +228,27 @@ class Analysis:
 
 
 @dataclass(frozen=True)
+class PlanEntry:
+    """
+    One thing a cleanup would remove: what it is, whose it is and how much it holds.
+
+    Attributes:
+        name: What it is called (an image's name, ``Docker build cache``).
+        owner: Whose it is, as :meth:`noust.core.docker.models.Owner.to_dict` says it: an
+            application, a database engine, Noust, or nobody (Noust did not make it).
+        size_bytes: How much it takes, when Docker said.
+        reason: Why it is offered, a word of a closed list the console says in its own words:
+            ``unused`` (no container uses it and no application keeps it to go back to),
+            ``dangling`` (it has no name and no container) or ``build-cache``.
+    """
+
+    name: str
+    owner: dict[str, str]
+    size_bytes: int | None
+    reason: str
+
+
+@dataclass(frozen=True)
 class CleanupPlan:
     """
     What a cleanup action would do, worked out without doing it.
@@ -234,6 +260,8 @@ class CleanupPlan:
         needs_confirmation: It takes something the operator may want back.
         items: What it would remove, when the action can list it.
         effect_coded: ``effect`` as a sentence with a code, for the console to translate.
+        entries: What it would remove, each with whose it is and how much it holds; for a Docker
+            action, the images or the cache, and never a volume.
     """
 
     action: str
@@ -242,6 +270,7 @@ class CleanupPlan:
     needs_confirmation: bool
     items: tuple[str, ...] = ()
     effect_coded: ServerText | None = None
+    entries: tuple[PlanEntry, ...] = ()
 
 
 def _plan(
@@ -250,6 +279,7 @@ def _plan(
     effect: ServerText,
     needs_confirmation: bool,
     items: tuple[str, ...] = (),
+    entries: tuple[PlanEntry, ...] = (),
 ) -> CleanupPlan:
     """
     Make a plan out of the sentence that says what it does.
@@ -260,11 +290,12 @@ def _plan(
         effect: What it does; its text is the plan's ``effect``.
         needs_confirmation: It takes something the operator may want back.
         items: What it would remove, when the action can list it.
+        entries: The same, with whose each is and how much it holds.
 
     Returns:
         The plan, whose effect and code are one thing.
     """
-    return CleanupPlan(action, commands, effect.text, needs_confirmation, items, effect)
+    return CleanupPlan(action, commands, effect.text, needs_confirmation, items, effect, entries)
 
 
 @dataclass
@@ -289,6 +320,31 @@ class CleanupResult:
     output: list[str] = field(default_factory=list)
 
 
+#: Docker's sizes and its disk table are read where the rest of Docker is (rule 3); these names
+#: stay for the code and the tests that always asked this module for them.
+parse_docker_size = docker_reading.parse_size
+parse_docker_df = docker_reading.parse_disk_usage
+
+
+def _docker_size(size: int | None) -> str:
+    """
+    Args:
+        size: Bytes, or None when Docker did not say.
+
+    Returns:
+        The size the way Docker prints one (``312MB``, ``1.23GB``), which is what the list of
+        unused images always showed.
+    """
+    if size is None:
+        return "N/A"
+    value = float(size)
+    for unit in ("B", "kB", "MB", "GB", "TB"):
+        if value < 1000 or unit == "TB":
+            return f"{value:.3g}{unit}"
+        value /= 1000
+    return f"{size}B"  # pragma: no cover
+
+
 def parse_journal_size(text: str) -> int | None:
     """
     Read ``journalctl --disk-usage``.
@@ -303,79 +359,6 @@ def parse_journal_size(text: str) -> int | None:
     if not match:
         return None
     return int(float(match.group(1)) * _UNITS_1024[match.group(2).upper()])
-
-
-def parse_docker_size(text: str) -> int | None:
-    """
-    Read a size the way ``docker`` prints it.
-
-    Args:
-        text: ``29.98GB (63%)`` or ``310.2MB`` or ``0B``. Docker counts in
-            powers of ten.
-
-    Returns:
-        The size in bytes, or None when it is not a size.
-    """
-    match = _DOCKER_SIZE.match(text)
-    if not match:
-        return None
-    return int(float(match.group(1)) * _UNITS_1000[match.group(2).upper()])
-
-
-def parse_docker_df(text: str) -> dict[str, dict[str, Any]]:
-    """
-    Read ``docker system df --format json``, one JSON object per line.
-
-    Args:
-        text: The output.
-
-    Returns:
-        For each ``Type`` (``Images``, ``Containers``, ``Local Volumes``,
-        ``Build Cache``): ``size``, ``reclaimable`` in bytes and ``count``.
-    """
-    found: dict[str, dict[str, Any]] = {}
-    for line in text.splitlines():
-        try:
-            row = json.loads(line)
-        except ValueError:
-            continue
-        if not isinstance(row, dict) or "Type" not in row:
-            continue
-        found[str(row["Type"])] = {
-            "size": parse_docker_size(str(row.get("Size", ""))),
-            "reclaimable": parse_docker_size(str(row.get("Reclaimable", ""))),
-            "count": int(row["TotalCount"]) if str(row.get("TotalCount", "")).isdigit() else None,
-        }
-    return found
-
-
-def parse_docker_images(text: str) -> list[dict[str, str]]:
-    """
-    Read ``docker image ls --format '{{json .}}'``.
-
-    Args:
-        text: The output, one JSON object per line.
-
-    Returns:
-        ``id``, ``repository``, ``tag``, ``size`` and ``containers`` for each image.
-    """
-    images = []
-    for line in text.splitlines():
-        try:
-            row = json.loads(line)
-        except ValueError:
-            continue
-        if isinstance(row, dict) and row.get("ID"):
-            images.append(
-                {
-                    "id": str(row["ID"]),
-                    "repository": str(row.get("Repository", "")),
-                    "tag": str(row.get("Tag", "")),
-                    "size": str(row.get("Size", "")),
-                    "containers": str(row.get("Containers", "N/A")),
-                }
-            )
-    return images
 
 
 def _status(percent: float, inode_percent: float) -> str:
@@ -429,6 +412,7 @@ class StorageManager:
         backups_usage: Callable[[], dict[str, Any]] | None = None,
         release_apps: Callable[[], list[Any]] | None = None,
         log_paths: Callable[[], Iterable[Path]] | None = None,
+        registry: Callable[[], Registry] | None = None,
     ) -> None:
         """
         Args:
@@ -441,7 +425,10 @@ class StorageManager:
             release_apps: Returns the applications on the release layout; read
                 from the store by default.
             log_paths: Returns the directories of Noust's own logs.
+            registry: Returns what Noust registered (its applications and database instances),
+                which decides whose a Docker image is; read from the store by default.
         """
+        self._registry = registry
         self._runner = runner
         self._fs = fs
         self.host = host or HostPaths()
@@ -583,20 +570,46 @@ class StorageManager:
             The table of :func:`parse_docker_df`, or None when Docker is not
             here or its daemon does not answer.
         """
+        return docker_reading.disk_usage(self.runner)
+
+    def _gate(self) -> DockerGate:
+        """
+        Returns:
+            The gate to Docker, as the instance: storage is the server's, and the routes that reach
+            it are classified so.
+        """
+        from noust.core.teams.scope import Scope
+
+        return DockerGate(self.runner, registry=self._registry, scope=Scope.everything())
+
+    def docker_images(self) -> tuple[list[Image], list[Image]]:
+        """
+        Sort the images Docker has into the ones a cleanup may offer and the ones it never does.
+
+        Returns:
+            The images nothing uses and no application keeps to go back to (the ones that may be
+            offered, one by one), and the images that are a way back: the versions an
+            application keeps to roll back to, which look unused because no container runs
+            them after an update. Both empty when Docker is not here or does not answer.
+        """
         if not self.runner.exists("docker"):
-            return None
-        result = self.runner.run(
-            ["docker", "system", "df", "--format", "json"], timeout=PROBE_TIMEOUT
-        )
-        return parse_docker_df(result.stdout) if result.success else None
+            return [], []
+        try:
+            images = self._gate().images().items
+        except DockerUnavailableError:
+            return [], []
+        offered = [image for image in images if not image.used_by and not image.way_back]
+        kept = [image for image in images if image.way_back]
+        return offered, kept
 
     def _docker_candidates(self) -> list[Candidate]:
         """
         Measure what Docker holds and could give back.
 
         Returns:
-            The build cache, the unused images and the volumes (volumes are
-            reported and never offered: they are the databases).
+            The build cache, the unused images, the versions applications keep to go back to
+            (reported, never offered) and the volumes (reported and never offered: they are the
+            databases).
         """
         table = self.docker_df()
         if not table:
@@ -617,17 +630,37 @@ class StorageManager:
             )
         images = table.get("Images")
         if images:
+            offered, kept = self.docker_images()
+            # What Docker calls reclaimable counts the versions applications keep to go back to,
+            # which no cleanup offers: what is said here is what could actually be removed.
+            reclaimable = (
+                sum(image.size_bytes or 0 for image in offered)
+                if offered or kept
+                else images["reclaimable"]
+            )
             found.append(
                 Candidate(
                     "docker-images",
                     images["size"],
-                    images["reclaimable"],
+                    reclaimable,
                     None,
-                    "Images no container uses. Review them one by one: the image a "
-                    "Compose application keeps to roll back to looks unused too",
+                    "Images no container uses and no application keeps to go back to, removed "
+                    "one by one",
                     now,
                 )
             )
+            if kept:
+                found.append(
+                    Candidate(
+                        "docker-kept-images",
+                        sum(image.size_bytes or 0 for image in kept),
+                        None,
+                        None,
+                        f"{len(kept)} images that applications keep to go back to: never "
+                        "offered as unused. An application keeps fewer with: noust releases keep",
+                        now,
+                    )
+                )
         volumes = table.get("Local Volumes")
         if volumes:
             found.append(
@@ -877,34 +910,34 @@ class StorageManager:
 
     # -- cleanup --------------------------------------------------------------
 
-    def docker_unused_images(self) -> list[dict[str, str]]:
+    def docker_unused_images(self) -> list[dict[str, Any]]:
         """
         List the images no container uses, without the ones that are a way back.
 
         Returns:
-            The images, each with its id, name, tag and size. Images tagged
-            ``noust_previous`` are left out, and so are the ones a container
-            (running or not) references.
+            The images, each with its short id, name, tag, size, whose it is and how many bytes it
+            holds. Left out: every image a container uses (running or not) and every image an
+            application keeps to go back to (a ``noust_previous``, a release of a stack or of a
+            container application): no container runs those after an update, which is exactly what
+            makes them look unused, and removing one is removing the application's way back.
         """
-        if not self.runner.exists("docker"):
-            return []
-        images = self.runner.run(
-            ["docker", "image", "ls", "--format", "{{json .}}"], timeout=PROBE_TIMEOUT
-        )
-        if not images.success:
-            return []
-        used = self.runner.run(
-            ["docker", "ps", "-a", "--format", "{{.Image}}"], timeout=PROBE_TIMEOUT
-        ).stdout.split()
-        unused = []
-        for image in parse_docker_images(images.stdout):
-            if image["tag"] in PREVIOUS_TAGS:
-                continue
-            names = {image["id"], image["repository"], f"{image['repository']}:{image['tag']}"}
-            if names & set(used):
-                continue
-            unused.append(image)
-        return unused
+        offered, _kept = self.docker_images()
+        found = []
+        for image in offered:
+            first = image.tags[0] if image.tags else "<none>:<none>"
+            repository, _, tag = first.rpartition(":")
+            found.append(
+                {
+                    "id": image.id.removeprefix("sha256:")[:12],
+                    "repository": repository,
+                    "tag": tag,
+                    "size": _docker_size(image.size_bytes),
+                    "containers": "0",
+                    "owner": image.owner.to_dict(),
+                    "size_bytes": image.size_bytes,
+                }
+            )
+        return found
 
     def plan_cleanup(self, action: str, **params: Any) -> CleanupPlan:
         """
@@ -933,21 +966,55 @@ class StorageManager:
             return _plan(action, (" ".join(argv),), say("storage.effect.pkg_cache"), False)
         if action == "docker-build-cache":
             argv = self._docker_build_cache_argv()
-            return _plan(action, (" ".join(argv),), say("storage.effect.docker_build_cache"), True)
-        if action == "docker-dangling-images":
-            argv = ["docker", "image", "prune", "-f"]
-            return _plan(
-                action, (" ".join(argv),), say("storage.effect.docker_dangling_images"), True
+            cache = (self.docker_df() or {}).get("Build Cache")
+            entries = (
+                (
+                    PlanEntry(
+                        "Docker build cache",
+                        NOBODY.to_dict(),
+                        cache["reclaimable"],
+                        "build-cache",
+                    ),
+                )
+                if cache
+                else ()
             )
-        if action == "docker-image":
-            image = self._image_target(params.get("target"))
-            argv = ["docker", "image", "rm", image]
             return _plan(
                 action,
                 (" ".join(argv),),
-                say("storage.effect.docker_image", image=image),
+                say("storage.effect.docker_build_cache"),
                 True,
-                items=(image,),
+                entries=entries,
+            )
+        if action == "docker-dangling-images":
+            argv = DockerGate.prune_images_argv()
+            return _plan(
+                action,
+                (" ".join(argv),),
+                say("storage.effect.docker_dangling_images"),
+                True,
+                entries=tuple(
+                    PlanEntry(
+                        f"{image['id']}",
+                        image["owner"],
+                        image["size_bytes"],
+                        "dangling",
+                    )
+                    for image in self.docker_unused_images()
+                    if image["repository"] == "<none>"
+                ),
+            )
+        if action == "docker-image":
+            image = self._image_target(params.get("target"))
+            argv = DockerGate.remove_image_argv(image["id"])
+            name = f"{image['repository']}:{image['tag']}"
+            return _plan(
+                action,
+                (" ".join(argv),),
+                say("storage.effect.docker_image", image=image["id"]),
+                True,
+                items=(image["id"],),
+                entries=(PlanEntry(name, image["owner"], image["size_bytes"], "unused"),),
             )
         if action == "releases":
             doomed = self._doomed_releases()
@@ -1099,14 +1166,37 @@ class StorageManager:
             self._run(self._docker_build_cache_argv(), emit, result)
             result.freed_bytes = _reclaimed(result.output)
         elif action == "docker-dangling-images":
-            self._run(["docker", "image", "prune", "-f"], emit, result)
+            self._run(DockerGate.prune_images_argv(), emit, result)
             result.freed_bytes = _reclaimed(result.output)
         elif action == "docker-image":
-            self._run(["docker", "image", "rm", plan.items[0]], emit, result)
+            self._remove_image(plan.items[0], emit, result)
             result.removed = [plan.items[0]]
         elif action == "releases":
             result.removed = self._prune_releases(emit)
         return result
+
+    def _remove_image(self, ref: str, emit: Callable[[str], None], result: CleanupResult) -> None:
+        """
+        Remove one image through the gate, which judges it once more as it is now.
+
+        Args:
+            ref: The image's id.
+            emit: Receives each output line.
+            result: The result being built.
+
+        Raises:
+            ServerError: Docker refused, or the image is not removable any more.
+        """
+        result.commands.append(f"docker image rm {ref}")
+        try:
+            self._gate().remove_image(ref)
+        except DockerError as exc:
+            raise ServerError(
+                f"'docker image rm {ref}' failed",
+                "Nothing else was changed. The tool's own output is below.",
+                output=exc.output or exc.message,
+            ) from exc
+        emit(f"Removed {ref}")
 
     def _run(self, argv: list[str], emit: Callable[[str], None], result: CleanupResult) -> None:
         """
@@ -1191,9 +1281,9 @@ class StorageManager:
         """
         if not self.runner.exists("docker"):
             raise UnsupportedHostError("Docker is not installed on this system")
-        return ["docker", "builder", "prune", "-f", "--filter", "until=168h"]
+        return DockerGate.prune_build_cache_argv()
 
-    def _image_target(self, target: Any) -> str:
+    def _image_target(self, target: Any) -> dict[str, Any]:
         """
         Validate the image a caller wants removed.
 
@@ -1201,23 +1291,35 @@ class StorageManager:
             target: An image id as ``docker image ls`` prints it.
 
         Returns:
-            The id.
+            The image, as :meth:`docker_unused_images` lists it.
 
         Raises:
-            ValidationError: It is not an image id, or the image is a way back
-                or one a container uses.
+            ValidationError: It is not an image id, or the image is a way back, one a container
+                uses, or one that is not here.
         """
         if not isinstance(target, str) or not _IMAGE_ID.match(target):
             raise ValidationError(
                 "Name the image by its id", "Use an id from the list of unused images."
             )
-        allowed = {image["id"] for image in self.docker_unused_images()}
-        if target.removeprefix("sha256:")[:12] not in {i[:12] for i in allowed}:
-            raise ValidationError(
-                "That image is not in the list of unused images",
-                "It may be in use, or be the noust_previous image an application rolls back to.",
-            )
-        return target
+        short = target.removeprefix("sha256:")[:12]
+        for offered_image in self.docker_unused_images():
+            if offered_image["id"] == short:
+                return offered_image
+        _offered, kept = self.docker_images()
+        for image in kept:
+            if image.id.removeprefix("sha256:")[:12] == short:
+                owner = image.owner.subject
+                raise ValidationError(
+                    "That image is not in the list of unused images: it is a version "
+                    + (f"{owner} keeps" if owner else "an application keeps")
+                    + " to go back to",
+                    "Noust never offers it for removal. An application keeps fewer versions "
+                    "with: noust releases keep",
+                )
+        raise ValidationError(
+            "That image is not in the list of unused images",
+            "It may be in use by a container, or not be there any more.",
+        )
 
     def _doomed_releases(self) -> list[tuple[str, str]]:
         """

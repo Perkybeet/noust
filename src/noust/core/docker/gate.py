@@ -72,6 +72,9 @@ ACTION_TIMEOUT = 90
 #: The most a page may hold: a console asks for a few dozen.
 MAX_PAGE = 1000
 
+#: How old the build cache has to be to be pruned: a week.
+BUILD_CACHE_HOURS = 168
+
 #: What a container, a volume or a network is called, and what an image is called.
 _NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,254}")
 _IMAGE_REF = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,254}")
@@ -607,6 +610,40 @@ class DockerGate:
             raise not_found(kind, ref)
         return found[0]
 
+    # -- what is not an object -------------------------------------------------------------
+
+    @staticmethod
+    def remove_image_argv(image_id: str) -> list[str]:
+        """
+        Args:
+            image_id: The id of an image, as Docker listed it.
+
+        Returns:
+            The command that removes it, without ``--force``: Docker refuses what a container uses.
+        """
+        return ["docker", "image", "rm", image_id]
+
+    @staticmethod
+    def prune_images_argv() -> list[str]:
+        """
+        Returns:
+            The command that removes the images with no name and no container: the dangling ones
+            only (never ``-a``, which would take the way back of every application).
+        """
+        return ["docker", "image", "prune", "-f"]
+
+    @staticmethod
+    def prune_build_cache_argv(hours: int = BUILD_CACHE_HOURS) -> list[str]:
+        """
+        Args:
+            hours: Only the cache older than this is removed.
+
+        Returns:
+            The command that prunes the build cache by age (never ``system prune``, which takes
+            volumes with it).
+        """
+        return ["docker", "builder", "prune", "-f", "--filter", f"until={hours}h"]
+
     # -- changing --------------------------------------------------------------------------
 
     def start_container(self, ref: str) -> Container:
@@ -718,7 +755,7 @@ class DockerGate:
                 f"The image {label} is used by {', '.join(target.used_by)}",
                 details="Remove the containers that use it first.",
             )
-        self._run(["docker", "image", "rm", target.id], f"remove {label}")
+        self._run(self.remove_image_argv(target.id), f"remove {label}")
         return Removal(ObjectKind.IMAGE, label, target.size_bytes)
 
     def remove_volume(self, name: str, *, confirm_name: str | None = None) -> Removal:

@@ -37,11 +37,13 @@ __all__ = [
     "DOCKER_TIMEOUT",
     "HELPER_LABEL",
     "INSTANCE_LABEL",
+    "disk_usage",
     "list_containers",
     "list_images",
     "list_networks",
     "list_volumes",
     "parse_containers",
+    "parse_disk_usage",
     "parse_images",
     "parse_networks",
     "parse_size",
@@ -465,3 +467,46 @@ def volume_sizes(runner: CommandRunner, *, timeout: int = SIZE_TIMEOUT) -> dict[
         raise DockerUnavailableError("Docker is not installed on this server")
     result = runner.run(["docker", "system", "df", "-v", "--format", "{{json .}}"], timeout=timeout)
     return parse_volume_sizes(result.stdout) if result.success else {}
+
+
+def parse_disk_usage(text: str) -> dict[str, dict[str, Any]]:
+    """
+    Read ``docker system df`` written with ``--format '{{json .}}'``, one object a line.
+
+    Args:
+        text: The output.
+
+    Returns:
+        For each ``Type`` (``Images``, ``Containers``, ``Local Volumes``, ``Build Cache``): ``size``
+        and ``reclaimable`` in bytes and ``count``.
+    """
+    found: dict[str, dict[str, Any]] = {}
+    for row in _objects(text):
+        if "Type" not in row:
+            continue
+        count = _text(row, "TotalCount")
+        found[str(row["Type"])] = {
+            "size": parse_size(_text(row, "Size")),
+            "reclaimable": parse_size(_text(row, "Reclaimable")),
+            "count": int(count) if count.isdigit() else None,
+        }
+    return found
+
+
+def disk_usage(runner: CommandRunner) -> dict[str, dict[str, Any]] | None:
+    """
+    Ask Docker what it holds, by kind, without walking any volume.
+
+    Args:
+        runner: Runs it.
+
+    Returns:
+        The table of :func:`parse_disk_usage`, or None when Docker is not here or its daemon does
+        not answer.
+    """
+    if not runner.exists("docker"):
+        return None
+    result = runner.run(
+        ["docker", "system", "df", "--format", "{{json .}}"], timeout=DOCKER_TIMEOUT
+    )
+    return parse_disk_usage(result.stdout) if result.success else None

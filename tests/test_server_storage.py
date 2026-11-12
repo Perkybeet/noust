@@ -22,6 +22,8 @@ from pathlib import Path
 import pytest
 
 from noust.core import legacy_names
+from noust.core.docker.owners import Registry
+from noust.core.docker.reading import parse_images
 from noust.core.exceptions import ValidationError
 from noust.core.fs import DryRunFileSystem, RecordingFileSystem
 from noust.core.runner import FakeRunner
@@ -36,7 +38,6 @@ from noust.managers.server.storage import (
     Candidate,
     StorageManager,
     parse_docker_df,
-    parse_docker_images,
     parse_docker_size,
     parse_journal_size,
 )
@@ -98,6 +99,8 @@ def _manager(runner: FakeRunner, host, **kwargs) -> StorageManager:
     kwargs.setdefault("release_apps", lambda: [])
     kwargs.setdefault("backups_usage", lambda: {})
     kwargs.setdefault("log_paths", lambda: [])
+    # What Noust registered decides whose an image is: nothing, unless a test says.
+    kwargs.setdefault("registry", lambda: Registry())
     return StorageManager(runner=runner, host=host, **kwargs)
 
 
@@ -125,11 +128,11 @@ class TestParsing:
         assert table["Local Volumes"]["size"] == 26_140_000_000
 
     def test_the_real_image_list_is_read_line_by_line(self) -> None:
-        images = parse_docker_images(fixture("docker", "image-ls.json"))
+        images = parse_images(fixture("docker", "image-ls.json"))
 
         assert len(images) == 6
-        assert images[0]["id"] == "646c6686dc07"
-        assert images[0]["tag"] == "test"
+        assert images[0].id == "646c6686dc07"
+        assert images[0].tags == ("noust-fleet-central-packaged:test",)
 
 
 class TestMounts:
@@ -446,7 +449,7 @@ class TestDockerCleanup:
             manager.cleanup("docker-build-cache")
 
         assert raised.value.required["commands"] == ["docker builder prune -f --filter until=168h"]
-        assert not runner.ran("docker")
+        assert not runner.ran("docker", "builder")
 
     def test_once_confirmed_the_reclaimed_space_is_read_from_dockers_words(self, host) -> None:
         runner = FakeRunner()
@@ -458,14 +461,14 @@ class TestDockerCleanup:
         result = _manager(runner, host).cleanup("docker-build-cache", confirm=True)
 
         assert result.freed_bytes == 6_100_000_000
-        assert runner.calls[0] == ("docker", "builder", "prune", "-f", "--filter", "until=168h")
+        assert ("docker", "builder", "prune", "-f", "--filter", "until=168h") in runner.calls
 
     def test_dangling_images_are_pruned_without_dash_a(self, host) -> None:
         runner = FakeRunner()
 
         _manager(runner, host).cleanup("docker-dangling-images", confirm=True)
 
-        assert runner.calls[0] == ("docker", "image", "prune", "-f")
+        assert ("docker", "image", "prune", "-f") in runner.calls
 
     def test_without_docker_it_says_so(self, host) -> None:
         runner = FakeRunner().only_knows("apt-get")
@@ -488,7 +491,12 @@ class TestDockerCleanup:
                 ]
             ),
         )
-        runner.script(["docker", "ps"], stdout="redis:7-alpine\n")
+        runner.script(
+            ["docker", "ps"],
+            stdout='{"id":"'
+            + "9" * 64
+            + '","name":"cache","image":"redis:7-alpine","state":"running"}',
+        )
 
     def test_unused_images_leave_out_the_way_back_and_what_a_container_uses(self, host) -> None:
         runner = FakeRunner()
@@ -496,7 +504,9 @@ class TestDockerCleanup:
 
         unused = _manager(runner, host).docker_unused_images()
 
-        assert [image["id"] for image in unused] == ["aaaaaaaaaaaa", "dddddddddddd"]
+        assert [image["id"] for image in unused] == ["dddddddddddd", "aaaaaaaaaaaa"]
+        assert unused[0]["repository"] == "old" and unused[0]["size"] == "5MB"
+        assert unused[0]["owner"] == {"kind": "nobody", "subject": "", "project": ""}
 
     def test_an_image_is_removed_by_id_without_force(self, host) -> None:
         runner = FakeRunner()

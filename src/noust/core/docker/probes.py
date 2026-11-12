@@ -23,5 +23,6 @@ READ_ONLY_PROBES: tuple[tuple[object, ...], ...] = (
     ("docker", "volume", "ls", "--format", "*"),
     ("docker", "network", "ls", "--no-trunc", "--format", "*"),
     ("docker", "system", "df", "-v", "--format", "*"),
+    ("docker", "system", "df", "--format", "*"),
     ("docker", "inspect", "--type", "*", "*"),
 )
