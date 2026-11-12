@@ -27,6 +27,7 @@ from noust.managers.store_location import StoreLocation
 from noust.validators import ssh as ssh_module
 from noust.web.api import system as system_api
 from noust.web.api.auth import get_current_session
+from tests.support.doctor_machine import store_in_its_place
 
 
 @pytest.fixture
@@ -68,9 +69,7 @@ def sandbox(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
                 # Which kinds of application the store holds is described too, for the same reason.
                 "app_types": lambda: {"nodejs"},
                 # And where the store is: in the state directory, as a server keeps it.
-                "store_location": lambda: StoreLocation(
-                    tmp_path / "state" / "noust.db", tmp_path / "state"
-                ),
+                "store_location": store_in_its_place(tmp_path),
                 **extra,
             },
         ),
@@ -108,6 +107,21 @@ def test_a_prepared_machine_is_ready_with_nothing_to_say(
         "Web Server",
     ]
     assert all(i.status != "fail" for s in report.sections for i in s.items)
+
+
+def test_the_store_is_part_of_the_report_only_when_it_is_not_in_the_state_directory(
+    sandbox: dict[str, Any], runner: FakeRunner, tmp_path: Path
+) -> None:
+    prepare(sandbox)
+    elsewhere = StoreLocation(tmp_path / "home" / "noust.db", tmp_path / "state")
+
+    in_place = setup_doctor.collect(sandbox["env"]())
+    outside = setup_doctor.collect(sandbox["env"](store_location=lambda: elsewhere))
+
+    assert "store" not in [s.key for s in in_place.sections]
+    assert [s.key for s in outside.sections if s.key == "store"] == ["store"]
+    # What a machine described as a server has to say is its own: the store adds the one warning.
+    assert outside.warnings == in_place.warnings + 1
 
 
 def test_a_missing_program_is_a_failure_with_the_command_that_installs_it_here(

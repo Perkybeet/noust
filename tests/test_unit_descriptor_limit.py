@@ -26,6 +26,7 @@ from noust.core.runner import FakeRunner
 from noust.managers import setup_doctor
 from noust.managers.service_manager import ServiceManager
 from noust.monitor.process_monitor import ProcessMonitor
+from tests.support.doctor_machine import store_in_its_place
 
 OLD_WEB = "[Unit]\nDescription=Noust console\n[Service]\nType=simple\nExecStart=/usr/bin/noust web start\n"
 OLD_MONITOR = (
@@ -162,6 +163,7 @@ class TestWhatTheDoctorSays:
             resources=lambda: Resources(4096, 0, 2, (DiskFree(str(tmp_path), 51200, 102400),)),
             listeners=lambda: [(80, ("nginx",)), (443, ("nginx",))],
             app_types=lambda: {"python"},
+            store_location=store_in_its_place(tmp_path),
         )
 
         report = setup_doctor.collect(env)

@@ -30,6 +30,7 @@ from noust.managers.server.requirements import (
 )
 from noust.managers.setup_doctor import DoctorEnvironment
 from noust.validators import ssh as ssh_module
+from tests.support.doctor_machine import store_in_its_place
 
 ROOT = Path(__file__).resolve().parent.parent
 INSTALLER = ROOT / "packaging" / "install.sh"
@@ -238,6 +239,7 @@ def machine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, object
             config_path=config,
             resources=lambda: state["resources"],  # type: ignore[arg-type,return-value]
             listeners=lambda: state["listeners"],  # type: ignore[arg-type,return-value]
+            store_location=store_in_its_place(tmp_path),
         )
 
     state["environment"] = environment

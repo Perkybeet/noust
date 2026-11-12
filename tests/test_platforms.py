@@ -246,6 +246,53 @@ def test_the_installer_pins_the_fingerprint_the_code_knows() -> None:
     assert re.fullmatch(r"[0-9A-F]{40}", platforms.REPOSITORY_KEY_FINGERPRINT)
 
 
+#: The one plain-http address the installer carries: the console it tells the operator to open
+#: through their SSH tunnel. It is printed and never fetched, and it says ``localhost`` and not
+#: ``127.0.0.1`` because a passkey (WebAuthn) is bound to a name and is refused on an address of
+#: numbers (item 149), so the numbers are not allowed back in under the same exception.
+PRINTED_CONSOLE = "http://localhost:8080/login"
+
+
+def plain_http_that_is_not_the_printed_console(code: str) -> list[str]:
+    """
+    Find what in a script reaches over plain http, beyond the console address it prints.
+
+    Args:
+        code: The script without its comments.
+
+    Returns:
+        The lines that hold a ``http://`` address other than the console's, and the lines where
+        even that one is on the same line as a program that fetches.
+    """
+    found: list[str] = []
+    for line in code.splitlines():
+        addresses = re.findall(r"http://[^\s\"'<>)]*", line)
+        if any(not address.startswith(PRINTED_CONSOLE) for address in addresses):
+            found.append(line.strip())
+        elif addresses and re.search(r"\b(curl|wget)\b", line):
+            found.append(line.strip())
+    return found
+
+
+@pytest.mark.parametrize(
+    ("line", "flagged"),
+    [
+        ('    say "Sign in at http://localhost:8080/login, through the tunnel."', False),
+        ('    CONSOLE_URL="http://localhost:8080/login?with=token"', False),
+        ("    curl -fsSL http://example.com/install.sh", True),
+        ("    wget http://localhost:8080/login", True),
+        ('    say "Sign in at http://127.0.0.1:8080/login"', True),
+        ('    say "Open http://localhost:9090/login"', True),
+        ('    say "Open http://localhost:8080.example.com/login"', True),
+        ('    say "https://example.com is fine"', False),
+    ],
+)
+def test_the_judgement_of_plain_http_lets_through_only_the_console_it_prints(
+    line: str, flagged: bool
+) -> None:
+    assert bool(plain_http_that_is_not_the_printed_console(line)) is flagged
+
+
 def test_the_installer_downloads_only_from_https_and_runs_nothing_it_fetched() -> None:
     """The point of the script: nothing it downloads is ever executed."""
     text = INSTALLER.read_text(encoding="utf-8")
@@ -254,9 +301,7 @@ def test_the_installer_downloads_only_from_https_and_runs_nothing_it_fetched() -
     assert not re.search(r"\b(curl|wget)\b[^\n]*\|\s*(sudo\s+)?(ba|z|da)?sh\b", code)
     assert not re.search(r"\|\s*(sudo\s+)?(ba|z|da)?sh\b", code)
     assert "eval " not in code
-    # The one plain-http address in the script is the loopback console it tells the
-    # operator to open through their SSH tunnel.
-    assert not re.search(r"http://(?!127\.0\.0\.1)", code)
+    assert plain_http_that_is_not_the_printed_console(code) == []
     assert "--proto '=https'" in code
     assert "--https-only" in code
 
