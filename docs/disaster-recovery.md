@@ -198,6 +198,17 @@ the bundle does not carry. A scheduled backup needs the passphrase unattended, s
 set` stores it in Noust's secret store on this server, which a bundle sent elsewhere does not
 share a disk with.
 
+The store in the bundle is the one Noust uses: the directory that holds it is the bundle's `state`, with
+its secrets and the key they are sealed under, which live beside the store and move with it (the
+user's directory, `~/.local/share/noust`, when the store never left it, and then `/var/lib/noust` is
+kept apart as `system-state`; an empty `noust.db` there is left out, because it is not a store). The
+bundle names which of its files is the store, and one that would hold none is not made. A store that is
+outside `/var/lib/noust` is what `noust setup doctor` names; `noust setup move-store` moves the whole
+folder there (`--dry-run` says what it would do): the services that write stop, a copy of both folders and
+both keys is kept in `/var/backups/noust/store-move/`, the secrets are sealed again under the key of
+`/etc/noust` (the file would be ciphertext nothing opens otherwise), the copy is checked before the store
+is switched and anything that fails is undone. The old store file is renamed, not deleted.
+
 `verify` proves a bundle restorable without restoring it: the envelope, every file's digest,
 the store's integrity check and that this Noust can migrate its schema. `restore` first checks
 every path in the bundle against this server's own directories (a bundle never decides where a

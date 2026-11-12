@@ -1625,6 +1625,80 @@ def retire_links(ctx: Context) -> None:
     _exit(_run_retire_links(ctx.logger, rehearsal=ctx.dry_run))
 
 
+def _run_move_store(logger: Logger, *, yes: bool, rehearsal: bool) -> int:
+    """
+    Move the store to the state directory, after showing what that is and asking.
+
+    Args:
+        logger: Where to report.
+        yes: Go on without asking.
+        rehearsal: Whether this is a ``--dry-run``: say what would be done, write nothing.
+
+    Returns:
+        0 when it was moved, rehearsed or there was nothing to move; 1 when the operator said no.
+
+    Raises:
+        SetupError: A refusal, with how to go on; or a step that failed after what had been
+            written was undone.
+    """
+    from noust.managers import store_location
+
+    mover = store_location.StoreMover(logger=logger)
+    logger.header("Moving Noust's store")
+    plan = mover.plan()
+    logger.info(f"From {plan.source} to {plan.destination}")
+    logger.info(
+        f"{plan.files} file(s), {plan.size // 1024} KiB; {plan.secrets} secret(s) are sealed "
+        f"again under the key of {plan.destination.parent}"
+    )
+    if plan.orphan is not None:
+        logger.info(f"The empty file {plan.orphan} is replaced by the store")
+    if rehearsal:
+        logger.info(
+            "It would stop the console, the monitor and the timers, keep a copy of both folders "
+            "and both keys, copy, check, switch the store and start them again. Nothing was done."
+        )
+        return 0
+    if not yes:
+        if not _prompts_possible():
+            raise SetupError(
+                "This stops the console and the monitor while it moves the store",
+                details="Run it again with --yes, or from a terminal to be asked.",
+            )
+        if not click.confirm("Stop what writes to the store and move it?", default=False):
+            logger.info("Nothing was changed.")
+            return 1
+    result = mover.move(plan)
+    logger.success(f"The store is in {plan.destination.parent}")
+    if result.safety_copy is not None:
+        logger.info(f"A copy of what was there is in {result.safety_copy}")
+    for note in result.notes:
+        logger.info(note)
+    return 0
+
+
+@cli.command("move-store")
+@click.option(
+    "-y", "--yes", is_flag=True, help="Do not ask before stopping what writes to the store."
+)
+@global_flags
+@pass_context
+def move_store(ctx: Context, yes: bool) -> None:
+    """
+    Move Noust's store to the state directory, with everything that lives beside it.
+
+    For a server whose store never left ~/.local/share/noust (the doctor says so). The whole
+    folder moves: the secrets are sealed again under the key of the state directory, since the
+    key they are sealed under lives beside the store and a copied file would be ciphertext
+    nothing opens. The console, the monitor and the timers stop while it runs; a copy of both
+    folders and both keys is kept first; the copy is checked before the store is switched, and
+    anything that fails is undone. The old store file is renamed, not deleted. Needs root.
+
+    With --dry-run it only says what it would do.
+    """
+    _exit(_run_move_store(ctx.logger, yes=yes, rehearsal=ctx.dry_run))
+
+
 @cli.command("railpack")
 @click.option(
     "--force",

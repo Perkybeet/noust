@@ -718,6 +718,14 @@ export const serverText: Catalog<typeof en> = {
         text: "{site} sigue pidiendo a nginx que grape respuestas OCSP, que Let's Encrypt dejó de dar en agosto de 2025: nginx avisa de ello en cada recarga. Noust vuelve a escribir el sitio sin eso la próxima vez que lo escribe (un despliegue, un cambio de sus dominios)",
       },
     },
+    store: {
+      orphan: {
+        text: "{path} es un fichero vacío que quedó donde iría el almacén: no es el almacén, y el traslado lo sustituye",
+      },
+      outside: {
+        text: "El almacén de Noust está en {store}, fuera de {state}, el directorio de estado de este servidor: lo que mira solo ahí (una copia de ese directorio, una actualización del paquete) no lo encuentra",
+      },
+    },
     web: {
       none: {
         text: "Servidor web: no instalado",

@@ -52,9 +52,11 @@ from typing import Any
 from noust.core import paths
 from noust.core.exceptions import BackupError, NoustError
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE
+from noust.core.secrets import at_rest_key_path
 from noust.core.store import SCHEMA_VERSION, NoustStore, get_store
 from noust.managers.backup_destination_files import file_sha256
-from noust.managers.self_backup import SelfBackupManager
+from noust.managers.self_backup import SelfBackupManager, store_path_in
+from noust.managers.store_writers import WRITERS, start_writers, stop_writers
 
 __all__ = ["RestoreReport", "SelfRestore"]
 
@@ -65,12 +67,6 @@ _UNIT_MODE = 0o644
 
 #: Deadline for a systemctl verb.
 _SYSTEMCTL_TIMEOUT = 120
-
-#: The units that write to the store, stopped while its file is replaced.
-WRITERS = (paths.WEB_UNIT, paths.MONITOR_UNIT, paths.PREVIEWS_UNIT)
-
-#: Timers that start jobs that write, stopped the same way.
-TIMER_PATTERNS = (f"{paths.BACKUP_UNIT_PREFIX}*.timer", f"{paths.CRON_UNIT_PREFIX}*.timer")
 
 #: What a database's write-ahead files are called beside it.
 _COMPANIONS = ("-wal", "-shm", "-journal")
@@ -348,6 +344,7 @@ class SelfRestore:
                     "The restore stopped on a file that could not be written",
                     details=f"{exc}.{kept}",
                 ) from exc
+            self._secrets_note(manifest, targets, report)
             self._units(manifest, targets, report)
         manager._audit(
             "self_backup.restore",
@@ -431,15 +428,7 @@ class SelfRestore:
         Returns:
             The services that were running and are stopped.
         """
-        running: list[str] = []
-        for unit in WRITERS:
-            if self._systemctl("is-active", "--quiet", f"{unit}.service").success:
-                self.manager.logger.info(f"Stopping {unit}")
-                self._systemctl("stop", f"{unit}.service")
-                running.append(unit)
-        # Timers whose jobs write; whatever matches nothing is fine.
-        self._systemctl("stop", *TIMER_PATTERNS)
-        return running
+        return stop_writers(self.runner, self.manager.logger)
 
     def _start(self, units: list[str]) -> None:
         """
@@ -448,14 +437,8 @@ class SelfRestore:
         Args:
             units: Their names.
         """
-        if not self.restart:
-            return
-        for unit in units:
-            result = self._systemctl("start", f"{unit}.service")
-            if not result.success:
-                self.manager.logger.warning(
-                    f"Could not start {unit}: {result.stderr.strip() or 'see systemctl status'}"
-                )
+        if self.restart:
+            start_writers(self.runner, self.manager.logger, units)
 
     def _plan(
         self,
@@ -560,16 +543,12 @@ class SelfRestore:
             BackupError: When the restored store cannot be opened.
         """
         NoustStore.reset_instance()
-        restored = next(
-            (
-                targets[str(entry["path"]).partition("/")[0]].joinpath(
-                    *PurePosixPath(str(entry["path"]).partition("/")[2]).parts
-                )
-                for entry in manifest.get("files", [])
-                if str(entry["path"]).endswith(f"/{paths.STORE_NAME}")
-                and str(entry["path"]).partition("/")[0] in targets
-            ),
-            None,
+        named = store_path_in(manifest)
+        label, _, relative = (named or "").partition("/")
+        restored = (
+            targets[label].joinpath(*PurePosixPath(relative).parts)
+            if named is not None and label in targets
+            else None
         )
         try:
             store = get_store(restored) if restored is not None else get_store()
@@ -582,6 +561,39 @@ class SelfRestore:
                 "The restored store could not be opened by this version of Noust",
                 details=f"{exc}",
             ) from exc
+
+    @staticmethod
+    def _secrets_note(
+        manifest: dict[str, Any], targets: dict[str, Path], report: RestoreReport
+    ) -> None:
+        """
+        Say when the key the bundle's protected secrets are sealed under is not where this server
+        reads its own.
+
+        The key lives beside the store in the user's directory and in ``/etc/noust`` for the
+        system's. A bundle of one kind of server restored onto the other puts the key where the
+        first kept it, and the protected secrets (the credentials of the backup destinations, the
+        GitHub leases) cannot be opened with it: said, not left to be found when a backup needs
+        them.
+
+        Args:
+            manifest: The bundle's manifest.
+            targets: Label to this server's directory.
+            report: Notes what the operator should know next.
+        """
+        named = (manifest.get("secrets_key") or {}).get("path")
+        state = targets.get("state")
+        label, _, relative = named.partition("/") if isinstance(named, str) else ("", "", "")
+        if state is None or label not in targets or not relative:
+            return
+        placed = targets[label].joinpath(*PurePosixPath(relative).parts)
+        wanted = at_rest_key_path(state / "secrets")
+        if placed != wanted:
+            report.notes.append(
+                f"The credentials the bundle protects (backup destinations, GitHub leases) are "
+                f"sealed under {placed}, and this server reads its key from {wanted}: they "
+                "cannot be opened here, so enter them again"
+            )
 
     def _units(
         self, manifest: dict[str, Any], targets: dict[str, Path], report: RestoreReport
