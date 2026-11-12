@@ -508,6 +508,29 @@ class TestStorage:
         assert api.jobs.queued == []
         assert not api.machine.runner.ran("journalctl", "--rotate")
 
+    def test_the_plan_of_a_docker_action_says_what_would_go_whose_it_is_and_how_much_it_holds(
+        self, api
+    ) -> None:
+        api.machine.runner.script(
+            ["docker", "image", "ls"],
+            stdout='{"ID":"sha256:'
+            + "e" * 64
+            + '","Repository":"<none>","Tag":"<none>","Size":"380MB"}',
+        )
+
+        body = api.client.get(
+            "/api/server/storage/cleanup/plan?action=docker-dangling-images"
+        ).json()
+
+        assert body["entries"] == [
+            {
+                "name": "eeeeeeeeeeee",
+                "owner": {"kind": "nobody", "subject": "", "project": ""},
+                "size_bytes": 380_000_000,
+                "reason": "dangling",
+            }
+        ]
+
     def test_a_target_that_is_not_an_image_id_is_a_400(self, api) -> None:
         response = api.client.post(
             "/api/server/storage/cleanup",

@@ -39,6 +39,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
+from noust.core.docker.gate import DockerGate
 from noust.core.exceptions import DeploymentError, ValidationError
 from noust.core.redact import Scrubber, known_credentials, scrubber_for
 from noust.core.runner import SANDBOX_PATH, CommandRunner, SandboxSpec
@@ -72,6 +73,7 @@ logger = logging.getLogger(__name__)
 
 KIND_APP = "app"
 KIND_SERVER = "server"
+KIND_CONTAINER = "container"
 
 #: The label every container of a Compose project carries.
 _PROJECT_LABEL = "com.docker.compose.project"
@@ -522,6 +524,58 @@ def plan_app_terminal(
     return replace(plan, argv=(_host_shell(shell), *flags))
 
 
+def plan_container_terminal(
+    ref: str, *, shell_name: str | None, runner: CommandRunner, gate: DockerGate | None = None
+) -> SessionPlan:
+    """
+    Plan a terminal in any container of this machine.
+
+    The container is found through the gate, which resolves it to its owner and answers as if it did
+    not exist for a principal that may not see it; the shell is a name and never a command line; what
+    is opened is ``docker exec`` of the id Docker listed.
+
+    Args:
+        ref: The container's name or id. Judged by the caller's teams first.
+        shell_name: The shell asked for, by name.
+        runner: Runs the questions to Docker.
+        gate: The gate to ask; one for the ambient principal by default.
+
+    Returns:
+        The plan.
+
+    Raises:
+        ValidationError: Unknown shell, or the container does not run.
+        DockerNotFoundError: There is none, or the principal may not see it.
+        DockerOwnedError: It is part of Noust, which is never opened.
+        DockerUnavailableError: Docker cannot be asked.
+    """
+    from noust.core.docker.models import OwnerKind
+
+    shell = validate_shell(shell_name) or "sh"
+    container = (gate or DockerGate(runner)).container_for_console(ref)
+    if container.state != "running":
+        raise ValidationError(
+            f"{container.name} is not running: there is nothing to open a console in",
+            details=f"Start it first (it is {container.state}).",
+            field="ref",
+        )
+    domain = container.owner.subject if container.owner.kind is OwnerKind.APP else None
+    target = TerminalTarget(
+        kind=KIND_CONTAINER,
+        domain=domain,
+        service=container.service or None,
+        label=container.name,
+        account="container",
+        container=container.id,
+    )
+    return SessionPlan(
+        target=target,
+        argv=tuple(DockerGate.exec_argv(container.id, shell)),
+        env={**terminal_environment(), "HOME": "/root"},
+        scrubber=scrubber_for(domain),
+    )
+
+
 def plan_server_terminal(*, shell_name: str | None) -> SessionPlan:
     """
     Plan a root shell on the server. The caller has checked that it is allowed.
@@ -667,6 +721,7 @@ def plan_app_exec(
 
 
 __all__ = [
+    "KIND_CONTAINER",
     "SHELLS",
     "ExecPlan",
     "SessionPlan",
@@ -676,6 +731,7 @@ __all__ = [
     "find_stack_containers",
     "plan_app_exec",
     "plan_app_terminal",
+    "plan_container_terminal",
     "plan_server_terminal",
     "terminal_environment",
     "validate_command",

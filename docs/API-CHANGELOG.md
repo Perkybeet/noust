@@ -99,6 +99,24 @@ against the schema of 4.2.0.
   `since` and `until`. The CSV has a last column, `detail`, with what the event recorded, credentials of a
   recognisable shape masked, and a cell a spreadsheet would run as a formula is written as text. The audit
   event of an export (`audit.export`) says the period, the format and the filter.
+- **The Docker zone** (`/api/docker/...`, permissions `docker.read` and `docker.manage`, both new). What Docker
+  has on a server, whoever made it, each object with its `owner` (`app`, `database`, `noust` or `nobody`) and
+  what the caller may do to it (`can`: `start`, `stop`, `restart`, `remove`, `console`, with `via` naming the
+  command that does it through its owner and `blocked` saying why not). Read: `summary` (what asks for
+  attention, worst first, the counters and the disk), `engine` (the doctor), `restart-loss` (what would not
+  come back after a restart), `stacks`, `containers` (paged, with filters), `containers/{ref}` (why it is the way
+  it is, where it comes from, what it uses), `containers/{ref}/logs`, `images`, `volumes` (and `volumes/sizes`,
+  measured apart), `networks` and `cleanup/plan`. Change (sudo mode): `POST containers/{ref}/start|stop|restart`,
+  `DELETE` a container, an image, a network or a volume (named a second time), `POST containers/{ref}/terminal`
+  (a console in any container, recorded like the others) and `POST cleanup`, which applies a plan as a job with
+  the `token` it was shown with. What an application, a database engine or Noust owns is answered `409
+  docker_owned`, and a plan that changed is `409 plan_changed` with the plan as it is now. The live log is the
+  WebSocket `/ws/docker/logs/{ref}`. The zone is the machine's: a person of a team is refused all of it. A
+  server without Docker, or with an engine below API 1.41, answers the reads with `available: false` and the
+  doctor's report. A central lists the zone of every server at `GET /api/views/docker/{summary,attention,engine,
+  stacks,containers,images,volumes,networks}`, and a server before 4.3 is an `unsupported` outcome there.
+- **A cleanup plan says what it would remove.** `GET /api/server/storage/cleanup/plan` carries `entries`: the
+  name, the `owner`, the `size_bytes` and the `reason` of each thing.
 
 - **What Noust watches by itself, and where it says so.** `GET /api/alerts/watching` (permission `server.read`)
   answers the root of Alerts: `watcher` (whether `noust-monitor`, which does the watching, runs: `running`,

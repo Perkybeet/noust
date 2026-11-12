@@ -382,6 +382,29 @@ ROUTE_RULES: dict[tuple[str, str], ApprovalRule] = {
         KIND_INFRASTRUCTURE,
         "Opening a root shell on this server in the browser.",
     ),
+    # What is removed from Docker from the console is what nobody of Noust made (what an application or
+    # an engine owns is refused by the gate whoever asks): a container, an image, a network, a volume
+    # with its data, or a plan of all of them at once.
+    ("DELETE", "/api/docker/containers/{ref}"): ApprovalRule(
+        "docker.remove", KIND_INFRASTRUCTURE, "Removing a container that Noust did not make."
+    ),
+    ("DELETE", "/api/docker/images/{image_id}"): ApprovalRule(
+        "docker.remove", KIND_INFRASTRUCTURE, "Removing an image that Noust did not make."
+    ),
+    ("DELETE", "/api/docker/networks/{ref}"): ApprovalRule(
+        "docker.remove", KIND_INFRASTRUCTURE, "Removing a network that Noust did not make."
+    ),
+    ("DELETE", "/api/docker/volumes/{name}"): ApprovalRule(
+        "docker.remove",
+        KIND_INFRASTRUCTURE,
+        "Removing a volume that Noust did not make, and the data in it.",
+    ),
+    ("POST", "/api/docker/cleanup"): ApprovalRule(
+        "docker.remove",
+        KIND_INFRASTRUCTURE,
+        "Applying a cleanup plan of Docker: images, stopped containers, volumes and networks that "
+        "Noust did not make.",
+    ),
     # A row edit is a write through the console's own database session, the
     # same power as SQL that writes.
     ("POST", "/api/databases/databases/{engine}/{name}/rows"): ApprovalRule(

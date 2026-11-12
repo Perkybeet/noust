@@ -390,6 +390,46 @@ class TestWhatDoesNotFit:
         assert body["info"]["server_version"] == "29.1.3"
 
 
+class TestWhereTheEngineStandsForTheZone:
+    """The Docker zone looks at containers whenever the engine answers and speaks an API Noust does."""
+
+    def report(self, **options: Any) -> engine.EngineReport:
+        return diagnose(read_engine(machine(**options), stat_socket=socket_of_root))
+
+    def test_an_engine_that_fits_is_ok_and_usable(self) -> None:
+        found = self.report()
+
+        assert (found.state, found.usable) == ("ok", True)
+
+    def test_no_docker_is_missing_and_not_usable(self) -> None:
+        found = diagnose(EngineInfo(installed=False, reachable=False))
+
+        assert (found.state, found.usable) == ("missing", False)
+
+    def test_a_daemon_that_does_not_answer_is_unreachable(self) -> None:
+        found = self.report(version=version_json(server=None))
+
+        assert (found.state, found.usable) == ("unreachable", False)
+
+    def test_an_api_under_the_minimum_is_too_old_and_not_usable(self) -> None:
+        found = self.report(
+            version=version_json(client_api="1.40", server_api="1.40", min_api="1.12"),
+        )
+
+        assert (found.state, found.usable) == ("too_old", False)
+
+    def test_a_machine_without_compose_is_still_a_machine_with_containers_to_look_at(self) -> None:
+        found = self.report(compose=None)
+
+        assert found.state == "ok" and found.usable is True
+        assert found.ok is False  # stacks need Compose; containers do not
+
+    def test_the_report_carries_both_in_its_dictionary(self) -> None:
+        body = self.report().to_dict()
+
+        assert body["state"] == "ok" and body["usable"] is True
+
+
 class TestTheLimitThatStopsNoust:
     """What the session says when a function needs Docker and this one cannot be used."""
 
@@ -441,3 +481,66 @@ def test_the_oldest_engine_noust_works_with_is_the_one_compose_v2_needs() -> Non
 )
 def test_a_version_is_read_as_numbers_and_never_as_text(text: str, parsed: tuple[int, ...]) -> None:
     assert engine.version_tuple(text) == parsed
+
+
+class TestOneWayOfSayingWhatIsWrongWithTheEngine:
+    """The state and whether containers can be looked at are read from the problem, never decided apart."""
+
+    @pytest.mark.parametrize(
+        ("info", "problem", "state"),
+        [
+            (EngineInfo(installed=False, reachable=False), "docker.engine.missing", "missing"),
+            (
+                EngineInfo(
+                    installed=True, reachable=False, error="no daemon", compose_version="2.40.3"
+                ),
+                "docker.engine.unreachable",
+                "unreachable",
+            ),
+        ],
+    )
+    def test_an_engine_that_is_not_there_says_the_same_thing_in_both(
+        self, info: EngineInfo, problem: str, state: str
+    ) -> None:
+        report = diagnose(info)
+
+        assert report.problem is not None and report.problem.code == problem
+        assert (report.state, report.usable) == (state, False)
+
+    def test_an_engine_under_what_noust_speaks_says_it_in_both(self) -> None:
+        report = diagnose(
+            read_engine(
+                machine(version=version_json(client_api="1.40", server_api="1.40", min_api="1.12")),
+                stat_socket=socket_of_root,
+            )
+        )
+
+        assert report.problem is not None and report.problem.code == "docker.engine.too_old"
+        assert (report.state, report.usable) == ("too_old", False)
+
+    def test_no_compose_is_the_problem_of_a_function_that_needs_it_and_not_a_state(self) -> None:
+        report = diagnose(read_engine(machine(compose=None), stat_socket=socket_of_root))
+
+        assert report.problem is not None and report.problem.code == "docker.compose.missing"
+        assert (report.state, report.usable) == ("ok", True)
+
+    def test_when_the_engine_and_compose_are_both_in_the_way_the_engine_is_the_problem(
+        self,
+    ) -> None:
+        report = diagnose(
+            read_engine(
+                machine(
+                    version=version_json(server=None),
+                    compose=None,
+                ),
+                stat_socket=socket_of_root,
+            )
+        )
+
+        assert report.problem is not None and report.problem.code == "docker.engine.unreachable"
+        assert report.state == "unreachable"
+
+    def test_an_engine_that_fits_has_neither_a_problem_nor_a_state_to_tell(self) -> None:
+        report = diagnose(read_engine(machine(), stat_socket=socket_of_root))
+
+        assert report.problem is None and (report.state, report.usable) == ("ok", True)

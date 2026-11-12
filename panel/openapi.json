@@ -10881,8 +10881,46 @@
         "title": "CleanupActionOut",
         "type": "object"
       },
+      "CleanupEntryOut": {
+        "description": "One thing a cleanup would remove: what it is, whose it is and how much it holds.\n\nAttributes:\n    name: What it is called (an image's name, ``Docker build cache``).\n    owner: Whose it is: ``kind`` (``app``, ``database``, ``noust`` or ``nobody``), ``subject`` and\n        ``project``.\n    size_bytes: How much it takes, when Docker said.\n    reason: Why it is offered: ``unused`` (no container uses it and no application keeps it to go\n        back to), ``dangling`` (no name and no container) or ``build-cache``.",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Owner",
+            "type": "object"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes"
+          }
+        },
+        "required": [
+          "name",
+          "owner",
+          "reason"
+        ],
+        "title": "CleanupEntryOut",
+        "type": "object"
+      },
       "CleanupPlanOut": {
-        "description": "What a cleanup would do.\n\nAttributes:\n    action: The action.\n    commands: The commands it would run, as text.\n    effect: What it does, in a sentence.\n    needs_confirmation: It takes something the operator may want back.\n    items: What it would remove, when the action can list it.\n    effect_coded: ``effect`` as a code and its values, for the console to translate.",
+        "description": "What a cleanup would do.\n\nAttributes:\n    action: The action.\n    commands: The commands it would run, as text.\n    effect: What it does, in a sentence.\n    needs_confirmation: It takes something the operator may want back.\n    items: What it would remove, when the action can list it.\n    effect_coded: ``effect`` as a code and its values, for the console to translate.\n    entries: What it would remove, each with whose it is and how much it holds; for a Docker\n        action, the images or the cache, and never a volume (the Docker zone's plan,\n        ``GET /api/docker/cleanup/plan``, is the one that offers volumes, named one by one).",
         "properties": {
           "action": {
             "title": "Action",
@@ -10908,6 +10946,13 @@
                 "type": "null"
               }
             ]
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/CleanupEntryOut"
+            },
+            "title": "Entries",
+            "type": "array"
           },
           "items": {
             "items": {
@@ -19505,6 +19550,748 @@
         "title": "DnsPlanModel",
         "type": "object"
       },
+      "DockerActionOut": {
+        "description": "What an action on one object did.\n\nAttributes:\n    kind: ``container``, ``image``, ``volume`` or ``network``.\n    name: What it is called.\n    action: ``start``, ``stop``, ``restart`` or ``remove``.\n    size_bytes: What a removal freed, when known (a volume's data is gone with it).",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes"
+          }
+        },
+        "required": [
+          "kind",
+          "name",
+          "action"
+        ],
+        "title": "DockerActionOut",
+        "type": "object"
+      },
+      "DockerAttentionOut": {
+        "description": "One thing that asks for the operator.\n\nAttributes:\n    kind: ``loop`` (a container Docker restarts without stopping), ``stopped`` (it is down and\n        should not be), or ``disk`` (the disk Docker lives on is filling); the registries' checks\n        add ``update`` and ``major``.\n    subject: The container it is about; null for the disk or a group.\n    owner: Whose the container is.\n    count: How many things it stands for.\n    facts: What the screen says it with, as data: for a loop ``exit_code``, ``oom``,\n        ``memory_limit_bytes``, ``restarts_recent``, ``window_minutes`` and ``restart_count``; for a\n        stop ``exit_code``, ``kind``, ``policy`` and ``finished_at``; for the disk ``free_bytes``,\n        ``total_bytes`` and ``reclaimable_bytes``.",
+        "properties": {
+          "count": {
+            "default": 1,
+            "title": "Count",
+            "type": "integer"
+          },
+          "facts": {
+            "additionalProperties": true,
+            "title": "Facts",
+            "type": "object"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DockerOwnerOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "DockerAttentionOut",
+        "type": "object"
+      },
+      "DockerCanOut": {
+        "description": "What may be done to an object by whoever asks, decided by the judgement an action goes through.\n\nAttributes:\n    start: A container may be started.\n    stop: A container may be stopped.\n    restart: A container may be restarted.\n    remove: The object may be removed.\n    console: A shell may be opened in this container: it is not Noust's own, and the credential\n        holds the permission a shell in it needs (``apps.terminal`` for an application's,\n        ``server.terminal`` otherwise).\n    via: When an application, an engine or Noust changes it, the sentence that says where it is\n        changed (a command that exists).\n    blocked: Why nothing is offered: ``owner``, ``builtin`` (Docker makes it itself), ``in_use``\n        (something still uses it), ``permission`` (this credential may not change Docker); empty\n        when it is offered.",
+        "properties": {
+          "blocked": {
+            "default": "",
+            "title": "Blocked",
+            "type": "string"
+          },
+          "console": {
+            "default": false,
+            "title": "Console",
+            "type": "boolean"
+          },
+          "remove": {
+            "default": false,
+            "title": "Remove",
+            "type": "boolean"
+          },
+          "restart": {
+            "default": false,
+            "title": "Restart",
+            "type": "boolean"
+          },
+          "start": {
+            "default": false,
+            "title": "Start",
+            "type": "boolean"
+          },
+          "stop": {
+            "default": false,
+            "title": "Stop",
+            "type": "boolean"
+          },
+          "via": {
+            "default": "",
+            "title": "Via",
+            "type": "string"
+          }
+        },
+        "title": "DockerCanOut",
+        "type": "object"
+      },
+      "DockerCleanupPlanOut": {
+        "description": "What a cleanup of Docker would do, worked out and not done.\n\nAttributes:\n    available: Docker could be read.\n    engine: The doctor's report, only when it could not.\n    token: What the plan is applied with: a plan that is not the one of now is not applied.\n    items: What would go, in the order it goes.\n    kept: What looks unused and stays, and why.\n    default_bytes: What is recovered with what is ticked.",
+        "properties": {
+          "available": {
+            "default": true,
+            "title": "Available",
+            "type": "boolean"
+          },
+          "default_bytes": {
+            "default": 0,
+            "title": "Default Bytes",
+            "type": "integer"
+          },
+          "engine": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DockerEngineOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DockerPlanItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "kept": {
+            "items": {
+              "$ref": "#/components/schemas/DockerKeptOut"
+            },
+            "title": "Kept",
+            "type": "array"
+          },
+          "token": {
+            "default": "",
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "title": "DockerCleanupPlanOut",
+        "type": "object"
+      },
+      "DockerCleanupRequest": {
+        "description": "Apply the cleanup plan that was shown.\n\nAttributes:\n    token: The token of the plan that was shown.\n    select: The ``id`` of each item to remove.\n    confirm_names: For each volume chosen, its name as the person typed it.",
+        "properties": {
+          "confirm_names": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Confirm Names",
+            "type": "object"
+          },
+          "select": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "title": "Select",
+            "type": "array"
+          },
+          "token": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "DockerCleanupRequest",
+        "type": "object"
+      },
+      "DockerContainerDetailOut": {
+        "description": "One container from the inside.\n\nAttributes:\n    available: Docker could be read.\n    engine: The doctor's report, only when it could not.\n    container: The container as the listing has it, with its owner and what may be done to it.\n    state: Its state as one word.\n    owner: Whose it is.\n    job: It ended well and was never meant to run again: a job that did its work.\n    why: Why it is the way it is.\n    origin: Where it comes from.\n    touches: What it touches.\n    restart_policy: What Docker does when it ends.\n    cpu_limit: Its processor limit in CPUs; null for none.\n    usage: What it uses now, or why that is not known.\n    can_manage: The one who asks may change Docker at all.",
+        "properties": {
+          "available": {
+            "default": true,
+            "title": "Available",
+            "type": "boolean"
+          },
+          "can_manage": {
+            "default": false,
+            "title": "Can Manage",
+            "type": "boolean"
+          },
+          "container": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DockerContainerOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cpu_limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpu Limit"
+          },
+          "engine": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DockerEngineOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "job": {
+            "default": false,
+            "title": "Job",
+            "type": "boolean"
+          },
+          "origin": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DockerOriginOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DockerOwnerOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "restart_policy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DockerRestartPolicyOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "state": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DockerStateOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "touches": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DockerTouchesOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "usage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DockerUsageOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "why": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DockerWhyOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "DockerContainerDetailOut",
+        "type": "object"
+      },
+      "DockerContainerOut": {
+        "description": "A container, with its owner and what may be done to it.\n\nAttributes:\n    id: The full id.\n    name: Its name.\n    image: The image it was made from, as it was asked for.\n    state: Docker's word for its state.\n    status: Docker's sentence for it (``Up 2 hours (healthy)``).\n    health: ``healthy``, ``unhealthy``, ``starting`` or empty.\n    created: When it was made, as Docker prints it.\n    ports: What it publishes, as Docker prints it.\n    mounts: The volumes (by name) and the host paths it mounts.\n    networks: The networks it is on.\n    project: Its Compose project.\n    service: Its Compose service.\n    working_dir: The directory its project runs from.\n    config_files: The compose files Compose recorded for it.\n    oneoff: Compose made it for ``run`` and not for ``up``.\n    instance: Its database-instance label: a claim, not a proof.\n    helper: Its helper label: a claim, not a proof.\n    state_kind: Its state as one word: ``running``, ``unhealthy``, ``loop``, ``oom``, ``killed``,\n        ``error``, ``dead``, ``terminated`` (somebody stopped it), ``ended``, ``stopped``,\n        ``paused`` or ``created``.\n    problem: It asks for the operator.\n    exit_code: How its last run ended, when the listing says.\n    owner: Whose it is.\n    can: What may be done to it.",
+        "properties": {
+          "can": {
+            "$ref": "#/components/schemas/DockerCanOut"
+          },
+          "config_files": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Config Files",
+            "type": "array"
+          },
+          "created": {
+            "default": "",
+            "title": "Created",
+            "type": "string"
+          },
+          "exit_code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Code"
+          },
+          "health": {
+            "default": "",
+            "title": "Health",
+            "type": "string"
+          },
+          "helper": {
+            "default": "",
+            "title": "Helper",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "image": {
+            "default": "",
+            "title": "Image",
+            "type": "string"
+          },
+          "instance": {
+            "default": "",
+            "title": "Instance",
+            "type": "string"
+          },
+          "mounts": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Mounts",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "networks": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Networks",
+            "type": "array"
+          },
+          "oneoff": {
+            "default": false,
+            "title": "Oneoff",
+            "type": "boolean"
+          },
+          "owner": {
+            "$ref": "#/components/schemas/DockerOwnerOut"
+          },
+          "ports": {
+            "default": "",
+            "title": "Ports",
+            "type": "string"
+          },
+          "problem": {
+            "title": "Problem",
+            "type": "boolean"
+          },
+          "project": {
+            "default": "",
+            "title": "Project",
+            "type": "string"
+          },
+          "service": {
+            "default": "",
+            "title": "Service",
+            "type": "string"
+          },
+          "state": {
+            "default": "",
+            "title": "State",
+            "type": "string"
+          },
+          "state_kind": {
+            "title": "State Kind",
+            "type": "string"
+          },
+          "status": {
+            "default": "",
+            "title": "Status",
+            "type": "string"
+          },
+          "working_dir": {
+            "default": "",
+            "title": "Working Dir",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "state_kind",
+          "problem",
+          "owner",
+          "can"
+        ],
+        "title": "DockerContainerOut",
+        "type": "object"
+      },
+      "DockerContainersOut": {
+        "description": "The containers the principal sees, by name.\n\nAttributes:\n    items: The page.",
+        "properties": {
+          "available": {
+            "default": true,
+            "title": "Available",
+            "type": "boolean"
+          },
+          "can_manage": {
+            "default": false,
+            "title": "Can Manage",
+            "type": "boolean"
+          },
+          "engine": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DockerEngineOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DockerContainerOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit"
+          },
+          "offset": {
+            "default": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "title": "DockerContainersOut",
+        "type": "object"
+      },
+      "DockerDiskOut": {
+        "description": "The disk Docker lives on.\n\nAttributes:\n    docker_bytes: What Docker holds.\n    reclaimable_bytes: What a cleanup could give back without touching data.\n    free_bytes: Free where Docker keeps its data; null when this process cannot see it.\n    total_bytes: The size of that disk; null likewise.\n    path: Where Docker keeps its data.",
+        "properties": {
+          "docker_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Docker Bytes"
+          },
+          "free_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Free Bytes"
+          },
+          "path": {
+            "default": "",
+            "title": "Path",
+            "type": "string"
+          },
+          "reclaimable_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reclaimable Bytes"
+          },
+          "total_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Bytes"
+          }
+        },
+        "title": "DockerDiskOut",
+        "type": "object"
+      },
+      "DockerEngineInfoOut": {
+        "description": "What Docker says of itself.\n\nAttributes:\n    installed: There is a ``docker`` program.\n    reachable: Its daemon answered.\n    client_version: The program's version.\n    server_version: The daemon's version; empty when it did not answer.\n    client_api: The newest API the program speaks.\n    server_api: The newest API the daemon speaks.\n    min_api: The oldest API the daemon accepts.\n    api: The API in use: the lower of the two sides.\n    compose_version: The Compose plugin's version; empty without it.\n    compose_v1: There is a ``docker-compose`` program, which is Compose 1.\n    image_store: ``containerd`` or ``classic``.\n    storage_driver: The driver that keeps the images.\n    rootless: The daemon runs without root.\n    host: Where the program reaches the daemon.\n    socket: The path of the socket when it is local.\n    socket_owner: Whose it is.\n    socket_group: Which group's: whoever is in it has root's power.\n    socket_mode: Its permission bits.\n    root_dir: Where Docker keeps its data.\n    os: The operating system Docker runs on.\n    error: Docker's own words when the daemon did not answer.",
+        "properties": {
+          "api": {
+            "default": "",
+            "title": "Api",
+            "type": "string"
+          },
+          "client_api": {
+            "default": "",
+            "title": "Client Api",
+            "type": "string"
+          },
+          "client_version": {
+            "default": "",
+            "title": "Client Version",
+            "type": "string"
+          },
+          "compose_v1": {
+            "default": false,
+            "title": "Compose V1",
+            "type": "boolean"
+          },
+          "compose_version": {
+            "default": "",
+            "title": "Compose Version",
+            "type": "string"
+          },
+          "error": {
+            "default": "",
+            "title": "Error",
+            "type": "string"
+          },
+          "host": {
+            "default": "",
+            "title": "Host",
+            "type": "string"
+          },
+          "image_store": {
+            "default": "",
+            "title": "Image Store",
+            "type": "string"
+          },
+          "installed": {
+            "default": false,
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "min_api": {
+            "default": "",
+            "title": "Min Api",
+            "type": "string"
+          },
+          "os": {
+            "default": "",
+            "title": "Os",
+            "type": "string"
+          },
+          "reachable": {
+            "default": false,
+            "title": "Reachable",
+            "type": "boolean"
+          },
+          "root_dir": {
+            "default": "",
+            "title": "Root Dir",
+            "type": "string"
+          },
+          "rootless": {
+            "default": false,
+            "title": "Rootless",
+            "type": "boolean"
+          },
+          "server_api": {
+            "default": "",
+            "title": "Server Api",
+            "type": "string"
+          },
+          "server_version": {
+            "default": "",
+            "title": "Server Version",
+            "type": "string"
+          },
+          "socket": {
+            "default": "",
+            "title": "Socket",
+            "type": "string"
+          },
+          "socket_group": {
+            "default": "",
+            "title": "Socket Group",
+            "type": "string"
+          },
+          "socket_mode": {
+            "default": "",
+            "title": "Socket Mode",
+            "type": "string"
+          },
+          "socket_owner": {
+            "default": "",
+            "title": "Socket Owner",
+            "type": "string"
+          },
+          "storage_driver": {
+            "default": "",
+            "title": "Storage Driver",
+            "type": "string"
+          }
+        },
+        "title": "DockerEngineInfoOut",
+        "type": "object"
+      },
+      "DockerEngineOut": {
+        "description": "Which Docker there is and what does not fit in it: the engine's doctor.\n\nAttributes:\n    ok: Noust can use everything of this Docker (Compose included).\n    state: ``ok``, ``missing`` (no program), ``unreachable`` (its daemon does not answer) or\n        ``too_old`` (its API is below what Noust speaks).\n    usable: Containers can be looked at and controlled: the state is ``ok``, with or without Compose.\n    facts: What is, as sentences with a code.\n    limits: What does not fit, as sentences with a code and the fix of each.\n    info: What Docker said.",
+        "properties": {
+          "facts": {
+            "items": {
+              "$ref": "#/components/schemas/DockerSentenceOut"
+            },
+            "title": "Facts",
+            "type": "array"
+          },
+          "info": {
+            "$ref": "#/components/schemas/DockerEngineInfoOut"
+          },
+          "limits": {
+            "items": {
+              "$ref": "#/components/schemas/DockerSentenceOut"
+            },
+            "title": "Limits",
+            "type": "array"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "usable": {
+            "title": "Usable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "state",
+          "usable",
+          "facts",
+          "limits",
+          "info"
+        ],
+        "title": "DockerEngineOut",
+        "type": "object"
+      },
+      "DockerHealthOut": {
+        "description": "A container's health check.\n\nAttributes:\n    status: ``healthy``, ``unhealthy`` or ``starting``.\n    failing_streak: How many probes in a row failed.\n    last_output: What the last probe printed, as it printed it.",
+        "properties": {
+          "failing_streak": {
+            "default": 0,
+            "title": "Failing Streak",
+            "type": "integer"
+          },
+          "last_output": {
+            "default": "",
+            "title": "Last Output",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "DockerHealthOut",
+        "type": "object"
+      },
       "DockerImageOut": {
         "description": "An image no container uses.",
         "properties": {
@@ -19537,6 +20324,507 @@
           "containers"
         ],
         "title": "DockerImageOut",
+        "type": "object"
+      },
+      "DockerImageRowOut": {
+        "description": "An image, once, with every name it has.\n\nAttributes:\n    id: Its id.\n    tags: ``repository:tag`` of each name; none for an image with no name.\n    created: When it was made.\n    size_bytes: Its size, when Docker said.\n    used_by: The containers made from it, running or not.\n    way_back: An application keeps it to go back to: never offered as unused.\n    dangling: It has no name.\n    owner: Whose it is.\n    can: What may be done to it.",
+        "properties": {
+          "can": {
+            "$ref": "#/components/schemas/DockerCanOut"
+          },
+          "created": {
+            "default": "",
+            "title": "Created",
+            "type": "string"
+          },
+          "dangling": {
+            "default": false,
+            "title": "Dangling",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "owner": {
+            "$ref": "#/components/schemas/DockerOwnerOut"
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "used_by": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Used By",
+            "type": "array"
+          },
+          "way_back": {
+            "default": false,
+            "title": "Way Back",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "owner",
+          "can"
+        ],
+        "title": "DockerImageRowOut",
+        "type": "object"
+      },
+      "DockerImagesOut": {
+        "description": "The images the principal sees, by name.\n\nAttributes:\n    items: The page.",
+        "properties": {
+          "available": {
+            "default": true,
+            "title": "Available",
+            "type": "boolean"
+          },
+          "can_manage": {
+            "default": false,
+            "title": "Can Manage",
+            "type": "boolean"
+          },
+          "engine": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DockerEngineOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DockerImageRowOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit"
+          },
+          "offset": {
+            "default": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "title": "DockerImagesOut",
+        "type": "object"
+      },
+      "DockerKeptOut": {
+        "description": "Something that looks unused and stays.\n\nAttributes:\n    name: What it is called.\n    owner: Whose it is.\n    size_bytes: How much it holds.\n    why: ``rollback`` (an application keeps it to go back to) or ``noust`` (Noust uses it).",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner": {
+            "$ref": "#/components/schemas/DockerOwnerOut"
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes"
+          },
+          "why": {
+            "title": "Why",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "owner",
+          "why"
+        ],
+        "title": "DockerKeptOut",
+        "type": "object"
+      },
+      "DockerLogsOut": {
+        "description": "The end of a container's log, as it wrote it.\n\nAttributes:\n    available: Docker could be read.\n    engine: The doctor's report, only when it could not.\n    container: Its name.\n    tail: How many lines were asked for.\n    logs: The lines with the time of each, the credentials masked and nothing else changed.",
+        "properties": {
+          "available": {
+            "default": true,
+            "title": "Available",
+            "type": "boolean"
+          },
+          "container": {
+            "default": "",
+            "title": "Container",
+            "type": "string"
+          },
+          "engine": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DockerEngineOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "logs": {
+            "default": "",
+            "title": "Logs",
+            "type": "string"
+          },
+          "tail": {
+            "default": 0,
+            "title": "Tail",
+            "type": "integer"
+          }
+        },
+        "title": "DockerLogsOut",
+        "type": "object"
+      },
+      "DockerLostOut": {
+        "description": "A container that would not come back after a restart of the machine.\n\nAttributes:\n    name: Its name.\n    owner: Whose it is.\n    why: ``policy`` (it runs and its policy does not bring it back) or ``stopped`` (somebody stopped\n        it under ``unless-stopped``).\n    policy: Its restart policy.\n    fix: ``via_owner`` (change it where its application or engine is), ``bring_first`` (it is part of\n        a stack Noust did not make: bring the stack to Noust) or ``set_policy`` (give it a policy).\n    project: The Compose project it is part of, if any.",
+        "properties": {
+          "fix": {
+            "title": "Fix",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner": {
+            "$ref": "#/components/schemas/DockerOwnerOut"
+          },
+          "policy": {
+            "title": "Policy",
+            "type": "string"
+          },
+          "project": {
+            "default": "",
+            "title": "Project",
+            "type": "string"
+          },
+          "why": {
+            "title": "Why",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "owner",
+          "why",
+          "policy",
+          "fix"
+        ],
+        "title": "DockerLostOut",
+        "type": "object"
+      },
+      "DockerMountOut": {
+        "description": "Something a container touches on the host.\n\nAttributes:\n    kind: ``volume``, ``bind`` or ``tmpfs``.\n    name: The volume's name, for a volume.\n    source: Where it is on the host.\n    destination: Where it is inside the container.\n    read_only: The container may not write to it.",
+        "properties": {
+          "destination": {
+            "default": "",
+            "title": "Destination",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "default": "",
+            "title": "Name",
+            "type": "string"
+          },
+          "read_only": {
+            "default": false,
+            "title": "Read Only",
+            "type": "boolean"
+          },
+          "source": {
+            "default": "",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "DockerMountOut",
+        "type": "object"
+      },
+      "DockerNetworkOut": {
+        "description": "A network.\n\nAttributes:\n    id: Its id.\n    name: Its name.\n    driver: ``bridge``, ``host``, ``overlay``...\n    scope: ``local`` or ``swarm``.\n    internal: It has no way out.\n    project: Its Compose project.\n    created: When it was made.\n    containers: The containers on it.\n    builtin: Docker makes it itself and it cannot be removed.\n    owner: Whose it is.\n    can: What may be done to it.",
+        "properties": {
+          "builtin": {
+            "default": false,
+            "title": "Builtin",
+            "type": "boolean"
+          },
+          "can": {
+            "$ref": "#/components/schemas/DockerCanOut"
+          },
+          "containers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Containers",
+            "type": "array"
+          },
+          "created": {
+            "default": "",
+            "title": "Created",
+            "type": "string"
+          },
+          "driver": {
+            "default": "",
+            "title": "Driver",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "internal": {
+            "default": false,
+            "title": "Internal",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner": {
+            "$ref": "#/components/schemas/DockerOwnerOut"
+          },
+          "project": {
+            "default": "",
+            "title": "Project",
+            "type": "string"
+          },
+          "scope": {
+            "default": "",
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "owner",
+          "can"
+        ],
+        "title": "DockerNetworkOut",
+        "type": "object"
+      },
+      "DockerNetworksOut": {
+        "description": "The networks the principal sees, by name.\n\nAttributes:\n    items: The page.",
+        "properties": {
+          "available": {
+            "default": true,
+            "title": "Available",
+            "type": "boolean"
+          },
+          "can_manage": {
+            "default": false,
+            "title": "Can Manage",
+            "type": "boolean"
+          },
+          "engine": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DockerEngineOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DockerNetworkOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit"
+          },
+          "offset": {
+            "default": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "title": "DockerNetworksOut",
+        "type": "object"
+      },
+      "DockerOriginOut": {
+        "description": "Where a container comes from.\n\nAttributes:\n    image: The image it was made from, as it was asked for.\n    image_id: That image's id.\n    project: Its Compose project.\n    service: Its Compose service.\n    working_dir: The directory its project runs from.\n    config_files: The compose files Compose recorded for it.",
+        "properties": {
+          "config_files": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Config Files",
+            "type": "array"
+          },
+          "image": {
+            "default": "",
+            "title": "Image",
+            "type": "string"
+          },
+          "image_id": {
+            "default": "",
+            "title": "Image Id",
+            "type": "string"
+          },
+          "project": {
+            "default": "",
+            "title": "Project",
+            "type": "string"
+          },
+          "service": {
+            "default": "",
+            "title": "Service",
+            "type": "string"
+          },
+          "working_dir": {
+            "default": "",
+            "title": "Working Dir",
+            "type": "string"
+          }
+        },
+        "title": "DockerOriginOut",
+        "type": "object"
+      },
+      "DockerOwnerOut": {
+        "description": "Whose an object is.\n\nAttributes:\n    kind: ``app`` (an application of Noust: its stack, or its container), ``database`` (a database\n        engine Noust runs in a container), ``noust`` (Noust itself) or ``nobody`` (Noust did not\n        make it: the instance's).\n    subject: The application's domain, the instance's name, ``central`` or ``helper`` for Noust's own;\n        empty for nobody.\n    project: The Compose project it is part of, when it is part of one.",
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "project": {
+            "default": "",
+            "title": "Project",
+            "type": "string"
+          },
+          "subject": {
+            "default": "",
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "DockerOwnerOut",
+        "type": "object"
+      },
+      "DockerPlanItemOut": {
+        "description": "One thing a cleanup would remove.\n\nAttributes:\n    id: What identifies it: the plan is applied by it.\n    kind: ``image``, ``container``, ``volume``, ``network`` or ``cache``.\n    name: What a person calls it.\n    owner: Whose it is.\n    size_bytes: How much it holds, when Docker said.\n    why: ``dangling`` (no name and no container), ``unused``, ``stopped`` or ``old_cache``.\n    tick: Marked when the plan is shown.\n    type_name: The person types its name before it goes (every volume).\n    anonymous: A volume a container made without naming it.",
+        "properties": {
+          "anonymous": {
+            "default": false,
+            "title": "Anonymous",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner": {
+            "$ref": "#/components/schemas/DockerOwnerOut"
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes"
+          },
+          "tick": {
+            "title": "Tick",
+            "type": "boolean"
+          },
+          "type_name": {
+            "default": false,
+            "title": "Type Name",
+            "type": "boolean"
+          },
+          "why": {
+            "title": "Why",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "owner",
+          "why",
+          "tick"
+        ],
+        "title": "DockerPlanItemOut",
         "type": "object"
       },
       "DockerPortOut": {
@@ -19582,6 +20870,768 @@
           "proto"
         ],
         "title": "DockerPortOut",
+        "type": "object"
+      },
+      "DockerRemoveVolumeRequest": {
+        "description": "Remove a volume: its name is typed a second time.\n\nAttributes:\n    confirm_name: The volume's name again.",
+        "properties": {
+          "confirm_name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirm Name"
+          }
+        },
+        "title": "DockerRemoveVolumeRequest",
+        "type": "object"
+      },
+      "DockerRestartLossOut": {
+        "description": "What a restart of the machine would leave down.\n\nAttributes:\n    available: Docker could be read.\n    engine: The doctor's report, only when it could not.\n    items: The containers that would not come back, by name.",
+        "properties": {
+          "available": {
+            "default": true,
+            "title": "Available",
+            "type": "boolean"
+          },
+          "engine": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DockerEngineOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DockerLostOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "title": "DockerRestartLossOut",
+        "type": "object"
+      },
+      "DockerRestartPolicyOut": {
+        "description": "What Docker does when a container ends.\n\nAttributes:\n    name: ``no``, ``always``, ``unless-stopped`` or ``on-failure``.\n    max_retries: How many times ``on-failure`` tries; 0 for no limit.",
+        "properties": {
+          "max_retries": {
+            "default": 0,
+            "title": "Max Retries",
+            "type": "integer"
+          },
+          "name": {
+            "default": "no",
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "title": "DockerRestartPolicyOut",
+        "type": "object"
+      },
+      "DockerSentenceOut": {
+        "description": "One sentence of the engine's doctor.\n\nAttributes:\n    text: It in English.\n    hint: How to fix it in English, when it has a fix.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "params": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Params",
+            "type": "object"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "text"
+        ],
+        "title": "DockerSentenceOut",
+        "type": "object"
+      },
+      "DockerStackDetailOut": {
+        "description": "One stack with its containers in full.\n\nAttributes:\n    available: Docker could be read.\n    engine: The doctor's report, only when it could not.\n    stack: The stack.\n    containers: Its containers, by name.\n    can_manage: The one who asks may change Docker at all.",
+        "properties": {
+          "available": {
+            "default": true,
+            "title": "Available",
+            "type": "boolean"
+          },
+          "can_manage": {
+            "default": false,
+            "title": "Can Manage",
+            "type": "boolean"
+          },
+          "containers": {
+            "items": {
+              "$ref": "#/components/schemas/DockerContainerOut"
+            },
+            "title": "Containers",
+            "type": "array"
+          },
+          "engine": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DockerEngineOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stack": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DockerStackOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "DockerStackDetailOut",
+        "type": "object"
+      },
+      "DockerStackOut": {
+        "description": "A Compose project, as its containers show it.\n\nAttributes:\n    name: The project's name.\n    working_dir: The directory it runs from.\n    config_files: Its compose files.\n    containers: The names of its containers.\n    total: How many containers it has.\n    running: How many of its workers run.\n    workers: How many of its containers are meant to keep running (a job that did its work and\n        ended is not one).\n    state: ``running``, ``warning`` (a worker is down or unhealthy), ``failed`` (a worker keeps\n        falling or ended badly) or ``stopped``.\n    owner: Whose it is.",
+        "properties": {
+          "config_files": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Config Files",
+            "type": "array"
+          },
+          "containers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Containers",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner": {
+            "$ref": "#/components/schemas/DockerOwnerOut"
+          },
+          "running": {
+            "default": 0,
+            "title": "Running",
+            "type": "integer"
+          },
+          "state": {
+            "default": "",
+            "title": "State",
+            "type": "string"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "workers": {
+            "default": 0,
+            "title": "Workers",
+            "type": "integer"
+          },
+          "working_dir": {
+            "default": "",
+            "title": "Working Dir",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "owner"
+        ],
+        "title": "DockerStackOut",
+        "type": "object"
+      },
+      "DockerStacksOut": {
+        "description": "The Compose projects the principal sees, by name.\n\nAttributes:\n    items: The page.",
+        "properties": {
+          "available": {
+            "default": true,
+            "title": "Available",
+            "type": "boolean"
+          },
+          "can_manage": {
+            "default": false,
+            "title": "Can Manage",
+            "type": "boolean"
+          },
+          "engine": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DockerEngineOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DockerStackOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit"
+          },
+          "offset": {
+            "default": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "title": "DockerStacksOut",
+        "type": "object"
+      },
+      "DockerStateOut": {
+        "description": "A container's state as one word.\n\nAttributes:\n    kind: See :attr:`DockerContainerOut.state_kind`.\n    problem: It asks for the operator.\n    exit_code: How its last run ended.",
+        "properties": {
+          "exit_code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Code"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "problem": {
+            "title": "Problem",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "kind",
+          "problem"
+        ],
+        "title": "DockerStateOut",
+        "type": "object"
+      },
+      "DockerSummaryOut": {
+        "description": "The machine, in short.\n\nAttributes:\n    available: Docker could be read.\n    engine: Which Docker there is and what does not fit in it (always present).\n    counts: How many of each thing: ``containers`` (``total``, ``running``, ``failing``,\n        ``stopped``), ``stacks`` (``total``, ``unowned``), ``images``, ``volumes`` and ``networks``\n        (``total``). Empty when Docker could not be read.\n    attention: What asks for the operator, worst first.\n    disk: The disk Docker lives on.\n    can_manage: The one who asks may change Docker at all.",
+        "properties": {
+          "attention": {
+            "items": {
+              "$ref": "#/components/schemas/DockerAttentionOut"
+            },
+            "title": "Attention",
+            "type": "array"
+          },
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "can_manage": {
+            "default": false,
+            "title": "Can Manage",
+            "type": "boolean"
+          },
+          "counts": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "disk": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DockerDiskOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "engine": {
+            "$ref": "#/components/schemas/DockerEngineOut"
+          }
+        },
+        "required": [
+          "available",
+          "engine"
+        ],
+        "title": "DockerSummaryOut",
+        "type": "object"
+      },
+      "DockerTouchesOut": {
+        "description": "What a container touches.\n\nAttributes:\n    mounts: The volumes and host paths it mounts.\n    networks: The networks it is on.\n    ports: What it publishes, as Docker prints it.\n    privileged: It runs with every privilege of the host.",
+        "properties": {
+          "mounts": {
+            "items": {
+              "$ref": "#/components/schemas/DockerMountOut"
+            },
+            "title": "Mounts",
+            "type": "array"
+          },
+          "networks": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Networks",
+            "type": "array"
+          },
+          "ports": {
+            "default": "",
+            "title": "Ports",
+            "type": "string"
+          },
+          "privileged": {
+            "default": false,
+            "title": "Privileged",
+            "type": "boolean"
+          }
+        },
+        "title": "DockerTouchesOut",
+        "type": "object"
+      },
+      "DockerUsageOut": {
+        "description": "What a container uses, or why that is not known.\n\nAttributes:\n    available: There is a reading worth showing.\n    reason: Why there is none: ``not_running``, ``restarting``, ``too_young`` or ``no_reading``.\n    cpu_percent: Processor use: 100 is one whole core.\n    memory_bytes: Memory in use.\n    memory_limit_bytes: Its memory limit; null when it has none.\n    memory_percent: Use over the limit; null when it has none.\n    net_rx_bytes: Received since it started.\n    net_tx_bytes: Sent since it started.\n    block_read_bytes: Read from disk since it started.\n    block_write_bytes: Written to disk since it started.\n    pids: Processes in it.",
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "block_read_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Block Read Bytes"
+          },
+          "block_write_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Block Write Bytes"
+          },
+          "cpu_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpu Percent"
+          },
+          "memory_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Bytes"
+          },
+          "memory_limit_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Limit Bytes"
+          },
+          "memory_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Percent"
+          },
+          "net_rx_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Net Rx Bytes"
+          },
+          "net_tx_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Net Tx Bytes"
+          },
+          "pids": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pids"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "available"
+        ],
+        "title": "DockerUsageOut",
+        "type": "object"
+      },
+      "DockerVolumeOut": {
+        "description": "A named volume.\n\nAttributes:\n    name: Its name.\n    driver: Its driver.\n    scope: ``local`` or ``global``.\n    mountpoint: Where Docker keeps its data on the host.\n    project: Its Compose project.\n    key: The name its compose file gave it.\n    instance: Its database-instance label.\n    size_bytes: Its size when measured; a listing leaves it null (``GET /volumes/sizes`` measures).\n    used_by: The containers that mount it.\n    anonymous: A container made it without naming it.\n    owner: Whose it is.\n    can: What may be done to it.",
+        "properties": {
+          "anonymous": {
+            "default": false,
+            "title": "Anonymous",
+            "type": "boolean"
+          },
+          "can": {
+            "$ref": "#/components/schemas/DockerCanOut"
+          },
+          "driver": {
+            "default": "local",
+            "title": "Driver",
+            "type": "string"
+          },
+          "instance": {
+            "default": "",
+            "title": "Instance",
+            "type": "string"
+          },
+          "key": {
+            "default": "",
+            "title": "Key",
+            "type": "string"
+          },
+          "mountpoint": {
+            "default": "",
+            "title": "Mountpoint",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner": {
+            "$ref": "#/components/schemas/DockerOwnerOut"
+          },
+          "project": {
+            "default": "",
+            "title": "Project",
+            "type": "string"
+          },
+          "scope": {
+            "default": "local",
+            "title": "Scope",
+            "type": "string"
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes"
+          },
+          "used_by": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Used By",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "owner",
+          "can"
+        ],
+        "title": "DockerVolumeOut",
+        "type": "object"
+      },
+      "DockerVolumeSizesOut": {
+        "description": "How much each volume holds, measured apart because Docker walks every volume to say it.\n\nAttributes:\n    available: Docker could be read.\n    engine: The doctor's report, only when it could not.\n    sizes: The size in bytes of each volume the principal sees and Docker could measure.",
+        "properties": {
+          "available": {
+            "default": true,
+            "title": "Available",
+            "type": "boolean"
+          },
+          "engine": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DockerEngineOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sizes": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Sizes",
+            "type": "object"
+          }
+        },
+        "title": "DockerVolumeSizesOut",
+        "type": "object"
+      },
+      "DockerVolumesOut": {
+        "description": "The volumes the principal sees, by name, not measured.\n\nAttributes:\n    items: The page.",
+        "properties": {
+          "available": {
+            "default": true,
+            "title": "Available",
+            "type": "boolean"
+          },
+          "can_manage": {
+            "default": false,
+            "title": "Can Manage",
+            "type": "boolean"
+          },
+          "engine": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DockerEngineOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DockerVolumeOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit"
+          },
+          "offset": {
+            "default": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "title": "DockerVolumesOut",
+        "type": "object"
+      },
+      "DockerWhyOut": {
+        "description": "Why a container is the way it is, as Docker says it.\n\nAttributes:\n    kind: Its state as one word.\n    exit_code: How its last run ended.\n    oom_killed: Memory ran out in its last run.\n    error: Docker's own words when it could not start it.\n    restart_count: How many times Docker restarted it in its life.\n    restarts_recent: How many times in the last ``window_minutes``.\n    window_minutes: The window ``restarts_recent`` counts in.\n    looping: It keeps falling: restarting now or restarted three times or more in the window.\n    started_at: When it last started, to the second.\n    finished_at: When it last ended, to the second.\n    memory_limit_bytes: Its memory limit; null for none.\n    health: Its health check, when it has one.\n    last_lines: What it wrote last, as it wrote it with the credentials masked; empty for a\n        container that runs well (its log is read live).",
+        "properties": {
+          "error": {
+            "default": "",
+            "title": "Error",
+            "type": "string"
+          },
+          "exit_code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Code"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "health": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DockerHealthOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "last_lines": {
+            "default": "",
+            "title": "Last Lines",
+            "type": "string"
+          },
+          "looping": {
+            "default": false,
+            "title": "Looping",
+            "type": "boolean"
+          },
+          "memory_limit_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Limit Bytes"
+          },
+          "oom_killed": {
+            "default": false,
+            "title": "Oom Killed",
+            "type": "boolean"
+          },
+          "restart_count": {
+            "default": 0,
+            "title": "Restart Count",
+            "type": "integer"
+          },
+          "restarts_recent": {
+            "default": 0,
+            "title": "Restarts Recent",
+            "type": "integer"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "window_minutes": {
+            "default": 10,
+            "title": "Window Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "DockerWhyOut",
         "type": "object"
       },
       "DockerfileRequest": {
@@ -101876,6 +103926,1295 @@
         "x-noust-permission": "server.manage"
       }
     },
+    "/api/docker/cleanup": {
+      "post": {
+        "description": "Apply a cleanup plan exactly as it was shown, as a job.\n\nEverything is checked before a job is queued: the plan must still be the one the ``token`` names\n(409 ``plan_changed`` with the plan as it is now, to be shown again), what is chosen must be in it, and\neach volume chosen must have its name typed (400 ``confirmation_required``). The job removes each\nthing through the gate, which judges its owner once more, and tells what Docker refused without\nstopping the rest. Needs sudo mode and ``docker.manage``.\n\nArgs:\n    body: The token, the ids chosen and the volume names typed.\n    session: The authenticated session, in sudo mode.\n\nReturns:\n    The queued job, whose result is what was removed and what failed.\n\nRaises:\n    DockerPlanChangedError: 409 when the plan is not the one that was shown.\n    ValidationError: 400 for something that is not in the plan, or nothing chosen.\n    ConfirmationRequired: 400 when a volume was not named.",
+        "operationId": "apply_cleanup_api_docker_cleanup_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DockerCleanupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Apply Cleanup",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.manage",
+        "x-noust-requires-approval": {
+          "action": "docker.remove",
+          "kind": "infrastructure",
+          "when": "always"
+        },
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/docker/cleanup/plan": {
+      "get": {
+        "description": "Say what a cleanup of Docker would remove, without removing anything.\n\nThe images nobody names or uses, the stopped containers nobody made, the unused volumes (never\nticked, each named before it goes, with how much it holds), the networks nobody is on and the old\nbuild cache, each with whose it is and how big; and what stays and why (the images an application\nkeeps to go back to are never offered). The ``token`` is what the plan is applied with.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The plan.",
+        "operationId": "get_cleanup_plan_api_docker_cleanup_plan_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerCleanupPlanOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Cleanup Plan",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.read"
+      }
+    },
+    "/api/docker/containers": {
+      "get": {
+        "description": "List the containers, running or not, each with its owner, its state as one word and what may be\ndone to it.\n\nArgs:\n    session: The authenticated session.\n    offset: Where the page starts.\n    limit: How many at most.\n    owner: Only this kind of owner.\n    app: Only the containers of this application.\n    state: Only this Docker state.\n    project: Only this Compose project.\n    search: Only what contains this text.\n\nReturns:\n    The page, by name.\n\nRaises:\n    ValidationError: 400 for a window or an owner that makes no sense.",
+        "operationId": "list_containers_api_docker_containers_get",
+        "parameters": [
+          {
+            "description": "Where the page starts",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Where the page starts",
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "How many it holds at most (1 to 1000); all when absent",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "How many it holds at most (1 to 1000); all when absent",
+              "title": "Limit"
+            }
+          },
+          {
+            "description": "Only those of this kind of owner: app, database, noust, nobody",
+            "in": "query",
+            "name": "owner",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only those of this kind of owner: app, database, noust, nobody",
+              "title": "Owner"
+            }
+          },
+          {
+            "description": "Only those of the application with this domain",
+            "in": "query",
+            "name": "app",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only those of the application with this domain",
+              "title": "App"
+            }
+          },
+          {
+            "description": "Only those in this Docker state: running, exited...",
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only those in this Docker state: running, exited...",
+              "title": "State"
+            }
+          },
+          {
+            "description": "Only those of this Compose project",
+            "in": "query",
+            "name": "project",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only those of this Compose project",
+              "title": "Project"
+            }
+          },
+          {
+            "description": "Only those whose name or image contains this",
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only those whose name or image contains this",
+              "title": "Search"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerContainersOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Containers",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.read"
+      }
+    },
+    "/api/docker/containers/{ref}": {
+      "delete": {
+        "description": "Remove a container nobody of Noust owns. Its volumes are left where they are.\n\nArgs:\n    ref: Its name, or the id Docker shows.\n    session: The authenticated session, in sudo mode.\n    force: Remove it even if it is running.\n\nReturns:\n    What was removed.\n\nRaises:\n    DockerNotFoundError: 404 when there is none.\n    DockerOwnedError: 409 when it is somebody's.\n    DockerRefusedError: 409 when Docker refused (it is running and ``force`` was not given).",
+        "operationId": "remove_container_api_docker_containers__ref__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ref",
+            "required": true,
+            "schema": {
+              "title": "Ref",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Remove it even if it is running",
+            "in": "query",
+            "name": "force",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Remove it even if it is running",
+              "title": "Force",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerActionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Container",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.manage",
+        "x-noust-requires-approval": {
+          "action": "docker.remove",
+          "kind": "infrastructure",
+          "when": "always"
+        },
+        "x-noust-requires-elevation": true
+      },
+      "get": {
+        "description": "Look at one container from the inside.\n\nWhy it is the way it is (how its last run ended, whether memory ran out, how often it restarted\nlately, its last lines as it wrote them), where it comes from and what it touches, its restart policy\nand limits, and what it uses now: one reading of ``docker stats`` without a stream, or the reason\nthere is none (it is not running, it is restarting, it started a moment ago). Its environment is\nnever read, and the credentials in what it wrote are masked.\n\nArgs:\n    ref: Its name, or the id Docker shows.\n    session: The authenticated session.\n\nReturns:\n    The container.\n\nRaises:\n    DockerNotFoundError: 404 when there is none.",
+        "operationId": "get_container_api_docker_containers__ref__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ref",
+            "required": true,
+            "schema": {
+              "title": "Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerContainerDetailOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Container",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.read"
+      }
+    },
+    "/api/docker/containers/{ref}/logs": {
+      "get": {
+        "description": "Read the end of a container's log, as it wrote it with the time of each line.\n\nThe live follow is the WebSocket ``/ws/docker/logs/{ref}``.\n\nArgs:\n    ref: Its name, or the id Docker shows.\n    session: The authenticated session.\n    tail: How many lines from the end.\n\nReturns:\n    The lines, with the credentials in them masked and nothing else changed.\n\nRaises:\n    ValidationError: 400 for a tail that makes no sense.\n    DockerNotFoundError: 404 when there is none.",
+        "operationId": "get_container_logs_api_docker_containers__ref__logs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ref",
+            "required": true,
+            "schema": {
+              "title": "Ref",
+              "type": "string"
+            }
+          },
+          {
+            "description": "How many lines from the end (1 to 5000)",
+            "in": "query",
+            "name": "tail",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "description": "How many lines from the end (1 to 5000)",
+              "title": "Tail",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerLogsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Container Logs",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.read"
+      }
+    },
+    "/api/docker/containers/{ref}/restart": {
+      "post": {
+        "description": "Restart a container nobody of Noust owns.\n\nArgs:\n    ref: Its name, or the id Docker shows.\n    session: The authenticated session, in sudo mode.\n\nReturns:\n    What was done.\n\nRaises:\n    DockerNotFoundError: 404 when there is none.\n    DockerOwnedError: 409 when it is somebody's.",
+        "operationId": "restart_container_api_docker_containers__ref__restart_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ref",
+            "required": true,
+            "schema": {
+              "title": "Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerActionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restart Container",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/docker/containers/{ref}/start": {
+      "post": {
+        "description": "Start a container nobody of Noust owns.\n\nWhat belongs to an application, a database engine or Noust is refused (409 ``docker_owned``) with\nthe door to use: a stack is not changed from under its health gate. Needs sudo mode and\n``docker.manage``.\n\nArgs:\n    ref: Its name, or the id Docker shows.\n    session: The authenticated session, in sudo mode.\n\nReturns:\n    What was done.\n\nRaises:\n    DockerNotFoundError: 404 when there is none.\n    DockerOwnedError: 409 when it is somebody's.",
+        "operationId": "start_container_api_docker_containers__ref__start_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ref",
+            "required": true,
+            "schema": {
+              "title": "Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerActionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Container",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/docker/containers/{ref}/stop": {
+      "post": {
+        "description": "Stop a container nobody of Noust owns, giving it 30 seconds before Docker kills it.\n\nArgs:\n    ref: Its name, or the id Docker shows.\n    session: The authenticated session, in sudo mode.\n\nReturns:\n    What was done.\n\nRaises:\n    DockerNotFoundError: 404 when there is none.\n    DockerOwnedError: 409 when it is somebody's.",
+        "operationId": "stop_container_api_docker_containers__ref__stop_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ref",
+            "required": true,
+            "schema": {
+              "title": "Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerActionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stop Container",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/docker/containers/{ref}/terminal": {
+      "post": {
+        "description": "Get the ticket that opens a console in a container, whoever made it.\n\nThe terminal's own machinery (a single-use ticket, a session, a recording, the audit trail) with a\ntarget of its own: ``docker exec`` of the id Docker listed, with a shell asked for by name. The\ncontainer is resolved to its owner first, and the permission asked is the one its owner asks for:\n``apps.terminal`` for a container of an application, ``server.terminal`` for any other, on top of\n``docker.manage`` and sudo mode. What Noust runs for itself is never opened (409 ``docker_owned``),\nand a container that does not run has no console (400). The terminals' switch is the one of\napplication terminals. Open the WebSocket ``/ws/terminal?terminal_ticket=<ticket>`` within\n``expires_in`` seconds; the socket judges it all again.\n\nArgs:\n    ref: The container's name, or the id Docker shows.\n    body: The shell and the size.\n    request: The request.\n    session: The authenticated session, in sudo mode.\n\nReturns:\n    The ticket.\n\nRaises:\n    DockerNotFoundError: 404 when there is none.\n    DockerOwnedError: 409 when it is part of Noust.\n    PermissionDenied: 403 when the credential lacks what a shell in this container needs.\n    TerminalDisabledError: 403 when terminals are off here.\n    TerminalLimitError: 429 when a limit is reached.",
+        "operationId": "open_container_terminal_api_docker_containers__ref__terminal_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ref",
+            "required": true,
+            "schema": {
+              "title": "Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TerminalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerminalTicketResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open Container Terminal",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/docker/engine": {
+      "get": {
+        "description": "Say which Docker there is and what does not fit in it: the engine's doctor.\n\nAsked of the engine every time, not from what was said a moment ago: this is the page that says it.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The facts and the limits, each as a sentence with a code and its English, and what Docker said.",
+        "operationId": "get_engine_api_docker_engine_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerEngineOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Engine",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.read"
+      }
+    },
+    "/api/docker/images": {
+      "get": {
+        "description": "List the images, each once with every name it has, who runs it and whether it is an application's\nway back.\n\nArgs:\n    session: The authenticated session.\n    offset: Where the page starts.\n    limit: How many at most.\n    owner: Only this kind of owner.\n    search: Only what contains this text.\n\nReturns:\n    The page, by name.\n\nRaises:\n    ValidationError: 400 for a window or an owner that makes no sense.",
+        "operationId": "list_images_api_docker_images_get",
+        "parameters": [
+          {
+            "description": "Where the page starts",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Where the page starts",
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "How many it holds at most (1 to 1000); all when absent",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "How many it holds at most (1 to 1000); all when absent",
+              "title": "Limit"
+            }
+          },
+          {
+            "description": "Only those of this kind of owner: app, database, noust, nobody",
+            "in": "query",
+            "name": "owner",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only those of this kind of owner: app, database, noust, nobody",
+              "title": "Owner"
+            }
+          },
+          {
+            "description": "Only those whose name, id or users contain this",
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only those whose name, id or users contain this",
+              "title": "Search"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerImagesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Images",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.read"
+      }
+    },
+    "/api/docker/images/{image_id}": {
+      "delete": {
+        "description": "Remove an image nobody keeps. One a container uses stays, and so does an application's way back.\n\nArgs:\n    image_id: The image's id, as the listing gives it.\n    session: The authenticated session, in sudo mode.\n\nReturns:\n    What was removed, with its size.\n\nRaises:\n    DockerNotFoundError: 404 when there is none.\n    DockerOwnedError: 409 when an application keeps it or an engine owns it.\n    ValidationError: 400 when a container still uses it.",
+        "operationId": "remove_image_api_docker_images__image_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "image_id",
+            "required": true,
+            "schema": {
+              "title": "Image Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerActionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Image",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.manage",
+        "x-noust-requires-approval": {
+          "action": "docker.remove",
+          "kind": "infrastructure",
+          "when": "always"
+        },
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/docker/networks": {
+      "get": {
+        "description": "List the networks, with who is on each, whose it is and whether Docker made it itself.\n\nArgs:\n    session: The authenticated session.\n    offset: Where the page starts.\n    limit: How many at most.\n    owner: Only this kind of owner.\n    search: Only what contains this text.\n\nReturns:\n    The page, by name.\n\nRaises:\n    ValidationError: 400 for a window or an owner that makes no sense.",
+        "operationId": "list_networks_api_docker_networks_get",
+        "parameters": [
+          {
+            "description": "Where the page starts",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Where the page starts",
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "How many it holds at most (1 to 1000); all when absent",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "How many it holds at most (1 to 1000); all when absent",
+              "title": "Limit"
+            }
+          },
+          {
+            "description": "Only those of this kind of owner: app, database, noust, nobody",
+            "in": "query",
+            "name": "owner",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only those of this kind of owner: app, database, noust, nobody",
+              "title": "Owner"
+            }
+          },
+          {
+            "description": "Only those whose name or containers contain this",
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only those whose name or containers contain this",
+              "title": "Search"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerNetworksOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Networks",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.read"
+      }
+    },
+    "/api/docker/networks/{ref}": {
+      "delete": {
+        "description": "Remove a network nobody of Noust owns and Docker did not make itself.\n\nArgs:\n    ref: Its name, or its id.\n    session: The authenticated session, in sudo mode.\n\nReturns:\n    What was removed.\n\nRaises:\n    DockerNotFoundError: 404 when there is none.\n    DockerOwnedError: 409 when it is somebody's, or Docker's own.\n    DockerRefusedError: 409 when Docker refused (a container is on it).",
+        "operationId": "remove_network_api_docker_networks__ref__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ref",
+            "required": true,
+            "schema": {
+              "title": "Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerActionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Network",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.manage",
+        "x-noust-requires-approval": {
+          "action": "docker.remove",
+          "kind": "infrastructure",
+          "when": "always"
+        },
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/docker/restart-loss": {
+      "get": {
+        "description": "List what a restart of the machine would leave down, and how each is fixed.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The containers that would not come back, by name.",
+        "operationId": "get_restart_loss_api_docker_restart_loss_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerRestartLossOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Restart Loss",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.read"
+      }
+    },
+    "/api/docker/stacks": {
+      "get": {
+        "description": "List the Compose projects, with their state, their containers and whose each is.\n\nArgs:\n    session: The authenticated session.\n    offset: Where the page starts.\n    limit: How many at most.\n    owner: Only this kind of owner.\n    search: Only what contains this text.\n\nReturns:\n    The page, by name.\n\nRaises:\n    ValidationError: 400 for a window or an owner that makes no sense.",
+        "operationId": "list_stacks_api_docker_stacks_get",
+        "parameters": [
+          {
+            "description": "Where the page starts",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Where the page starts",
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "How many it holds at most (1 to 1000); all when absent",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "How many it holds at most (1 to 1000); all when absent",
+              "title": "Limit"
+            }
+          },
+          {
+            "description": "Only those of this kind of owner: app, database, noust, nobody",
+            "in": "query",
+            "name": "owner",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only those of this kind of owner: app, database, noust, nobody",
+              "title": "Owner"
+            }
+          },
+          {
+            "description": "Only those whose name, directory or containers contain this",
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only those whose name, directory or containers contain this",
+              "title": "Search"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerStacksOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Stacks",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.read"
+      }
+    },
+    "/api/docker/stacks/{name}": {
+      "get": {
+        "description": "Read one Compose project with its containers in full.\n\nArgs:\n    name: The project's name.\n    session: The authenticated session.\n\nReturns:\n    The stack and its containers, each with its owner and what may be done to it.\n\nRaises:\n    DockerNotFoundError: 404 when there is none.",
+        "operationId": "get_stack_api_docker_stacks__name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerStackDetailOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Stack",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.read"
+      }
+    },
+    "/api/docker/summary": {
+      "get": {
+        "description": "Say what asks for the operator on this machine, worst first, and how much there is of each thing.\n\nA container that keeps falling, one that is stopped when it should run, and the disk Docker lives on\nrunning out; the counters of every kind of thing; and the engine's doctor. Without Docker the\nanswer is the doctor's, with nothing counted.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The summary.",
+        "operationId": "get_summary_api_docker_summary_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerSummaryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Summary",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.read"
+      }
+    },
+    "/api/docker/volumes": {
+      "get": {
+        "description": "List the named volumes, with who owns each and who mounts it. A listing does not measure them\n(``GET /volumes/sizes`` does: Docker walks every volume to say it).\n\nArgs:\n    session: The authenticated session.\n    offset: Where the page starts.\n    limit: How many at most.\n    owner: Only this kind of owner.\n    search: Only what contains this text.\n\nReturns:\n    The page, by name, every ``size_bytes`` null.\n\nRaises:\n    ValidationError: 400 for a window or an owner that makes no sense.",
+        "operationId": "list_volumes_api_docker_volumes_get",
+        "parameters": [
+          {
+            "description": "Where the page starts",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Where the page starts",
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "How many it holds at most (1 to 1000); all when absent",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "How many it holds at most (1 to 1000); all when absent",
+              "title": "Limit"
+            }
+          },
+          {
+            "description": "Only those of this kind of owner: app, database, noust, nobody",
+            "in": "query",
+            "name": "owner",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only those of this kind of owner: app, database, noust, nobody",
+              "title": "Owner"
+            }
+          },
+          {
+            "description": "Only those whose name or users contain this",
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only those whose name or users contain this",
+              "title": "Search"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerVolumesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Volumes",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.read"
+      }
+    },
+    "/api/docker/volumes/sizes": {
+      "get": {
+        "description": "Measure the volumes: a call of its own, because Docker walks each one and it takes a while.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The size in bytes of each volume the principal sees that Docker could measure.",
+        "operationId": "get_volume_sizes_api_docker_volumes_sizes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerVolumeSizesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Volume Sizes",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.read"
+      }
+    },
+    "/api/docker/volumes/{name}": {
+      "delete": {
+        "description": "Remove a volume. Its name is typed a second time, and what it holds is said before it goes.\n\nArgs:\n    name: The volume's name.\n    session: The authenticated session, in sudo mode.\n    body: ``confirm_name``, the name again as the person typed it.\n\nReturns:\n    What was removed, with the size it held.\n\nRaises:\n    DockerNotFoundError: 404 when there is none.\n    DockerOwnedError: 409 when an application or an engine owns it.\n    ConfirmationRequired: 400 ``confirmation_required`` when the name was not typed again; the\n        warning says how much data is at stake.\n    ValidationError: 400 when a container still mounts it.",
+        "operationId": "remove_volume_api_docker_volumes__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/DockerRemoveVolumeRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerActionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Volume",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.manage",
+        "x-noust-requires-approval": {
+          "action": "docker.remove",
+          "kind": "infrastructure",
+          "when": "always"
+        },
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/domains/dns": {
       "get": {
         "description": "Check whether a domain resolves to this server, before it is any application's.\n\nThe same check :func:`get_domain_dns` runs for a domain already added to\nan application, through the same :func:`noust.deployers.domains.check_dns`\n- the new-app wizard needs an answer before anything is created, and there\nis no application yet to hang the path off.\n\nArgs:\n    session: Authenticated session, injected.\n    name: The domain to resolve.\n\nReturns:\n    What it resolves to, compared with this server's addresses.",
@@ -122246,7 +125585,7 @@
     },
     "/api/terminal/recordings": {
       "get": {
-        "description": "List the recordings of terminal sessions, newest first.\n\nArgs:\n    session: The authenticated session.\n    domain: Only the sessions in this application.\n    actor: Only the sessions of this person.\n    kind: Only ``app`` or ``server`` sessions.\n    limit: The most to return, 1 to 500.\n\nReturns:\n    The recordings.\n\nRaises:\n    ValidationError: 400 for a kind that is neither.",
+        "description": "List the recordings of terminal sessions, newest first.\n\nArgs:\n    session: The authenticated session.\n    domain: Only the sessions in this application.\n    actor: Only the sessions of this person.\n    kind: Only ``app``, ``server`` or ``container`` sessions.\n    limit: The most to return, 1 to 500.\n\nReturns:\n    The recordings.\n\nRaises:\n    ValidationError: 400 for a kind that is neither.",
         "operationId": "list_recordings_api_terminal_recordings_get",
         "parameters": [
           {
@@ -124064,6 +127403,859 @@
           "Fleet"
         ],
         "x-noust-permission": "settings.read"
+      }
+    },
+    "/api/views/docker/attention": {
+      "get": {
+        "description": "What asks for attention on every server, in one list, worst first.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n\nReturns:\n    One row per thing: ``kind`` (``loop``, ``stopped``, ``update``, ``major``, ``disk``), ``subject``,\n    ``owner``, ``facts`` as the server said them, and the server and its page.",
+        "operationId": "view_docker_attention_api_views_docker_attention_get",
+        "parameters": [
+          {
+            "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Ask every server again, ignoring the cache",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ask every server again, ignoring the cache",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "View Docker Attention",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "docker.read"
+      }
+    },
+    "/api/views/docker/containers": {
+      "get": {
+        "description": "The containers of every server, each with its owner, its state as one word and its server.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n    limit: Rows per server.\n    owner: Only this kind of owner.\n    app: Only the containers of this application.\n    state: Only this Docker state.\n    project: Only this Compose project.\n    search: Only what contains this text.\n\nReturns:\n    One row per container, with its server.",
+        "operationId": "view_docker_containers_api_views_docker_containers_get",
+        "parameters": [
+          {
+            "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Ask every server again, ignoring the cache",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ask every server again, ignoring the cache",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Rows per server",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "description": "Rows per server",
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Only rows of this kind of owner: app, database, noust, nobody",
+            "in": "query",
+            "name": "owner",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only rows of this kind of owner: app, database, noust, nobody",
+              "title": "Owner"
+            }
+          },
+          {
+            "description": "Only the containers of this application",
+            "in": "query",
+            "name": "app",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only the containers of this application",
+              "title": "App"
+            }
+          },
+          {
+            "description": "Only this Docker state",
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this Docker state",
+              "title": "State"
+            }
+          },
+          {
+            "description": "Only this Compose project",
+            "in": "query",
+            "name": "project",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this Compose project",
+              "title": "Project"
+            }
+          },
+          {
+            "description": "Only rows containing this text",
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only rows containing this text",
+              "title": "Search"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "View Docker Containers",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "docker.read"
+      }
+    },
+    "/api/views/docker/engine": {
+      "get": {
+        "description": "One row per server: which Docker it has and what does not fit in it.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n\nReturns:\n    One row per server: ``outcome``, ``engine`` (its state and versions), and the doctor's ``facts``\n    and ``limits`` as sentences with a code.",
+        "operationId": "view_docker_engine_api_views_docker_engine_get",
+        "parameters": [
+          {
+            "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Ask every server again, ignoring the cache",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ask every server again, ignoring the cache",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "View Docker Engine",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "docker.read"
+      }
+    },
+    "/api/views/docker/images": {
+      "get": {
+        "description": "The images of every server, each once with every name it has, who runs it and its server.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n    limit: Rows per server.\n    owner: Only this kind of owner.\n    search: Only what contains this text.\n\nReturns:\n    One row per image, with its server.",
+        "operationId": "view_docker_images_api_views_docker_images_get",
+        "parameters": [
+          {
+            "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Ask every server again, ignoring the cache",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ask every server again, ignoring the cache",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Rows per server",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "description": "Rows per server",
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Only rows of this kind of owner: app, database, noust, nobody",
+            "in": "query",
+            "name": "owner",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only rows of this kind of owner: app, database, noust, nobody",
+              "title": "Owner"
+            }
+          },
+          {
+            "description": "Only rows containing this text",
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only rows containing this text",
+              "title": "Search"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "View Docker Images",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "docker.read"
+      }
+    },
+    "/api/views/docker/networks": {
+      "get": {
+        "description": "The networks of every server, with who is on each and its server.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n    limit: Rows per server.\n    owner: Only this kind of owner.\n    search: Only what contains this text.\n\nReturns:\n    One row per network, with its server.",
+        "operationId": "view_docker_networks_api_views_docker_networks_get",
+        "parameters": [
+          {
+            "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Ask every server again, ignoring the cache",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ask every server again, ignoring the cache",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Rows per server",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "description": "Rows per server",
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Only rows of this kind of owner: app, database, noust, nobody",
+            "in": "query",
+            "name": "owner",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only rows of this kind of owner: app, database, noust, nobody",
+              "title": "Owner"
+            }
+          },
+          {
+            "description": "Only rows containing this text",
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only rows containing this text",
+              "title": "Search"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "View Docker Networks",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "docker.read"
+      }
+    },
+    "/api/views/docker/stacks": {
+      "get": {
+        "description": "The Compose projects of every server, with their state and whose each is.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n    limit: Rows per server.\n    owner: Only this kind of owner.\n    search: Only what contains this text.\n\nReturns:\n    One row per stack, with its server.",
+        "operationId": "view_docker_stacks_api_views_docker_stacks_get",
+        "parameters": [
+          {
+            "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Ask every server again, ignoring the cache",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ask every server again, ignoring the cache",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Rows per server",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "description": "Rows per server",
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Only rows of this kind of owner: app, database, noust, nobody",
+            "in": "query",
+            "name": "owner",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only rows of this kind of owner: app, database, noust, nobody",
+              "title": "Owner"
+            }
+          },
+          {
+            "description": "Only rows containing this text",
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only rows containing this text",
+              "title": "Search"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "View Docker Stacks",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "docker.read"
+      }
+    },
+    "/api/views/docker/summary": {
+      "get": {
+        "description": "One row per server: its Docker, its counters, its disk and what asks for attention there.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n\nReturns:\n    One row per server: ``outcome``, ``available`` (null when the server did not answer),\n    ``engine`` (``state``, ``version``, ``api``, ``compose``...), ``counts``, ``attention``, ``disk``\n    and ``can_manage``.",
+        "operationId": "view_docker_summary_api_views_docker_summary_get",
+        "parameters": [
+          {
+            "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Ask every server again, ignoring the cache",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ask every server again, ignoring the cache",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "View Docker Summary",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "docker.read"
+      }
+    },
+    "/api/views/docker/volumes": {
+      "get": {
+        "description": "The volumes of every server, with who owns and who mounts each, not measured, and its server.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    node: Only these servers.\n    refresh: Ask again.\n    limit: Rows per server.\n    owner: Only this kind of owner.\n    search: Only what contains this text.\n\nReturns:\n    One row per volume, with its server.",
+        "operationId": "view_docker_volumes_api_views_docker_volumes_get",
+        "parameters": [
+          {
+            "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+            "in": "query",
+            "name": "node",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these servers, repeated; '@central' is this central itself. Leave it out for every server",
+              "title": "Node"
+            }
+          },
+          {
+            "description": "Ask every server again, ignoring the cache",
+            "in": "query",
+            "name": "refresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Ask every server again, ignoring the cache",
+              "title": "Refresh",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Rows per server",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "description": "Rows per server",
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Only rows of this kind of owner: app, database, noust, nobody",
+            "in": "query",
+            "name": "owner",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only rows of this kind of owner: app, database, noust, nobody",
+              "title": "Owner"
+            }
+          },
+          {
+            "description": "Only rows containing this text",
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only rows containing this text",
+              "title": "Search"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "View Docker Volumes",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "docker.read"
       }
     },
     "/api/views/logs": {

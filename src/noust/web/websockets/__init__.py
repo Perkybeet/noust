@@ -5,10 +5,12 @@
 WebSocket routes for Noust Web Interface.
 """
 
+from noust.web.websockets.docker import router as docker_router
 from noust.web.websockets.router import router
 from noust.web.websockets.terminal import router as terminal_router
 
-# One router for every stream under /ws; the terminal's lives in its own module.
+# One router for every stream under /ws; the terminal's and Docker's live in their own modules.
 router.include_router(terminal_router)
+router.include_router(docker_router)
 
 __all__ = ["router"]

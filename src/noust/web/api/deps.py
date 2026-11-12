@@ -56,6 +56,12 @@ from noust.core import descriptors
 from noust.core.access import AccessConflictError, AccessError, AccessNotFoundError
 from noust.core.accounts import AccountNotFoundError, AuthenticationFailed
 from noust.core.applock import AppBusyError
+from noust.core.docker.errors import (
+    DockerOwnedError,
+    DockerPlanChangedError,
+    DockerRefusedError,
+    DockerUnavailableError,
+)
 from noust.core.ens.incident import IncidentLockdownError
 from noust.core.exceptions import (
     CancelRefused,
@@ -272,6 +278,13 @@ _CODE_BY_ERROR: tuple[tuple[type[NoustError], str], ...] = (
     # A change that costs something waits for the operator's yes; the
     # console lists every warning before asking.
     (ConfirmationRequired, "confirmation_required"),
+    # The Docker zone: what an application or an engine owns is changed through it, Docker that
+    # is not there or refused is a state of the machine, and a cleanup plan that is not the one that
+    # was shown is shown again. The console branches on each.
+    (DockerOwnedError, "docker_owned"),
+    (DockerPlanChangedError, "plan_changed"),
+    (DockerRefusedError, "docker_refused"),
+    (DockerUnavailableError, "docker_unavailable"),
     # A name another site answers on, and a DNS record somebody else made at the name: each is
     # confirmed by the operator, and the console asks.
     (DomainOverlapError, "domain_overlap"),
@@ -468,6 +481,12 @@ def error_response(exc: NoustError) -> JSONResponse:
     if isinstance(exc, ConfirmationRequired):
         # Every warning, not only the one the message leads with.
         content["warnings"] = list(exc.warnings)
+    if isinstance(exc, DockerOwnedError):
+        # Whose it is, for the console to lead to the application or the engine that changes it.
+        content["owner"] = {"kind": exc.owner_kind, "subject": exc.subject}
+    if isinstance(exc, DockerPlanChangedError):
+        # The plan as it is now, to be shown again.
+        content["plan"] = exc.plan.to_dict()
     # A full queue says when to ask again: builds take minutes, not seconds.
     headers = {"Retry-After": "30"} if isinstance(exc, QueueFullError) else None
     return JSONResponse(status_code=status_for(exc), content=content, headers=headers)

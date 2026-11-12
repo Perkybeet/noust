@@ -47,7 +47,8 @@ from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from starlette.concurrency import run_in_threadpool
 
 from noust.core import audit
-from noust.core.exceptions import DeploymentError, NoustError, ValidationError
+from noust.core.docker.gate import DockerGate
+from noust.core.exceptions import DeploymentError, DockerError, NoustError, ValidationError
 from noust.core.runner import CommandError, get_runner
 from noust.core.teams import ScopedStore
 from noust.terminal.sessions import (
@@ -58,8 +59,20 @@ from noust.terminal.sessions import (
     TerminalSession,
     get_registry,
 )
-from noust.terminal.targets import SessionPlan, plan_app_terminal, plan_server_terminal
-from noust.terminal.tickets import KIND_APP, KIND_SERVER, TerminalGrant, TicketRefused, get_tickets
+from noust.terminal.targets import (
+    SessionPlan,
+    plan_app_terminal,
+    plan_container_terminal,
+    plan_server_terminal,
+)
+from noust.terminal.tickets import (
+    KIND_APP,
+    KIND_CONTAINER,
+    KIND_SERVER,
+    TerminalGrant,
+    TicketRefused,
+    get_tickets,
+)
 from noust.web.auth import (
     WS_CLOSE_FORBIDDEN,
     WS_CLOSE_UNAUTHORIZED,
@@ -68,6 +81,7 @@ from noust.web.auth import (
     get_security_config,
 )
 from noust.web.permissions import Permission
+from noust.web.permissions.docker_console import console_permission
 from noust.web.permissions.principal import audit_actor, permissions_of, scope_of
 from noust.web.permissions.team_roles import permissions_at
 from noust.web.websockets.router import (
@@ -159,6 +173,8 @@ def _refusal(session: dict[str, Any], grant: TerminalGrant) -> str | None:
     Returns:
         The sentence that refuses it, or None when the principal may still open it.
     """
+    if grant.kind == KIND_CONTAINER:
+        return _container_refusal(session, grant)
     if grant.kind == KIND_SERVER:
         if scope_of(session).restricted:
             return "The server's terminal is for administrators of the whole server"
@@ -189,6 +205,37 @@ def _refusal(session: dict[str, Any], grant: TerminalGrant) -> str | None:
     return None
 
 
+def _container_refusal(session: dict[str, Any], grant: TerminalGrant) -> str | None:
+    """
+    Judge again, at the socket, a console in a container.
+
+    The container is resolved to its owner first, by the gate, and the permission asked is the one its
+    owner asks for: what a ticket was minted for is not necessarily what is true now (the container may
+    have been removed, or become part of Noust, or the credential's role changed).
+
+    Args:
+        session: The handshake's payload.
+        grant: What the ticket authorised.
+
+    Returns:
+        The sentence that refuses it, or None when the principal may still open it.
+    """
+    scope = scope_of(session)
+    if scope.restricted:
+        return "The Docker zone is for the administrators of the whole server"
+    held = permissions_of(session)
+    if Permission.DOCKER_MANAGE not in held:
+        return f"This needs the '{Permission.DOCKER_MANAGE}' permission"
+    try:
+        container = DockerGate(scope=scope).container_for_console(grant.container or "")
+    except DockerError as exc:
+        return exc.message
+    needed = console_permission(container.owner)
+    if needed not in held:
+        return f"This needs the '{needed}' permission to open a console in this container"
+    return None
+
+
 def _plan(grant: TerminalGrant) -> SessionPlan:
     """
     Work out what a ticket opens. Blocking: it may ask Docker.
@@ -201,6 +248,10 @@ def _plan(grant: TerminalGrant) -> SessionPlan:
     """
     if grant.kind == KIND_SERVER:
         return plan_server_terminal(shell_name=grant.shell)
+    if grant.kind == KIND_CONTAINER:
+        return plan_container_terminal(
+            grant.container or "", shell_name=grant.shell, runner=get_runner()
+        )
     return plan_app_terminal(
         grant.domain or "", service=grant.service, shell_name=grant.shell, runner=get_runner()
     )
@@ -386,8 +437,12 @@ async def websocket_terminal(
         )
         return
 
-    resource = f"app:{grant.domain}" if grant.kind == KIND_APP else "server"
-    refusal = _refusal(session, grant)
+    if grant.kind == KIND_CONTAINER:
+        resource = f"container:{(grant.container or '')[:12]}"
+    else:
+        resource = f"app:{grant.domain}" if grant.kind == KIND_APP else "server"
+    # It may ask Docker, so it is not asked on the event loop.
+    refusal = await run_in_threadpool(_refusal, session, grant)
     if refusal is not None:
         await _refuse(websocket, session, resource, code="forbidden", message=refusal)
         return

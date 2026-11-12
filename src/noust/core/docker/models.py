@@ -17,6 +17,8 @@ from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Any, Generic, TypeVar
 
+from noust.core.docker import states
+
 __all__ = [
     "NOBODY",
     "Action",
@@ -50,6 +52,10 @@ class Action(str, Enum):
     STOP = "stop"
     RESTART = "restart"
     REMOVE = "remove"
+    #: Open a shell in a container. It changes what the container is running, so it is judged like the
+    #: rest, but it is allowed in what an application or an engine owns: a shell is how an operator
+    #: looks inside one (what Noust's own is, is never opened).
+    CONSOLE = "console"
 
 
 class OwnerKind(str, Enum):
@@ -169,13 +175,27 @@ class Container:
         """Whether it is running now."""
         return self.state in {"running", "restarting", "paused"}
 
+    @property
+    def state_info(self) -> states.StateInfo:
+        """Its state as one word, as far as the listing can say (``inspect`` says more)."""
+        return states.classify_container(self)
+
+    @property
+    def state_kind(self) -> str:
+        """The word of :mod:`noust.core.docker.states` for it."""
+        return self.state_info.kind
+
     def to_dict(self) -> dict[str, Any]:
         """
         Returns:
-            Every field, by name.
+            Every field, by name, its state as one word, whether that is a problem and how it ended.
         """
+        info = self.state_info
         return {key: _plain(value) for key, value in asdict(self).items() if key != "owner"} | {
-            "owner": self.owner.to_dict()
+            "state_kind": info.kind,
+            "problem": info.problem,
+            "exit_code": info.exit_code,
+            "owner": self.owner.to_dict(),
         }
 
 
@@ -306,7 +326,11 @@ class ComposeProject:
         working_dir: The directory it runs from.
         config_files: Its compose files.
         containers: The names of its containers.
-        running: How many of them run.
+        running: How many of its workers run.
+        workers: How many of its containers are meant to keep running: a job that did its work
+            and ended is not one.
+        state: ``running``, ``warning`` (a worker is down or unhealthy), ``failed`` (a worker
+            keeps falling or ended badly) or ``stopped``; empty when nobody judged it.
         owner: Whose it is.
     """
 
@@ -315,6 +339,8 @@ class ComposeProject:
     config_files: tuple[str, ...] = ()
     containers: tuple[str, ...] = ()
     running: int = 0
+    workers: int = 0
+    state: str = ""
     owner: Owner = NOBODY
 
     def to_dict(self) -> dict[str, Any]:

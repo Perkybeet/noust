@@ -18177,6 +18177,714 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/docker/cleanup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply Cleanup
+         * @description Apply a cleanup plan exactly as it was shown, as a job.
+         *
+         *     Everything is checked before a job is queued: the plan must still be the one the ``token`` names
+         *     (409 ``plan_changed`` with the plan as it is now, to be shown again), what is chosen must be in it, and
+         *     each volume chosen must have its name typed (400 ``confirmation_required``). The job removes each
+         *     thing through the gate, which judges its owner once more, and tells what Docker refused without
+         *     stopping the rest. Needs sudo mode and ``docker.manage``.
+         *
+         *     Args:
+         *         body: The token, the ids chosen and the volume names typed.
+         *         session: The authenticated session, in sudo mode.
+         *
+         *     Returns:
+         *         The queued job, whose result is what was removed and what failed.
+         *
+         *     Raises:
+         *         DockerPlanChangedError: 409 when the plan is not the one that was shown.
+         *         ValidationError: 400 for something that is not in the plan, or nothing chosen.
+         *         ConfirmationRequired: 400 when a volume was not named.
+         */
+        post: operations["apply_cleanup_api_docker_cleanup_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/docker/cleanup/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Cleanup Plan
+         * @description Say what a cleanup of Docker would remove, without removing anything.
+         *
+         *     The images nobody names or uses, the stopped containers nobody made, the unused volumes (never
+         *     ticked, each named before it goes, with how much it holds), the networks nobody is on and the old
+         *     build cache, each with whose it is and how big; and what stays and why (the images an application
+         *     keeps to go back to are never offered). The ``token`` is what the plan is applied with.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The plan.
+         */
+        get: operations["get_cleanup_plan_api_docker_cleanup_plan_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/docker/containers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Containers
+         * @description List the containers, running or not, each with its owner, its state as one word and what may be
+         *     done to it.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         offset: Where the page starts.
+         *         limit: How many at most.
+         *         owner: Only this kind of owner.
+         *         app: Only the containers of this application.
+         *         state: Only this Docker state.
+         *         project: Only this Compose project.
+         *         search: Only what contains this text.
+         *
+         *     Returns:
+         *         The page, by name.
+         *
+         *     Raises:
+         *         ValidationError: 400 for a window or an owner that makes no sense.
+         */
+        get: operations["list_containers_api_docker_containers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/docker/containers/{ref}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Container
+         * @description Look at one container from the inside.
+         *
+         *     Why it is the way it is (how its last run ended, whether memory ran out, how often it restarted
+         *     lately, its last lines as it wrote them), where it comes from and what it touches, its restart policy
+         *     and limits, and what it uses now: one reading of ``docker stats`` without a stream, or the reason
+         *     there is none (it is not running, it is restarting, it started a moment ago). Its environment is
+         *     never read, and the credentials in what it wrote are masked.
+         *
+         *     Args:
+         *         ref: Its name, or the id Docker shows.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The container.
+         *
+         *     Raises:
+         *         DockerNotFoundError: 404 when there is none.
+         */
+        get: operations["get_container_api_docker_containers__ref__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Remove Container
+         * @description Remove a container nobody of Noust owns. Its volumes are left where they are.
+         *
+         *     Args:
+         *         ref: Its name, or the id Docker shows.
+         *         session: The authenticated session, in sudo mode.
+         *         force: Remove it even if it is running.
+         *
+         *     Returns:
+         *         What was removed.
+         *
+         *     Raises:
+         *         DockerNotFoundError: 404 when there is none.
+         *         DockerOwnedError: 409 when it is somebody's.
+         *         DockerRefusedError: 409 when Docker refused (it is running and ``force`` was not given).
+         */
+        delete: operations["remove_container_api_docker_containers__ref__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/docker/containers/{ref}/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Container Logs
+         * @description Read the end of a container's log, as it wrote it with the time of each line.
+         *
+         *     The live follow is the WebSocket ``/ws/docker/logs/{ref}``.
+         *
+         *     Args:
+         *         ref: Its name, or the id Docker shows.
+         *         session: The authenticated session.
+         *         tail: How many lines from the end.
+         *
+         *     Returns:
+         *         The lines, with the credentials in them masked and nothing else changed.
+         *
+         *     Raises:
+         *         ValidationError: 400 for a tail that makes no sense.
+         *         DockerNotFoundError: 404 when there is none.
+         */
+        get: operations["get_container_logs_api_docker_containers__ref__logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/docker/containers/{ref}/restart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restart Container
+         * @description Restart a container nobody of Noust owns.
+         *
+         *     Args:
+         *         ref: Its name, or the id Docker shows.
+         *         session: The authenticated session, in sudo mode.
+         *
+         *     Returns:
+         *         What was done.
+         *
+         *     Raises:
+         *         DockerNotFoundError: 404 when there is none.
+         *         DockerOwnedError: 409 when it is somebody's.
+         */
+        post: operations["restart_container_api_docker_containers__ref__restart_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/docker/containers/{ref}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Container
+         * @description Start a container nobody of Noust owns.
+         *
+         *     What belongs to an application, a database engine or Noust is refused (409 ``docker_owned``) with
+         *     the door to use: a stack is not changed from under its health gate. Needs sudo mode and
+         *     ``docker.manage``.
+         *
+         *     Args:
+         *         ref: Its name, or the id Docker shows.
+         *         session: The authenticated session, in sudo mode.
+         *
+         *     Returns:
+         *         What was done.
+         *
+         *     Raises:
+         *         DockerNotFoundError: 404 when there is none.
+         *         DockerOwnedError: 409 when it is somebody's.
+         */
+        post: operations["start_container_api_docker_containers__ref__start_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/docker/containers/{ref}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop Container
+         * @description Stop a container nobody of Noust owns, giving it 30 seconds before Docker kills it.
+         *
+         *     Args:
+         *         ref: Its name, or the id Docker shows.
+         *         session: The authenticated session, in sudo mode.
+         *
+         *     Returns:
+         *         What was done.
+         *
+         *     Raises:
+         *         DockerNotFoundError: 404 when there is none.
+         *         DockerOwnedError: 409 when it is somebody's.
+         */
+        post: operations["stop_container_api_docker_containers__ref__stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/docker/containers/{ref}/terminal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open Container Terminal
+         * @description Get the ticket that opens a console in a container, whoever made it.
+         *
+         *     The terminal's own machinery (a single-use ticket, a session, a recording, the audit trail) with a
+         *     target of its own: ``docker exec`` of the id Docker listed, with a shell asked for by name. The
+         *     container is resolved to its owner first, and the permission asked is the one its owner asks for:
+         *     ``apps.terminal`` for a container of an application, ``server.terminal`` for any other, on top of
+         *     ``docker.manage`` and sudo mode. What Noust runs for itself is never opened (409 ``docker_owned``),
+         *     and a container that does not run has no console (400). The terminals' switch is the one of
+         *     application terminals. Open the WebSocket ``/ws/terminal?terminal_ticket=<ticket>`` within
+         *     ``expires_in`` seconds; the socket judges it all again.
+         *
+         *     Args:
+         *         ref: The container's name, or the id Docker shows.
+         *         body: The shell and the size.
+         *         request: The request.
+         *         session: The authenticated session, in sudo mode.
+         *
+         *     Returns:
+         *         The ticket.
+         *
+         *     Raises:
+         *         DockerNotFoundError: 404 when there is none.
+         *         DockerOwnedError: 409 when it is part of Noust.
+         *         PermissionDenied: 403 when the credential lacks what a shell in this container needs.
+         *         TerminalDisabledError: 403 when terminals are off here.
+         *         TerminalLimitError: 429 when a limit is reached.
+         */
+        post: operations["open_container_terminal_api_docker_containers__ref__terminal_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/docker/engine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Engine
+         * @description Say which Docker there is and what does not fit in it: the engine's doctor.
+         *
+         *     Asked of the engine every time, not from what was said a moment ago: this is the page that says it.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The facts and the limits, each as a sentence with a code and its English, and what Docker said.
+         */
+        get: operations["get_engine_api_docker_engine_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/docker/images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Images
+         * @description List the images, each once with every name it has, who runs it and whether it is an application's
+         *     way back.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         offset: Where the page starts.
+         *         limit: How many at most.
+         *         owner: Only this kind of owner.
+         *         search: Only what contains this text.
+         *
+         *     Returns:
+         *         The page, by name.
+         *
+         *     Raises:
+         *         ValidationError: 400 for a window or an owner that makes no sense.
+         */
+        get: operations["list_images_api_docker_images_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/docker/images/{image_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Image
+         * @description Remove an image nobody keeps. One a container uses stays, and so does an application's way back.
+         *
+         *     Args:
+         *         image_id: The image's id, as the listing gives it.
+         *         session: The authenticated session, in sudo mode.
+         *
+         *     Returns:
+         *         What was removed, with its size.
+         *
+         *     Raises:
+         *         DockerNotFoundError: 404 when there is none.
+         *         DockerOwnedError: 409 when an application keeps it or an engine owns it.
+         *         ValidationError: 400 when a container still uses it.
+         */
+        delete: operations["remove_image_api_docker_images__image_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/docker/networks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Networks
+         * @description List the networks, with who is on each, whose it is and whether Docker made it itself.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         offset: Where the page starts.
+         *         limit: How many at most.
+         *         owner: Only this kind of owner.
+         *         search: Only what contains this text.
+         *
+         *     Returns:
+         *         The page, by name.
+         *
+         *     Raises:
+         *         ValidationError: 400 for a window or an owner that makes no sense.
+         */
+        get: operations["list_networks_api_docker_networks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/docker/networks/{ref}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Network
+         * @description Remove a network nobody of Noust owns and Docker did not make itself.
+         *
+         *     Args:
+         *         ref: Its name, or its id.
+         *         session: The authenticated session, in sudo mode.
+         *
+         *     Returns:
+         *         What was removed.
+         *
+         *     Raises:
+         *         DockerNotFoundError: 404 when there is none.
+         *         DockerOwnedError: 409 when it is somebody's, or Docker's own.
+         *         DockerRefusedError: 409 when Docker refused (a container is on it).
+         */
+        delete: operations["remove_network_api_docker_networks__ref__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/docker/restart-loss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Restart Loss
+         * @description List what a restart of the machine would leave down, and how each is fixed.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The containers that would not come back, by name.
+         */
+        get: operations["get_restart_loss_api_docker_restart_loss_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/docker/stacks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Stacks
+         * @description List the Compose projects, with their state, their containers and whose each is.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         offset: Where the page starts.
+         *         limit: How many at most.
+         *         owner: Only this kind of owner.
+         *         search: Only what contains this text.
+         *
+         *     Returns:
+         *         The page, by name.
+         *
+         *     Raises:
+         *         ValidationError: 400 for a window or an owner that makes no sense.
+         */
+        get: operations["list_stacks_api_docker_stacks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/docker/stacks/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Stack
+         * @description Read one Compose project with its containers in full.
+         *
+         *     Args:
+         *         name: The project's name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The stack and its containers, each with its owner and what may be done to it.
+         *
+         *     Raises:
+         *         DockerNotFoundError: 404 when there is none.
+         */
+        get: operations["get_stack_api_docker_stacks__name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/docker/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Summary
+         * @description Say what asks for the operator on this machine, worst first, and how much there is of each thing.
+         *
+         *     A container that keeps falling, one that is stopped when it should run, and the disk Docker lives on
+         *     running out; the counters of every kind of thing; and the engine's doctor. Without Docker the
+         *     answer is the doctor's, with nothing counted.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The summary.
+         */
+        get: operations["get_summary_api_docker_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/docker/volumes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Volumes
+         * @description List the named volumes, with who owns each and who mounts it. A listing does not measure them
+         *     (``GET /volumes/sizes`` does: Docker walks every volume to say it).
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         offset: Where the page starts.
+         *         limit: How many at most.
+         *         owner: Only this kind of owner.
+         *         search: Only what contains this text.
+         *
+         *     Returns:
+         *         The page, by name, every ``size_bytes`` null.
+         *
+         *     Raises:
+         *         ValidationError: 400 for a window or an owner that makes no sense.
+         */
+        get: operations["list_volumes_api_docker_volumes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/docker/volumes/sizes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Volume Sizes
+         * @description Measure the volumes: a call of its own, because Docker walks each one and it takes a while.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The size in bytes of each volume the principal sees that Docker could measure.
+         */
+        get: operations["get_volume_sizes_api_docker_volumes_sizes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/docker/volumes/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Volume
+         * @description Remove a volume. Its name is typed a second time, and what it holds is said before it goes.
+         *
+         *     Args:
+         *         name: The volume's name.
+         *         session: The authenticated session, in sudo mode.
+         *         body: ``confirm_name``, the name again as the person typed it.
+         *
+         *     Returns:
+         *         What was removed, with the size it held.
+         *
+         *     Raises:
+         *         DockerNotFoundError: 404 when there is none.
+         *         DockerOwnedError: 409 when an application or an engine owns it.
+         *         ConfirmationRequired: 400 ``confirmation_required`` when the name was not typed again; the
+         *             warning says how much data is at stake.
+         *         ValidationError: 400 when a container still mounts it.
+         */
+        delete: operations["remove_volume_api_docker_volumes__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/domains/dns": {
         parameters: {
             query?: never;
@@ -30326,7 +31034,7 @@ export interface paths {
          *         session: The authenticated session.
          *         domain: Only the sessions in this application.
          *         actor: Only the sessions of this person.
-         *         kind: Only ``app`` or ``server`` sessions.
+         *         kind: Only ``app``, ``server`` or ``container`` sessions.
          *         limit: The most to return, 1 to 500.
          *
          *     Returns:
@@ -31252,6 +31960,260 @@ export interface paths {
          *         ValidationError: 400 for a state that does not exist.
          */
         get: operations["view_deliveries_api_views_deliveries_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/views/docker/attention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View Docker Attention
+         * @description What asks for attention on every server, in one list, worst first.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *
+         *     Returns:
+         *         One row per thing: ``kind`` (``loop``, ``stopped``, ``update``, ``major``, ``disk``), ``subject``,
+         *         ``owner``, ``facts`` as the server said them, and the server and its page.
+         */
+        get: operations["view_docker_attention_api_views_docker_attention_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/views/docker/containers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View Docker Containers
+         * @description The containers of every server, each with its owner, its state as one word and its server.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *         limit: Rows per server.
+         *         owner: Only this kind of owner.
+         *         app: Only the containers of this application.
+         *         state: Only this Docker state.
+         *         project: Only this Compose project.
+         *         search: Only what contains this text.
+         *
+         *     Returns:
+         *         One row per container, with its server.
+         */
+        get: operations["view_docker_containers_api_views_docker_containers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/views/docker/engine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View Docker Engine
+         * @description One row per server: which Docker it has and what does not fit in it.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *
+         *     Returns:
+         *         One row per server: ``outcome``, ``engine`` (its state and versions), and the doctor's ``facts``
+         *         and ``limits`` as sentences with a code.
+         */
+        get: operations["view_docker_engine_api_views_docker_engine_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/views/docker/images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View Docker Images
+         * @description The images of every server, each once with every name it has, who runs it and its server.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *         limit: Rows per server.
+         *         owner: Only this kind of owner.
+         *         search: Only what contains this text.
+         *
+         *     Returns:
+         *         One row per image, with its server.
+         */
+        get: operations["view_docker_images_api_views_docker_images_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/views/docker/networks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View Docker Networks
+         * @description The networks of every server, with who is on each and its server.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *         limit: Rows per server.
+         *         owner: Only this kind of owner.
+         *         search: Only what contains this text.
+         *
+         *     Returns:
+         *         One row per network, with its server.
+         */
+        get: operations["view_docker_networks_api_views_docker_networks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/views/docker/stacks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View Docker Stacks
+         * @description The Compose projects of every server, with their state and whose each is.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *         limit: Rows per server.
+         *         owner: Only this kind of owner.
+         *         search: Only what contains this text.
+         *
+         *     Returns:
+         *         One row per stack, with its server.
+         */
+        get: operations["view_docker_stacks_api_views_docker_stacks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/views/docker/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View Docker Summary
+         * @description One row per server: its Docker, its counters, its disk and what asks for attention there.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *
+         *     Returns:
+         *         One row per server: ``outcome``, ``available`` (null when the server did not answer),
+         *         ``engine`` (``state``, ``version``, ``api``, ``compose``...), ``counts``, ``attention``, ``disk``
+         *         and ``can_manage``.
+         */
+        get: operations["view_docker_summary_api_views_docker_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/views/docker/volumes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * View Docker Volumes
+         * @description The volumes of every server, with who owns and who mounts each, not measured, and its server.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *         limit: Rows per server.
+         *         owner: Only this kind of owner.
+         *         search: Only what contains this text.
+         *
+         *     Returns:
+         *         One row per volume, with its server.
+         */
+        get: operations["view_docker_volumes_api_views_docker_volumes_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -37967,6 +38929,30 @@ export interface components {
             status: string;
         };
         /**
+         * CleanupEntryOut
+         * @description One thing a cleanup would remove: what it is, whose it is and how much it holds.
+         *
+         *     Attributes:
+         *         name: What it is called (an image's name, ``Docker build cache``).
+         *         owner: Whose it is: ``kind`` (``app``, ``database``, ``noust`` or ``nobody``), ``subject`` and
+         *             ``project``.
+         *         size_bytes: How much it takes, when Docker said.
+         *         reason: Why it is offered: ``unused`` (no container uses it and no application keeps it to go
+         *             back to), ``dangling`` (no name and no container) or ``build-cache``.
+         */
+        CleanupEntryOut: {
+            /** Name */
+            name: string;
+            /** Owner */
+            owner: {
+                [key: string]: string;
+            };
+            /** Reason */
+            reason: string;
+            /** Size Bytes */
+            size_bytes?: number | null;
+        };
+        /**
          * CleanupPlanOut
          * @description What a cleanup would do.
          *
@@ -37977,6 +38963,9 @@ export interface components {
          *         needs_confirmation: It takes something the operator may want back.
          *         items: What it would remove, when the action can list it.
          *         effect_coded: ``effect`` as a code and its values, for the console to translate.
+         *         entries: What it would remove, each with whose it is and how much it holds; for a Docker
+         *             action, the images or the cache, and never a volume (the Docker zone's plan,
+         *             ``GET /api/docker/cleanup/plan``, is the one that offers volumes, named one by one).
          */
         CleanupPlanOut: {
             /** Action */
@@ -37986,6 +38975,8 @@ export interface components {
             /** Effect */
             effect: string;
             effect_coded?: components["schemas"]["CodedText"] | null;
+            /** Entries */
+            entries?: components["schemas"]["CleanupEntryOut"][];
             /** Items */
             items?: string[];
             /** Needs Confirmation */
@@ -42651,6 +43642,566 @@ export interface components {
             zone: string;
         };
         /**
+         * DockerActionOut
+         * @description What an action on one object did.
+         *
+         *     Attributes:
+         *         kind: ``container``, ``image``, ``volume`` or ``network``.
+         *         name: What it is called.
+         *         action: ``start``, ``stop``, ``restart`` or ``remove``.
+         *         size_bytes: What a removal freed, when known (a volume's data is gone with it).
+         */
+        DockerActionOut: {
+            /** Action */
+            action: string;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Size Bytes */
+            size_bytes?: number | null;
+        };
+        /**
+         * DockerAttentionOut
+         * @description One thing that asks for the operator.
+         *
+         *     Attributes:
+         *         kind: ``loop`` (a container Docker restarts without stopping), ``stopped`` (it is down and
+         *             should not be), or ``disk`` (the disk Docker lives on is filling); the registries' checks
+         *             add ``update`` and ``major``.
+         *         subject: The container it is about; null for the disk or a group.
+         *         owner: Whose the container is.
+         *         count: How many things it stands for.
+         *         facts: What the screen says it with, as data: for a loop ``exit_code``, ``oom``,
+         *             ``memory_limit_bytes``, ``restarts_recent``, ``window_minutes`` and ``restart_count``; for a
+         *             stop ``exit_code``, ``kind``, ``policy`` and ``finished_at``; for the disk ``free_bytes``,
+         *             ``total_bytes`` and ``reclaimable_bytes``.
+         */
+        DockerAttentionOut: {
+            /**
+             * Count
+             * @default 1
+             */
+            count: number;
+            /** Facts */
+            facts?: {
+                [key: string]: unknown;
+            };
+            /** Kind */
+            kind: string;
+            owner?: components["schemas"]["DockerOwnerOut"] | null;
+            /** Subject */
+            subject?: string | null;
+        };
+        /**
+         * DockerCanOut
+         * @description What may be done to an object by whoever asks, decided by the judgement an action goes through.
+         *
+         *     Attributes:
+         *         start: A container may be started.
+         *         stop: A container may be stopped.
+         *         restart: A container may be restarted.
+         *         remove: The object may be removed.
+         *         console: A shell may be opened in this container: it is not Noust's own, and the credential
+         *             holds the permission a shell in it needs (``apps.terminal`` for an application's,
+         *             ``server.terminal`` otherwise).
+         *         via: When an application, an engine or Noust changes it, the sentence that says where it is
+         *             changed (a command that exists).
+         *         blocked: Why nothing is offered: ``owner``, ``builtin`` (Docker makes it itself), ``in_use``
+         *             (something still uses it), ``permission`` (this credential may not change Docker); empty
+         *             when it is offered.
+         */
+        DockerCanOut: {
+            /**
+             * Blocked
+             * @default
+             */
+            blocked: string;
+            /**
+             * Console
+             * @default false
+             */
+            console: boolean;
+            /**
+             * Remove
+             * @default false
+             */
+            remove: boolean;
+            /**
+             * Restart
+             * @default false
+             */
+            restart: boolean;
+            /**
+             * Start
+             * @default false
+             */
+            start: boolean;
+            /**
+             * Stop
+             * @default false
+             */
+            stop: boolean;
+            /**
+             * Via
+             * @default
+             */
+            via: string;
+        };
+        /**
+         * DockerCleanupPlanOut
+         * @description What a cleanup of Docker would do, worked out and not done.
+         *
+         *     Attributes:
+         *         available: Docker could be read.
+         *         engine: The doctor's report, only when it could not.
+         *         token: What the plan is applied with: a plan that is not the one of now is not applied.
+         *         items: What would go, in the order it goes.
+         *         kept: What looks unused and stays, and why.
+         *         default_bytes: What is recovered with what is ticked.
+         */
+        DockerCleanupPlanOut: {
+            /**
+             * Available
+             * @default true
+             */
+            available: boolean;
+            /**
+             * Default Bytes
+             * @default 0
+             */
+            default_bytes: number;
+            engine?: components["schemas"]["DockerEngineOut"] | null;
+            /** Items */
+            items?: components["schemas"]["DockerPlanItemOut"][];
+            /** Kept */
+            kept?: components["schemas"]["DockerKeptOut"][];
+            /**
+             * Token
+             * @default
+             */
+            token: string;
+        };
+        /**
+         * DockerCleanupRequest
+         * @description Apply the cleanup plan that was shown.
+         *
+         *     Attributes:
+         *         token: The token of the plan that was shown.
+         *         select: The ``id`` of each item to remove.
+         *         confirm_names: For each volume chosen, its name as the person typed it.
+         */
+        DockerCleanupRequest: {
+            /** Confirm Names */
+            confirm_names?: {
+                [key: string]: string;
+            };
+            /** Select */
+            select?: string[];
+            /** Token */
+            token: string;
+        };
+        /**
+         * DockerContainerDetailOut
+         * @description One container from the inside.
+         *
+         *     Attributes:
+         *         available: Docker could be read.
+         *         engine: The doctor's report, only when it could not.
+         *         container: The container as the listing has it, with its owner and what may be done to it.
+         *         state: Its state as one word.
+         *         owner: Whose it is.
+         *         job: It ended well and was never meant to run again: a job that did its work.
+         *         why: Why it is the way it is.
+         *         origin: Where it comes from.
+         *         touches: What it touches.
+         *         restart_policy: What Docker does when it ends.
+         *         cpu_limit: Its processor limit in CPUs; null for none.
+         *         usage: What it uses now, or why that is not known.
+         *         can_manage: The one who asks may change Docker at all.
+         */
+        DockerContainerDetailOut: {
+            /**
+             * Available
+             * @default true
+             */
+            available: boolean;
+            /**
+             * Can Manage
+             * @default false
+             */
+            can_manage: boolean;
+            container?: components["schemas"]["DockerContainerOut"] | null;
+            /** Cpu Limit */
+            cpu_limit?: number | null;
+            engine?: components["schemas"]["DockerEngineOut"] | null;
+            /**
+             * Job
+             * @default false
+             */
+            job: boolean;
+            origin?: components["schemas"]["DockerOriginOut"] | null;
+            owner?: components["schemas"]["DockerOwnerOut"] | null;
+            restart_policy?: components["schemas"]["DockerRestartPolicyOut"] | null;
+            state?: components["schemas"]["DockerStateOut"] | null;
+            touches?: components["schemas"]["DockerTouchesOut"] | null;
+            usage?: components["schemas"]["DockerUsageOut"] | null;
+            why?: components["schemas"]["DockerWhyOut"] | null;
+        };
+        /**
+         * DockerContainerOut
+         * @description A container, with its owner and what may be done to it.
+         *
+         *     Attributes:
+         *         id: The full id.
+         *         name: Its name.
+         *         image: The image it was made from, as it was asked for.
+         *         state: Docker's word for its state.
+         *         status: Docker's sentence for it (``Up 2 hours (healthy)``).
+         *         health: ``healthy``, ``unhealthy``, ``starting`` or empty.
+         *         created: When it was made, as Docker prints it.
+         *         ports: What it publishes, as Docker prints it.
+         *         mounts: The volumes (by name) and the host paths it mounts.
+         *         networks: The networks it is on.
+         *         project: Its Compose project.
+         *         service: Its Compose service.
+         *         working_dir: The directory its project runs from.
+         *         config_files: The compose files Compose recorded for it.
+         *         oneoff: Compose made it for ``run`` and not for ``up``.
+         *         instance: Its database-instance label: a claim, not a proof.
+         *         helper: Its helper label: a claim, not a proof.
+         *         state_kind: Its state as one word: ``running``, ``unhealthy``, ``loop``, ``oom``, ``killed``,
+         *             ``error``, ``dead``, ``terminated`` (somebody stopped it), ``ended``, ``stopped``,
+         *             ``paused`` or ``created``.
+         *         problem: It asks for the operator.
+         *         exit_code: How its last run ended, when the listing says.
+         *         owner: Whose it is.
+         *         can: What may be done to it.
+         */
+        DockerContainerOut: {
+            can: components["schemas"]["DockerCanOut"];
+            /** Config Files */
+            config_files?: string[];
+            /**
+             * Created
+             * @default
+             */
+            created: string;
+            /** Exit Code */
+            exit_code?: number | null;
+            /**
+             * Health
+             * @default
+             */
+            health: string;
+            /**
+             * Helper
+             * @default
+             */
+            helper: string;
+            /** Id */
+            id: string;
+            /**
+             * Image
+             * @default
+             */
+            image: string;
+            /**
+             * Instance
+             * @default
+             */
+            instance: string;
+            /** Mounts */
+            mounts?: string[];
+            /** Name */
+            name: string;
+            /** Networks */
+            networks?: string[];
+            /**
+             * Oneoff
+             * @default false
+             */
+            oneoff: boolean;
+            owner: components["schemas"]["DockerOwnerOut"];
+            /**
+             * Ports
+             * @default
+             */
+            ports: string;
+            /** Problem */
+            problem: boolean;
+            /**
+             * Project
+             * @default
+             */
+            project: string;
+            /**
+             * Service
+             * @default
+             */
+            service: string;
+            /**
+             * State
+             * @default
+             */
+            state: string;
+            /** State Kind */
+            state_kind: string;
+            /**
+             * Status
+             * @default
+             */
+            status: string;
+            /**
+             * Working Dir
+             * @default
+             */
+            working_dir: string;
+        };
+        /**
+         * DockerContainersOut
+         * @description The containers the principal sees, by name.
+         *
+         *     Attributes:
+         *         items: The page.
+         */
+        DockerContainersOut: {
+            /**
+             * Available
+             * @default true
+             */
+            available: boolean;
+            /**
+             * Can Manage
+             * @default false
+             */
+            can_manage: boolean;
+            engine?: components["schemas"]["DockerEngineOut"] | null;
+            /** Items */
+            items?: components["schemas"]["DockerContainerOut"][];
+            /** Limit */
+            limit?: number | null;
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: number;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+        };
+        /**
+         * DockerDiskOut
+         * @description The disk Docker lives on.
+         *
+         *     Attributes:
+         *         docker_bytes: What Docker holds.
+         *         reclaimable_bytes: What a cleanup could give back without touching data.
+         *         free_bytes: Free where Docker keeps its data; null when this process cannot see it.
+         *         total_bytes: The size of that disk; null likewise.
+         *         path: Where Docker keeps its data.
+         */
+        DockerDiskOut: {
+            /** Docker Bytes */
+            docker_bytes?: number | null;
+            /** Free Bytes */
+            free_bytes?: number | null;
+            /**
+             * Path
+             * @default
+             */
+            path: string;
+            /** Reclaimable Bytes */
+            reclaimable_bytes?: number | null;
+            /** Total Bytes */
+            total_bytes?: number | null;
+        };
+        /**
+         * DockerEngineInfoOut
+         * @description What Docker says of itself.
+         *
+         *     Attributes:
+         *         installed: There is a ``docker`` program.
+         *         reachable: Its daemon answered.
+         *         client_version: The program's version.
+         *         server_version: The daemon's version; empty when it did not answer.
+         *         client_api: The newest API the program speaks.
+         *         server_api: The newest API the daemon speaks.
+         *         min_api: The oldest API the daemon accepts.
+         *         api: The API in use: the lower of the two sides.
+         *         compose_version: The Compose plugin's version; empty without it.
+         *         compose_v1: There is a ``docker-compose`` program, which is Compose 1.
+         *         image_store: ``containerd`` or ``classic``.
+         *         storage_driver: The driver that keeps the images.
+         *         rootless: The daemon runs without root.
+         *         host: Where the program reaches the daemon.
+         *         socket: The path of the socket when it is local.
+         *         socket_owner: Whose it is.
+         *         socket_group: Which group's: whoever is in it has root's power.
+         *         socket_mode: Its permission bits.
+         *         root_dir: Where Docker keeps its data.
+         *         os: The operating system Docker runs on.
+         *         error: Docker's own words when the daemon did not answer.
+         */
+        DockerEngineInfoOut: {
+            /**
+             * Api
+             * @default
+             */
+            api: string;
+            /**
+             * Client Api
+             * @default
+             */
+            client_api: string;
+            /**
+             * Client Version
+             * @default
+             */
+            client_version: string;
+            /**
+             * Compose V1
+             * @default false
+             */
+            compose_v1: boolean;
+            /**
+             * Compose Version
+             * @default
+             */
+            compose_version: string;
+            /**
+             * Error
+             * @default
+             */
+            error: string;
+            /**
+             * Host
+             * @default
+             */
+            host: string;
+            /**
+             * Image Store
+             * @default
+             */
+            image_store: string;
+            /**
+             * Installed
+             * @default false
+             */
+            installed: boolean;
+            /**
+             * Min Api
+             * @default
+             */
+            min_api: string;
+            /**
+             * Os
+             * @default
+             */
+            os: string;
+            /**
+             * Reachable
+             * @default false
+             */
+            reachable: boolean;
+            /**
+             * Root Dir
+             * @default
+             */
+            root_dir: string;
+            /**
+             * Rootless
+             * @default false
+             */
+            rootless: boolean;
+            /**
+             * Server Api
+             * @default
+             */
+            server_api: string;
+            /**
+             * Server Version
+             * @default
+             */
+            server_version: string;
+            /**
+             * Socket
+             * @default
+             */
+            socket: string;
+            /**
+             * Socket Group
+             * @default
+             */
+            socket_group: string;
+            /**
+             * Socket Mode
+             * @default
+             */
+            socket_mode: string;
+            /**
+             * Socket Owner
+             * @default
+             */
+            socket_owner: string;
+            /**
+             * Storage Driver
+             * @default
+             */
+            storage_driver: string;
+        };
+        /**
+         * DockerEngineOut
+         * @description Which Docker there is and what does not fit in it: the engine's doctor.
+         *
+         *     Attributes:
+         *         ok: Noust can use everything of this Docker (Compose included).
+         *         state: ``ok``, ``missing`` (no program), ``unreachable`` (its daemon does not answer) or
+         *             ``too_old`` (its API is below what Noust speaks).
+         *         usable: Containers can be looked at and controlled: the state is ``ok``, with or without Compose.
+         *         facts: What is, as sentences with a code.
+         *         limits: What does not fit, as sentences with a code and the fix of each.
+         *         info: What Docker said.
+         */
+        DockerEngineOut: {
+            /** Facts */
+            facts: components["schemas"]["DockerSentenceOut"][];
+            info: components["schemas"]["DockerEngineInfoOut"];
+            /** Limits */
+            limits: components["schemas"]["DockerSentenceOut"][];
+            /** Ok */
+            ok: boolean;
+            /** State */
+            state: string;
+            /** Usable */
+            usable: boolean;
+        };
+        /**
+         * DockerHealthOut
+         * @description A container's health check.
+         *
+         *     Attributes:
+         *         status: ``healthy``, ``unhealthy`` or ``starting``.
+         *         failing_streak: How many probes in a row failed.
+         *         last_output: What the last probe printed, as it printed it.
+         */
+        DockerHealthOut: {
+            /**
+             * Failing Streak
+             * @default 0
+             */
+            failing_streak: number;
+            /**
+             * Last Output
+             * @default
+             */
+            last_output: string;
+            /** Status */
+            status: string;
+        };
+        /**
          * DockerImageOut
          * @description An image no container uses.
          */
@@ -42665,6 +44216,398 @@ export interface components {
             size: string;
             /** Tag */
             tag: string;
+        };
+        /**
+         * DockerImageRowOut
+         * @description An image, once, with every name it has.
+         *
+         *     Attributes:
+         *         id: Its id.
+         *         tags: ``repository:tag`` of each name; none for an image with no name.
+         *         created: When it was made.
+         *         size_bytes: Its size, when Docker said.
+         *         used_by: The containers made from it, running or not.
+         *         way_back: An application keeps it to go back to: never offered as unused.
+         *         dangling: It has no name.
+         *         owner: Whose it is.
+         *         can: What may be done to it.
+         */
+        DockerImageRowOut: {
+            can: components["schemas"]["DockerCanOut"];
+            /**
+             * Created
+             * @default
+             */
+            created: string;
+            /**
+             * Dangling
+             * @default false
+             */
+            dangling: boolean;
+            /** Id */
+            id: string;
+            owner: components["schemas"]["DockerOwnerOut"];
+            /** Size Bytes */
+            size_bytes?: number | null;
+            /** Tags */
+            tags?: string[];
+            /** Used By */
+            used_by?: string[];
+            /**
+             * Way Back
+             * @default false
+             */
+            way_back: boolean;
+        };
+        /**
+         * DockerImagesOut
+         * @description The images the principal sees, by name.
+         *
+         *     Attributes:
+         *         items: The page.
+         */
+        DockerImagesOut: {
+            /**
+             * Available
+             * @default true
+             */
+            available: boolean;
+            /**
+             * Can Manage
+             * @default false
+             */
+            can_manage: boolean;
+            engine?: components["schemas"]["DockerEngineOut"] | null;
+            /** Items */
+            items?: components["schemas"]["DockerImageRowOut"][];
+            /** Limit */
+            limit?: number | null;
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: number;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+        };
+        /**
+         * DockerKeptOut
+         * @description Something that looks unused and stays.
+         *
+         *     Attributes:
+         *         name: What it is called.
+         *         owner: Whose it is.
+         *         size_bytes: How much it holds.
+         *         why: ``rollback`` (an application keeps it to go back to) or ``noust`` (Noust uses it).
+         */
+        DockerKeptOut: {
+            /** Name */
+            name: string;
+            owner: components["schemas"]["DockerOwnerOut"];
+            /** Size Bytes */
+            size_bytes?: number | null;
+            /** Why */
+            why: string;
+        };
+        /**
+         * DockerLogsOut
+         * @description The end of a container's log, as it wrote it.
+         *
+         *     Attributes:
+         *         available: Docker could be read.
+         *         engine: The doctor's report, only when it could not.
+         *         container: Its name.
+         *         tail: How many lines were asked for.
+         *         logs: The lines with the time of each, the credentials masked and nothing else changed.
+         */
+        DockerLogsOut: {
+            /**
+             * Available
+             * @default true
+             */
+            available: boolean;
+            /**
+             * Container
+             * @default
+             */
+            container: string;
+            engine?: components["schemas"]["DockerEngineOut"] | null;
+            /**
+             * Logs
+             * @default
+             */
+            logs: string;
+            /**
+             * Tail
+             * @default 0
+             */
+            tail: number;
+        };
+        /**
+         * DockerLostOut
+         * @description A container that would not come back after a restart of the machine.
+         *
+         *     Attributes:
+         *         name: Its name.
+         *         owner: Whose it is.
+         *         why: ``policy`` (it runs and its policy does not bring it back) or ``stopped`` (somebody stopped
+         *             it under ``unless-stopped``).
+         *         policy: Its restart policy.
+         *         fix: ``via_owner`` (change it where its application or engine is), ``bring_first`` (it is part of
+         *             a stack Noust did not make: bring the stack to Noust) or ``set_policy`` (give it a policy).
+         *         project: The Compose project it is part of, if any.
+         */
+        DockerLostOut: {
+            /** Fix */
+            fix: string;
+            /** Name */
+            name: string;
+            owner: components["schemas"]["DockerOwnerOut"];
+            /** Policy */
+            policy: string;
+            /**
+             * Project
+             * @default
+             */
+            project: string;
+            /** Why */
+            why: string;
+        };
+        /**
+         * DockerMountOut
+         * @description Something a container touches on the host.
+         *
+         *     Attributes:
+         *         kind: ``volume``, ``bind`` or ``tmpfs``.
+         *         name: The volume's name, for a volume.
+         *         source: Where it is on the host.
+         *         destination: Where it is inside the container.
+         *         read_only: The container may not write to it.
+         */
+        DockerMountOut: {
+            /**
+             * Destination
+             * @default
+             */
+            destination: string;
+            /** Kind */
+            kind: string;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Read Only
+             * @default false
+             */
+            read_only: boolean;
+            /**
+             * Source
+             * @default
+             */
+            source: string;
+        };
+        /**
+         * DockerNetworkOut
+         * @description A network.
+         *
+         *     Attributes:
+         *         id: Its id.
+         *         name: Its name.
+         *         driver: ``bridge``, ``host``, ``overlay``...
+         *         scope: ``local`` or ``swarm``.
+         *         internal: It has no way out.
+         *         project: Its Compose project.
+         *         created: When it was made.
+         *         containers: The containers on it.
+         *         builtin: Docker makes it itself and it cannot be removed.
+         *         owner: Whose it is.
+         *         can: What may be done to it.
+         */
+        DockerNetworkOut: {
+            /**
+             * Builtin
+             * @default false
+             */
+            builtin: boolean;
+            can: components["schemas"]["DockerCanOut"];
+            /** Containers */
+            containers?: string[];
+            /**
+             * Created
+             * @default
+             */
+            created: string;
+            /**
+             * Driver
+             * @default
+             */
+            driver: string;
+            /** Id */
+            id: string;
+            /**
+             * Internal
+             * @default false
+             */
+            internal: boolean;
+            /** Name */
+            name: string;
+            owner: components["schemas"]["DockerOwnerOut"];
+            /**
+             * Project
+             * @default
+             */
+            project: string;
+            /**
+             * Scope
+             * @default
+             */
+            scope: string;
+        };
+        /**
+         * DockerNetworksOut
+         * @description The networks the principal sees, by name.
+         *
+         *     Attributes:
+         *         items: The page.
+         */
+        DockerNetworksOut: {
+            /**
+             * Available
+             * @default true
+             */
+            available: boolean;
+            /**
+             * Can Manage
+             * @default false
+             */
+            can_manage: boolean;
+            engine?: components["schemas"]["DockerEngineOut"] | null;
+            /** Items */
+            items?: components["schemas"]["DockerNetworkOut"][];
+            /** Limit */
+            limit?: number | null;
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: number;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+        };
+        /**
+         * DockerOriginOut
+         * @description Where a container comes from.
+         *
+         *     Attributes:
+         *         image: The image it was made from, as it was asked for.
+         *         image_id: That image's id.
+         *         project: Its Compose project.
+         *         service: Its Compose service.
+         *         working_dir: The directory its project runs from.
+         *         config_files: The compose files Compose recorded for it.
+         */
+        DockerOriginOut: {
+            /** Config Files */
+            config_files?: string[];
+            /**
+             * Image
+             * @default
+             */
+            image: string;
+            /**
+             * Image Id
+             * @default
+             */
+            image_id: string;
+            /**
+             * Project
+             * @default
+             */
+            project: string;
+            /**
+             * Service
+             * @default
+             */
+            service: string;
+            /**
+             * Working Dir
+             * @default
+             */
+            working_dir: string;
+        };
+        /**
+         * DockerOwnerOut
+         * @description Whose an object is.
+         *
+         *     Attributes:
+         *         kind: ``app`` (an application of Noust: its stack, or its container), ``database`` (a database
+         *             engine Noust runs in a container), ``noust`` (Noust itself) or ``nobody`` (Noust did not
+         *             make it: the instance's).
+         *         subject: The application's domain, the instance's name, ``central`` or ``helper`` for Noust's own;
+         *             empty for nobody.
+         *         project: The Compose project it is part of, when it is part of one.
+         */
+        DockerOwnerOut: {
+            /** Kind */
+            kind: string;
+            /**
+             * Project
+             * @default
+             */
+            project: string;
+            /**
+             * Subject
+             * @default
+             */
+            subject: string;
+        };
+        /**
+         * DockerPlanItemOut
+         * @description One thing a cleanup would remove.
+         *
+         *     Attributes:
+         *         id: What identifies it: the plan is applied by it.
+         *         kind: ``image``, ``container``, ``volume``, ``network`` or ``cache``.
+         *         name: What a person calls it.
+         *         owner: Whose it is.
+         *         size_bytes: How much it holds, when Docker said.
+         *         why: ``dangling`` (no name and no container), ``unused``, ``stopped`` or ``old_cache``.
+         *         tick: Marked when the plan is shown.
+         *         type_name: The person types its name before it goes (every volume).
+         *         anonymous: A volume a container made without naming it.
+         */
+        DockerPlanItemOut: {
+            /**
+             * Anonymous
+             * @default false
+             */
+            anonymous: boolean;
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            owner: components["schemas"]["DockerOwnerOut"];
+            /** Size Bytes */
+            size_bytes?: number | null;
+            /** Tick */
+            tick: boolean;
+            /**
+             * Type Name
+             * @default false
+             */
+            type_name: boolean;
+            /** Why */
+            why: string;
         };
         /**
          * DockerPortOut
@@ -42683,6 +44626,494 @@ export interface components {
             project?: string | null;
             /** Proto */
             proto: string;
+        };
+        /**
+         * DockerRemoveVolumeRequest
+         * @description Remove a volume: its name is typed a second time.
+         *
+         *     Attributes:
+         *         confirm_name: The volume's name again.
+         */
+        DockerRemoveVolumeRequest: {
+            /** Confirm Name */
+            confirm_name?: string | null;
+        };
+        /**
+         * DockerRestartLossOut
+         * @description What a restart of the machine would leave down.
+         *
+         *     Attributes:
+         *         available: Docker could be read.
+         *         engine: The doctor's report, only when it could not.
+         *         items: The containers that would not come back, by name.
+         */
+        DockerRestartLossOut: {
+            /**
+             * Available
+             * @default true
+             */
+            available: boolean;
+            engine?: components["schemas"]["DockerEngineOut"] | null;
+            /** Items */
+            items?: components["schemas"]["DockerLostOut"][];
+        };
+        /**
+         * DockerRestartPolicyOut
+         * @description What Docker does when a container ends.
+         *
+         *     Attributes:
+         *         name: ``no``, ``always``, ``unless-stopped`` or ``on-failure``.
+         *         max_retries: How many times ``on-failure`` tries; 0 for no limit.
+         */
+        DockerRestartPolicyOut: {
+            /**
+             * Max Retries
+             * @default 0
+             */
+            max_retries: number;
+            /**
+             * Name
+             * @default no
+             */
+            name: string;
+        };
+        /**
+         * DockerSentenceOut
+         * @description One sentence of the engine's doctor.
+         *
+         *     Attributes:
+         *         text: It in English.
+         *         hint: How to fix it in English, when it has a fix.
+         */
+        DockerSentenceOut: {
+            /** Code */
+            code: string;
+            /** Hint */
+            hint?: string | null;
+            /** Params */
+            params?: {
+                [key: string]: boolean | number | string;
+            };
+            /** Text */
+            text: string;
+        };
+        /**
+         * DockerStackDetailOut
+         * @description One stack with its containers in full.
+         *
+         *     Attributes:
+         *         available: Docker could be read.
+         *         engine: The doctor's report, only when it could not.
+         *         stack: The stack.
+         *         containers: Its containers, by name.
+         *         can_manage: The one who asks may change Docker at all.
+         */
+        DockerStackDetailOut: {
+            /**
+             * Available
+             * @default true
+             */
+            available: boolean;
+            /**
+             * Can Manage
+             * @default false
+             */
+            can_manage: boolean;
+            /** Containers */
+            containers?: components["schemas"]["DockerContainerOut"][];
+            engine?: components["schemas"]["DockerEngineOut"] | null;
+            stack?: components["schemas"]["DockerStackOut"] | null;
+        };
+        /**
+         * DockerStackOut
+         * @description A Compose project, as its containers show it.
+         *
+         *     Attributes:
+         *         name: The project's name.
+         *         working_dir: The directory it runs from.
+         *         config_files: Its compose files.
+         *         containers: The names of its containers.
+         *         total: How many containers it has.
+         *         running: How many of its workers run.
+         *         workers: How many of its containers are meant to keep running (a job that did its work and
+         *             ended is not one).
+         *         state: ``running``, ``warning`` (a worker is down or unhealthy), ``failed`` (a worker keeps
+         *             falling or ended badly) or ``stopped``.
+         *         owner: Whose it is.
+         */
+        DockerStackOut: {
+            /** Config Files */
+            config_files?: string[];
+            /** Containers */
+            containers?: string[];
+            /** Name */
+            name: string;
+            owner: components["schemas"]["DockerOwnerOut"];
+            /**
+             * Running
+             * @default 0
+             */
+            running: number;
+            /**
+             * State
+             * @default
+             */
+            state: string;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+            /**
+             * Workers
+             * @default 0
+             */
+            workers: number;
+            /**
+             * Working Dir
+             * @default
+             */
+            working_dir: string;
+        };
+        /**
+         * DockerStacksOut
+         * @description The Compose projects the principal sees, by name.
+         *
+         *     Attributes:
+         *         items: The page.
+         */
+        DockerStacksOut: {
+            /**
+             * Available
+             * @default true
+             */
+            available: boolean;
+            /**
+             * Can Manage
+             * @default false
+             */
+            can_manage: boolean;
+            engine?: components["schemas"]["DockerEngineOut"] | null;
+            /** Items */
+            items?: components["schemas"]["DockerStackOut"][];
+            /** Limit */
+            limit?: number | null;
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: number;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+        };
+        /**
+         * DockerStateOut
+         * @description A container's state as one word.
+         *
+         *     Attributes:
+         *         kind: See :attr:`DockerContainerOut.state_kind`.
+         *         problem: It asks for the operator.
+         *         exit_code: How its last run ended.
+         */
+        DockerStateOut: {
+            /** Exit Code */
+            exit_code?: number | null;
+            /** Kind */
+            kind: string;
+            /** Problem */
+            problem: boolean;
+        };
+        /**
+         * DockerSummaryOut
+         * @description The machine, in short.
+         *
+         *     Attributes:
+         *         available: Docker could be read.
+         *         engine: Which Docker there is and what does not fit in it (always present).
+         *         counts: How many of each thing: ``containers`` (``total``, ``running``, ``failing``,
+         *             ``stopped``), ``stacks`` (``total``, ``unowned``), ``images``, ``volumes`` and ``networks``
+         *             (``total``). Empty when Docker could not be read.
+         *         attention: What asks for the operator, worst first.
+         *         disk: The disk Docker lives on.
+         *         can_manage: The one who asks may change Docker at all.
+         */
+        DockerSummaryOut: {
+            /** Attention */
+            attention?: components["schemas"]["DockerAttentionOut"][];
+            /** Available */
+            available: boolean;
+            /**
+             * Can Manage
+             * @default false
+             */
+            can_manage: boolean;
+            /** Counts */
+            counts?: {
+                [key: string]: {
+                    [key: string]: number;
+                };
+            };
+            disk?: components["schemas"]["DockerDiskOut"] | null;
+            engine: components["schemas"]["DockerEngineOut"];
+        };
+        /**
+         * DockerTouchesOut
+         * @description What a container touches.
+         *
+         *     Attributes:
+         *         mounts: The volumes and host paths it mounts.
+         *         networks: The networks it is on.
+         *         ports: What it publishes, as Docker prints it.
+         *         privileged: It runs with every privilege of the host.
+         */
+        DockerTouchesOut: {
+            /** Mounts */
+            mounts?: components["schemas"]["DockerMountOut"][];
+            /** Networks */
+            networks?: string[];
+            /**
+             * Ports
+             * @default
+             */
+            ports: string;
+            /**
+             * Privileged
+             * @default false
+             */
+            privileged: boolean;
+        };
+        /**
+         * DockerUsageOut
+         * @description What a container uses, or why that is not known.
+         *
+         *     Attributes:
+         *         available: There is a reading worth showing.
+         *         reason: Why there is none: ``not_running``, ``restarting``, ``too_young`` or ``no_reading``.
+         *         cpu_percent: Processor use: 100 is one whole core.
+         *         memory_bytes: Memory in use.
+         *         memory_limit_bytes: Its memory limit; null when it has none.
+         *         memory_percent: Use over the limit; null when it has none.
+         *         net_rx_bytes: Received since it started.
+         *         net_tx_bytes: Sent since it started.
+         *         block_read_bytes: Read from disk since it started.
+         *         block_write_bytes: Written to disk since it started.
+         *         pids: Processes in it.
+         */
+        DockerUsageOut: {
+            /** Available */
+            available: boolean;
+            /** Block Read Bytes */
+            block_read_bytes?: number | null;
+            /** Block Write Bytes */
+            block_write_bytes?: number | null;
+            /** Cpu Percent */
+            cpu_percent?: number | null;
+            /** Memory Bytes */
+            memory_bytes?: number | null;
+            /** Memory Limit Bytes */
+            memory_limit_bytes?: number | null;
+            /** Memory Percent */
+            memory_percent?: number | null;
+            /** Net Rx Bytes */
+            net_rx_bytes?: number | null;
+            /** Net Tx Bytes */
+            net_tx_bytes?: number | null;
+            /** Pids */
+            pids?: number | null;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+        };
+        /**
+         * DockerVolumeOut
+         * @description A named volume.
+         *
+         *     Attributes:
+         *         name: Its name.
+         *         driver: Its driver.
+         *         scope: ``local`` or ``global``.
+         *         mountpoint: Where Docker keeps its data on the host.
+         *         project: Its Compose project.
+         *         key: The name its compose file gave it.
+         *         instance: Its database-instance label.
+         *         size_bytes: Its size when measured; a listing leaves it null (``GET /volumes/sizes`` measures).
+         *         used_by: The containers that mount it.
+         *         anonymous: A container made it without naming it.
+         *         owner: Whose it is.
+         *         can: What may be done to it.
+         */
+        DockerVolumeOut: {
+            /**
+             * Anonymous
+             * @default false
+             */
+            anonymous: boolean;
+            can: components["schemas"]["DockerCanOut"];
+            /**
+             * Driver
+             * @default local
+             */
+            driver: string;
+            /**
+             * Instance
+             * @default
+             */
+            instance: string;
+            /**
+             * Key
+             * @default
+             */
+            key: string;
+            /**
+             * Mountpoint
+             * @default
+             */
+            mountpoint: string;
+            /** Name */
+            name: string;
+            owner: components["schemas"]["DockerOwnerOut"];
+            /**
+             * Project
+             * @default
+             */
+            project: string;
+            /**
+             * Scope
+             * @default local
+             */
+            scope: string;
+            /** Size Bytes */
+            size_bytes?: number | null;
+            /** Used By */
+            used_by?: string[];
+        };
+        /**
+         * DockerVolumeSizesOut
+         * @description How much each volume holds, measured apart because Docker walks every volume to say it.
+         *
+         *     Attributes:
+         *         available: Docker could be read.
+         *         engine: The doctor's report, only when it could not.
+         *         sizes: The size in bytes of each volume the principal sees and Docker could measure.
+         */
+        DockerVolumeSizesOut: {
+            /**
+             * Available
+             * @default true
+             */
+            available: boolean;
+            engine?: components["schemas"]["DockerEngineOut"] | null;
+            /** Sizes */
+            sizes?: {
+                [key: string]: number;
+            };
+        };
+        /**
+         * DockerVolumesOut
+         * @description The volumes the principal sees, by name, not measured.
+         *
+         *     Attributes:
+         *         items: The page.
+         */
+        DockerVolumesOut: {
+            /**
+             * Available
+             * @default true
+             */
+            available: boolean;
+            /**
+             * Can Manage
+             * @default false
+             */
+            can_manage: boolean;
+            engine?: components["schemas"]["DockerEngineOut"] | null;
+            /** Items */
+            items?: components["schemas"]["DockerVolumeOut"][];
+            /** Limit */
+            limit?: number | null;
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: number;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+        };
+        /**
+         * DockerWhyOut
+         * @description Why a container is the way it is, as Docker says it.
+         *
+         *     Attributes:
+         *         kind: Its state as one word.
+         *         exit_code: How its last run ended.
+         *         oom_killed: Memory ran out in its last run.
+         *         error: Docker's own words when it could not start it.
+         *         restart_count: How many times Docker restarted it in its life.
+         *         restarts_recent: How many times in the last ``window_minutes``.
+         *         window_minutes: The window ``restarts_recent`` counts in.
+         *         looping: It keeps falling: restarting now or restarted three times or more in the window.
+         *         started_at: When it last started, to the second.
+         *         finished_at: When it last ended, to the second.
+         *         memory_limit_bytes: Its memory limit; null for none.
+         *         health: Its health check, when it has one.
+         *         last_lines: What it wrote last, as it wrote it with the credentials masked; empty for a
+         *             container that runs well (its log is read live).
+         */
+        DockerWhyOut: {
+            /**
+             * Error
+             * @default
+             */
+            error: string;
+            /** Exit Code */
+            exit_code?: number | null;
+            /** Finished At */
+            finished_at?: string | null;
+            health?: components["schemas"]["DockerHealthOut"] | null;
+            /** Kind */
+            kind: string;
+            /**
+             * Last Lines
+             * @default
+             */
+            last_lines: string;
+            /**
+             * Looping
+             * @default false
+             */
+            looping: boolean;
+            /** Memory Limit Bytes */
+            memory_limit_bytes?: number | null;
+            /**
+             * Oom Killed
+             * @default false
+             */
+            oom_killed: boolean;
+            /**
+             * Restart Count
+             * @default 0
+             */
+            restart_count: number;
+            /**
+             * Restarts Recent
+             * @default 0
+             */
+            restarts_recent: number;
+            /** Started At */
+            started_at?: string | null;
+            /**
+             * Window Minutes
+             * @default 10
+             */
+            window_minutes: number;
         };
         /**
          * DockerfileRequest
@@ -90201,6 +92632,690 @@ export interface operations {
             };
         };
     };
+    apply_cleanup_api_docker_cleanup_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DockerCleanupRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_cleanup_plan_api_docker_cleanup_plan_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DockerCleanupPlanOut"];
+                };
+            };
+        };
+    };
+    list_containers_api_docker_containers_get: {
+        parameters: {
+            query?: {
+                /** @description Where the page starts */
+                offset?: number;
+                /** @description How many it holds at most (1 to 1000); all when absent */
+                limit?: number | null;
+                /** @description Only those of this kind of owner: app, database, noust, nobody */
+                owner?: string | null;
+                /** @description Only those of the application with this domain */
+                app?: string | null;
+                /** @description Only those in this Docker state: running, exited... */
+                state?: string | null;
+                /** @description Only those of this Compose project */
+                project?: string | null;
+                /** @description Only those whose name or image contains this */
+                search?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DockerContainersOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_container_api_docker_containers__ref__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DockerContainerDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_container_api_docker_containers__ref__delete: {
+        parameters: {
+            query?: {
+                /** @description Remove it even if it is running */
+                force?: boolean;
+            };
+            header?: never;
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DockerActionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_container_logs_api_docker_containers__ref__logs_get: {
+        parameters: {
+            query?: {
+                /** @description How many lines from the end (1 to 5000) */
+                tail?: number;
+            };
+            header?: never;
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DockerLogsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restart_container_api_docker_containers__ref__restart_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DockerActionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_container_api_docker_containers__ref__start_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DockerActionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stop_container_api_docker_containers__ref__stop_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DockerActionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    open_container_terminal_api_docker_containers__ref__terminal_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TerminalRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TerminalTicketResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_engine_api_docker_engine_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DockerEngineOut"];
+                };
+            };
+        };
+    };
+    list_images_api_docker_images_get: {
+        parameters: {
+            query?: {
+                /** @description Where the page starts */
+                offset?: number;
+                /** @description How many it holds at most (1 to 1000); all when absent */
+                limit?: number | null;
+                /** @description Only those of this kind of owner: app, database, noust, nobody */
+                owner?: string | null;
+                /** @description Only those whose name, id or users contain this */
+                search?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DockerImagesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_image_api_docker_images__image_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                image_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DockerActionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_networks_api_docker_networks_get: {
+        parameters: {
+            query?: {
+                /** @description Where the page starts */
+                offset?: number;
+                /** @description How many it holds at most (1 to 1000); all when absent */
+                limit?: number | null;
+                /** @description Only those of this kind of owner: app, database, noust, nobody */
+                owner?: string | null;
+                /** @description Only those whose name or containers contain this */
+                search?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DockerNetworksOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_network_api_docker_networks__ref__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DockerActionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_restart_loss_api_docker_restart_loss_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DockerRestartLossOut"];
+                };
+            };
+        };
+    };
+    list_stacks_api_docker_stacks_get: {
+        parameters: {
+            query?: {
+                /** @description Where the page starts */
+                offset?: number;
+                /** @description How many it holds at most (1 to 1000); all when absent */
+                limit?: number | null;
+                /** @description Only those of this kind of owner: app, database, noust, nobody */
+                owner?: string | null;
+                /** @description Only those whose name, directory or containers contain this */
+                search?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DockerStacksOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_stack_api_docker_stacks__name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DockerStackDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_summary_api_docker_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DockerSummaryOut"];
+                };
+            };
+        };
+    };
+    list_volumes_api_docker_volumes_get: {
+        parameters: {
+            query?: {
+                /** @description Where the page starts */
+                offset?: number;
+                /** @description How many it holds at most (1 to 1000); all when absent */
+                limit?: number | null;
+                /** @description Only those of this kind of owner: app, database, noust, nobody */
+                owner?: string | null;
+                /** @description Only those whose name or users contain this */
+                search?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DockerVolumesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_volume_sizes_api_docker_volumes_sizes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DockerVolumeSizesOut"];
+                };
+            };
+        };
+    };
+    remove_volume_api_docker_volumes__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DockerRemoveVolumeRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DockerActionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_bare_dns_api_domains_dns_get: {
         parameters: {
             query: {
@@ -104400,6 +107515,314 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["noust__web__api__views__DeliveriesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    view_docker_attention_api_views_docker_attention_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself. Leave it out for every server */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    view_docker_containers_api_views_docker_containers_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself. Leave it out for every server */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+                /** @description Rows per server */
+                limit?: number;
+                /** @description Only rows of this kind of owner: app, database, noust, nobody */
+                owner?: string | null;
+                /** @description Only the containers of this application */
+                app?: string | null;
+                /** @description Only this Docker state */
+                state?: string | null;
+                /** @description Only this Compose project */
+                project?: string | null;
+                /** @description Only rows containing this text */
+                search?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    view_docker_engine_api_views_docker_engine_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself. Leave it out for every server */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    view_docker_images_api_views_docker_images_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself. Leave it out for every server */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+                /** @description Rows per server */
+                limit?: number;
+                /** @description Only rows of this kind of owner: app, database, noust, nobody */
+                owner?: string | null;
+                /** @description Only rows containing this text */
+                search?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    view_docker_networks_api_views_docker_networks_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself. Leave it out for every server */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+                /** @description Rows per server */
+                limit?: number;
+                /** @description Only rows of this kind of owner: app, database, noust, nobody */
+                owner?: string | null;
+                /** @description Only rows containing this text */
+                search?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    view_docker_stacks_api_views_docker_stacks_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself. Leave it out for every server */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+                /** @description Rows per server */
+                limit?: number;
+                /** @description Only rows of this kind of owner: app, database, noust, nobody */
+                owner?: string | null;
+                /** @description Only rows containing this text */
+                search?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    view_docker_summary_api_views_docker_summary_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself. Leave it out for every server */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    view_docker_volumes_api_views_docker_volumes_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself. Leave it out for every server */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+                /** @description Rows per server */
+                limit?: number;
+                /** @description Only rows of this kind of owner: app, database, noust, nobody */
+                owner?: string | null;
+                /** @description Only rows containing this text */
+                search?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViewOut"];
                 };
             };
             /** @description Validation Error */
