@@ -35,6 +35,7 @@ from typing import Any
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from starlette.concurrency import run_in_threadpool
 
+from noust.central import machine
 from noust.core.docker.errors import DockerNotFoundError
 from noust.core.docker.gate import DockerGate
 from noust.core.exceptions import DockerError, NoustError
@@ -220,5 +221,5 @@ def _resolve(gate: DockerGate, ref: str) -> Any:
         DockerNotFoundError: There is none, or the principal may not see it.
         DockerUnavailableError: Docker is not there or is below what Noust speaks.
     """
-    gate.require_usable()
+    gate.require_usable(machine.engine_report(gate.runner))
     return gate.container(ref)

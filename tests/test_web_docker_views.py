@@ -19,6 +19,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from noust.central import machine
 from noust.core.config import Config
 from noust.core.runner import FakeRunner
 from noust.core.store import NoustStore
@@ -81,7 +82,9 @@ def central(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Central
             "total": 1,
         },
     )
+    machine.reset_machine_facts()
     yield built
+    machine.reset_machine_facts()
     JobManager.reset_instance()
     set_aggregator(None)
     Config.reset_instance()

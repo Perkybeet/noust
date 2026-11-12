@@ -28,6 +28,7 @@ carry all of it without a second request.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.server_text import ServerText
@@ -35,7 +36,17 @@ from noust.core.utils import check_root
 from noust.managers.server.facts import FactCache
 from noust.managers.server.host import HostPaths, detect_platform
 
-__all__ = ["TTL_DOCKER", "MachineFacts", "is_root", "read_machine_facts", "reset_machine_facts"]
+if TYPE_CHECKING:
+    from noust.core.docker.engine import EngineReport
+
+__all__ = [
+    "TTL_DOCKER",
+    "MachineFacts",
+    "engine_report",
+    "is_root",
+    "read_machine_facts",
+    "reset_machine_facts",
+]
 
 #: How long what the engine said stays fresh, in seconds.
 TTL_DOCKER = 30.0
@@ -97,20 +108,53 @@ def _web_server(runner: CommandRunner) -> bool:
     return NginxManager(runner=runner).is_installed() or ApacheManager(runner=runner).is_installed()
 
 
-def _ask_docker(runner: CommandRunner) -> tuple[bool, ServerText | None]:
+def _ask_docker(runner: CommandRunner) -> EngineReport:
     """
-    Ask the engine's doctor whether Noust can use this Docker.
+    Ask the engine's doctor what Docker there is.
 
     Args:
         runner: Runs the doctor's questions.
 
     Returns:
-        Whether it can and, when it cannot, the doctor's sentence for the first thing in the way.
+        The doctor's report: what is, what does not fit and, from it, the first thing that stops
+        Noust using this Docker.
     """
     from noust.core.docker import engine
 
-    report = engine.diagnose(engine.read_engine(runner))
-    return report.ok, report.problem
+    return engine.diagnose(engine.read_engine(runner))
+
+
+def engine_report(runner: CommandRunner | None = None, *, fresh: bool = False) -> EngineReport:
+    """
+    The engine's doctor, from what it said not long ago.
+
+    The one reading of the engine that anything that is not the Engine page of the Docker zone asks
+    for: the session's functions and the zone's routes share it, so the engine is asked once in
+    :data:`TTL_DOCKER` seconds and the first look of a process is the only one that waits.
+
+    Args:
+        runner: Runs the doctor's questions when it has to; the process-wide one by default.
+        fresh: Ask the engine now whatever it said a moment ago, and keep the answer (the page that
+            is the doctor itself, and a person who has just installed Docker, want the truth).
+
+    Returns:
+        The report. A question that failed is an engine that does not answer, with the reason it
+        gave.
+    """
+    from noust.core.docker import engine
+
+    active = runner or get_runner()
+    if fresh:
+        report = _ask_docker(active)
+        _cache.put(_DOCKER, report)
+        return report
+    known = _cache.peek(_DOCKER, TTL_DOCKER) is not None
+    fact = _cache.get(_DOCKER, lambda: _ask_docker(active), TTL_DOCKER, wait=not known)
+    if fact is not None and fact.value is not None:
+        found: EngineReport = fact.value
+        return found
+    reason = (fact.error if fact is not None else None) or "it did not say why"
+    return engine.diagnose(engine.EngineInfo(installed=True, reachable=False, error=reason))
 
 
 def _docker(runner: CommandRunner) -> tuple[bool, ServerText | None]:
@@ -121,20 +165,11 @@ def _docker(runner: CommandRunner) -> tuple[bool, ServerText | None]:
         runner: Runs the doctor's questions when it has to.
 
     Returns:
-        As :func:`_ask_docker`. A question that failed is no Docker, with the reason it gave.
+        Whether Noust can use this Docker and, when it cannot, the doctor's sentence for the first
+        thing in the way: both read from :func:`engine_report`, which is where they are decided.
     """
-    from noust.core.docker import engine
-
-    known = _cache.peek(_DOCKER, TTL_DOCKER) is not None
-    fact = _cache.get(_DOCKER, lambda: _ask_docker(runner), TTL_DOCKER, wait=not known)
-    if fact is not None and fact.value is not None:
-        usable, problem = fact.value
-        return usable, problem
-    reason = (fact.error if fact is not None else None) or "it did not say why"
-    unreachable = engine.diagnose(
-        engine.EngineInfo(installed=True, reachable=False, error=reason)
-    ).problem
-    return False, unreachable
+    report = engine_report(runner)
+    return report.ok, report.problem
 
 
 def read_machine_facts(

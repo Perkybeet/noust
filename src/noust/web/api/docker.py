@@ -27,20 +27,21 @@ the parametrised ones.
 
 from __future__ import annotations
 
+import functools
 import logging
-import threading
-import time
-from typing import Annotated, Any
+from collections.abc import Callable
+from typing import Annotated, Any, TypeVar, cast
 
 from fastapi import APIRouter, Depends, Query, Request
+from pydantic import BaseModel
 
+from noust.central import machine
 from noust.core import audit
 from noust.core.docker.engine import EngineReport
-from noust.core.docker.errors import DockerOwnedError
+from noust.core.docker.errors import DockerOwnedError, DockerUnavailableError
 from noust.core.docker.gate import DockerGate
 from noust.core.docker.models import Container, OwnerKind
 from noust.core.exceptions import DockerError, ValidationError
-from noust.core.runner import CommandRunner
 from noust.terminal.targets import KIND_CONTAINER
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, require_elevated
@@ -93,21 +94,15 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(route_class=NoustErrorRoute)
 
+F = TypeVar("F", bound=Callable[..., Any])
+
 Session = Annotated[dict[str, Any], Depends(get_current_session)]
 Elevated = Annotated[dict[str, Any], Depends(require_elevated)]
-
-#: Seconds the engine's doctor is trusted for. It costs four processes, and a page of the console asks
-#: for several things at once.
-ENGINE_TTL_SECONDS = 10.0
-
-_engine_lock = threading.Lock()
-_engine_seen: list[tuple[float, CommandRunner, EngineReport]] = []
 
 
 def reset_engine_cache() -> None:
     """Forget what the doctor said: the next request asks the engine again."""
-    with _engine_lock:
-        _engine_seen.clear()
+    machine.reset_machine_facts()
 
 
 def _gate() -> DockerGate:
@@ -120,29 +115,18 @@ def _gate() -> DockerGate:
 
 def _engine(gate: DockerGate, *, fresh: bool = False) -> EngineReport:
     """
-    Ask the engine's doctor, at most once in :data:`ENGINE_TTL_SECONDS`.
+    Ask the engine's doctor through the one reading of it that the session's functions share
+    (:func:`noust.central.machine.engine_report`): the engine is asked once in a while and not once
+    per request, and only the first look of a process waits for it.
 
     Args:
-        gate: The gate.
+        gate: The gate, whose runner is the one asked when the engine has to be.
         fresh: Ask again whatever was said a moment ago (the Engine page is the doctor).
 
     Returns:
         The report.
     """
-    runner = gate.runner
-    now = time.monotonic()
-    with _engine_lock:
-        if (
-            not fresh
-            and _engine_seen
-            and _engine_seen[0][1] is runner
-            and now - _engine_seen[0][0] < ENGINE_TTL_SECONDS
-        ):
-            return _engine_seen[0][2]
-    report = gate.doctor()
-    with _engine_lock:
-        _engine_seen[:] = [(now, runner, report)]
-    return report
+    return machine.engine_report(gate.runner, fresh=fresh)
 
 
 def _may_manage(session: dict[str, Any]) -> bool:
@@ -173,6 +157,44 @@ def _can(gate: DockerGate, thing: Any, session: dict[str, Any]) -> DockerCanOut:
     return DockerCanOut(
         **gate.can(thing, manage=Permission.DOCKER_MANAGE in held, console=console).to_dict()
     )
+
+
+def _says_unavailable(model: type[BaseModel]) -> Callable[[F], F]:
+    """
+    Make a read route answer with the doctor's words when Docker went away since the doctor was last asked.
+
+    The engine's reading is kept for a while (:func:`noust.central.machine.engine_report`), and Docker can
+    stop in that while: the gate then finds it cannot be asked. What a person is told then is the same as
+    when the doctor already knew: ``available: false`` and the report, asked again for the occasion, and
+    never an error of the request. If the engine turns out to be fine, the failure was something else and
+    is raised as it was.
+
+    Args:
+        model: The route's model, which has ``available`` and ``engine``.
+
+    Returns:
+        The decorator.
+    """
+
+    def decorate(function: F) -> F:
+        @functools.wraps(function)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            try:
+                return function(*args, **kwargs)
+            except DockerUnavailableError:
+                report = _engine(_gate(), fresh=True)
+                if report.usable:
+                    raise
+                session = kwargs.get("session")
+                return model(
+                    available=False,
+                    engine=engine_out(report),
+                    can_manage=_may_manage(session) if isinstance(session, dict) else False,
+                )
+
+        return cast(F, wrapper)
+
+    return decorate
 
 
 def _owner_kind(value: str | None) -> OwnerKind | None:
@@ -216,6 +238,7 @@ def _list_head(model: type[DockerListOut], report: EngineReport, manage: bool) -
 
 
 @router.get("/summary", response_model=DockerSummaryOut)
+@_says_unavailable(DockerSummaryOut)
 def get_summary(session: Session) -> DockerSummaryOut:
     """
     Say what asks for the operator on this machine, worst first, and how much there is of each thing.
@@ -263,6 +286,7 @@ def get_engine(session: Session) -> DockerEngineOut:
 
 
 @router.get("/restart-loss", response_model=DockerRestartLossOut)
+@_says_unavailable(DockerRestartLossOut)
 def get_restart_loss(session: Session) -> DockerRestartLossOut:
     """
     List what a restart of the machine would leave down, and how each is fixed.
@@ -289,6 +313,7 @@ def get_restart_loss(session: Session) -> DockerRestartLossOut:
 
 
 @router.get("/stacks", response_model=DockerStacksOut)
+@_says_unavailable(DockerStacksOut)
 def list_stacks(
     session: Session,
     offset: Annotated[int, Query(description="Where the page starts")] = 0,
@@ -339,6 +364,7 @@ def list_stacks(
 
 
 @router.get("/stacks/{name}", response_model=DockerStackDetailOut)
+@_says_unavailable(DockerStackDetailOut)
 def get_stack(name: str, session: Session) -> DockerStackDetailOut:
     """
     Read one Compose project with its containers in full.
@@ -367,6 +393,7 @@ def get_stack(name: str, session: Session) -> DockerStackDetailOut:
 
 
 @router.get("/containers", response_model=DockerContainersOut)
+@_says_unavailable(DockerContainersOut)
 def list_containers(
     session: Session,
     offset: Annotated[int, Query(description="Where the page starts")] = 0,
@@ -433,6 +460,7 @@ def list_containers(
 
 
 @router.get("/containers/{ref}", response_model=DockerContainerDetailOut)
+@_says_unavailable(DockerContainerDetailOut)
 def get_container(ref: str, session: Session) -> DockerContainerDetailOut:
     """
     Look at one container from the inside.
@@ -478,6 +506,7 @@ def get_container(ref: str, session: Session) -> DockerContainerDetailOut:
 
 
 @router.get("/containers/{ref}/logs", response_model=DockerLogsOut)
+@_says_unavailable(DockerLogsOut)
 def get_container_logs(
     ref: str,
     session: Session,
@@ -511,6 +540,7 @@ def get_container_logs(
 
 
 @router.get("/images", response_model=DockerImagesOut)
+@_says_unavailable(DockerImagesOut)
 def list_images(
     session: Session,
     offset: Annotated[int, Query(description="Where the page starts")] = 0,
@@ -559,6 +589,7 @@ def list_images(
 
 
 @router.get("/volumes", response_model=DockerVolumesOut)
+@_says_unavailable(DockerVolumesOut)
 def list_volumes(
     session: Session,
     offset: Annotated[int, Query(description="Where the page starts")] = 0,
@@ -606,6 +637,7 @@ def list_volumes(
 
 
 @router.get("/volumes/sizes", response_model=DockerVolumeSizesOut)
+@_says_unavailable(DockerVolumeSizesOut)
 def get_volume_sizes(session: Session) -> DockerVolumeSizesOut:
     """
     Measure the volumes: a call of its own, because Docker walks each one and it takes a while.
@@ -624,6 +656,7 @@ def get_volume_sizes(session: Session) -> DockerVolumeSizesOut:
 
 
 @router.get("/networks", response_model=DockerNetworksOut)
+@_says_unavailable(DockerNetworksOut)
 def list_networks(
     session: Session,
     offset: Annotated[int, Query(description="Where the page starts")] = 0,
@@ -972,6 +1005,7 @@ def open_container_terminal(
 
 
 @router.get("/cleanup/plan", response_model=DockerCleanupPlanOut)
+@_says_unavailable(DockerCleanupPlanOut)
 def get_cleanup_plan(session: Session) -> DockerCleanupPlanOut:
     """
     Say what a cleanup of Docker would remove, without removing anything.

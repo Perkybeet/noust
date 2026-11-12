@@ -136,6 +136,41 @@ class TestAMachineWithoutDocker:
 
         assert body["available"] is True and body["total"] == 5
 
+    def test_the_zone_and_the_sessions_functions_share_one_reading_of_the_engine(
+        self, docker: DockerWorld
+    ) -> None:
+        from noust.central import machine
+
+        docker.get("admin", "/containers")
+        seen = machine.engine_report(docker.machine)
+
+        assert seen.state == "ok"
+        assert len([c for c in docker.machine.calls if c[:2] == ("docker", "version")]) == 1
+
+    def test_the_engine_page_is_the_doctor_and_asks_again_each_time(
+        self, docker: DockerWorld
+    ) -> None:
+        docker.get("admin", "/containers")
+        docker.get("admin", "/engine")
+        docker.get("admin", "/engine")
+
+        versions = [c for c in docker.machine.calls if c[:2] == ("docker", "version")]
+        assert len(versions) == 3
+
+    def test_what_a_fresh_reading_finds_is_what_the_next_requests_use(
+        self, docker: DockerWorld
+    ) -> None:
+        assert docker.get("admin", "/containers").json()["available"] is True
+        docker.machine.installed = False
+
+        # Cached: the zone has not noticed yet.
+        assert docker.get("admin", "/containers").status_code == 200
+        engine = docker.get("admin", "/engine").json()
+        after = docker.get("admin", "/containers").json()
+
+        assert engine["state"] == "missing"
+        assert after["available"] is False and after["engine"]["state"] == "missing"
+
     def test_the_engine_is_asked_once_for_a_few_requests(self, docker: DockerWorld) -> None:
         docker.get("admin", "/containers")
         docker.get("admin", "/images")
