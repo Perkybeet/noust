@@ -3405,6 +3405,84 @@
       "parse": []
     }
   },
+  "access.firewall_reverted": {
+    "embeds": [
+      {
+        "title": "▲ Firewall change undone · Allow 5432/tcp from 10.0.4.12",
+        "description": "The firewall change “Allow 5432/tcp from 10.0.4.12” was undone because nobody confirmed it within 5 minutes.\n\n*What the undo printed*\n```\n$ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\nRule deleted\n```",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Change",
+            "value": "Allow 5432/tcp from 10.0.4.12",
+            "inline": true
+          },
+          {
+            "name": "Applied by",
+            "value": "yago",
+            "inline": true
+          },
+          {
+            "name": "Applied",
+            "value": "2026-11-12 10:40 UTC",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/network/firewall"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "access.ssh_reverted": {
+    "embeds": [
+      {
+        "title": "▲ SSH change undone · Turn password logins off",
+        "description": "The SSH change “Turn password logins off” was undone because nobody confirmed it within 5 minutes.\n\n*What the undo printed*\n```\nRestored /etc/ssh/sshd_config.d/99-noust.conf\n$ sshd -t\n```",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Change",
+            "value": "Turn password logins off",
+            "inline": true
+          },
+          {
+            "name": "Applied by",
+            "value": "ana",
+            "inline": true
+          },
+          {
+            "name": "Applied",
+            "value": "2026-11-12 10:40 UTC",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/security/ssh"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
   "hostile.deploy_failed": {
     "embeds": [
       {

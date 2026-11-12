@@ -531,6 +531,7 @@ export const settings: Catalog<typeof en> = {
         appOomKilled: { label: "Aplicación cerrada por falta de memoria", description: "El núcleo ha cerrado una aplicación por quedarse sin memoria: cuántas veces, su límite y lo máximo que usó." },
         domainExpiring: { label: "Registro de dominio a punto de caducar", description: "El registro dice que el registro de un dominio caduca dentro de 30 o de 7 días. Necesita la comprobación de Avisos > Comprobaciones, apagada hasta que la enciendas." },
         domainExpired: { label: "Registro de dominio caducado", description: "El registro dice que el registro de un dominio ya ha caducado. Necesita la comprobación de Avisos > Comprobaciones." },
+        accessChangeReverted: { label: "Cambio de cortafuegos o de SSH deshecho", description: "Un cambio del cortafuegos o de SSH que nadie confirmó a tiempo se deshizo solo, con lo que imprimió al deshacerlo." },
       },
     },
     messages: {

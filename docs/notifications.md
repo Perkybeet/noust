@@ -291,6 +291,7 @@ goes straight to the channel and shows what it answered.
 | `cert_renewal_failed` | certbot's last renewal failed (with its own words), or the timer that runs it is not running | on |
 | `domain_expiring`, `domain_expired` | The registry of a domain Noust serves says its registration expires within 30 days or 7 days, or that it expired (only with `monitor.domain_expiry`, off by default) | on |
 | `app_oom_killed` | The kernel killed an application for running out of memory: said once for every rise of its unit's `oom_kill` counter, with its memory limit and the most it used (cgroup v2) | on |
+| `access_change_reverted` | A change to the firewall or to SSH that nobody confirmed from a new session in time was undone by its timer (it says which change, who applied it and what the undo printed) | on |
 | `unit_failed`, `app_unreachable`, `app_recovered` | A service stops, or stops answering its health check | on |
 | `disk_threshold` | A disk passes `monitor.disk_threshold` percent | on |
 | `os_patches` | The package manager has updates waiting; security ones are named | on |

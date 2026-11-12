@@ -1791,6 +1791,44 @@
       ]
     }
   },
+  "access.firewall_reverted": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Firewall change undone</b> · Allow 5432/tcp from 10.0.4.12\nThe firewall change “Allow 5432/tcp from 10.0.4.12” was undone because nobody confirmed it within 5 minutes.\n\n<b>Server:</b> web-1\n<b>Change:</b> Allow 5432/tcp from 10.0.4.12\n<b>Applied by:</b> yago\n<b>Applied:</b> 2026-11-12 10:40 UTC\n\n<i>What the undo printed</i>\n<pre>$ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\nRule deleted</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/network/firewall"
+          }
+        ]
+      ]
+    }
+  },
+  "access.ssh_reverted": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>SSH change undone</b> · Turn password logins off\nThe SSH change “Turn password logins off” was undone because nobody confirmed it within 5 minutes.\n\n<b>Server:</b> web-1\n<b>Change:</b> Turn password logins off\n<b>Applied by:</b> ana\n<b>Applied:</b> 2026-11-12 10:40 UTC\n\n<i>What the undo printed</i>\n<pre>Restored /etc/ssh/sshd_config.d/99-noust.conf\n$ sshd -t</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/security/ssh"
+          }
+        ]
+      ]
+    }
+  },
   "hostile.deploy_failed": {
     "chat_id": "-1001234567890",
     "text": "✕ <b>Deploy failed</b> · shop.example.com\nIt stopped at an error before the new version could take over.\n\n<b>Server:</b> wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n<b>Release:</b> 20260929-104449\n<b>Commit:</b> a1b2c3d (&lt;b&gt;x&lt;/b&gt;&amp;amp;&lt;!channel&gt; @everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @here &lt;@U123&gt; &lt;#C1&gt; red emoji 🚀\n<b>Started by:</b> Webhook\n<b>Duration:</b> 1 min 12 s\n<b>Inspect with:</b> <code>noust diagnose shop.example.com</code>\n\n<i>What the system reported</i>\n<pre>Release did not pass &lt;its&gt; health &amp; check\n&lt;urlopen error [Errno 111] Connection refused&gt;\n```\n@everyone &lt;!channel&gt; &lt;@U123|admin&gt; &amp;lt;b&amp;gt;\nred *bold* _italic_ ~strike~ `code`\nnoitcnuf\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…</pre>",

@@ -103,6 +103,8 @@ EVENT_KINDS: tuple[str, ...] = (
     # 4.3: the registration of a domain is about to lapse, or has (off unless monitor.domain_expiry).
     "domain_expiring",
     "domain_expired",
+    # 4.3: a change to the firewall or to SSH that nobody confirmed in time and the timer undid.
+    "access_change_reverted",
 )
 
 #: Kinds that ship switched off: ``deploy_started`` fires once per attempt with
