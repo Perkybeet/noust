@@ -1198,7 +1198,7 @@ class DockerComposeDeployer(AppDeployer):
                 asked for.
             AppBusyError: Another operation is running on the application.
         """
-        require_server_role("Applications")
+        require_server_role("container_deploy")
         # Held for the whole deploy, and the directory claimed before the
         # fetch, which empties it: a stack's bind-mounted data lives there.
         with app_lock(self.domain, "deploy"):

@@ -727,7 +727,7 @@ class MonorepoDeployer(AppDeployer):
                 already holds files and replacing them was not asked for.
             AppBusyError: Another operation is running on the application.
         """
-        require_server_role("Applications")
+        require_server_role("native_deploy")
         with app_lock(self.domain, "deploy"):
             return self._deploy()
 

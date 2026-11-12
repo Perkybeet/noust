@@ -562,7 +562,7 @@ class InternalCA:
             CertificateError: There is an authority already.
             DatabaseEngineError: openssl failed.
         """
-        require_server_role("Certificates")
+        require_server_role("certificates")
         if not 30 <= days <= 7300:
             raise ValidationError("The authority is valid for 30 to 7300 days", field="days")
         dns = tuple(dict.fromkeys(normal_suffix(item) for item in permit_dns))
@@ -674,7 +674,7 @@ class InternalCA:
             CertificateError: There is none.
             ValidationError: Certificates it signed are kept and ``force`` is False.
         """
-        require_server_role("Certificates")
+        require_server_role("certificates")
         self.authority.ensure_ca()
         left = self.issued()
         if left and not force:
@@ -712,7 +712,7 @@ class InternalCA:
             CertificateError: There is no authority, or it has expired.
             DatabaseEngineError: openssl failed.
         """
-        require_server_role("Certificates")
+        require_server_role("certificates")
         slug = _SLUG.sub("-", label.lower()).strip("-")[:48]
         if not slug:
             raise ValidationError(
@@ -804,7 +804,7 @@ class InternalCA:
             ValidationError: A name is no longer something the authority signs for.
             DatabaseEngineError: openssl failed.
         """
-        require_server_role("Certificates")
+        require_server_role("certificates")
         record = self.uploads.get(name)
         if record.uploaded_by != UPLOADED_BY or not name.startswith(UPLOAD_PREFIX):
             raise CertificateError(

@@ -390,6 +390,37 @@ class TestWhatDoesNotFit:
         assert body["info"]["server_version"] == "29.1.3"
 
 
+class TestTheLimitThatStopsNoust:
+    """What the session says when a function needs Docker and this one cannot be used."""
+
+    def test_an_engine_that_fits_has_none(self) -> None:
+        report = diagnose(read_engine(machine(), stat_socket=socket_of_root))
+
+        assert report.problem is None
+
+    def test_the_first_limit_that_stops_noust_is_the_problem(self) -> None:
+        report = diagnose(read_engine(machine(compose=None), stat_socket=socket_of_root))
+
+        assert report.problem is not None
+        assert report.problem.code == "docker.compose.missing"
+
+    def test_no_docker_at_all_is_the_problem(self) -> None:
+        report = diagnose(EngineInfo(installed=False, reachable=False))
+
+        assert report.problem is not None
+        assert report.problem.code == "docker.engine.missing"
+
+    def test_a_limit_that_leaves_something_undone_and_nothing_else_is_not_one(self) -> None:
+        report = diagnose(
+            read_engine(
+                machine(compose="Docker Compose version v2.12.2"), stat_socket=socket_of_root
+            )
+        )
+
+        assert report.limits and report.ok is True
+        assert report.problem is None
+
+
 def test_the_oldest_engine_noust_works_with_is_the_one_compose_v2_needs() -> None:
     assert engine.MIN_API == (1, 41)
     assert engine.MIN_COMPOSE == (2, 0)

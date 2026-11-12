@@ -163,7 +163,7 @@ class UpdateScheduler:
                 preview (a throwaway copy updates with its pull request).
             NoustError: The application is unknown, or the timer cannot be written.
         """
-        require_server_role("Applications")
+        require_server_role("applications")
         domain = validate_domain(domain)
         app = get_store().get_app(domain)
         if app is None:
@@ -302,7 +302,7 @@ def run_scheduled(domain: str, *, logger: Logger | None = None) -> RunOutcome:
     """
     from noust.deployers.lifecycle import update_app
 
-    require_server_role("Applications")
+    require_server_role("applications")
     log = logger or Logger()
     domain = validate_domain(domain)
     schedule = update_schedule_store.get(domain)

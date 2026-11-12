@@ -130,7 +130,7 @@ class RollbackManager:
                 the copy is on. The update that asked for this backup should
                 stop: the error says how to switch the copy off.
         """
-        require_server_role("Rollbacks")
+        require_server_role("rollbacks")
         app_name = domain_to_app_name(domain)
         app_path = _deployed_at(domain, app_name, self.config)
 
@@ -308,7 +308,7 @@ class RollbackManager:
             AppBusyError: Another deploy, update, rollback, migration or
                 restore is already running on the application.
         """
-        require_server_role("Rollbacks")
+        require_server_role("rollbacks")
         self.last_deployment_id = None
         app_type, gate = self._held_like_a_deploy(domain, app_type, gate)
         with app_lock(domain, "rollback"):

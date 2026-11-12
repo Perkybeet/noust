@@ -71,7 +71,7 @@ class TestRole:
     def test_a_noust_is_a_server_by_default(self) -> None:
         assert central.role() == "server"
         assert not central.is_hub()
-        central.require_server_role("Applications")
+        central.require_server_role("applications")
 
     def test_the_environment_makes_it_a_hub(self, hub: None) -> None:
         assert central.role() == "hub"
@@ -79,7 +79,7 @@ class TestRole:
 
     def test_a_hub_refuses_local_deployments(self, hub: None) -> None:
         with pytest.raises(central.RoleError, match="Applications: not available"):
-            central.require_server_role("Applications")
+            central.require_server_role("applications")
 
     def test_an_unknown_role_is_an_error_not_a_guess(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("NOUST_CENTRAL_ROLE", "satellite")
@@ -94,7 +94,37 @@ class TestRole:
         assert Config().get("central.role") == "hub"
 
     def test_the_payload_the_console_reads(self, hub: None) -> None:
-        assert central.central_info() == {"role": "hub", "sealed": False, "locked": False}
+        info = central.central_info()
+
+        assert {key: info[key] for key in ("role", "sealed", "locked")} == {
+            "role": "hub",
+            "sealed": False,
+            "locked": False,
+        }
+        assert set(info) == {"role", "sealed", "locked", "features"}
+        assert set(info["features"]) == set(central.features.FEATURES)
+
+    def test_what_a_hub_cannot_do_is_published_with_the_refusals_own_words(self, hub: None) -> None:
+        features = central.central_info()["features"]
+
+        refused = features["native_deploy"]
+        assert refused["available"] is False
+        assert refused["reason"]["code"] == "features.hub_role"
+        with pytest.raises(central.RoleError) as caught:
+            central.require_server_role("native_deploy")
+        assert refused["reason"]["text"] == caught.value.message
+        assert refused["reason"]["hint"] == caught.value.details
+
+    def test_a_server_on_an_ordinary_machine_can_do_everything(self) -> None:
+        features = central.central_info()["features"]
+
+        assert all(entry == {"available": True, "reason": None} for entry in features.values())
+
+    def test_a_hub_keeps_its_own_machines_functions(self, hub: None) -> None:
+        features = central.central_info()["features"]
+
+        for key in ("system_clock", "system_logs", "power", "root_shell"):
+            assert features[key]["available"] is True, key
 
 
 class TestHubCommands:

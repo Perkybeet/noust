@@ -174,7 +174,7 @@ class DnsAccounts:
             DnsProviderError: The provider refused the token.
             NoustError: The plugin a kind needs is not installed.
         """
-        require_server_role("DNS accounts")
+        require_server_role("dns_accounts")
         if not _NAME.fullmatch(name):
             raise ValidationError(
                 f"{name!r} cannot be an account name",

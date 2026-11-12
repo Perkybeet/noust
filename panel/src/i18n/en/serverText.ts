@@ -789,6 +789,28 @@ export const serverText = {
       },
     },
   },
+  features: {
+    hub_role: {
+      text: "{feature}: not available on this central, which is a hub",
+      hint: "A hub (central.role = hub) manages other servers and deploys nothing itself. Pick the server in the console, or run the command against a node. On a machine that should also deploy, set '{command}'; a container cannot, it has no nginx or systemd.",
+    },
+    needs_journal: {
+      text: "This machine has no journal to read",
+      hint: "Noust reads the system's log from journald (journalctl), which is not here.",
+    },
+    needs_root: {
+      text: "Noust does not run as root on this machine",
+      hint: "Changing the system takes root, and Noust runs here as an account that cannot.",
+    },
+    needs_systemd: {
+      text: "This machine does not run systemd",
+      hint: "Noust keeps services and timers with systemd, which a container, or a system that boots another way, does not have.",
+    },
+    needs_web_server: {
+      text: "There is no web server on this machine",
+      hint: "Noust writes its sites for nginx or Apache: install one from Server > Software.",
+    },
+  },
   fleet: {
     node_descriptors_exhausted: {
       text: "{node} ran out of file descriptors",

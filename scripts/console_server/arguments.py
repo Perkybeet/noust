@@ -11,6 +11,8 @@ import re
 from collections.abc import Sequence
 from pathlib import Path
 
+from .host_profile import PROFILES
+
 # ---------------------------------------------------------------------------
 # Arguments
 # ---------------------------------------------------------------------------
@@ -131,6 +133,18 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         choices=("server", "hub"),
         default=None,
         help="set central.role in the written config (the fleet's E2E suite only)",
+    )
+    parser.add_argument(
+        "--host-profile",
+        choices=sorted(PROFILES),
+        default="server",
+        help=(
+            "which machine to model: 'server' (the Ubuntu VPS the sandbox has always been, "
+            "administered by root) or 'container' (the Noust central's container on a NAS, as "
+            "packaging/container/Dockerfile ships it: no systemd, no journal, no nginx, no Docker, "
+            "no sshd, not root; the programs it lacks answer 127). Meant for --central-role hub, "
+            "the owner's hub (panel/e2e hub specs)"
+        ),
     )
     parser.add_argument(
         "--seal",

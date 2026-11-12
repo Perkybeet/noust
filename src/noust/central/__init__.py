@@ -17,17 +17,20 @@ says whether it also deploys applications itself (``central.role``):
   it deploys nothing itself, but it receives the pushes of the repositories its
   servers deploy and hands them on, and leases those servers the access to clone.
 
-:func:`role` is the one reading of the setting. :func:`require_server_role`
-is the guard a feature calls where it starts, and :func:`central_info` is
-what the API hands the console (``central`` in the session payload) so it
-can hide what a hub does not do and show the unlock form while the secrets
-are sealed and locked.
+:func:`role` is the one reading of the setting. What a Noust can do is one
+table (:mod:`noust.central.features`): :func:`require_server_role` is the guard
+a function calls where it starts, by its key in that table, and
+:func:`central_info` is what the API hands the console (``central`` in the
+session payload): the role, whether to show the unlock form while the secrets
+are sealed and locked, and for each function whether it works here and why
+not, so the console offers what works and nothing else.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from noust.central import features
 from noust.core.config import Config
 from noust.core.exceptions import ConfigError, NoustError
 
@@ -41,34 +44,34 @@ ROLE_HUB = "hub"
 #: Every role, the default first.
 ROLES: tuple[str, ...] = (ROLE_SERVER, ROLE_HUB)
 
-#: CLI commands a hub refuses, and the feature each belongs to, as the
-#: refusal names it. Everything not listed (the console, tokens, sessions,
-#: two-factor, configuration, notifications, the fleet and the central
-#: itself) works the same on both roles.
+#: CLI commands a hub refuses, and the function of :mod:`noust.central.features` each belongs to:
+#: the refusal names it as that function's label does. Everything not listed (the console, tokens,
+#: sessions, two-factor, configuration, notifications, the fleet and the central itself) works the
+#: same on both roles.
 HUB_REFUSED_COMMANDS: dict[str, str] = {
     **dict.fromkeys(
         ("create", "delete", "update", "start", "stop", "restart", "status", "logs", "list"),
-        "Applications",
+        "applications",
     ),
-    "app": "Applications",
-    "releases": "Releases",
-    "preview": "Preview environments",
-    "recipe": "Recipes",
-    "import": "Importing applications",
-    "env": "Application environments",
-    "site": "Sites",
-    "console": "Console exposure",
-    "domain": "Domains",
-    "cert": "Certificates",
-    "db": "Databases",
-    "backup": "Application backups",
-    "rollback": "Rollbacks",
-    "cron": "Scheduled jobs",
-    "service": "Services",
-    "monitor": "The process monitor",
-    "diagnose": "Application diagnosis",
-    "health": "The server health report",
-    "setup": "Server setup (nginx, runtimes, certbot)",
+    "app": "applications",
+    "releases": "releases",
+    "preview": "preview_environments",
+    "recipe": "recipes",
+    "import": "importing_applications",
+    "env": "application_environments",
+    "site": "sites",
+    "console": "console_exposure",
+    "domain": "domains",
+    "cert": "certificates",
+    "db": "databases",
+    "backup": "application_backups",
+    "rollback": "rollbacks",
+    "cron": "scheduled_jobs",
+    "service": "services",
+    "monitor": "process_monitor",
+    "diagnose": "application_diagnosis",
+    "health": "server_health",
+    "setup": "server_setup",
 }
 
 
@@ -119,26 +122,25 @@ def is_hub(config: Config | None = None) -> bool:
 
 def require_server_role(feature: str, config: Config | None = None) -> None:
     """
-    Refuse a local-deployment feature on a hub.
+    Refuse a function that needs the server role on a hub.
 
     Args:
-        feature: What was asked for, as a label ("Applications").
+        feature: The function's key in :data:`noust.central.features.FEATURES`
+            (``"native_deploy"``). What the refusal calls it is the label the
+            table gives it.
         config: The configuration; the process-wide one by default.
 
     Raises:
-        RoleError: When this Noust is a hub.
+        RoleError: When the function needs the server role and this Noust is a
+            hub.
+        KeyError: When the table has no such key, on every machine and not only
+            on a hub.
     """
-    if not is_hub(config):
+    needed = features.feature(feature)
+    if features.Need.ROLE not in needed.needs or not is_hub(config):
         return
-    raise RoleError(
-        f"{feature}: not available on this central, which is a hub",
-        details=(
-            "A hub (central.role = hub) manages other servers and deploys nothing "
-            "itself. Pick the server in the console, or run the command against a node. "
-            "On a machine that should also deploy, set 'noust config set central.role "
-            "server'; a container cannot, it has no nginx or systemd."
-        ),
-    )
+    refusal = features.hub_refusal(needed)
+    raise RoleError(refusal.text, details=refusal.hint or "")
 
 
 def refuse_command_on_hub(name: str, ctx: click.Context | None = None) -> None:
@@ -165,29 +167,57 @@ def refuse_command_on_hub(name: str, ctx: click.Context | None = None) -> None:
     require_server_role(feature)
 
 
-def central_info(config: Config | None = None) -> dict[str, Any]:
+def feature_states(config: Config | None = None) -> dict[str, dict[str, Any]]:
     """
-    Describe the central for the console: its role and its secrets' state.
-
-    This is the payload the API exposes as ``central`` (in the session the
-    console reads after sign-in), so the console can hide what a hub does not
-    do and show the unlock form while the secrets are sealed and locked.
+    Say what each function of the table can do on this Noust and this machine.
 
     Args:
         config: The configuration; the process-wide one by default.
 
     Returns:
-        ``{"role": "server" | "hub", "sealed": bool, "locked": bool}``;
-        ``locked`` is True only while the store is sealed and this process
-        has not been given the passphrase.
+        :func:`noust.central.features.published` over this role and what the machine has
+        (:func:`noust.central.machine.read_machine_facts`, which asks the machine itself).
+
+    Raises:
+        ConfigError: When ``central.role`` holds something that is not a role.
+    """
+    from noust.central import machine
+
+    return features.published(role=role(config), facts=machine.read_machine_facts())
+
+
+def central_info(config: Config | None = None, *, with_features: bool = True) -> dict[str, Any]:
+    """
+    Describe the central for the console: its role, its secrets' state and what it can do.
+
+    This is the payload the API exposes as ``central`` (in the session the
+    console reads after sign-in), so the console can offer only what works here
+    and show the unlock form while the secrets are sealed and locked.
+
+    Args:
+        config: The configuration; the process-wide one by default.
+        with_features: Say what each function can do here, which looks at the
+            machine (cached; see :mod:`noust.central.machine`). Unlocking a
+            sealed central asks for the state alone.
+
+    Returns:
+        ``{"role": "server" | "hub", "sealed": bool, "locked": bool, "features":
+        {key: {"available": bool, "reason": {...} | None}}}``; ``locked`` is
+        True only while the store is sealed and this process has not been given
+        the passphrase, and ``features`` (left out without ``with_features``) is
+        :func:`noust.central.features.published` over this role and this machine.
     """
     from noust.core import sealing
     from noust.core.secrets import secrets_dir
 
     root = secrets_dir()
     sealed = sealing.is_sealed(root)
-    return {
-        "role": role(config),
+    this_role = role(config)
+    info: dict[str, Any] = {
+        "role": this_role,
         "sealed": sealed,
         "locked": sealed and not sealing.is_unlocked(root),
     }
+    if with_features:
+        info["features"] = feature_states(config)
+    return info

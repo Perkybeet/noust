@@ -217,7 +217,7 @@ def enable(
             would refuse the operator, or the site cannot carry a policy.
         ResourceNotFoundError: This server is not on that network.
     """
-    require_server_role("Sites")
+    require_server_role("sites")
     domain = validate_domain(app_domain)
     wanted: list[str] = []
     if network is not None:
@@ -274,7 +274,7 @@ def disable(
     Raises:
         ValidationError: The site cannot carry a policy, or the lists would refuse the operator.
     """
-    require_server_role("Sites")
+    require_server_role("sites")
     domain = validate_domain(app_domain)
     current = access.describe(domain, verbose=verbose).policy.allow_ips
     left = [entry for entry in current if not is_private_range(entry)]
@@ -325,7 +325,7 @@ def tailnet_certificate(app_domain: str, *, verbose: bool = False) -> TailnetCer
             does not cover.
         CertificateError: Tailscale refused, or did not hand back a pair.
     """
-    require_server_role("Certificates")
+    require_server_role("certificates")
     domain = validate_domain(app_domain)
     try:
         tailnet: PrivateNetwork | None = PrivateNetworks().get(TAILSCALE)

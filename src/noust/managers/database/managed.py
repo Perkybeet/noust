@@ -431,7 +431,7 @@ class ManagedInstances:
     @property
     def runner(self) -> CommandRunner:
         """The runner docker goes through; a hub refuses it at the chokepoint."""
-        require_server_role("Database instances")
+        require_server_role("database_instances")
         return self._runner or get_runner()
 
     @property
@@ -643,7 +643,7 @@ class ManagedInstances:
                 changed.
             DatabaseExistsError: The name, or the key, is taken.
         """
-        require_server_role("Database instances")
+        require_server_role("database_instances")
         check_instance_name(name)
         words, extra = check_launch(command, args)
         spec, chosen = self._spec_asked(engine, variant, version, image)

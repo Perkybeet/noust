@@ -44648,6 +44648,87 @@ export interface components {
             enable: boolean;
         };
         /**
+         * FeatureReason
+         * @description Why a function is not available here, as a sentence with a code.
+         *
+         *     Attributes:
+         *         text: The sentence in English, always sent.
+         *         hint: How to fix it in English, when the sentence has a fix.
+         */
+        FeatureReason: {
+            /** Code */
+            code: string;
+            /** Hint */
+            hint?: string | null;
+            /** Params */
+            params?: {
+                [key: string]: boolean | number | string;
+            };
+            /** Text */
+            text: string;
+        };
+        /**
+         * FeatureState
+         * @description Whether one function of this Noust works here.
+         *
+         *     Attributes:
+         *         available: It would work here now.
+         *         reason: Why it would not: ``features.hub_role`` on a hub, ``features.needs_*`` for what
+         *             the machine lacks, and the engine's own sentences (``docker.*``) for Docker. None when
+         *             ``available``.
+         */
+        FeatureState: {
+            /** Available */
+            available: boolean;
+            reason?: components["schemas"]["FeatureReason"] | null;
+        };
+        /** FeatureStates */
+        FeatureStates: {
+            application_backups: components["schemas"]["FeatureState"];
+            application_diagnosis: components["schemas"]["FeatureState"];
+            application_environments: components["schemas"]["FeatureState"];
+            applications: components["schemas"]["FeatureState"];
+            certificates: components["schemas"]["FeatureState"];
+            checking_a_moved_server: components["schemas"]["FeatureState"];
+            console_exposure: components["schemas"]["FeatureState"];
+            container_deploy: components["schemas"]["FeatureState"];
+            database_backups: components["schemas"]["FeatureState"];
+            database_instances: components["schemas"]["FeatureState"];
+            databases: components["schemas"]["FeatureState"];
+            dns_accounts: components["schemas"]["FeatureState"];
+            dns_records: components["schemas"]["FeatureState"];
+            domains: components["schemas"]["FeatureState"];
+            firewall: components["schemas"]["FeatureState"];
+            importing_applications: components["schemas"]["FeatureState"];
+            log_destinations: components["schemas"]["FeatureState"];
+            moving_a_server: components["schemas"]["FeatureState"];
+            native_deploy: components["schemas"]["FeatureState"];
+            noust_dns: components["schemas"]["FeatureState"];
+            point_in_time_recovery: components["schemas"]["FeatureState"];
+            power: components["schemas"]["FeatureState"];
+            preview_environments: components["schemas"]["FeatureState"];
+            process_monitor: components["schemas"]["FeatureState"];
+            public_database_access: components["schemas"]["FeatureState"];
+            published_ports: components["schemas"]["FeatureState"];
+            recipes: components["schemas"]["FeatureState"];
+            releases: components["schemas"]["FeatureState"];
+            restoring_a_server: components["schemas"]["FeatureState"];
+            rollbacks: components["schemas"]["FeatureState"];
+            root_shell: components["schemas"]["FeatureState"];
+            scheduled_jobs: components["schemas"]["FeatureState"];
+            server_health: components["schemas"]["FeatureState"];
+            server_security: components["schemas"]["FeatureState"];
+            server_setup: components["schemas"]["FeatureState"];
+            services: components["schemas"]["FeatureState"];
+            sites: components["schemas"]["FeatureState"];
+            software: components["schemas"]["FeatureState"];
+            status_page: components["schemas"]["FeatureState"];
+            system_clock: components["schemas"]["FeatureState"];
+            system_logs: components["schemas"]["FeatureState"];
+            tunnels: components["schemas"]["FeatureState"];
+            volume_backups: components["schemas"]["FeatureState"];
+        };
+        /**
          * FileActionResponse
          * @description What a change to a file did.
          */
@@ -60220,6 +60301,24 @@ export interface components {
             tags: string[];
         };
         /**
+         * SessionCentral
+         * @description What the session says of the central: :class:`CentralInfo` and what it can do.
+         *
+         *     Attributes:
+         *         features: For each function of this Noust, whether it works here and why not. Absent from a
+         *             server older than 4.3, which the console reads as "what its role allows", as it always
+         *             did.
+         */
+        SessionCentral: {
+            features?: components["schemas"]["FeatureStates"] | null;
+            /** Locked */
+            locked: boolean;
+            /** Role */
+            role: string;
+            /** Sealed */
+            sealed: boolean;
+        };
+        /**
          * SessionEndedResponse
          * @description A terminal that was ended.
          */
@@ -60326,7 +60425,7 @@ export interface components {
             accounts_exist?: boolean | null;
             /** Authenticated */
             authenticated: boolean;
-            central?: components["schemas"]["CentralInfo"] | null;
+            central?: components["schemas"]["SessionCentral"] | null;
             /**
              * Csrf Cookie
              * @default noust_csrf

@@ -195,6 +195,17 @@ class EngineReport:
     limits: tuple[ServerText, ...]
     ok: bool
 
+    @property
+    def problem(self) -> ServerText | None:
+        """
+        The first limit of the kind that stops Noust using this Docker, the one a person is told when
+        a function needs it and it cannot be had (no engine, no answer, too old, no Compose v2).
+
+        Returns:
+            The sentence, or None when Noust can use this Docker.
+        """
+        return next((limit for limit in self.limits if limit.code in _BLOCKING), None)
+
     def to_dict(self) -> dict[str, Any]:
         """
         Returns:

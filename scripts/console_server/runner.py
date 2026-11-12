@@ -76,6 +76,8 @@ def make_runner(
     domains: dict[str, str],
     certs: list[str],
     systemd_dir: Path,
+    *,
+    programs: Sequence[str] | None = None,
 ) -> Any:
     """
     Build the runner that answers for the modelled machine.
@@ -88,6 +90,9 @@ def make_runner(
         certs: Domains holding a certificate, for ``certbot certificates``.
         systemd_dir: The sandboxed unit directory, whose cron timers
             ``systemctl list-unit-files`` reports.
+        programs: What is on the machine's path, for a machine that is not the VPS (the central's
+            container, see ``host_profile``): every other program answers 127 with "Command not
+            found", as the real runner reports a missing binary. The VPS's own lists when omitted.
 
     Returns:
         A :class:`noust.core.runner.FakeRunner` answering from the model.
@@ -161,7 +166,9 @@ def make_runner(
             self._stdin = threading.local()
             # What the modelled machine has installed. MongoDB and Docker are
             # deliberately absent, so the console shows an engine to install.
-            self.only_knows(*INSTALLED_PROGRAMS, *SERVER_PROGRAMS)
+            self.only_knows(
+                *(programs if programs is not None else (*INSTALLED_PROGRAMS, *SERVER_PROGRAMS))
+            )
             # A terminal opened in the console talks to a shell that echoes what is typed and
             # ends on `exit`, not to a real one: see FakeRunner.pty.
             self.pty_echo = True
@@ -208,6 +215,8 @@ def make_runner(
             # Answered as the command it runs: switching the account (runuser -u
             # postgres -- psql) asks the same question of the machine.
             program = args[0] if args else ""
+            if programs is not None and program.rsplit("/", 1)[-1] not in programs:
+                return CommandResult(args, 127, "", f"Command not found: {program}")
             # The Server area's tools first: see model_server_host.
             server = (
                 server_host._SERVER_HOST.answer(args)

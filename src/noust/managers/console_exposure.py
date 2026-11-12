@@ -715,7 +715,7 @@ class ConsoleExposure:
             SiteError: Another name is exposed, or a site Noust did not write is on this one.
             ServiceError: The console is not running as a service.
         """
-        require_server_role("Console exposure")
+        require_server_role("console_exposure")
         name = normalise_domain(domain)
         networks = parse_allow_ips(allow_ips)
         self._guard_profile(networks, force_ens)
@@ -773,7 +773,7 @@ class ConsoleExposure:
             RoleError: On a hub.
         """
         say = progress or (lambda _line: None)
-        require_server_role("Console exposure")
+        require_server_role("console_exposure")
         state = self._exposures.get()
         if state is None:
             return ExposureResult(domain="", notes=["The console was not published."])

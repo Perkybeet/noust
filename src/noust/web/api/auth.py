@@ -40,7 +40,7 @@ from noust.core.token_presets import TOKEN_PRESETS
 from noust.core.totp import provisioning_uri
 from noust.web.api.auth_accounts import AccountInfo
 from noust.web.api.auth_accounts import router as accounts_router
-from noust.web.api.central import CentralInfo, session_central
+from noust.web.api.central import SessionCentral, session_central
 from noust.web.api.deps import NoustErrorRoute, ensure_elevated, require_elevated
 from noust.web.api.identity_proof import ensure_first_factor_proof
 from noust.web.auth import (
@@ -358,7 +358,7 @@ class SessionInfo(BaseModel):
     version: str
     csrf_header: str = CSRF_HEADER_NAME
     csrf_cookie: str = CSRF_COOKIE_NAME
-    central: CentralInfo | None = None
+    central: SessionCentral | None = None
     login_label: str | None = None
     account: AccountInfo | None = None
     role: str | None = None

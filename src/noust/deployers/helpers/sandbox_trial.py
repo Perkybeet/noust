@@ -188,7 +188,7 @@ def run_trial(
     from noust.deployers.monorepo import MonorepoDeployer
     from noust.deployers.registry import get_deployer
 
-    require_server_role("Applications")
+    require_server_role("applications")
     store = store or get_store()
     fs = fs or get_fs()
     log = logger or Logger(verbose=verbose)

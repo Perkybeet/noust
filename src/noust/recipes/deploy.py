@@ -416,7 +416,7 @@ def plan_recipe(
         EnvironmentValidationError: An override is not a usable variable.
     """
     # Before a database is provisioned for an application a hub would not run.
-    require_server_role("Applications")
+    require_server_role("applications")
     store = store or get_store()
     recipe = with_database(get_recipe(name), database)
     require_available(recipe)

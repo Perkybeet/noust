@@ -578,7 +578,7 @@ class LogDrains:
         Raises:
             ValidationError: A setting is not one a destination can have.
         """
-        require_server_role("Log destinations")
+        require_server_role("log_destinations")
         checked = validate_name(name)
         existing = log_drain_store.get_drain(checked, store=self.store)
         if existing is not None and existing.kind != kind:
@@ -626,7 +626,7 @@ class LogDrains:
         Raises:
             ValidationError: There is none of that name.
         """
-        require_server_role("Log destinations")
+        require_server_role("log_destinations")
         found = self.get(name)
         log_drain_store.delete_drain(found.name, store=self.store)
         self.secrets.delete(secret_name(found.name))
@@ -651,7 +651,7 @@ class LogDrains:
         Raises:
             ValidationError: There is none of that name.
         """
-        require_server_role("Log destinations")
+        require_server_role("log_destinations")
         found = self.get(name)
         log_drain_store.set_enabled(found.name, enabled, store=self.store)
         audit.record(
