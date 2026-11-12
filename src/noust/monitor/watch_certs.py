@@ -41,8 +41,12 @@ CHECK_SECONDS = 3 * 3600
 RENOTIFY_SECONDS = 72 * 3600
 
 
-def _renewed_names() -> list[str]:
+def _renewed_names(runner: CommandRunner) -> list[str]:
     """
+    Args:
+        runner: The one the monitor lends the watch: asking certbot is a process like any other,
+            and a watch that built its own would run it past a dry run and past a test's runner.
+
     Returns:
         The certificates certbot renews: the names of its lineages, not of the certificates that
         were uploaded, which nobody renews. Empty when certbot cannot be asked.
@@ -51,7 +55,7 @@ def _renewed_names() -> list[str]:
     from noust.managers.cert_manager import CertManager
 
     try:
-        listed = CertManager(verbose=False).list_certificates()
+        listed = CertManager(verbose=False, runner=runner).list_certificates()
     except NoustError:
         return []
     return [cert.name for cert in listed if cert.source != "custom" and cert.name]
@@ -72,10 +76,11 @@ class CertRenewalWatch(Watch):
         Args:
             renewal: Reads how renewal is going; :func:`~noust.managers.cert_renewal.read_renewal`
                 by default. Tests inject one.
-            certificates: Names the certificates certbot renews; its own list by default.
+            certificates: Names the certificates certbot renews; by default certbot is asked,
+                through the runner the monitor lends. Tests inject one.
         """
         self._renewal = renewal or read_renewal
-        self._certificates = certificates or _renewed_names
+        self._certificates = certificates
 
     def check(self, services: WatchServices) -> None:
         """
@@ -84,7 +89,11 @@ class CertRenewalWatch(Watch):
         Args:
             services: What the monitor lends.
         """
-        names = self._certificates()
+        names = (
+            self._certificates()
+            if self._certificates is not None
+            else _renewed_names(services.runner)
+        )
         if not names:
             return
         status = self._renewal(services.runner)

@@ -54,6 +54,16 @@ def working(stamp: str = "Wed 2026-11-11 00:41:12 UTC") -> RenewalStatus:
 
 STOPPED = RenewalStatus(mechanism="timer", unit="certbot.timer", timer_active=False)
 
+#: What ``certbot certificates`` prints for a server with one lineage.
+CERTBOT_LISTING = (
+    "Found the following certs:\n"
+    "  Certificate Name: shop.example.com\n"
+    "    Domains: shop.example.com\n"
+    "    Expiry Date: 2026-11-30 12:00:00+00:00 (VALID: 18 days)\n"
+    "    Certificate Path: /etc/letsencrypt/live/shop.example.com/fullchain.pem\n"
+    "    Private Key Path: /etc/letsencrypt/live/shop.example.com/privkey.pem\n"
+)
+
 
 class Shelf:
     """What certbot's renewal reads as, and which certificates it renews, replaceable by a test."""
@@ -229,6 +239,28 @@ class TestTheWatch:
         watch(certbot).check(rig.services)
 
         assert rig.codes() == ["cert.renewal_failed"]
+
+    def test_the_certificates_it_renews_are_asked_of_certbot_through_the_runner_it_is_lent(
+        self, rig: Rig
+    ) -> None:
+        """The monitor's runner is the one way a process runs: a watch never makes a second."""
+        rig.runner.script(["certbot", "certificates"], stdout=CERTBOT_LISTING)
+
+        CertRenewalWatch(renewal=Shelf(failed()).read).check(rig.services)
+
+        assert ("certbot", "certificates") in rig.runner.calls
+        [note] = rig.sent
+        assert {f.key: f.value for f in note.facts}["certificates"] == "shop.example.com"
+
+    def test_certbot_that_cannot_be_asked_leaves_the_watch_silent(self, rig: Rig) -> None:
+        rig.runner.script(
+            ["certbot", "certificates"], stderr="certbot: command not found", exit_code=127
+        )
+
+        CertRenewalWatch(renewal=Shelf(failed()).read).check(rig.services)
+
+        assert ("certbot", "certificates") in rig.runner.calls
+        assert rig.sent == []
 
     def test_the_monitor_runs_it(self) -> None:
         from noust.core.runner import FakeRunner
