@@ -448,6 +448,7 @@ class TestTheCleanup:
         assert any(v["name"] == "wiki_data" for v in docker.machine.volumes)
         finished = [e for e in events("docker.cleanup") if e["details"].get("stage") == "finished"]
         assert finished and finished[0]["details"]["removed"] == 2
+        assert finished[0]["actor"] == "token:root-admin-token"
 
     def test_a_plan_that_changed_since_it_was_shown_is_not_applied_and_comes_back_whole(
         self, docker: DockerWorld

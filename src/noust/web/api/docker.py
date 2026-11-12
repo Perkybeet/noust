@@ -82,7 +82,7 @@ from noust.web.api.docker_models import (
     volume_out,
 )
 from noust.web.api.terminal import TerminalRequest, TerminalTicketResponse, mint_ticket
-from noust.web.auth import get_client_ip
+from noust.web.auth import actor_label, get_client_ip
 from noust.web.jobs import JobContext, JobType, get_job_manager
 from noust.web.permissions import Permission
 from noust.web.permissions.docker_console import console_permission
@@ -998,7 +998,6 @@ def docker_cleanup_job(
     token: str,
     select: list[str],
     confirm_names: dict[str, str],
-    actor: Any = None,
     job_context: JobContext | None = None,
 ) -> dict[str, Any]:
     """
@@ -1008,7 +1007,6 @@ def docker_cleanup_job(
         token: The token of the plan that was shown.
         select: The ids of what to remove.
         confirm_names: For each volume chosen, its name as typed.
-        actor: Who queued it.
         job_context: Injected by the job manager.
 
     Returns:
@@ -1019,9 +1017,9 @@ def docker_cleanup_job(
     job_context.update("Cleaning up Docker", 10)
     gate = _gate()
     result = gate.apply_cleanup(token, select, confirm_names=confirm_names, on_line=job_context.log)
+    # Who queued it is the actor the job manager bound for the job.
     audit.record(
         "docker.cleanup",
-        actor=actor,
         target="docker",
         outcome="ok" if not result.failed else "failure",
         details={
@@ -1071,10 +1069,9 @@ def apply_cleanup(body: DockerCleanupRequest, session: Elevated) -> JobAcceptedR
             "token": body.token,
             "select": [item.id for item in chosen],
             "confirm_names": dict(body.confirm_names),
-            "actor": actor,
         },
         metadata={"action": "docker", "items": len(chosen)},
-        actor=getattr(actor, "label", None) or str(actor),
+        actor=actor_label(session),
     )
     audit.record(
         "docker.cleanup",

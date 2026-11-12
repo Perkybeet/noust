@@ -192,8 +192,9 @@ def _short_engine(engine: Any) -> dict[str, Any]:
     Returns:
         What a row says of an engine: its state and what the pages of the fleet draw of it.
     """
-    body = engine if isinstance(engine, dict) else {}
-    info = body.get("info") if isinstance(body.get("info"), dict) else {}
+    body: dict[str, Any] = engine if isinstance(engine, dict) else {}
+    found = body.get("info")
+    info: dict[str, Any] = found if isinstance(found, dict) else {}
     return {
         "state": body.get("state"),
         "usable": body.get("usable"),
