@@ -92,7 +92,8 @@ The rest of this guide is on pages of its own:
 - [Add servers to a central](central-servers.md)
 - [Operate the fleet](central-operate.md)
 - [Deploy from GitHub on its servers](central-sources.md)
-- [Look after the central](central-maintain.md)
+- [Look after the central](central-maintain.md), including [taking the copies of your servers](central-maintain.md#taking-the-copies-of-your-servers)
+  through the tunnels it already has, with nothing opened on the router
 - [How a central drives a server](fleet-model.md)
 
 ## Install on a UGREEN NAS (UGOS Pro)
