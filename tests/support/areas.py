@@ -37,6 +37,7 @@ AREAS: dict[str, str] = {
     "source": "where an application's code comes from",
     "security": "the guards over the product's own files and configuration",
     "container": "applications that run as a container",
+    "docker": "the gate to Docker (the engine's doctor, the owner of each object, what may be done to it) and the Docker Compose deployer",
     "ens": "the ENS profile and its evidence",
     "unit": "the systemd units of an application",
     "deploy": "a deployment: its gates, keys, notifications and target",

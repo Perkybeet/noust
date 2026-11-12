@@ -1538,6 +1538,45 @@ CATALOG: dict[str, str] = {
         "Compose did not make it: it was made by hand or by another tool."
     ),
     "networks.finding.internal": "It is internal: containers on it cannot reach the outside.",
+    # -- The engine's doctor (noust.core.docker.engine): which Docker there is, and what does not ---
+    # fit in it. A fact says what is; a limit says what Noust cannot do with this Docker, and its fix.
+    "docker.engine.version": "Docker {version}, speaking API {api}",
+    "docker.compose.version": "Docker Compose {version}",
+    "docker.engine.image_store": "Images are kept in the {store} image store ({driver})",
+    "docker.engine.socket": (
+        "Noust reaches Docker through {socket}, which belongs to {owner}:{group} ({mode})"
+    ),
+    "docker.engine.remote": "Noust reaches Docker at {host}, not through a socket of this machine",
+    "docker.engine.rootless": (
+        "This Docker runs without root: it belongs to one user, and so do the containers it makes"
+    ),
+    "docker.engine.missing": "Docker is not installed on this server",
+    "docker.engine.missing.hint": "Install it from Server > Software, or run: {command}",
+    "docker.engine.unreachable": "Docker is installed but its daemon does not answer: {reason}",
+    "docker.engine.unreachable.hint": (
+        "Start it with {command}, and check that the account Noust runs as may use {socket}."
+    ),
+    "docker.engine.too_old": (
+        "Docker {version} speaks API {api}, and Noust needs API {minimum} or later"
+    ),
+    "docker.engine.too_old.hint": (
+        "Update Docker. Noust asks the engine which API it speaks and works with every engine "
+        "from API {minimum} on, the one of a NAS included."
+    ),
+    "docker.compose.missing": "Docker Compose v2 is not installed",
+    "docker.compose.missing.hint": "Install the Compose plugin: {command}",
+    "docker.compose.v1": (
+        "Only Docker Compose 1 (docker-compose) is installed, and Noust needs Compose v2, which "
+        "is 'docker compose'"
+    ),
+    "docker.compose.v1.hint": "Install Compose v2 as {url} explains.",
+    "docker.compose.too_old": (
+        "Docker Compose {version} cannot rehearse the adoption of a stack that already runs; "
+        "{needed} or later can"
+    ),
+    "docker.compose.too_old.hint": (
+        "Updating the Compose plugin is enough: deploying and updating work as they are."
+    ),
     # -- Files > Storage (noust.managers.server.storage): what a cleanup would do, one sentence ----
     # for each action, said before anything is deleted.
     "storage.effect.journal": (

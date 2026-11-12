@@ -39,6 +39,7 @@ from noust.core.applock import app_lock
 from noust.core.compose_yaml import load_compose
 from noust.core.config import Config
 from noust.core.deploy_failures import stack_update_unhealthy, stack_went_back
+from noust.core.docker.names import project_of_directory
 from noust.core.exceptions import (
     DatabaseQueryError,
     DeploymentCancelled,
@@ -185,12 +186,6 @@ COMPOSE_FILE_PRIORITY = [
     "compose.yaml",
 ]
 
-#: What Compose itself strips from a directory name before using it as a
-#: project name: everything outside [a-z0-9_-], then any leading run of
-#: characters that are not a letter or digit.
-_PROJECT_NAME_INVALID_CHARS = re.compile(r"[^a-z0-9_-]+")
-_PROJECT_NAME_LEADING_JUNK = re.compile(r"^[^a-z0-9]+")
-
 #: ``COMPOSE_PROJECT_NAME`` set in the project's ``.env``, which Compose reads.
 _ENV_PROJECT_NAME = re.compile(r"^\s*(?:export\s+)?COMPOSE_PROJECT_NAME\s*=", re.MULTILINE)
 
@@ -288,9 +283,7 @@ def compose_project_name(app_path: Path, compose_path: Path | None) -> str | Non
     if compose_path is not None and _names_its_own_project(compose_path):
         return None
     source_dir = compose_path.parent if compose_path is not None else app_path
-    name = _PROJECT_NAME_INVALID_CHARS.sub("", source_dir.name.lower())
-    name = _PROJECT_NAME_LEADING_JUNK.sub("", name)
-    return name or "default"
+    return project_of_directory(source_dir.name) or "default"
 
 
 def compose_file_option(raw: str) -> PurePosixPath:

@@ -20,6 +20,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from noust.core import paths
+from noust.core.docker import names
 from noust.validators.db_instance import check_instance_name
 
 #: The label every container of an instance carries, naming the instance. The
@@ -142,60 +143,11 @@ def tls_directory(name: str) -> Path:
     return directory(name) / TLS_DIRECTORY
 
 
-def unit_name(name: str) -> str:
-    """
-    Args:
-        name: The instance's name.
-
-    Returns:
-        The systemd unit that runs it, without the ``.service`` suffix.
-    """
-    return f"{paths.DB_INSTANCE_UNIT_PREFIX}{name}"
-
-
-def project_name(name: str) -> str:
-    """
-    Args:
-        name: The instance's name.
-
-    Returns:
-        Its Compose project (passed as ``-p`` everywhere, so the project never
-        depends on the directory's name).
-    """
-    return unit_name(name)
-
-
-def container_name(name: str) -> str:
-    """
-    Args:
-        name: The instance's name.
-
-    Returns:
-        Its container's name, fixed so ``docker exec`` and ``docker logs`` always
-        find it.
-    """
-    return unit_name(name)
-
-
-def data_volume(name: str) -> str:
-    """
-    Args:
-        name: The instance's name.
-
-    Returns:
-        The Docker volume that holds its data.
-    """
-    return f"{unit_name(name)}-data"
-
-
-def config_volume(name: str) -> str:
-    """
-    Args:
-        name: The instance's name.
-
-    Returns:
-        The Docker volume of an engine's second declared volume (MongoDB's
-        ``/data/configdb``), named so Docker never leaves an anonymous one
-        behind each time the container is recreated.
-    """
-    return f"{unit_name(name)}-config"
+# What an instance's unit, project, container and volumes are called is said once, with the rest
+# of what Noust names in Docker (noust.core.docker.names), so that the gate to Docker, which sits
+# below this module, knows an instance's objects by the names this module gives them.
+unit_name = names.instance_unit
+project_name = names.instance_project
+container_name = names.instance_container
+data_volume = names.instance_data_volume
+config_volume = names.instance_config_volume

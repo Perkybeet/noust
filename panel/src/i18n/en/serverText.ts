@@ -530,6 +530,46 @@ export const serverText = {
       },
     },
   },
+  docker: {
+    compose: {
+      missing: {
+        text: "Docker Compose v2 is not installed",
+        hint: "Install the Compose plugin: {command}",
+      },
+      too_old: {
+        text: "Docker Compose {version} cannot rehearse the adoption of a stack that already runs; {needed} or later can",
+        hint: "Updating the Compose plugin is enough: deploying and updating work as they are.",
+      },
+      v1: {
+        text: "Only Docker Compose 1 (docker-compose) is installed, and Noust needs Compose v2, which is 'docker compose'",
+        hint: "Install Compose v2 as {url} explains.",
+      },
+      version: { text: "Docker Compose {version}" },
+    },
+    engine: {
+      image_store: { text: "Images are kept in the {store} image store ({driver})" },
+      missing: {
+        text: "Docker is not installed on this server",
+        hint: "Install it from Server > Software, or run: {command}",
+      },
+      remote: { text: "Noust reaches Docker at {host}, not through a socket of this machine" },
+      rootless: {
+        text: "This Docker runs without root: it belongs to one user, and so do the containers it makes",
+      },
+      socket: {
+        text: "Noust reaches Docker through {socket}, which belongs to {owner}:{group} ({mode})",
+      },
+      too_old: {
+        text: "Docker {version} speaks API {api}, and Noust needs API {minimum} or later",
+        hint: "Update Docker. Noust asks the engine which API it speaks and works with every engine from API {minimum} on, the one of a NAS included.",
+      },
+      unreachable: {
+        text: "Docker is installed but its daemon does not answer: {reason}",
+        hint: "Start it with {command}, and check that the account Noust runs as may use {socket}.",
+      },
+      version: { text: "Docker {version}, speaking API {api}" },
+    },
+  },
   doctor: {
     config: {
       apps_dir_missing: {

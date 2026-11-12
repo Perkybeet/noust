@@ -519,6 +519,46 @@ export const serverText: Catalog<typeof en> = {
       },
     },
   },
+  docker: {
+    compose: {
+      missing: {
+        text: "Docker Compose v2 no está instalado",
+        hint: "Instala el complemento de Compose: {command}",
+      },
+      too_old: {
+        text: "Docker Compose {version} no puede ensayar la adopción de una pila que ya funciona; con {needed} o posterior sí se puede",
+        hint: "Basta con actualizar el complemento de Compose: desplegar y actualizar funcionan igual.",
+      },
+      v1: {
+        text: "Solo está instalado Docker Compose 1 (docker-compose), y Noust necesita Compose v2, que es 'docker compose'",
+        hint: "Instala Compose v2 como explica {url}.",
+      },
+      version: { text: "Docker Compose {version}" },
+    },
+    engine: {
+      image_store: { text: "Las imágenes se guardan en el almacén de imágenes {store} ({driver})" },
+      missing: {
+        text: "Docker no está instalado en este servidor",
+        hint: "Instálalo desde Servidor > Software, o ejecuta: {command}",
+      },
+      remote: { text: "Noust llega a Docker en {host}, no por un socket de esta máquina" },
+      rootless: {
+        text: "Este Docker funciona sin root: es de un solo usuario, y los contenedores que crea también",
+      },
+      socket: {
+        text: "Noust llega a Docker por {socket}, que es de {owner}:{group} ({mode})",
+      },
+      too_old: {
+        text: "Docker {version} habla la API {api}, y Noust necesita la API {minimum} o posterior",
+        hint: "Actualiza Docker. Noust pregunta al motor qué API habla y funciona con cualquier motor desde la API {minimum}, también con el de un NAS.",
+      },
+      unreachable: {
+        text: "Docker está instalado pero su demonio no responde: {reason}",
+        hint: "Arráncalo con {command} y comprueba que la cuenta con la que corre Noust puede usar {socket}.",
+      },
+      version: { text: "Docker {version}, con la API {api}" },
+    },
+  },
   doctor: {
     config: {
       apps_dir_missing: {
