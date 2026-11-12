@@ -87,6 +87,9 @@ class ContainerPlan:
         limits: The application's memory, CPU and task limits.
         bind_mounts: Files and paths of the server bound into the container, as
             ``(source on the server, target in the container, read_only)``.
+        bind: The address of the machine it is published on: ``127.0.0.1`` behind a site (the
+            web server is the only way in), empty for every address of a machine that has no
+            site to put in front of it (:mod:`noust.deployers.helpers.edge`).
     """
 
     app_name: str
@@ -96,6 +99,7 @@ class ContainerPlan:
     settings: ContainerSettings
     limits: ResourceLimits
     bind_mounts: tuple[tuple[str, str, bool], ...] = ()
+    bind: str = "127.0.0.1"
 
 
 def _volume_names(paths: tuple[str, ...]) -> list[str]:
@@ -169,9 +173,11 @@ def build_document(plan: ContainerPlan) -> dict[str, Any]:
         "pull_policy": "never",
         "restart": settings.restart_policy,
         "env_file": [".env"],
-        # The host side is 127.0.0.1: the container is reached through the web
-        # server, never from the network.
-        "ports": [f"127.0.0.1:{plan.host_port}:{port}"],
+        # Behind a site the host side is 127.0.0.1: the container is reached through the web
+        # server, never from the network. Without one it is the machine's own port.
+        "ports": [
+            f"{plan.bind}:{plan.host_port}:{port}" if plan.bind else f"{plan.host_port}:{port}"
+        ],
         "labels": labels,
     }
     if settings.method == METHOD_RAILPACK:

@@ -75,6 +75,7 @@ from noust.deployers.docker_compose import (
     ServingState,
     parse_services,
 )
+from noust.deployers.helpers import edge as edges
 from noust.deployers.helpers.compose_retention import ImageRelease
 from noust.deployers.helpers.container_compose import (
     COMPOSE_FILE,
@@ -97,6 +98,7 @@ from noust.managers import railpack
 from noust.managers.app_mounts import MountManager
 from noust.managers.port_claims import PortClaims
 from noust.managers.service_manager import ResourceLimits, ServiceManager
+from noust.managers.supervision import service_control
 from noust.validators.container import METHOD_DOCKERFILE, METHOD_IMAGE, METHOD_RAILPACK
 
 #: Root files of the stacks Noust has no deployer of its own for, and what each
@@ -410,6 +412,7 @@ class ContainerDeployer(DockerComposeDeployer):
             settings=self.settings,
             limits=self._limits,
             bind_mounts=MountManager(store=self.store).bind_mounts(self.domain),
+            bind=edges.edge().bind,
         )
 
     def _write_compose(self, release_id: str) -> None:
@@ -497,9 +500,8 @@ class ContainerDeployer(DockerComposeDeployer):
         if not self.port:
             # The port on 127.0.0.1 is Noust's to give: a container publishes
             # the one the web server is told, there is no compose file to read it from.
-            self.port = PortClaims(self.runner, self.store).choose(
-                preferred=self.DEFAULT_PORT_START
-            )
+            first = edges.edge().first_port or self.DEFAULT_PORT_START
+            self.port = PortClaims(self.runner, self.store).choose(preferred=first, start=first)
             if not self.port:
                 raise DeploymentError(
                     "No available port found",
@@ -636,7 +638,7 @@ class ContainerDeployer(DockerComposeDeployer):
             DeploymentError: The container did not pass the gate.
         """
         self._register_app(status=AppStatus.DEPLOYING.value)
-        services = ServiceManager(verbose=self.verbose, runner=self._runner)
+        services = service_control(ServiceManager, verbose=self.verbose, runner=self._runner)
         healthy, evidence = self._activate(lambda: services.start(self.app_name))
         if not healthy:
             raise app_unhealthy(self.domain, evidence=evidence)
@@ -657,7 +659,7 @@ class ContainerDeployer(DockerComposeDeployer):
                 branch=self.branch if self.settings.builds else None,
                 port=self._host_port(),
                 app_path=self.app_path,
-                webserver=self.webserver,
+                webserver=self.webserver if edges.edge().has_site else "",
                 ssl_enabled=self.ssl,
                 status=status,
                 is_static=False,

@@ -79,8 +79,9 @@ class FeatureState(BaseModel):
 
     Attributes:
         available: It would work here now.
-        reason: Why it would not: ``features.hub_role`` on a hub, ``features.needs_*`` for what
-            the machine lacks, and the engine's own sentences (``docker.*``) for Docker. None when
+        reason: Why it would not: ``features.hub_role`` on a hub, ``features.containers_only`` on
+            a hub that deploys containers and not this, ``features.needs_*`` for what the machine
+            lacks, and the engine's own sentences (``docker.*``) for Docker. None when
             ``available``.
     """
 
@@ -131,9 +132,15 @@ class SessionCentral(CentralInfo):
         features: For each function of this Noust, whether it works here and why not. Absent from a
             server older than 4.3, which the console reads as "what its role allows", as it always
             did.
+        deploy_here: ``containers`` when this central was told, outside the console, to deploy
+            containers on its machine's own Docker (a hub that is then a *container host*: what
+            needs only Docker is offered and the rest says it deploys containers and nothing
+            else); empty or absent otherwise, and absent from a server older than 4.3. Optional in
+            the schema so that the console's own copies of the payload stay valid.
     """
 
     features: FeatureStates | None = None
+    deploy_here: str | None = None
 
 
 class UnlockRequest(BaseModel):
@@ -177,10 +184,11 @@ def session_central() -> SessionCentral | None:
         (logged). When only the machine cannot be read the description has no ``features`` (logged),
         which the console reads as what the role allows, as it did before 4.3.
     """
-    from noust.central import central_info, feature_states
+    from noust.central import central_info, deploy_here, feature_states
 
     try:
         info = central_info(with_features=False)
+        info["deploy_here"] = deploy_here()
     except ConfigError as exc:
         logger.warning("The central's role cannot be read: %s", exc.message)
         return None
@@ -252,3 +260,113 @@ def unlock_central(
         raise
     _audit(request, session, "success", "the sealed secrets were unlocked")
     return central_state()
+
+
+class DeployHereCheckOut(CodedText):
+    """
+    One check of whether this central can deploy on its machine's Docker.
+
+    Attributes:
+        key: Which check: ``setting``, ``socket``, ``engine``, ``group``, ``apps_folder`` or
+            ``data_folder``.
+        status: ``ok``; ``fail`` (the central cannot deploy until it is fixed); ``warn`` (deploying
+            works and something else does not); or ``skipped`` (it could not be made because what
+            it needs was not there: never a pass).
+        text: The sentence in English, always sent.
+        hint: The change that fixes it, in English, when it has one.
+    """
+
+    key: str
+    status: str
+    text: str
+    hint: str | None = None
+
+
+class DeployHereReport(BaseModel):
+    """
+    Whether this central can deploy on its machine's Docker.
+
+    Attributes:
+        ready: No check failed.
+        role: ``server`` or ``hub``.
+        deploy_here: ``containers`` when the central was told to deploy here, empty otherwise.
+        checks: Every check in the order they are made.
+    """
+
+    ready: bool
+    role: str
+    deploy_here: str
+    checks: list[DeployHereCheckOut]
+
+
+@router.post("/container-host/check", response_model=DeployHereReport)
+def check_container_host() -> DeployHereReport:
+    """
+    Check that this central can deploy on its machine's Docker, and say what to change.
+
+    The same report as ``noust central deploy-here check``. It asks the engine afresh and proves
+    each folder with a witness file that a throw-away container has to read, which takes a few
+    seconds and leaves nothing behind. It is a POST because it does something (writes a file and
+    starts a container, both removed), and a GET never does; the console asks it when a person opens
+    the page and not on every load. Who may ask is the route's permission, declared in
+    :mod:`noust.web.permissions.routes_central` and enforced for every route at once.
+
+    Returns:
+        The report.
+
+    Raises:
+        ConfigError: 409/422 through the error contract, when ``central.role`` or
+            ``central.deploy_here`` holds what is not one of their values.
+    """
+    from noust.central import deploy_check
+
+    said = deploy_check.check_deploy_here().to_dict()
+    return DeployHereReport(**said)
+
+
+class ScheduledTaskOut(BaseModel):
+    """
+    One thing the central runs itself at a time, where the machine has no timers.
+
+    Attributes:
+        key: Its name (``volume_backup:shop.example.com``).
+        kind: What it is (``backup``, ``volume_backup``, ``sweep``, ``image_check``...).
+        subject: What it is for, usually an application's domain; empty for the machine's.
+        calendar: When, as the schedule holds it.
+        next_run: When it runs next, in the machine's local time; null when its calendar is not
+            understood.
+        last_run: When it last ran, if it did.
+        last_status: ``ok`` or ``failed``; null before the first run.
+        last_detail: What a failed run said last.
+        missed: How many runs the last one stood for beyond itself: the central was not running when
+            they came due.
+        problem: Why it cannot be scheduled, when it cannot.
+    """
+
+    key: str
+    kind: str
+    subject: str
+    calendar: str
+    next_run: str | None = None
+    last_run: str | None = None
+    last_status: str | None = None
+    last_detail: str = ""
+    missed: int = 0
+    problem: str | None = None
+
+
+@router.get("/schedule", response_model=list[ScheduledTaskOut])
+def central_schedule() -> list[ScheduledTaskOut]:
+    """
+    List what the central schedules itself and how each task stands. Changes nothing.
+
+    On a machine with systemd the timers are systemd's and this is what the central would run were
+    there none: the same rows, read. On a container host (a hub told to deploy containers here) it is
+    what runs, and what came due while the central was off says so in ``missed``.
+
+    Returns:
+        Every task, by key.
+    """
+    from noust.central import scheduler
+
+    return [ScheduledTaskOut(**row) for row in scheduler.rows()]

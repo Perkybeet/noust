@@ -71,6 +71,7 @@ from noust.deployers.helpers import (
     compose_retention,
     compose_variables,
 )
+from noust.deployers.helpers import edge as edges
 from noust.deployers.helpers.build_config import BuildConfig, refuse_unsupported, resolve_build
 from noust.deployers.helpers.compose_ports import (
     PortMapping,
@@ -124,6 +125,7 @@ from noust.managers.nginx_manager import NginxManager
 from noust.managers.port_claims import PortClaims
 from noust.managers.service_manager import ServiceManager
 from noust.managers.source_manager import SourceManager
+from noust.managers.supervision import keeps_alive_with_docker, remember_stack, service_control
 from noust.managers.upstream_names import rename as rename_upstreams
 from noust.validators.names import resolve_within
 
@@ -1260,11 +1262,12 @@ class DockerComposeDeployer(AppDeployer):
             # bring up what they depend on (the database a migration needs).
             self._run_pre_deploy(with_dependencies=self._is_new_deployment)
 
-            if headless:
-                self.logger.step(6, total_steps, "Skipping Nginx (headless worker)")
-                self.logger.substep("No services expose ports, web server not needed")
-                self.logger.step(7, total_steps, "Skipping SSL (headless worker)")
-                self.logger.substep("No web-facing services, certificate not needed")
+            skipped = edges.skipped(headless=headless, port=self._get_primary_port())
+            if skipped:
+                self.logger.step(6, total_steps, f"Skipping Nginx ({skipped.reason})")
+                self.logger.substep(skipped.site_note)
+                self.logger.step(7, total_steps, f"Skipping SSL ({skipped.reason})")
+                self.logger.substep(skipped.ssl_note)
                 self.ssl = False
             else:
                 self.logger.step(6, total_steps, "Creating site configuration")
@@ -1273,7 +1276,7 @@ class DockerComposeDeployer(AppDeployer):
                 self.logger.step(7, total_steps, "Obtaining SSL certificate")
                 self._obtain_certificate()
 
-            self.logger.step(8, total_steps, "Creating systemd service")
+            self.logger.step(8, total_steps, "Creating the service")
             self._create_systemd_service()
 
             self.logger.step(9, total_steps, "Starting and verifying")
@@ -2256,11 +2259,15 @@ class DockerComposeDeployer(AppDeployer):
             lambda: self._write_site(with_ssl=with_ssl),
         )
 
+    def _units(self, runner: CommandRunner | None = None) -> ServiceManager:
+        """What keeps the stack alive: a unit's manager on a server, Docker on a container host."""
+        return service_control(ServiceManager, verbose=self.verbose, runner=runner or self._runner)
+
     def _locate_compose_file(self) -> None:
         """Find the compose file the stack's unit names, as an update reads it."""
         if self.compose_path is None:
             if self.compose_file is None:
-                unit = ServiceManager(verbose=self.verbose).get_service_config(self.app_name)
+                unit = self._units().get_service_config(self.app_name)
                 named = compose_file_from_unit(unit)
                 self.compose_file = str(compose_file_option(named)) if named else None
             self._discover_compose_file()
@@ -2327,8 +2334,6 @@ class DockerComposeDeployer(AppDeployer):
                 takes the one the store pins (an adopted stack's); with
                 neither, the unit leaves Compose to derive it, as 1.x did.
         """
-        service_manager = ServiceManager(verbose=self.verbose)
-
         # Build environment dict for the service
         service_env = {}
         if self.compose_profiles:
@@ -2338,7 +2343,7 @@ class DockerComposeDeployer(AppDeployer):
         if self.compose_path:
             compose_file_rel = str(self.compose_path.relative_to(self.app_path))
 
-        service_manager.create_service(
+        self._units().create_service(
             name=self.app_name,
             working_directory=str(self.app_path),
             description=f"Docker Compose app: {self.domain}",
@@ -2347,14 +2352,12 @@ class DockerComposeDeployer(AppDeployer):
             compose_file=compose_file_rel,
             compose_project=project or self._pinned_project(),
         )
-        self.logger.substep(f"Created systemd service: {self.app_name}")
+        said = "Docker keeps it running (restart policy)" if keeps_alive_with_docker() else None
+        self.logger.substep(said or f"Created systemd service: {self.app_name}")
 
     def _start_and_verify(self) -> None:
         """Start containers and verify they're healthy."""
-        service_manager = ServiceManager(verbose=self.verbose)
-        service_manager.start(self.app_name)
-
-        # Health check
+        self._units().start(self.app_name)
         healthy = self._health_check()
         if healthy:
             self.logger.substep("All services running and healthy")
@@ -2418,7 +2421,7 @@ class DockerComposeDeployer(AppDeployer):
                 # port nothing listens on and called the worker down.
                 port=None if headless else self._get_primary_port(),
                 app_path=self.app_path,
-                webserver="" if headless else self.webserver,
+                webserver=self.webserver if edges.edge().has_site and not headless else "",
                 ssl_enabled=self.ssl,
                 status=AppStatus.RUNNING.value,
                 is_static=False,
@@ -2433,6 +2436,7 @@ class DockerComposeDeployer(AppDeployer):
             # What the variables given at creation are made of and for can be recorded now
             # that the application has a row.
             self._variables.flush()
+            remember_stack(self)
             if self.preview_parent is not None and self._is_new_deployment:
                 # A preview's data is disposable: dumping its databases before every push would
                 # fill the backup directory with copies of what is thrown away with it.
@@ -2487,8 +2491,7 @@ class DockerComposeDeployer(AppDeployer):
 
         # Remove systemd service
         try:
-            service_manager = ServiceManager(verbose=self.verbose)
-            service_manager.delete_service(self.app_name)
+            self._units().delete_service(self.app_name)
         except (NoustError, OSError) as e:
             self.logger.warning(f"Service cleanup failed: {e}")
 
@@ -2522,26 +2525,24 @@ class DockerComposeDeployer(AppDeployer):
 
     def start(self) -> None:
         """Start the Docker Compose application."""
-        service_manager = ServiceManager(verbose=self.verbose)
-        service_manager.start(self.app_name)
+        self._units().start(self.app_name)
         self.store.update_app_status(self.domain, AppStatus.RUNNING.value)
 
     def stop(self) -> None:
         """Stop the Docker Compose application."""
-        service_manager = ServiceManager(verbose=self.verbose)
-        service_manager.stop(self.app_name)
+        self._units().stop(self.app_name)
         self.store.update_app_status(self.domain, AppStatus.STOPPED.value)
 
     def restart(self) -> None:
         """Restart (rebuild and recreate) the Docker Compose application."""
-        service_manager = ServiceManager(verbose=self.verbose)
-        # reload triggers ExecReload which does `docker compose up -d --build`
-        result = self.runner.run(
-            ["systemctl", "reload", f"{self.app_name}.service"], timeout=COMPOSE_TIMEOUT
-        )
-        if not result.success:
-            # Fallback to restart
-            service_manager.restart(self.app_name)
+        # reload triggers ExecReload which does `docker compose up -d --build`; one that will not
+        # reload is restarted, and there is no unit to reload where Docker keeps the stack alive
+        reload = ["systemctl", "reload", f"{self.app_name}.service"]
+        if (
+            keeps_alive_with_docker()
+            or not self.runner.run(reload, timeout=COMPOSE_TIMEOUT).success
+        ):
+            self._units().restart(self.app_name)
 
     def logs(self, service: str | None = None, lines: int = 50) -> str:
         """
@@ -3393,7 +3394,7 @@ class DockerComposeDeployer(AppDeployer):
             unit=self.app_name or None,
             url=check.url(port),
             check=check,
-            services=ServiceManager(verbose=self.verbose, runner=self._runner),
+            services=self._units(),
             logger=self.logger,
             # Looked up here, at call time, so it is the one this module holds.
             probe=wait_until_healthy,
@@ -3734,8 +3735,7 @@ class DockerComposeDeployer(AppDeployer):
 
         # Remove systemd service
         try:
-            service_manager = ServiceManager(verbose=self.verbose)
-            service_manager.delete_service(self.app_name)
+            self._units().delete_service(self.app_name)
         except (NoustError, OSError) as e:
             self.logger.warning(f"Service cleanup failed: {e}")
 
@@ -3824,7 +3824,7 @@ def stack_deployer(
         # Deployed before 0.14.1: the directory and the unit both kept the
         # prefix, and an update addresses it by that name.
         deployer.app_name = deployer.app_path.name
-    unit = ServiceManager(verbose=verbose, runner=runner).get_service_config(deployer.app_name)
+    unit = deployer._units(runner).get_service_config(deployer.app_name)
     named = compose_file_from_unit(unit)
     if named:
         deployer.compose_file = str(compose_file_option(named))

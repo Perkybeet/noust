@@ -20,6 +20,7 @@ from noust.core.exceptions import FleetUnavailableError
 from noust.web.api.access import router as access_router
 from noust.web.api.access import team_router as access_team_router
 from noust.web.api.alerts import router as alerts_router
+from noust.web.api.app_address import router as app_address_router
 from noust.web.api.app_adopt import router as app_adopt_router
 from noust.web.api.app_apply import router as app_apply_router
 from noust.web.api.app_build import router as app_build_router
@@ -404,6 +405,8 @@ router.include_router(deploy_keys_router, prefix="/deploy-keys", tags=["Deploy k
 router.include_router(git_credentials_router, prefix="/apps", tags=["Applications"])
 # app_container.py owns only "/{domain}/container".
 router.include_router(app_container_router, prefix="/apps", tags=["Applications"])
+# app_address.py owns only "/{domain}/address".
+router.include_router(app_address_router, prefix="/apps", tags=["Applications"])
 # app_build.py owns only paths under "/{domain}/build".
 router.include_router(app_build_router, prefix="/apps", tags=["Applications"])
 # app_deploy.py owns only "/{domain}/deploy" under "/apps", and the one "/deploy".

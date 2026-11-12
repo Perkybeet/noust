@@ -884,6 +884,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/address": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get App Address
+         * @description Say where an application is reached from outside. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The address: its domain (``site``), a port of the machine (``port``) or nothing (``none``).
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown, or outside the caller's teams.
+         */
+        get: operations["get_app_address_api_apps__domain__address_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/adoption": {
         parameters: {
             query?: never;
@@ -11498,6 +11528,67 @@ export interface paths {
          *             caller sees.
          */
         post: operations["restore_copy_api_central_backups__node___kind__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/central/container-host/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check Container Host
+         * @description Check that this central can deploy on its machine's Docker, and say what to change.
+         *
+         *     The same report as ``noust central deploy-here check``. It asks the engine afresh and proves
+         *     each folder with a witness file that a throw-away container has to read, which takes a few
+         *     seconds and leaves nothing behind. It is a POST because it does something (writes a file and
+         *     starts a container, both removed), and a GET never does; the console asks it when a person opens
+         *     the page and not on every load. Who may ask is the route's permission, declared in
+         *     :mod:`noust.web.permissions.routes_central` and enforced for every route at once.
+         *
+         *     Returns:
+         *         The report.
+         *
+         *     Raises:
+         *         ConfigError: 409/422 through the error contract, when ``central.role`` or
+         *             ``central.deploy_here`` holds what is not one of their values.
+         */
+        post: operations["check_container_host_api_central_container_host_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/central/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Central Schedule
+         * @description List what the central schedules itself and how each task stands. Changes nothing.
+         *
+         *     On a machine with systemd the timers are systemd's and this is what the central would run were
+         *     there none: the same rows, read. On a container host (a hub told to deploy containers here) it is
+         *     what runs, and what came due while the central was off says so in ``missed``.
+         *
+         *     Returns:
+         *         Every task, by key.
+         */
+        get: operations["central_schedule_api_central_schedule_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -35065,6 +35156,30 @@ export interface components {
             success: boolean;
         };
         /**
+         * AppAddress
+         * @description Where an application is reached from outside.
+         *
+         *     Attributes:
+         *         domain: The application.
+         *         kind: ``site`` (by its domain, behind the web server), ``port`` (on a port of the machine, where
+         *             there is no web server of Noust's) or ``none`` (it serves no web).
+         *         url: The address; null for ``none``.
+         *         port: The port of the machine it is published on, when it has one.
+         */
+        AppAddress: {
+            /** Domain */
+            domain: string;
+            /**
+             * Kind
+             * @description site, port or none
+             */
+            kind: string;
+            /** Port */
+            port?: number | null;
+            /** Url */
+            url?: string | null;
+        };
+        /**
          * AppBuildRequest
          * @description The operator's build block. A key left out is not set: the block replaces the repository's whole.
          */
@@ -43523,6 +43638,55 @@ export interface components {
             names?: string[];
         };
         /**
+         * DeployHereCheckOut
+         * @description One check of whether this central can deploy on its machine's Docker.
+         *
+         *     Attributes:
+         *         key: Which check: ``setting``, ``socket``, ``engine``, ``group``, ``apps_folder`` or
+         *             ``data_folder``.
+         *         status: ``ok``; ``fail`` (the central cannot deploy until it is fixed); ``warn`` (deploying
+         *             works and something else does not); or ``skipped`` (it could not be made because what
+         *             it needs was not there: never a pass).
+         *         text: The sentence in English, always sent.
+         *         hint: The change that fixes it, in English, when it has one.
+         */
+        DeployHereCheckOut: {
+            /** Code */
+            code: string;
+            /** Hint */
+            hint?: string | null;
+            /** Key */
+            key: string;
+            /** Params */
+            params?: {
+                [key: string]: boolean | number | string;
+            };
+            /** Status */
+            status: string;
+            /** Text */
+            text: string;
+        };
+        /**
+         * DeployHereReport
+         * @description Whether this central can deploy on its machine's Docker.
+         *
+         *     Attributes:
+         *         ready: No check failed.
+         *         role: ``server`` or ``hub``.
+         *         deploy_here: ``containers`` when the central was told to deploy here, empty otherwise.
+         *         checks: Every check in the order they are made.
+         */
+        DeployHereReport: {
+            /** Checks */
+            checks: components["schemas"]["DeployHereCheckOut"][];
+            /** Deploy Here */
+            deploy_here: string;
+            /** Ready */
+            ready: boolean;
+            /** Role */
+            role: string;
+        };
+        /**
          * DeployKeyCreateRequest
          * @description Make a key for the application's repository, or assign one that exists.
          *
@@ -49082,8 +49246,9 @@ export interface components {
          *
          *     Attributes:
          *         available: It would work here now.
-         *         reason: Why it would not: ``features.hub_role`` on a hub, ``features.needs_*`` for what
-         *             the machine lacks, and the engine's own sentences (``docker.*``) for Docker. None when
+         *         reason: Why it would not: ``features.hub_role`` on a hub, ``features.containers_only`` on
+         *             a hub that deploys containers and not this, ``features.needs_*`` for what the machine
+         *             lacks, and the engine's own sentences (``docker.*``) for Docker. None when
          *             ``available``.
          */
         FeatureState: {
@@ -49106,6 +49271,7 @@ export interface components {
             databases: components["schemas"]["FeatureState"];
             dns_accounts: components["schemas"]["FeatureState"];
             dns_records: components["schemas"]["FeatureState"];
+            docker_zone: components["schemas"]["FeatureState"];
             domains: components["schemas"]["FeatureState"];
             firewall: components["schemas"]["FeatureState"];
             importing_applications: components["schemas"]["FeatureState"];
@@ -63832,6 +63998,52 @@ export interface components {
             status: string;
         };
         /**
+         * ScheduledTaskOut
+         * @description One thing the central runs itself at a time, where the machine has no timers.
+         *
+         *     Attributes:
+         *         key: Its name (``volume_backup:shop.example.com``).
+         *         kind: What it is (``backup``, ``volume_backup``, ``sweep``, ``image_check``...).
+         *         subject: What it is for, usually an application's domain; empty for the machine's.
+         *         calendar: When, as the schedule holds it.
+         *         next_run: When it runs next, in the machine's local time; null when its calendar is not
+         *             understood.
+         *         last_run: When it last ran, if it did.
+         *         last_status: ``ok`` or ``failed``; null before the first run.
+         *         last_detail: What a failed run said last.
+         *         missed: How many runs the last one stood for beyond itself: the central was not running when
+         *             they came due.
+         *         problem: Why it cannot be scheduled, when it cannot.
+         */
+        ScheduledTaskOut: {
+            /** Calendar */
+            calendar: string;
+            /** Key */
+            key: string;
+            /** Kind */
+            kind: string;
+            /**
+             * Last Detail
+             * @default
+             */
+            last_detail: string;
+            /** Last Run */
+            last_run?: string | null;
+            /** Last Status */
+            last_status?: string | null;
+            /**
+             * Missed
+             * @default 0
+             */
+            missed: number;
+            /** Next Run */
+            next_run?: string | null;
+            /** Problem */
+            problem?: string | null;
+            /** Subject */
+            subject: string;
+        };
+        /**
          * SchemaResponse
          * @description One schema.
          *
@@ -64964,8 +65176,15 @@ export interface components {
          *         features: For each function of this Noust, whether it works here and why not. Absent from a
          *             server older than 4.3, which the console reads as "what its role allows", as it always
          *             did.
+         *         deploy_here: ``containers`` when this central was told, outside the console, to deploy
+         *             containers on its machine's own Docker (a hub that is then a *container host*: what
+         *             needs only Docker is offered and the rest says it deploys containers and nothing
+         *             else); empty or absent otherwise, and absent from a server older than 4.3. Optional in
+         *             the schema so that the console's own copies of the payload stay valid.
          */
         SessionCentral: {
+            /** Deploy Here */
+            deploy_here?: string | null;
             features?: components["schemas"]["FeatureStates"] | null;
             /** Locked */
             locked: boolean;
@@ -75641,6 +75860,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_app_address_api_apps__domain__address_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppAddress"];
                 };
             };
             /** @description Validation Error */
@@ -87171,6 +87421,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_container_host_api_central_container_host_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeployHereReport"];
+                };
+            };
+        };
+    };
+    central_schedule_api_central_schedule_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduledTaskOut"][];
                 };
             };
         };

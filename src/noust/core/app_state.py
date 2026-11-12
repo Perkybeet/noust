@@ -435,7 +435,9 @@ def _state_from_status(app: App, status: dict[str, Any], *, probe: bool) -> AppS
     from noust.deployers.bluegreen import serving_port
 
     port = serving_port(app)
-    if probe and port and not port_answers(port):
+    # Docker already judged the containers (running, healthy where they say how), and 127.0.0.1 is
+    # not where they answer from a central that is itself a container.
+    if probe and port and status.get("engine") != "docker" and not port_answers(port):
         return AppState(
             NOT_RESPONDING,
             healthy=False,

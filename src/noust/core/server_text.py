@@ -1595,6 +1595,17 @@ CATALOG: dict[str, str] = {
         "On a machine that should also deploy, set '{command}'; a container cannot, "
         "it has no nginx or systemd."
     ),
+    # A hub told to deploy containers on the machine's Docker (central.deploy_here) does what
+    # needs only Docker and is refused the rest in these words, which say what it does instead.
+    "features.containers_only": (
+        "{feature}: not available here, which deploys containers and nothing else"
+    ),
+    "features.containers_only.hint": (
+        "This central deploys containers on its machine's Docker (central.deploy_here = "
+        "containers). {feature} needs systemd or a web server on the machine, which a container "
+        "does not have. Deploy it on a server of your fleet instead: pick the server in the "
+        "console, or run the command against a node."
+    ),
     "features.needs_systemd": "This machine does not run systemd",
     "features.needs_systemd.hint": (
         "Noust keeps services and timers with systemd, which a container, or a system that "
@@ -1611,6 +1622,68 @@ CATALOG: dict[str, str] = {
     "features.needs_journal": "This machine has no journal to read",
     "features.needs_journal.hint": (
         "Noust reads the system's log from journald (journalctl), which is not here."
+    ),
+    # -- Deploying where the central runs (noust.central.deploy_here): the check a NAS's central ---
+    # makes before it is trusted with the machine's Docker. Each line says what is so, or what is
+    # not and the change that fixes it; a system's own words (Docker's) are never paraphrased.
+    "deploy_here.setting.on": "This central deploys containers on this machine's Docker",
+    "deploy_here.setting.server": (
+        "This Noust is a server: it deploys on this machine without being asked"
+    ),
+    "deploy_here.setting.off": "This central is not set to deploy on this machine",
+    "deploy_here.setting.off.hint": (
+        "Add {variable} to the environment of the central's container, beside Docker's socket, "
+        "and recreate it. It is asked for there on purpose, and the console cannot do it for you."
+    ),
+    "deploy_here.socket.found": "Docker's socket is mounted at {socket}",
+    "deploy_here.socket.missing": "There is no Docker socket at {socket}",
+    "deploy_here.socket.missing.hint": (
+        "Mount the machine's socket into the central: add {socket}:{socket} to the volumes of its "
+        "compose file and recreate the container."
+    ),
+    "deploy_here.engine.ok": "Docker {version} answers, speaking API {api}, with Compose {compose}",
+    "deploy_here.engine.no_client": "This image has no Docker client",
+    "deploy_here.engine.no_client.hint": (
+        "The central's image carries Docker's command line from 4.3 on: pull the current image "
+        "and recreate the container."
+    ),
+    "deploy_here.group.ok": "Noust may use Docker's socket, which belongs to the group {group}",
+    "deploy_here.group.denied": (
+        "Noust runs as {user} and may not use Docker's socket, which belongs to the group "
+        "{group} ({gid})"
+    ),
+    "deploy_here.group.denied.hint": (
+        "Give the central's container that group: under its service in the compose file put "
+        "group_add with {gid} as its entry, and recreate it. Find the number on the machine "
+        "with: {command}"
+    ),
+    "deploy_here.unchecked.socket": "Not checked yet: Docker's socket cannot be used",
+    "deploy_here.unchecked.docker": "Not checked yet: Docker does not answer",
+    "deploy_here.folder.ok": "{folder} is the same folder inside this container and on the machine",
+    "deploy_here.folder.missing_inside": "{folder} does not exist inside this container",
+    "deploy_here.folder.missing_inside.hint": (
+        "Mount the folder into the central at the path it has on the machine, {folder}:{folder}, "
+        "and recreate the container."
+    ),
+    "deploy_here.folder.unwritable": "Noust cannot write in {folder}",
+    "deploy_here.folder.unwritable.hint": (
+        "Give the folder to the account the central runs as, on the machine: {command}"
+    ),
+    "deploy_here.folder.missing_outside": "Docker cannot find {folder} on the machine",
+    "deploy_here.folder.missing_outside.hint": (
+        "The folder exists inside this container under another path than it has outside, so what "
+        "a stack keeps in it would land somewhere else. Mount it at the same path on both sides, "
+        "{folder}:{folder}, and recreate the container."
+    ),
+    "deploy_here.folder.other": "{folder} is another folder on the machine than inside this container",
+    "deploy_here.folder.other.hint": (
+        "Something else is at {folder} on the machine. Mount the folder you mean at the same "
+        "path inside the container, so that both sides name one folder."
+    ),
+    "deploy_here.folder.unverified": "Noust could not check {folder}: {reason}",
+    "deploy_here.folder.unverified.hint": (
+        "The check starts a small container, from an image the machine already has or one it "
+        "pulls. What Docker said is above."
     ),
     # -- Files > Storage (noust.managers.server.storage): what a cleanup would do, one sentence ----
     # for each action, said before anything is deleted.

@@ -5046,6 +5046,18 @@ Print the result as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
+.SS noust central deploy\-here
+Deploy containers on the machine the central runs on, through its Docker.
+
+.SS noust central deploy\-here check
+Check that this central can deploy on its machine's Docker, and say what to change.
+.TP
+.B \-\-json
+Print the report as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
 .SS noust central run
 Serve the central's console in the foreground (what the container runs).
 .TP
@@ -5054,6 +5066,24 @@ Address to listen on. The console is served over TLS whatever it is. Default: 0.
 .TP
 .B \-\-port
 Port to listen on. Default: 8443.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust central schedule
+The schedules the central runs itself, where there are no timers.
+
+.SS noust central schedule status
+Show what is scheduled, when it runs next and how its last run went.
+.TP
+.B \-\-json
+Print the schedules as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust central schedule tick
+Look at the schedules now and run what is due, as the central does every half minute.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.

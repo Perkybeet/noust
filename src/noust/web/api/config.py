@@ -37,6 +37,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from noust.core import delivery, paths
+from noust.core.central_settings import consent_from_the_console
 from noust.core.config import (
     DEFAULT_CONFIG,
     NO_DEFAULT,
@@ -526,6 +527,12 @@ def update_config(
     config = load_config()
     before = config.to_dict()
     smtp_before = _smtp_destination(config)
+    _refuse_consent(
+        (before.get("central") or {}).get("deploy_here"),
+        (body.config.get("central") or {}).get("deploy_here")
+        if isinstance(body.config.get("central"), dict)
+        else None,
+    )
     config.replace(body.config)
     monitor = body.config.get("monitor")
     named = _names_the_smtp_password(monitor.get("smtp") if isinstance(monitor, dict) else None)
@@ -575,6 +582,8 @@ def patch_config(
     value = body.value
     if isinstance(value, str):
         value = coerce_config_value(config.get(body.path, NO_DEFAULT), value)
+    if body.path == "central.deploy_here":
+        _refuse_consent(config.get(body.path, ""), value)
     config.set(body.path, value)
     named = body.path == "monitor.smtp" and _names_the_smtp_password(value)
     _refuse_smtp_password_move(smtp_before, config, entered=named)
@@ -1029,6 +1038,36 @@ def _refuse_smtp_password_move(
         "Enter the password again: the server, port, username or "
         "transport changed, and the stored password is only kept "
         "for the server it was entered for.",
+    )
+
+
+def _refuse_consent(before: Any, after: Any) -> None:
+    """
+    Refuse a write that would make this central deploy on its machine's Docker.
+
+    Args:
+        before: ``central.deploy_here`` as it is now.
+        after: What the write asks it to be.
+
+    Raises:
+        HTTPException: 403 when the write turns it on. Turning it off, or leaving it as it is
+            (a whole configuration sent back unchanged), passes.
+    """
+    if not consent_from_the_console(before, after):
+        return
+    raise HTTPException(
+        status_code=403,
+        detail={
+            "error": "forbidden",
+            "detail": "Deploying on this machine's Docker is not turned on from the console",
+            "hint": (
+                "It gives this central the power of root on the machine, so it is asked for where "
+                "the compose file that mounts Docker's socket is written: add NOUST_DEPLOY_HERE="
+                "containers to its environment (see the guide to deploying where the central "
+                "runs), then recreate the container."
+            ),
+            "fields": None,
+        },
     )
 
 

@@ -17,6 +17,15 @@ says whether it also deploys applications itself (``central.role``):
   it deploys nothing itself, but it receives the pushes of the repositories its
   servers deploy and hands them on, and leases those servers the access to clone.
 
+A hub can also be told to deploy containers on the machine's own Docker
+(``central.deploy_here = containers``, :func:`deploy_here`), which is what the
+container of a NAS does once its compose file mounts the Docker socket and says so.
+It is then a *container host* (:func:`is_container_host`): what asks only for Docker
+(container applications, Compose stacks and recipes, database engines in containers,
+copies of volumes) works, and what needs systemd or a web server is still refused, in
+words that say this central deploys containers and nothing else. A hub that was not told
+is exactly the hub it was, Docker or not.
+
 :func:`role` is the one reading of the setting. What a Noust can do is one
 table (:mod:`noust.central.features`): :func:`require_server_role` is the guard
 a function calls where it starts, by its key in that table, and
@@ -43,6 +52,10 @@ ROLE_SERVER = "server"
 ROLE_HUB = "hub"
 #: Every role, the default first.
 ROLES: tuple[str, ...] = (ROLE_SERVER, ROLE_HUB)
+#: What a hub is told to deploy on the machine's own Docker.
+DEPLOY_HERE_CONTAINERS = features.CONTAINERS
+#: Every setting of ``central.deploy_here``, off first.
+DEPLOY_HERE_MODES: tuple[str, ...] = ("", DEPLOY_HERE_CONTAINERS)
 
 #: CLI commands a hub refuses, and the function of :mod:`noust.central.features` each belongs to:
 #: the refusal names it as that function's label does. Everything not listed (the console, tokens,
@@ -107,6 +120,52 @@ def role(config: Config | None = None) -> str:
     return normalised
 
 
+def deploy_here(config: Config | None = None) -> str:
+    """
+    Return what this Noust is told to deploy on its machine's own Docker.
+
+    Args:
+        config: The configuration; the process-wide one by default.
+
+    Returns:
+        ``"containers"``, or the empty string when it is not told to.
+
+    Raises:
+        ConfigError: When ``central.deploy_here`` (or ``NOUST_DEPLOY_HERE``, which overrides
+            it) holds anything else: guessing would either offer a deployment nobody
+            consented to or hide one somebody did.
+    """
+    value = str((config or Config()).get("central.deploy_here", "") or "")
+    normalised = value.strip().lower()
+    if normalised == "off":
+        normalised = ""
+    if normalised not in DEPLOY_HERE_MODES:
+        raise ConfigError(
+            f"central.deploy_here must be 'containers' or empty, not {value!r}",
+            details=(
+                "Fix it with 'noust config set central.deploy_here containers' (or 'off'), or "
+                "correct NOUST_DEPLOY_HERE in the environment."
+            ),
+        )
+    return normalised
+
+
+def is_container_host(config: Config | None = None) -> bool:
+    """
+    Report whether this Noust is a hub that was told to deploy containers here.
+
+    A server deploys here already and the setting changes nothing for it, so this is False for
+    one; a hub that was not told is False too, whatever Docker it has.
+
+    Args:
+        config: The configuration; the process-wide one by default.
+
+    Returns:
+        True for a hub whose ``central.deploy_here`` is ``containers``.
+    """
+    return is_hub(config) and deploy_here(config) == DEPLOY_HERE_CONTAINERS
+
+
 def is_hub(config: Config | None = None) -> bool:
     """
     Report whether this Noust is a hub.
@@ -124,6 +183,10 @@ def require_server_role(feature: str, config: Config | None = None) -> None:
     """
     Refuse a function that needs the server role on a hub.
 
+    A hub that was told to deploy containers here (:func:`is_container_host`) is refused only
+    what the table says a container host does not do. What is refused is the role: whether
+    the machine has what the function needs is said by the function, as on a server.
+
     Args:
         feature: The function's key in :data:`noust.central.features.FEATURES`
             (``"native_deploy"``). What the refusal calls it is the label the
@@ -132,14 +195,19 @@ def require_server_role(feature: str, config: Config | None = None) -> None:
 
     Raises:
         RoleError: When the function needs the server role and this Noust is a
-            hub.
+            hub, or a container host and the function is not one it does.
         KeyError: When the table has no such key, on every machine and not only
             on a hub.
     """
     needed = features.feature(feature)
     if features.Need.ROLE not in needed.needs or not is_hub(config):
         return
-    refusal = features.hub_refusal(needed)
+    if is_container_host(config):
+        if needed.on_containers is not None:
+            return
+        refusal = features.containers_refusal(needed)
+    else:
+        refusal = features.hub_refusal(needed)
     raise RoleError(refusal.text, details=refusal.hint or "")
 
 
@@ -175,15 +243,21 @@ def feature_states(config: Config | None = None) -> dict[str, dict[str, Any]]:
         config: The configuration; the process-wide one by default.
 
     Returns:
-        :func:`noust.central.features.published` over this role and what the machine has
-        (:func:`noust.central.machine.read_machine_facts`, which asks the machine itself).
+        :func:`noust.central.features.published` over this role, what it is told to deploy here
+        and what the machine has (:func:`noust.central.machine.read_machine_facts`, which asks
+        the machine itself).
 
     Raises:
-        ConfigError: When ``central.role`` holds something that is not a role.
+        ConfigError: When ``central.role`` or ``central.deploy_here`` holds something that is
+            not one of their values.
     """
     from noust.central import machine
 
-    return features.published(role=role(config), facts=machine.read_machine_facts())
+    return features.published(
+        role=role(config),
+        facts=machine.read_machine_facts(),
+        deploy_here=deploy_here(config),
+    )
 
 
 def central_info(config: Config | None = None, *, with_features: bool = True) -> dict[str, Any]:
@@ -201,11 +275,12 @@ def central_info(config: Config | None = None, *, with_features: bool = True) ->
             sealed central asks for the state alone.
 
     Returns:
-        ``{"role": "server" | "hub", "sealed": bool, "locked": bool, "features":
-        {key: {"available": bool, "reason": {...} | None}}}``; ``locked`` is
-        True only while the store is sealed and this process has not been given
-        the passphrase, and ``features`` (left out without ``with_features``) is
-        :func:`noust.central.features.published` over this role and this machine.
+        ``{"role": "server" | "hub", "sealed": bool, "locked": bool, "features": {key:
+        {"available": bool, "reason": {...} | None}}}``; ``locked`` is True only while the store
+        is sealed and this process has not been given the passphrase, and ``features`` (left
+        out without ``with_features``) is :func:`noust.central.features.published` over this
+        role, what it is told to deploy here (:func:`deploy_here`, which the session adds beside
+        it) and this machine.
     """
     from noust.core import sealing
     from noust.core.secrets import secrets_dir

@@ -23,7 +23,7 @@ every secret that is set and an empty value for one that is not.
 
 The environment overrides a few settings for one process: `NOUST_APPS_DIR` (`apps_directory`),
 `NOUST_WEBSERVER` (`webserver`), `NOUST_SERVICE_USER` (`service_user`), `NOUST_SSL_EMAIL`
-(`ssl.email`) and `NOUST_CENTRAL_ROLE` (`central.role`).
+(`ssl.email`), `NOUST_CENTRAL_ROLE` (`central.role`) and `NOUST_DEPLOY_HERE` (`central.deploy_here`).
 
 A value that fails its check (a port out of range, a relative path, a host that is not a name) is
 refused in the same words by `noust config set`, the console and the API.
@@ -108,6 +108,7 @@ used, with their default in the code, so a file that lacks them behaves as docum
 |---|---|---|
 | `server.name` | empty | The name this server goes by in every notification and, on a central, in the fleet. Empty means the machine's short hostname. At most 64 characters, one line. |
 | `central.role` | `server` | What this Noust is for: `server` deploys and serves applications (and may also manage other servers), `hub` only manages other servers (a central on a NAS or in a container) and refuses applications, sites and certificates. `NOUST_CENTRAL_ROLE` overrides it. |
+| `central.deploy_here` | empty | Whether a hub also deploys on its machine's own Docker: `containers` lets it run container applications and Compose stacks through the Docker socket it was given, empty (or `off`) keeps it a hub that deploys nothing. `NOUST_DEPLOY_HERE` sets it, and the console cannot turn it on: see [Deploy where the central runs](central-deploy-here.md). |
 | `central.name` | the host name | The name a central goes by to the servers it manages. Not in the defaults. |
 | `metrics.retention_days` | `400` | Days the hourly tier of the charts' history is kept (35 to 3650). The finer tiers are fixed: 5 s for 2 hours, 1 minute for 26 hours, 10 minutes for 8 days. The per-minute process samples behind the charts are kept as long as the minute tier (26 hours); the unit failures and recoveries the timeline reads, as long as the hourly tier (see [MONITOR.md](MONITOR.md#process-samples)). |
 

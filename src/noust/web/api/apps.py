@@ -95,6 +95,7 @@ from noust.managers.database.service import OWN_DATABASE_TYPES, DatabaseService
 from noust.managers.port_claims import PortClaims
 from noust.managers.rollback_manager import RollbackManager
 from noust.managers.service_manager import ResourceLimits, ServiceManager
+from noust.managers.supervision import service_control
 from noust.recipes import get_recipe
 from noust.recipes.deploy import refuse_conflicts, require_available, with_database
 from noust.terminal.targets import validate_service
@@ -1022,8 +1023,6 @@ def list_apps(
     """
     store = get_store()
     scoped = scoped_store()
-    manager = ServiceManager(verbose=False)
-
     apps = scoped.list_apps(project=project, environment=environment, team=team)
     tags_of = AppTags(store).by_application()
     if tag is not None:
@@ -1037,7 +1036,7 @@ def list_apps(
     }
     webhook_flags = store.list_webhook_flags(domains)
     last_deployments = scoped.get_latest_deployments(domains)
-    states = resolve_states_with_status(apps, manager)
+    states = resolve_states_with_status(apps, service_control(ServiceManager, verbose=False))
 
     result = []
     for app in apps:
@@ -1493,8 +1492,7 @@ def get_app(domain: str, session: Annotated[dict, Depends(get_current_session)])
         raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
 
     service = store.get_service_by_app_id(app.id) if app.id else None
-    manager = ServiceManager(verbose=False)
-    state, status = resolve_state_with_status(app, manager)
+    state, status = resolve_state_with_status(app, service_control(ServiceManager, verbose=False))
 
     recent = scoped.list_deployments(domain=app.domain, limit=1)
 
@@ -1544,7 +1542,7 @@ def _service_action(domain: str, action: str, past_tense: str) -> AppActionRespo
             domain=validated,
         )
 
-    manager = ServiceManager(verbose=False)
+    manager = service_control(ServiceManager, verbose=False)
     if not manager.get_status(app_name).get("exists"):
         raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
 
@@ -1680,7 +1678,8 @@ def get_app_logs(
             services=services,
         )
 
-    logs = ServiceManager(verbose=False).logs(app_name, lines=lines) or "No logs available"
+    logs = service_control(ServiceManager, verbose=False).logs(app_name, lines=lines)
+    logs = logs or "No logs available"
 
     # The application's own output is whatever it printed: a token in a debug
     # line is as readable here as in any file (checklist G-12).

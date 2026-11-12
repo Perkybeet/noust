@@ -352,6 +352,13 @@ AppActionResponse = TypedDict("AppActionResponse", {
     "success": Required[bool],
 })
 
+AppAddress = TypedDict("AppAddress", {
+    "domain": Required[str],
+    "kind": Required[str],
+    "port": NotRequired[Union[int, None]],
+    "url": NotRequired[Union[str, None]],
+})
+
 AppBuildRequest = TypedDict("AppBuildRequest", {
     "base_directory": NotRequired[Union[str, None]],
     "build": NotRequired[Union[str, None]],
@@ -2950,6 +2957,22 @@ DependentOut = TypedDict("DependentOut", {
     "names": NotRequired[list[str]],
 })
 
+DeployHereCheckOut = TypedDict("DeployHereCheckOut", {
+    "code": Required[str],
+    "hint": NotRequired[Union[str, None]],
+    "key": Required[str],
+    "params": NotRequired[dict[str, Union[bool, int, float, str]]],
+    "status": Required[str],
+    "text": Required[str],
+})
+
+DeployHereReport = TypedDict("DeployHereReport", {
+    "checks": Required[list["DeployHereCheckOut"]],
+    "deploy_here": Required[str],
+    "ready": Required[bool],
+    "role": Required[str],
+})
+
 DeployKeyCreateRequest = TypedDict("DeployKeyCreateRequest", {
     "key": NotRequired[Union[str, None]],
     "name": NotRequired[Union[str, None]],
@@ -4665,6 +4688,7 @@ FeatureStates = TypedDict("FeatureStates", {
     "databases": Required["FeatureState"],
     "dns_accounts": Required["FeatureState"],
     "dns_records": Required["FeatureState"],
+    "docker_zone": Required["FeatureState"],
     "domains": Required["FeatureState"],
     "firewall": Required["FeatureState"],
     "importing_applications": Required["FeatureState"],
@@ -9439,6 +9463,19 @@ ScheduledPowerOut = TypedDict("ScheduledPowerOut", {
     "status": Required[str],
 })
 
+ScheduledTaskOut = TypedDict("ScheduledTaskOut", {
+    "calendar": Required[str],
+    "key": Required[str],
+    "kind": Required[str],
+    "last_detail": NotRequired[str],
+    "last_run": NotRequired[Union[str, None]],
+    "last_status": NotRequired[Union[str, None]],
+    "missed": NotRequired[int],
+    "next_run": NotRequired[Union[str, None]],
+    "problem": NotRequired[Union[str, None]],
+    "subject": Required[str],
+})
+
 SchemaResponse = TypedDict("SchemaResponse", {
     "name": Required[str],
     "relations": NotRequired[int],
@@ -9799,6 +9836,7 @@ ServiceTagsResponse = TypedDict("ServiceTagsResponse", {
 })
 
 SessionCentral = TypedDict("SessionCentral", {
+    "deploy_here": NotRequired[Union[str, None]],
     "features": NotRequired[Union["FeatureStates", None]],
     "locked": Required[bool],
     "role": Required[str],

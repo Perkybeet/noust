@@ -379,6 +379,10 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/recipes/catalog", INSTANCE),
     _rule("/api/recipes/catalog/**", INSTANCE),
     _rule("/api/recipes/**", OPEN),
+    # Whether this central may deploy on its machine's Docker is about the machine, which no team
+    # owns; unlocking and the rest of the central's own state are open to whoever may ask.
+    _rule("/api/central/container-host/check", INSTANCE, methods=("POST",)),
+    _rule("/api/central/schedule", INSTANCE, methods=("GET",)),
     _rule("/api/central/**", OPEN),
     # The server's own shared variables, and the secret managers whose tokens reach into
     # other systems: decisions about what any deploy of any team can fetch.

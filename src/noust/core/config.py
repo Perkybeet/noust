@@ -54,6 +54,11 @@ from urllib.parse import urlparse
 import yaml  # type: ignore[import-untyped]
 
 from noust.core import paths, update_policy
+from noust.core.central_settings import (
+    validate_central_role,
+    validate_deploy_here,
+    without_borrowed_consent,
+)
 from noust.core.compliance import controls as _compliance_controls
 from noust.core.compliance import frameworks as _compliance_frameworks
 from noust.core.config_text import CannotEditText, remove_keys
@@ -620,6 +625,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # on a missing nginx. See noust.central.role. NOUST_CENTRAL_ROLE
         # overrides it, which is how the container image is a hub.
         "role": "server",
+        # Whether a hub also deploys on its machine's own Docker: empty is no,
+        # "containers" is yes. NOUST_DEPLOY_HERE sets it; the console cannot.
+        "deploy_here": "",
     },
     "databases": {
         "credentials": {
@@ -1681,36 +1689,6 @@ def _validate_hardening(value: Any) -> str:
     return profile
 
 
-#: What ``central.role`` may be. Mirrored by noust.central.ROLES, which this
-#: module cannot import (the central package reads its settings from here).
-CENTRAL_ROLES = ("server", "hub")
-
-
-def _validate_central_role(value: Any) -> str:
-    """
-    Accept one of the roles a Noust can have.
-
-    Args:
-        value: Candidate role.
-
-    Returns:
-        The role, lower-cased.
-
-    Raises:
-        ConfigError: When it is not one of :data:`CENTRAL_ROLES`.
-    """
-    role = str(value or "").strip().lower()
-    if role not in CENTRAL_ROLES:
-        raise ConfigError(
-            f"central.role must be one of {', '.join(CENTRAL_ROLES)}, not {value!r}",
-            details=(
-                "'server' deploys applications here; 'hub' only manages other "
-                "servers (a central on a NAS or in a container)."
-            ),
-        )
-    return role
-
-
 #: The certificate authorities ``ssl.ca`` may name.
 ACME_CAS: tuple[str, ...] = ("letsencrypt", "letsencrypt-staging", "zerossl", "google", "custom")
 
@@ -2168,7 +2146,8 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "terminal.server.force_ens": _validate_flag("terminal.server.force_ens"),
     "terminal.exec.max_seconds": _int_range_validator("terminal.exec.max_seconds", 1, 86400),
     "retention.terminal_days": _int_range_validator("retention.terminal_days", 1, 3650),
-    "central.role": _validate_central_role,
+    "central.role": validate_central_role,
+    "central.deploy_here": validate_deploy_here,
     "dns.resolvers": _validate_address_list("dns.resolvers"),
     "dns.public_addresses": _validate_address_list("dns.public_addresses"),
     "ssl.ca": _validate_acme_ca,
@@ -3040,6 +3019,7 @@ def _apply_env_overrides(config: dict[str, Any]) -> None:
         "SERVICE_USER": "service_user",
         "SSL_EMAIL": ("ssl", "email"),
         "CENTRAL_ROLE": ("central", "role"),
+        "DEPLOY_HERE": ("central", "deploy_here"),
     }
 
     for env_var, config_key in env_mappings.items():
@@ -3490,7 +3470,9 @@ class Config:
         save_path = path or DEFAULT_CONFIG_PATH
         # The channels' secrets are encrypted at this boundary and nowhere else: in memory they
         # are text, in the file they never are (checklist K-12).
-        sealed = channel_secrets.seal(self._config, channel_secrets.key_path(save_path))
+        sealed = channel_secrets.seal(
+            without_borrowed_consent(self._config), channel_secrets.key_path(save_path)
+        )
         secure_write(save_path, yaml.dump(sealed, default_flow_style=False), fs=self.fs)
         return save_path
 

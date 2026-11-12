@@ -128,7 +128,7 @@ from noust.deployers.php_fpm import PhpFpmDeployer, remove_pool_of, set_pool_lim
 from noust.deployers.php_fpm import health_gate_for_app as php_health_gate_for_app
 from noust.deployers.recorder import CapturingLogger, DeploymentRecorder, recording
 from noust.deployers.registry import detect_app_type, get_deployer
-from noust.managers import app_disk, unit_stop
+from noust.managers import app_disk, supervision, unit_stop
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.app_processes import Declaration, ProcessManager
 from noust.managers.app_replicas import ReplicaManager
@@ -4478,7 +4478,7 @@ def _delete_app(
         # A legacy unit is named after its directory (the legacy prefix and the name); an adopted
         # directory's name is the operator's, and may be a unit of theirs.
         units = [app_path.name if is_in_apps_directory(app_path) else domain_to_app_name(domain)]
-    services = ServiceManager(verbose=log.verbose)
+    services = supervision.service_control(ServiceManager, verbose=log.verbose)
     if app is not None and not is_rehearsal():
         # The processes and the copies beside the web process, before the unit they depend on.
         try:

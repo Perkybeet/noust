@@ -183,6 +183,80 @@ export const serverText: Catalog<typeof en> = {
     stack_not_restored: { text: "La actualización de {domain} no superó la comprobación de arranque; lo que estaba sirviendo no se pudo recuperar por completo" },
     stack_unhealthy: { text: "La actualización de {domain} no superó la comprobación de arranque" },
   },
+  deploy_here: {
+    engine: {
+      no_client: {
+        text: "Esta imagen no trae el cliente de Docker",
+        hint: "La imagen de la central lleva la línea de órdenes de Docker desde la 4.3: descarga la imagen actual y vuelve a crear el contenedor.",
+      },
+      ok: {
+        text: "Docker {version} responde, habla la API {api} y tiene Compose {compose}",
+      },
+    },
+    folder: {
+      missing_inside: {
+        text: "{folder} no existe dentro de este contenedor",
+        hint: "Monta la carpeta en la central con la ruta que tiene en la máquina, {folder}:{folder}, y vuelve a crear el contenedor.",
+      },
+      missing_outside: {
+        text: "Docker no encuentra {folder} en la máquina",
+        hint: "La carpeta existe dentro de este contenedor con otra ruta que la que tiene fuera, así que lo que una pila guarde en ella acabaría en otro sitio. Móntala con la misma ruta en los dos lados, {folder}:{folder}, y vuelve a crear el contenedor.",
+      },
+      ok: {
+        text: "{folder} es la misma carpeta dentro de este contenedor y en la máquina",
+      },
+      other: {
+        text: "{folder} es otra carpeta en la máquina distinta de la que hay dentro de este contenedor",
+        hint: "En la máquina hay otra cosa en {folder}. Monta la carpeta que quieres con la misma ruta dentro del contenedor, para que los dos lados nombren una sola carpeta.",
+      },
+      unverified: {
+        text: "Noust no pudo comprobar {folder}: {reason}",
+        hint: "La comprobación arranca un contenedor pequeño, de una imagen que la máquina ya tiene o que descarga. Lo que dijo Docker está arriba.",
+      },
+      unwritable: {
+        text: "Noust no puede escribir en {folder}",
+        hint: "Entrega la carpeta a la cuenta con la que se ejecuta la central, en la máquina: {command}",
+      },
+    },
+    group: {
+      denied: {
+        text: "Noust se ejecuta como {user} y no puede usar el socket de Docker, que pertenece al grupo {group} ({gid})",
+        hint: "Dale ese grupo al contenedor de la central: bajo su servicio en el archivo compose pon group_add con {gid} como entrada y vuelve a crearlo. El número se ve en la máquina con: {command}",
+      },
+      ok: {
+        text: "Noust puede usar el socket de Docker, que pertenece al grupo {group}",
+      },
+    },
+    setting: {
+      off: {
+        text: "Esta central no está configurada para desplegar en esta máquina",
+        hint: "Añade {variable} al entorno del contenedor de la central, junto al socket de Docker, y vuelve a crearlo. Se pide ahí a propósito y la consola no puede hacerlo por ti.",
+      },
+      on: {
+        text: "Esta central despliega contenedores en el Docker de esta máquina",
+      },
+      server: {
+        text: "Este Noust es un servidor: despliega en esta máquina sin que haga falta pedírselo",
+      },
+    },
+    socket: {
+      found: {
+        text: "El socket de Docker está montado en {socket}",
+      },
+      missing: {
+        text: "No hay socket de Docker en {socket}",
+        hint: "Monta el socket de la máquina en la central: añade {socket}:{socket} a los volúmenes de su archivo compose y vuelve a crear el contenedor.",
+      },
+    },
+    unchecked: {
+      docker: {
+        text: "Aún sin comprobar: Docker no responde",
+      },
+      socket: {
+        text: "Aún sin comprobar: el socket de Docker no se puede usar",
+      },
+    },
+  },
   diagnose: {
     blue_green: {
       idle_failed: {
@@ -779,6 +853,10 @@ export const serverText: Catalog<typeof en> = {
     },
   },
   features: {
+    containers_only: {
+      text: "{feature}: no disponible aquí, donde solo se despliegan contenedores",
+      hint: "Esta central despliega contenedores en el Docker de su máquina (central.deploy_here = containers). {feature} necesita systemd o un servidor web en la máquina, y un contenedor no los tiene. Despliégalo en un servidor de tu flota: elige el servidor en la consola o ejecuta la orden contra un nodo.",
+    },
     hub_role: {
       text: "{feature}: no disponible en esta central, que es un hub",
       hint: "Un hub (central.role = hub) gestiona otros servidores y no despliega nada por sí mismo. Elige el servidor en la consola o ejecuta la orden contra un nodo. En una máquina que también deba desplegar, ejecuta '{command}'; un contenedor no puede, no tiene nginx ni systemd.",

@@ -30,7 +30,7 @@ from typing import Any
 import click
 
 from noust import central
-from noust.central import setup
+from noust.central import scheduler, setup
 from noust.central.unlock import UnlockServer, UnlockUnavailableError, send_request, socket_path
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.core import paths, sealing
@@ -186,6 +186,11 @@ def _run(ctx: Context, host: str, port: int) -> None:
         unlock_server.start()
     except NoustError as exc:
         logger.warning(f"{exc.message}. {exc.details}")
+    # Where systemd keeps no timers, what was scheduled runs from here, and what came due while the
+    # central was off runs now and is said.
+    schedules = scheduler.start_if_needed(logger.info)
+    if schedules is not None:
+        logger.info("There are no timers on this machine: the central runs its own schedules.")
     # uvicorn shuts down gracefully on SIGTERM and then raises the signal
     # again against whatever handler was there before it. With the default
     # one the process would die by the signal (exit 143) and skip the
@@ -199,6 +204,8 @@ def _run(ctx: Context, host: str, port: int) -> None:
             show_token=False,
         )
     finally:
+        if schedules is not None:
+            schedules.stop()
         unlock_server.stop()
         # Forgets the keys and removes the decrypted copies handed to ssh.
         sealing.lock(root)
@@ -565,3 +572,103 @@ def backup_command(
         "Copy it off this machine, and keep the passphrase somewhere else: it cannot be "
         f"recovered. Check a copy any time with: noust central backup --verify {made.path.name}"
     )
+
+
+# -- deploy-here -------------------------------------------------------------------
+
+
+@cli.group("deploy-here", cls=NoustGroup)
+def deploy_here_group() -> None:
+    """Deploy containers on the machine the central runs on, through its Docker."""
+
+
+@deploy_here_group.command("check")
+@json_option("Print the report as JSON.")
+@pass_context
+def deploy_here_check(ctx: Context) -> None:
+    """
+    Check that this central can deploy on its machine's Docker, and say what to change.
+
+    Each check is a line: the setting, Docker's socket, the engine, the socket's group, and the
+    folders (the applications' and Noust's own data) being the same path inside the container and on
+    the machine, which is proved with a witness file a throw-away container has to read. Exits 1
+    when a check fails.
+    """
+    from noust.central import deploy_check
+
+    if ctx.dry_run:
+        ctx.logger.info(
+            "would ask Docker what it is, look at its socket and prove the folders of the "
+            "applications and of Noust's data with a witness file (nothing is run in a rehearsal)"
+        )
+        return
+    report = deploy_check.check_deploy_here()
+    if ctx.json_output:
+        click.echo(json.dumps(report.to_dict()))
+    else:
+        logger = ctx.logger
+        for item in report.checks:
+            text, hint = item.said.text, item.said.hint
+            if item.status == deploy_check.STATUS_OK:
+                logger.success(text)
+            elif item.status == deploy_check.STATUS_SKIPPED:
+                logger.info(text)
+            elif item.status == deploy_check.STATUS_WARN:
+                logger.warning(f"{text}. {hint}" if hint else text)
+            else:
+                logger.error(text, details=hint or "")
+        if report.ready:
+            logger.success("This central can deploy on this machine's Docker.")
+        else:
+            logger.error("This central cannot deploy on this machine yet: fix what is above.")
+    if not report.ready:
+        raise SystemExit(1)
+
+
+# -- schedule ----------------------------------------------------------------------
+
+
+@cli.group("schedule", cls=NoustGroup)
+def schedule_group() -> None:
+    """The schedules the central runs itself, where there are no timers."""
+
+
+@schedule_group.command("status")
+@json_option("Print the schedules as JSON.")
+@pass_context
+def schedule_status(ctx: Context) -> None:
+    """Show what is scheduled, when it runs next and how its last run went."""
+    rows = scheduler.rows()
+    if ctx.json_output:
+        click.echo(json.dumps(rows))
+        return
+    logger = ctx.logger
+    if not rows:
+        logger.info("Nothing is scheduled.")
+        return
+    for row in rows:
+        subject = f" of {row['subject']}" if row["subject"] else ""
+        logger.key_value(
+            f"{row['kind'].replace('_', ' ')}{subject}", f"next {row['next_run'] or 'never'}"
+        )
+        if row["last_run"]:
+            logger.key_value("  last run", f"{row['last_run']}: {row['last_status']}", indent=4)
+        if row["last_detail"]:
+            logger.key_value("  it said", row["last_detail"], indent=4)
+        if row["missed"]:
+            logger.key_value(
+                "  missed", f"{row['missed']} runs while the central was off", indent=4
+            )
+        if row["problem"]:
+            logger.warning(row["problem"])
+
+
+@schedule_group.command("tick")
+@pass_context
+def schedule_tick(ctx: Context) -> None:
+    """Look at the schedules now and run what is due, as the central does every half minute."""
+    if ctx.dry_run:
+        ctx.logger.info("would look at the schedules and run what is due")
+        return
+    scheduler.default_scheduler().tick()
+    ctx.logger.success("Looked at the schedules.")

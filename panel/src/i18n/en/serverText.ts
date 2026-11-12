@@ -194,6 +194,80 @@ export const serverText = {
     stack_not_restored: { text: "The update of {domain} did not pass its startup check; what was serving could not be put back entirely" },
     stack_unhealthy: { text: "The update of {domain} did not pass its startup check" },
   },
+  deploy_here: {
+    engine: {
+      no_client: {
+        text: "This image has no Docker client",
+        hint: "The central's image carries Docker's command line from 4.3 on: pull the current image and recreate the container.",
+      },
+      ok: {
+        text: "Docker {version} answers, speaking API {api}, with Compose {compose}",
+      },
+    },
+    folder: {
+      missing_inside: {
+        text: "{folder} does not exist inside this container",
+        hint: "Mount the folder into the central at the path it has on the machine, {folder}:{folder}, and recreate the container.",
+      },
+      missing_outside: {
+        text: "Docker cannot find {folder} on the machine",
+        hint: "The folder exists inside this container under another path than it has outside, so what a stack keeps in it would land somewhere else. Mount it at the same path on both sides, {folder}:{folder}, and recreate the container.",
+      },
+      ok: {
+        text: "{folder} is the same folder inside this container and on the machine",
+      },
+      other: {
+        text: "{folder} is another folder on the machine than inside this container",
+        hint: "Something else is at {folder} on the machine. Mount the folder you mean at the same path inside the container, so that both sides name one folder.",
+      },
+      unverified: {
+        text: "Noust could not check {folder}: {reason}",
+        hint: "The check starts a small container, from an image the machine already has or one it pulls. What Docker said is above.",
+      },
+      unwritable: {
+        text: "Noust cannot write in {folder}",
+        hint: "Give the folder to the account the central runs as, on the machine: {command}",
+      },
+    },
+    group: {
+      denied: {
+        text: "Noust runs as {user} and may not use Docker's socket, which belongs to the group {group} ({gid})",
+        hint: "Give the central's container that group: under its service in the compose file put group_add with {gid} as its entry, and recreate it. Find the number on the machine with: {command}",
+      },
+      ok: {
+        text: "Noust may use Docker's socket, which belongs to the group {group}",
+      },
+    },
+    setting: {
+      off: {
+        text: "This central is not set to deploy on this machine",
+        hint: "Add {variable} to the environment of the central's container, beside Docker's socket, and recreate it. It is asked for there on purpose, and the console cannot do it for you.",
+      },
+      on: {
+        text: "This central deploys containers on this machine's Docker",
+      },
+      server: {
+        text: "This Noust is a server: it deploys on this machine without being asked",
+      },
+    },
+    socket: {
+      found: {
+        text: "Docker's socket is mounted at {socket}",
+      },
+      missing: {
+        text: "There is no Docker socket at {socket}",
+        hint: "Mount the machine's socket into the central: add {socket}:{socket} to the volumes of its compose file and recreate the container.",
+      },
+    },
+    unchecked: {
+      docker: {
+        text: "Not checked yet: Docker does not answer",
+      },
+      socket: {
+        text: "Not checked yet: Docker's socket cannot be used",
+      },
+    },
+  },
   diagnose: {
     blue_green: {
       idle_failed: {
@@ -790,6 +864,10 @@ export const serverText = {
     },
   },
   features: {
+    containers_only: {
+      text: "{feature}: not available here, which deploys containers and nothing else",
+      hint: "This central deploys containers on its machine's Docker (central.deploy_here = containers). {feature} needs systemd or a web server on the machine, which a container does not have. Deploy it on a server of your fleet instead: pick the server in the console, or run the command against a node.",
+    },
     hub_role: {
       text: "{feature}: not available on this central, which is a hub",
       hint: "A hub (central.role = hub) manages other servers and deploys nothing itself. Pick the server in the console, or run the command against a node. On a machine that should also deploy, set '{command}'; a container cannot, it has no nginx or systemd.",

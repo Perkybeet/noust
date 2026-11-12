@@ -36,6 +36,7 @@ import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
+from urllib.parse import urlsplit
 
 from noust.core import app_health_store
 from noust.core.app_health_store import HealthExtras
@@ -311,7 +312,14 @@ class HealthCheck:
 
 
 class UnitControl(Protocol):
-    """The part of the service manager the gate needs."""
+    """
+    The part of the service manager the gate needs.
+
+    A control may also have ``address_of(name) -> str | None``: where the application answers, seen from
+    Noust, as ``address:port`` (see :meth:`HealthGate._where`). A server's does not: the application
+    answers on 127.0.0.1, and Noust is on the machine. Where Docker keeps the application alive and
+    Noust is in another container it does, and the gate asks there.
+    """
 
     def restart(self, name: str) -> None:
         """Restart a unit."""
@@ -430,10 +438,14 @@ class HealthGate:
                 return self._with_companions(True, "", companions)
             return False, self.evidence("The release has nothing to serve.")
 
+        try:
+            url = self._where()
+        except NoustError as exc:
+            return False, self.evidence(str(exc))
         options = self.check.probe_options() if self.check is not None else {}
-        self._logger.substep(f"Checking: {self.url}")
+        self._logger.substep(f"Checking: {url}")
         healthy = self._probe(
-            self.url,
+            url,
             retries=self._attempts,
             delay=self._delay,
             on_attempt=self._note_attempt,
@@ -446,7 +458,31 @@ class HealthGate:
         )
         if healthy:
             return self._with_companions(True, "", companions)
-        return False, self.evidence("The application did not answer the health check.")
+        asked = f" Asked at {url}." if url != self.url else ""
+        return False, self.evidence(f"The application did not answer the health check.{asked}")
+
+    def _where(self) -> str | None:
+        """
+        Say where to ask, once the restart has made the application what it will be.
+
+        Returns:
+            The gate's URL, with the address the control says the application answers on from here
+            put in its place when it says one (the port of the check, if the operator gave one, is
+            kept); the URL as it was for a control that does not, which is every server's.
+
+        Raises:
+            NoustError: The control cannot find where the application answers, with its reason.
+        """
+        if self.url is None or not self.unit:
+            return self.url
+        ask = getattr(self._services, "address_of", None)
+        address = ask(self.unit) if callable(ask) else None
+        # A stand-in that answers every question is not a control that says where.
+        if not isinstance(address, str) or not address:
+            return self.url
+        kept = self.check.port if self.check is not None else None
+        netloc = f"{address.rpartition(':')[0]}:{kept}" if kept else address
+        return urlsplit(self.url)._replace(netloc=netloc).geturl()
 
     def _companion_units(self) -> list[str]:
         """

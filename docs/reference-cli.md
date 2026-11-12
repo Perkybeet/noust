@@ -4680,7 +4680,7 @@ Run and look after a central: the Noust that manages your servers.
 noust central [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`backup`](#noust-central-backup), [`run`](#noust-central-run), [`seal`](#noust-central-seal), [`status`](#noust-central-status), [`unlock`](#noust-central-unlock), [`unseal`](#noust-central-unseal)
+Subcommands: [`backup`](#noust-central-backup), [`deploy-here`](#noust-central-deploy-here), [`run`](#noust-central-run), [`schedule`](#noust-central-schedule), [`seal`](#noust-central-seal), [`status`](#noust-central-status), [`unlock`](#noust-central-unlock), [`unseal`](#noust-central-unseal)
 
 ### noust central backup
 
@@ -4699,6 +4699,29 @@ noust central backup [OPTIONS]
 | `--json` | Print the result as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
+### noust central deploy-here
+
+Deploy containers on the machine the central runs on, through its Docker.
+
+```bash
+noust central deploy-here [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`check`](#noust-central-deploy-here-check)
+
+### noust central deploy-here check
+
+Check that this central can deploy on its machine's Docker, and say what to change.
+
+```bash
+noust central deploy-here check [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the report as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
 ### noust central run
 
 Serve the central's console in the foreground (what the container runs).
@@ -4711,6 +4734,41 @@ noust central run [OPTIONS]
 |---|---|---|
 | `--host` | Address to listen on. The console is served over TLS whatever it is. | `0.0.0.0` |
 | `--port` | Port to listen on. | `8443` |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust central schedule
+
+The schedules the central runs itself, where there are no timers.
+
+```bash
+noust central schedule [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`status`](#noust-central-schedule-status), [`tick`](#noust-central-schedule-tick)
+
+### noust central schedule status
+
+Show what is scheduled, when it runs next and how its last run went.
+
+```bash
+noust central schedule status [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the schedules as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust central schedule tick
+
+Look at the schedules now and run what is due, as the central does every half minute.
+
+```bash
+noust central schedule tick [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust central seal

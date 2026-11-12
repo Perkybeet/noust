@@ -35,6 +35,7 @@ Every configuration key and the value it has until you change it. Set one with `
 | `auth.sudo.require_password` | `false` |
 | `auth.tokens.enforce_max_days` | `false` |
 | `auth.tokens.max_days` | `90` |
+| `central.deploy_here` | `""` |
 | `central.role` | `"server"` |
 | `databases.credentials.mongodb.password` | `""` |
 | `databases.credentials.mongodb.user` | `""` |

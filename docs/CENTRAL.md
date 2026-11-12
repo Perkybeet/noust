@@ -11,7 +11,9 @@ each of them and drives them through their own API, from one console. It can be:
 A central in a container is a **hub** (`central.role = hub`): it deploys nothing itself.
 Applications, sites, certificates, databases and the rest are refused there with a message,
 and the console hides them. Everything else (the console, tokens, two-factor, the fleet)
-works as on any Noust.
+works as on any Noust. A central on a NAS or a Docker host can also be told to deploy
+**containers** on the machine's own Docker, which is what a NAS is good at: that is off until you
+turn it on in the compose file, and the guide is [Deploy where the central runs](central-deploy-here.md).
 
 What a Noust can do is one table, `src/noust/central/features.py`: each function says what it needs, the server
 role and/or a fact of the machine (systemd, a web server, Docker, root, the journal). The refusal of a hub and
@@ -137,7 +139,9 @@ docker logs noust
 ```
 
 The image runs as uid 10001 with a read-only root filesystem and no capabilities; everything
-it keeps is under `/data`.
+it keeps is under `/data`. It also carries Docker's command line and Compose, which do nothing until
+you give the container the machine's Docker socket and ask it to deploy
+([Deploy where the central runs](central-deploy-here.md)).
 
 | Variable | Default | What it does |
 |----------|---------|--------------|
@@ -145,7 +149,8 @@ it keeps is under `/data`.
 | `NOUST_TLS_CERT`, `NOUST_TLS_KEY` | a self-signed pair minted at the first start | Your own certificate, both on the volume. The recommended way: see [The console's certificate](#the-consoles-certificate). |
 | `NOUST_TLS_NAMES` | none | Names and addresses to add to the self-signed certificate, space- or comma-separated (`central.example.com 192.168.1.50`): a container only sees its own addresses, not the NAS's. |
 | `NOUST_DATA_DIR` | `/data` | Where everything lives. |
-| `NOUST_CENTRAL_ROLE` | `hub` | Set by the image; a container cannot deploy. |
+| `NOUST_CENTRAL_ROLE` | `hub` | Set by the image: it has no nginx or systemd, so it deploys no native application. |
+| `NOUST_DEPLOY_HERE` | empty | `containers` lets the central deploy containers and Compose stacks on the machine's Docker, through the socket you mounted into it. Off unless you set it: [Deploy where the central runs](central-deploy-here.md). |
 
 ## On a VPS
 

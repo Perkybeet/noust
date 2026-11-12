@@ -20,10 +20,18 @@ works and nothing else.
 
 **The keys are by what a function needs, not by "hub or not".** A container application needs Docker
 and a native one needs systemd and a web server; a machine that has only Docker (the container of a
-NAS) can run the first and not the second, and the table says it. Today every function a hub
-refuses also lists the server role: a hub deploys nothing itself, whatever the machine has. A
-function that needs only Docker is the one the NAS lane lets a hub with Docker do, by taking the
-role off its line: nothing else changes.
+NAS) can run the first and not the second, and the table says it. Every function a hub refuses
+also lists the server role: a hub deploys nothing itself, whatever the machine has, unless it is told
+to deploy containers here (below).
+
+**A hub can be told to deploy containers here** (``central.deploy_here = containers``, with the
+machine's Docker socket mounted: the container of a NAS). It is then a *container host*, and a
+function says what it asks of one in :attr:`Feature.on_containers`: ``(Need.DOCKER,)`` for what
+only Docker is needed for (a container application, a Compose stack, a recipe, a database engine
+in a container, the copy of a volume), and None for what needs systemd or a web server, which a
+container host is refused in words that say it deploys containers and nothing else. The same line
+is read by the guard, the session and the console, so what is offered and what answers cannot
+drift apart. A hub that was not told, and a server, read ``needs`` as they always did.
 
 **What the guard refuses is the role; what is published is the role and the machine.** The guard has
 only ever answered "is this a hub", and a server that lacks nginx or Docker keeps getting the error
@@ -49,16 +57,21 @@ if TYPE_CHECKING:
     from noust.central.machine import MachineFacts
 
 __all__ = [
+    "CONTAINERS",
     "FEATURES",
     "SERVER_ROLE_COMMAND",
     "Availability",
     "Feature",
     "Need",
     "availability",
+    "containers_refusal",
     "feature",
     "hub_refusal",
     "published",
 ]
+
+#: What ``central.deploy_here`` says for a hub that deploys containers on the machine's Docker.
+CONTAINERS = "containers"
 
 #: The command a hub's refusal gives to make a machine a server.
 SERVER_ROLE_COMMAND = "noust config set central.role server"
@@ -109,12 +122,17 @@ class Feature:
             console decides by (the machine's clock, its logs, its terminal): a hub's own machine
             does those and no manager refuses them, but a container without systemd or a journal
             cannot, and the console should not offer them.
+        on_containers: What it asks of the machine when this Noust is a hub that was told to deploy
+            containers here, in place of ``needs``: Docker, and no role, no systemd, no root. None
+            when a container host does not do it, which is what a function that writes a site or a
+            unit says. Only a function that needs the role can have it.
     """
 
     key: str
     label: str
     needs: tuple[Need, ...]
     guarded: bool = True
+    on_containers: tuple[Need, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -132,6 +150,9 @@ class Availability:
 
 
 _SERVER = Need.ROLE
+
+#: What a function asks of a container host that needs nothing but its Docker.
+_DOCKER_ONLY = (Need.DOCKER,)
 
 #: What a function that writes a site for a web server needs of the machine.
 _WEB = (Need.WEB_SERVER, Need.ROOT)
@@ -163,21 +184,34 @@ def _table(*features: Feature) -> dict[str, Feature]:
 FEATURES: dict[str, Feature] = _table(
     # -- Applications. One key for what is done to an application whatever it runs as, and one for
     # each way of running one, because they need different things of the machine.
-    Feature("applications", "Applications", (_SERVER,)),
+    Feature("applications", "Applications", (_SERVER,), on_containers=_DOCKER_ONLY),
     Feature("native_deploy", "Applications", (_SERVER, Need.SYSTEMD, Need.WEB_SERVER, Need.ROOT)),
-    # A container application is run by a unit that starts its Compose file, today. The NAS lane
-    # takes the unit and the role off this line when Docker's own restart policy keeps it alive.
-    Feature("container_deploy", "Applications", (_SERVER, Need.SYSTEMD, Need.DOCKER, Need.ROOT)),
-    Feature("releases", "Releases", (_SERVER,)),
-    Feature("rollbacks", "Rollbacks", (_SERVER,)),
+    # On a server a container application is run by a unit that starts its Compose file. On a
+    # container host Docker's own restart policy keeps it alive and there is no unit
+    # (noust.managers.supervision), so what it asks of that machine is its Docker and nothing else.
+    Feature(
+        "container_deploy",
+        "Applications",
+        (_SERVER, Need.SYSTEMD, Need.DOCKER, Need.ROOT),
+        on_containers=_DOCKER_ONLY,
+    ),
+    Feature("releases", "Releases", (_SERVER,), on_containers=_DOCKER_ONLY),
+    Feature("rollbacks", "Rollbacks", (_SERVER,), on_containers=_DOCKER_ONLY),
     Feature(
         "preview_environments",
         "Preview environments",
         (_SERVER, Need.SYSTEMD, Need.WEB_SERVER, Need.ROOT),
     ),
     Feature("importing_applications", "Importing applications", (_SERVER,)),
-    Feature("recipes", "Recipes", (_SERVER,)),
-    Feature("application_environments", "Application environments", (_SERVER,)),
+    # The catalogue's recipes are Compose stacks but five, and those five are native: the
+    # deployer of a native application refuses them in its own words (native_deploy).
+    Feature("recipes", "Recipes", (_SERVER,), on_containers=_DOCKER_ONLY),
+    Feature(
+        "application_environments",
+        "Application environments",
+        (_SERVER,),
+        on_containers=_DOCKER_ONLY,
+    ),
     Feature("application_diagnosis", "Application diagnosis", (_SERVER,)),
     # -- What watches and sets up the server Noust deploys to.
     Feature("process_monitor", "The process monitor", (_SERVER, Need.SYSTEMD)),
@@ -197,12 +231,23 @@ FEATURES: dict[str, Feature] = _table(
     Feature("dns_accounts", "DNS accounts", (_SERVER,)),
     # -- Databases and what is copied of them.
     Feature("databases", "Databases", (_SERVER, *_UNIT)),
-    Feature("database_instances", "Database instances", (_SERVER, Need.DOCKER)),
+    Feature(
+        "database_instances",
+        "Database instances",
+        (_SERVER, Need.DOCKER),
+        on_containers=_DOCKER_ONLY,
+    ),
     Feature("public_database_access", "Public access to a database", (_SERVER, *_UNIT)),
     Feature("database_backups", "Database backups", (_SERVER, *_UNIT)),
     Feature("point_in_time_recovery", "Point-in-time recovery", (_SERVER, *_UNIT)),
-    Feature("application_backups", "Application backups", (_SERVER, Need.ROOT)),
-    Feature("volume_backups", "Volume backups", (_SERVER, Need.DOCKER)),
+    # An update takes a backup of the application first, and a container host updates.
+    Feature(
+        "application_backups",
+        "Application backups",
+        (_SERVER, Need.ROOT),
+        on_containers=_DOCKER_ONLY,
+    ),
+    Feature("volume_backups", "Volume backups", (_SERVER, Need.DOCKER), on_containers=_DOCKER_ONLY),
     Feature("restoring_a_server", "Restoring a server", (_SERVER, *_UNIT)),
     Feature("moving_a_server", "Moving a server", (_SERVER, Need.ROOT)),
     Feature("checking_a_moved_server", "Checking a moved server", (_SERVER,)),
@@ -220,6 +265,10 @@ FEATURES: dict[str, Feature] = _table(
     Feature("root_shell", "A root shell", (Need.ROOT,), guarded=False),
     Feature("server_security", "Server security", (Need.SYSTEMD, Need.ROOT), guarded=False),
     Feature("firewall", "The firewall", (Need.SYSTEMD, Need.ROOT), guarded=False),
+    # -- The Docker zone of the console: what runs in the machine's Docker and whose it is. Docker
+    # is all it asks, so a hub with Docker at hand has it whether or not it deploys here, and no
+    # manager refuses it by role.
+    Feature("docker_zone", "The Docker zone", (Need.DOCKER,), guarded=False),
 )
 
 
@@ -259,6 +308,19 @@ def hub_refusal(item: Feature) -> ServerText:
     return say("features.hub_role", feature=item.label, command=SERVER_ROLE_COMMAND)
 
 
+def containers_refusal(item: Feature) -> ServerText:
+    """
+    Say why a hub that deploys containers does not do a function.
+
+    Args:
+        item: The function.
+
+    Returns:
+        The sentence the guard raises and the session publishes: one wording for both.
+    """
+    return say("features.containers_only", feature=item.label)
+
+
 def _missing(need: Need, facts: MachineFacts) -> ServerText:
     """
     Args:
@@ -274,7 +336,9 @@ def _missing(need: Need, facts: MachineFacts) -> ServerText:
     return say(_MISSING[need])
 
 
-def availability(key: str, *, role: str, facts: MachineFacts) -> Availability:
+def availability(
+    key: str, *, role: str, facts: MachineFacts, deploy_here: str = ""
+) -> Availability:
     """
     Say whether a function would work here now.
 
@@ -282,6 +346,11 @@ def availability(key: str, *, role: str, facts: MachineFacts) -> Availability:
         key: The function's key.
         role: This Noust's role, ``server`` or ``hub``.
         facts: What the machine has.
+        deploy_here: What this Noust is told to deploy on its machine's Docker (``central.deploy_here``).
+            For a hub, ``containers`` makes it a container host: a function that lists
+            :attr:`Feature.on_containers` asks that of the machine and not the role, and one that
+            does not is refused with the sentence that says this central deploys containers only. A
+            server ignores it.
 
     Returns:
         Yes, or the sentence for the first need that is not met: the role first, then the machine in
@@ -291,7 +360,12 @@ def availability(key: str, *, role: str, facts: MachineFacts) -> Availability:
         KeyError: When the table has no such key.
     """
     item = feature(key)
-    for need in item.needs:
+    needs = item.needs
+    if role != "server" and deploy_here == CONTAINERS and Need.ROLE in needs:
+        if item.on_containers is None:
+            return Availability(False, containers_refusal(item))
+        needs = item.on_containers
+    for need in needs:
         if need is Need.ROLE:
             if role != "server":
                 return Availability(False, hub_refusal(item))
@@ -300,13 +374,16 @@ def availability(key: str, *, role: str, facts: MachineFacts) -> Availability:
     return Availability(True)
 
 
-def published(*, role: str, facts: MachineFacts) -> dict[str, dict[str, Any]]:
+def published(
+    *, role: str, facts: MachineFacts, deploy_here: str = ""
+) -> dict[str, dict[str, Any]]:
     """
     Say what is available, for everything in the table, as the session carries it.
 
     Args:
         role: This Noust's role.
         facts: What the machine has.
+        deploy_here: What it is told to deploy on the machine's Docker; see :func:`availability`.
 
     Returns:
         For each key ``{"available": bool, "reason": ...}``; the reason is None when available and
@@ -315,7 +392,7 @@ def published(*, role: str, facts: MachineFacts) -> dict[str, dict[str, Any]]:
     """
     said: dict[str, dict[str, Any]] = {}
     for key in FEATURES:
-        answer = availability(key, role=role, facts=facts)
+        answer = availability(key, role=role, facts=facts, deploy_here=deploy_here)
         reason = answer.reason
         said[key] = {
             "available": answer.available,

@@ -70,6 +70,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("applications", "list_app_types"): ("GET", "/api/apps/types", "apps.read", False),
     ("applications", "get_app"): ("GET", "/api/apps/{domain}", "apps.read", False),
     ("applications", "delete_app"): ("DELETE", "/api/apps/{domain}", "apps.manage", True),
+    ("applications", "get_app_address"): ("GET", "/api/apps/{domain}/address", "apps.read", False),
     ("applications", "get_adoption"): ("GET", "/api/apps/{domain}/adoption", "apps.read", False),
     ("applications", "apply"): ("POST", "/api/apps/{domain}/apply", "root_equivalent", True),
     ("applications", "patch_backup_before_update"): ("PATCH", "/api/apps/{domain}/backup-before-update", "apps.manage", True),
@@ -333,6 +334,8 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("backups", "push_backup"): ("POST", "/api/backups/{backup_id}/push", "backups.manage", True),
     ("backups", "restore_backup"): ("POST", "/api/backups/{backup_id}/restore", "backups.manage", True),
     ("backups", "verify_backup"): ("POST", "/api/backups/{backup_id}/verify", "backups.run", False),
+    ("central", "check_container_host"): ("POST", "/api/central/container-host/check", "docker.manage", False),
+    ("central", "central_schedule"): ("GET", "/api/central/schedule", "server.read", False),
     ("central", "unlock_central"): ("POST", "/api/central/unlock", "security.manage", True),
     ("central_backups", "list_copies"): ("GET", "/api/central-backups", "backups.read", False),
     ("central_backups", "collect_now"): ("POST", "/api/central-backups/collect", "backups.run", False),
@@ -1487,7 +1490,7 @@ class Alerts:
 
 
 class Applications:
-    """Applications: 170 operations."""
+    """Applications: 171 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -1571,6 +1574,14 @@ class Applications:
 
         Needs: permission `apps.manage`, sudo mode."""
         return self._call("DELETE", f"/api/apps/{quote(str(domain), safe='')}", query={"remove_files": remove_files, "remove_ssl": remove_ssl, "remove_volumes": remove_volumes, "remove_databases": remove_databases, "remove_adopted_directory": remove_adopted_directory}, body=None)
+
+    def get_app_address(self, domain: str) -> "AppAddress":
+        """GET /api/apps/{domain}/address
+
+        Get App Address
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/address", query=None, body=None)
 
     def get_adoption(self, domain: str) -> "AdoptionResponse":
         """GET /api/apps/{domain}/adoption
@@ -3735,10 +3746,26 @@ class Backups:
 
 
 class Central:
-    """Central: 1 operations."""
+    """Central: 3 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
+
+    def check_container_host(self) -> "DeployHereReport":
+        """POST /api/central/container-host/check
+
+        Check Container Host
+
+        Needs: permission `docker.manage`."""
+        return self._call("POST", "/api/central/container-host/check", query=None, body=None)
+
+    def central_schedule(self) -> list["ScheduledTaskOut"]:
+        """GET /api/central/schedule
+
+        Central Schedule
+
+        Needs: permission `server.read`."""
+        return self._call("GET", "/api/central/schedule", query=None, body=None)
 
     def unlock_central(self, body: "UnlockRequest") -> "CentralInfo":
         """POST /api/central/unlock

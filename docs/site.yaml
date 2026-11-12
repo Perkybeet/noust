@@ -550,6 +550,10 @@ tabs:
             slug: guides/fleet/operate
             type: guide
             summary: "See every server at once, act on several, run an application on several, build once for all, move a database, the fleet's settings, versions and updates."
+          - source: docs/central-deploy-here.md
+            slug: guides/fleet/deploy-here
+            type: guide
+            summary: "Let the central on a NAS deploy containers and Compose stacks on the machine's own Docker: what it does and does not, what you agree to, the compose file and how to turn it off."
           - source: docs/central-sources.md
             slug: guides/fleet/github
             type: guide

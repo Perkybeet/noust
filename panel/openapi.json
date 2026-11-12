@@ -2158,6 +2158,48 @@
         "title": "AppActionResponse",
         "type": "object"
       },
+      "AppAddress": {
+        "description": "Where an application is reached from outside.\n\nAttributes:\n    domain: The application.\n    kind: ``site`` (by its domain, behind the web server), ``port`` (on a port of the machine, where\n        there is no web server of Noust's) or ``none`` (it serves no web).\n    url: The address; null for ``none``.\n    port: The port of the machine it is published on, when it has one.",
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "kind": {
+            "description": "site, port or none",
+            "title": "Kind",
+            "type": "string"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "domain",
+          "kind"
+        ],
+        "title": "AppAddress",
+        "type": "object"
+      },
       "AppBuildRequest": {
         "description": "The operator's build block. A key left out is not set: the block replaces the repository's whole.",
         "properties": {
@@ -17337,6 +17379,98 @@
         "title": "DependentOut",
         "type": "object"
       },
+      "DeployHereCheckOut": {
+        "description": "One check of whether this central can deploy on its machine's Docker.\n\nAttributes:\n    key: Which check: ``setting``, ``socket``, ``engine``, ``group``, ``apps_folder`` or\n        ``data_folder``.\n    status: ``ok``; ``fail`` (the central cannot deploy until it is fixed); ``warn`` (deploying\n        works and something else does not); or ``skipped`` (it could not be made because what\n        it needs was not there: never a pass).\n    text: The sentence in English, always sent.\n    hint: The change that fixes it, in English, when it has one.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Params",
+            "type": "object"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "key",
+          "status",
+          "text"
+        ],
+        "title": "DeployHereCheckOut",
+        "type": "object"
+      },
+      "DeployHereReport": {
+        "description": "Whether this central can deploy on its machine's Docker.\n\nAttributes:\n    ready: No check failed.\n    role: ``server`` or ``hub``.\n    deploy_here: ``containers`` when the central was told to deploy here, empty otherwise.\n    checks: Every check in the order they are made.",
+        "properties": {
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/DeployHereCheckOut"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "deploy_here": {
+            "title": "Deploy Here",
+            "type": "string"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ready",
+          "role",
+          "deploy_here",
+          "checks"
+        ],
+        "title": "DeployHereReport",
+        "type": "object"
+      },
       "DeployKeyCreateRequest": {
         "description": "Make a key for the application's repository, or assign one that exists.\n\nAttributes:\n    name: The new key's name; the application's name by default.\n    key: The name of an existing key to assign instead of making one.",
         "properties": {
@@ -26945,7 +27079,7 @@
         "type": "object"
       },
       "FeatureState": {
-        "description": "Whether one function of this Noust works here.\n\nAttributes:\n    available: It would work here now.\n    reason: Why it would not: ``features.hub_role`` on a hub, ``features.needs_*`` for what\n        the machine lacks, and the engine's own sentences (``docker.*``) for Docker. None when\n        ``available``.",
+        "description": "Whether one function of this Noust works here.\n\nAttributes:\n    available: It would work here now.\n    reason: Why it would not: ``features.hub_role`` on a hub, ``features.containers_only`` on\n        a hub that deploys containers and not this, ``features.needs_*`` for what the machine\n        lacks, and the engine's own sentences (``docker.*``) for Docker. None when\n        ``available``.",
         "properties": {
           "available": {
             "title": "Available",
@@ -27007,6 +27141,9 @@
             "$ref": "#/components/schemas/FeatureState"
           },
           "dns_records": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "docker_zone": {
             "$ref": "#/components/schemas/FeatureState"
           },
           "domains": {
@@ -27143,7 +27280,8 @@
           "system_logs",
           "root_shell",
           "server_security",
-          "firewall"
+          "firewall",
+          "docker_zone"
         ],
         "title": "FeatureStates",
         "type": "object"
@@ -54457,6 +54595,89 @@
         "title": "ScheduledPowerOut",
         "type": "object"
       },
+      "ScheduledTaskOut": {
+        "description": "One thing the central runs itself at a time, where the machine has no timers.\n\nAttributes:\n    key: Its name (``volume_backup:shop.example.com``).\n    kind: What it is (``backup``, ``volume_backup``, ``sweep``, ``image_check``...).\n    subject: What it is for, usually an application's domain; empty for the machine's.\n    calendar: When, as the schedule holds it.\n    next_run: When it runs next, in the machine's local time; null when its calendar is not\n        understood.\n    last_run: When it last ran, if it did.\n    last_status: ``ok`` or ``failed``; null before the first run.\n    last_detail: What a failed run said last.\n    missed: How many runs the last one stood for beyond itself: the central was not running when\n        they came due.\n    problem: Why it cannot be scheduled, when it cannot.",
+        "properties": {
+          "calendar": {
+            "title": "Calendar",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "last_detail": {
+            "default": "",
+            "title": "Last Detail",
+            "type": "string"
+          },
+          "last_run": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run"
+          },
+          "last_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Status"
+          },
+          "missed": {
+            "default": 0,
+            "title": "Missed",
+            "type": "integer"
+          },
+          "next_run": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Run"
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Problem"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "kind",
+          "subject",
+          "calendar"
+        ],
+        "title": "ScheduledTaskOut",
+        "type": "object"
+      },
       "SchemaResponse": {
         "description": "One schema.\n\nAttributes:\n    relations: How many tables and views it holds.",
         "properties": {
@@ -56571,8 +56792,19 @@
         "type": "object"
       },
       "SessionCentral": {
-        "description": "What the session says of the central: :class:`CentralInfo` and what it can do.\n\nAttributes:\n    features: For each function of this Noust, whether it works here and why not. Absent from a\n        server older than 4.3, which the console reads as \"what its role allows\", as it always\n        did.",
+        "description": "What the session says of the central: :class:`CentralInfo` and what it can do.\n\nAttributes:\n    features: For each function of this Noust, whether it works here and why not. Absent from a\n        server older than 4.3, which the console reads as \"what its role allows\", as it always\n        did.\n    deploy_here: ``containers`` when this central was told, outside the console, to deploy\n        containers on its machine's own Docker (a hub that is then a *container host*: what\n        needs only Docker is offered and the rest says it deploys containers and nothing\n        else); empty or absent otherwise, and absent from a server older than 4.3. Optional in\n        the schema so that the console's own copies of the payload stay valid.",
         "properties": {
+          "deploy_here": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deploy Here"
+          },
           "features": {
             "anyOf": [
               {
@@ -76463,6 +76695,50 @@
         "x-noust-permission": "apps.read"
       }
     },
+    "/api/apps/{domain}/address": {
+      "get": {
+        "description": "Say where an application is reached from outside. Changes nothing.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The address: its domain (``site``), a port of the machine (``port``) or nothing (``none``).\n\nRaises:\n    HTTPException: 404 when the application is unknown, or outside the caller's teams.",
+        "operationId": "get_app_address_api_apps__domain__address_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppAddress"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get App Address",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
     "/api/apps/{domain}/adoption": {
       "get": {
         "description": "Say what an adopted application is.\n\nArgs:\n    domain: The application's domain.\n    session: The authenticated session.\n\nReturns:\n    Its unit, site and directory.\n\nRaises:\n    HTTPException: 404 when the application does not exist, is outside the caller's teams, or\n        was not adopted.",
@@ -94248,6 +94524,56 @@
         ],
         "x-noust-permission": "backups.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/central/container-host/check": {
+      "post": {
+        "description": "Check that this central can deploy on its machine's Docker, and say what to change.\n\nThe same report as ``noust central deploy-here check``. It asks the engine afresh and proves\neach folder with a witness file that a throw-away container has to read, which takes a few\nseconds and leaves nothing behind. It is a POST because it does something (writes a file and\nstarts a container, both removed), and a GET never does; the console asks it when a person opens\nthe page and not on every load. Who may ask is the route's permission, declared in\n:mod:`noust.web.permissions.routes_central` and enforced for every route at once.\n\nReturns:\n    The report.\n\nRaises:\n    ConfigError: 409/422 through the error contract, when ``central.role`` or\n        ``central.deploy_here`` holds what is not one of their values.",
+        "operationId": "check_container_host_api_central_container_host_check_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeployHereReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Check Container Host",
+        "tags": [
+          "Central"
+        ],
+        "x-noust-permission": "docker.manage"
+      }
+    },
+    "/api/central/schedule": {
+      "get": {
+        "description": "List what the central schedules itself and how each task stands. Changes nothing.\n\nOn a machine with systemd the timers are systemd's and this is what the central would run were\nthere none: the same rows, read. On a container host (a hub told to deploy containers here) it is\nwhat runs, and what came due while the central was off says so in ``missed``.\n\nReturns:\n    Every task, by key.",
+        "operationId": "central_schedule_api_central_schedule_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ScheduledTaskOut"
+                  },
+                  "title": "Response Central Schedule Api Central Schedule Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Central Schedule",
+        "tags": [
+          "Central"
+        ],
+        "x-noust-permission": "server.read"
       }
     },
     "/api/central/unlock": {

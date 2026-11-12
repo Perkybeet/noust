@@ -66,6 +66,7 @@ from noust.core.teams import Scope, ScopedStore, TeamStore
 from noust.core.utils import domain_to_app_name
 from noust.deployers import get_deployer
 from noust.deployers.docker_compose import DockerComposeDeployer, stack_deployer
+from noust.deployers.helpers import edge as edges
 from noust.deployers.helpers.env_manager import EnvManager
 from noust.deployers.helpers.package_manager import SUPPORTED_PACKAGE_MANAGERS
 from noust.deployers.helpers.php_fpm import is_php_fpm
@@ -93,6 +94,7 @@ from noust.managers.nginx_manager import NginxManager
 from noust.managers.port_claims import PortClaims
 from noust.managers.service_manager import ResourceLimits, ServiceManager
 from noust.managers.source_manager import SourceManager
+from noust.managers.supervision import service_control
 from noust.recipes import RecipeError, get_recipe
 from noust.recipes.deploy import (
     finish_recipe,
@@ -1025,7 +1027,7 @@ def _list_apps(
     # Asked of systemd and of the port, not read from the status column. That
     # column is written at deploy time and never again, so it called everything
     # Running while health, which did ask, reported half of them stopped.
-    states = resolve_states(apps, ServiceManager(verbose=logger.verbose))
+    states = resolve_states(apps, service_control(ServiceManager, verbose=logger.verbose))
 
     if json_output:
         items = [_app_summary(app, states[app.domain]) for app in apps]
@@ -1116,7 +1118,7 @@ def _show_status(domain: str, logger: Logger, *, json_output: bool = False) -> i
     Raises:
         NoustError: When the domain is not a valid domain.
     """
-    service_manager = ServiceManager(verbose=logger.verbose)
+    service_manager = service_control(ServiceManager, verbose=logger.verbose)
     store = get_store()
 
     domain = validate_domain(domain)
@@ -1207,6 +1209,9 @@ def _show_status(domain: str, logger: Logger, *, json_output: bool = False) -> i
 
     if app.port:
         logger.key_value("Port", str(app.port))
+        found = edges.reached(app)
+        if found.kind == "port" and found.url:
+            logger.key_value("Address", found.url)
 
     if app.source:
         logger.key_value("Source", app.source)
@@ -1279,7 +1284,7 @@ def _control_service(domain: str, action: str, logger: Logger) -> int:
         logger.info(f"Static application - no service to {action}: {domain}")
         return 0
 
-    service_manager = ServiceManager(verbose=logger.verbose)
+    service_manager = service_control(ServiceManager, verbose=logger.verbose)
 
     if not service_manager.unit_exists(app_name):
         logger.warning(f"Service not found for: {domain}")
@@ -1764,7 +1769,7 @@ def _preview_delete(
     logger.info("The following actions would be performed:")
     logger.blank()
 
-    service_manager = ServiceManager(verbose=logger.verbose)
+    service_manager = service_control(ServiceManager, verbose=logger.verbose)
     try:
         status = service_manager.get_status(app_name)
         if status.get("exists"):
@@ -1837,7 +1842,7 @@ def _show_logs(
     Raises:
         NoustError: When the domain is invalid.
     """
-    service_manager = ServiceManager(verbose=logger.verbose)
+    service_manager = service_control(ServiceManager, verbose=logger.verbose)
 
     domain = validate_domain(domain)
     app_name = domain_to_app_name(domain)

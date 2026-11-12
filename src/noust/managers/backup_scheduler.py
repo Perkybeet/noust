@@ -64,6 +64,7 @@ from noust.managers.backup_manager import SCHEDULED_TAG, BackupManager, BackupMe
 from noust.managers.backup_priority import current_priority, with_priority
 from noust.managers.backup_timer_options import TimerOptions, TimerOptionsStore, with_options
 from noust.managers.database.scope import ALL_DATABASES, timer_label
+from noust.managers.supervision import keeps_alive_with_docker
 from noust.validators.domain import validate_domain
 from noust.validators.names import resolve_within, validate_app_name, validate_service_name
 
@@ -474,21 +475,8 @@ class BackupScheduler:
             destinations=list(schedule.destinations),
         )
 
-        timer_path = self._unit_path(f"{checked.timer_name}.timer")
-        service_path = self._unit_path(f"{checked.service_name}.service")
-
-        self.options.set(checked.timer_name, checked.options)
-        self._write_unit(timer_path, self.render_timer(checked))
-        self._write_unit(service_path, self.render_service(checked))
-
-        self._systemctl("daemon-reload")
-
-        result = self._systemctl("enable", "--now", f"{checked.timer_name}.timer")
-        if not result.success:
-            raise BackupError(
-                f"Failed to enable timer: {checked.timer_name}.timer",
-                details=result.stderr.strip() or "Check 'systemctl status' for details.",
-            )
+        if self._timers():
+            self._install_timer(checked)
 
         # The timer's service now runs `noust backup run-schedule DOMAIN`,
         # which reads everything - include_databases, retention, destinations
@@ -511,6 +499,41 @@ class BackupScheduler:
         self._ensure_sweep_timer()
         return True
 
+    def _timers(self) -> bool:
+        """
+        Returns:
+            Whether systemd keeps this machine's timers. Where it does not (the central of a NAS) the
+            rows of the store are the schedule and the central's own scheduler runs them
+            (:mod:`noust.central.scheduler`): nothing is written for systemd.
+        """
+        return not keeps_alive_with_docker()
+
+    def _install_timer(self, checked: BackupSchedule) -> None:
+        """
+        Write and enable the timer and the service of an application's backup schedule.
+
+        Args:
+            checked: The validated schedule.
+
+        Raises:
+            BackupError: A unit cannot be written or the timer cannot be enabled.
+        """
+        timer_path = self._unit_path(f"{checked.timer_name}.timer")
+        service_path = self._unit_path(f"{checked.service_name}.service")
+
+        self.options.set(checked.timer_name, checked.options)
+        self._write_unit(timer_path, self.render_timer(checked))
+        self._write_unit(service_path, self.render_service(checked))
+
+        self._systemctl("daemon-reload")
+
+        result = self._systemctl("enable", "--now", f"{checked.timer_name}.timer")
+        if not result.success:
+            raise BackupError(
+                f"Failed to enable timer: {checked.timer_name}.timer",
+                details=result.stderr.strip() or "Check 'systemctl status' for details.",
+            )
+
     def remove_schedule(self, domain: str) -> bool:
         """
         Remove a backup schedule.
@@ -530,17 +553,18 @@ class BackupScheduler:
         )
         timer_name = f"{paths.BACKUP_UNIT_PREFIX}{app_name}"
 
-        self._systemctl("stop", f"{timer_name}.timer")
-        self._systemctl("disable", f"{timer_name}.timer")
+        if self._timers():
+            self._systemctl("stop", f"{timer_name}.timer")
+            self._systemctl("disable", f"{timer_name}.timer")
 
-        for suffix in (".timer", ".service"):
-            path = self._unit_path(f"{timer_name}{suffix}")
-            try:
-                self.fs.remove(path)
-            except OSError as exc:
-                self.logger.warning(f"Could not remove {path}: {exc}")
+            for suffix in (".timer", ".service"):
+                path = self._unit_path(f"{timer_name}{suffix}")
+                try:
+                    self.fs.remove(path)
+                except OSError as exc:
+                    self.logger.warning(f"Could not remove {path}: {exc}")
 
-        self._systemctl("daemon-reload")
+            self._systemctl("daemon-reload")
         get_store().delete_backup_schedule(validated_domain)
         self.options.delete(timer_name)
 
@@ -578,6 +602,10 @@ class BackupScheduler:
             / ``retention_days`` from the store row (empty string when unset),
             and ``include_databases`` (``"true"``/``"false"``) from it too.
         """
+        if not self._timers():
+            from noust.central.scheduler import listing
+
+            return listing()
         result = self._systemctl(
             "list-timers",
             "--no-legend",
@@ -749,11 +777,11 @@ class BackupScheduler:
         app_name = domain_to_app_name(domain)
         timer_name = f"{paths.BACKUP_UNIT_PREFIX}{app_name}"
 
-        result = self._systemctl("is-enabled", f"{timer_name}.timer")
-        if not result.success:
-            return None
-
         record = get_store().get_backup_schedule(domain)
+        if self._timers() and not self._systemctl("is-enabled", f"{timer_name}.timer").success:
+            return None
+        if record is None and not self._timers():
+            return None
         if record is None:
             return BackupSchedule(
                 domain=domain,
@@ -1068,6 +1096,9 @@ class BackupScheduler:
                 details=f"{exc}. A unit file is generated from these values, so they are "
                 "restricted to characters that cannot become a systemd directive.",
             ) from exc
+        if not self._timers():
+            self.logger.info(f"Scheduled: {unit} ({calendar}), run by the central's own scheduler")
+            return
         timer_path = self._unit_path(f"{unit}.timer")
         service_path = self._unit_path(f"{unit}.service")
         if not self._is_ours(timer_path, prefix):
@@ -1104,6 +1135,8 @@ class BackupScheduler:
         Returns:
             True when a timer was there to remove.
         """
+        if not self._timers():
+            return False
         timer_path = self._unit_path(f"{unit}.timer")
         service_path = self._unit_path(f"{unit}.service")
         if not timer_path.is_file() or not self._is_ours(timer_path, prefix):
@@ -1131,6 +1164,10 @@ class BackupScheduler:
             ``installed``, ``next_run`` and ``last_run``, as
             :meth:`database_timer_state` says them.
         """
+        if not self._timers():
+            from noust.central.scheduler import state_of
+
+            return {**state_of(unit), **self.options.get(unit).to_dict()}
         result = self._systemctl(
             "show",
             f"{unit}.timer",

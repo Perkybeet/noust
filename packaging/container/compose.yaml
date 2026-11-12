@@ -46,6 +46,14 @@
 #   stops taking copies, and says so, while less than "min free" is left.
 #   It is ONE copy, on the NAS: add a destination outside it as well.
 #
+# DEPLOYING ON THIS MACHINE
+#   The image carries Docker's command line and Compose, and can deploy
+#   containers on the NAS's own Docker, but only when it is asked twice, on
+#   purpose: the machine's Docker socket mounted into it, and
+#   NOUST_DEPLOY_HERE=containers. That gives the central the power of root on
+#   the NAS, so it is off in this file and the console cannot turn it on. The
+#   guide, with the compose file that asks for it: docs/central-deploy-here.md
+#
 # The central only dials out (SSH to each server it manages); nothing needs
 # opening on your router. Keep it that way: do not forward 8443 to the
 # internet. The console only answers loopback and the private networks
