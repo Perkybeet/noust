@@ -390,11 +390,12 @@ class TestGivingACopyBack:
             headers=world.as_("alice"),
         )
 
-        # What a team role may do is the role's (restoring a backup is `backups.manage`, which a
-        # team role may hold or not); what is certain is that another team's server is never a target.
-        assert elsewhere.status_code in (403, 404)
-        assert elsewhere.status_code != 202
-        assert allowed.status_code in (202, 403)
+        # A member's own team's server is a target (queued), and another team's reads as a server that
+        # does not exist, never as one that is refused.
+        assert (allowed.status_code, elsewhere.status_code) == (202, 404), (
+            allowed.text,
+            elsewhere.text,
+        )
 
     def test_another_teams_copy_cannot_be_given_back_by_a_member(
         self, world: World, held: None, jobs: list[dict[str, Any]]
