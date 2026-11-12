@@ -20,6 +20,14 @@ const OPEN_ICON: Readonly<Record<Extract<AttentionAction, { mode: "open" }>["kin
   review: OBJECT_ICONS.approval,
   openUpdates: OBJECT_ICONS.update,
   reviewRecipe: OBJECT_ICONS.recipe,
+  installUpdates: OBJECT_ICONS.update,
+  repairPackages: OBJECT_ICONS.update,
+  scheduleReboot: OBJECT_ICONS.server,
+  freeSpace: OBJECT_ICONS.server,
+  fixClock: OBJECT_ICONS.server,
+  addSwap: OBJECT_ICONS.server,
+  viewServices: OBJECT_ICONS.service,
+  reviewFinding: OBJECT_ICONS.security,
 };
 
 /** The icon of a button, as the node the button draws: decorative, the size of a small button's line. */

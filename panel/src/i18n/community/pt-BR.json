@@ -343,9 +343,6 @@
   "alerts.page.status": "As sondas que você marca como públicas, em uma página que qualquer servidor web pode servir. Ela mostra nomes e barras, nunca endereços.",
   "alerts.page.metrics": "O que o servidor mede, na janela que você escolher.",
   "alerts.page.fleet": "As regras de cada servidor, as que dispararam primeiro.",
-  "alerts.reach.title": "Nada vai avisar você sobre estes alertas",
-  "alerts.reach.body": "As notificações estão desativadas, então um alerta dispara e ninguém o ouve. Cada mensagem informa o servidor de onde veio.",
-  "alerts.reach.action": "Ative as notificações",
   "alerts.checksPage.documentTitle": "Verificações",
   "alerts.checksPage.loading": "Carregando as verificações",
   "alerts.checksPage.loadFailed": "Não foi possível carregar as verificações",
@@ -11880,37 +11877,34 @@
   "server.attention.nothing": "Nada requer atenção.",
   "server.attention.showAll": "Mostrar todos os {count}",
   "server.attention.showFewer": "Mostrar menos",
-  "server.attention.critical": "Crítico",
-  "server.attention.securityUpdates": {
-    "one": "{count} atualização de segurança pendente.",
-    "other": "{count} atualizações de segurança pendentes."
+  "inbox.reasons.securityUpdates": {
+    "one": "{count} atualização de segurança pendente",
+    "other": "{count} atualizações de segurança pendentes"
   },
-  "server.attention.packagesBroken": "O banco de dados de pacotes está semiconfigurado: uma atualização foi interrompida.",
-  "server.attention.rebootRequired": "É preciso reinicializar para concluir as atualizações.",
-  "server.attention.rebootRequiredBecause": "É preciso reinicializar para concluir a atualização de {packages}.",
-  "server.attention.osUnsupported": "{name} está fora de suporte: não recebe mais atualizações de segurança.",
-  "server.attention.osUnsupportedSince": "{name} está fora de suporte desde {date}: não recebe mais atualizações de segurança.",
-  "server.attention.osEnding": {
-    "one": "O suporte a {name} termina em {count} dia.",
-    "other": "O suporte a {name} termina em {count} dias."
+  "inbox.reasons.packagesBroken": "O banco de dados de pacotes está semiconfigurado: uma atualização foi interrompida",
+  "inbox.reasons.rebootRequired": "É preciso reinicializar para concluir as atualizações",
+  "inbox.reasons.rebootRequiredBecause": "É preciso reinicializar para concluir a atualização de {packages}",
+  "inbox.reasons.osUnsupported": "{name} está fora de suporte: não recebe mais atualizações de segurança",
+  "inbox.reasons.osUnsupportedSince": "{name} está fora de suporte desde {date}: não recebe mais atualizações de segurança",
+  "inbox.reasons.osEnding": {
+    "one": "O suporte a {name} termina em {count} dia",
+    "other": "O suporte a {name} termina em {count} dias"
   },
-  "server.attention.diskFull": "{mount} está com {percent} de uso.",
-  "server.attention.diskFullFree": "{mount} está com {percent} de uso, restam {free}.",
-  "server.attention.clockUnsynced": "O relógio não está sincronizado.",
-  "server.attention.noSwap": "Pouca memória e nenhum swap: um build pode ser encerrado por falta de memória.",
-  "server.attention.failedUnits": {
-    "one": "{count} serviço do sistema falhou: {units}.",
-    "other": "{count} serviços do sistema falharam: {units}."
+  "inbox.reasons.diskFull": "{mount} está com {percent} de uso",
+  "inbox.reasons.diskFullFree": "{mount} está com {percent} de uso, restam {free}",
+  "inbox.reasons.clockUnsynced": "O relógio não está sincronizado",
+  "inbox.reasons.noSwap": "Pouca memória e nenhum swap: um build pode ser encerrado por falta de memória",
+  "inbox.reasons.failedUnits": {
+    "one": "{count} serviço do sistema falhou: {units}",
+    "other": "{count} serviços do sistema falharam: {units}"
   },
-  "server.attention.actions.install": "Instalar",
-  "server.attention.actions.repair": "Reparar",
-  "server.attention.actions.scheduleReboot": "Agendar reinicialização",
-  "server.attention.actions.view": "Ver",
-  "server.attention.actions.freeSpace": "Liberar espaço",
-  "server.attention.actions.fixClock": "Corrigir",
-  "server.attention.actions.addSwap": "Adicionar swap",
-  "server.attention.actions.viewServices": "Ver serviços",
-  "server.attention.actions.review": "Revisar",
+  "inbox.actions.installUpdates": "Instalar",
+  "inbox.actions.repairPackages": "Reparar",
+  "inbox.actions.scheduleReboot": "Agendar reinicialização",
+  "inbox.actions.freeSpace": "Liberar espaço",
+  "inbox.actions.addSwap": "Adicionar swap",
+  "inbox.actions.viewServices": "Ver serviços",
+  "inbox.actions.reviewFinding": "Revisar",
   "server.overview.loading": "Carregando o servidor",
   "server.overview.label": "o servidor",
   "server.overview.supportUntil": "Suporte até {date}",

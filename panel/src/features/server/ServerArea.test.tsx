@@ -14,6 +14,7 @@ import {
 import type { RouteHandler } from "../../test/fakes";
 import {
   FAIL2BAN,
+  attentionFor,
   PLAN,
   POWER,
   SECURITY,
@@ -87,24 +88,47 @@ describe("the Server area", () => {
     expect(within(auto as HTMLElement).getByRole("switch", { name: "Automatic security updates" })).toBeChecked();
   });
 
-  it("puts what needs attention first, each with its way out", async () => {
+  it("puts what needs attention first, each with its way out, as the machine's slice of the one list", async () => {
     server("/server");
     const list = await screen.findByRole("list", {
       name: "What needs attention",
     });
-    const [first, second] = within(list).getAllByRole("listitem");
-    if (first === undefined || second === undefined) throw new Error("fewer than two rows");
-    // The critical finding first; pending security updates are a warning, as on the Overview.
+    const rows = within(list).getAllByRole("listitem");
+    const first = rows[0];
+    if (first === undefined) throw new Error("no rows");
+    // The critical finding first; then what is wrong with the machine (a warning, as on the Overview), then the other findings.
     expect(first).toHaveTextContent("Docker publishes ports around the firewall");
-    expect(within(first).getByRole("link", { name: "Review" })).toHaveAttribute("href", "/network/firewall");
-    expect(second).toHaveTextContent("4 security updates are pending.");
-    expect(within(second).getByRole("link", { name: "Install" })).toHaveAttribute("href", "/server/updates");
-    expect(within(second).getByText("Warning")).toHaveClass("sr-only");
+    expect(first).toHaveTextContent("Security");
+    expect(within(first).getByRole("link", { name: /^Review the finding/ })).toHaveAttribute("href", "/network/firewall");
+    const updates = rows.find((row) => row.textContent.includes("4 security updates are pending"));
+    if (updates === undefined) throw new Error("the security updates are not a row");
+    expect(within(updates).getByRole("link", { name: "Install the pending security updates" })).toHaveAttribute("href", "/server/updates");
+    expect(within(updates).getByText(/^Warning:/)).toHaveClass("sr-only");
+    // The reboot is scheduled from the updates, where the packages that ask for it are listed.
+    const reboot = rows.find((row) => row.textContent.includes("A reboot is needed"));
+    if (reboot === undefined) throw new Error("the reboot is not a row");
+    expect(within(reboot).getByRole("link", { name: "Schedule the reboot the updates ask for" })).toHaveAttribute("href", "/server/updates");
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 
+  it("says it is this machine's part of the one list when the list holds more, which is the number the bell shows", async () => {
+    const list = attentionFor(SUMMARY, SECURITY);
+    server("/server", {
+      "GET /api/attention": () =>
+        json(200, {
+          items: [...list.items, { id: "app:shop.example.com", subject: { kind: "app", domain: "shop.example.com" }, title: "shop.example.com", severity: "fail", origin: "state", reasons: [] }],
+          total: list.total + 1,
+        }),
+    });
+    await waitFor(() => {
+      expect(screen.getByText("This machine's part of what needs attention: 5 of 6.")).toBeInTheDocument();
+    });
+    // The other application's row is not this page's: its own page and the bell have it.
+    expect(screen.queryByText("shop.example.com")).not.toBeInTheDocument();
+  });
+
   it("schedules a reboot with its pre-checks in view, and says it read the warnings", async () => {
-    const { user, backend } = server("/server", {
+    const { user, backend } = server("/server/updates", {
       "POST /api/server/power/reboot": () =>
         json(200, {
           id: 1,
@@ -115,12 +139,7 @@ describe("the Server area", () => {
           status: "scheduled",
         }),
     });
-    const list = await screen.findByRole("list", {
-      name: "What needs attention",
-    });
-    await user.click(
-      within(list).getByRole("button", { name: "Schedule reboot" }),
-    );
+    await user.click(await screen.findByRole("button", { name: "Schedule reboot" }));
     const dialog = await screen.findByRole("alertdialog", {
       name: "Reboot the server",
     });
@@ -188,9 +207,8 @@ describe("the Server area", () => {
     await act(async () => {
       await setLocale("es");
     });
-    const { user } = server("/server");
-    const list = await screen.findByRole("list", { name: "Lo que requiere atención" });
-    await user.click(within(list).getByRole("button", { name: "Programar reinicio" }));
+    const { user } = server("/server/updates");
+    await user.click(await screen.findByRole("button", { name: "Programar reinicio" }));
     const dialog = await screen.findByRole("alertdialog", { name: "Reiniciar el servidor" });
     const checks = await within(dialog).findByRole("list", { name: "Comprobaciones antes de reiniciar" });
     // The finding is the server's sentence by its code, not the English it also sent.
@@ -214,9 +232,8 @@ describe("the Server area", () => {
     const list = await screen.findByRole("list", {
       name: "Lo que requiere atención",
     });
-    expect(within(list).getAllByRole("listitem")[1]).toHaveTextContent(
-      "Hay 4 actualizaciones de seguridad pendientes.",
-    );
+    expect(within(list).getAllByRole("listitem").some((row) => row.textContent.includes("Hay 4 actualizaciones de seguridad pendientes"))).toBe(true);
+    expect(within(list).getAllByText("Seguridad", { selector: "[data-slot='origin']" }).length).toBeGreaterThan(0);
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 });

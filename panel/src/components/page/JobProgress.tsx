@@ -27,6 +27,8 @@ export interface JobProgressProps {
   error?: unknown;
   /** The fix for a failure when the backend sent none. */
   hint?: string;
+  /** When a failed job ended: the box says it, so a failure left on screen is never undated. */
+  failedAt?: string | null | undefined;
   /** One follow-up: "View log", "Open the application". */
   action?: ReactNode;
   /** Lets a finished job be put away. A running one cannot be. */
@@ -52,6 +54,7 @@ export function JobProgress({
   description,
   error,
   hint,
+  failedAt,
   action,
   onDismiss,
   announce = true,
@@ -66,6 +69,7 @@ export function JobProgress({
           live={announce}
           error={error ?? { detail: t("common.jobProgress.noReason") }}
           title={title}
+          when={failedAt}
           {...(hint !== undefined ? { hint } : {})}
           {...(action !== undefined ? { action } : {})}
           {...(onDismiss !== undefined ? { className: "pr-12" } : {})}

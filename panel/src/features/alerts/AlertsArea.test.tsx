@@ -45,6 +45,7 @@ function routes(extra: Record<string, RouteHandler> = {}): Record<string, RouteH
   return {
     ...signedInRoutes(),
     "GET /api/alerts/rules": () => json(200, { items: [], metrics: [], firing: 0 }),
+    "GET /api/alerts/watching": () => json(200, { watcher: { state: "running", fix: null }, notifications: { enabled: true, paused_until: null, channels: [] }, watches: [] }),
     "GET /api/probes": () => json(200, { items: [], down: 0, status_page: { enabled: false, directory: "/var/lib/noust/status", components: 0, title: "Status", domain: null } }),
     "GET /api/config": () => json(200, { config: { monitor: { disk_threshold: 90.0, disk_check_seconds: 0, disk_renotify_hours: 0, cert_warning_days: 14, backup_missing_days: 2, backup_check_hours: 6, backup_missing_renotify_hours: 24, os_patches_check_hours: 24, token_warning_days: 7 } }, path: "/etc/noust/config.yaml", writable: true }),
     "GET /api/metrics/query": (call) => json(200, metricsReadFixture(call.search.getAll("metric"), { now: NOW, cells: 1440, recordedFrom: 1430 })),
@@ -71,26 +72,6 @@ describe("the Alerts area", () => {
     expect(screen.getByText("The probes you mark public, as one page any web server can serve. It shows names and bars, never addresses.")).toBeInTheDocument();
     await user.click(within(nav).getByRole("link", { name: "Checks" }));
     expect(await screen.findByRole("heading", { level: 1, name: "Checks" })).toBeInTheDocument();
-  });
-});
-
-describe("Alerts > who hears them", () => {
-  const configWith = (enabled: boolean) => () => json(200, { config: { notifications: { enabled } }, path: "/etc/noust/config.yaml", writable: true });
-
-  it("says once, above the rules, that nobody will hear an alert while notifications are off, and where to turn them on", { timeout: 40_000 }, async () => {
-    fakeBackend(routes({ "GET /api/config": configWith(false) }));
-    renderConsole("/alerts");
-    expect(await screen.findByText("Nothing will tell you about these alerts")).toBeInTheDocument();
-    expect(screen.getByText("Notifications are off, so an alert fires and nobody hears it. Each message names the server it comes from.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Turn on notifications" })).toHaveAttribute("href", "/settings/notifications");
-  });
-
-  it("says nothing while they are on", { timeout: 40_000 }, async () => {
-    fakeBackend(routes({ "GET /api/config": configWith(true) }));
-    renderConsole("/alerts");
-    expect(await screen.findByRole("heading", { level: 1, name: "Alerts" })).toBeInTheDocument();
-    await screen.findByText("No alert rules yet");
-    expect(screen.queryByText("Nothing will tell you about these alerts")).not.toBeInTheDocument();
   });
 });
 

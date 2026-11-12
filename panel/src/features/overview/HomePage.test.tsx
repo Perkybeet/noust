@@ -187,9 +187,20 @@ describe("Home, the panel of a server", () => {
     expect(location().pathname).toBe("/");
   });
 
-  it("adds an application nothing answers on, which only the console knows", async () => {
-    await home({ "GET /api/apps": () => json(200, { total: 1, apps: [{ domain: "api.example.com", name: "api", status: "no_answer", active: true, enabled: true, layout: "inplace" }] }) });
-    expect(await screen.findByText("The service runs, but nothing answers on its port")).toBeInTheDocument();
+  it("lists an application nothing answers on from the server's own list, which is where the monitor's announcement is kept, and joins nothing", async () => {
+    const noAnswer = {
+      id: "app:api.example.com",
+      subject: { kind: "app", domain: "api.example.com" },
+      title: "api.example.com",
+      severity: "fail",
+      origin: "state",
+      reasons: [{ kind: "state", origin: "state", severity: "fail", code: "no_answer", params: {}, detail: "HTTP 502 Bad Gateway", when: null, deployment_id: null, actions: ["view_log", "diagnose"] }],
+    };
+    const backend = fakeBackend(routes({ "GET /api/apps": () => json(200, { total: 1, apps: [{ domain: "other.example.com", name: "other", status: "running", active: true, enabled: true, layout: "inplace" }] }) }, overviewFixture({ attention: [noAnswer], attention_total: 1 })));
+    renderConsole("/");
+    expect(await screen.findByText(/The service runs, but nothing answers on its port/)).toBeInTheDocument();
+    // The list is the server's: the applications are not asked to complete it.
+    expect(backend.callsTo("GET /api/attention").length).toBeGreaterThan(0);
   });
 
   it("has one primary action, the header's, and a way to customize", async () => {

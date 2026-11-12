@@ -343,9 +343,6 @@
   "alerts.page.status": "Les sondes que vous marquez comme publiques, sur une page que n'importe quel serveur web peut servir. Elle montre des noms et des barres, jamais des adresses.",
   "alerts.page.metrics": "Ce que mesure le serveur, sur la fenêtre que vous choisissez.",
   "alerts.page.fleet": "Les règles de chaque serveur, celles qui se sont déclenchées d'abord.",
-  "alerts.reach.title": "Rien ne vous préviendra de ces alertes",
-  "alerts.reach.body": "Les notifications sont désactivées : une alerte se déclenche donc et personne ne l'entend. Chaque message indique le serveur dont il provient.",
-  "alerts.reach.action": "Activer les notifications",
   "alerts.checksPage.documentTitle": "Vérifications",
   "alerts.checksPage.loading": "Chargement des vérifications",
   "alerts.checksPage.loadFailed": "Impossible de charger les vérifications",
@@ -11880,37 +11877,34 @@
   "server.attention.nothing": "Rien ne requiert votre attention.",
   "server.attention.showAll": "Tout afficher ({count})",
   "server.attention.showFewer": "Afficher moins",
-  "server.attention.critical": "Critique",
-  "server.attention.securityUpdates": {
-    "one": "{count} mise à jour de sécurité est en attente.",
-    "other": "{count} mises à jour de sécurité sont en attente."
+  "inbox.reasons.securityUpdates": {
+    "one": "{count} mise à jour de sécurité est en attente",
+    "other": "{count} mises à jour de sécurité sont en attente"
   },
-  "server.attention.packagesBroken": "La base de données des paquets est à moitié configurée : une mise à jour a été interrompue.",
-  "server.attention.rebootRequired": "Un redémarrage est nécessaire pour terminer les mises à jour.",
-  "server.attention.rebootRequiredBecause": "Un redémarrage est nécessaire pour terminer la mise à jour de {packages}.",
-  "server.attention.osUnsupported": "{name} n'est plus pris en charge : il ne reçoit plus de mises à jour de sécurité.",
-  "server.attention.osUnsupportedSince": "{name} n'est plus pris en charge depuis le {date} : il ne reçoit plus de mises à jour de sécurité.",
-  "server.attention.osEnding": {
-    "one": "{name} ne sera plus pris en charge dans {count} jour.",
-    "other": "{name} ne sera plus pris en charge dans {count} jours."
+  "inbox.reasons.packagesBroken": "La base de données des paquets est à moitié configurée : une mise à jour a été interrompue",
+  "inbox.reasons.rebootRequired": "Un redémarrage est nécessaire pour terminer les mises à jour",
+  "inbox.reasons.rebootRequiredBecause": "Un redémarrage est nécessaire pour terminer la mise à jour de {packages}",
+  "inbox.reasons.osUnsupported": "{name} n'est plus pris en charge : il ne reçoit plus de mises à jour de sécurité",
+  "inbox.reasons.osUnsupportedSince": "{name} n'est plus pris en charge depuis le {date} : il ne reçoit plus de mises à jour de sécurité",
+  "inbox.reasons.osEnding": {
+    "one": "{name} ne sera plus pris en charge dans {count} jour",
+    "other": "{name} ne sera plus pris en charge dans {count} jours"
   },
-  "server.attention.diskFull": "{mount} est plein à {percent}.",
-  "server.attention.diskFullFree": "{mount} est plein à {percent}, il reste {free}.",
-  "server.attention.clockUnsynced": "L'horloge n'est pas synchronisée.",
-  "server.attention.noSwap": "Peu de mémoire et pas de swap : un build peut être tué par manque de mémoire.",
-  "server.attention.failedUnits": {
-    "one": "{count} service système a échoué : {units}.",
-    "other": "{count} services système ont échoué : {units}."
+  "inbox.reasons.diskFull": "{mount} est plein à {percent}",
+  "inbox.reasons.diskFullFree": "{mount} est plein à {percent}, il reste {free}",
+  "inbox.reasons.clockUnsynced": "L'horloge n'est pas synchronisée",
+  "inbox.reasons.noSwap": "Peu de mémoire et pas de swap : un build peut être tué par manque de mémoire",
+  "inbox.reasons.failedUnits": {
+    "one": "{count} service système a échoué : {units}",
+    "other": "{count} services système ont échoué : {units}"
   },
-  "server.attention.actions.install": "Installer",
-  "server.attention.actions.repair": "Réparer",
-  "server.attention.actions.scheduleReboot": "Planifier le redémarrage",
-  "server.attention.actions.view": "Voir",
-  "server.attention.actions.freeSpace": "Libérer de l'espace",
-  "server.attention.actions.fixClock": "Corriger",
-  "server.attention.actions.addSwap": "Ajouter du swap",
-  "server.attention.actions.viewServices": "Voir les services",
-  "server.attention.actions.review": "Examiner",
+  "inbox.actions.installUpdates": "Installer",
+  "inbox.actions.repairPackages": "Réparer",
+  "inbox.actions.scheduleReboot": "Planifier le redémarrage",
+  "inbox.actions.freeSpace": "Libérer de l'espace",
+  "inbox.actions.addSwap": "Ajouter du swap",
+  "inbox.actions.viewServices": "Voir les services",
+  "inbox.actions.reviewFinding": "Examiner",
   "server.overview.loading": "Chargement du serveur",
   "server.overview.label": "le serveur",
   "server.overview.supportUntil": "Pris en charge jusqu'au {date}",
