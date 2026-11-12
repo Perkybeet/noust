@@ -15845,6 +15845,208 @@
   "widgets.categories.protection": "Protection",
   "widgets.categories.fleet": "Flotte",
   "widgets.categories.shortcuts": "Raccourcis",
+  "widgets.attention.title": "Requiert votre attention",
+  "widgets.attention.line": "Ce qui échoue ou est sur le point d'échouer, une ligne chacun",
+  "widgets.attention.failure": "Échec",
+  "widgets.attention.seeAll": "Tout voir ({count})",
+  "widgets.attention.checked": "Rien n'a échoué et rien n'est sur le point d'expirer.",
+  "widgets.figures.title": "État du serveur",
+  "widgets.figures.line": "Les six chiffres : applications, déploiements, certificats, sauvegardes, disque et mises à jour",
+  "widgets.figures.apps": "Applications",
+  "widgets.figures.deploys": "Déploiements aujourd'hui",
+  "widgets.figures.certificates": "Certificats",
+  "widgets.figures.backups": "Sauvegardes sur 24 h",
+  "widgets.figures.disk": "Disque",
+  "widgets.figures.updates": "Mises à jour du système",
+  "widgets.figures.running": "{count} en cours d'exécution",
+  "widgets.figures.failing": "{count} en échec",
+  "widgets.figures.failed": {
+    "one": "{count} en échec",
+    "other": "{count} en échec"
+  },
+  "widgets.figures.inProgress": "{count} en cours",
+  "widgets.figures.noDeploys": "Aucun déploiement pour l'instant",
+  "widgets.figures.allSucceeded": "Tous réussis",
+  "widgets.figures.certsExpired": {
+    "one": "{count} expiré",
+    "other": "{count} expirés"
+  },
+  "widgets.figures.certsExpiring": {
+    "one": "expire dans {count} jour",
+    "other": "expire dans {count} jours"
+  },
+  "widgets.figures.certsValid": {
+    "one": "{count} valide",
+    "other": "{count} valides"
+  },
+  "widgets.figures.ratio": "{done} sur {of}",
+  "widgets.figures.noApps": "Aucune application",
+  "widgets.figures.backupsFailed": {
+    "one": "{count} sauvegarde en échec",
+    "other": "{count} sauvegardes en échec"
+  },
+  "widgets.figures.backupsMissing": {
+    "one": "{count} sans copie",
+    "other": "{count} sans copie"
+  },
+  "widgets.figures.backupsDone": "Toutes ont une copie",
+  "widgets.figures.diskFull": {
+    "one": "plein dans environ {count} jour",
+    "other": "plein dans environ {count} jours"
+  },
+  "widgets.figures.upToDate": "À jour",
+  "widgets.figures.updatesSecurity": "{count} de sécurité",
+  "widgets.figures.updatesUnsupported": "Non géré sur ce système",
+  "widgets.work.title": "Travail en cours",
+  "widgets.work.line": "Ce qui se fait maintenant et ce qui attend",
+  "widgets.work.running": "en cours",
+  "widgets.work.queued": ", {count} en attente",
+  "widgets.work.nothing": "Rien ne s'exécute",
+  "widgets.work.unsupported": "{servers} comptera ses tâches une fois mis à jour.",
+  "widgets.activity.title": "Activité récente",
+  "widgets.activity.line": "Qui a fait quoi, le plus récent d'abord",
+  "widgets.activity.all": "Toute",
+  "widgets.alerts.title": "Alertes actives",
+  "widgets.alerts.line": "Les alertes déclenchées et les sondes en panne",
+  "widgets.alerts.all": "Alertes",
+  "widgets.alerts.firing": "déclenchées",
+  "widgets.alerts.none": "Aucune alerte n'est déclenchée et aucune sonde n'est en panne.",
+  "widgets.apps.title": "Applications",
+  "widgets.apps.line": "Combien il y en a et comment elles vont ; celles en échec d'abord",
+  "widgets.apps.all": "Toutes",
+  "widgets.apps.running": "en cours d'exécution",
+  "widgets.apps.failing": "en échec",
+  "widgets.apps.deploying": "en déploiement",
+  "widgets.apps.stopped": "arrêtées",
+  "widgets.apps.more": "{count} autres en cours d'exécution",
+  "widgets.apps.moreAny": "{count} autres",
+  "widgets.deployments.title": "Déploiements récents",
+  "widgets.deployments.line": "Les derniers déploiements de chaque application",
+  "widgets.deployments.all": "Tous",
+  "widgets.deployments.none": "Aucun déploiement pour l'instant.",
+  "widgets.tasks.title": "Tâches planifiées",
+  "widgets.tasks.line": "Celles qui s'exécutent ensuite",
+  "widgets.tasks.all": "Toutes",
+  "widgets.tasks.none": "Rien n'est planifié.",
+  "widgets.tasks.more": {
+    "one": "et {count} autre",
+    "other": "et {count} autres"
+  },
+  "widgets.databases.title": "Bases de données",
+  "widgets.databases.line": "Leur taille et si elles ont une sauvegarde",
+  "widgets.databases.all": "Toutes",
+  "widgets.databases.none": "Aucune base de données pour l'instant.",
+  "widgets.databases.backedUp": "Sauvegardée",
+  "widgets.databases.noBackup": "Sans sauvegarde",
+  "widgets.resources.title": "Ressources",
+  "widgets.resources.line": "Processeur, mémoire et disque en ce moment",
+  "widgets.disk.title": "Disque",
+  "widgets.disk.line": "À quel point il est plein et quand il le sera",
+  "widgets.disk.of": "Disque de {server}",
+  "widgets.disk.unavailable": "Impossible de lire le disque.",
+  "widgets.disk.used": "{used} sur {total}",
+  "widgets.disk.full": {
+    "one": "Plein dans environ {count} jour au rythme de ce mois.",
+    "other": "Plein dans environ {count} jours au rythme de ce mois."
+  },
+  "widgets.disk.noForecast": "Pas encore assez d'historique pour dire quand il sera plein.",
+  "widgets.processes.title": "Processus les plus actifs",
+  "widgets.processes.line": "Les cinq qui utilisent le plus le processeur",
+  "widgets.services.title": "Services",
+  "widgets.services.line": "Les services qui ne tournent pas",
+  "widgets.services.all": "Tous",
+  "widgets.services.allRunning": {
+    "one": "Le service est en cours d'exécution.",
+    "other": "Les {count} services sont en cours d'exécution."
+  },
+  "widgets.services.others": {
+    "one": "L'autre est en cours d'exécution.",
+    "other": "Les {count} autres sont en cours d'exécution."
+  },
+  "widgets.updates.title": "Mises à jour du système",
+  "widgets.updates.line": "Paquets du système, et versions de Noust en attente",
+  "widgets.updates.all": "Ouvrir",
+  "widgets.updates.packages": "paquets système",
+  "widgets.updates.security": "{count} de sécurité",
+  "widgets.updates.upToDate": "À jour",
+  "widgets.updates.reboot": "Un redémarrage est nécessaire",
+  "widgets.updates.unknown": "Pas encore vérifié.",
+  "widgets.updates.noustBehind": {
+    "one": "Noust est en retard sur {count} serveur",
+    "other": "Noust est en retard sur {count} serveurs"
+  },
+  "widgets.updates.noustAvailable": "Noust {version} disponible",
+  "widgets.updates.noustCurrent": "Noust est à jour",
+  "widgets.updates.count": {
+    "one": "{count} paquet",
+    "other": "{count} paquets"
+  },
+  "widgets.certificates.title": "Certificats",
+  "widgets.certificates.line": "Ceux qui expirent bientôt et ceux qui se renouvellent seuls",
+  "widgets.certificates.expiring": "expire bientôt",
+  "widgets.certificates.inDays": {
+    "one": "dans {count} jour",
+    "other": "dans {count} jours"
+  },
+  "widgets.certificates.days": {
+    "one": "{count} jour",
+    "other": "{count} jours"
+  },
+  "widgets.certificates.others": {
+    "one": "{count} autre est en ordre",
+    "other": "{count} autres sont en ordre"
+  },
+  "widgets.certificates.renewing": "{total} certificats, {renewing} se renouvellent seuls",
+  "widgets.certificates.total": {
+    "one": "{count} certificat au total",
+    "other": "{count} certificats au total"
+  },
+  "widgets.backups.title": "Sauvegardes",
+  "widgets.backups.line": "La dernière et les deux dernières semaines",
+  "widgets.backups.all": "Toutes",
+  "widgets.backups.last": "Dernière sauvegarde",
+  "widgets.backups.none": "Aucune sauvegarde pour l'instant",
+  "widgets.backups.verified": "Vérifiée.",
+  "widgets.backups.failedToday": {
+    "one": "{count} en échec ces dernières 24 heures",
+    "other": "{count} en échec ces dernières 24 heures"
+  },
+  "widgets.backups.failedOn": "En échec sur {servers}",
+  "widgets.backups.covered": "{done} applications sur {total} ont une sauvegarde d'aujourd'hui",
+  "widgets.backups.lastDays": {
+    "one": "Dernier jour",
+    "other": "{count} derniers jours"
+  },
+  "widgets.backups.daysLabel": {
+    "one": "Sauvegardes du dernier jour : {taken} avec une sauvegarde",
+    "other": "Sauvegardes des {count} derniers jours : {taken} avec une sauvegarde"
+  },
+  "widgets.probes.title": "Sondes",
+  "widgets.probes.line": "Si ce qui surveille de l'extérieur obtient une réponse",
+  "widgets.probes.all": "Sondes",
+  "widgets.probes.none": "Aucune sonde n'est active.",
+  "widgets.probes.answering": "sur {total} répondent",
+  "widgets.security.title": "Sécurité",
+  "widgets.security.line": "Ce que les vérifications de sécurité ont trouvé",
+  "widgets.security.all": "Sécurité",
+  "widgets.security.notChecked": "Pas encore vérifié.",
+  "widgets.security.open": "à examiner",
+  "widgets.security.passed": "{passed} vérifications sur {total} sont en ordre",
+  "widgets.fleet.title": "Serveurs de la flotte",
+  "widgets.fleet.line": "Une ligne par serveur : son disque et ses applications",
+  "widgets.fleet.all": "Serveurs",
+  "widgets.actions.title": "Actions rapides",
+  "widgets.actions.line": "Des raccourcis vers ce que vous faites chaque jour",
+  "widgets.actions.none": "Rien à faire d'ici avec votre rôle.",
+  "widgets.actions.newApp": "Nouvelle application",
+  "widgets.actions.newDatabase": "Nouvelle base de données",
+  "widgets.actions.openPort": "Ouvrir un port",
+  "widgets.actions.addDomain": "Ajouter un nom",
+  "widgets.actions.terminal": "Terminal",
+  "widgets.actions.logs": "Journaux",
+  "widgets.actions.systemUpdates": "Mises à jour du système",
+  "widgets.actions.addServer": "Ajouter un serveur",
+  "widgets.actions.invite": "Inviter une personne",
   "workspaces.open": "Déployer les workspaces d'un monorepo",
   "workspaces.title": "Déployer les workspaces d'un monorepo",
   "workspaces.description": "Noust lit quels workspaces sont des applications et crée une application pour chacun de ceux que vous choisissez, avec son propre domaine. Un push ne déploie une application que s'il touche ce workspace ou quelque chose dont il dépend.",

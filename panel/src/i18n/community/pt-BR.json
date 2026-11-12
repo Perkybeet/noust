@@ -15845,6 +15845,208 @@
   "widgets.categories.protection": "Proteção",
   "widgets.categories.fleet": "Frota",
   "widgets.categories.shortcuts": "Atalhos",
+  "widgets.attention.title": "Requer atenção",
+  "widgets.attention.line": "O que falha ou está prestes a falhar, uma linha cada",
+  "widgets.attention.failure": "Falha",
+  "widgets.attention.seeAll": "Ver todos ({count})",
+  "widgets.attention.checked": "Nada falhou e nada está prestes a expirar.",
+  "widgets.figures.title": "Status do servidor",
+  "widgets.figures.line": "Os seis números: aplicações, implantações, certificados, backups, disco e atualizações",
+  "widgets.figures.apps": "Aplicações",
+  "widgets.figures.deploys": "Implantações hoje",
+  "widgets.figures.certificates": "Certificados",
+  "widgets.figures.backups": "Backups em 24 h",
+  "widgets.figures.disk": "Disco",
+  "widgets.figures.updates": "Atualizações do sistema",
+  "widgets.figures.running": "{count} em execução",
+  "widgets.figures.failing": "{count} com falha",
+  "widgets.figures.failed": {
+    "one": "{count} falhou",
+    "other": "{count} falharam"
+  },
+  "widgets.figures.inProgress": "{count} em andamento",
+  "widgets.figures.noDeploys": "Nenhuma implantação ainda",
+  "widgets.figures.allSucceeded": "Todas concluídas",
+  "widgets.figures.certsExpired": {
+    "one": "{count} expirado",
+    "other": "{count} expirados"
+  },
+  "widgets.figures.certsExpiring": {
+    "one": "expira em {count} dia",
+    "other": "expira em {count} dias"
+  },
+  "widgets.figures.certsValid": {
+    "one": "{count} válido",
+    "other": "{count} válidos"
+  },
+  "widgets.figures.ratio": "{done} de {of}",
+  "widgets.figures.noApps": "Nenhuma aplicação",
+  "widgets.figures.backupsFailed": {
+    "one": "{count} backup falhou",
+    "other": "{count} backups falharam"
+  },
+  "widgets.figures.backupsMissing": {
+    "one": "{count} sem cópia",
+    "other": "{count} sem cópia"
+  },
+  "widgets.figures.backupsDone": "Todas têm uma cópia",
+  "widgets.figures.diskFull": {
+    "one": "cheio em cerca de {count} dia",
+    "other": "cheio em cerca de {count} dias"
+  },
+  "widgets.figures.upToDate": "Em dia",
+  "widgets.figures.updatesSecurity": "{count} de segurança",
+  "widgets.figures.updatesUnsupported": "Não gerenciado neste sistema",
+  "widgets.work.title": "Trabalho em andamento",
+  "widgets.work.line": "O que está sendo feito agora e o que espera",
+  "widgets.work.running": "em execução",
+  "widgets.work.queued": ", {count} na fila",
+  "widgets.work.nothing": "Nada em execução",
+  "widgets.work.unsupported": "{servers} vai contar as tarefas dele quando for atualizado.",
+  "widgets.activity.title": "Atividade recente",
+  "widgets.activity.line": "Quem fez o quê, o mais recente primeiro",
+  "widgets.activity.all": "Todas",
+  "widgets.alerts.title": "Alertas ativos",
+  "widgets.alerts.line": "Os alertas que estão disparados e as sondas que estão fora do ar",
+  "widgets.alerts.all": "Alertas",
+  "widgets.alerts.firing": "disparados",
+  "widgets.alerts.none": "Nenhum alerta está disparado e nenhuma sonda está fora do ar.",
+  "widgets.apps.title": "Aplicações",
+  "widgets.apps.line": "Quantas há e como estão; as com falha primeiro",
+  "widgets.apps.all": "Todas",
+  "widgets.apps.running": "em execução",
+  "widgets.apps.failing": "com falha",
+  "widgets.apps.deploying": "implantando",
+  "widgets.apps.stopped": "paradas",
+  "widgets.apps.more": "mais {count} em execução",
+  "widgets.apps.moreAny": "mais {count}",
+  "widgets.deployments.title": "Implantações recentes",
+  "widgets.deployments.line": "As últimas implantações de cada aplicação",
+  "widgets.deployments.all": "Todas",
+  "widgets.deployments.none": "Nenhuma implantação ainda.",
+  "widgets.tasks.title": "Tarefas agendadas",
+  "widgets.tasks.line": "As que rodam em seguida",
+  "widgets.tasks.all": "Todas",
+  "widgets.tasks.none": "Nada está agendado.",
+  "widgets.tasks.more": {
+    "one": "e mais {count}",
+    "other": "e mais {count}"
+  },
+  "widgets.databases.title": "Bancos de dados",
+  "widgets.databases.line": "O tamanho deles e se têm backup",
+  "widgets.databases.all": "Todos",
+  "widgets.databases.none": "Nenhum banco de dados ainda.",
+  "widgets.databases.backedUp": "Com backup",
+  "widgets.databases.noBackup": "Sem backup",
+  "widgets.resources.title": "Recursos",
+  "widgets.resources.line": "Processador, memória e disco agora",
+  "widgets.disk.title": "Disco",
+  "widgets.disk.line": "Quão cheio está e quando estará",
+  "widgets.disk.of": "Disco de {server}",
+  "widgets.disk.unavailable": "Não foi possível ler o disco.",
+  "widgets.disk.used": "{used} de {total}",
+  "widgets.disk.full": {
+    "one": "Cheio em cerca de {count} dia no ritmo deste mês.",
+    "other": "Cheio em cerca de {count} dias no ritmo deste mês."
+  },
+  "widgets.disk.noForecast": "Ainda não há histórico suficiente para dizer quando ele enche.",
+  "widgets.processes.title": "Processos mais ativos",
+  "widgets.processes.line": "Os cinco que mais usam o processador",
+  "widgets.services.title": "Serviços",
+  "widgets.services.line": "Os serviços que não estão em execução",
+  "widgets.services.all": "Todos",
+  "widgets.services.allRunning": {
+    "one": "O serviço está em execução.",
+    "other": "Todos os {count} serviços estão em execução."
+  },
+  "widgets.services.others": {
+    "one": "O outro está em execução.",
+    "other": "Os outros {count} estão em execução."
+  },
+  "widgets.updates.title": "Atualizações do sistema",
+  "widgets.updates.line": "Pacotes do sistema e as versões do Noust que esperam",
+  "widgets.updates.all": "Abrir",
+  "widgets.updates.packages": "pacotes do sistema",
+  "widgets.updates.security": "{count} de segurança",
+  "widgets.updates.upToDate": "Em dia",
+  "widgets.updates.reboot": "É preciso reiniciar",
+  "widgets.updates.unknown": "Ainda não verificado.",
+  "widgets.updates.noustBehind": {
+    "one": "O Noust está desatualizado em {count} servidor",
+    "other": "O Noust está desatualizado em {count} servidores"
+  },
+  "widgets.updates.noustAvailable": "Noust {version} disponível",
+  "widgets.updates.noustCurrent": "O Noust está atualizado",
+  "widgets.updates.count": {
+    "one": "{count} pacote",
+    "other": "{count} pacotes"
+  },
+  "widgets.certificates.title": "Certificados",
+  "widgets.certificates.line": "Os que expiram em breve e os que se renovam sozinhos",
+  "widgets.certificates.expiring": "expirando em breve",
+  "widgets.certificates.inDays": {
+    "one": "em {count} dia",
+    "other": "em {count} dias"
+  },
+  "widgets.certificates.days": {
+    "one": "{count} dia",
+    "other": "{count} dias"
+  },
+  "widgets.certificates.others": {
+    "one": "mais {count} está bem",
+    "other": "mais {count} estão bem"
+  },
+  "widgets.certificates.renewing": "{total} certificados, {renewing} se renovam sozinhos",
+  "widgets.certificates.total": {
+    "one": "{count} certificado no total",
+    "other": "{count} certificados no total"
+  },
+  "widgets.backups.title": "Backups",
+  "widgets.backups.line": "O último e as duas últimas semanas",
+  "widgets.backups.all": "Todos",
+  "widgets.backups.last": "Último backup",
+  "widgets.backups.none": "Nenhum backup ainda",
+  "widgets.backups.verified": "Verificado.",
+  "widgets.backups.failedToday": {
+    "one": "{count} falhou nas últimas 24 horas",
+    "other": "{count} falharam nas últimas 24 horas"
+  },
+  "widgets.backups.failedOn": "Falhou em {servers}",
+  "widgets.backups.covered": "{done} de {total} aplicações têm um backup de hoje",
+  "widgets.backups.lastDays": {
+    "one": "Último dia",
+    "other": "Últimos {count} dias"
+  },
+  "widgets.backups.daysLabel": {
+    "one": "Backups do último dia: {taken} com backup",
+    "other": "Backups dos últimos {count} dias: {taken} com backup"
+  },
+  "widgets.probes.title": "Sondas",
+  "widgets.probes.line": "Se o que observa de fora recebe uma resposta",
+  "widgets.probes.all": "Sondas",
+  "widgets.probes.none": "Nenhuma sonda está ligada.",
+  "widgets.probes.answering": "de {total} respondem",
+  "widgets.security.title": "Segurança",
+  "widgets.security.line": "O que as verificações de segurança encontraram",
+  "widgets.security.all": "Segurança",
+  "widgets.security.notChecked": "Ainda não verificado.",
+  "widgets.security.open": "para examinar",
+  "widgets.security.passed": "{passed} de {total} verificações estão em ordem",
+  "widgets.fleet.title": "Servidores da frota",
+  "widgets.fleet.line": "Uma linha para cada servidor: o disco e as aplicações dele",
+  "widgets.fleet.all": "Servidores",
+  "widgets.actions.title": "Ações rápidas",
+  "widgets.actions.line": "Atalhos para o que você faz todo dia",
+  "widgets.actions.none": "Nada a fazer daqui com a sua função.",
+  "widgets.actions.newApp": "Nova aplicação",
+  "widgets.actions.newDatabase": "Novo banco de dados",
+  "widgets.actions.openPort": "Abrir uma porta",
+  "widgets.actions.addDomain": "Adicionar um nome",
+  "widgets.actions.terminal": "Terminal",
+  "widgets.actions.logs": "Logs",
+  "widgets.actions.systemUpdates": "Atualizações do sistema",
+  "widgets.actions.addServer": "Adicionar um servidor",
+  "widgets.actions.invite": "Convidar uma pessoa",
   "workspaces.open": "Implantar os workspaces de um monorepo",
   "workspaces.title": "Implantar os workspaces de um monorepo",
   "workspaces.description": "O Noust lê quais workspaces são aplicações e cria uma aplicação para cada um que você escolher, com domínio próprio. Um push implanta uma aplicação somente quando altera esse workspace ou algo de que ele depende.",

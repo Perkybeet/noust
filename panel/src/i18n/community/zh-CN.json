@@ -15512,6 +15512,188 @@
   "widgets.categories.protection": "防护",
   "widgets.categories.fleet": "服务器群",
   "widgets.categories.shortcuts": "快捷方式",
+  "widgets.attention.title": "需要关注",
+  "widgets.attention.line": "失败或即将失败的内容，每项一行",
+  "widgets.attention.failure": "失败",
+  "widgets.attention.seeAll": "查看全部 {count} 项",
+  "widgets.attention.checked": "没有失败的内容，也没有即将到期的内容。",
+  "widgets.figures.title": "服务器状态",
+  "widgets.figures.line": "六项数据：应用、部署、证书、备份、磁盘和更新",
+  "widgets.figures.apps": "应用",
+  "widgets.figures.deploys": "今日部署",
+  "widgets.figures.certificates": "证书",
+  "widgets.figures.backups": "24 小时内的备份",
+  "widgets.figures.disk": "磁盘",
+  "widgets.figures.updates": "系统更新",
+  "widgets.figures.running": "{count} 个运行中",
+  "widgets.figures.failing": "{count} 个失败",
+  "widgets.figures.failed": {
+    "other": "{count} 个失败"
+  },
+  "widgets.figures.inProgress": "{count} 个进行中",
+  "widgets.figures.noDeploys": "还没有部署",
+  "widgets.figures.allSucceeded": "全部成功",
+  "widgets.figures.certsExpired": {
+    "other": "{count} 个已到期"
+  },
+  "widgets.figures.certsExpiring": {
+    "other": "{count} 天后到期"
+  },
+  "widgets.figures.certsValid": {
+    "other": "{count} 个有效"
+  },
+  "widgets.figures.ratio": "{done} / {of}",
+  "widgets.figures.noApps": "没有应用",
+  "widgets.figures.backupsFailed": {
+    "other": "{count} 个备份失败"
+  },
+  "widgets.figures.backupsMissing": {
+    "other": "{count} 个没有副本"
+  },
+  "widgets.figures.backupsDone": "都有副本",
+  "widgets.figures.diskFull": {
+    "other": "约 {count} 天后写满"
+  },
+  "widgets.figures.upToDate": "已是最新",
+  "widgets.figures.updatesSecurity": "{count} 个安全更新",
+  "widgets.figures.updatesUnsupported": "此系统不受管理",
+  "widgets.work.title": "进行中的工作",
+  "widgets.work.line": "现在正在做的和在等待的",
+  "widgets.work.running": "运行中",
+  "widgets.work.queued": "，{count} 个在排队",
+  "widgets.work.nothing": "没有正在运行的内容",
+  "widgets.work.unsupported": "{servers} 更新后将统计它的任务。",
+  "widgets.activity.title": "最近活动",
+  "widgets.activity.line": "谁做了什么，最新的在前",
+  "widgets.activity.all": "全部",
+  "widgets.alerts.title": "当前告警",
+  "widgets.alerts.line": "正在触发的告警和已离线的探针",
+  "widgets.alerts.all": "告警",
+  "widgets.alerts.firing": "正在触发",
+  "widgets.alerts.none": "没有触发中的告警，也没有离线的探针。",
+  "widgets.apps.title": "应用",
+  "widgets.apps.line": "共有多少，状态如何；失败的排在前面",
+  "widgets.apps.all": "全部",
+  "widgets.apps.running": "运行中",
+  "widgets.apps.failing": "失败",
+  "widgets.apps.deploying": "部署中",
+  "widgets.apps.stopped": "已停止",
+  "widgets.apps.more": "另有 {count} 个运行中",
+  "widgets.apps.moreAny": "另有 {count} 个",
+  "widgets.deployments.title": "最近部署",
+  "widgets.deployments.line": "每个应用的最新部署",
+  "widgets.deployments.all": "全部",
+  "widgets.deployments.none": "还没有部署。",
+  "widgets.tasks.title": "定时任务",
+  "widgets.tasks.line": "接下来要运行的",
+  "widgets.tasks.all": "全部",
+  "widgets.tasks.none": "没有已安排的任务。",
+  "widgets.tasks.more": {
+    "other": "还有 {count} 个"
+  },
+  "widgets.databases.title": "数据库",
+  "widgets.databases.line": "它们的大小，以及是否有备份",
+  "widgets.databases.all": "全部",
+  "widgets.databases.none": "还没有数据库。",
+  "widgets.databases.backedUp": "已备份",
+  "widgets.databases.noBackup": "没有备份",
+  "widgets.resources.title": "资源",
+  "widgets.resources.line": "当前的处理器、内存和磁盘",
+  "widgets.disk.title": "磁盘",
+  "widgets.disk.line": "已用多满，以及何时会满",
+  "widgets.disk.of": "{server} 的磁盘",
+  "widgets.disk.unavailable": "无法读取磁盘。",
+  "widgets.disk.used": "已用 {used}，共 {total}",
+  "widgets.disk.full": {
+    "other": "按本月的速度，约 {count} 天后写满。"
+  },
+  "widgets.disk.noForecast": "历史数据还不足以判断何时写满。",
+  "widgets.processes.title": "最繁忙的进程",
+  "widgets.processes.line": "占用处理器最多的五个",
+  "widgets.services.title": "服务",
+  "widgets.services.line": "没有运行的服务",
+  "widgets.services.all": "全部",
+  "widgets.services.allRunning": {
+    "other": "全部 {count} 个服务都在运行。"
+  },
+  "widgets.services.others": {
+    "other": "另外 {count} 个都在运行。"
+  },
+  "widgets.updates.title": "系统更新",
+  "widgets.updates.line": "系统软件包，以及等待中的 Noust 版本",
+  "widgets.updates.all": "打开",
+  "widgets.updates.packages": "系统软件包",
+  "widgets.updates.security": "{count} 个安全更新",
+  "widgets.updates.upToDate": "已是最新",
+  "widgets.updates.reboot": "需要重启",
+  "widgets.updates.unknown": "尚未检查。",
+  "widgets.updates.noustBehind": {
+    "other": "有 {count} 台服务器上的 Noust 落后"
+  },
+  "widgets.updates.noustAvailable": "Noust {version} 可用",
+  "widgets.updates.noustCurrent": "Noust 已是最新",
+  "widgets.updates.count": {
+    "other": "{count} 个软件包"
+  },
+  "widgets.certificates.title": "证书",
+  "widgets.certificates.line": "即将到期的，以及会自动续期的",
+  "widgets.certificates.expiring": "即将到期",
+  "widgets.certificates.inDays": {
+    "other": "{count} 天后"
+  },
+  "widgets.certificates.days": {
+    "other": "{count} 天"
+  },
+  "widgets.certificates.others": {
+    "other": "另有 {count} 个状态正常"
+  },
+  "widgets.certificates.renewing": "{total} 个证书，其中 {renewing} 个会自动续期",
+  "widgets.certificates.total": {
+    "other": "共 {count} 个证书"
+  },
+  "widgets.backups.title": "备份",
+  "widgets.backups.line": "最近一次，以及最近两周",
+  "widgets.backups.all": "全部",
+  "widgets.backups.last": "最近一次备份",
+  "widgets.backups.none": "还没有备份",
+  "widgets.backups.verified": "已验证。",
+  "widgets.backups.failedToday": {
+    "other": "过去 24 小时内有 {count} 个失败"
+  },
+  "widgets.backups.failedOn": "在 {servers} 上失败",
+  "widgets.backups.covered": "{total} 个应用中有 {done} 个今天有备份",
+  "widgets.backups.lastDays": {
+    "other": "最近 {count} 天"
+  },
+  "widgets.backups.daysLabel": {
+    "other": "最近 {count} 天的备份：{taken} 天有备份"
+  },
+  "widgets.probes.title": "探针",
+  "widgets.probes.line": "外部监视的探针是否得到了响应",
+  "widgets.probes.all": "探针",
+  "widgets.probes.none": "没有开启的探针。",
+  "widgets.probes.answering": "共 {total} 个，有响应",
+  "widgets.security.title": "安全",
+  "widgets.security.line": "安全检查发现了什么",
+  "widgets.security.all": "安全",
+  "widgets.security.notChecked": "尚未检查。",
+  "widgets.security.open": "待查看",
+  "widgets.security.passed": "{total} 项检查中有 {passed} 项正常",
+  "widgets.fleet.title": "服务器群中的服务器",
+  "widgets.fleet.line": "每台服务器一行：它的磁盘和应用",
+  "widgets.fleet.all": "服务器",
+  "widgets.actions.title": "快捷操作",
+  "widgets.actions.line": "通往日常操作的快捷方式",
+  "widgets.actions.none": "以你的角色，这里没有可做的操作。",
+  "widgets.actions.newApp": "新建应用",
+  "widgets.actions.newDatabase": "新建数据库",
+  "widgets.actions.openPort": "开放端口",
+  "widgets.actions.addDomain": "添加名称",
+  "widgets.actions.terminal": "终端",
+  "widgets.actions.logs": "日志",
+  "widgets.actions.systemUpdates": "系统更新",
+  "widgets.actions.addServer": "添加服务器",
+  "widgets.actions.invite": "邀请成员",
   "workspaces.open": "部署 monorepo 的工作区",
   "workspaces.title": "部署 monorepo 的工作区",
   "workspaces.description": "Noust 会读取哪些工作区是应用，并为你选中的每一个创建一个应用，各有自己的域名。只有当推送涉及某个工作区或它所依赖的内容时，才会部署对应的应用。",
