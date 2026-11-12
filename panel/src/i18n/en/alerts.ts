@@ -134,8 +134,8 @@ export const alerts = {
     },
     certificates: {
       title: "Certificates",
-      description: "A certificate with fewer days left than the limit is announced.",
-      warning: { label: "Days before they expire" },
+      description: "A certificate that is past the point where it is renewed (a third of its own life left) and has fewer days left than the limit is announced. One with most of its life ahead never is.",
+      warning: { label: "Announce when fewer days than these are left" },
     },
     backups: {
       title: "Missing backups",
@@ -175,6 +175,10 @@ export const alerts = {
       title: "Recipe updates",
       description: "Installed recipes with a newer version are announced.",
       check: { label: "Look every (hours)" },
+    },
+    domains: {
+      title: "Domain registrations",
+      description: "Once a day Noust asks the registry of each domain you serve when its registration expires (RDAP), and tells you at 30 days, at 7 days and when it has. The domain name goes to that registry, a third party, so this is off until you turn it on.",
     },
     history: {
       title: "History",

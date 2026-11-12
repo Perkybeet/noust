@@ -71,9 +71,12 @@ from noust.core.notifications.composers_ops import (
     compose_token_expiring,
 )
 from noust.core.notifications.composers_watch import (
+    compose_app_oom,
     compose_central,
+    compose_cert_renewal,
     compose_cleanup,
     compose_cron_timer,
+    compose_domain_registration,
     compose_probe,
 )
 from noust.core.notifications.context import NotificationContext
@@ -398,6 +401,7 @@ def catalog(locale: Locale) -> dict[str, Notification]:
     out.update(_watch_events(ctx))
     out.update(netobs_events(ctx))
     out.update(_central_events(ctx))
+    out.update(_dates_events(ctx))
     return {
         code: _freeze(index, notification) for index, (code, notification) in enumerate(out.items())
     }
@@ -511,6 +515,68 @@ def _central_events(ctx: NotificationContext) -> dict[str, Notification]:
             "nas", True, ctx, last_heard=last.timestamp(), silent_for_s=17 * 60
         ),
         "central.heard": compose_central("nas", False, ctx, silent_for_s=23 * 60 + 40),
+    }
+
+
+def _dates_events(ctx: NotificationContext) -> dict[str, Notification]:
+    """
+    What 4.3 says of what ends and of what was killed: certificates that stopped renewing, the
+    registration of a domain about to lapse, and an application the kernel killed for running out of
+    memory.
+
+    Kept after every other so the fixed ids of the earlier events do not move.
+
+    Args:
+        ctx: The context.
+
+    Returns:
+        One notification per code.
+    """
+    return {
+        "cert.renewal_failed": compose_cert_renewal(
+            "failed",
+            ctx,
+            unit="certbot.timer",
+            last_run="Tue 2026-11-10 12:11:09 UTC",
+            output=(
+                "Failed to renew certificate shop.example.com with error: Some challenges have "
+                "failed.\nDetail: 203.0.113.9: Fetching "
+                "http://shop.example.com/.well-known/acme-challenge/x: Timeout during connect "
+                "(likely firewall problem)"
+            ),
+            certificates=["shop.example.com", "blog.example.com"],
+        ),
+        "cert.renewal_stopped": compose_cert_renewal(
+            "timer_stopped",
+            ctx,
+            unit="certbot.timer",
+            next_run="Wed 2026-11-11 00:41:10 UTC",
+            certificates=["shop.example.com"],
+        ),
+        "domain.expiring": compose_domain_registration(
+            "example.com",
+            "2026-11-30",
+            20,
+            ctx,
+            names=["shop.example.com", "www.shop.example.com"],
+            registry="rdap.verisign.com",
+        ),
+        "domain.expired": compose_domain_registration(
+            "example.com",
+            "2026-11-07",
+            -3,
+            ctx,
+            names=["shop.example.com"],
+            registry="rdap.verisign.com",
+        ),
+        "app.oom_killed": compose_app_oom(
+            "shop.example.com",
+            ctx,
+            count=2,
+            limit=512 * 1024 * 1024,
+            peak=511 * 1024 * 1024,
+            since="Tue 2026-11-10 03:00:00 UTC",
+        ),
     }
 
 

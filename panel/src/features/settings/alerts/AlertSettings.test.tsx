@@ -309,7 +309,7 @@ describe("Alerts", () => {
     await waitFor(() => {
       expect(disk).toHaveValue("90");
     });
-    expect(screen.getByLabelText("Days before they expire", { selector: "input" })).toHaveValue("14");
+    expect(screen.getByLabelText("Announce when fewer days than these are left", { selector: "input" })).toHaveValue("14");
     await user.clear(disk);
     await user.type(disk, "95");
     const bar = screen.getByRole("region", { name: "Unsaved changes" });
@@ -321,6 +321,27 @@ describe("Alerts", () => {
     });
     // Only that one: what was not touched stays as the file says.
     expect(backend.callsTo("PATCH /api/config").filter((call) => (call.body as { path: string }).path !== "monitor.disk_threshold")).toHaveLength(0);
+  });
+
+  it("offers the registrations of the domains as a switch that is off, says what it asks and who it asks, and writes 1 when it is ticked", { timeout: 30_000 }, async () => {
+    const backend = alertsBackend();
+    const { user } = renderConsole("/alerts/checks");
+    const box = await screen.findByRole("checkbox", { name: /Domain registrations/ });
+    await waitFor(() => {
+      expect(screen.getByLabelText("Almost full at (%)")).toHaveValue("90");
+    });
+    // Off until it is turned on, because the domain name goes to the registry, a third party; and the page says so.
+    expect(box).not.toBeChecked();
+    expect(screen.getByText(/The domain name goes to that registry, a third party/)).toBeInTheDocument();
+    await user.click(box);
+    expect(box).toBeChecked();
+    const bar = screen.getByRole("region", { name: "Unsaved changes" });
+    expect(within(bar).getByText("1 unsaved change")).toBeInTheDocument();
+    await user.click(within(bar).getByRole("button", { name: "Save" }));
+    await confirmItsYou(user);
+    await waitFor(() => {
+      expect(backend.callsTo("PATCH /api/config").at(-1)?.body).toEqual({ path: "monitor.domain_expiry", value: 1 });
+    });
   });
 
   it("turns a check off with its own box and not with a zero, and brings back what it held when it is ticked again", { timeout: 30_000 }, async () => {

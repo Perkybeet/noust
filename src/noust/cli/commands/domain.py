@@ -97,19 +97,29 @@ def print_domains(logger: Logger, domains: list[DomainRecord], app: str | None =
         domains: Its domains, primary first.
         app: The application's primary domain, to say which certificate serves each name.
     """
+    from noust.managers.domain_registration import known_registrations
+
     served = {binding.name: binding for binding in bindings(app)} if app else {}
-    logger.table(
-        ["Domain", "Kind", "Port", "Certificate", "Added"],
+    known = known_registrations([record.domain for record in domains])
+    rows = [
         [
-            [
-                _shown(record),
-                record.kind,
-                str(record.port) if record.port else "-",
-                _covered_by(served.get(record.domain), record),
-                record.created_at or "-",
-            ]
-            for record in domains
-        ],
+            _shown(record),
+            record.kind,
+            str(record.port) if record.port else "-",
+            _covered_by(served.get(record.domain), record),
+            record.created_at or "-",
+            *(
+                [known[record.domain].describe() if record.domain in known else "-"]
+                if known
+                else []
+            ),
+        ]
+        for record in domains
+    ]
+    # The column is there once the registries were asked (monitor.domain_expiry), not before.
+    logger.table(
+        ["Domain", "Kind", "Port", "Certificate", "Added", *(["Registration"] if known else [])],
+        rows,
     )
 
 
@@ -193,9 +203,12 @@ def list_command(ctx: Context, app_domain: str) -> None:
 
     The primary domain comes first, then the aliases, then the redirects.
     """
+    from noust.managers.domain_registration import known_registrations
+
     domains = list_domains(app_domain)
     if ctx.json_output:
         served = {binding.name: binding for binding in bindings(app_domain)}
+        known = known_registrations([r.domain for r in domains])
         click.echo(
             json.dumps(
                 {
@@ -213,6 +226,9 @@ def list_command(ctx: Context, app_domain: str) -> None:
                             "certificate_pending": served[r.domain].pending
                             if r.domain in served
                             else False,
+                            "registration": known[r.domain].to_dict()
+                            if r.domain in known
+                            else None,
                         }
                         for r in domains
                     ],
@@ -221,6 +237,83 @@ def list_command(ctx: Context, app_domain: str) -> None:
         )
         return
     print_domains(ctx.logger, domains, app_domain)
+
+
+def _expiry_is_read(params: dict[str, object]) -> bool:
+    """
+    Args:
+        params: The command's parsed parameters.
+
+    Returns:
+        True when the command only says what is known, so it is not audited as a change.
+    """
+    return not params.get("refresh")
+
+
+@cli.command("expiry", read_only=_expiry_is_read)
+@click.argument("app_domain", metavar="[APP]", required=False)
+@click.option(
+    "--refresh",
+    is_flag=True,
+    help="Ask the registries now: the domain name goes to each one (docs/PRIVACY.md).",
+)
+@json_option("Print the registrations as JSON.")
+@pass_context
+def expiry_command(ctx: Context, app_domain: str | None, refresh: bool) -> None:
+    """
+    Show when the registration of each domain expires.
+
+    The registry of each registrable domain says so (RDAP) once a day, only after
+    'noust config set monitor.domain_expiry true': nothing is asked until then. This lists
+    what the registries said. --refresh asks them now, for the names of APP or for every
+    name this server serves, and says what it sends first.
+    """
+    from noust.core.config import Config
+    from noust.core.domain_registrations import RegistrationStore
+    from noust.managers.domain_registration import (
+        DomainRegistrations,
+        known_registrations,
+        served_names,
+    )
+
+    enabled = Config().get("monitor.domain_expiry", False) is True
+    names = [record.domain for record in list_domains(app_domain)] if app_domain else served_names()
+    if refresh:
+        if not ctx.json_output:
+            ctx.logger.info(
+                f"Asking the registry of {len(names)} name(s): the domain name goes to the "
+                "registry that answers for it (docs/PRIVACY.md)."
+            )
+        found = DomainRegistrations().check_names(names, force=True)
+    elif app_domain:
+        found = list({item.domain: item for item in known_registrations(names).values()}.values())
+        found.sort(key=lambda item: (item.expires_at is None, item.expires_at or "", item.domain))
+    else:
+        found = RegistrationStore().all()
+    if ctx.json_output:
+        click.echo(json.dumps({"enabled": enabled, "items": [item.to_dict() for item in found]}))
+        return
+    if not found:
+        ctx.logger.info("No registration has been looked at yet.")
+    else:
+        ctx.logger.table(
+            ["Domain", "Registration", "Registry"],
+            [
+                [
+                    item.domain,
+                    item.describe(),
+                    item.to_dict()["registry"] or "-",
+                ]
+                for item in found
+            ],
+        )
+    if not enabled and not refresh:
+        ctx.logger.info(
+            "Nothing asks the registries while monitor.domain_expiry is off. Turn the daily "
+            "check on with: noust config set monitor.domain_expiry true"
+        )
+    elif enabled:
+        ctx.logger.info("The registries are asked once a day (monitor.domain_expiry is on).")
 
 
 @cli.command("add")

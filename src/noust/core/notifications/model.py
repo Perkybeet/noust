@@ -97,6 +97,12 @@ EVENT_KINDS: tuple[str, ...] = (
     "recipe_outdated",
     # 4.1, said by a server about the central that manages it: the central went quiet.
     "central_silent",
+    # 4.3: certificates that stopped renewing, and an application the kernel killed for lack of memory.
+    "cert_renewal_failed",
+    "app_oom_killed",
+    # 4.3: the registration of a domain is about to lapse, or has (off unless monitor.domain_expiry).
+    "domain_expiring",
+    "domain_expired",
 )
 
 #: Kinds that ship switched off: ``deploy_started`` fires once per attempt with

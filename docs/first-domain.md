@@ -82,8 +82,9 @@ provider, the security group.
 ```
 
 `noust domain list` shows the primary name, then the aliases and redirects. `noust cert list`
-shows one certificate covering every name, with its expiry date. Certbot renews it in its last
-thirty days, on its own; `noust health` warns you if one gets close to expiring.
+shows one certificate covering every name, with its expiry date. Certbot renews it on its own once
+a third of its life is left; `noust health` warns you if one is past that point and has not been
+renewed.
 
 When the application was created on a temporary address, the console shows your domain as its
 address from now on. The temporary name keeps working: it is still the application's name, the one

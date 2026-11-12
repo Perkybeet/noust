@@ -222,15 +222,20 @@ def test_a_failed_query_is_hidden_from_the_read_only_callers(
     assert certs._query_certificates() is None
 
 
+#: What ``openssl x509 -noout -issuer -startdate -enddate`` prints for a certificate of 60 days.
+OPENSSL_FACTS = (
+    "issuer=C = US, O = Let's Encrypt, CN = R11\n"
+    "notBefore=Oct  1 10:00:00 2026 GMT\n"
+    "notAfter=Nov 30 10:00:00 2026 GMT\n"
+)
+
+
 def test_list_certificates_reads_the_issuer_from_the_file(
     certs: CertManager, runner: FakeRunner
 ) -> None:
     """The issuer comes from the certificate itself, through openssl."""
     runner.script(["certbot", "certificates"], stdout=CERTBOT_OUTPUT)
-    runner.script(
-        ["openssl", "x509", "-noout", "-issuer", "-in"],
-        stdout="issuer=C = US, O = Let's Encrypt, CN = R11\n",
-    )
+    runner.script(["openssl", "x509", "-noout", "-issuer"], stdout=OPENSSL_FACTS)
 
     (certificate,) = certs.list_certificates()
 
@@ -240,11 +245,64 @@ def test_list_certificates_reads_the_issuer_from_the_file(
         "x509",
         "-noout",
         "-issuer",
+        "-startdate",
+        "-enddate",
         "-in",
         "/etc/letsencrypt/live/shop.tld/fullchain.pem",
         "-nameopt",
         "oneline",
     ) in runner.calls
+
+
+def test_list_certificates_reads_the_life_from_the_same_call(
+    certs: CertManager, runner: FakeRunner
+) -> None:
+    """Where it started is what makes a fraction of its life: asked once, with the issuer."""
+    runner.script(["certbot", "certificates"], stdout=CERTBOT_OUTPUT)
+    runner.script(["openssl", "x509", "-noout", "-issuer"], stdout=OPENSSL_FACTS)
+
+    (certificate,) = certs.list_certificates()
+
+    assert certificate.not_before == "2026-10-01T10:00:00+00:00"
+    assert certificate.not_after == "2026-11-30T10:00:00+00:00"
+    assert sum(1 for call in runner.calls if call[0] == "openssl") == 1
+
+
+def test_a_certificate_is_judged_on_the_life_openssl_read(
+    certs: CertManager, runner: FakeRunner
+) -> None:
+    """60 days from the start to the end, 20 left: a third, the renewal point, to the day."""
+    from datetime import datetime, timezone
+
+    runner.script(["certbot", "certificates"], stdout=CERTBOT_OUTPUT)
+    runner.script(["openssl", "x509", "-noout", "-issuer"], stdout=OPENSSL_FACTS)
+
+    (certificate,) = certs.list_certificates()
+    life = certificate.life(now=datetime(2026, 11, 11, 10, 0, tzinfo=timezone.utc))
+
+    assert life.life_days == 60.0
+    assert life.days_left == 19
+    assert life.state == "renewal_pending"
+    assert life.assumed_life is False
+
+
+def test_without_openssl_a_certificate_is_judged_on_certbots_end_and_an_assumed_life(
+    certs: CertManager, runner: FakeRunner
+) -> None:
+    """The listing still gives the end; the start is then assumed, as before 4.3."""
+    from datetime import datetime, timezone
+
+    runner.script(["certbot", "certificates"], stdout=CERTBOT_OUTPUT)
+    runner.script(["openssl", "x509", "-noout", "-issuer"], stderr="no", exit_code=1)
+
+    (certificate,) = certs.list_certificates()
+    life = certificate.life(now=datetime(2026, 10, 1, tzinfo=timezone.utc))
+
+    assert certificate.not_before is None
+    assert certificate.not_after == "2026-11-30T10:00:00+00:00"
+    assert life.assumed_life is True
+    assert life.days_left == 60
+    assert life.state == "healthy"
 
 
 def test_list_certificates_tolerates_openssl_failing_to_read_the_issuer(
@@ -253,7 +311,7 @@ def test_list_certificates_tolerates_openssl_failing_to_read_the_issuer(
     """A record is still useful without an issuer; the read failure is not fatal."""
     runner.script(["certbot", "certificates"], stdout=CERTBOT_OUTPUT)
     runner.script(
-        ["openssl", "x509", "-noout", "-issuer", "-in"],
+        ["openssl", "x509", "-noout", "-issuer"],
         stderr="unable to load certificate",
         exit_code=1,
     )

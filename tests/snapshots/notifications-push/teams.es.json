@@ -5741,6 +5741,321 @@
       }
     ]
   },
+  "cert.renewal_failed": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "✕ Ha fallado la renovación de certificados · certbot.timer",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Attention",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "La última vez que certbot intentó renovar los certificados falló, así que no se renovarán solos hasta que funcione.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Servidor",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Certificados",
+                  "value": "shop.example.com, blog.example.com"
+                },
+                {
+                  "title": "Último intento",
+                  "value": "Tue 2026-11-10 12:11:09 UTC"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "Renuévalo con: noust cert renew",
+              "fontType": "Monospace",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "Lo que ha informado certbot",
+              "isSubtle": true,
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "Failed to renew certificate shop.example.com with error: Some challenges have failed.\nDetail: 203.0.113.9: Fetching http://shop.example.com/.well-known/acme-challenge/x: Timeout during connect (likely firewall problem)",
+              "fontType": "Monospace",
+              "wrap": true
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Abrir en la consola",
+              "url": "https://console.example.com/n/web-1/domains"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "cert.renewal_stopped": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "▲ La renovación de certificados está parada · certbot.timer",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Warning",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "El temporizador que hace que certbot renueve los certificados no está en marcha, así que no se renovarán solos.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Servidor",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Certificados",
+                  "value": "shop.example.com"
+                },
+                {
+                  "title": "Próximo intento",
+                  "value": "Wed 2026-11-11 00:41:10 UTC"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "Vuelve a ponerlo en marcha con: systemctl enable --now certbot.timer",
+              "fontType": "Monospace",
+              "wrap": true
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Abrir en la consola",
+              "url": "https://console.example.com/n/web-1/domains"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "domain.expiring": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "▲ Registro de dominio a punto de caducar · example.com",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Warning",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "El registro de example.com caduca en 20 días (30 nov 2026).",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Servidor",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Nombres que cubre",
+                  "value": "shop.example.com, www.shop.example.com"
+                },
+                {
+                  "title": "Registro",
+                  "value": "rdap.verisign.com"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "Míralos todos con: noust domain expiry",
+              "fontType": "Monospace",
+              "wrap": true
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Abrir en la consola",
+              "url": "https://console.example.com/n/web-1/domains"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "domain.expired": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "✕ Registro de dominio caducado · example.com",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Attention",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "El registro de example.com caducó hace 3 días (7 nov 2026).",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Servidor",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Nombres que cubre",
+                  "value": "shop.example.com"
+                },
+                {
+                  "title": "Registro",
+                  "value": "rdap.verisign.com"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "Míralos todos con: noust domain expiry",
+              "fontType": "Monospace",
+              "wrap": true
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Abrir en la consola",
+              "url": "https://console.example.com/n/web-1/domains"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "app.oom_killed": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "✕ Aplicación cerrada por falta de memoria · shop.example.com",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Attention",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "El núcleo ha cerrado shop.example.com por falta de memoria.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Servidor",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Cerrada",
+                  "value": "2 veces"
+                },
+                {
+                  "title": "Límite de memoria",
+                  "value": "512.0 MB"
+                },
+                {
+                  "title": "Lo máximo que usó",
+                  "value": "511.0 MB"
+                },
+                {
+                  "title": "Contando desde",
+                  "value": "Tue 2026-11-10 03:00:00 UTC"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "Diagnostícala con: noust diagnose shop.example.com",
+              "fontType": "Monospace",
+              "wrap": true
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Abrir en la consola",
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+            }
+          ]
+        }
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "type": "message",
     "attachments": [

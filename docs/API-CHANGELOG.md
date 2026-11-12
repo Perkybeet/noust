@@ -53,6 +53,26 @@ against the schema of 4.2.0.
   them (`customized`). A server that lacks the route (before 4.3) lists `policy` in none of the `kinds` of
   `GET /api/managed-settings` and its cell says `unsupported`. A central never reaches a server's
   `PATCH /api/config` for it: a signed push may use the route and nothing else of `/api/config`.
+- **A certificate is judged on its own life** (`GET /api/certs`). Each certificate carries `state`
+  (`healthy`, `renewal_pending`, `critical`, `expired` or `unknown`), `life_days` (how long it lives, the assumed
+  90 when its start is not known, with `life_assumed` saying so), `fraction_left` and `not_before`. A client no
+  longer counts days to decide whether to worry: one of 45 days is healthy with 25 left and one of 90 is not.
+  `days_remaining` and `expires_on` mean what they did. A server before 4.3 sends none of the new fields, and a
+  client that reads `state` falls back to its own thresholds when it is absent.
+- **When the registration of a domain expires** (`GET /api/apps/{domain}/domains`, permission `apps.read`).
+  Each name carries `registration`, what the domain's registry last said (`status`, `expires_at`, `days_left`,
+  `registry`, `checked_at`, `detail`), or `null` when it was never looked at. Reading it asks nobody: the
+  monitor asks once a day, and only while `monitor.domain_expiry` is on (off by default, the domain name goes
+  to its registry). [domains.md](domains.md) says what is asked of whom.
+- **Four more notification events.** `GET /api/notifications/events` and the `events` of a channel
+  (`/api/notifications/channels`) list `cert_renewal_failed`, `app_oom_killed`, `domain_expiring` and
+  `domain_expired`, all on by default (the two of the registration are only raised while
+  `monitor.domain_expiry` is on). A client that sends the whole `events` map of a channel keeps working: a key
+  it leaves out takes its default.
+- **A restore that was tried is evidence.** The compliance document (`GET /api/compliance`) lists the control
+  `restore_drill_days` (`backup.drill_days`, 30 days, `0` turns it off), and the ENS report
+  (`GET /api/ens/report`) carries the check `ENS-BAK-03` and the indicators `restores_tested_percent` and
+  `restore_time_observed_seconds`.
 
 ## 4.2.0
 

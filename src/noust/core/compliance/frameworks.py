@@ -301,6 +301,9 @@ _ENS_M: dict[str, Requirement] = {
     "backup_verify_days": _r(
         7, _MP_INFO_6_R1, note="The frequency is the organisation's; 7 days is Noust's."
     ),
+    "restore_drill_days": _r(
+        30, _MP_INFO_6_R1, note="The frequency is the organisation's; 30 days is Noust's."
+    ),
     "tls_certificate": _r("operator", _MP_COM_2_R1, _MP_COM_3_R2),
     "certificate_min_days": _r(30, _MP_COM_2_R1),
     "server_terminal": _r("refused", _OP_ACC_4_2),
@@ -374,6 +377,7 @@ _ISO: dict[str, Requirement] = {
     "log_shipping_tls": _r(True, _A_8_24),
     "backup_encryption": _r("required", _A_8_13, _A_8_24),
     "backup_verify_days": _r(7, _A_8_13, note=_ISO_NOTE),
+    "restore_drill_days": _r(30, _A_8_13, note=_ISO_NOTE),
     "backup_max_age_hours": _r(26, _A_8_13, note=_ISO_NOTE),
     "backup_offsite": _r(True, _A_8_13),
     "certificate_min_days": _r(30, _A_8_24, note=_ISO_NOTE),
@@ -415,6 +419,7 @@ _NIS2: dict[str, Requirement] = {
     "external_audit_sink": _r(True, _N_B, note=_NIS2_NOTE),
     "audit_review_days": _r(7, _N_F, note=_NIS2_NOTE),
     "backup_verify_days": _r(7, _N_C, note=_NIS2_NOTE),
+    "restore_drill_days": _r(30, _N_C, note=_NIS2_NOTE),
     "backup_max_age_hours": _r(26, _N_C, note=_NIS2_NOTE),
     "backup_offsite": _r(True, _N_C),
     "backup_encryption": _r("required", _N_H),
@@ -552,6 +557,7 @@ _GDPR: dict[str, Requirement] = {
     "console_exposure": _r("refused", _G_B),
     "database_remote_listen": _r("refused", _G_B),
     "backup_verify_days": _r(7, _G_C, _G_D, note=_GDPR_NOTE),
+    "restore_drill_days": _r(30, _G_C, _G_D, note=_GDPR_NOTE),
     "backup_max_age_hours": _r(26, _G_C, note=_GDPR_NOTE),
     "backup_offsite": _r(True, _G_C),
     "audit_review_days": _r(7, _G_D, note=_GDPR_NOTE),

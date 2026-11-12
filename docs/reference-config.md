@@ -74,6 +74,7 @@ Every configuration key and the value it has until you change it. Set one with `
 | `monitor.disk_check_seconds` | `0` |
 | `monitor.disk_renotify_hours` | `0` |
 | `monitor.disk_threshold` | `90.0` |
+| `monitor.domain_expiry` | `false` |
 | `monitor.email_api.access_key_id` | `""` |
 | `monitor.email_api.api_key` | `""` |
 | `monitor.email_api.from_address` | `""` |
@@ -133,6 +134,7 @@ Every configuration key and the value it has until you change it. Set one with `
 | `notifications.events.alert_acknowledged` | `true` |
 | `notifications.events.alert_firing` | `true` |
 | `notifications.events.alert_resolved` | `true` |
+| `notifications.events.app_oom_killed` | `true` |
 | `notifications.events.app_recovered` | `true` |
 | `notifications.events.app_unreachable` | `true` |
 | `notifications.events.approval_decided` | `true` |
@@ -142,6 +144,7 @@ Every configuration key and the value it has until you change it. Set one with `
 | `notifications.events.backup_success` | `false` |
 | `notifications.events.central_silent` | `true` |
 | `notifications.events.cert_expiring` | `true` |
+| `notifications.events.cert_renewal_failed` | `true` |
 | `notifications.events.cleanup_failed` | `true` |
 | `notifications.events.cleanup_success` | `false` |
 | `notifications.events.container_restart_loop` | `true` |
@@ -155,6 +158,8 @@ Every configuration key and the value it has until you change it. Set one with `
 | `notifications.events.deploy_success` | `true` |
 | `notifications.events.destination_unreachable` | `true` |
 | `notifications.events.disk_threshold` | `true` |
+| `notifications.events.domain_expired` | `true` |
+| `notifications.events.domain_expiring` | `true` |
 | `notifications.events.node_host_key_changed` | `true` |
 | `notifications.events.node_recovered` | `true` |
 | `notifications.events.node_unreachable` | `true` |

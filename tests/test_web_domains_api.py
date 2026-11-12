@@ -133,6 +133,7 @@ def test_listing_returns_every_domain_primary_first(client: TestClient, calls: C
                 "certificate": "shared",
                 "served_by": "example.com",
                 "certificate_pending": False,
+                "registration": None,
             },
             {
                 "domain": "shop.example.com",
@@ -144,6 +145,7 @@ def test_listing_returns_every_domain_primary_first(client: TestClient, calls: C
                 "certificate": "shared",
                 "served_by": None,
                 "certificate_pending": False,
+                "registration": None,
             },
         ],
         "canonical": "",

@@ -2309,6 +2309,127 @@ Sent by Noust · web-1 · 2026-09-29 10:45 UTC
 Change what you receive in Settings > Notifications
 
 ========================================================================
+### cert.renewal_failed
+Subject: [Noust] Certificate renewal failed: certbot.timer (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: cert_renewal_failed
+X-Noust-Code: cert.renewal_failed
+X-Noust-Server: web-1
+
+✕ Certificate renewal failed · certbot.timer
+The last time certbot tried to renew the certificates it failed, so they will not renew by themselves until it works.
+
+Server: web-1
+Certificates: shop.example.com, blog.example.com
+Last attempt: Tue 2026-11-10 12:11:09 UTC
+Renew with: noust cert renew
+
+What certbot reported:
+  Failed to renew certificate shop.example.com with error: Some challenges have failed.
+  Detail: 203.0.113.9: Fetching http://shop.example.com/.well-known/acme-challenge/x: Timeout during connect (likely firewall problem)
+
+Open in the console: https://console.example.com/n/web-1/domains
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### cert.renewal_stopped
+Subject: [Noust] Certificate renewal stopped: certbot.timer (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: cert_renewal_failed
+X-Noust-Code: cert.renewal_stopped
+X-Noust-Server: web-1
+
+▲ Certificate renewal stopped · certbot.timer
+The timer that makes certbot renew the certificates is not running, so they will not renew by themselves.
+
+Server: web-1
+Certificates: shop.example.com
+Next attempt: Wed 2026-11-11 00:41:10 UTC
+Start it again with: systemctl enable --now certbot.timer
+
+Open in the console: https://console.example.com/n/web-1/domains
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### domain.expiring
+Subject: [Noust] Domain registration expiring: example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: domain_expiring
+X-Noust-Code: domain.expiring
+X-Noust-Server: web-1
+
+▲ Domain registration expiring · example.com
+The registration of example.com expires in 20 days (30 Nov 2026).
+
+Server: web-1
+Names it covers: shop.example.com, www.shop.example.com
+Registry: rdap.verisign.com
+See them all with: noust domain expiry
+
+Open in the console: https://console.example.com/n/web-1/domains
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### domain.expired
+Subject: [Noust] Domain registration expired: example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: domain_expired
+X-Noust-Code: domain.expired
+X-Noust-Server: web-1
+
+✕ Domain registration expired · example.com
+The registration of example.com expired 3 days ago (7 Nov 2026).
+
+Server: web-1
+Names it covers: shop.example.com
+Registry: rdap.verisign.com
+See them all with: noust domain expiry
+
+Open in the console: https://console.example.com/n/web-1/domains
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### app.oom_killed
+Subject: [Noust] Application killed for lack of memory: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: app_oom_killed
+X-Noust-Code: app.oom_killed
+X-Noust-Server: web-1
+
+✕ Application killed for lack of memory · shop.example.com
+The kernel killed shop.example.com for running out of memory.
+
+Server: web-1
+Killed: 2 times
+Memory limit: 512.0 MB
+Most it used: 511.0 MB
+Counting since: Tue 2026-11-10 03:00:00 UTC
+Diagnose with: noust diagnose shop.example.com
+
+Open in the console: https://console.example.com/n/web-1/apps/shop.example.com
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
 ### hostile.deploy_failed
 Subject: [Noust] Deploy failed: shop.example.com (wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww)
 Auto-Submitted: auto-generated

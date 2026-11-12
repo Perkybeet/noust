@@ -276,6 +276,10 @@ export const complianceSetup: Catalog<typeof en> = {
       title: "Verificación de copias",
       summary: "Se demuestra que una copia se puede restaurar al menos con esta frecuencia.",
     },
+    restore_drill_days: {
+      title: "Ensayo de restauración",
+      summary: "Se ensaya restaurar una copia al menos con esta frecuencia: los datos se cargan en una base temporal, que es más que leer el archivo.",
+    },
     backup_max_age_hours: {
       title: "Antigüedad de la última copia",
       summary: "La última copia de una aplicación debe ser más reciente que esto.",

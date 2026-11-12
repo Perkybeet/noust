@@ -5,7 +5,7 @@ import type { Job } from "../../api/queries/jobs";
 import { setLocale } from "../../app/locale";
 import { createSiteBody, siteOutcome } from "./siteForm";
 import { issueRequest } from "./IssueCertificateDialog";
-import { byUrgency, certificateJobFor, certificateView, covers, issuerName } from "./certificates";
+import { byUrgency, certificateJobFor, certificateLife, certificateNeedsAttention, certificateView, covers, issuerName, registrationView } from "./certificates";
 import { configRejection, failingLine, lineOffset } from "./configErrors";
 import { cdnName, dnsCellOf, dnsVerdict, isPrivateAddress, recordsToCreate } from "./dns";
 import { domainProblem, parseNames, truncatedNames, wwwOf } from "./names";
@@ -62,6 +62,35 @@ describe("certificate state", () => {
     expect(certificateView({ days_remaining: -1 })).toMatchObject({ tone: "fail", label: "Expired yesterday" });
     expect(certificateView({ days_remaining: -9 })).toMatchObject({ tone: "fail", label: "Expired 9 days ago" });
     expect(certificateView({ days_remaining: null })).toMatchObject({ tone: "idle", label: "Expiry unknown" });
+  });
+
+  it("takes the state the server gives, judged on the certificate's own life", () => {
+    // 25 days left: a warning for a certificate of 90 days, the middle of the life of one of 45.
+    expect(certificateView({ days_remaining: 25, state: "healthy" })).toEqual({ tone: "ok", label: "Valid for 25 days", attention: false });
+    expect(certificateView({ days_remaining: 25, state: "renewal_pending" })).toEqual({ tone: "warn", label: "Renewal pending: 25 days left", attention: true });
+    expect(certificateView({ days_remaining: 5, state: "critical" })).toEqual({ tone: "fail", label: "Not renewed: 5 days left", attention: true });
+    expect(certificateView({ days_remaining: 0, state: "critical" })).toMatchObject({ tone: "warn", label: "Expires today" });
+    expect(certificateView({ days_remaining: -3, state: "expired" })).toMatchObject({ tone: "fail", label: "Expired 3 days ago" });
+    expect(certificateView({ days_remaining: 4, state: "unknown" })).toMatchObject({ tone: "idle", label: "Expiry unknown" });
+  });
+
+  it("is not told to be in warning at 20 days by a server that says the certificate is healthy", () => {
+    expect(certificateLife({ days_remaining: 20, state: "healthy" })).toBe("healthy");
+    expect(certificateNeedsAttention({ days_remaining: 20, state: "healthy" })).toBe(false);
+    expect(certificateNeedsAttention({ days_remaining: 20 })).toBe(true);
+  });
+
+  it("says when the registration of a domain expires, and why it does not", () => {
+    const base = { domain: "example.com", checked_at: "2026-11-10T12:00:00+00:00", detail: "" };
+    expect(registrationView({ ...base, status: "ok", expires_at: "2027-03-01T00:00:00+00:00", days_left: 112, registry: "rdap.verisign.com" })).toEqual({ tone: "ok", label: "Expires 2027-03-01, in 112 days" });
+    expect(registrationView({ ...base, status: "ok", expires_at: "2026-12-01T00:00:00+00:00", days_left: 21, registry: null })).toMatchObject({ tone: "warn" });
+    expect(registrationView({ ...base, status: "ok", expires_at: "2026-11-15T00:00:00+00:00", days_left: 5, registry: null })).toMatchObject({ tone: "fail" });
+    expect(registrationView({ ...base, status: "ok", expires_at: "2026-11-07T00:00:00+00:00", days_left: -3, registry: null })).toEqual({ tone: "fail", label: "Expired 3 days ago (2026-11-07)" });
+    expect(registrationView({ ...base, status: "no_rdap", expires_at: null, days_left: null, registry: null })).toEqual({ tone: "idle", label: "Its registry does not publish the expiry" });
+    expect(registrationView({ ...base, status: "not_found", expires_at: null, days_left: null, registry: null })).toMatchObject({ tone: "idle" });
+    expect(registrationView({ ...base, status: "error", expires_at: null, days_left: null, registry: null })).toMatchObject({ label: "Not checked: the registry could not be asked" });
+    expect(registrationView(null)).toBeNull();
+    expect(registrationView(undefined)).toBeNull();
   });
 
   it("sorts the most urgent first and the unknown last", () => {

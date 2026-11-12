@@ -24,7 +24,6 @@ Two structural fixes live here as well:
 
 from __future__ import annotations
 
-from datetime import date, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -52,6 +51,17 @@ class CertInfo(BaseModel):
         valid_until: Raw expiry line from certbot, including its validity note.
         expires_on: Expiry date as ``YYYY-MM-DD`` when it could be parsed.
         days_remaining: Whole days until expiry, negative once expired.
+        not_before: When it began to be valid, ISO 8601 in UTC, when it could be read from the
+            certificate file; null otherwise.
+        state: How it is doing on its own life, the answer ``noust health`` and the monitor give:
+            ``healthy`` (at least a third of its life left), ``renewal_pending`` (under a third
+            and not yet renewed), ``critical`` (under a sixth), ``expired`` or ``unknown``. A
+            console does not count days to decide: a certificate of 45 days is healthy with 25
+            left, one of 90 is not.
+        life_days: How long the certificate lives, whole days; the assumed 90 when its start is
+            not known. Null when its end is not known.
+        life_assumed: Whether ``life_days`` is the assumed one.
+        fraction_left: What is left of its life, 1.0 when new and 0.0 at the end; null when unknown.
         auto_renew: Whether certbot's renewal timer covers this certificate.
         path: Directory holding the certificate files.
         key_path: Path of the private key. The key itself is never read.
@@ -70,6 +80,11 @@ class CertInfo(BaseModel):
     valid_until: str | None = None
     expires_on: str | None = None
     days_remaining: int | None = None
+    not_before: str | None = None
+    state: str = "unknown"
+    life_days: int | None = None
+    life_assumed: bool = False
+    fraction_left: float | None = None
     auto_renew: bool = True
     path: str | None = None
     key_path: str | None = None
@@ -131,26 +146,6 @@ class RenewCertRequest(BaseModel):
     force: bool = False
 
 
-def _days_remaining(expiry: str | None) -> int | None:
-    """
-    Work out how many days a certificate has left.
-
-    Args:
-        expiry: Expiry date as ``YYYY-MM-DD``, or None when certbot's output
-            could not be parsed.
-
-    Returns:
-        Whole days until expiry, or None when the date is unknown.
-    """
-    if not expiry:
-        return None
-    try:
-        expires = datetime.strptime(expiry, "%Y-%m-%d").date()
-    except ValueError:
-        return None
-    return (expires - date.today()).days
-
-
 def _serves() -> dict[str, list[str]]:
     """
     Read which names each certificate presents, held to what the caller may see.
@@ -179,12 +174,18 @@ def _to_cert_info(entry: CertificateInfo, serves: dict[str, list[str]] | None = 
     """
     expiry = entry.get("expiry")
     cert_path = entry.get("cert_path")
+    life = entry.life()
     return CertInfo(
         domain=entry.get("name", ""),
         domains=list(entry.get("domains", [])),
         valid_until=entry.get("expiry_full"),
         expires_on=expiry,
-        days_remaining=_days_remaining(expiry),
+        days_remaining=life.days_left,
+        not_before=entry.not_before,
+        state=life.state,
+        life_days=round(life.life_days) if life.life_days is not None else None,
+        life_assumed=life.assumed_life,
+        fraction_left=round(life.fraction_left, 4) if life.fraction_left is not None else None,
         path=cert_path,
         key_path=entry.get("key_path"),
         issuer=entry.get("issuer"),

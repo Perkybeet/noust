@@ -488,6 +488,11 @@ CATALOG: dict[str, str] = {
     "doctor.limits.old": (
         "{unit} is limited to {limit} open files, and a unit written now gets {new}"
     ),
+    "doctor.stapling.site": (
+        "{site} still asks nginx to staple OCSP responses, which Let's Encrypt stopped giving in "
+        "August 2025: nginx logs a warning about it at every reload. Noust writes the site again "
+        "without it the next time it writes the site (a deployment, a change of its domains)"
+    ),
     "doctor.cron.without_environment": (
         "The task {name} of {domain} runs without the application's .env and tools: it was "
         "written before a task loaded them"
@@ -1435,6 +1440,26 @@ CATALOG: dict[str, str] = {
     "diagnose.oom.unreadable": "Could not read the kernel log",
     "diagnose.oom.none": "No OOM kills in the kernel log in the last 7 days",
     "diagnose.oom.found": "The kernel log shows OOM activity in the last 7 days",
+    "diagnose.oom.found_no_cgroup_v2": (
+        "The kernel log shows OOM activity in the last 7 days, and this server cannot say which "
+        "application it was: it does not use cgroup v2, where the kernel counts kills by unit"
+    ),
+    "diagnose.oom.found_no_file": (
+        "The kernel log shows OOM activity in the last 7 days, and this server cannot say which "
+        "application it was: the unit's memory.events cannot be read"
+    ),
+    "diagnose.oom.killed_one": (
+        "The kernel killed this application for running out of memory once since its unit started "
+        "({since})"
+    ),
+    "diagnose.oom.killed_several": (
+        "The kernel killed this application for running out of memory {count} times since its unit "
+        "started ({since})"
+    ),
+    "diagnose.oom.unit_result": (
+        "systemd records that the last run of this application's unit ended because the kernel "
+        "killed it for running out of memory"
+    ),
     "diagnose.disk.usage": "{free} free ({percent}% used) on the filesystem holding {path}",
     "diagnose.zero_downtime.could": "Its updates restart it in place; it could update without a cut",
     # What the checks add up to, the most likely cause (``probable_cause``). A pool's cause is the
@@ -1450,6 +1475,19 @@ CATALOG: dict[str, str] = {
     ),
     "diagnose.descriptors.exhausted": "The console ran out of file descriptors while checking",
     "diagnose.cause.oom": "Killed by the kernel for running out of memory (limit or machine).",
+    "diagnose.cause.oom_limit": (
+        "The kernel killed {domain} for running out of memory: its limit is {limit} and it used up "
+        "to {peak}, so it needs more than it is allowed. Raise the limit with: {command}"
+    ),
+    "diagnose.cause.oom_machine": (
+        "The kernel killed {domain} for running out of memory and it has no memory limit, so the "
+        "server ran out of memory (it used up to {peak}). Free memory on the server, or give the "
+        "application a limit it can keep to: {command}"
+    ),
+    "diagnose.cause.oom_unit": (
+        "systemd records that the last run of {domain} ended because the kernel killed it for "
+        "running out of memory. See its memory limit with: {command}"
+    ),
     "diagnose.cause.crash_loop": (
         "The process exits with status {status} at start; see the last journal lines below."
     ),

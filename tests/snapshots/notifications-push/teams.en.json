@@ -5741,6 +5741,321 @@
       }
     ]
   },
+  "cert.renewal_failed": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "✕ Certificate renewal failed · certbot.timer",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Attention",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "The last time certbot tried to renew the certificates it failed, so they will not renew by themselves until it works.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Server",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Certificates",
+                  "value": "shop.example.com, blog.example.com"
+                },
+                {
+                  "title": "Last attempt",
+                  "value": "Tue 2026-11-10 12:11:09 UTC"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "Renew with: noust cert renew",
+              "fontType": "Monospace",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "What certbot reported",
+              "isSubtle": true,
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "Failed to renew certificate shop.example.com with error: Some challenges have failed.\nDetail: 203.0.113.9: Fetching http://shop.example.com/.well-known/acme-challenge/x: Timeout during connect (likely firewall problem)",
+              "fontType": "Monospace",
+              "wrap": true
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Open in the console",
+              "url": "https://console.example.com/n/web-1/domains"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "cert.renewal_stopped": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "▲ Certificate renewal stopped · certbot.timer",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Warning",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "The timer that makes certbot renew the certificates is not running, so they will not renew by themselves.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Server",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Certificates",
+                  "value": "shop.example.com"
+                },
+                {
+                  "title": "Next attempt",
+                  "value": "Wed 2026-11-11 00:41:10 UTC"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "Start it again with: systemctl enable --now certbot.timer",
+              "fontType": "Monospace",
+              "wrap": true
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Open in the console",
+              "url": "https://console.example.com/n/web-1/domains"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "domain.expiring": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "▲ Domain registration expiring · example.com",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Warning",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "The registration of example.com expires in 20 days (30 Nov 2026).",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Server",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Names it covers",
+                  "value": "shop.example.com, www.shop.example.com"
+                },
+                {
+                  "title": "Registry",
+                  "value": "rdap.verisign.com"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "See them all with: noust domain expiry",
+              "fontType": "Monospace",
+              "wrap": true
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Open in the console",
+              "url": "https://console.example.com/n/web-1/domains"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "domain.expired": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "✕ Domain registration expired · example.com",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Attention",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "The registration of example.com expired 3 days ago (7 Nov 2026).",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Server",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Names it covers",
+                  "value": "shop.example.com"
+                },
+                {
+                  "title": "Registry",
+                  "value": "rdap.verisign.com"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "See them all with: noust domain expiry",
+              "fontType": "Monospace",
+              "wrap": true
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Open in the console",
+              "url": "https://console.example.com/n/web-1/domains"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "app.oom_killed": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "✕ Application killed for lack of memory · shop.example.com",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Attention",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "The kernel killed shop.example.com for running out of memory.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Server",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Killed",
+                  "value": "2 times"
+                },
+                {
+                  "title": "Memory limit",
+                  "value": "512.0 MB"
+                },
+                {
+                  "title": "Most it used",
+                  "value": "511.0 MB"
+                },
+                {
+                  "title": "Counting since",
+                  "value": "Tue 2026-11-10 03:00:00 UTC"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "Diagnose with: noust diagnose shop.example.com",
+              "fontType": "Monospace",
+              "wrap": true
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Open in the console",
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+            }
+          ]
+        }
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "type": "message",
     "attachments": [

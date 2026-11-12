@@ -49,7 +49,7 @@ import {
 } from "../../lib/format";
 import type { Deployment } from "../apps/data";
 import { appLimits, appReading, hasUnit, useLatestMetrics } from "../apps/data";
-import { CERT_WARNING_DAYS } from "../overview/attention";
+import { certificateLife } from "../domains/certificates";
 import { PreviewLogsDrawer } from "./settings/PreviewLogsDrawer";
 import { previewName, previewStatus } from "./settings/previews";
 import { AdoptedOverview } from "./AdoptedOverview";
@@ -312,14 +312,19 @@ function certificateFact(
   const days = cert.days_remaining;
   if (days === null || days === undefined)
     return t("appPages.overview.certificateIssued");
+  const life = certificateLife(cert);
   const Icon =
-    days < 0
+    life === "expired" || life === "critical"
       ? ICONS.error
-      : days < CERT_WARNING_DAYS
+      : life === "renewal_pending"
         ? ICONS.warning
         : ICONS.verified;
   const tone =
-    days < 0 ? "text-fail" : days < CERT_WARNING_DAYS ? "text-warn" : "text-ok";
+    life === "expired" || life === "critical"
+      ? "text-fail"
+      : life === "renewal_pending"
+        ? "text-warn"
+        : "text-ok";
   return (
     <span className="flex items-center gap-1.5">
       <Icon aria-hidden="true" className={cx("size-icon-md shrink-0", tone)} />

@@ -375,6 +375,40 @@ now) and `POST .../versions/{version}/restore` (sudo mode, root-equivalent like 
 `pending_reload` and `edited_outside` on every site of `GET /api/sites`. Console: a site's page,
 **History**.
 
+## When a domain's registration expires
+
+A registration that lapses takes down every site under it, and the certificates with it, and the
+certificate's own countdown says nothing of it. Noust can ask the registry of each domain you serve,
+over RDAP, when its registration expires, and say so at 30 days, at 7 days and when it has:
+
+```bash
+noust config set monitor.domain_expiry true   # once a day, for each registrable domain
+noust domain expiry                           # what the registries said
+noust domain expiry shop.example.com --refresh   # ask now (the name goes to the registry)
+```
+
+It is **off by default**, and no profile turns it on (the ENS one included): the domain name goes to a
+third party, the registry, which is what the privacy statement says Noust does not do unasked
+([PRIVACY.md](PRIVACY.md)). What is sent is the name and `User-Agent: noust/<version>`; it goes only to the
+registry that a table shipped with Noust names for the top-level domain (IANA is never asked), over
+https, and never to an internal address.
+
+- **Which domain is asked.** The registrable one, found by the registry's own answer and not by a list
+  of public suffixes: `shop.example.co.uk` is asked as itself, then as `example.co.uk`, then as `co.uk`,
+  until the registry recognises one, and Noust keeps which. Once found, a name costs one question a
+  day, and every name under the same domain shares it.
+- **A registry with no answer.** `.es` and a few others have no RDAP service, and some answer without
+  an expiry: `noust domain list` says "This registry does not publish the expiry" and Noust does not
+  ask again every day (a month for those, a week for a name the registry does not know, six hours for
+  a registry that could not be reached).
+- **Where it shows.** `noust domain list` gains a Registration column once a registry was asked (and
+  `--json` the `registration` of each name), `noust domain expiry` lists them all, `noust health` has a
+  line for them (a warning at 30 days, an issue at 7 and when it expired), the domain's page in the
+  console shows it, and the notifications are `domain_expiring` (30 and 7 days) and `domain_expired`.
+  The console offers the switch in Settings > Alerts, beside the certificates' ceiling.
+
+API: `registration` on every name of `GET /api/apps/{domain}/domains`; reading it asks nobody.
+
 ## Limitations
 
 - **Which applications have other names.** Applications built by Noust's deployers (Node, Python,

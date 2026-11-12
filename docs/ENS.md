@@ -120,6 +120,7 @@ control, pide el modo sudo.
 | `--reason` en cada orden de la CLI que cambia algo | opcional | obligatorio (sin él, código 2) | op.exp.5.1 |
 | Cifrado de copias que salen del servidor (`backup.encryption`) | opcional | obligatorio: se rechaza subir a un destino sin cifrar | mp.si.2 |
 | Verificación de copias (`backup.verify_days`) | 7 días | 7 días como máximo, no desactivable | mp.info.6.r1 |
+| Ensayo de restauración (`backup.drill_days`) | 30 días (0 lo apaga) | 30 días como máximo, no desactivable | mp.info.6.r1 |
 | Certificado de la consola | cualquiera | del operador (el autofirmado es un fallo en `ens check`) | mp.com.2.r1, mp.com.3.r2 |
 | Lista de acceso a la consola (`web.ip_whitelist`, `NOUST_ALLOW_IP`) | opcional | explícita si escucha fuera de loopback | mp.com.1, op.acc.4.5 |
 | Publicar la consola en un nombre público (`noust console expose`) | permitido, con segundo factor en todas las cuentas | rechazado salvo `--force-ens` con confirmación y una lista de IP (queda auditado) | mp.com.1, op.acc.4.5 |
@@ -232,7 +233,7 @@ componente.
 | mp.sw.2 Aceptación (+R1) | Pruebas antes de producción | HealthGate y vuelta atrás; previews | Nodo o central de preproducción | - |
 | mp.info.1 Datos personales | RGPD | Datos mínimos (nombre de usuario, correo opcional, IP en auditoría); retención configurable (`retention.*`) | Base jurídica y plazos | - |
 | mp.info.2 Calificación | Nivel de cada información | Clasificación por aplicación en el inventario | Calificar | - |
-| mp.info.6 Copias (+R1) | Copias y pruebas de recuperación regulares | Copias programadas; verificación profunda programada con evidencia (`backups.verify`); `noust central backup` | Copia fuera de sitio; pruebas de restauración completas | La verificación extrae el archivo pero no restaura la base de datos en un motor de prueba |
+| mp.info.6 Copias (+R1) | Copias y pruebas de recuperación regulares | Copias programadas; verificación profunda programada con evidencia (`backups.verify`); ensayo de restauración programado (`noust backup drill`: carga cada volcado en una base temporal) con su fecha, resultado y duración en `noust ens check` (ENS-BAK-03) y en `noust ens report`; `noust central backup` | Copia fuera de sitio; prueba de restauración completa en un servidor nuevo | El ensayo prueba que los datos se cargan, no que un servidor nuevo arranque con ellos; su duración es la observada, no un tiempo de recuperación garantizado |
 | mp.s.2 Servicios web (+R1 o R2) | Protección frente a ataques web; auditorías | CSP estricta con Trusted Types en la consola; plantillas nginx con `server_tokens off` y HSTS opcional; E2E con axe y CSP | Pruebas de penetración | Sin DAST publicado en CI |
 | mp.s.4 Denegación de servicio (D MEDIO) | Capacidad y prevención | Límites de tasa y de cuerpo en la consola | Protección del proveedor/WAF; no exponer la central | Operador |
 
@@ -277,6 +278,7 @@ para entregarlo a un auditor.
 | ENS-NET-03 | Cortafuegos activo, nada interno expuesto | mp.com.1, op.mon.3.r2 |
 | ENS-BAK-01 | Copia en 26 h, verificada en 7 días, enviada a otro lugar | mp.info.6, mp.info.6.r1 |
 | ENS-BAK-02 | Destinos cifrados y cifrado exigido | mp.si.2 |
+| ENS-BAK-03 | Una restauración de cada aplicación probada en los últimos 30 días, con su fecha, su resultado y lo que tardó | mp.info.6.r1 |
 | ENS-UPD-01 | Parches de seguridad, reinicio, fin de vida del SO | op.exp.4 |
 | ENS-MON-01 | fail2ban vigilando SSH; journal persistente | op.mon.1 |
 | ENS-HRD-01 | Resto de comprobaciones de bastionado y riesgos aceptados con su fecha | op.exp.2, op.exp.3.r1 |
@@ -305,6 +307,7 @@ literal: nunca como aprobado.
 | op.exp.9 | Paquete de incidente y su hash en la auditoría | `noust incident freeze`, `sha256sum -c MANIFEST.sha256` | Por incidente |
 | op.mon.2 | Indicadores | `noust ens report` | Mensual y anual |
 | mp.info.6 | Verificaciones de copias | `noust backup verify`, `noust audit list --action backups.verify` | Semanal (automática) |
+| mp.info.6.r1 | Ensayos de restauración, con el tiempo observado | `noust backup drill`, `noust ens report` (sección Restauraciones probadas) | Cada 30 días (automático) |
 | op.cont.1, mp.info.6 | Copia cifrada de la central y su verificación | `noust central backup`, `noust central backup --verify <fichero>` | Diaria o semanal; verificación mensual |
 | op.pl.3 | SBOM de la versión instalada | Adjunto de la release en GitHub (`noust-<versión>.cdx.json`) | Por versión |
 
@@ -486,8 +489,11 @@ recuperación**: custodia por el responsable de seguridad en dos lugares distint
 
 - Copias de aplicación diarias con destino cifrado fuera del servidor; la verificación profunda
   semanal es automática y queda registrada (`backups.verify`); `noust backup verify` bajo demanda.
+- El ensayo de restauración (`noust backup drill`) corre solo cada 30 días y carga cada volcado de
+  base de datos en una base temporal; queda en `noust ens check` y en el informe con su fecha, su
+  resultado y su duración. Prueba que los datos se cargan, no que un servidor nuevo arranque.
 - Prueba de restauración completa (con la base de datos) al menos trimestral en un nodo de prueba,
-  documentada.
+  documentada (`noust restore-server --plan` ensaya esa parte).
 - Central: `noust central backup` (fichero cifrado con manifiesto SHA-256); `--verify` mensual;
   restauración: `noust central backup --decrypt <fichero> --to <archivo.tar.gz>`, extraer sobre un
   directorio de datos vacío y arrancar la central. Definir RTO y RPO en el análisis de impacto.
@@ -613,7 +619,7 @@ nodo; comprobación con `noust node test <nodo>`.
 - ¿Cuánto tiempo se guardan? → `audit.retention_days` (365).
 - ¿Hay doble factor para todos? → ENS-ACC-02.
 - ¿Cómo se autoriza un cambio y cómo se referencia? → `--reason`, aprobaciones, auditoría.
-- ¿Se prueban las copias? → `backups.verify` semanales, prueba de restauración trimestral.
+- ¿Se prueban las copias? → `backups.verify` semanales, ensayo de restauración cada 30 días (ENS-BAK-03), prueba de restauración trimestral.
 - ¿Dónde está la central y quién tiene acceso físico? → sección 5.2, documentos de la organización.
 - ¿Qué hace el token maestro y dónde está? → sección 5.4.
 - ¿Qué versión de Noust se usa y qué contiene? → `noust --version`, SBOM de la release.

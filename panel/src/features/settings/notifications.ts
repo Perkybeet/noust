@@ -408,6 +408,10 @@ export const EVENT_KINDS: readonly string[] = [
   "security_release",
   "container_restart_loop",
   "recipe_outdated",
+  "cert_renewal_failed",
+  "app_oom_killed",
+  "domain_expiring",
+  "domain_expired",
 ];
 
 /**
@@ -425,7 +429,7 @@ export const EVENT_GROUPS: readonly { id: EventGroupId; kinds: readonly string[]
   { id: "backups", kinds: ["backup_failed", "backup_missing", "destination_unreachable", "restore_failed", "restore_success", "backup_success"] },
   {
     id: "server",
-    kinds: ["unit_failed", "app_unreachable", "app_recovered", "disk_threshold", "cert_expiring", "os_patches", "token_expiring", "server_rebooted", "server_back", "cleanup_failed", "cleanup_success", "security_release", "container_restart_loop", "recipe_outdated"],
+    kinds: ["unit_failed", "app_unreachable", "app_recovered", "disk_threshold", "cert_expiring", "os_patches", "token_expiring", "server_rebooted", "server_back", "cleanup_failed", "cleanup_success", "security_release", "container_restart_loop", "recipe_outdated", "cert_renewal_failed", "app_oom_killed", "domain_expiring", "domain_expired"],
   },
   { id: "alerts", kinds: ["alert_firing", "alert_acknowledged", "alert_resolved", "probe_failed", "probe_recovered", "cron_failed", "cron_missed", "cron_success"] },
   { id: "fleet", kinds: ["node_unreachable", "node_host_key_changed", "node_recovered"] },
@@ -486,7 +490,11 @@ type EventCatalogKey =
   | "probeRecovered"
   | "securityRelease"
   | "containerRestartLoop"
-  | "recipeOutdated";
+  | "recipeOutdated"
+  | "certRenewalFailed"
+  | "appOomKilled"
+  | "domainExpiring"
+  | "domainExpired";
 
 /** The events, translated, in the notifier's order. */
 export function events(t: T): readonly EventSpec[] {

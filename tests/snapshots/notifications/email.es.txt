@@ -2309,6 +2309,127 @@ Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
 Cambia lo que recibes en Ajustes > Notificaciones
 
 ========================================================================
+### cert.renewal_failed
+Subject: [Noust] Ha fallado la renovación de certificados: certbot.timer (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: cert_renewal_failed
+X-Noust-Code: cert.renewal_failed
+X-Noust-Server: web-1
+
+✕ Ha fallado la renovación de certificados · certbot.timer
+La última vez que certbot intentó renovar los certificados falló, así que no se renovarán solos hasta que funcione.
+
+Servidor: web-1
+Certificados: shop.example.com, blog.example.com
+Último intento: Tue 2026-11-10 12:11:09 UTC
+Renuévalo con: noust cert renew
+
+Lo que ha informado certbot:
+  Failed to renew certificate shop.example.com with error: Some challenges have failed.
+  Detail: 203.0.113.9: Fetching http://shop.example.com/.well-known/acme-challenge/x: Timeout during connect (likely firewall problem)
+
+Abrir en la consola: https://console.example.com/n/web-1/domains
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### cert.renewal_stopped
+Subject: [Noust] La renovación de certificados está parada: certbot.timer (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: cert_renewal_failed
+X-Noust-Code: cert.renewal_stopped
+X-Noust-Server: web-1
+
+▲ La renovación de certificados está parada · certbot.timer
+El temporizador que hace que certbot renueve los certificados no está en marcha, así que no se renovarán solos.
+
+Servidor: web-1
+Certificados: shop.example.com
+Próximo intento: Wed 2026-11-11 00:41:10 UTC
+Vuelve a ponerlo en marcha con: systemctl enable --now certbot.timer
+
+Abrir en la consola: https://console.example.com/n/web-1/domains
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### domain.expiring
+Subject: [Noust] Registro de dominio a punto de caducar: example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: domain_expiring
+X-Noust-Code: domain.expiring
+X-Noust-Server: web-1
+
+▲ Registro de dominio a punto de caducar · example.com
+El registro de example.com caduca en 20 días (30 nov 2026).
+
+Servidor: web-1
+Nombres que cubre: shop.example.com, www.shop.example.com
+Registro: rdap.verisign.com
+Míralos todos con: noust domain expiry
+
+Abrir en la consola: https://console.example.com/n/web-1/domains
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### domain.expired
+Subject: [Noust] Registro de dominio caducado: example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: domain_expired
+X-Noust-Code: domain.expired
+X-Noust-Server: web-1
+
+✕ Registro de dominio caducado · example.com
+El registro de example.com caducó hace 3 días (7 nov 2026).
+
+Servidor: web-1
+Nombres que cubre: shop.example.com
+Registro: rdap.verisign.com
+Míralos todos con: noust domain expiry
+
+Abrir en la consola: https://console.example.com/n/web-1/domains
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### app.oom_killed
+Subject: [Noust] Aplicación cerrada por falta de memoria: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: app_oom_killed
+X-Noust-Code: app.oom_killed
+X-Noust-Server: web-1
+
+✕ Aplicación cerrada por falta de memoria · shop.example.com
+El núcleo ha cerrado shop.example.com por falta de memoria.
+
+Servidor: web-1
+Cerrada: 2 veces
+Límite de memoria: 512.0 MB
+Lo máximo que usó: 511.0 MB
+Contando desde: Tue 2026-11-10 03:00:00 UTC
+Diagnostícala con: noust diagnose shop.example.com
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
 ### hostile.deploy_failed
 Subject: [Noust] Despliegue fallido: shop.example.com (wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww)
 Auto-Submitted: auto-generated

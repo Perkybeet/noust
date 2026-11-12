@@ -1626,6 +1626,145 @@
     "client": "Noust"
   },
   "central.heard": null,
+  "cert.renewal_failed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/cert_renewal_failed/certbot.timer",
+    "payload": {
+      "summary": "Certificate renewal failed · certbot.timer: The last time certbot tried to renew the certificates it failed, so they will not renew by themselves until it works.",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "cert_renewal_failed",
+      "class": "cert.renewal_failed",
+      "custom_details": {
+        "server": "web-1",
+        "certificates": "shop.example.com, blog.example.com",
+        "renewal_last": "Tue 2026-11-10 12:11:09 UTC",
+        "command": "noust cert renew",
+        "excerpt": "Failed to renew certificate shop.example.com with error: Some challenges have failed.\nDetail: 203.0.113.9: Fetching http://shop.example.com/.well-known/acme-challenge/x: Timeout during connect (likely firewall problem)"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/domains",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/domains",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "cert.renewal_stopped": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/cert_renewal_failed/certbot.timer",
+    "payload": {
+      "summary": "Certificate renewal stopped · certbot.timer: The timer that makes certbot renew the certificates is not running, so they will not renew by themselves.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "cert_renewal_failed",
+      "class": "cert.renewal_stopped",
+      "custom_details": {
+        "server": "web-1",
+        "certificates": "shop.example.com",
+        "renewal_next": "Wed 2026-11-11 00:41:10 UTC",
+        "command": "systemctl enable --now certbot.timer"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/domains",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/domains",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "domain.expiring": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/domain_expiring/example.com",
+    "payload": {
+      "summary": "Domain registration expiring · example.com: The registration of example.com expires in 20 days (30 Nov 2026).",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "domain_expiring",
+      "class": "domain.expiring",
+      "custom_details": {
+        "server": "web-1",
+        "domain_names": "shop.example.com, www.shop.example.com",
+        "domain_registry": "rdap.verisign.com",
+        "command": "noust domain expiry"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/domains",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/domains",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "domain.expired": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/domain_expired/example.com",
+    "payload": {
+      "summary": "Domain registration expired · example.com: The registration of example.com expired 3 days ago (7 Nov 2026).",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "domain_expired",
+      "class": "domain.expired",
+      "custom_details": {
+        "server": "web-1",
+        "domain_names": "shop.example.com",
+        "domain_registry": "rdap.verisign.com",
+        "command": "noust domain expiry"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/domains",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/domains",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "app.oom_killed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/app_oom_killed/shop.example.com",
+    "payload": {
+      "summary": "Application killed for lack of memory · shop.example.com: The kernel killed shop.example.com for running out of memory.",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "app_oom_killed",
+      "class": "app.oom_killed",
+      "custom_details": {
+        "server": "web-1",
+        "oom_kills": "2 times",
+        "oom_limit": "512.0 MB",
+        "oom_peak": "511.0 MB",
+        "oom_since": "Tue 2026-11-10 03:00:00 UTC",
+        "command": "noust diagnose shop.example.com"
+      },
+      "component": "shop.example.com"
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/apps/shop.example.com",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/apps/shop.example.com",
+        "text": "Open in the console"
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
     "event_action": "trigger",
