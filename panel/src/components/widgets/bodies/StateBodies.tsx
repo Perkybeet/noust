@@ -17,8 +17,9 @@ import { describeActor, jobActionLabel } from "../../../features/activity/data";
 import { objectOf, textOf } from "../../../features/fleet/data";
 import { AttentionActionButton } from "../../../features/inbox/AttentionActionButton";
 import { attentionIcon } from "../../../features/inbox/attentionIcons";
+import { useRowPress } from "../../../features/inbox/useRowPress";
 import { attentionAction, attentionTarget } from "../../../features/overview/attentionTarget";
-import { reasonDetail, reasonText } from "../../../features/overview/attentionWords";
+import { itemTitle, originLabel, reasonDetail, reasonText } from "../../../features/overview/attentionWords";
 import { sinceOf } from "../../../features/overview/homeData";
 import type { ActivityLine, HomeAttention } from "../../../features/overview/homeData";
 import { useScopedHome } from "../../../features/overview/useHome";
@@ -43,43 +44,67 @@ import type { WidgetBodyProps } from "../types";
 /** The most lines drawn: a tall band shows this many, a short one the first three. */
 const ATTENTION_ROWS = 8;
 
-function subjectOf(entry: HomeAttention) {
-  const kind = entry.item.subject["kind"];
-  const system = kind === "unit" || kind === "alert" || kind === "probe" || kind === "recipe";
-  const name = system ? <Mono>{entry.item.title}</Mono> : <span translate="no">{entry.item.title}</span>;
-  // A firing alert's button takes it and goes nowhere, so the name is the way to the alerts (what every other line's button
-  // does): the one line with a button that stays here is the one whose subject leads away.
-  const target = attentionAction(entry.item)?.mode === "alert" ? attentionTarget(entry.item) : null;
-  if (target === null) return name;
+/**
+ * What the line is about: the name. A line whose button leads to the same screen has no second link to it (the line itself is
+ * pressed, `useRowPress`); one whose button does something else (taking an alert) names the screen with the name, which is
+ * stretched over the line, so a press anywhere on it opens the screen that deals with it (item 161).
+ */
+function subjectOf(t: T, entry: HomeAttention, link: boolean) {
+  const title = itemTitle(t, entry.item);
+  const name = title.mono ? <Mono>{title.text}</Mono> : title.translate ? title.text : <span translate="no">{title.text}</span>;
+  const target = attentionTarget(entry.item);
+  if (target === null || !link) return name;
   const node = entry.server === null ? undefined : entry.server.node;
   return (
-    <Link to={target.to as never} {...(node !== undefined ? { search: { node } as never } : {})} className={textLinkClassName("ui", "max-w-full", "row")}>
+    <Link
+      to={target.to as never}
+      {...(target.params ? { params: target.params as never } : {})}
+      {...(target.search || node !== undefined ? { search: { ...target.search, node } as never } : {})}
+      className="rounded-chip after:absolute after:inset-0 group-hover:underline"
+    >
       {name}
     </Link>
   );
 }
 
-function AttentionRow({ t, entry, showServer }: { t: T; entry: HomeAttention; showServer: boolean }) {
+/**
+ * One line of what needs attention. Wide enough, it says all of it: the state in a word, what it is about, the server on a
+ * fleet, where it comes from, what is wrong, since when and the one thing to press. A phone's line keeps what it can be
+ * pressed by: the glyph of its state, the name, where it comes from and the button; the sentence is one press away.
+ */
+export function AttentionRow({ t, entry, showServer }: { t: T; entry: HomeAttention; showServer: boolean }) {
   const { item, server } = entry;
   const fail = item.severity === "fail";
   const state = fail ? "failed" : "warning";
   // Every reason is a sentence of the line. What the system said is shown as it came, after the sentences that say what it
   // means (Principle 5): a sentence of Noust's own in the text's face and in this console's language, what a tool printed in mono.
-  const sentences = item.reasons.map((reason) => reasonText(t, reason)).join(", ");
+  // Each starts with a capital, so they are told one after the other and not as one run-on clause.
+  const sentences = item.reasons.map((reason) => reasonText(t, reason)).join(". ");
   const detail = item.reasons.map((reason) => reasonDetail(t, reason)).find((candidate) => candidate !== null) ?? null;
   const since = sinceOf(item);
   const node = server === null ? undefined : server.node;
+  const target = attentionTarget(item);
+  const buttonLeads = attentionAction(item)?.mode === "open";
+  const press = useRowPress(buttonLeads ? target : null, { node });
   return (
-    <li className="flex h-9 shrink-0 items-center gap-2.5 border-b border-border last:border-b-0">
+    <li
+      data-origin={item.origin ?? "state"}
+      {...(press !== undefined ? { onClick: press } : {})}
+      className={cx("group relative flex h-9 shrink-0 items-center gap-2.5 border-b border-border last:border-b-0", target !== null && "hover:bg-surface-hover", press !== undefined && "cursor-pointer")}
+    >
       <Glyph state={state} />
-      <span className={cx("w-12 shrink-0 text-12 font-semibold", stateTextClass(state))}>{fail ? t("widgets.attention.failure") : t("common.statusPill.warning")}</span>
-      <span className="max-w-2/5 shrink-0 truncate text-13 font-medium text-fg w-wide:max-w-1/3">{subjectOf(entry)}</span>
+      <span className={cx("hidden w-12 shrink-0 text-12 font-semibold w-wide:block", stateTextClass(state))}>{fail ? t("widgets.attention.failure") : t("common.statusPill.warning")}</span>
+      <span className="sr-only w-wide:hidden">{fail ? t("overview.attention.srFailure") : t("overview.attention.srWarning")}</span>
+      <span className="min-w-0 flex-1 truncate text-13 font-medium text-fg w-wide:w-44 w-wide:flex-none w-xwide:w-56">{subjectOf(t, entry, !buttonLeads)}</span>
       {showServer && server !== null ? (
         <span translate="no" className="hidden shrink-0 rounded-chip bg-bg-sunken px-1.5 text-12 text-fg-muted w-xwide:inline">
           {server.name}
         </span>
       ) : null}
-      <span className="min-w-0 flex-1 truncate text-13 text-fg-muted">
+      <span data-slot="origin" className="shrink-0 text-12 text-fg-faint w-wide:w-16">
+        {originLabel(t, item.origin)}
+      </span>
+      <span className="hidden min-w-0 flex-1 truncate text-13 text-fg-muted w-wide:block">
         {sentences}
         {detail !== null ? (
           <>
@@ -89,7 +114,7 @@ function AttentionRow({ t, entry, showServer }: { t: T; entry: HomeAttention; sh
         ) : null}
       </span>
       {since !== null ? <RelativeTime value={since} className="hidden shrink-0 text-12 text-fg-faint w-xwide:inline" /> : null}
-      <span className="shrink-0">
+      <span className="relative z-10 shrink-0">
         <AttentionActionButton item={item} node={node} appearance="link" iconFor={attentionIcon} compact />
       </span>
     </li>

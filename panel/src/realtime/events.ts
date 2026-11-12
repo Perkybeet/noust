@@ -32,6 +32,7 @@ import { jobKeys } from "../api/queries/jobs";
 import type { Job } from "../api/queries/jobs";
 import { metricKeys } from "../api/queries/metrics";
 import type { MetricsSnapshot } from "../api/queries/metrics";
+import { attentionKeys } from "../api/queries/attention";
 import { overviewKeys } from "../api/queries/overview";
 import { queueKeys } from "../api/queries/queue";
 import { serviceKeys } from "../api/queries/services";
@@ -233,8 +234,9 @@ export function applyServerEvent(queryClient: QueryClient, name: ServerEventName
       void queryClient.invalidateQueries({ queryKey: appKeys.list, exact: true });
       // An application that changed state may have a deployment it did not have: its history is read again.
       void queryClient.invalidateQueries({ queryKey: deploymentKeys.all });
-      // What needs the operator is read from the Overview (the inbox and the bar's counters): an application that changed may have started or stopped needing it.
+      // What needs the operator is read from the one list the server joins (the inbox and the bar's counters): an application that changed may have started or stopped needing it.
       void queryClient.invalidateQueries({ queryKey: overviewKeys.all });
+      void queryClient.invalidateQueries({ queryKey: attentionKeys.all });
       queryClient.setQueryData(appKeys.detail(domain), (current: unknown) =>
         isRecord(current) ? { ...current, ...changes } : current,
       );
@@ -263,6 +265,7 @@ export function applyServerEvent(queryClient: QueryClient, name: ServerEventName
       void queryClient.invalidateQueries({ queryKey: jobKeys.all });
       void queryClient.invalidateQueries({ queryKey: deploymentKeys.all });
       void queryClient.invalidateQueries({ queryKey: overviewKeys.all });
+      void queryClient.invalidateQueries({ queryKey: attentionKeys.all });
       // A first deployment that failed leaves no application: the page of its domain finds the failure here.
       void queryClient.invalidateQueries({ queryKey: firstDeployKeys.all });
       const domain = job.metadata?.["domain"];
@@ -323,6 +326,7 @@ export function applyServerEvent(queryClient: QueryClient, name: ServerEventName
       void queryClient.invalidateQueries({ queryKey: appKeys.detail(data["id"]) });
       void queryClient.invalidateQueries({ queryKey: jobKeys.all });
       void queryClient.invalidateQueries({ queryKey: overviewKeys.all });
+      void queryClient.invalidateQueries({ queryKey: attentionKeys.all });
       return;
     }
   }

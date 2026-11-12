@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Overview } from "../../api/queries/overview";
 import type { AppInfo } from "../apps/data";
 import { overviewFixture } from "./testFixtures";
-import { appsTotal, attentionItems, attentionTotal, isEmptyServer, unmanagedApps } from "./overviewData";
+import { appsTotal, isEmptyServer, unmanagedApps, withNoAnswer } from "./overviewData";
 
 const app = (domain: string, status: string): AppInfo => ({ domain, name: domain, status, active: true, enabled: true, layout: "inplace" }) as AppInfo;
 
@@ -43,7 +43,7 @@ describe("an overview from a node before 3.3", () => {
   });
 });
 
-describe("attentionItems", () => {
+describe("withNoAnswer", () => {
   const failed = {
     id: "app:admin.example.com",
     subject: { kind: "app", domain: "admin.example.com" },
@@ -59,13 +59,13 @@ describe("attentionItems", () => {
     reasons: [{ kind: "certificate", severity: "warn", code: "certificate_expires_in", params: { days: 12 }, detail: null, when: null, deployment_id: null, actions: ["renew_certificate"] }],
   };
 
-  it("keeps the server's list, worst first", () => {
-    const items = attentionItems(overviewFixture({ attention: [expiring, failed], attention_total: 2 }), []);
+  it("keeps the list of a server before 4.3, worst first", () => {
+    const items = withNoAnswer([expiring, failed], []);
     expect(items.map((item) => item.id)).toEqual(["app:admin.example.com", "app:shop.example.com"]);
   });
 
-  it("adds a service that runs but answers nothing on its port, which the server cannot see", () => {
-    const items = attentionItems(overviewFixture({ attention: [failed], attention_total: 1 }), [app("api.example.com", "no_answer"), app("admin.example.com", "failed")]);
+  it("adds a service that runs but answers nothing on its port, which a server before 4.3 cannot see (4.3 says it itself)", () => {
+    const items = withNoAnswer([failed], [app("api.example.com", "no_answer"), app("admin.example.com", "failed")]);
     expect(items.map((item) => [item.id, item.reasons.map((r) => r.code)])).toEqual([
       ["app:admin.example.com", ["service_failed"]],
       ["app:api.example.com", ["no_answer"]],
@@ -73,15 +73,9 @@ describe("attentionItems", () => {
   });
 
   it("puts it on the application's own item, first, when that item exists for another reason", () => {
-    const items = attentionItems(overviewFixture({ attention: [expiring], attention_total: 1 }), [app("shop.example.com", "no_answer")]);
+    const items = withNoAnswer([expiring], [app("shop.example.com", "no_answer")]);
     expect(items).toHaveLength(1);
     expect(items[0]?.severity).toBe("fail");
     expect(items[0]?.reasons.map((r) => r.code)).toEqual(["no_answer", "certificate_expires_in"]);
-  });
-
-  it("counts what the server cut from its list", () => {
-    const o = overviewFixture({ attention: [failed], attention_total: 140 });
-    const items = attentionItems(o, [app("api.example.com", "no_answer")]);
-    expect(attentionTotal(o, items)).toBe(141);
   });
 });

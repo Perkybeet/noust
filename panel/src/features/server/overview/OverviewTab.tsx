@@ -6,16 +6,16 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
 import { appsQuery } from "../../../api/queries/apps";
 import { overviewQuery } from "../../../api/queries/overview";
+import type { OverviewAttentionItem } from "../../../api/queries/overview";
 import { machineQuery } from "../../../api/queries/system";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { SurfaceSection } from "../../../components/page/SurfaceSection";
-import { Button, buttonClassName } from "../../../components/ui/Button";
+import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
@@ -25,21 +25,19 @@ import { Mono } from "../../../components/ui/Mono";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 import { Meter } from "../../../components/ui/Progress";
 import { Skeleton } from "../../../components/ui/Skeleton";
-import { StatusGlyph, stateTextClass } from "../../../components/ui/StatusPill";
+import { StatusGlyph } from "../../../components/ui/StatusPill";
 import { TextLink } from "../../../components/ui/TextLink";
 import { useT } from "../../../i18n";
-import type { T } from "../../../i18n";
-import { formatBytes, formatBytesPair, formatDate, formatDuration, formatPercent, parseTimestamp } from "../../../lib/format";
+import { formatBytes, formatBytesPair, formatDuration, formatPercent } from "../../../lib/format";
 import { NodeCapabilityGate } from "../../../nodes/capability";
-import { attentionItems } from "../attention";
-import type { AttentionItem } from "../attention";
+import { AttentionRows } from "../../inbox/AttentionRows";
+import { useAttention } from "../../inbox/useAttention";
+import { serverItems } from "../attention";
 import { ServerQueryState } from "../errors";
-import { usePowerDialog } from "../PowerDialog";
 import { OwnerName } from "../OwnerName";
 import { ownerOfProcess } from "../processOwner";
-import { SERVER_CAPABILITY, dayOf, identityQuery, processesQuery, securityOverviewQuery, summaryQuery } from "../queries";
+import { SERVER_CAPABILITY, identityQuery, processesQuery, summaryQuery } from "../queries";
 import type { Processes, ServerSummary } from "../queries";
-import { checkTitle } from "../security/data";
 
 /** Rows of what is not well before "Show all": the three most serious and two more fit beside the processes. */
 const SHOWN = 5;
@@ -47,108 +45,8 @@ const SHOWN = 5;
 /** The processes that cost the most, which is the first thing to look at when the machine is slow. */
 const TOP_PROCESSES = 3;
 
-function day(value: string | null | undefined, t: T): string | null {
-  const date = dayOf(value) ?? parseTimestamp(value ?? null);
-  return date ? formatDate(date, {}, t.locale) : (value ?? null);
-}
-
-/** What an item says, in the active language; a check's reason stays in Noust's words, under it. */
-export function attentionText(t: T, item: AttentionItem): string {
-  switch (item.kind) {
-    case "securityUpdates":
-      return t("server.attention.securityUpdates", { count: item.count });
-    case "packagesBroken":
-      return t("server.attention.packagesBroken");
-    case "rebootRequired":
-      return item.packages.length > 0
-        ? t("server.attention.rebootRequiredBecause", { packages: item.packages.slice(0, 3).join(", ") })
-        : t("server.attention.rebootRequired");
-    case "osUnsupported":
-      return item.date !== null ? t("server.attention.osUnsupportedSince", { name: item.name, date: day(item.date, t) ?? item.date }) : t("server.attention.osUnsupported", { name: item.name });
-    case "osEnding":
-      return t("server.attention.osEnding", { name: item.name, count: item.days });
-    case "diskFull":
-      return item.free !== null
-        ? t("server.attention.diskFullFree", { mount: item.mount, percent: formatPercent(item.percent, t.locale), free: formatBytes(item.free, t.locale) })
-        : t("server.attention.diskFull", { mount: item.mount, percent: formatPercent(item.percent, t.locale) });
-    case "clockUnsynced":
-      return t("server.attention.clockUnsynced");
-    case "noSwap":
-      return t("server.attention.noSwap");
-    case "failedUnits":
-      return t("server.attention.failedUnits", { count: item.units.length, units: item.units.slice(0, 3).join(", ") });
-    case "check":
-      return checkTitle(t, item.check);
-  }
-}
-
-function actionLabel(t: T, item: AttentionItem): string {
-  switch (item.kind) {
-    case "securityUpdates":
-      return t("server.attention.actions.install");
-    case "packagesBroken":
-      return t("server.attention.actions.repair");
-    case "rebootRequired":
-      return t("server.attention.actions.scheduleReboot");
-    case "osUnsupported":
-    case "osEnding":
-      return t("server.attention.actions.view");
-    case "diskFull":
-      return t("server.attention.actions.freeSpace");
-    case "clockUnsynced":
-      return t("server.attention.actions.fixClock");
-    case "noSwap":
-      return t("server.attention.actions.addSwap");
-    case "failedUnits":
-      return t("server.attention.actions.viewServices");
-    case "check":
-      return t("server.attention.actions.review");
-  }
-}
-
-function AttentionAction({ item }: { item: AttentionItem }) {
-  const t = useT();
-  const power = usePowerDialog();
-  const label = actionLabel(t, item);
-  // `ml-auto`: where a narrow card makes the action wrap under its sentence it stays at the right, where every other line has it.
-  const className = buttonClassName("secondary", "sm", "ml-auto shrink-0");
-  switch (item.action.kind) {
-    case "reboot":
-      return (
-        <Button size="sm" className="ml-auto shrink-0" onClick={() => power.open("reboot")}>
-          {label}
-        </Button>
-      );
-    case "services":
-      return (
-        <Link to="/server/services" search={{ state: item.action.state, all: true }} className={className}>
-          {label}
-        </Link>
-      );
-    case "tab":
-      return (
-        <Link to={item.action.to} className={className}>
-          {label}
-        </Link>
-      );
-  }
-}
-
-function AttentionRow({ item }: { item: AttentionItem }) {
-  const t = useT();
-  const state = item.severity === "critical" ? "failed" : "warning";
-  return (
-    <li className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 px-5 py-2.5">
-      <StatusGlyph state={state} size={12} className={`shrink-0 ${stateTextClass(state)}`} />
-      <span className="sr-only">{item.severity === "critical" ? t("server.attention.critical") : t("common.statusPill.warning")}</span>
-      <span className="min-w-0 flex-1 basis-40 text-13 text-fg">{attentionText(t, item)}</span>
-      <AttentionAction item={item} />
-    </li>
-  );
-}
-
-/** What is not well on the machine, worst first, each with the action that deals with it; nothing, said once. */
-function NotWell({ items, loading }: { items: readonly AttentionItem[]; loading: boolean }) {
+/** What is not well on the machine, worst first: the machine's slice of the one list of what needs attention, each row with its button; nothing, said once. */
+function NotWell({ items, total, loading }: { items: readonly OverviewAttentionItem[]; total: number; loading: boolean }) {
   const t = useT();
   const [all, setAll] = useState(false);
   const shown = all ? items : items.slice(0, SHOWN);
@@ -156,7 +54,7 @@ function NotWell({ items, loading }: { items: readonly AttentionItem[]; loading:
     <SurfaceSection
       title={t("server.attention.title")}
       icon={OBJECT_ICONS.alert}
-      description={t("server.attention.description")}
+      description={items.length > 0 && total > items.length ? t("server.attention.ofAll", { count: items.length, total }) : t("server.attention.description")}
       flush={items.length > 0 || loading}
       loading={loading}
       actions={
@@ -179,11 +77,7 @@ function NotWell({ items, loading }: { items: readonly AttentionItem[]; loading:
           {t("server.attention.nothing")}
         </p>
       ) : (
-        <ul aria-label={t("server.attention.listLabel")} className="flex flex-col divide-y divide-border">
-          {shown.map((item) => (
-            <AttentionRow key={item.id} item={item} />
-          ))}
-        </ul>
+        <AttentionRows t={t} items={shown} label={t("server.attention.listLabel")} />
       )}
     </SurfaceSection>
   );
@@ -304,14 +198,14 @@ function TopProcesses() {
 }
 
 function OverviewLayout({ summary }: { summary: ServerSummary | undefined }) {
-  const security = useQuery(securityOverviewQuery());
-  const items = attentionItems(summary, security.data);
+  const attention = useAttention();
+  const items = serverItems(attention.items);
   return (
     <div className="flex min-w-0 flex-col gap-6">
       {summary !== undefined ? <Readings summary={summary} /> : <ReadingsSkeleton />}
       <div className="grid min-w-0 items-start gap-6 lg:grid-cols-2">
         <TopProcesses />
-        <NotWell items={items} loading={summary === undefined} />
+        <NotWell items={items} total={attention.total} loading={summary === undefined || attention.loading} />
       </div>
     </div>
   );

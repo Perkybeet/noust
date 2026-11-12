@@ -1,163 +1,21 @@
 /**
- * What needs attention on the server, worst first: the one list the Overview tab shows and
- * the header's state is judged from, so the two never disagree.
+ * What needs attention on the machine: the Server page's slice of the one list the server joins (`GET /api/attention`).
+ * The machine's own facts (updates, a reboot, a disk, the clock, the swap, failed services), Noust's own services that
+ * failed and the open findings of Security are rows of that list, so what this page counts is part of what the bell and
+ * Home count, and the three cannot say 2, 8 and 10 on the same afternoon (item 161).
  *
- * It is read from the summary (`GET /api/server/summary`: updates, reboot, support, disks,
- * clock, swap, failed units) and the last hardening checks (`GET /api/server/security`). A
- * check that says the same as a summary fact (security updates pending, a reboot due) is left
- * to the fact, which carries the numbers.
- *
- * Items hold data, not text: `attentionText` in the component that renders them says each one
- * in the active language.
+ * Pure, so each rule is tested without a page.
  */
 
+import type { OverviewAttentionItem } from "../../api/queries/overview";
 import type { Status } from "../../components/ui/StatusPill";
-import type { SecurityCheck, SecurityOverview, ServerSummary } from "./queries";
 
-export type Severity = "critical" | "warning";
+/** The kinds of row that are the machine's: what is wrong with it, what Noust runs on it that failed and what its checks found. */
+const MACHINE_KINDS: ReadonlySet<string> = new Set(["machine", "unit", "finding"]);
 
-/** Where an item's action takes the operator: a tab, or the reboot dialog. */
-export type AttentionAction =
-  | { kind: "tab"; to: "/server/updates" | "/server/machine" | "/server/files" | "/security" | "/security/ssh" | "/security/blocks" | "/network/firewall" }
-  | { kind: "services"; state: "failed" }
-  | { kind: "reboot" };
-
-export type AttentionItem = { id: string; severity: Severity; action: AttentionAction } & (
-  | { kind: "securityUpdates"; count: number }
-  | { kind: "packagesBroken" }
-  | { kind: "rebootRequired"; since: string | null; packages: readonly string[] }
-  | { kind: "osUnsupported"; name: string; date: string | null }
-  | { kind: "osEnding"; name: string; days: number; date: string | null }
-  | { kind: "diskFull"; mount: string; percent: number; free: number | null }
-  | { kind: "clockUnsynced"; timezone: string | null }
-  | { kind: "noSwap" }
-  | { kind: "failedUnits"; units: readonly string[] }
-  | { kind: "check"; check: SecurityCheck }
-);
-
-/** Checks the summary already reports with its own numbers: listed once, from the summary. */
-const COVERED_BY_SUMMARY: ReadonlySet<string> = new Set([
-  "upd.security_pending",
-  "upd.pkg_broken",
-  "upd.reboot_required",
-  "os.eol",
-  "time.unsynced",
-  "mem.no_swap",
-  "disk.full",
-  "sys.degraded",
-]);
-
-const RANK: Readonly<Record<Severity, number>> = { critical: 0, warning: 1 };
-
-function fromSummary(summary: ServerSummary): AttentionItem[] {
-  const items: AttentionItem[] = [];
-  const updates = summary.updates;
-  if (updates.broken === true) {
-    items.push({ id: "packages-broken", kind: "packagesBroken", severity: "critical", action: { kind: "tab", to: "/server/updates" } });
-  }
-  if ((updates.security ?? 0) > 0) {
-    items.push({
-      id: "security-updates",
-      kind: "securityUpdates",
-      count: updates.security ?? 0,
-      // A warning, as the Overview's tile says it: the server marks no update critical.
-      severity: "warning",
-      action: { kind: "tab", to: "/server/updates" },
-    });
-  }
-  const eol = summary.os.eol;
-  if (eol.status === "expired") {
-    items.push({ id: "os-eol", kind: "osUnsupported", name: summary.os.name, date: eol.end_date ?? null, severity: "critical", action: { kind: "tab", to: "/server/updates" } });
-  } else if (eol.status === "warn" && eol.days_left != null) {
-    items.push({
-      id: "os-eol",
-      kind: "osEnding",
-      name: summary.os.name,
-      days: eol.days_left,
-      date: eol.end_date ?? null,
-      severity: "warning",
-      action: { kind: "tab", to: "/server/updates" },
-    });
-  }
-  const disk = summary.disk;
-  if ((disk.status === "critical" || disk.status === "warn") && disk.worst_mount != null && disk.worst_percent != null) {
-    items.push({
-      id: "disk",
-      kind: "diskFull",
-      mount: disk.worst_mount,
-      percent: disk.worst_percent,
-      free: disk.free_bytes ?? null,
-      severity: disk.status === "critical" ? "critical" : "warning",
-      action: { kind: "tab", to: "/server/files" },
-    });
-  }
-  if (summary.reboot.required === true) {
-    items.push({
-      id: "reboot",
-      kind: "rebootRequired",
-      since: summary.reboot.since ?? null,
-      packages: summary.reboot.packages ?? [],
-      severity: "warning",
-      action: { kind: "reboot" },
-    });
-  }
-  if (summary.time.synchronized === false) {
-    items.push({ id: "clock", kind: "clockUnsynced", timezone: summary.time.timezone ?? null, severity: "warning", action: { kind: "tab", to: "/server/machine" } });
-  }
-  if (summary.swap.recommended === true && (summary.swap.total_bytes ?? 0) === 0) {
-    items.push({ id: "swap", kind: "noSwap", severity: "warning", action: { kind: "tab", to: "/server/files" } });
-  }
-  const failed = summary.system.failed_units ?? [];
-  if (failed.length > 0) {
-    items.push({ id: "failed-units", kind: "failedUnits", units: failed, severity: "warning", action: { kind: "services", state: "failed" } });
-  }
-  return items;
-}
-
-/** A check's severity as "needs attention", or null when it is not worth a line here. */
-export function checkSeverity(check: Pick<SecurityCheck, "severity" | "status">): Severity | null {
-  if (check.status !== "fail" && check.status !== "warn") return null;
-  if (check.severity === "critical") return "critical";
-  if (check.severity === "warning") return "warning";
-  return null;
-}
-
-/** The Security view a check's finding is read and fixed in. */
-export function checkTarget(group: string): "/security" | "/security/ssh" | "/security/blocks" {
-  const view = checkView(group);
-  return view === "ssh" ? "/security/ssh" : view === "bans" ? "/security/blocks" : "/security";
-}
-
-/** Which view of Security a check group is fixed in: `checks`, `ssh` or `bans`. */
-export function checkView(group: string): string {
-  switch (group) {
-    case "ssh":
-      return "ssh";
-    case "firewall":
-      return "firewall";
-    case "fail2ban":
-      return "bans";
-    default:
-      return "checks";
-  }
-}
-
-function fromChecks(security: SecurityOverview): AttentionItem[] {
-  return security.attention.flatMap((check): AttentionItem[] => {
-    const severity = checkSeverity(check);
-    if (severity === null || COVERED_BY_SUMMARY.has(check.id)) return [];
-    // The firewall is Network and ports' since 4.1: its findings are fixed there.
-    const action: Extract<AttentionItem["action"], { kind: "tab" }> =
-      check.group === "firewall" ? { kind: "tab", to: "/network/firewall" } : { kind: "tab", to: checkTarget(check.group) };
-    return [{ id: `check:${check.id}`, kind: "check", check, severity, action }];
-  });
-}
-
-/** Everything that needs attention, the most serious first; the summary's facts before the checks. */
-export function attentionItems(summary: ServerSummary | undefined, security: SecurityOverview | undefined): AttentionItem[] {
-  const items = [...(summary ? fromSummary(summary) : []), ...(security ? fromChecks(security) : [])];
-  // A stable sort: within a severity the order above holds.
-  return items.sort((a, b) => RANK[a.severity] - RANK[b.severity]);
+/** The rows of the one list that are about this machine, in the list's own order (the worst first). */
+export function serverItems(items: readonly OverviewAttentionItem[]): OverviewAttentionItem[] {
+  return items.filter((item) => MACHINE_KINDS.has(String(item.subject["kind"])));
 }
 
 export interface Verdict {
@@ -165,9 +23,9 @@ export interface Verdict {
   label: "healthy" | "attention" | "critical";
 }
 
-/** The server's state for the header: the worst thing that needs attention. */
-export function verdictOf(items: readonly AttentionItem[]): Verdict {
-  if (items.some((item) => item.severity === "critical")) return { state: "failed", label: "critical" };
+/** The server's state for the header: the worst thing that needs attention on it. */
+export function verdictOf(items: readonly OverviewAttentionItem[]): Verdict {
+  if (items.some((item) => item.severity === "fail")) return { state: "failed", label: "critical" };
   if (items.length > 0) return { state: "warning", label: "attention" };
   return { state: "running", label: "healthy" };
 }

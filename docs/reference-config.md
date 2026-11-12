@@ -131,6 +131,7 @@ Every configuration key and the value it has until you change it. Set one with `
 | `notifications.channels.webhook.webhook_url` | `""` |
 | `notifications.console_url` | `""` |
 | `notifications.enabled` | `false` |
+| `notifications.events.access_change_reverted` | `true` |
 | `notifications.events.alert_acknowledged` | `true` |
 | `notifications.events.alert_firing` | `true` |
 | `notifications.events.alert_resolved` | `true` |

@@ -6056,6 +6056,144 @@
       }
     ]
   },
+  "access.firewall_reverted": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "▲ Cambio del cortafuegos deshecho · Allow 5432/tcp from 10.0.4.12",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Warning",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "El cambio del cortafuegos «Allow 5432/tcp from 10.0.4.12» se deshizo porque nadie lo confirmó en 5 minutos.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Servidor",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Cambio",
+                  "value": "Allow 5432/tcp from 10.0.4.12"
+                },
+                {
+                  "title": "Lo aplicó",
+                  "value": "yago"
+                },
+                {
+                  "title": "Aplicado",
+                  "value": "2026-11-12 10:40 UTC"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "Lo que imprimió al deshacerlo",
+              "isSubtle": true,
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "$ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\nRule deleted",
+              "fontType": "Monospace",
+              "wrap": true
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Abrir en la consola",
+              "url": "https://console.example.com/n/web-1/network/firewall"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "access.ssh_reverted": {
+    "type": "message",
+    "attachments": [
+      {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "contentUrl": null,
+        "content": {
+          "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+          "type": "AdaptiveCard",
+          "version": "1.4",
+          "body": [
+            {
+              "type": "TextBlock",
+              "text": "▲ Cambio de SSH deshecho · Turn password logins off",
+              "weight": "Bolder",
+              "size": "Medium",
+              "color": "Warning",
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "El cambio de SSH «Turn password logins off» se deshizo porque nadie lo confirmó en 5 minutos.",
+              "wrap": true
+            },
+            {
+              "type": "FactSet",
+              "facts": [
+                {
+                  "title": "Servidor",
+                  "value": "web-1"
+                },
+                {
+                  "title": "Cambio",
+                  "value": "Turn password logins off"
+                },
+                {
+                  "title": "Lo aplicó",
+                  "value": "ana"
+                },
+                {
+                  "title": "Aplicado",
+                  "value": "2026-11-12 10:40 UTC"
+                }
+              ]
+            },
+            {
+              "type": "TextBlock",
+              "text": "Lo que imprimió al deshacerlo",
+              "isSubtle": true,
+              "wrap": true
+            },
+            {
+              "type": "TextBlock",
+              "text": "Restored /etc/ssh/sshd_config.d/99-noust.conf\n$ sshd -t",
+              "fontType": "Monospace",
+              "wrap": true
+            }
+          ],
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Abrir en la consola",
+              "url": "https://console.example.com/n/web-1/security/ssh"
+            }
+          ]
+        }
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "type": "message",
     "attachments": [

@@ -1,57 +1,36 @@
 import { describe, expect, it } from "vitest";
 
-import { attentionItems, checkSeverity, checkView, verdictOf } from "./attention";
-import { SECURITY, SUMMARY } from "./testing";
+import type { OverviewAttentionItem } from "../../api/queries/overview";
+import { serverItems, verdictOf } from "./attention";
 
-describe("attentionItems", () => {
-  it("lists the summary's facts and the open checks, the most serious first", () => {
-    const items = attentionItems(SUMMARY, SECURITY);
-    expect(items.map((item) => item.kind)).toEqual(["check", "securityUpdates", "rebootRequired", "noSwap", "check"]);
-    expect(items.map((item) => item.severity)).toEqual(["critical", "warning", "warning", "warning", "warning"]);
+function row(id: string, kind: string, severity: "fail" | "warn"): OverviewAttentionItem {
+  return { id, subject: { kind }, title: id, severity, origin: "state", reasons: [] };
+}
+
+describe("serverItems", () => {
+  it("takes the machine's rows out of the one list: its facts, Noust's own services and the findings of Security", () => {
+    const list = [
+      row("app:shop", "app", "fail"),
+      row("machine:disk", "machine", "fail"),
+      row("unit:noust-web", "unit", "fail"),
+      row("security:fw.docker_bypass", "finding", "fail"),
+      row("alert:cpu", "alert", "warn"),
+      row("approval:7", "approval", "warn"),
+      row("machine:reboot_required", "machine", "warn"),
+    ];
+    expect(serverItems(list).map((item) => item.id)).toEqual(["machine:disk", "unit:noust-web", "security:fw.docker_bypass", "machine:reboot_required"]);
   });
 
-  it("calls pending security updates a warning, as the Overview's tile does: the server marks none critical", () => {
-    const updates = attentionItems(SUMMARY, undefined).find((item) => item.kind === "securityUpdates");
-    expect(updates?.severity).toBe("warning");
+  it("keeps the order the server gave: the worst first", () => {
+    const list = [row("a", "finding", "fail"), row("b", "machine", "warn")];
+    expect(serverItems(list).map((item) => item.id)).toEqual(["a", "b"]);
   });
+});
 
-  it("leaves a check to the summary fact that says the same with numbers", () => {
-    const ids = attentionItems(SUMMARY, SECURITY).map((item) => item.id);
-    expect(ids).not.toContain("check:upd.security_pending");
-    expect(ids).toContain("security-updates");
-    expect(ids).toContain("check:fw.docker_bypass");
-  });
-
-  it("says nothing about a server that is fine", () => {
-    const fine = {
-      ...SUMMARY,
-      updates: { ...SUMMARY.updates, pending: 0, security: 0 },
-      reboot: { required: false },
-      swap: { total_bytes: 2_147_483_648, used_bytes: 0, recommended: false },
-    };
-    expect(attentionItems(fine, { ...SECURITY, attention: [] })).toEqual([]);
+describe("verdictOf", () => {
+  it("is critical with a failure, a warning with anything else and healthy with nothing", () => {
+    expect(verdictOf([row("a", "machine", "warn"), row("b", "finding", "fail")])).toEqual({ state: "failed", label: "critical" });
+    expect(verdictOf([row("a", "machine", "warn")])).toEqual({ state: "warning", label: "attention" });
     expect(verdictOf([])).toEqual({ state: "running", label: "healthy" });
-  });
-
-  it("reads a disk, the end of support, the clock and failed units", () => {
-    const worse = {
-      ...SUMMARY,
-      os: { ...SUMMARY.os, eol: { status: "expired", end_date: "2024-06-30", source: "table" } },
-      disk: { ...SUMMARY.disk, worst_mount: "/var", worst_percent: 96, status: "critical" },
-      time: { ...SUMMARY.time, synchronized: false },
-      system: { state: "degraded", failed_units: ["mysql.service"] },
-    };
-    const kinds = attentionItems(worse, undefined).map((item) => item.kind);
-    expect(kinds).toEqual(["osUnsupported", "diskFull", "securityUpdates", "rebootRequired", "clockUnsynced", "noSwap", "failedUnits"]);
-    expect(verdictOf(attentionItems(worse, undefined)).label).toBe("critical");
-  });
-
-  it("judges only failing critical and warning checks worth a line", () => {
-    expect(checkSeverity({ status: "fail", severity: "critical" })).toBe("critical");
-    expect(checkSeverity({ status: "warn", severity: "warning" })).toBe("warning");
-    expect(checkSeverity({ status: "warn", severity: "info" })).toBeNull();
-    expect(checkSeverity({ status: "pass", severity: "critical" })).toBeNull();
-    expect(checkView("fail2ban")).toBe("bans");
-    expect(checkView("updates")).toBe("checks");
   });
 });

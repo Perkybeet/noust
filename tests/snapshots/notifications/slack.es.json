@@ -6190,6 +6190,138 @@
       }
     ]
   },
+  "access.firewall_reverted": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Cambio del cortafuegos deshecho · Allow 5432/tcp from 10.0.4.12",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Cambio del cortafuegos deshecho · Allow 5432/tcp from 10.0.4.12",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "El cambio del cortafuegos «Allow 5432/tcp from 10.0.4.12» se deshizo porque nadie lo confirmó en 5 minutos."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Cambio*\nAllow 5432/tcp from 10.0.4.12"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Lo aplicó*\nyago"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Aplicado*\n2026-11-12 10:40 UTC"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Lo que imprimió al deshacerlo_\n```$ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\nRule deleted```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/network/firewall|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "access.ssh_reverted": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Cambio de SSH deshecho · Turn password logins off",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Cambio de SSH deshecho · Turn password logins off",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "El cambio de SSH «Turn password logins off» se deshizo porque nadie lo confirmó en 5 minutos."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Cambio*\nTurn password logins off"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Lo aplicó*\nana"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Aplicado*\n2026-11-12 10:40 UTC"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Lo que imprimió al deshacerlo_\n```Restored /etc/ssh/sshd_config.d/99-noust.conf\n$ sshd -t```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/security/ssh|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "attachments": [
       {

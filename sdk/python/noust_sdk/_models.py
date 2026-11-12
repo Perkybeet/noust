@@ -723,6 +723,7 @@ AppsFigure = TypedDict("AppsFigure", {
 
 AttentionItem = TypedDict("AttentionItem", {
     "id": Required[str],
+    "origin": NotRequired[Union[str, None]],
     "reasons": Required[list["AttentionReason"]],
     "severity": Required[str],
     "subject": Required[dict[str, Any]],
@@ -736,9 +737,15 @@ AttentionReason = TypedDict("AttentionReason", {
     "detail": NotRequired[Union[str, None]],
     "detail_coded": NotRequired[Union["CodedText", None]],
     "kind": Required[str],
+    "origin": NotRequired[Union[str, None]],
     "params": NotRequired[dict[str, Any]],
     "severity": Required[str],
     "when": NotRequired[Union[str, None]],
+})
+
+AttentionResponse = TypedDict("AttentionResponse", {
+    "items": NotRequired[list["AttentionItem"]],
+    "total": NotRequired[int],
 })
 
 AuditActor = TypedDict("AuditActor", {
@@ -1748,6 +1755,11 @@ ChannelModel = TypedDict("ChannelModel", {
     "settings": NotRequired[dict[str, Any]],
     "summary": NotRequired[Union[dict[str, Any], None]],
     "team": NotRequired[Union[str, None]],
+    "type": Required[str],
+})
+
+ChannelRef = TypedDict("ChannelRef", {
+    "name": Required[str],
     "type": Required[str],
 })
 
@@ -6155,6 +6167,12 @@ NotificationTestResult = TypedDict("NotificationTestResult", {
     "ok": Required[bool],
 })
 
+NotificationsModel = TypedDict("NotificationsModel", {
+    "channels": NotRequired[list["ChannelRef"]],
+    "enabled": Required[bool],
+    "paused_until": NotRequired[Union[str, None]],
+})
+
 OAuthApplicationOut = TypedDict("OAuthApplicationOut", {
     "client_id": Required[str],
     "created_at": Required[str],
@@ -6203,6 +6221,11 @@ ObservationListResponse = TypedDict("ObservationListResponse", {
     "count": Required[int],
     "observations": Required[list["ObservationEntry"]],
     "stats": NotRequired[Union[dict[str, int], None]],
+})
+
+Offer = TypedDict("Offer", {
+    "key": Required[str],
+    "value": Required[Any],
 })
 
 OperationOut = TypedDict("OperationOut", {
@@ -7402,6 +7425,12 @@ RangesResponse = TypedDict("RangesResponse", {
 RankedKeyModel = TypedDict("RankedKeyModel", {
     "count": Required[int],
     "key": Required[str],
+})
+
+Reach = TypedDict("Reach", {
+    "limited": NotRequired[bool],
+    "name": Required[str],
+    "type": Required[str],
 })
 
 ReasonModel = TypedDict("ReasonModel", {
@@ -11177,6 +11206,33 @@ WarningInfo = TypedDict("WarningInfo", {
     "count": NotRequired[Union[int, None]],
     "id": Required[str],
     "items": NotRequired[list[str]],
+})
+
+WatchEvent = TypedDict("WatchEvent", {
+    "kind": Required[str],
+    "on": Required[bool],
+})
+
+WatchModel = TypedDict("WatchModel", {
+    "asks_outside": NotRequired[bool],
+    "events": NotRequired[list["WatchEvent"]],
+    "group": Required[str],
+    "id": Required[str],
+    "offer": NotRequired[Union["Offer", None]],
+    "params": NotRequired[dict[str, Any]],
+    "reach": NotRequired[list["Reach"]],
+    "state": Required[str],
+})
+
+WatcherModel = TypedDict("WatcherModel", {
+    "fix": NotRequired[Union[str, None]],
+    "state": Required[str],
+})
+
+WatchingResponse = TypedDict("WatchingResponse", {
+    "notifications": Required["NotificationsModel"],
+    "watcher": Required["WatcherModel"],
+    "watches": NotRequired[list["WatchModel"]],
 })
 
 WebConfig = TypedDict("WebConfig", {

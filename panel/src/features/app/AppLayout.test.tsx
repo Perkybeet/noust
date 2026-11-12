@@ -261,6 +261,9 @@ describe("an application's page", () => {
     });
     expect(await screen.findByText(`Update of ${DOMAIN} failed`)).toBeInTheDocument();
     expect(screen.getByText("Application not found: shop.example.com")).toBeInTheDocument();
+    // A failure left on screen says when it happened, beside its title (item 161), and says it once.
+    expect(screen.getByText(`Update of ${DOMAIN} failed`).parentElement?.querySelector("time")).not.toBeNull();
+    expect(screen.getAllByText(`Update of ${DOMAIN} failed`)).toHaveLength(1);
     await user.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(screen.queryByText(`Update of ${DOMAIN} failed`)).not.toBeInTheDocument();
   });

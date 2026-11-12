@@ -685,6 +685,20 @@
     "formatted_body": "<b>✕ Application killed for lack of memory · shop.example.com</b><br>The kernel killed shop.example.com for running out of memory.<ul><li><b>Server:</b> web-1</li><li><b>Killed:</b> 2 times</li><li><b>Memory limit:</b> 512.0 MB</li><li><b>Most it used:</b> 511.0 MB</li><li><b>Counting since:</b> Tue 2026-11-10 03:00:00 UTC</li><li><b>Diagnose with:</b> <code>noust diagnose shop.example.com</code></li></ul><a href=\"https://console.example.com/n/web-1/apps/shop.example.com\">Open in the console</a>",
     "m.mentions": {}
   },
+  "access.firewall_reverted": {
+    "msgtype": "m.text",
+    "body": "▲ Firewall change undone · Allow 5432/tcp from 10.0.4.12\nThe firewall change “Allow 5432/tcp from 10.0.4.12” was undone because nobody confirmed it within 5 minutes.\n\nServer: web-1\nChange: Allow 5432/tcp from 10.0.4.12\nApplied by: yago\nApplied: 2026-11-12 10:40 UTC\n\nWhat the undo printed:\n  $ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\n  Rule deleted\n\nOpen in the console: https://console.example.com/n/web-1/network/firewall",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Firewall change undone · Allow 5432/tcp from 10.0.4.12</b><br>The firewall change “Allow 5432/tcp from 10.0.4.12” was undone because nobody confirmed it within 5 minutes.<ul><li><b>Server:</b> web-1</li><li><b>Change:</b> Allow 5432/tcp from 10.0.4.12</li><li><b>Applied by:</b> yago</li><li><b>Applied:</b> 2026-11-12 10:40 UTC</li></ul><i>What the undo printed</i><pre><code>$ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\nRule deleted</code></pre><a href=\"https://console.example.com/n/web-1/network/firewall\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "access.ssh_reverted": {
+    "msgtype": "m.text",
+    "body": "▲ SSH change undone · Turn password logins off\nThe SSH change “Turn password logins off” was undone because nobody confirmed it within 5 minutes.\n\nServer: web-1\nChange: Turn password logins off\nApplied by: ana\nApplied: 2026-11-12 10:40 UTC\n\nWhat the undo printed:\n  Restored /etc/ssh/sshd_config.d/99-noust.conf\n  $ sshd -t\n\nOpen in the console: https://console.example.com/n/web-1/security/ssh",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ SSH change undone · Turn password logins off</b><br>The SSH change “Turn password logins off” was undone because nobody confirmed it within 5 minutes.<ul><li><b>Server:</b> web-1</li><li><b>Change:</b> Turn password logins off</li><li><b>Applied by:</b> ana</li><li><b>Applied:</b> 2026-11-12 10:40 UTC</li></ul><i>What the undo printed</i><pre><code>Restored /etc/ssh/sshd_config.d/99-noust.conf\n$ sshd -t</code></pre><a href=\"https://console.example.com/n/web-1/security/ssh\">Open in the console</a>",
+    "m.mentions": {}
+  },
   "hostile.deploy_failed": {
     "msgtype": "m.text",
     "body": "✕ Deploy failed · shop.example.com\nIt stopped at an error before the new version could take over.\n\nServer: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nRelease: 20260929-104449\nCommit: a1b2c3d (<b>x</b>&amp;<!channel> @​everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @​here <@​U123> <#C1> red emoji 🚀\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nWhat the system reported:\n  Release did not pass <its> health & check\n  <urlopen error [Errno 111] Connection refused>\n  ```\n  @​everyone <!channel> <@​U123|admin> &lt;b&gt;\n  red *bold* _italic_ ~strike~ `code`\n  noitcnuf\n  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",

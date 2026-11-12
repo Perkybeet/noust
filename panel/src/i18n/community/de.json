@@ -343,9 +343,6 @@
   "alerts.page.status": "Die Probes, die Sie als öffentlich markieren, als eine Seite, die jeder Webserver ausliefern kann. Sie zeigt Namen und Balken, nie Adressen.",
   "alerts.page.metrics": "Was der Server misst, über das Zeitfenster, das Sie wählen.",
   "alerts.page.fleet": "Die Regeln jedes Servers, die ausgelösten zuerst.",
-  "alerts.reach.title": "Nichts wird Sie über diese Alarme informieren",
-  "alerts.reach.body": "Benachrichtigungen sind ausgeschaltet, also wird ein Alarm ausgelöst, und niemand hört ihn. Jede Nachricht nennt den Server, von dem sie kommt.",
-  "alerts.reach.action": "Benachrichtigungen einschalten",
   "alerts.checksPage.documentTitle": "Prüfungen",
   "alerts.checksPage.loading": "Die Prüfungen werden geladen",
   "alerts.checksPage.loadFailed": "Die Prüfungen konnten nicht geladen werden",
@@ -12041,37 +12038,34 @@
   "server.attention.nothing": "Nichts braucht Aufmerksamkeit.",
   "server.attention.showAll": "Alle {count} anzeigen",
   "server.attention.showFewer": "Weniger anzeigen",
-  "server.attention.critical": "Kritisch",
-  "server.attention.securityUpdates": {
-    "one": "{count} Sicherheitsaktualisierung steht aus.",
-    "other": "{count} Sicherheitsaktualisierungen stehen aus."
+  "inbox.reasons.securityUpdates": {
+    "one": "{count} Sicherheitsaktualisierung steht aus",
+    "other": "{count} Sicherheitsaktualisierungen stehen aus"
   },
-  "server.attention.packagesBroken": "Die Paketdatenbank ist halb konfiguriert: Eine Aktualisierung wurde unterbrochen.",
-  "server.attention.rebootRequired": "Ein Reboot ist nötig, um Aktualisierungen abzuschließen.",
-  "server.attention.rebootRequiredBecause": "Ein Reboot ist nötig, um die Aktualisierung von {packages} abzuschließen.",
-  "server.attention.osUnsupported": "{name} wird nicht mehr unterstützt: Sicherheitsaktualisierungen gibt es dafür nicht mehr.",
-  "server.attention.osUnsupportedSince": "{name} wird seit {date} nicht mehr unterstützt: Sicherheitsaktualisierungen gibt es dafür nicht mehr.",
-  "server.attention.osEnding": {
-    "one": "Der Support für {name} endet in {count} Tag.",
-    "other": "Der Support für {name} endet in {count} Tagen."
+  "inbox.reasons.packagesBroken": "Die Paketdatenbank ist halb konfiguriert: Eine Aktualisierung wurde unterbrochen",
+  "inbox.reasons.rebootRequired": "Ein Reboot ist nötig, um Aktualisierungen abzuschließen",
+  "inbox.reasons.rebootRequiredBecause": "Ein Reboot ist nötig, um die Aktualisierung von {packages} abzuschließen",
+  "inbox.reasons.osUnsupported": "{name} wird nicht mehr unterstützt: Sicherheitsaktualisierungen gibt es dafür nicht mehr",
+  "inbox.reasons.osUnsupportedSince": "{name} wird seit {date} nicht mehr unterstützt: Sicherheitsaktualisierungen gibt es dafür nicht mehr",
+  "inbox.reasons.osEnding": {
+    "one": "Der Support für {name} endet in {count} Tag",
+    "other": "Der Support für {name} endet in {count} Tagen"
   },
-  "server.attention.diskFull": "{mount} ist zu {percent} voll.",
-  "server.attention.diskFullFree": "{mount} ist zu {percent} voll, {free} frei.",
-  "server.attention.clockUnsynced": "Die Uhr ist nicht synchronisiert.",
-  "server.attention.noSwap": "Wenig Arbeitsspeicher und kein Swap: Ein Build kann wegen Speichermangel beendet werden.",
-  "server.attention.failedUnits": {
-    "one": "{count} Systemdienst ist fehlgeschlagen: {units}.",
-    "other": "{count} Systemdienste sind fehlgeschlagen: {units}."
+  "inbox.reasons.diskFull": "{mount} ist zu {percent} voll",
+  "inbox.reasons.diskFullFree": "{mount} ist zu {percent} voll, {free} frei",
+  "inbox.reasons.clockUnsynced": "Die Uhr ist nicht synchronisiert",
+  "inbox.reasons.noSwap": "Wenig Arbeitsspeicher und kein Swap: Ein Build kann wegen Speichermangel beendet werden",
+  "inbox.reasons.failedUnits": {
+    "one": "{count} Systemdienst ist fehlgeschlagen: {units}",
+    "other": "{count} Systemdienste sind fehlgeschlagen: {units}"
   },
-  "server.attention.actions.install": "Installieren",
-  "server.attention.actions.repair": "Reparieren",
-  "server.attention.actions.scheduleReboot": "Reboot planen",
-  "server.attention.actions.view": "Ansehen",
-  "server.attention.actions.freeSpace": "Platz freigeben",
-  "server.attention.actions.fixClock": "Beheben",
-  "server.attention.actions.addSwap": "Swap hinzufügen",
-  "server.attention.actions.viewServices": "Dienste ansehen",
-  "server.attention.actions.review": "Prüfen",
+  "inbox.actions.installUpdates": "Installieren",
+  "inbox.actions.repairPackages": "Reparieren",
+  "inbox.actions.scheduleReboot": "Reboot planen",
+  "inbox.actions.freeSpace": "Platz freigeben",
+  "inbox.actions.addSwap": "Swap hinzufügen",
+  "inbox.actions.viewServices": "Dienste ansehen",
+  "inbox.actions.reviewFinding": "Prüfen",
   "server.overview.loading": "Server wird geladen",
   "server.overview.label": "Server",
   "server.overview.supportUntil": "Unterstützt bis {date}",

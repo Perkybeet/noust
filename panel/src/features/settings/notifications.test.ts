@@ -259,6 +259,7 @@ describe("the notification settings", () => {
       "app_oom_killed",
       "domain_expiring",
       "domain_expired",
+      "access_change_reverted",
     ]);
     const grouped = EVENT_GROUPS.flatMap((group) => group.kinds);
     expect([...grouped].sort()).toEqual([...EVENT_KINDS].sort());
