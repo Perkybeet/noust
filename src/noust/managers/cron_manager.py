@@ -91,6 +91,10 @@ READ_ONLY_PROBES: tuple[tuple[object, ...], ...] = (
 #: Deadline for a systemctl verb. Nothing here talks to the network.
 _SYSTEMCTL_TIMEOUT = 60
 
+#: Seconds a retired one-time task that failed waits before systemd is told to forget the failure:
+#: the stop hook that retires it is still running, and the unit is only failed when it ends.
+_FORGET_AFTER = 5
+
 #: Deadline for reading the journal. It is a local read, but a large journal
 #: takes real time to filter.
 _JOURNAL_TIMEOUT = 60
@@ -1101,7 +1105,39 @@ class CronManager:
         history = CronOnceHistory()
         recorded = replace(run, id=history.record(run))
         self._remove_units(checked, timer_path, service_path)
+        if not recorded.ok:
+            self._forget_failure(checked)
         return recorded
+
+    def _forget_failure(self, checked: str) -> None:
+        """
+        Have systemd forget a retired task's failed state once its stop hook has ended.
+
+        The hook runs while the service is still stopping, so the failure is only recorded after
+        it, and a failed unit whose file is gone stays in ``systemctl --failed`` until somebody
+        resets it. A transient timer does it a few seconds later, outside the unit.
+
+        Args:
+            checked: The validated job name.
+        """
+        result = self.runner.run(
+            [
+                "systemd-run",
+                "--no-block",
+                "--collect",
+                f"--on-active={_FORGET_AFTER}",
+                "--description=Noust: forget a one-time task that failed",
+                shutil.which("systemctl") or "/usr/bin/systemctl",
+                "reset-failed",
+                f"{UNIT_PREFIX}{checked}.service",
+            ],
+            timeout=_SYSTEMCTL_TIMEOUT,
+        )
+        if not result.success:
+            self.logger.warning(
+                f"Could not schedule the reset of {UNIT_PREFIX}{checked}.service: "
+                f"{(result.stderr or result.stdout).strip()}"
+            )
 
     def once_history(self) -> list[OnceRun]:
         """

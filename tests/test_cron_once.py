@@ -264,6 +264,36 @@ class TestSettling:
         assert run.output == "starting\nERROR: disk full\n"
         assert CronOnceHistory().recent()[0].result == "exit-code"
 
+    def test_a_task_that_failed_is_forgotten_by_systemd_a_moment_after_its_hook_ends(
+        self, runner: FakeRunner, systemd_dir: Path, task: datetime
+    ) -> None:
+        # Its unit is still stopping while the hook runs, so it only becomes "failed" when the hook is over:
+        # a failed unit with no file would stay in `systemctl --failed` until somebody reset it.
+        runner.script(["systemctl", "show"], stdout=SHOW_FAILED)
+        runner.script(["journalctl"], stdout=journal(task.timestamp()))
+
+        CronManager().settle_once("reindex")
+
+        forgets = [call for call in runner.calls if call[0] == "systemd-run"]
+        assert len(forgets) == 1
+        assert (
+            "--on-active=5" in forgets[0]
+            and "--collect" in forgets[0]
+            and "--no-block" in forgets[0]
+        )
+        assert forgets[0][-2:] == ("reset-failed", "noust-cron-reindex.service")
+        assert forgets[0][-3].endswith("/systemctl")
+
+    def test_a_task_that_succeeded_leaves_nothing_for_systemd_to_forget(
+        self, runner: FakeRunner, systemd_dir: Path, task: datetime
+    ) -> None:
+        runner.script(["systemctl", "show"], stdout=SHOW_SUCCESS)
+        runner.script(["journalctl"], stdout=journal(task.timestamp()))
+
+        CronManager().settle_once("reindex")
+
+        assert not runner.ran("systemd-run")
+
     def test_what_systemd_tells_the_hook_is_what_is_recorded(
         self, runner: FakeRunner, systemd_dir: Path, task: datetime
     ) -> None:
