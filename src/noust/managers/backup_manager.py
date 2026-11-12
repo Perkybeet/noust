@@ -106,7 +106,7 @@ from noust.core.sealing import SealError
 from noust.core.store import AppType, get_store
 from noust.core.utils import domain_to_app_name
 from noust.managers.app_identity import ensure_service_account
-from noust.managers.docker_volumes import docker_archive_argv
+from noust.managers.docker_volumes import HELPER_IMAGE, docker_archive_argv
 from noust.managers.retention import select_expired
 from noust.managers.service_manager import ServiceManager
 from noust.managers.source_manager import SourceError, extract_archive, git_tree_owner
@@ -148,7 +148,7 @@ __all__ = [
     "server_id",
 ]
 
-#: Docker has to pull alpine the first time a volume is backed up.
+#: Docker has to pull the helper image the first time a volume is backed up.
 _DOCKER_TIMEOUT = 600
 
 #: Deadline for a user-supplied hook.
@@ -4007,7 +4007,7 @@ class BackupManager:
                     f"{volume}:/data",
                     "-v",
                     f"{archive.parent}:/backup:ro",
-                    "alpine",
+                    HELPER_IMAGE,
                     "tar",
                     "xzf",
                     f"/backup/{archive.name}",

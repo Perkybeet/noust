@@ -9,6 +9,12 @@ container mounts it and ``tar`` does the work. An application backup that
 carries volumes (:mod:`noust.managers.backup_manager`) and a volume backup
 policy (:mod:`noust.managers.volume_backups`) both build the argv here, so
 there is one spelling of it (rule 3).
+
+The container is the one image :data:`HELPER_IMAGE`, named by tag and by digest like the images of
+the database engines (:mod:`noust.managers.database.instance_catalog`): a copy must not depend on
+what a registry serves under ``alpine`` that day. The digest is the one of the image index,
+read from the registry by ``scripts/database_pins.py resolve alpine:<tag>`` and never typed from
+memory; a newer one is a change of this line, made on purpose.
 """
 
 from __future__ import annotations
@@ -16,7 +22,10 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-__all__ = ["DOCKER_VOLUME_NAME", "docker_archive_argv", "docker_restore_argv"]
+__all__ = ["DOCKER_VOLUME_NAME", "HELPER_IMAGE", "docker_archive_argv", "docker_restore_argv"]
+
+#: The image every copy and restore of a volume runs in (Alpine 3.24, read on 2026-11-12).
+HELPER_IMAGE = "alpine:3.24@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf"
 
 #: A Docker volume name, as Docker accepts one.
 DOCKER_VOLUME_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$")
@@ -45,7 +54,7 @@ def docker_archive_argv(volume: str, directory: Path, filename: str) -> list[str
         f"{volume}:/data:ro",
         "-v",
         f"{directory}:/backup",
-        "alpine",
+        HELPER_IMAGE,
         "tar",
         "czf",
         f"/backup/{filename}",
@@ -80,7 +89,7 @@ def docker_restore_argv(volume: str, directory: Path, filename: str) -> list[str
         f"{volume}:/data",
         "-v",
         f"{directory}:/backup:ro",
-        "alpine",
+        HELPER_IMAGE,
         "sh",
         "-c",
         'find /data -mindepth 1 -delete && tar xzf "/backup/$1" -C /data',
