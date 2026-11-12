@@ -9,6 +9,7 @@ import { configureApi } from "../../api/client";
 import type { AppRouter } from "../../app/router";
 import { askReason, awaitApproval, dismiss, setApprovalsNavigator } from "../approvals/store";
 import { cancelElevation, elevate } from "./elevation";
+import { askPassword, declinePassword } from "./identityProof";
 
 /** Pages outside the console that must never be a place to come back to after signing in. */
 const NOT_NEXT = ["/login", "/welcome", "/setup", "/invite"];
@@ -40,10 +41,12 @@ export function installSessionHandling(router: AppRouter, queryClient: QueryClie
   });
   const restore = configureApi({
     elevate,
+    identityProof: askPassword,
     approvalReason: askReason,
     approval: awaitApproval,
     onSessionExpired: () => {
       cancelElevation();
+      declinePassword();
       dismiss("approval_pending");
       const location = router.latestLocation;
       if (redirecting || location.pathname === "/login") return;

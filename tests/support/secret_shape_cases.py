@@ -217,3 +217,79 @@ CASES: tuple[ShapeCase, ...] = (
     _keeps("a javascript error", "TypeError: Cannot read properties of undefined (reading 'rows')"),
     _keeps("nothing", ""),
 )
+
+
+@dataclass(frozen=True)
+class VariableCase:
+    """
+    One environment variable and whether it is a secret: what both sides judge it as.
+
+    Attributes:
+        name: The variable's name.
+        value: Its value.
+        secret: Whether :func:`noust.core.secret_detection.classify` calls it a secret, with
+            no mark of the operator's. The console hides a variable it adds by hand by the
+            same rule (``panel/src/lib/looksSecret.ts``), and runs this table through it.
+    """
+
+    name: str
+    value: str
+    secret: bool
+
+
+def _secret(name: str, value: str) -> VariableCase:
+    return VariableCase(name, value, True)
+
+
+def _plain(name: str, value: str) -> VariableCase:
+    return VariableCase(name, value, False)
+
+
+#: What a variable's name and value say, decided the way ``classify`` decides it. Only what the
+#: console can decide is here, which is all of it: the vendor shapes, a JWT, a password in an
+#: address, a long random value, and the names, with what a framework bakes into its client.
+VARIABLE_CASES: tuple[VariableCase, ...] = (
+    # By the name alone.
+    _secret("DB_PASSWORD", "hunter2"),
+    _secret("MAIL_PASS", "x"),
+    _secret("GITHUB_TOKEN", "x"),
+    _secret("authToken", "x"),
+    _secret("apiKey", "x"),
+    _secret("SLACK_WEBHOOK", "https://hooks.example.test/T000/B000"),
+    _secret("TOKEN_EXPIRATION_HOURS", "12"),
+    _plain("COMPASS", "x"),
+    _plain("KEYBOARD_LAYOUT", "us"),
+    _plain("MONKEY", "banana"),
+    _plain("PORT", "3000"),
+    _plain("API_URL", "https://api.example.com"),
+    _plain("", "nothing"),
+    # A name a framework bakes into the client bundle is public, unless the rest of it says a password.
+    _plain("NEXT_PUBLIC_API_KEY", "pk_abc"),
+    _plain("VITE_API_SECRET", "abc"),
+    _plain("SSH_PUBLIC_KEY", "ssh-rsa AAAA"),
+    _secret("PUBLIC_DB_PASSWORD", "x"),
+    _secret("NEXT_PUBLIC_TOKEN", "x"),
+    # By the value, whatever the name.
+    _secret("PAYMENTS", "sk_live_4eC39HqLyjWDarjtT1zdp7dc"),
+    _secret("NEXT_PUBLIC_STRIPE", "sk_live_4eC39HqLyjWDarjtT1zdp7dc"),
+    _secret("CI", "ghp_abcdefghijklmnopqrstuvwxyz0123456789"),
+    _secret("CLOUD", "AKIAIOSFODNN7EXAMPLE"),
+    _secret("DATABASE_URL", "postgres://app:hunter22@db.internal:5432/shop"),
+    _secret("CACHE", "redis://:s3cr3tvalue@cache:6379/0"),
+    _plain("DATABASE_HOST", "postgres://db.internal:5432/shop"),
+    _secret(
+        "SESSION_SAMPLE",
+        "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dBjftJeZ4CVPmB92K27uhbUJU1p1r",
+    ),
+    _secret("NOTE", "-----BEGIN RSA PRIVATE KEY-----"),
+    _secret("PUBLIC_KEY", "-----BEGIN PRIVATE KEY-----"),
+    _plain("CERT", "-----BEGIN CERTIFICATE-----"),
+    # A long random value is one on its shape; what is random-looking for another reason is not.
+    _secret("SESSION_NOTE", "Zq8!vN3#xL7@pR2$tK9%wB5^"),
+    _plain("APP_NAME", "my-shop-application-production"),
+    _plain("COMMIT", "3f2a9c1e8b7d6a5f4e3d2c1b0a9f8e7d6c5b4a39"),
+    _plain("REQUEST_ID", "550e8400-e29b-41d4-a716-446655440000"),
+    _plain("HOME_PAGE", "https://shop.example.com/some/very/long/path/with/MixedCase123"),
+    _plain("DATA_DIR", "/var/www/apps/shop-example-com/current/Public_9"),
+    _plain("EMPTY", ""),
+)

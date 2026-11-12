@@ -229,8 +229,10 @@ GUARANTEES: tuple[Guarantee, ...] = (
         "4.4.0, read on 2026-10-13); Noust's sudo mode closes fifteen minutes after the last "
         "elevated action, and a window it opened never outlives its ceiling.",
         "Five roles with least privilege. Actions that are destructive or root-equivalent need "
-        "sudo mode, a fresh proof of who is asking with a password or a passkey, for every kind "
-        "of identity (a single-sign-on user's provider never stands in for the second factor). "
+        "sudo mode, a fresh proof of who is asking: a code from their authenticator (or a backup "
+        "code), or a passkey, and the account's password as well where the policy asks for it "
+        "(always under the ENS profile), for every kind of identity (a single-sign-on user's "
+        "provider never stands in for the second factor). "
         "Where approvals are on, a root-equivalent change waits for a second person, and the "
         "approver cannot be the requester. The master token is break-glass, not the normal way "
         "in, and is reduced to account recovery under the ENS profile. An API token never opens "

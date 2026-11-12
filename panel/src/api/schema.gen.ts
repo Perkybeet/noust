@@ -7515,7 +7515,10 @@ export interface paths {
          *
          *     An account enrols its first authenticator right after signing in with
          *     its password - it can do nothing else until it has - so this asks for no
-         *     sudo mode; replacing one takes a security officer (``reset-mfa``). The
+         *     sudo mode; replacing one takes a security officer (``reset-mfa``). It asks
+         *     for a recent proof of who is asking instead: a sign-in at most ten minutes
+         *     old, or the account's password in the body (:func:`ensure_first_factor_proof`),
+         *     so the cookie of an old session cannot bind an authenticator of its own. The
          *     console's own factor, for the master token, asks for sudo mode confirmed
          *     with the master token: the factor enrolled here is the one every later
          *     confirmation asks for, so a session nobody re-confirmed must not be able
@@ -7523,6 +7526,7 @@ export interface paths {
          *
          *     Args:
          *         request: The incoming request.
+         *         body: The account's password, when the sign-in is not recent.
          *         session: The authenticated session.
          *
          *     Returns:
@@ -7530,7 +7534,10 @@ export interface paths {
          *
          *     Raises:
          *         HTTPException: 403 with ``error: "elevation_required"`` for the master
-         *             token outside sudo mode.
+         *             token outside sudo mode; 403 ``identity_proof_required`` or
+         *             ``fresh_sign_in_required`` for an account whose sign-in is old
+         *             (see :mod:`noust.web.api.identity_proof`). 401
+         *             ``invalid_credentials`` for a wrong password.
          *         AccountError: When the account already has an authenticator.
          */
         post: operations["two_factor_enroll_api_auth_2fa_enroll_post"];
@@ -9100,8 +9107,13 @@ export interface paths {
          * Registration Options
          * @description Start registering a passkey for the signed-in owner.
          *
+         *     An account's first second factor asks for a recent proof of who is asking instead of sudo
+         *     mode (:func:`~noust.web.api.identity_proof.ensure_first_factor_proof`): the ceremony is
+         *     bound to this request, so the proof is asked here and not again when it finishes.
+         *
          *     Args:
          *         request: The request.
+         *         body: The account's password, when its sign-in is not recent.
          *         session: The authenticated payload.
          *
          *     Returns:
@@ -9109,8 +9121,9 @@ export interface paths {
          *
          *     Raises:
          *         HTTPException: 403 ``elevation_required`` outside sudo mode (except an
-         *             account's first second factor); ``passkeys_<reason>`` when
-         *             passkeys cannot work from this page.
+         *             account's first second factor); 403 ``identity_proof_required`` or
+         *             ``fresh_sign_in_required`` for that one when its sign-in is old;
+         *             ``passkeys_<reason>`` when passkeys cannot work from this page.
          */
         post: operations["registration_options_api_auth_passkeys_registration_options_post"];
         delete?: never;
@@ -32984,6 +32997,9 @@ export interface components {
          *             revocation (under the ENS profile, the longest allowed).
          *         permissions: Permissions to narrow it to instead of its scope's; all
          *             must be held by the issuing account.
+         *         preset: A named set of permissions to narrow it to instead (``GET /api/auth/roles``
+         *             lists them as ``token_presets``): "deploy only" for a pipeline. Not with
+         *             ``permissions``.
          *         allowed_cidrs: Networks it is accepted from; any when omitted.
          *         allow_elevated: Let it act where sudo mode is asked, with nobody confirming each
          *             time. Off by default; only whoever governs accounts (``accounts.manage``) may
@@ -33011,6 +33027,8 @@ export interface components {
             name: string;
             /** Permissions */
             permissions?: string[] | null;
+            /** Preset */
+            preset?: string | null;
             /** Project */
             project?: string | null;
             /** Scope */
@@ -44776,6 +44794,18 @@ export interface components {
             items: components["schemas"]["FirstDeployOut"][];
         };
         /**
+         * FirstFactorProof
+         * @description What a request that sets up an account's first second factor may carry to prove who is asking.
+         *
+         *     Attributes:
+         *         password: The account's password. Needed only when the session signed in more than ten
+         *             minutes ago (:mod:`noust.web.api.identity_proof`); ignored while it is recent.
+         */
+        FirstFactorProof: {
+            /** Password */
+            password?: string | null;
+        };
+        /**
          * FixOwnerRequest
          * @description Request to give a database to its application's role.
          *
@@ -47598,6 +47628,10 @@ export interface components {
          *         account: The account it is for.
          *         code: The code; only its digest is stored.
          *         expires_in: Seconds it is valid for.
+         *         public_url: The address the console's links are built from (``web.public_url``), or
+         *             None when the server was never told one. Without it the console can only build the
+         *             link from the address it was opened at, which through an SSH tunnel is a local one
+         *             that means nothing to the person invited, and says so.
          *         emailed: Whether the invitation was also mailed to the address given.
          *         email_error: Why it was not, when it was asked for and did not go: the invitation
          *             exists, and its code is handed over by hand.
@@ -47622,6 +47656,8 @@ export interface components {
             emailed: boolean;
             /** Expires In */
             expires_in: number;
+            /** Public Url */
+            public_url?: string | null;
         };
         /**
          * InvitationNotice
@@ -58053,6 +58089,16 @@ export interface components {
         /**
          * RuleRequestIn
          * @description A rule: ``allow`` or ``deny`` a port, from everyone (``any``) or an address or network.
+         *
+         *     Attributes:
+         *         action: ``allow`` or ``deny``.
+         *         port: The port.
+         *         proto: ``tcp``, ``udp`` or ``any``.
+         *         source: ``any``, or an address or network.
+         *         comment: A short note.
+         *         replaces: Ids of rules (``GET /firewall``) to delete in the same change: opening a port to
+         *             some addresses only, while a rule for everybody stands, takes that rule away with it
+         *             and is confirmed once. Each must allow this port; SSH and the console stay protected.
          */
         RuleRequestIn: {
             /** Action */
@@ -58069,6 +58115,8 @@ export interface components {
              * @default tcp
              */
             proto: string;
+            /** Replaces */
+            replaces?: string[];
             /**
              * Source
              * @default any
@@ -64206,6 +64254,20 @@ export interface components {
             valid: boolean;
         };
         /**
+         * TokenPresetInfo
+         * @description A named set of permissions an API token can be narrowed to (item 163).
+         *
+         *     Attributes:
+         *         id: Its stable name; what ``preset`` takes when a token is issued.
+         *         permissions: What a token made with it holds.
+         */
+        TokenPresetInfo: {
+            /** Id */
+            id: string;
+            /** Permissions */
+            permissions: string[];
+        };
+        /**
          * ToolInfo
          * @description One tool, as the console describes it.
          *
@@ -67699,6 +67761,11 @@ export interface components {
          *     Attributes:
          *         roles: Role name to its permissions.
          *         permissions: Every permission, with what it allows.
+         *         token_presets: The sets of permissions a token can be narrowed to by name: the one
+         *             list the command line, the API and the console's dialog take.
+         *         tenant_permissions: What a token bound to a team, a project or an environment can ever
+         *             hold, whatever its owner does: the permissions about applications, databases and
+         *             backups, never the server's.
          */
         noust__web__api__auth__RolesResponse: {
             /** Permissions */
@@ -67709,6 +67776,10 @@ export interface components {
             roles: {
                 [key: string]: string[];
             };
+            /** Tenant Permissions */
+            tenant_permissions?: string[];
+            /** Token Presets */
+            token_presets?: components["schemas"]["TokenPresetInfo"][];
         };
         /**
          * ScheduleDestination
@@ -77995,7 +78066,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["FirstFactorProof"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -78004,6 +78079,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TwoFactorEnrollment"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -79523,7 +79607,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["FirstFactorProof"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -79532,6 +79620,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CeremonyOptions"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -1,4 +1,4 @@
-import { act, screen, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { setLocale } from "../../app/locale";
@@ -83,6 +83,51 @@ describe("the checks after sign-in", () => {
     await screen.findByRole("heading", { level: 1, name: "Backups" });
     expect(location().pathname).toBe("/backups");
     expect(backend.callsTo("POST /api/auth/notice/accept").map((call) => call.body)).toEqual([{ version: "v1" }]);
+  });
+
+  /** An account that has to enrol a factor, on a session the server no longer takes for a recent sign-in. */
+  function oldSession(enroll: (call: RecordedCall) => Response) {
+    return fakeBackend({
+      ...signedInRoutes(),
+      "GET /api/auth/session": () => json(200, { ...SESSION, grant: null, role: "operator", account: ACCOUNT, mfa_required: true, notice: null, totp_enabled: false, elevation_factors: [] }),
+      "POST /api/auth/2fa/enroll": enroll,
+      "POST /api/auth/logout": () => json(200, { success: true, message: "bye" }),
+    });
+  }
+
+  it("asks for the password when the session is old, and goes on with the authenticator once it is given (item 132)", { timeout: 30_000 }, async () => {
+    const backend = oldSession((call) => {
+      const given = (call.body as { password?: string } | null)?.password;
+      return given === undefined ? problem(403, "identity_proof_required", "Confirm your password to set up a second factor") : json(200, ENROLLMENT);
+    });
+    const { user } = renderConsole("/backups");
+    await screen.findByRole("heading", { level: 1, name: "Set up a second factor" });
+
+    await user.click(screen.getByRole("button", { name: "Use an authenticator app" }));
+    const dialog = await screen.findByRole("dialog", { name: "Confirm your password" });
+    await user.type(within(dialog).getByLabelText("Password"), "correct horse{Enter}");
+
+    expect(await screen.findByText("JBSW Y3DP EHPK 3PXP JBSW Y3DP EHPK 3PXP")).toBeInTheDocument();
+    expect(backend.callsTo("POST /api/auth/2fa/enroll").map((call) => call.body)).toEqual([null, { password: "correct horse" }]);
+  });
+
+  it("says to sign in again, and does it, when the account has no password to confirm with (item 132)", { timeout: 30_000 }, async () => {
+    const backend = oldSession(() =>
+      problem(403, "fresh_sign_in_required", "This session signed in too long ago to set up a second factor, and the account has no password to confirm it with"),
+    );
+    const { user } = renderConsole("/backups");
+    await screen.findByRole("heading", { level: 1, name: "Set up a second factor" });
+
+    await user.click(screen.getByRole("button", { name: "Use an authenticator app" }));
+    expect(await screen.findByText("This session is too old to continue")).toBeInTheDocument();
+    expect(screen.getByText(/Sign in again through your identity provider/)).toBeInTheDocument();
+    // The server's words are not shown a second time under the explanation.
+    expect(screen.queryByText(/signed in too long ago/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Sign in again" }));
+
+    await waitFor(() => {
+      expect(backend.callsTo("POST /api/auth/logout")).toHaveLength(1);
+    });
   });
 
   it("leaves nothing to do here for a session with no checks pending", async () => {

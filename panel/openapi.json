@@ -2020,7 +2020,7 @@
         "type": "object"
       },
       "ApiTokenRequest": {
-        "description": "Request to issue an API token.\n\nAttributes:\n    name: Human-chosen name, unique across all tokens ever issued.\n    scope: ``read``, ``deploy`` or ``admin``; narrowed to what the\n        issuing account holds.\n    expires_hours: Lifetime in hours; omit for a token that only dies by\n        revocation (under the ENS profile, the longest allowed).\n    permissions: Permissions to narrow it to instead of its scope's; all\n        must be held by the issuing account.\n    allowed_cidrs: Networks it is accepted from; any when omitted.\n    allow_elevated: Let it act where sudo mode is asked, with nobody confirming each\n        time. Off by default; only whoever governs accounts (``accounts.manage``) may\n        issue one, never where the ``restricted_tokens`` control is on, and each action\n        it takes there is audited as ``auth.token.elevated``.\n    team: Bind the token to this team (and, with ``project`` and\n        ``environment``, to a project or an environment of it): it sees\n        that and nothing else of the server (I-34).\n    project: Bind it to this project of the team.\n    environment: Bind it to this environment of the project.",
+        "description": "Request to issue an API token.\n\nAttributes:\n    name: Human-chosen name, unique across all tokens ever issued.\n    scope: ``read``, ``deploy`` or ``admin``; narrowed to what the\n        issuing account holds.\n    expires_hours: Lifetime in hours; omit for a token that only dies by\n        revocation (under the ENS profile, the longest allowed).\n    permissions: Permissions to narrow it to instead of its scope's; all\n        must be held by the issuing account.\n    preset: A named set of permissions to narrow it to instead (``GET /api/auth/roles``\n        lists them as ``token_presets``): \"deploy only\" for a pipeline. Not with\n        ``permissions``.\n    allowed_cidrs: Networks it is accepted from; any when omitted.\n    allow_elevated: Let it act where sudo mode is asked, with nobody confirming each\n        time. Off by default; only whoever governs accounts (``accounts.manage``) may\n        issue one, never where the ``restricted_tokens`` control is on, and each action\n        it takes there is audited as ``auth.token.elevated``.\n    team: Bind the token to this team (and, with ``project`` and\n        ``environment``, to a project or an environment of it): it sees\n        that and nothing else of the server (I-34).\n    project: Bind it to this project of the team.\n    environment: Bind it to this environment of the project.",
         "properties": {
           "allow_elevated": {
             "default": false,
@@ -2085,6 +2085,18 @@
               }
             ],
             "title": "Permissions"
+          },
+          "preset": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preset"
           },
           "project": {
             "anyOf": [
@@ -23793,6 +23805,25 @@
         "title": "FirstDeploysResponse",
         "type": "object"
       },
+      "FirstFactorProof": {
+        "description": "What a request that sets up an account's first second factor may carry to prove who is asking.\n\nAttributes:\n    password: The account's password. Needed only when the session signed in more than ten\n        minutes ago (:mod:`noust.web.api.identity_proof`); ignored while it is recent.",
+        "properties": {
+          "password": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          }
+        },
+        "title": "FirstFactorProof",
+        "type": "object"
+      },
       "FixOwnerRequest": {
         "description": "Request to give a database to its application's role.\n\nAttributes:\n    owner: The role; the one Noust provisioned for it when omitted.",
         "properties": {
@@ -28991,7 +29022,7 @@
         "type": "object"
       },
       "InvitationIssued": {
-        "description": "An invitation code, shown exactly once.\n\nAttributes:\n    account: The account it is for.\n    code: The code; only its digest is stored.\n    expires_in: Seconds it is valid for.\n    emailed: Whether the invitation was also mailed to the address given.\n    email_error: Why it was not, when it was asked for and did not go: the invitation\n        exists, and its code is handed over by hand.\n    email_error_hint: How to fix it, when there is a way.\n    email_error_coded: ``email_error`` as a code and its values, for the console to say\n        in its language (``mail.no_transport``, ``mail.no_public_url``,\n        ``invitation.mail_failed``).",
+        "description": "An invitation code, shown exactly once.\n\nAttributes:\n    account: The account it is for.\n    code: The code; only its digest is stored.\n    expires_in: Seconds it is valid for.\n    public_url: The address the console's links are built from (``web.public_url``), or\n        None when the server was never told one. Without it the console can only build the\n        link from the address it was opened at, which through an SSH tunnel is a local one\n        that means nothing to the person invited, and says so.\n    emailed: Whether the invitation was also mailed to the address given.\n    email_error: Why it was not, when it was asked for and did not go: the invitation\n        exists, and its code is handed over by hand.\n    email_error_hint: How to fix it, when there is a way.\n    email_error_coded: ``email_error`` as a code and its values, for the console to say\n        in its language (``mail.no_transport``, ``mail.no_public_url``,\n        ``invitation.mail_failed``).",
         "properties": {
           "account": {
             "$ref": "#/components/schemas/AccountInfo"
@@ -29040,6 +29071,17 @@
           "expires_in": {
             "title": "Expires In",
             "type": "integer"
+          },
+          "public_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Url"
           }
         },
         "required": [
@@ -48366,7 +48408,7 @@
         "type": "object"
       },
       "RuleRequestIn": {
-        "description": "A rule: ``allow`` or ``deny`` a port, from everyone (``any``) or an address or network.",
+        "description": "A rule: ``allow`` or ``deny`` a port, from everyone (``any``) or an address or network.\n\nAttributes:\n    action: ``allow`` or ``deny``.\n    port: The port.\n    proto: ``tcp``, ``udp`` or ``any``.\n    source: ``any``, or an address or network.\n    comment: A short note.\n    replaces: Ids of rules (``GET /firewall``) to delete in the same change: opening a port to\n        some addresses only, while a rule for everybody stands, takes that rule away with it\n        and is confirmed once. Each must allow this port; SSH and the console stay protected.",
         "properties": {
           "action": {
             "title": "Action",
@@ -48385,6 +48427,14 @@
             "default": "tcp",
             "title": "Proto",
             "type": "string"
+          },
+          "replaces": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "title": "Replaces",
+            "type": "array"
           },
           "source": {
             "default": "any",
@@ -60203,6 +60253,28 @@
         "title": "TokenInfo",
         "type": "object"
       },
+      "TokenPresetInfo": {
+        "description": "A named set of permissions an API token can be narrowed to (item 163).\n\nAttributes:\n    id: Its stable name; what ``preset`` takes when a token is issued.\n    permissions: What a token made with it holds.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Permissions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "permissions"
+        ],
+        "title": "TokenPresetInfo",
+        "type": "object"
+      },
       "ToolInfo": {
         "description": "One tool, as the console describes it.\n\nAttributes:\n    name: What the model calls it.\n    title: A short title.\n    group: ``inspect``, ``deploy`` or ``control``.\n    permission: The permission its route needs.\n    read_only: It changes nothing.\n    destructive: It needs ``confirm: true``.\n    description: What it does.",
         "properties": {
@@ -66841,7 +66913,7 @@
         "type": "object"
       },
       "noust__web__api__auth__RolesResponse": {
-        "description": "What each role may do, for the console's account screens.\n\nAttributes:\n    roles: Role name to its permissions.\n    permissions: Every permission, with what it allows.",
+        "description": "What each role may do, for the console's account screens.\n\nAttributes:\n    roles: Role name to its permissions.\n    permissions: Every permission, with what it allows.\n    token_presets: The sets of permissions a token can be narrowed to by name: the one\n        list the command line, the API and the console's dialog take.\n    tenant_permissions: What a token bound to a team, a project or an environment can ever\n        hold, whatever its owner does: the permissions about applications, databases and\n        backups, never the server's.",
         "properties": {
           "permissions": {
             "additionalProperties": {
@@ -66859,6 +66931,20 @@
             },
             "title": "Roles",
             "type": "object"
+          },
+          "tenant_permissions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tenant Permissions",
+            "type": "array"
+          },
+          "token_presets": {
+            "items": {
+              "$ref": "#/components/schemas/TokenPresetInfo"
+            },
+            "title": "Token Presets",
+            "type": "array"
           }
         },
         "required": [
@@ -83486,8 +83572,25 @@
     },
     "/api/auth/2fa/enroll": {
       "post": {
-        "description": "Begin enrolment: generate a pending secret. Nothing is enforced yet.\n\nAn account enrols its first authenticator right after signing in with\nits password - it can do nothing else until it has - so this asks for no\nsudo mode; replacing one takes a security officer (``reset-mfa``). The\nconsole's own factor, for the master token, asks for sudo mode confirmed\nwith the master token: the factor enrolled here is the one every later\nconfirmation asks for, so a session nobody re-confirmed must not be able\nto bind its own authenticator.\n\nArgs:\n    request: The incoming request.\n    session: The authenticated session.\n\nReturns:\n    The secret and its provisioning URI, shown to the operator once.\n\nRaises:\n    HTTPException: 403 with ``error: \"elevation_required\"`` for the master\n        token outside sudo mode.\n    AccountError: When the account already has an authenticator.",
+        "description": "Begin enrolment: generate a pending secret. Nothing is enforced yet.\n\nAn account enrols its first authenticator right after signing in with\nits password - it can do nothing else until it has - so this asks for no\nsudo mode; replacing one takes a security officer (``reset-mfa``). It asks\nfor a recent proof of who is asking instead: a sign-in at most ten minutes\nold, or the account's password in the body (:func:`ensure_first_factor_proof`),\nso the cookie of an old session cannot bind an authenticator of its own. The\nconsole's own factor, for the master token, asks for sudo mode confirmed\nwith the master token: the factor enrolled here is the one every later\nconfirmation asks for, so a session nobody re-confirmed must not be able\nto bind its own authenticator.\n\nArgs:\n    request: The incoming request.\n    body: The account's password, when the sign-in is not recent.\n    session: The authenticated session.\n\nReturns:\n    The secret and its provisioning URI, shown to the operator once.\n\nRaises:\n    HTTPException: 403 with ``error: \"elevation_required\"`` for the master\n        token outside sudo mode; 403 ``identity_proof_required`` or\n        ``fresh_sign_in_required`` for an account whose sign-in is old\n        (see :mod:`noust.web.api.identity_proof`). 401\n        ``invalid_credentials`` for a wrong password.\n    AccountError: When the account already has an authenticator.",
         "operationId": "two_factor_enroll_api_auth_2fa_enroll_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/FirstFactorProof"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
@@ -83498,6 +83601,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Two Factor Enroll",
@@ -85627,8 +85740,25 @@
     },
     "/api/auth/passkeys/registration/options": {
       "post": {
-        "description": "Start registering a passkey for the signed-in owner.\n\nArgs:\n    request: The request.\n    session: The authenticated payload.\n\nReturns:\n    The creation options.\n\nRaises:\n    HTTPException: 403 ``elevation_required`` outside sudo mode (except an\n        account's first second factor); ``passkeys_<reason>`` when\n        passkeys cannot work from this page.",
+        "description": "Start registering a passkey for the signed-in owner.\n\nAn account's first second factor asks for a recent proof of who is asking instead of sudo\nmode (:func:`~noust.web.api.identity_proof.ensure_first_factor_proof`): the ceremony is\nbound to this request, so the proof is asked here and not again when it finishes.\n\nArgs:\n    request: The request.\n    body: The account's password, when its sign-in is not recent.\n    session: The authenticated payload.\n\nReturns:\n    The creation options.\n\nRaises:\n    HTTPException: 403 ``elevation_required`` outside sudo mode (except an\n        account's first second factor); 403 ``identity_proof_required`` or\n        ``fresh_sign_in_required`` for that one when its sign-in is old;\n        ``passkeys_<reason>`` when passkeys cannot work from this page.",
         "operationId": "registration_options_api_auth_passkeys_registration_options_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/FirstFactorProof"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
@@ -85639,6 +85769,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Registration Options",

@@ -206,6 +206,57 @@ class TestChanges:
         assert response.json()["error"] == "accessguarderror"
         assert machine.jobs.jobs == []
 
+    def _everybody_reaches_postgres(self, client, machine) -> str:
+        """The firewall has a rule for everybody on 5432; returns its id."""
+        machine.runner.script(
+            ["ufw", "status", "verbose"],
+            stdout="Status: active\nLogging: on (low)\n"
+            "Default: deny (incoming), allow (outgoing), disabled (routed)\n",
+        )
+        machine.runner.script(
+            ["ufw", "show", "added"], stdout="ufw allow 22/tcp\nufw allow 5432/tcp\n"
+        )
+        rules = client.get(f"{PREFIX}/firewall").json()["firewall"]["rules"]
+        return next(rule["id"] for rule in rules if rule["spec"] == "allow 5432/tcp")
+
+    def test_a_rule_that_takes_the_wide_one_away_is_one_job_ending_in_one_pending_change(
+        self, client, machine
+    ):
+        everybody = self._everybody_reaches_postgres(client, machine)
+
+        response = client.post(
+            f"{PREFIX}/firewall/rules",
+            json={"action": "allow", "port": 5432, "source": "10.0.4.12", "replaces": [everybody]},
+        )
+
+        assert response.status_code == 202, response.text
+        [job] = machine.jobs.jobs
+        change = job.result["change"]
+        assert change["status"] == "pending"
+        assert "delete 'allow 5432/tcp'" in change["title"]
+        assert machine.runner.ran("ufw", "delete", "allow", "5432/tcp")
+
+    def test_a_rule_to_take_away_that_is_not_about_the_port_is_refused_at_once(
+        self, client, machine
+    ):
+        everybody = self._everybody_reaches_postgres(client, machine)
+
+        response = client.post(
+            f"{PREFIX}/firewall/rules",
+            json={"action": "allow", "port": 6379, "source": "10.0.4.12", "replaces": [everybody]},
+        )
+
+        assert response.status_code == 400
+        assert "not about port 6379" in response.json()["detail"]
+        assert machine.jobs.jobs == []
+
+    def test_a_rule_that_replaces_none_is_the_request_it_always_was(self, client, machine):
+        response = client.post(
+            f"{PREFIX}/firewall/rules", json={"action": "allow", "port": 8443, "replaces": []}
+        )
+
+        assert response.status_code == 202, response.text
+
     def test_a_malformed_rule_is_a_validation_error(self, client):
         response = client.post(
             f"{PREFIX}/firewall/rules", json={"action": "allow", "port": 80, "source": "x; y"}

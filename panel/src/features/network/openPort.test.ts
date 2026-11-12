@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import type { ListeningPort, PortClaim } from "../server/queries";
+import type { FirewallRule, ListeningPort, PortClaim } from "../server/queries";
 import { portRows } from "../server/network/data";
-import { OPEN_PORT_DEFAULTS, factsOf, parsePort, planOf, ruleBody, streamBody } from "./openPort";
+import { OPEN_PORT_DEFAULTS, factsOf, openToEveryone, parsePort, planOf, ruleBody, streamBody } from "./openPort";
 import type { OpenForm } from "./openPort";
 
 const claim = (over: Partial<PortClaim> & Pick<PortClaim, "port" | "protocol" | "kind" | "owner">): PortClaim => ({ address: null, detail: "", processes: [], ...over });
@@ -120,6 +120,73 @@ describe("what opening a port does", () => {
 
   it("does not offer a rule on a machine with no firewall installed", () => {
     expect(planOf(form({ port: "25565" }), ROWS, { active: false, installed: false }).problems).toEqual({ firewall: "missing" });
+  });
+});
+
+const rule = (over: Partial<FirewallRule>): FirewallRule => ({
+  id: "r1",
+  backend: "ufw",
+  action: "allow",
+  ports: [[5432, 5432]],
+  proto: "tcp",
+  source: "any",
+  spec: "5432/tcp ALLOW IN Anywhere",
+  comment: "",
+  noust: false,
+  known: true,
+  ...over,
+});
+const GUARD = [{ port: 22, reason: "SSH" }];
+
+describe("the rules that keep a port open to everyone (item 139)", () => {
+  it("are the allow rules for everybody that name the port and the protocol", () => {
+    const wide = rule({ id: "wide" });
+    const rules = [
+      wide,
+      rule({ id: "narrow", source: "10.0.0.0/24", spec: "5432/tcp ALLOW IN 10.0.0.0/24" }),
+      rule({ id: "other-port", ports: [[5433, 5433]] }),
+      rule({ id: "deny", action: "deny" }),
+      rule({ id: "udp", proto: "udp" }),
+    ];
+
+    expect(openToEveryone(rules, 5432, "tcp", GUARD).map((entry) => entry.rule.id)).toEqual(["wide"]);
+    expect(openToEveryone(rules, 5432, "udp", GUARD).map((entry) => entry.rule.id)).toEqual(["udp"]);
+    expect(openToEveryone(rules, 5432, "any", GUARD).map((entry) => entry.rule.id)).toEqual(["wide", "udp"]);
+  });
+
+  it("include a rule for the protocol 'any' whichever protocol is asked", () => {
+    expect(openToEveryone([rule({ id: "both", proto: "any" })], 5432, "udp", GUARD)).toHaveLength(1);
+  });
+
+  it("can be removed with the new rule only when they name this port alone", () => {
+    const entries = openToEveryone([rule({ id: "alone" }), rule({ id: "range", ports: [[5000, 5500]], spec: "5000:5500/tcp ALLOW IN Anywhere" }), rule({ id: "list", ports: [[80, 80], [5432, 5432]] }), rule({ id: "all", ports: [] })], 5432, "tcp", GUARD);
+
+    expect(entries.map((entry) => [entry.rule.id, entry.removable])).toEqual([
+      ["alone", true],
+      ["range", false],
+      ["list", false],
+      ["all", false],
+    ]);
+  });
+
+  it("are never removed when the server keeps the port reachable, the SSH rule, so the dialog does not offer what is refused", () => {
+    const entries = openToEveryone([rule({ id: "ssh", ports: [[22, 22]], spec: "22/tcp ALLOW IN Anywhere" })], 22, "tcp", GUARD);
+
+    expect(entries.map((entry) => [entry.rule.id, entry.removable])).toEqual([["ssh", false]]);
+  });
+
+  it("are a rule the firewall does not know the ports of: not one to count on, nor to remove", () => {
+    expect(openToEveryone([rule({ id: "profile", known: false, ports: [] })], 5432, "tcp", GUARD)).toEqual([]);
+  });
+});
+
+describe("the body of a rule that takes others away", () => {
+  it("names the rules to remove, and says nothing of them when there are none", () => {
+    const typed = form({ port: "5432", who: "some", source: "10.0.4.12" });
+
+    expect(ruleBody(typed)).toEqual({ action: "allow", port: 5432, proto: "tcp", source: "10.0.4.12", comment: "" });
+    expect(ruleBody(typed, [])).not.toHaveProperty("replaces");
+    expect(ruleBody(typed, ["r1", "r2"])).toEqual({ action: "allow", port: 5432, proto: "tcp", source: "10.0.4.12", comment: "", replaces: ["r1", "r2"] });
   });
 });
 

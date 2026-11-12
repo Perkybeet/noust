@@ -302,6 +302,199 @@ class TestGuard:
             firewall.add_rule(RuleRequest("limit", 80))
 
 
+class TestOpeningForFewerAndClosingForAll:
+    """
+    A port opened "only to these" while a rule for everybody still stands (item 139).
+
+    The restricted rule alone leaves the port as open as before, so the dialog offers to take the
+    wide rule away in the same step: one change, one confirmation window, undone whole.
+    """
+
+    @pytest.fixture
+    def wide(self, runner: FakeSshd, host: FakeHost, ledger: ChangeLedger) -> Firewall:
+        runner.script(["ufw", "show", "added"], stdout=UFW_ADDED + "ufw allow 5432/tcp\n")
+        return _firewall(runner, host, ledger)
+
+    @staticmethod
+    def _everybody(firewall: Firewall, spec: str = "allow 5432/tcp"):
+        return next(rule for rule in firewall.state().rules if rule.spec == spec)
+
+    def test_it_adds_the_narrow_rule_and_deletes_the_wide_one_as_one_change(self, wide, runner):
+        everybody = self._everybody(wide)
+
+        change = wide.add_rule(
+            RuleRequest("allow", 5432, source="10.0.4.12"), replaces=[everybody.id]
+        )
+
+        assert change.status == "pending"
+        assert _ufw_calls(runner) == [
+            (
+                "ufw",
+                "allow",
+                "from",
+                "10.0.4.12/32",
+                "to",
+                "any",
+                "port",
+                "5432",
+                "proto",
+                "tcp",
+                "comment",
+                "noust:",
+            ),
+            ("ufw", "delete", "allow", "5432/tcp"),
+        ]
+        assert "5432" in change.title and "allow 5432/tcp" in change.title
+
+    def test_the_undo_puts_the_wide_rule_back_before_it_takes_the_narrow_one_away(
+        self, wide, runner
+    ):
+        everybody = self._everybody(wide)
+
+        change = wide.add_rule(
+            RuleRequest("allow", 5432, source="10.0.4.12"), replaces=[everybody.id]
+        )
+
+        assert change.undo == [
+            ["ufw", "allow", "5432/tcp"],
+            [
+                "ufw",
+                "delete",
+                "allow",
+                "from",
+                "10.0.4.12/32",
+                "to",
+                "any",
+                "port",
+                "5432",
+                "proto",
+                "tcp",
+            ],
+        ]
+
+    def test_a_command_the_firewall_refuses_undoes_the_whole_change(self, wide, runner, ledger):
+        everybody = self._everybody(wide)
+        runner.script(["ufw", "delete"], stderr="ERROR: Could not delete", exit_code=1)
+
+        with pytest.raises(SecurityError) as caught:
+            wide.add_rule(RuleRequest("allow", 5432, source="10.0.4.12"), replaces=[everybody.id])
+
+        assert caught.value.output == "ERROR: Could not delete"
+        assert [change.status for change in ledger.changes()] == ["reverted"]
+
+    def test_the_timer_that_finds_nobody_confirmed_it_undoes_both(self, wide, runner, ledger):
+        everybody = self._everybody(wide)
+        change = wide.add_rule(
+            RuleRequest("allow", 5432, source="10.0.4.12"), replaces=[everybody.id]
+        )
+
+        ledger.revert(change.id, by="timer", expired=True)
+
+        assert runner.calls[-2:] == [
+            ("ufw", "allow", "5432/tcp"),
+            (
+                "ufw",
+                "delete",
+                "allow",
+                "from",
+                "10.0.4.12/32",
+                "to",
+                "any",
+                "port",
+                "5432",
+                "proto",
+                "tcp",
+            ),
+        ]
+        assert ledger.load(change.id).status == "expired"
+
+    def test_the_guard_of_ssh_still_holds_for_the_rule_it_would_take_away(self, wide, runner):
+        ssh = self._everybody(wide, "allow 22/tcp")
+
+        with pytest.raises(AccessGuardError, match="port 22"):
+            wide.add_rule(RuleRequest("allow", 22, source="10.0.4.12"), replaces=[ssh.id])
+
+        assert _ufw_calls(runner) == []
+
+    def test_a_rule_that_is_not_about_this_port_is_not_taken_away_with_it(self, wide, runner):
+        elsewhere = self._everybody(wide, "allow 80,443/tcp")
+
+        with pytest.raises(SecurityError, match="not about port 5432"):
+            wide.add_rule(RuleRequest("allow", 5432, source="10.0.4.12"), replaces=[elsewhere.id])
+
+        assert _ufw_calls(runner) == []
+
+    def test_a_rule_that_names_other_ports_too_is_not_taken_away_with_this_one(self, wide, runner):
+        # Deleting "80,443/tcp" to open 443 for some would close 80 for everybody.
+        both = self._everybody(wide, "allow 80,443/tcp")
+
+        with pytest.raises(SecurityError, match="covers more than port 443"):
+            wide.add_rule(RuleRequest("allow", 443, source="10.0.4.12"), replaces=[both.id])
+
+        assert _ufw_calls(runner) == []
+
+    def test_only_a_rule_that_allows_can_be_replaced(self, runner, host, ledger):
+        runner.script(["ufw", "show", "added"], stdout=UFW_ADDED + "ufw deny 5432/tcp\n")
+        firewall = _firewall(runner, host, ledger)
+        deny = next(rule for rule in firewall.state().rules if rule.spec == "deny 5432/tcp")
+
+        with pytest.raises(SecurityError, match="not about port 5432"):
+            firewall.add_rule(RuleRequest("allow", 5432, source="10.0.4.12"), replaces=[deny.id])
+
+        assert _ufw_calls(runner) == []
+
+    def test_a_rule_that_does_not_exist_is_said(self, wide, runner):
+        with pytest.raises(SecurityError, match="no firewall rule"):
+            wide.add_rule(RuleRequest("allow", 5432, source="10.0.4.12"), replaces=["0" * 12])
+
+        assert _ufw_calls(runner) == []
+
+    def test_naming_a_rule_twice_deletes_it_once(self, wide, runner):
+        everybody = self._everybody(wide)
+
+        wide.add_rule(
+            RuleRequest("allow", 5432, source="10.0.4.12"), replaces=[everybody.id, everybody.id]
+        )
+
+        assert _ufw_calls(runner).count(("ufw", "delete", "allow", "5432/tcp")) == 1
+
+    def test_a_rule_for_the_other_protocol_is_not_the_one_replaced(self, runner, host, ledger):
+        runner.script(["ufw", "show", "added"], stdout=UFW_ADDED + "ufw allow 5432/udp\n")
+        firewall = _firewall(runner, host, ledger)
+        udp = next(rule for rule in firewall.state().rules if rule.spec == "allow 5432/udp")
+
+        with pytest.raises(SecurityError, match="not about port 5432"):
+            firewall.add_rule(RuleRequest("allow", 5432, source="10.0.4.12"), replaces=[udp.id])
+
+    def test_firewalld_removes_the_wide_port_in_the_same_change(self, runner, host, ledger):
+        runner.only_knows("firewall-cmd")
+        runner.script(["firewall-cmd", "--state"], stdout="running\n")
+        runner.script(["firewall-cmd", "--get-default-zone"], stdout="public\n")
+        zone = FIREWALLD_ZONE.replace("ports: 8080/tcp", "ports: 8080/tcp 5432/tcp")
+        runner.script(["firewall-cmd", "--zone=public", "--list-all"], stdout=zone)
+        runner.script(["firewall-cmd", "--permanent", "--zone=public", "--list-all"], stdout=zone)
+        firewall = _firewall(runner, host, ledger)
+        wide = next(rule for rule in firewall.state().rules if rule.spec == "port 5432/tcp")
+
+        change = firewall.add_rule(
+            RuleRequest("allow", 5432, source="203.0.113.0/24"), replaces=[wide.id]
+        )
+
+        assert runner.ran("firewall-cmd", "--zone=public", "--remove-port=5432/tcp")
+        assert change.commit[-1] == [
+            "firewall-cmd",
+            "--permanent",
+            "--zone=public",
+            "--remove-port=5432/tcp",
+        ]
+        assert change.undo[0] == ["firewall-cmd", "--zone=public", "--add-port=5432/tcp"]
+
+    def test_without_replaces_it_is_the_one_rule_it_always_was(self, wide, runner):
+        wide.add_rule(RuleRequest("allow", 5432, source="10.0.4.12"))
+
+        assert len(_ufw_calls(runner)) == 1
+
+
 class TestEnable:
     def test_ssh_is_allowed_before_the_default_becomes_deny(self, runner, host, ledger):
         runner.script(["ufw", "status", "verbose"], stdout=UFW_INACTIVE)

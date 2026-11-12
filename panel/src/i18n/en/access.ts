@@ -52,6 +52,7 @@ export const access = {
     },
   },
   tokenReach: {
+    needsAccount: "Tying a token to a team, a project or an environment needs a token that belongs to an account.",
     legend: "What it can reach",
     all: "Everything its owner can reach",
     allHelp: "The token sees what its owner sees.",

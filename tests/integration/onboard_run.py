@@ -259,7 +259,7 @@ def scenario_installer_unattended(sc: Scenario) -> None:
     console = document["console"]
     sc.check(console["state"] in ("new", "existing"), f"console is {console['state']!r}")
     sc.check(
-        console["url"] == "http://127.0.0.1:8080/login?with=token",
+        console["url"] == "http://localhost:8080/login?with=token",
         f"the link is {console['url']!r}",
     )
     sc.check(

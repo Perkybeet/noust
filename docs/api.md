@@ -81,6 +81,7 @@ in, every route checks one permission (see [Permissions](#permissions)).
 ```bash
 noust token create ci-update --scope deploy --owner alice    # prints the token once
 noust token create dashboard --scope read --expires-hours 720
+noust token create ci-deploy --preset deploy_only --owner alice   # only the applications and their deploy
 curl -H "Authorization: Bearer $TOKEN" https://panel.example.com/api/apps
 ```
 
@@ -92,7 +93,9 @@ and `DELETE /api/auth/tokens/{id}`. An account issues and lists its own tokens t
 one from a browser session needs sudo mode.
 
 `POST /api/auth/tokens` takes `name`, `scope` (`read`, `deploy` or `admin`), `expires_hours`,
-`permissions` (a list to narrow it to, each held by the issuing account), `allowed_cidrs` (the
+`permissions` (a list to narrow it to, each held by the issuing account) or `preset` (a name for
+the sets a job usually needs, `deploy_only` among them; `GET /api/auth/roles` lists them as
+`token_presets`, and a token made by the master token is narrowed the same way), `allowed_cidrs` (the
 networks it is accepted from) and `allow_elevated` (whether it may call routes that need sudo
 mode; off by default, refused wherever the `restricted_tokens` control is on, as the ENS frameworks
 do). A token cannot confirm sudo mode, so one made for an account is refused on those routes unless

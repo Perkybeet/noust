@@ -87,6 +87,27 @@ class MailUnavailable(AccountError):
     """Mail cannot be sent from here yet, and the message says what to set."""
 
 
+def console_public_url(read: Callable[..., Any] | None = None) -> str:
+    """
+    The address the links to the console are built from: the one answer, for the mail an
+    invitation or a reset leaves in and for the link the console hands over by hand.
+
+    Args:
+        read: Reads a configuration key (``read(key, default)``); the shared configuration
+            by default.
+
+    Returns:
+        ``web.public_url`` without a trailing slash; empty when none is set.
+    """
+    if read is None:
+        from noust.core.config import Config
+
+        config = Config()
+        config.reload()
+        read = config.get
+    return str(read("web.public_url", "") or "").strip().rstrip("/")
+
+
 class AccountMailer:
     """
     Send an account its invitation or its reset link.
@@ -120,7 +141,7 @@ class AccountMailer:
         Returns:
             ``web.public_url`` without a trailing slash; empty when none is set.
         """
-        return str(self._read("web.public_url", "") or "").strip().rstrip("/")
+        return console_public_url(self._read)
 
     def _transport(self) -> bool:
         return bool(self._notifier(recipients=["probe@example.invalid"]).has_transport)

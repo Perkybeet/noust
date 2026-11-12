@@ -50,7 +50,9 @@ administrator.
    ssh -N -L 8080:127.0.0.1:8080 root@203.0.113.10
    ```
 
-   Leave it running and open <http://127.0.0.1:8080/login?with=token> in your browser.
+   Leave it running and open <http://localhost:8080/login?with=token> in your browser. The address
+   says `localhost` and not `127.0.0.1` because a passkey is tied to a name and is refused on an
+   address made of numbers.
 
 5. **Sign in with the access token, and create your account.** Paste the access token (the
    installer printed it once, in a box) and press **Sign in**. The console then asks for the first
@@ -69,7 +71,7 @@ The console listens on 127.0.0.1:8080 of this server, and on purpose nowhere els
 To open the console from your computer, run this there:
   ssh -N -L 8080:127.0.0.1:8080 root@203.0.113.10
 Then browse to:
-  http://127.0.0.1:8080/login?with=token
+  http://localhost:8080/login?with=token
 Its access token is in the box above; it is shown only once.
 ```
 

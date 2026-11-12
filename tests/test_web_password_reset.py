@@ -350,6 +350,25 @@ class TestInvitingByMail:
         assert mailer.invitations[0]["code"] == body["code"]
         assert body["account"]["email"] == "pablo@example.com"
 
+    def test_the_answer_says_the_address_the_link_is_built_from(
+        self, client: TestClient, mailer: FakeMailer, real_config: Any
+    ) -> None:
+        # Item 149: the console builds the link it hands over from this, not from the address it was
+        # opened at, which through an SSH tunnel is 127.0.0.1 and means nothing to the person invited.
+        real_config.set("web.public_url", "https://console.example.com/")
+        real_config.save()
+
+        body = self._invite(client).json()
+
+        assert body["public_url"] == "https://console.example.com"
+
+    def test_without_a_public_address_the_answer_says_there_is_none(
+        self, client: TestClient, mailer: FakeMailer, real_config: Any
+    ) -> None:
+        body = self._invite(client).json()
+
+        assert body["public_url"] is None
+
     def test_without_an_address_nothing_is_mailed(
         self, client: TestClient, mailer: FakeMailer
     ) -> None:

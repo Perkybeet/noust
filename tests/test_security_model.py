@@ -133,6 +133,15 @@ class TestPromisesMadeInProse:
         assert "release\\.yml@refs/" in page
         assert "gh attestation verify" in page and "cosign verify-blob" in page
 
+    def test_sudo_mode_is_said_as_the_code_confirms_it(self, page: str) -> None:
+        """An account confirms with a code of its authenticator or a passkey, and the password only where asked."""
+        guarantee = page.split("### 5. ", 1)[1].split("### 6. ", 1)[0]
+
+        assert "with a password or a passkey" not in guarantee
+        assert "a code from their authenticator" in guarantee
+        assert "a passkey" in guarantee
+        assert "where the policy asks for it" in guarantee
+
     def test_the_dated_claims_are_dated(self, page: str) -> None:
         assert "2026-10-13" in page
 

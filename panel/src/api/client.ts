@@ -4,7 +4,8 @@
  * `api()` is the transport: same-origin cookies, JSON in and out, the CSRF header mirrored
  * from its cookie, and the answers that are not the caller's business handled here once: a
  * lost session sends the operator to sign in, a destructive action asks them to confirm it's
- * them and is retried once, a rate limit on a read waits out the server's own Retry-After and
+ * them and is retried once (so is a first second factor set up from an old session, which asks for
+ * the password and is sent again with it), a rate limit on a read waits out the server's own Retry-After and
  * is retried once (a write surfaces it instead, since repeating it is not free), a call that
  * needs a second person's approval (202 approval_required) waits for the decision and is sent
  * again once under it, and every other failure becomes an ApiError.
@@ -76,6 +77,13 @@ export interface ApiHooks {
    */
   elevate: () => Promise<void>;
   /**
+   * The server wants the account's password before it sets up a first second factor (403
+   * identity_proof_required: the session signed in too long ago to vouch for it). Resolves with
+   * the password, which the call is sent again with; rejects (ElevationCancelledError) when the
+   * person would rather not.
+   */
+  identityProof: () => Promise<string>;
+  /**
    * The server wants a reason before it files a call for a second person's approval (400
    * approval_reason_required). Resolves with the reason; rejects (ApprovalPendingError) when
    * the operator would rather not ask.
@@ -92,6 +100,7 @@ export interface ApiHooks {
 const DEFAULT_HOOKS: ApiHooks = {
   onSessionExpired: () => undefined,
   elevate: () => Promise.reject(new ElevationCancelledError()),
+  identityProof: () => Promise.reject(new ElevationCancelledError("identity_proof_cancelled")),
   approvalReason: () => Promise.reject(new ApprovalPendingError("approval_cancelled")),
   approval: (requested) => Promise.reject(new ApprovalPendingError("approval_pending", requested.id)),
 };
@@ -172,6 +181,15 @@ function elevateOnce(): Promise<void> {
     pendingElevation = null;
   });
   return pendingElevation;
+}
+
+function asRecord(body: unknown): Record<string, unknown> {
+  return typeof body === "object" && body !== null && !Array.isArray(body) && !(body instanceof Blob) ? (body as Record<string, unknown>) : {};
+}
+
+/** Whether a call already says the password, so a refusal after it is not asked for again. */
+function carriesPassword(body: unknown): boolean {
+  return "password" in asRecord(body);
 }
 
 async function readBody(response: Response): Promise<unknown> {
@@ -260,6 +278,10 @@ async function send(
     await elevateOnce();
     // Exactly one retry: a second refusal is reported, never a second dialog.
     return send(method, path, body, init, node, false, mayRetryRateLimit, approval);
+  } else if (error.status === 403 && error.error === "identity_proof_required" && !carriesPassword(body)) {
+    // Asked once: the call goes again with the password, and a wrong one is the server's answer to report.
+    const password = await hooks.identityProof();
+    return send(method, path, { ...asRecord(body), password }, init, node, mayElevate, mayRetryRateLimit, approval);
   } else if (error.error === "approval_reason_required" && approval.reason === undefined && approval.approval === undefined) {
     const reason = await hooks.approvalReason({ method, target: path, body, node }, error);
     return send(method, path, body, init, node, mayElevate, mayRetryRateLimit, { reason });

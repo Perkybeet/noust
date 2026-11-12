@@ -30,11 +30,11 @@ import { Textarea } from "../../components/ui/Textarea";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { formatCount } from "../../lib/format";
-import { roleLabel } from "../settings/accounts/roles";
 import { splitErrors } from "../settings/formErrors";
 import { catalogQuery, recordReview, reviewsQuery, statusQuery, trailKeys, verifyQuery } from "./api";
 import { auditActionLabel } from "../activity/data";
-import { RESULTS, actorName, categoryLabel, isFiltered, matches, outcomeView } from "./data";
+import { actorRoleWords, actorWordsOf } from "./actors";
+import { RESULTS, categoryLabel, isFiltered, matches, outcomeView } from "./data";
 import type { AuditSearch } from "./data";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
@@ -52,13 +52,14 @@ function Outcome({ t, result }: { t: T; result: string }) {
 }
 
 function Actor({ t, entry }: { t: T; entry: AuditEntry }) {
-  const role = entry.who?.role;
+  const words = actorWordsOf(t, entry);
+  const role = actorRoleWords(t, entry);
   return (
     <span className="flex min-w-0 flex-col">
-      <Mono tone="default" truncate>
-        {actorName(entry)}
-      </Mono>
-      {role ? <span className="truncate text-12 text-fg-muted">{roleLabel(t, role)}</span> : null}
+      <span className="truncate text-fg" title={words.label}>
+        {words.label}
+      </span>
+      {role !== null ? <span className="truncate text-12 text-fg-muted">{role}</span> : null}
     </span>
   );
 }
@@ -102,12 +103,16 @@ function columnsFor(t: T): Column<AuditEntry>[] {
 function EntryDrawer({ entry, onClose, onCorrelate }: { entry: AuditEntry; onClose: () => void; onCorrelate: (id: string) => void }) {
   const t = useT();
   const label = auditActionLabel(t, entry.action);
+  const actorWords = actorWordsOf(t, entry);
+  const actorRole = actorRoleWords(t, entry);
   const items: KeyValueItem[] = [
     { label: t("audit.fields.action"), value: entry.action },
     { label: t("audit.fields.outcome"), value: <Outcome t={t} result={entry.result} />, mono: false, copy: false },
     { label: t("audit.fields.when"), value: entry.timestamp },
-    { label: t("audit.fields.actor"), value: actorName(entry) },
-    ...(entry.who?.role ? [{ label: t("audit.fields.role"), value: roleLabel(t, entry.who.role), mono: false, copy: false as const }] : []),
+    { label: t("audit.fields.actor"), value: actorWords.label, mono: false },
+    // The exact value the server recorded, for whoever has to quote it, only when the words say it differently.
+    ...(actorWords.label !== actorWords.raw ? [{ label: t("audit.fields.recordedAs"), value: actorWords.raw }] : []),
+    ...(actorRole !== null ? [{ label: t("audit.fields.role"), value: actorRole, mono: false, copy: false as const }] : []),
     ...(entry.who?.via ? [{ label: t("audit.fields.via"), value: entry.who.via }] : []),
     ...(entry.client_ip ? [{ label: t("audit.fields.source"), value: entry.client_ip }] : []),
     ...(entry.resource ? [{ label: t("audit.fields.target"), value: entry.resource }] : []),

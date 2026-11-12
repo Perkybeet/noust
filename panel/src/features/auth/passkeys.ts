@@ -64,7 +64,7 @@ export async function elevateWithPasskey(): Promise<string> {
  * you" first, which the API client handles before the browser's prompt ever opens.
  */
 export async function registerPasskey(name: string): Promise<PasskeyRegistered> {
-  const options = await request("post", "/api/auth/passkeys/registration/options");
+  const options = await request("post", "/api/auth/passkeys/registration/options", { body: null });
   const credential = await createPasskey(options.public_key);
   return request("post", "/api/auth/passkeys/registration", { body: { credential, name } });
 }

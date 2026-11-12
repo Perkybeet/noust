@@ -144,18 +144,29 @@ describe("describeActor", () => {
     expect(describeActor(t, "noust-fleet-sync")).toEqual({ label: "Noust itself", raw: "noust-fleet-sync" });
     expect(describeActor(t, "noust").label).toBe("Noust itself");
     expect(describeActor(t, "system:jobs").label).toBe("Noust itself");
-    // A session of an unlucky prefix is still one.
-    expect(describeActor(t, "noust-abcdef12").label).toBe("Session noust-ab");
+    // A person called like what Noust does by itself is still a person.
+    expect(describeActor(t, "noust-abcdef12").label).toBe("noust-abcdef12");
   });
 
   it("names an anonymous, unauthenticated attempt", () => {
     expect(describeActor(t, "anonymous").label).toBe("Anonymous");
   });
 
-  it("names a browser session by a short id, keeping the full raw value", () => {
-    const words = describeActor(t, "a1b2c3d4e5f6g7h8");
+  it("names a person by their own name, never as a session (item 152)", () => {
+    // Before 4.3 any label that was not one of the others was drawn as "Session xxxxxxxx", a person included.
+    expect(describeActor(t, "lucia")).toEqual({ label: "lucia", raw: "lucia" });
+    expect(describeActor(t, "a1b2c3d4e5f6g7h8").label).toBe("a1b2c3d4e5f6g7h8");
+  });
+
+  it("names a command at the terminal by the login that typed it", () => {
+    expect(describeActor(t, "cli:marta")).toEqual({ label: "marta at the terminal", raw: "cli:marta" });
+  });
+
+  it("keeps the old rows' twelve characters of a session as a session, with the full raw value", () => {
+    // What jobs and legacy audit lines recorded for the master token in a browser until 4.3: the id of its session.
+    const words = describeActor(t, "a1b2c3d4e5f6");
     expect(words.label).toBe("Session a1b2c3d4");
-    expect(words.raw).toBe("a1b2c3d4e5f6g7h8");
+    expect(words.raw).toBe("a1b2c3d4e5f6");
   });
 });
 

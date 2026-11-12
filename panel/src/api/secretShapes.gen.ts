@@ -11,6 +11,8 @@ export interface SecretShape {
   readonly flags: string;
   /** Whether group 1 stays as it was and only what follows it is replaced. */
   readonly keepHead: boolean;
+  /** Whether it is a credential on its own, so a value typed in a field is judged by it. */
+  readonly ofValue: boolean;
 }
 
 /** One line of text and what masking it leaves: what both sides are held to. */
@@ -26,24 +28,24 @@ export const SECRET_MASK = "***";
 
 /** Every shape of a secret, in the order it is applied. */
 export const SECRET_SHAPES: readonly SecretShape[] = [
-  { name: "private key block", source: "-----BEGIN (?:[A-Z]+ )*PRIVATE KEY-----[\\s\\S]{0,16384}?(?:-----END (?:[A-Z]+ )*PRIVATE KEY-----|(?![\\s\\S]))", flags: "g", keepHead: false },
-  { name: "private key", source: "-----BEGIN (?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-----", flags: "g", keepHead: false },
-  { name: "stripe", source: "\\b(?:sk_live_|sk_test_|rk_live_|whsec_)[A-Za-z0-9]+", flags: "g", keepHead: false },
-  { name: "github token", source: "\\b(?:ghp_|gho_|ghu_|ghs_|ghr_|github_pat_)[A-Za-z0-9_]+", flags: "g", keepHead: false },
-  { name: "gitlab token", source: "\\bglpat-[A-Za-z0-9_\\-]+", flags: "g", keepHead: false },
-  { name: "slack token", source: "\\bxox[abprs]-[A-Za-z0-9\\-]+", flags: "g", keepHead: false },
-  { name: "aws access key", source: "\\b(?:AKIA|ASIA)[A-Z0-9]{16}\\b", flags: "g", keepHead: false },
-  { name: "google api key", source: "\\bAIza[0-9A-Za-z\\-_]{35}\\b", flags: "g", keepHead: false },
-  { name: "sendgrid api key", source: "\\bSG\\.[A-Za-z0-9_\\-]{16,}\\.[A-Za-z0-9_\\-]{16,}\\b", flags: "g", keepHead: false },
-  { name: "twilio credential", source: "\\b(?:SK|AC)[0-9a-fA-F]{32}\\b", flags: "g", keepHead: false },
-  { name: "npm token", source: "\\bnpm_[A-Za-z0-9]{36}\\b", flags: "g", keepHead: false },
-  { name: "noust token", source: "\\b(?:noust_tok_|wasm_tok_)[A-Za-z0-9_\\-]{16,}", flags: "g", keepHead: false },
-  { name: "telegram bot token", source: "\\b[0-9]{8,10}:[A-Za-z0-9_\\-]{30,}\\b", flags: "g", keepHead: false },
-  { name: "api key", source: "\\bsk-[A-Za-z0-9_\\-]{32,}\\b", flags: "g", keepHead: false },
-  { name: "jwt", source: "\\beyJ[A-Za-z0-9_\\-]{8,}\\.eyJ[A-Za-z0-9_\\-]{8,}\\.[A-Za-z0-9_\\-]{8,}", flags: "g", keepHead: false },
-  { name: "assigned secret", source: "((?<![A-Za-z])(?:password|passwd|secret|token|api[_-]?key|private[_-]?key|access[_-]?key|authorization)(?![A-Za-z])[A-Za-z0-9_.\\-]*[\\\"']?\\s*[=:]\\s*(?:(?:bearer|basic|token)\\s+)?[\\\"']?)(?!(?:bearer|basic|token)\\b)([^\\s\\\"'&;,<>]{6,})", flags: "gi", keepHead: true },
-  { name: "bearer", source: "\\b(Bearer\\s+)[A-Za-z0-9._~+/=\\-]{16,}", flags: "gi", keepHead: true },
-  { name: "url credentials", source: "((?:^|[^A-Za-z0-9+.\\-])[A-Za-z][A-Za-z0-9+.\\-]*://[^:/?#@\\s]*:)[^@\\s/?#]*(?=@)", flags: "g", keepHead: true },
+  { name: "private key block", source: "-----BEGIN (?:[A-Z]+ )*PRIVATE KEY-----[\\s\\S]{0,16384}?(?:-----END (?:[A-Z]+ )*PRIVATE KEY-----|(?![\\s\\S]))", flags: "g", keepHead: false, ofValue: true },
+  { name: "private key", source: "-----BEGIN (?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-----", flags: "g", keepHead: false, ofValue: true },
+  { name: "stripe", source: "\\b(?:sk_live_|sk_test_|rk_live_|whsec_)[A-Za-z0-9]+", flags: "g", keepHead: false, ofValue: true },
+  { name: "github token", source: "\\b(?:ghp_|gho_|ghu_|ghs_|ghr_|github_pat_)[A-Za-z0-9_]+", flags: "g", keepHead: false, ofValue: true },
+  { name: "gitlab token", source: "\\bglpat-[A-Za-z0-9_\\-]+", flags: "g", keepHead: false, ofValue: true },
+  { name: "slack token", source: "\\bxox[abprs]-[A-Za-z0-9\\-]+", flags: "g", keepHead: false, ofValue: true },
+  { name: "aws access key", source: "\\b(?:AKIA|ASIA)[A-Z0-9]{16}\\b", flags: "g", keepHead: false, ofValue: true },
+  { name: "google api key", source: "\\bAIza[0-9A-Za-z\\-_]{35}\\b", flags: "g", keepHead: false, ofValue: true },
+  { name: "sendgrid api key", source: "\\bSG\\.[A-Za-z0-9_\\-]{16,}\\.[A-Za-z0-9_\\-]{16,}\\b", flags: "g", keepHead: false, ofValue: true },
+  { name: "twilio credential", source: "\\b(?:SK|AC)[0-9a-fA-F]{32}\\b", flags: "g", keepHead: false, ofValue: true },
+  { name: "npm token", source: "\\bnpm_[A-Za-z0-9]{36}\\b", flags: "g", keepHead: false, ofValue: true },
+  { name: "noust token", source: "\\b(?:noust_tok_|wasm_tok_)[A-Za-z0-9_\\-]{16,}", flags: "g", keepHead: false, ofValue: true },
+  { name: "telegram bot token", source: "\\b[0-9]{8,10}:[A-Za-z0-9_\\-]{30,}\\b", flags: "g", keepHead: false, ofValue: true },
+  { name: "api key", source: "\\bsk-[A-Za-z0-9_\\-]{32,}\\b", flags: "g", keepHead: false, ofValue: true },
+  { name: "jwt", source: "\\beyJ[A-Za-z0-9_\\-]{8,}\\.eyJ[A-Za-z0-9_\\-]{8,}\\.[A-Za-z0-9_\\-]{8,}", flags: "g", keepHead: false, ofValue: true },
+  { name: "assigned secret", source: "((?<![A-Za-z])(?:password|passwd|secret|token|api[_-]?key|private[_-]?key|access[_-]?key|authorization)(?![A-Za-z])[A-Za-z0-9_.\\-]*[\\\"']?\\s*[=:]\\s*(?:(?:bearer|basic|token)\\s+)?[\\\"']?)(?!(?:bearer|basic|token)\\b)([^\\s\\\"'&;,<>]{6,})", flags: "gi", keepHead: true, ofValue: false },
+  { name: "bearer", source: "\\b(Bearer\\s+)[A-Za-z0-9._~+/=\\-]{16,}", flags: "gi", keepHead: true, ofValue: false },
+  { name: "url credentials", source: "((?:^|[^A-Za-z0-9+.\\-])[A-Za-z][A-Za-z0-9+.\\-]*://[^:/?#@\\s]*:)[^@\\s/?#]*(?=@)", flags: "g", keepHead: true, ofValue: true },
 ];
 
 /** What the shapes hide and what they leave alone. */
@@ -104,4 +106,74 @@ export const SECRET_SHAPE_CASES: readonly SecretShapeCase[] = [
   { name: "a certificate", text: "-----BEGIN CERTIFICATE-----", masked: "-----BEGIN CERTIFICATE-----" },
   { name: "a javascript error", text: "TypeError: Cannot read properties of undefined (reading 'rows')", masked: "TypeError: Cannot read properties of undefined (reading 'rows')" },
   { name: "nothing", text: "", masked: "" },
+];
+
+/** What `classify` judges a variable by besides the shapes: its name, what makes a name public, how random a value is. */
+export interface SecretVariableRules {
+  /** Matched in the upper-case name. */
+  readonly nameSubstrings: readonly string[];
+  /** Whole words of a name split on separators and camel case. */
+  readonly nameWords: readonly string[];
+  /** Names the words excuse. */
+  readonly nonSecretNames: readonly string[];
+  /** A name that starts so is public by its framework's contract. */
+  readonly publicPrefixes: readonly string[];
+  /** A name that holds one of these is never public, whatever it starts with. */
+  readonly neverPublicWords: readonly string[];
+  readonly entropy: { readonly minLength: number; readonly minBits: number; readonly minClasses: number };
+}
+
+export const SECRET_VARIABLE_RULES: SecretVariableRules = {
+  nameSubstrings: ["PASSWORD", "_PASS", "SECRET", "TOKEN", "API_KEY", "PRIVATE_KEY", "ENCRYPTION_KEY", "SIGNING_KEY", "ACCESS_KEY", "SECRET_KEY", "CLIENT_SECRET", "WEBHOOK_SECRET"],
+  nameWords: ["apikey", "auth", "credential", "credentials", "key", "passwd", "password", "secret", "token", "webhook"],
+  nonSecretNames: ["master_token", "node_host_key_changed", "require_password", "token_expiration_hours", "token_expiring", "token_warning_days"],
+  publicPrefixes: ["NEXT_PUBLIC_", "VITE_", "PUBLIC_", "NUXT_PUBLIC_", "REACT_APP_"],
+  neverPublicWords: ["PASSWORD", "PASSWD", "PASS", "SECRET_KEY", "PRIVATE_KEY", "TOKEN"],
+  entropy: { minLength: 24, minBits: 4.0, minClasses: 3 },
+};
+
+/** One variable and whether it is a secret: what the server and the console are held to. */
+export interface SecretVariableCase {
+  readonly name: string;
+  readonly value: string;
+  readonly secret: boolean;
+}
+
+export const SECRET_VARIABLE_CASES: readonly SecretVariableCase[] = [
+  { name: "DB_PASSWORD", value: "hunter2", secret: true },
+  { name: "MAIL_PASS", value: "x", secret: true },
+  { name: "GITHUB_TOKEN", value: "x", secret: true },
+  { name: "authToken", value: "x", secret: true },
+  { name: "apiKey", value: "x", secret: true },
+  { name: "SLACK_WEBHOOK", value: "https://hooks.example.test/T000/B000", secret: true },
+  { name: "TOKEN_EXPIRATION_HOURS", value: "12", secret: true },
+  { name: "COMPASS", value: "x", secret: false },
+  { name: "KEYBOARD_LAYOUT", value: "us", secret: false },
+  { name: "MONKEY", value: "banana", secret: false },
+  { name: "PORT", value: "3000", secret: false },
+  { name: "API_URL", value: "https://api.example.com", secret: false },
+  { name: "", value: "nothing", secret: false },
+  { name: "NEXT_PUBLIC_API_KEY", value: "pk_abc", secret: false },
+  { name: "VITE_API_SECRET", value: "abc", secret: false },
+  { name: "SSH_PUBLIC_KEY", value: "ssh-rsa AAAA", secret: false },
+  { name: "PUBLIC_DB_PASSWORD", value: "x", secret: true },
+  { name: "NEXT_PUBLIC_TOKEN", value: "x", secret: true },
+  { name: "PAYMENTS", value: "sk_live_4eC39HqLyjWDarjtT1zdp7dc", secret: true },
+  { name: "NEXT_PUBLIC_STRIPE", value: "sk_live_4eC39HqLyjWDarjtT1zdp7dc", secret: true },
+  { name: "CI", value: "ghp_abcdefghijklmnopqrstuvwxyz0123456789", secret: true },
+  { name: "CLOUD", value: "AKIAIOSFODNN7EXAMPLE", secret: true },
+  { name: "DATABASE_URL", value: "postgres://app:hunter22@db.internal:5432/shop", secret: true },
+  { name: "CACHE", value: "redis://:s3cr3tvalue@cache:6379/0", secret: true },
+  { name: "DATABASE_HOST", value: "postgres://db.internal:5432/shop", secret: false },
+  { name: "SESSION_SAMPLE", value: "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dBjftJeZ4CVPmB92K27uhbUJU1p1r", secret: true },
+  { name: "NOTE", value: "-----BEGIN RSA PRIVATE KEY-----", secret: true },
+  { name: "PUBLIC_KEY", value: "-----BEGIN PRIVATE KEY-----", secret: true },
+  { name: "CERT", value: "-----BEGIN CERTIFICATE-----", secret: false },
+  { name: "SESSION_NOTE", value: "Zq8!vN3#xL7@pR2$tK9%wB5^", secret: true },
+  { name: "APP_NAME", value: "my-shop-application-production", secret: false },
+  { name: "COMMIT", value: "3f2a9c1e8b7d6a5f4e3d2c1b0a9f8e7d6c5b4a39", secret: false },
+  { name: "REQUEST_ID", value: "550e8400-e29b-41d4-a716-446655440000", secret: false },
+  { name: "HOME_PAGE", value: "https://shop.example.com/some/very/long/path/with/MixedCase123", secret: false },
+  { name: "DATA_DIR", value: "/var/www/apps/shop-example-com/current/Public_9", secret: false },
+  { name: "EMPTY", value: "", secret: false },
 ];

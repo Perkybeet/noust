@@ -78,7 +78,8 @@ export const auth = {
     description: "The installer printed it once, in a box. Paste it here.",
     recoveryHelp:
       "The access token is the key of whoever is root on this machine. Once there are accounts, use it only to get back in: every use is recorded as a warning.",
-    lostIt: "Print it on the server",
+    lostIt: "Lost it? Issue a new one on the server",
+    lostItCost: "A new token cancels the old one: the one in use stops working.",
     passkeyRequiredTitle: "The access token has a passkey now",
   },
   legal: {
@@ -136,6 +137,14 @@ export const auth = {
     confirm: "Continue",
     confirmFailed: "The confirmation failed",
     passkeyFailed: "The passkey did not confirm it's you",
+    enrolDescription:
+      "This action needs you to confirm it's you, and your account has no second factor yet to do it with. Set it up now, it takes a minute, and you carry on with what you were doing.",
+    enrolDone: "Your second factor is on. Enter a code from your authenticator app to carry on with what you were doing.",
+  },
+  identityProof: {
+    title: "Confirm your password",
+    description: "You signed in a while ago. To set up a second factor, confirm your password.",
+    required: "Enter your password.",
   },
   gate: {
     factorTitle: "Set up a second factor",
@@ -145,6 +154,10 @@ export const auth = {
     noticeDescription: "Read them and accept them to continue. You are asked again whenever they change.",
     stepFactor: "Second factor",
     stepNotice: "Terms of use",
+    oldSessionTitle: "This session is too old to continue",
+    oldSession:
+      "Your account signs in through an identity provider and has no password to confirm it's you with. Sign in again through your identity provider, then set the second factor up within ten minutes.",
+    signInAgain: "Sign in again",
     useApp: "Use an authenticator app",
     usePasskey: "Use a passkey",
     passkeyUnavailable: "Passkeys are not available from this page; use an authenticator app.",
@@ -171,7 +184,8 @@ export const auth = {
     securityTitle: "Add a security officer",
     securityDescription: "Your security framework separates duties: a second account manages accounts and reads the audit log.",
     protectTitle: "Protect your account",
-    protectDescription: "Add an authenticator app or a passkey, so a stolen password is not enough. It takes a minute, and you can do it later from your account.",
+    protectDescription:
+      "Add an authenticator app or a passkey, so a stolen password is not enough. It takes a minute, and you can leave it for later, but until you have it you cannot confirm delicate actions such as deleting an application.",
     later: "Set up later",
     whyTitle: "Why a separate account",
     why: "An administrator cannot invite people, change roles or read the whole audit log: a security officer does. Give it to a different person if you can; one person holding both needs a documented exception.",

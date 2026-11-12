@@ -59,11 +59,6 @@ export function outcomeView(t: T, result: string): { status: Status; label: stri
   }
 }
 
-/** Who acted: the structured actor's name, else the label the line was written with. */
-export function actorName(entry: Pick<AuditEntry, "actor" | "who">): string {
-  return entry.who?.name ?? entry.actor;
-}
-
 /** Words to match against the loaded events. */
 export function matches(entry: AuditEntry, q: string | undefined): boolean {
   const needle = q?.trim().toLowerCase() ?? "";

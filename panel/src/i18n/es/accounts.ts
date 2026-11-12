@@ -113,6 +113,10 @@ export const accounts: Catalog<typeof en> = {
     issuedTitle: "Envía esta invitación a {name}",
     issuedDescription: "Envía el enlace por un canal de confianza. Funciona una sola vez.",
     mailLabel: "Correo",
+    localTitle: "Este enlace solo funciona en este ordenador",
+    localBody:
+      "Has abierto la consola en {address}, que solo alcanza este ordenador, así que la persona invitada no podrá abrir el enlace. Define la dirección de la consola e invita de nuevo.",
+    localAction: "Define la dirección de la consola",
     linkLabel: "Enlace de invitación",
     copyLink: "Copiar enlace",
     copyCode: "Copiar código",
@@ -227,6 +231,7 @@ export const accounts: Catalog<typeof en> = {
     capped: "Limitado a lo que puede hacer {name}",
     cappedMaster: "Lo que podrá hacer el token",
     dropped: "Se quedan fuera, porque el propietario no puede: {permissions}.",
+    droppedBound: "Se quedan fuera, porque un token atado a un equipo nunca llega al servidor: {permissions}.",
     scopeDeploy: "Leer, y además desplegar y revertir aplicaciones. El de CI.",
     scopeAdmin: "Todo lo que puede un administrador, nunca más que su propietario. Ni cuentas ni configuración de seguridad.",
   },
