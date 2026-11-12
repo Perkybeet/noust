@@ -21,9 +21,10 @@ application is not back; fix what it says and run it again with `--skip-state` t
 the applications.
 
 With `--install` it also installs what the machine lacks: the web server the restored configuration
-names, Docker when an application or a database instance needs it, and the database engines (apt and
-zypper from the distribution's own repositories; a distribution that does not carry Docker is told how,
-never given a third-party repository). Without it nothing is installed and the report names the
+names, Docker when an application or a database instance needs it, and the database engines (apt, dnf
+on Fedora and zypper, from the distribution's own repositories; a distribution that does not carry Docker,
+or whose Compose is not v2 (Debian 12 and 11 package Compose 1), is told how, never given a
+third-party repository). Without it nothing is installed and the report names the
 command. Once an engine is there the flow creates the PostgreSQL roles the new server lacks, then loads
 each database no application owns from its newest dump, on this server or on a destination, and never
 over a database the server already has. The report lists the software, the roles and the databases, and a

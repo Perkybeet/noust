@@ -13,7 +13,7 @@ is measured, and the method is below so anyone can repeat it.
 | **systemd** | Applications, the console and the monitor run as units. |
 | **Python** | 3.10 to 3.14. The packages bring the interpreter; the installer uses the system's. |
 | **Installed by `noust setup init` when missing** | nginx or Apache, certbot, git, Node.js. |
-| **Per application type** | `python3-venv` for Python, PHP-FPM and its extensions for PHP, Docker with the Compose plugin for Compose and container applications, the engine for a database (`noust db install`), rclone for remote backup destinations. |
+| **Per application type** | `python3-venv` for Python, PHP-FPM and its extensions for PHP, Docker with the Compose plugin for Compose and container applications (Noust installs it from the distribution's own repositories on Ubuntu, Debian 13, Fedora and openSUSE; Debian 12 packages only Compose 1, which has no `docker compose`, so Docker's own repository is needed there), the engine for a database (`noust db install`), rclone for remote backup destinations. |
 | **Network** | Ports 80 and 443 open from the internet (80 is how Let's Encrypt validates a name). Outbound: the Git hosts you deploy from, Let's Encrypt, the package repositories (`download.opensuse.org`), and GitHub for update checks (`updates.check` turns that off). The console listens on `127.0.0.1:8080` only, unless you publish it. |
 
 `noust setup doctor` checks the list against the machine it runs on and prints the command that

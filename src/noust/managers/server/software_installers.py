@@ -96,7 +96,9 @@ def _docker(manager: SoftwareManager, component: Component, options: InstallOpti
     """
     from noust.managers.server_provision import ServerProvisioner
 
-    ServerProvisioner(family=manager.platform.family).ensure_docker()
+    ServerProvisioner(
+        family=manager.platform.family, os_release=manager.platform.os
+    ).ensure_docker()
 
 
 def _database_engine(

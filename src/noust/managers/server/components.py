@@ -150,6 +150,9 @@ class Component:
             that finds one was Noust's. They are also what a removal takes back out.
         installer: What installs it.
         install_families: The families the installer works on, when it is not every one.
+        install_only_on: For a family whose distributions do not all carry it (the RPM family is
+            Fedora, which packages Docker, and a dozen that do not), the ``ID`` of
+            ``/etc/os-release`` of each that does.
         engine: The database engine manager it is, for :attr:`Installer.DATABASE_ENGINE`.
         dependents: Who depends on it, asked at the time (the stores and managers that already
             answer it); None when nothing does.
@@ -165,6 +168,7 @@ class Component:
     marks: tuple[str, ...] = ()
     installer: Installer = Installer.PACKAGE
     install_families: frozenset[PackageFamily] | None = None
+    install_only_on: Mapping[PackageFamily, frozenset[str]] = field(default_factory=dict)
     engine: str | None = None
     dependents: Callable[[], list[who.Dependent]] | None = None
     never_reason: str | None = None
@@ -190,16 +194,21 @@ class Component:
         """
         return (*self.packages_on(family), *self.related.get(family, ()))
 
-    def installable_on(self, family: PackageFamily) -> bool:
+    def installable_on(self, family: PackageFamily, os_id: str = "") -> bool:
         """
         Args:
             family: A package manager.
+            os_id: The ``ID`` of the distribution, which decides it for a family whose
+                distributions do not all carry the component (:attr:`install_only_on`).
 
         Returns:
             Whether Noust installs it on that family: the installer's families, or, for the
             package manager's own install, a package to name.
         """
         if family is PackageFamily.NONE:
+            return False
+        only = self.install_only_on.get(family)
+        if only is not None and os_id not in only:
             return False
         if self.install_families is not None:
             return family in self.install_families
@@ -372,16 +381,37 @@ COMPONENTS: tuple[Component, ...] = (
         "docker",
         "software.docker.purpose",
         Severity.CRITICAL_WHILE,
-        packages=_by_family(("docker.io", "docker-compose-v2"), (), ("docker", "docker-compose")),
-        # What Docker's own repository installs, which an operator may have used instead.
+        # What each distribution calls it: Ubuntu's Compose is docker-compose-v2, Debian 13's is
+        # docker-compose (Debian 12's, Compose v1, is not the plugin), Fedora's engine is
+        # moby-engine. ``managers/server_provision.py`` chooses by distribution.
+        packages=_by_family(
+            ("docker.io", "docker-compose-v2"),
+            ("moby-engine", "docker-compose"),
+            ("docker", "docker-compose"),
+        ),
+        # What Docker's own repository installs, which an operator may have used instead, and
+        # what Debian 13 and Fedora bring with the engine.
         related=_by_family(
-            ("docker-ce", "docker-ce-cli", "containerd.io", "docker-compose-plugin"),
-            ("docker-ce", "docker-ce-cli", "containerd.io", "docker-compose-plugin"),
+            (
+                "docker-ce",
+                "docker-ce-cli",
+                "containerd.io",
+                "docker-compose-plugin",
+                "docker-compose",
+            ),
+            (
+                "docker-ce",
+                "docker-ce-cli",
+                "containerd.io",
+                "docker-compose-plugin",
+                "docker-cli",
+            ),
             (),
         ),
         binaries=("docker",),
         installer=Installer.DOCKER,
-        install_families=frozenset({PackageFamily.APT, PackageFamily.ZYPPER}),
+        install_families=frozenset({PackageFamily.APT, PackageFamily.DNF, PackageFamily.ZYPPER}),
+        install_only_on={PackageFamily.DNF: frozenset({"fedora"})},
         dependents=who.docker_users,
     ),
     Component(
