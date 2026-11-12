@@ -10,12 +10,14 @@ from pathlib import Path
 
 import pytest
 
+from noust.core.exceptions import DeploymentError
 from noust.core.logger import Logger
 from noust.core.store import NoustStore
 from noust.deployers.docker_compose import DockerComposeDeployer
 from noust.deployers.helpers.compose_ports import is_headless_stack, published_port
 from noust.recipes import list_recipes
 from noust.recipes.deploy import COMPOSE_FILE, plan_recipe
+from tests.support.compose_model import compose_resolving
 
 DOMAIN = "site.example.com"
 PORT = 8123
@@ -40,7 +42,11 @@ def test_the_deployer_reads_what_a_compose_recipe_plans(
     )
     app_path = tmp_path / "apps" / "site-example-com"
     shutil.copytree(plan.source, app_path)
-    deployer = DockerComposeDeployer()
+    # The guard over the file also judges what Compose resolves it to, so the recipe is handed a
+    # Compose that prints that model from the document and the variables the deployer writes to
+    # its ``.env``: a recipe is let through with what Compose would make of it, not unjudged.
+    runner = compose_resolving(app_path, plan.env_vars)
+    deployer = DockerComposeDeployer(runner=runner)
 
     deployer.configure(
         domain=DOMAIN, port=PORT, webserver="nginx", ssl=True, **plan.configure_arguments()
@@ -49,6 +55,7 @@ def test_the_deployer_reads_what_a_compose_recipe_plans(
     deployer._discover_compose_file()
     deployer._parse_compose_services()
 
+    assert any("config" in call for call in runner.calls), "the guard never looked at the model"
     assert deployer.compose_path is not None and deployer.compose_path.name == COMPOSE_FILE
     assert deployer.env_vars["PORT"] == str(PORT)
     assert deployer._get_primary_port() == PORT
@@ -58,6 +65,26 @@ def test_the_deployer_reads_what_a_compose_recipe_plans(
     # The document's own web port, read as the deployer reads ports: unresolved, but published.
     assert not is_headless_stack(web)
     assert deployer.source == plan.source and deployer.branch is None
+
+
+def test_the_guard_judges_the_model_and_not_only_the_recipes_text(
+    recipe_store: NoustStore, tmp_path: Path
+) -> None:
+    """A mount a variable spells out is refused through the model: the contract is not blind to it."""
+    app_path = tmp_path / "apps" / "site-example-com"
+    app_path.mkdir(parents=True)
+    (app_path / COMPOSE_FILE).write_text(
+        "services:\n  web:\n    image: nginx\n    volumes:\n      - ${SOCKET}:/sock\n"
+    )
+    deployer = DockerComposeDeployer(
+        runner=compose_resolving(app_path, {"SOCKET": "/var/run/docker.sock"})
+    )
+    deployer.configure(domain=DOMAIN, port=PORT, webserver="nginx", ssl=True, source="src")
+    deployer.app_path = app_path
+    deployer._discover_compose_file()
+
+    with pytest.raises(DeploymentError, match="asks for root"):
+        deployer._parse_compose_services()
 
 
 def required(name: str) -> dict[str, str]:
