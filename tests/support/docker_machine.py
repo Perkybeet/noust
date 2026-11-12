@@ -192,6 +192,9 @@ class DockerMachine(FakeRunner):
     def exists(self, program: str) -> bool:
         if program == "docker":
             return self.installed
+        if program == "docker-compose":
+            # Compose 1 is a program of its own, which a machine of this age does not have.
+            return False
         return super().exists(program)
 
     def _lookup(

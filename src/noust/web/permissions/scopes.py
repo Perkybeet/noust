@@ -401,6 +401,9 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/system/**", INSTANCE),
     _rule("/api/server/**", INSTANCE),
     _rule("/api/services/**", INSTANCE),
+    # Docker is the machine's: a container nobody of Noust made is the instance's, and what an
+    # application owns is seen from the application. A person of a team is refused all of it.
+    _rule("/api/docker/**", INSTANCE),
     _rule("/api/cron/**", INSTANCE),
     _rule("/api/monitor/**", INSTANCE),
     _rule("/api/metrics/**", INSTANCE),
@@ -424,6 +427,8 @@ RULES: tuple[Rule, ...] = (
     # The page of a resource across the servers: this central's rows come through its own API as
     # the caller, which narrows them to the caller's teams, and the other servers are asked only
     # for a caller that sees every team (noust.web.api.views).
+    # What every server's Docker holds: the machine's, like the zone it lists (before the rule below).
+    _rule("/api/views/docker/**", INSTANCE),
     _rule("/api/views/**", SCOPED),
     # A server assigned to a team is that team's: it sees it, tests it and works on it through the
     # central, held at each call to the permission its role holds in that team and to what a team

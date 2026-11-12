@@ -1854,11 +1854,19 @@ CleanupActionOut = TypedDict("CleanupActionOut", {
     "status": Required[str],
 })
 
+CleanupEntryOut = TypedDict("CleanupEntryOut", {
+    "name": Required[str],
+    "owner": Required[dict[str, str]],
+    "reason": Required[str],
+    "size_bytes": NotRequired[Union[int, None]],
+})
+
 CleanupPlanOut = TypedDict("CleanupPlanOut", {
     "action": Required[str],
     "commands": Required[list[str]],
     "effect": Required[str],
     "effect_coded": NotRequired[Union["CodedText", None]],
+    "entries": NotRequired[list["CleanupEntryOut"]],
     "items": NotRequired[list[str]],
     "needs_confirmation": Required[bool],
 })
@@ -3242,12 +3250,255 @@ DnsPlanModel = TypedDict("DnsPlanModel", {
     "zone": Required[str],
 })
 
+DockerActionOut = TypedDict("DockerActionOut", {
+    "action": Required[str],
+    "kind": Required[str],
+    "name": Required[str],
+    "size_bytes": NotRequired[Union[int, None]],
+})
+
+DockerAttentionOut = TypedDict("DockerAttentionOut", {
+    "count": NotRequired[int],
+    "facts": NotRequired[dict[str, Any]],
+    "kind": Required[str],
+    "owner": NotRequired[Union["DockerOwnerOut", None]],
+    "subject": NotRequired[Union[str, None]],
+})
+
+DockerCanOut = TypedDict("DockerCanOut", {
+    "blocked": NotRequired[str],
+    "console": NotRequired[bool],
+    "remove": NotRequired[bool],
+    "restart": NotRequired[bool],
+    "start": NotRequired[bool],
+    "stop": NotRequired[bool],
+    "via": NotRequired[str],
+})
+
+DockerCleanupPlanOut = TypedDict("DockerCleanupPlanOut", {
+    "available": NotRequired[bool],
+    "default_bytes": NotRequired[int],
+    "engine": NotRequired[Union["DockerEngineOut", None]],
+    "items": NotRequired[list["DockerPlanItemOut"]],
+    "kept": NotRequired[list["DockerKeptOut"]],
+    "token": NotRequired[str],
+})
+
+DockerCleanupRequest = TypedDict("DockerCleanupRequest", {
+    "confirm_names": NotRequired[dict[str, str]],
+    "select": NotRequired[list[str]],
+    "token": Required[str],
+})
+
+DockerContainerDetailOut = TypedDict("DockerContainerDetailOut", {
+    "available": NotRequired[bool],
+    "can_manage": NotRequired[bool],
+    "container": NotRequired[Union["DockerContainerOut", None]],
+    "cpu_limit": NotRequired[Union[float, None]],
+    "engine": NotRequired[Union["DockerEngineOut", None]],
+    "job": NotRequired[bool],
+    "origin": NotRequired[Union["DockerOriginOut", None]],
+    "owner": NotRequired[Union["DockerOwnerOut", None]],
+    "restart_policy": NotRequired[Union["DockerRestartPolicyOut", None]],
+    "state": NotRequired[Union["DockerStateOut", None]],
+    "touches": NotRequired[Union["DockerTouchesOut", None]],
+    "usage": NotRequired[Union["DockerUsageOut", None]],
+    "why": NotRequired[Union["DockerWhyOut", None]],
+})
+
+DockerContainerOut = TypedDict("DockerContainerOut", {
+    "can": Required["DockerCanOut"],
+    "config_files": NotRequired[list[str]],
+    "created": NotRequired[str],
+    "exit_code": NotRequired[Union[int, None]],
+    "health": NotRequired[str],
+    "helper": NotRequired[str],
+    "id": Required[str],
+    "image": NotRequired[str],
+    "instance": NotRequired[str],
+    "mounts": NotRequired[list[str]],
+    "name": Required[str],
+    "networks": NotRequired[list[str]],
+    "oneoff": NotRequired[bool],
+    "owner": Required["DockerOwnerOut"],
+    "ports": NotRequired[str],
+    "problem": Required[bool],
+    "project": NotRequired[str],
+    "service": NotRequired[str],
+    "state": NotRequired[str],
+    "state_kind": Required[str],
+    "status": NotRequired[str],
+    "working_dir": NotRequired[str],
+})
+
+DockerContainersOut = TypedDict("DockerContainersOut", {
+    "available": NotRequired[bool],
+    "can_manage": NotRequired[bool],
+    "engine": NotRequired[Union["DockerEngineOut", None]],
+    "items": NotRequired[list["DockerContainerOut"]],
+    "limit": NotRequired[Union[int, None]],
+    "offset": NotRequired[int],
+    "total": NotRequired[int],
+})
+
+DockerDiskOut = TypedDict("DockerDiskOut", {
+    "docker_bytes": NotRequired[Union[int, None]],
+    "free_bytes": NotRequired[Union[int, None]],
+    "path": NotRequired[str],
+    "reclaimable_bytes": NotRequired[Union[int, None]],
+    "total_bytes": NotRequired[Union[int, None]],
+})
+
+DockerEngineInfoOut = TypedDict("DockerEngineInfoOut", {
+    "api": NotRequired[str],
+    "client_api": NotRequired[str],
+    "client_version": NotRequired[str],
+    "compose_v1": NotRequired[bool],
+    "compose_version": NotRequired[str],
+    "error": NotRequired[str],
+    "host": NotRequired[str],
+    "image_store": NotRequired[str],
+    "installed": NotRequired[bool],
+    "min_api": NotRequired[str],
+    "os": NotRequired[str],
+    "reachable": NotRequired[bool],
+    "root_dir": NotRequired[str],
+    "rootless": NotRequired[bool],
+    "server_api": NotRequired[str],
+    "server_version": NotRequired[str],
+    "socket": NotRequired[str],
+    "socket_group": NotRequired[str],
+    "socket_mode": NotRequired[str],
+    "socket_owner": NotRequired[str],
+    "storage_driver": NotRequired[str],
+})
+
+DockerEngineOut = TypedDict("DockerEngineOut", {
+    "facts": Required[list["DockerSentenceOut"]],
+    "info": Required["DockerEngineInfoOut"],
+    "limits": Required[list["DockerSentenceOut"]],
+    "ok": Required[bool],
+    "state": Required[str],
+    "usable": Required[bool],
+})
+
+DockerHealthOut = TypedDict("DockerHealthOut", {
+    "failing_streak": NotRequired[int],
+    "last_output": NotRequired[str],
+    "status": Required[str],
+})
+
 DockerImageOut = TypedDict("DockerImageOut", {
     "containers": Required[str],
     "id": Required[str],
     "repository": Required[str],
     "size": Required[str],
     "tag": Required[str],
+})
+
+DockerImageRowOut = TypedDict("DockerImageRowOut", {
+    "can": Required["DockerCanOut"],
+    "created": NotRequired[str],
+    "dangling": NotRequired[bool],
+    "id": Required[str],
+    "owner": Required["DockerOwnerOut"],
+    "size_bytes": NotRequired[Union[int, None]],
+    "tags": NotRequired[list[str]],
+    "used_by": NotRequired[list[str]],
+    "way_back": NotRequired[bool],
+})
+
+DockerImagesOut = TypedDict("DockerImagesOut", {
+    "available": NotRequired[bool],
+    "can_manage": NotRequired[bool],
+    "engine": NotRequired[Union["DockerEngineOut", None]],
+    "items": NotRequired[list["DockerImageRowOut"]],
+    "limit": NotRequired[Union[int, None]],
+    "offset": NotRequired[int],
+    "total": NotRequired[int],
+})
+
+DockerKeptOut = TypedDict("DockerKeptOut", {
+    "name": Required[str],
+    "owner": Required["DockerOwnerOut"],
+    "size_bytes": NotRequired[Union[int, None]],
+    "why": Required[str],
+})
+
+DockerLogsOut = TypedDict("DockerLogsOut", {
+    "available": NotRequired[bool],
+    "container": NotRequired[str],
+    "engine": NotRequired[Union["DockerEngineOut", None]],
+    "logs": NotRequired[str],
+    "tail": NotRequired[int],
+})
+
+DockerLostOut = TypedDict("DockerLostOut", {
+    "fix": Required[str],
+    "name": Required[str],
+    "owner": Required["DockerOwnerOut"],
+    "policy": Required[str],
+    "project": NotRequired[str],
+    "why": Required[str],
+})
+
+DockerMountOut = TypedDict("DockerMountOut", {
+    "destination": NotRequired[str],
+    "kind": Required[str],
+    "name": NotRequired[str],
+    "read_only": NotRequired[bool],
+    "source": NotRequired[str],
+})
+
+DockerNetworkOut = TypedDict("DockerNetworkOut", {
+    "builtin": NotRequired[bool],
+    "can": Required["DockerCanOut"],
+    "containers": NotRequired[list[str]],
+    "created": NotRequired[str],
+    "driver": NotRequired[str],
+    "id": Required[str],
+    "internal": NotRequired[bool],
+    "name": Required[str],
+    "owner": Required["DockerOwnerOut"],
+    "project": NotRequired[str],
+    "scope": NotRequired[str],
+})
+
+DockerNetworksOut = TypedDict("DockerNetworksOut", {
+    "available": NotRequired[bool],
+    "can_manage": NotRequired[bool],
+    "engine": NotRequired[Union["DockerEngineOut", None]],
+    "items": NotRequired[list["DockerNetworkOut"]],
+    "limit": NotRequired[Union[int, None]],
+    "offset": NotRequired[int],
+    "total": NotRequired[int],
+})
+
+DockerOriginOut = TypedDict("DockerOriginOut", {
+    "config_files": NotRequired[list[str]],
+    "image": NotRequired[str],
+    "image_id": NotRequired[str],
+    "project": NotRequired[str],
+    "service": NotRequired[str],
+    "working_dir": NotRequired[str],
+})
+
+DockerOwnerOut = TypedDict("DockerOwnerOut", {
+    "kind": Required[str],
+    "project": NotRequired[str],
+    "subject": NotRequired[str],
+})
+
+DockerPlanItemOut = TypedDict("DockerPlanItemOut", {
+    "anonymous": NotRequired[bool],
+    "id": Required[str],
+    "kind": Required[str],
+    "name": Required[str],
+    "owner": Required["DockerOwnerOut"],
+    "size_bytes": NotRequired[Union[int, None]],
+    "tick": Required[bool],
+    "type_name": NotRequired[bool],
+    "why": Required[str],
 })
 
 DockerPortOut = TypedDict("DockerPortOut", {
@@ -3257,6 +3508,141 @@ DockerPortOut = TypedDict("DockerPortOut", {
     "host_port": Required[int],
     "project": NotRequired[Union[str, None]],
     "proto": Required[str],
+})
+
+DockerRemoveVolumeRequest = TypedDict("DockerRemoveVolumeRequest", {
+    "confirm_name": NotRequired[Union[str, None]],
+})
+
+DockerRestartLossOut = TypedDict("DockerRestartLossOut", {
+    "available": NotRequired[bool],
+    "engine": NotRequired[Union["DockerEngineOut", None]],
+    "items": NotRequired[list["DockerLostOut"]],
+})
+
+DockerRestartPolicyOut = TypedDict("DockerRestartPolicyOut", {
+    "max_retries": NotRequired[int],
+    "name": NotRequired[str],
+})
+
+DockerSentenceOut = TypedDict("DockerSentenceOut", {
+    "code": Required[str],
+    "hint": NotRequired[Union[str, None]],
+    "params": NotRequired[dict[str, Union[bool, int, float, str]]],
+    "text": Required[str],
+})
+
+DockerStackDetailOut = TypedDict("DockerStackDetailOut", {
+    "available": NotRequired[bool],
+    "can_manage": NotRequired[bool],
+    "containers": NotRequired[list["DockerContainerOut"]],
+    "engine": NotRequired[Union["DockerEngineOut", None]],
+    "stack": NotRequired[Union["DockerStackOut", None]],
+})
+
+DockerStackOut = TypedDict("DockerStackOut", {
+    "config_files": NotRequired[list[str]],
+    "containers": NotRequired[list[str]],
+    "name": Required[str],
+    "owner": Required["DockerOwnerOut"],
+    "running": NotRequired[int],
+    "state": NotRequired[str],
+    "total": NotRequired[int],
+    "workers": NotRequired[int],
+    "working_dir": NotRequired[str],
+})
+
+DockerStacksOut = TypedDict("DockerStacksOut", {
+    "available": NotRequired[bool],
+    "can_manage": NotRequired[bool],
+    "engine": NotRequired[Union["DockerEngineOut", None]],
+    "items": NotRequired[list["DockerStackOut"]],
+    "limit": NotRequired[Union[int, None]],
+    "offset": NotRequired[int],
+    "total": NotRequired[int],
+})
+
+DockerStateOut = TypedDict("DockerStateOut", {
+    "exit_code": NotRequired[Union[int, None]],
+    "kind": Required[str],
+    "problem": Required[bool],
+})
+
+DockerSummaryOut = TypedDict("DockerSummaryOut", {
+    "attention": NotRequired[list["DockerAttentionOut"]],
+    "available": Required[bool],
+    "can_manage": NotRequired[bool],
+    "counts": NotRequired[dict[str, dict[str, int]]],
+    "disk": NotRequired[Union["DockerDiskOut", None]],
+    "engine": Required["DockerEngineOut"],
+})
+
+DockerTouchesOut = TypedDict("DockerTouchesOut", {
+    "mounts": NotRequired[list["DockerMountOut"]],
+    "networks": NotRequired[list[str]],
+    "ports": NotRequired[str],
+    "privileged": NotRequired[bool],
+})
+
+DockerUsageOut = TypedDict("DockerUsageOut", {
+    "available": Required[bool],
+    "block_read_bytes": NotRequired[Union[int, None]],
+    "block_write_bytes": NotRequired[Union[int, None]],
+    "cpu_percent": NotRequired[Union[float, None]],
+    "memory_bytes": NotRequired[Union[int, None]],
+    "memory_limit_bytes": NotRequired[Union[int, None]],
+    "memory_percent": NotRequired[Union[float, None]],
+    "net_rx_bytes": NotRequired[Union[int, None]],
+    "net_tx_bytes": NotRequired[Union[int, None]],
+    "pids": NotRequired[Union[int, None]],
+    "reason": NotRequired[str],
+})
+
+DockerVolumeOut = TypedDict("DockerVolumeOut", {
+    "anonymous": NotRequired[bool],
+    "can": Required["DockerCanOut"],
+    "driver": NotRequired[str],
+    "instance": NotRequired[str],
+    "key": NotRequired[str],
+    "mountpoint": NotRequired[str],
+    "name": Required[str],
+    "owner": Required["DockerOwnerOut"],
+    "project": NotRequired[str],
+    "scope": NotRequired[str],
+    "size_bytes": NotRequired[Union[int, None]],
+    "used_by": NotRequired[list[str]],
+})
+
+DockerVolumeSizesOut = TypedDict("DockerVolumeSizesOut", {
+    "available": NotRequired[bool],
+    "engine": NotRequired[Union["DockerEngineOut", None]],
+    "sizes": NotRequired[dict[str, int]],
+})
+
+DockerVolumesOut = TypedDict("DockerVolumesOut", {
+    "available": NotRequired[bool],
+    "can_manage": NotRequired[bool],
+    "engine": NotRequired[Union["DockerEngineOut", None]],
+    "items": NotRequired[list["DockerVolumeOut"]],
+    "limit": NotRequired[Union[int, None]],
+    "offset": NotRequired[int],
+    "total": NotRequired[int],
+})
+
+DockerWhyOut = TypedDict("DockerWhyOut", {
+    "error": NotRequired[str],
+    "exit_code": NotRequired[Union[int, None]],
+    "finished_at": NotRequired[Union[str, None]],
+    "health": NotRequired[Union["DockerHealthOut", None]],
+    "kind": Required[str],
+    "last_lines": NotRequired[str],
+    "looping": NotRequired[bool],
+    "memory_limit_bytes": NotRequired[Union[int, None]],
+    "oom_killed": NotRequired[bool],
+    "restart_count": NotRequired[int],
+    "restarts_recent": NotRequired[int],
+    "started_at": NotRequired[Union[str, None]],
+    "window_minutes": NotRequired[int],
 })
 
 DockerfileRequest = TypedDict("DockerfileRequest", {

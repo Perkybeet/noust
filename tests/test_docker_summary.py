@@ -658,3 +658,82 @@ class TestWhatWouldNotComeBackAfterARestart:
         machine.box("web", policy="always")
 
         assert gate(machine).restart_loss() == ()
+
+
+class TestWhatARowIsOffered:
+    """The console draws a button for what the gate says may be done, and says why when not."""
+
+    def row(self, machine: DockerMachine, name: str):
+        return next(c for c in gate(machine).containers().items if c.name == name)
+
+    def test_what_nobody_made_is_offered_everything_and_says_nothing(self) -> None:
+        offered = gate(web_01()).can(self.row(web_01(), "adminer"))
+
+        assert (offered.start, offered.stop, offered.restart, offered.remove) == (True,) * 4
+        assert offered.blocked == "" and offered.via == ""
+
+    def test_what_an_application_owns_is_offered_nothing_and_the_door_is_said(self) -> None:
+        machine = web_01()
+
+        offered = gate(machine).can(self.row(machine, "shop-web-1"))
+
+        assert not (offered.start or offered.stop or offered.restart or offered.remove)
+        assert offered.blocked == "owner" and "noust restart shop.example.com" in offered.via
+
+    def test_a_person_who_may_not_change_docker_is_offered_nothing_and_told_nothing_of_owners(
+        self,
+    ) -> None:
+        machine = web_01()
+
+        offered = gate(machine).can(self.row(machine, "adminer"), manage=False)
+
+        assert not (offered.start or offered.remove)
+        assert offered.blocked == "permission" and offered.via == ""
+
+    def test_an_image_a_container_uses_is_not_offered_for_removal(self) -> None:
+        machine = web_01()
+        found = {i.tags[0]: i for i in gate(machine).images().items if i.tags}
+
+        offered = gate(machine).can(found["postgres:16"])
+
+        assert offered.remove is False
+        assert offered.blocked in ("in_use", "owner")
+
+    def test_an_unused_image_nobody_owns_is_offered_for_removal(self) -> None:
+        machine = web_01()
+        machine.image("c", "debian", "11")
+        found = {i.tags[0]: i for i in gate(machine).images().items if i.tags}
+
+        offered = gate(machine).can(found["debian:11"])
+
+        assert offered.remove is True and offered.blocked == ""
+
+    def test_an_image_nobody_owns_that_a_stopped_container_uses_is_in_use_and_says_so(self) -> None:
+        machine = web_01()
+        found = {i.tags[0]: i for i in gate(machine).images().items if i.tags}
+        machine.image("d", "adminer", "latest")
+        found = {i.tags[0]: i for i in gate(machine).images().items if i.tags}
+
+        offered = gate(machine).can(found["adminer:latest"])
+
+        assert offered.remove is False and offered.blocked == "in_use"
+
+    def test_a_volume_a_container_mounts_and_a_network_somebody_is_on_are_in_use(self) -> None:
+        machine = web_01()
+        machine.box("keeper", mounts="loose_data", networks="loose_net")
+        machine.volume("loose_data")
+        machine.network("loose_net")
+        g = gate(machine)
+        volume = next(v for v in g.volumes().items if v.name == "loose_data")
+        network = next(n for n in g.networks().items if n.name == "loose_net")
+
+        assert g.can(volume).blocked == "in_use" and g.can(volume).remove is False
+        assert g.can(network).blocked == "in_use" and g.can(network).remove is False
+
+    def test_a_network_docker_makes_is_builtin(self) -> None:
+        machine = web_01()
+        bridge = next(n for n in gate(machine).networks().items if n.name == "bridge")
+
+        offered = gate(machine).can(bridge)
+
+        assert offered.remove is False and offered.blocked == "builtin"

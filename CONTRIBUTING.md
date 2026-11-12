@@ -117,7 +117,12 @@ src/noust/
                     from what the store registered and never from the object's own labels), `judge.py` (an
                     action is (owner, action, object): what is an application's is changed through the
                     application) and `gate.py` (`DockerGate`); `names.py` is what Noust calls things in
-                    Docker. New code asks Docker through it; `tests/test_docker_ratchet.py` lists the
+                    Docker. A container from the inside is `states.py` (its state as one word of a closed
+                    list), `inspect.py` (how it ended, its policy and limits; never its environment),
+                    `stats.py` (one reading, or the reason there is none) and `events.py` (restarts in the
+                    last minutes); the machine in short is `summary.py` (what asks for attention, worst
+                    first) and `restart_loss.py`; a cleanup is a plan applied as it was shown
+                    (`cleanup.py`). New code asks Docker through it; `tests/test_docker_ratchet.py` lists the
                     modules that still ask by themselves, and the list only gets shorter
     deploy_events.py  the deployment events every deployment publishes and its subscribers
     store.py        SQLite persistence (WAL) with versioned migrations

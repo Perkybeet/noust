@@ -25,6 +25,7 @@ __all__ = [
     "DockerNotFoundError",
     "DockerOwnedError",
     "DockerPlanChangedError",
+    "DockerRefusedError",
     "DockerUnavailableError",
 ]
 
@@ -96,3 +97,13 @@ class DockerPlanChangedError(DockerError, PrerequisiteError):
         """
         super().__init__(message, details)
         self.plan = plan
+
+
+class DockerRefusedError(DockerError, PrerequisiteError):
+    """
+    Docker was asked to do something well formed and refused (a container that is running cannot be
+    removed, a network still has a container on it).
+
+    A state of the machine and not a fault of Noust: the request is answered as a conflict, and Docker's
+    own words are in ``output``, never paraphrased.
+    """

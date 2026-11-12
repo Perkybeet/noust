@@ -27,6 +27,7 @@ from noust.core.runner import CommandRunner
 
 __all__ = [
     "INSPECT_FORMAT",
+    "MAX_IDS",
     "Health",
     "Inspected",
     "MountInfo",
@@ -38,6 +39,10 @@ __all__ = [
 
 #: Seconds an inspection gets.
 INSPECT_TIMEOUT = 60
+
+#: The most ids one command is given: a machine with thousands of containers is asked in several, so
+#: that no command line is longer than the system takes.
+MAX_IDS = 400
 
 #: What a container id looks like: the digits Docker shows, or all of them.
 _ID = re.compile(r"[0-9a-f]{12,64}")
@@ -359,13 +364,23 @@ def read_inspect(runner: CommandRunner, ids: Sequence[str]) -> dict[str, Inspect
     Returns:
         The containers by full id; empty when there is nobody to ask about or Docker said nothing
         (a container that went away between the listing and this is not an error). Docker prints
-        the ones it found even when it complains of another, and those are kept.
+        the ones it found even when it complains of another, and those are kept. Up to
+        :data:`MAX_IDS` containers are one process; more are asked in several.
     """
     wanted = [ident for ident in ids if _ID.fullmatch(ident)]
-    if not wanted:
-        return {}
-    result = runner.run(
-        ["docker", "inspect", "--type", "container", "--format", INSPECT_FORMAT, *wanted],
-        timeout=INSPECT_TIMEOUT,
-    )
-    return parse_inspect(result.stdout)
+    found: dict[str, Inspected] = {}
+    for start in range(0, len(wanted), MAX_IDS):
+        result = runner.run(
+            [
+                "docker",
+                "inspect",
+                "--type",
+                "container",
+                "--format",
+                INSPECT_FORMAT,
+                *wanted[start : start + MAX_IDS],
+            ],
+            timeout=INSPECT_TIMEOUT,
+        )
+        found.update(parse_inspect(result.stdout))
+    return found

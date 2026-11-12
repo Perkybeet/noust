@@ -33,6 +33,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from noust.core import audit
+from noust.core.docker.models import Container
 from noust.core.exceptions import ValidationError
 from noust.core.teams import scoped_store
 from noust.terminal import execution
@@ -47,16 +48,17 @@ from noust.terminal.sessions import (
 from noust.terminal.settings import load_settings
 from noust.terminal.targets import (
     KIND_APP,
+    KIND_CONTAINER,
     KIND_SERVER,
     SHELLS,
     TerminalTarget,
     plan_app_terminal,
+    plan_container_terminal,
     plan_server_terminal,
     validate_command,
     validate_service,
     validate_shell,
 )
-from noust.terminal.tickets import KIND_APP as TICKET_APP
 from noust.terminal.tickets import KIND_SERVER as TICKET_SERVER
 from noust.terminal.tickets import TICKET_TTL_SECONDS, TicketRefused, get_tickets
 from noust.web.api.auth import get_current_session
@@ -330,13 +332,14 @@ def _deny(session: dict[str, Any], request: Request, target: str, reason: str) -
     )
 
 
-def _mint(
+def mint_ticket(
     request: Request,
     session: dict[str, Any],
     *,
     kind: str,
     domain: str | None,
     body: TerminalRequest,
+    container: Container | None = None,
 ) -> TerminalTicketResponse:
     """
     Check that a terminal can be opened, and issue the ticket that opens it.
@@ -350,9 +353,11 @@ def _mint(
     Args:
         request: The request.
         session: The authenticated payload, in sudo mode.
-        kind: ``app`` or ``server``.
+        kind: ``app``, ``server`` or ``container``.
         domain: The application, for an application's terminal.
         body: What was asked.
+        container: The container, for a container's terminal: already resolved to its owner and
+            judged by the caller, which holds the permission its owner asks for.
 
     Returns:
         The ticket and what it opens.
@@ -365,7 +370,9 @@ def _mint(
     """
     registry = get_registry()
     actor = actor_label(session)
-    resource = f"app:{domain}" if domain else "server"
+    resource = (
+        f"container:{container.name}" if container else (f"app:{domain}" if domain else "server")
+    )
     sid = str(session.get("sid"))
     try:
         shell_name = validate_shell(body.shell)
@@ -373,7 +380,13 @@ def _mint(
         if body.resume is not None:
             live = registry.resumable(body.resume, sid=sid, actor=actor)
             target: TerminalTarget = live.plan.target
-            if (domain or None) != target.domain:
+            if container is not None:
+                if target.container != container.id:
+                    raise TerminalGone(
+                        "That terminal belongs to another container",
+                        details="Open a new one.",
+                    )
+            elif (domain or None) != target.domain:
                 raise TerminalGone(
                     "That terminal belongs to another application",
                     details="Open a new one.",
@@ -381,13 +394,14 @@ def _mint(
         else:
             settings = registry.check_room(actor, kind=kind)
             runner = _runner()
-            plan = (
-                plan_app_terminal(
+            if container is not None:
+                plan = plan_container_terminal(container.id, shell_name=shell_name, runner=runner)
+            elif kind == KIND_APP:
+                plan = plan_app_terminal(
                     domain or "", service=service, shell_name=shell_name, runner=runner
                 )
-                if kind == KIND_APP
-                else plan_server_terminal(shell_name=shell_name)
-            )
+            else:
+                plan = plan_server_terminal(shell_name=shell_name)
             target = plan.target
             del settings
     except (TerminalDisabledError, TerminalLimitError, TerminalGone) as exc:
@@ -395,7 +409,7 @@ def _mint(
         raise
     try:
         ticket, grant = get_tickets().mint(
-            kind=TICKET_APP if kind == KIND_APP else TICKET_SERVER,
+            kind=kind,
             domain=domain,
             service=service,
             shell_name=shell_name,
@@ -405,6 +419,7 @@ def _mint(
             actor=actor,
             client_ip=get_client_ip(request),
             resume=body.resume,
+            container=container.id if container is not None else None,
         )
     except TicketRefused as exc:
         raise TerminalLimitError(str(exc), details=exc.details) from exc
@@ -472,7 +487,7 @@ def open_app_terminal(
         TerminalDisabledError: 403 when terminals are off.
         TerminalLimitError: 429 when a limit is reached.
     """
-    return _mint(request, session, kind=KIND_APP, domain=known_app(domain), body=body)
+    return mint_ticket(request, session, kind=KIND_APP, domain=known_app(domain), body=body)
 
 
 @server_router.post("/terminal", response_model=TerminalTicketResponse)
@@ -502,7 +517,7 @@ def open_server_terminal(
         TerminalLimitError: 429 when a limit is reached.
     """
     require_instance_scope(Permission.SERVER_TERMINAL)
-    return _mint(request, session, kind=KIND_SERVER, domain=None, body=body)
+    return mint_ticket(request, session, kind=KIND_SERVER, domain=None, body=body)
 
 
 @apps_router.post("/{domain}/exec", response_model=JobAcceptedResponse, status_code=202)
@@ -677,7 +692,7 @@ def list_recordings(
         session: The authenticated session.
         domain: Only the sessions in this application.
         actor: Only the sessions of this person.
-        kind: Only ``app`` or ``server`` sessions.
+        kind: Only ``app``, ``server`` or ``container`` sessions.
         limit: The most to return, 1 to 500.
 
     Returns:
@@ -686,8 +701,8 @@ def list_recordings(
     Raises:
         ValidationError: 400 for a kind that is neither.
     """
-    if kind not in (None, KIND_APP, KIND_SERVER):
-        raise ValidationError("kind is app or server", field="kind")
+    if kind not in (None, KIND_APP, KIND_SERVER, KIND_CONTAINER):
+        raise ValidationError("kind is app, server or container", field="kind")
     found = recordings.list_recordings(
         domain=domain,
         actor=actor,
@@ -739,4 +754,4 @@ def read_recording(
     )
 
 
-__all__ = ["apps_router", "router", "server_router"]
+__all__ = ["apps_router", "mint_ticket", "router", "server_router"]

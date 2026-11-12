@@ -606,6 +606,28 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("deployments", "get_deployment_log"): ("GET", "/api/deployments/{deployment_id}/log", "apps.read", False),
     ("deployments", "list_first_deploys"): ("GET", "/api/first-deploys", "apps.read", False),
     ("deployments", "dismiss_first_deploy"): ("POST", "/api/first-deploys/{attempt}/dismiss", "apps.manage", False),
+    ("docker", "apply_cleanup"): ("POST", "/api/docker/cleanup", "docker.manage", True),
+    ("docker", "get_cleanup_plan"): ("GET", "/api/docker/cleanup/plan", "docker.read", False),
+    ("docker", "list_containers"): ("GET", "/api/docker/containers", "docker.read", False),
+    ("docker", "get_container"): ("GET", "/api/docker/containers/{ref}", "docker.read", False),
+    ("docker", "remove_container"): ("DELETE", "/api/docker/containers/{ref}", "docker.manage", True),
+    ("docker", "get_container_logs"): ("GET", "/api/docker/containers/{ref}/logs", "docker.read", False),
+    ("docker", "restart_container"): ("POST", "/api/docker/containers/{ref}/restart", "docker.manage", True),
+    ("docker", "start_container"): ("POST", "/api/docker/containers/{ref}/start", "docker.manage", True),
+    ("docker", "stop_container"): ("POST", "/api/docker/containers/{ref}/stop", "docker.manage", True),
+    ("docker", "open_container_terminal"): ("POST", "/api/docker/containers/{ref}/terminal", "docker.manage", True),
+    ("docker", "get_engine"): ("GET", "/api/docker/engine", "docker.read", False),
+    ("docker", "list_images"): ("GET", "/api/docker/images", "docker.read", False),
+    ("docker", "remove_image"): ("DELETE", "/api/docker/images/{image_id}", "docker.manage", True),
+    ("docker", "list_networks"): ("GET", "/api/docker/networks", "docker.read", False),
+    ("docker", "remove_network"): ("DELETE", "/api/docker/networks/{ref}", "docker.manage", True),
+    ("docker", "get_restart_loss"): ("GET", "/api/docker/restart-loss", "docker.read", False),
+    ("docker", "list_stacks"): ("GET", "/api/docker/stacks", "docker.read", False),
+    ("docker", "get_stack"): ("GET", "/api/docker/stacks/{name}", "docker.read", False),
+    ("docker", "get_summary"): ("GET", "/api/docker/summary", "docker.read", False),
+    ("docker", "list_volumes"): ("GET", "/api/docker/volumes", "docker.read", False),
+    ("docker", "get_volume_sizes"): ("GET", "/api/docker/volumes/sizes", "docker.read", False),
+    ("docker", "remove_volume"): ("DELETE", "/api/docker/volumes/{name}", "docker.manage", True),
     ("domains", "list_client_certificates"): ("GET", "/api/apps/{domain}/client-certs", "apps.read", False),
     ("domains", "issue_client_certificate"): ("POST", "/api/apps/{domain}/client-certs", "apps.manage", True),
     ("domains", "get_client_authority"): ("GET", "/api/apps/{domain}/client-certs/ca", "apps.read", False),
@@ -703,6 +725,14 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("fleet", "view_cron"): ("GET", "/api/views/cron", "apps.read", False),
     ("fleet", "view_databases"): ("GET", "/api/views/databases", "databases.read", False),
     ("fleet", "view_deliveries"): ("GET", "/api/views/deliveries", "settings.read", False),
+    ("fleet", "view_docker_attention"): ("GET", "/api/views/docker/attention", "docker.read", False),
+    ("fleet", "view_docker_containers"): ("GET", "/api/views/docker/containers", "docker.read", False),
+    ("fleet", "view_docker_engine"): ("GET", "/api/views/docker/engine", "docker.read", False),
+    ("fleet", "view_docker_images"): ("GET", "/api/views/docker/images", "docker.read", False),
+    ("fleet", "view_docker_networks"): ("GET", "/api/views/docker/networks", "docker.read", False),
+    ("fleet", "view_docker_stacks"): ("GET", "/api/views/docker/stacks", "docker.read", False),
+    ("fleet", "view_docker_summary"): ("GET", "/api/views/docker/summary", "docker.read", False),
+    ("fleet", "view_docker_volumes"): ("GET", "/api/views/docker/volumes", "docker.read", False),
     ("fleet", "view_logs"): ("GET", "/api/views/logs", "apps.read", False),
     ("fleet", "view_search"): ("GET", "/api/views/search", "apps.read", False),
     ("fleet", "view_sites"): ("GET", "/api/views/sites", "apps.read", False),
@@ -5942,6 +5972,190 @@ class Deployments:
 
 
 
+class Docker:
+    """Docker: 22 operations."""
+
+    def __init__(self, call: Call) -> None:
+        self._call = call
+
+    def apply_cleanup(self, body: "DockerCleanupRequest") -> "JobAcceptedResponse":
+        """POST /api/docker/cleanup
+
+        Apply Cleanup
+
+        Needs: permission `docker.manage`, sudo mode, a second person's approval can be required."""
+        return self._call("POST", "/api/docker/cleanup", query=None, body=body)
+
+    def get_cleanup_plan(self) -> "DockerCleanupPlanOut":
+        """GET /api/docker/cleanup/plan
+
+        Get Cleanup Plan
+
+        Needs: permission `docker.read`."""
+        return self._call("GET", "/api/docker/cleanup/plan", query=None, body=None)
+
+    def list_containers(self, *, offset: Union[int, None] = None, limit: Union[int, None] = None, owner: Union[str, None] = None, app: Union[str, None] = None, state: Union[str, None] = None, project: Union[str, None] = None, search: Union[str, None] = None) -> "DockerContainersOut":
+        """GET /api/docker/containers
+
+        List Containers
+
+        Needs: permission `docker.read`."""
+        return self._call("GET", "/api/docker/containers", query={"offset": offset, "limit": limit, "owner": owner, "app": app, "state": state, "project": project, "search": search}, body=None)
+
+    def get_container(self, ref: str) -> "DockerContainerDetailOut":
+        """GET /api/docker/containers/{ref}
+
+        Get Container
+
+        Needs: permission `docker.read`."""
+        return self._call("GET", f"/api/docker/containers/{quote(str(ref), safe='')}", query=None, body=None)
+
+    def remove_container(self, ref: str, *, force: Union[bool, None] = None) -> "DockerActionOut":
+        """DELETE /api/docker/containers/{ref}
+
+        Remove Container
+
+        Needs: permission `docker.manage`, sudo mode, a second person's approval can be required."""
+        return self._call("DELETE", f"/api/docker/containers/{quote(str(ref), safe='')}", query={"force": force}, body=None)
+
+    def get_container_logs(self, ref: str, *, tail: Union[int, None] = None) -> "DockerLogsOut":
+        """GET /api/docker/containers/{ref}/logs
+
+        Get Container Logs
+
+        Needs: permission `docker.read`."""
+        return self._call("GET", f"/api/docker/containers/{quote(str(ref), safe='')}/logs", query={"tail": tail}, body=None)
+
+    def restart_container(self, ref: str) -> "DockerActionOut":
+        """POST /api/docker/containers/{ref}/restart
+
+        Restart Container
+
+        Needs: permission `docker.manage`, sudo mode."""
+        return self._call("POST", f"/api/docker/containers/{quote(str(ref), safe='')}/restart", query=None, body=None)
+
+    def start_container(self, ref: str) -> "DockerActionOut":
+        """POST /api/docker/containers/{ref}/start
+
+        Start Container
+
+        Needs: permission `docker.manage`, sudo mode."""
+        return self._call("POST", f"/api/docker/containers/{quote(str(ref), safe='')}/start", query=None, body=None)
+
+    def stop_container(self, ref: str) -> "DockerActionOut":
+        """POST /api/docker/containers/{ref}/stop
+
+        Stop Container
+
+        Needs: permission `docker.manage`, sudo mode."""
+        return self._call("POST", f"/api/docker/containers/{quote(str(ref), safe='')}/stop", query=None, body=None)
+
+    def open_container_terminal(self, ref: str, body: "TerminalRequest") -> "TerminalTicketResponse":
+        """POST /api/docker/containers/{ref}/terminal
+
+        Open Container Terminal
+
+        Needs: permission `docker.manage`, sudo mode."""
+        return self._call("POST", f"/api/docker/containers/{quote(str(ref), safe='')}/terminal", query=None, body=body)
+
+    def get_engine(self) -> "DockerEngineOut":
+        """GET /api/docker/engine
+
+        Get Engine
+
+        Needs: permission `docker.read`."""
+        return self._call("GET", "/api/docker/engine", query=None, body=None)
+
+    def list_images(self, *, offset: Union[int, None] = None, limit: Union[int, None] = None, owner: Union[str, None] = None, search: Union[str, None] = None) -> "DockerImagesOut":
+        """GET /api/docker/images
+
+        List Images
+
+        Needs: permission `docker.read`."""
+        return self._call("GET", "/api/docker/images", query={"offset": offset, "limit": limit, "owner": owner, "search": search}, body=None)
+
+    def remove_image(self, image_id: str) -> "DockerActionOut":
+        """DELETE /api/docker/images/{image_id}
+
+        Remove Image
+
+        Needs: permission `docker.manage`, sudo mode, a second person's approval can be required."""
+        return self._call("DELETE", f"/api/docker/images/{quote(str(image_id), safe='')}", query=None, body=None)
+
+    def list_networks(self, *, offset: Union[int, None] = None, limit: Union[int, None] = None, owner: Union[str, None] = None, search: Union[str, None] = None) -> "DockerNetworksOut":
+        """GET /api/docker/networks
+
+        List Networks
+
+        Needs: permission `docker.read`."""
+        return self._call("GET", "/api/docker/networks", query={"offset": offset, "limit": limit, "owner": owner, "search": search}, body=None)
+
+    def remove_network(self, ref: str) -> "DockerActionOut":
+        """DELETE /api/docker/networks/{ref}
+
+        Remove Network
+
+        Needs: permission `docker.manage`, sudo mode, a second person's approval can be required."""
+        return self._call("DELETE", f"/api/docker/networks/{quote(str(ref), safe='')}", query=None, body=None)
+
+    def get_restart_loss(self) -> "DockerRestartLossOut":
+        """GET /api/docker/restart-loss
+
+        Get Restart Loss
+
+        Needs: permission `docker.read`."""
+        return self._call("GET", "/api/docker/restart-loss", query=None, body=None)
+
+    def list_stacks(self, *, offset: Union[int, None] = None, limit: Union[int, None] = None, owner: Union[str, None] = None, search: Union[str, None] = None) -> "DockerStacksOut":
+        """GET /api/docker/stacks
+
+        List Stacks
+
+        Needs: permission `docker.read`."""
+        return self._call("GET", "/api/docker/stacks", query={"offset": offset, "limit": limit, "owner": owner, "search": search}, body=None)
+
+    def get_stack(self, name: str) -> "DockerStackDetailOut":
+        """GET /api/docker/stacks/{name}
+
+        Get Stack
+
+        Needs: permission `docker.read`."""
+        return self._call("GET", f"/api/docker/stacks/{quote(str(name), safe='')}", query=None, body=None)
+
+    def get_summary(self) -> "DockerSummaryOut":
+        """GET /api/docker/summary
+
+        Get Summary
+
+        Needs: permission `docker.read`."""
+        return self._call("GET", "/api/docker/summary", query=None, body=None)
+
+    def list_volumes(self, *, offset: Union[int, None] = None, limit: Union[int, None] = None, owner: Union[str, None] = None, search: Union[str, None] = None) -> "DockerVolumesOut":
+        """GET /api/docker/volumes
+
+        List Volumes
+
+        Needs: permission `docker.read`."""
+        return self._call("GET", "/api/docker/volumes", query={"offset": offset, "limit": limit, "owner": owner, "search": search}, body=None)
+
+    def get_volume_sizes(self) -> "DockerVolumeSizesOut":
+        """GET /api/docker/volumes/sizes
+
+        Get Volume Sizes
+
+        Needs: permission `docker.read`."""
+        return self._call("GET", "/api/docker/volumes/sizes", query=None, body=None)
+
+    def remove_volume(self, name: str, *, body: Union["DockerRemoveVolumeRequest", None] = None) -> "DockerActionOut":
+        """DELETE /api/docker/volumes/{name}
+
+        Remove Volume
+
+        Needs: permission `docker.manage`, sudo mode, a second person's approval can be required."""
+        return self._call("DELETE", f"/api/docker/volumes/{quote(str(name), safe='')}", query=None, body=body)
+
+
+
 class Domains:
     """Domains: 31 operations."""
 
@@ -6199,7 +6413,7 @@ class Domains:
 
 
 class Fleet:
-    """Fleet: 69 operations."""
+    """Fleet: 77 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -6741,6 +6955,70 @@ class Fleet:
 
         Needs: permission `settings.read`."""
         return self._call("GET", "/api/views/deliveries", query={"node": node, "refresh": refresh, "state": state, "channel": channel, "limit": limit}, body=None)
+
+    def view_docker_attention(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None) -> "ViewOut":
+        """GET /api/views/docker/attention
+
+        View Docker Attention
+
+        Needs: permission `docker.read`."""
+        return self._call("GET", "/api/views/docker/attention", query={"node": node, "refresh": refresh}, body=None)
+
+    def view_docker_containers(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None, limit: Union[int, None] = None, owner: Union[str, None] = None, app: Union[str, None] = None, state: Union[str, None] = None, project: Union[str, None] = None, search: Union[str, None] = None) -> "ViewOut":
+        """GET /api/views/docker/containers
+
+        View Docker Containers
+
+        Needs: permission `docker.read`."""
+        return self._call("GET", "/api/views/docker/containers", query={"node": node, "refresh": refresh, "limit": limit, "owner": owner, "app": app, "state": state, "project": project, "search": search}, body=None)
+
+    def view_docker_engine(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None) -> "ViewOut":
+        """GET /api/views/docker/engine
+
+        View Docker Engine
+
+        Needs: permission `docker.read`."""
+        return self._call("GET", "/api/views/docker/engine", query={"node": node, "refresh": refresh}, body=None)
+
+    def view_docker_images(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None, limit: Union[int, None] = None, owner: Union[str, None] = None, search: Union[str, None] = None) -> "ViewOut":
+        """GET /api/views/docker/images
+
+        View Docker Images
+
+        Needs: permission `docker.read`."""
+        return self._call("GET", "/api/views/docker/images", query={"node": node, "refresh": refresh, "limit": limit, "owner": owner, "search": search}, body=None)
+
+    def view_docker_networks(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None, limit: Union[int, None] = None, owner: Union[str, None] = None, search: Union[str, None] = None) -> "ViewOut":
+        """GET /api/views/docker/networks
+
+        View Docker Networks
+
+        Needs: permission `docker.read`."""
+        return self._call("GET", "/api/views/docker/networks", query={"node": node, "refresh": refresh, "limit": limit, "owner": owner, "search": search}, body=None)
+
+    def view_docker_stacks(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None, limit: Union[int, None] = None, owner: Union[str, None] = None, search: Union[str, None] = None) -> "ViewOut":
+        """GET /api/views/docker/stacks
+
+        View Docker Stacks
+
+        Needs: permission `docker.read`."""
+        return self._call("GET", "/api/views/docker/stacks", query={"node": node, "refresh": refresh, "limit": limit, "owner": owner, "search": search}, body=None)
+
+    def view_docker_summary(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None) -> "ViewOut":
+        """GET /api/views/docker/summary
+
+        View Docker Summary
+
+        Needs: permission `docker.read`."""
+        return self._call("GET", "/api/views/docker/summary", query={"node": node, "refresh": refresh}, body=None)
+
+    def view_docker_volumes(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None, limit: Union[int, None] = None, owner: Union[str, None] = None, search: Union[str, None] = None) -> "ViewOut":
+        """GET /api/views/docker/volumes
+
+        View Docker Volumes
+
+        Needs: permission `docker.read`."""
+        return self._call("GET", "/api/views/docker/volumes", query={"node": node, "refresh": refresh, "limit": limit, "owner": owner, "search": search}, body=None)
 
     def view_logs(self, *, node: Union[list[str], None] = None, refresh: Union[bool, None] = None, q: Union[str, None] = None, since: Union[str, None] = None, until: Union[str, None] = None, level: Union[str, None] = None, limit: Union[int, None] = None) -> "ViewOut":
         """GET /api/views/logs
@@ -10887,6 +11165,7 @@ class Api:
     databases: Databases
     deploy_keys: DeployKeys
     deployments: Deployments
+    docker: Docker
     domains: Domains
     fleet: Fleet
     fleet_settings: FleetSettings
@@ -10950,6 +11229,7 @@ class Api:
         self.databases = Databases(call)
         self.deploy_keys = DeployKeys(call)
         self.deployments = Deployments(call)
+        self.docker = Docker(call)
         self.domains = Domains(call)
         self.fleet = Fleet(call)
         self.fleet_settings = FleetSettings(call)

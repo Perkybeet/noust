@@ -49,7 +49,7 @@ from noust.core.runner import (
 from noust.core.server_text import say
 from noust.terminal import recording as recordings
 from noust.terminal.settings import TerminalSettings, load_settings
-from noust.terminal.targets import KIND_SERVER, SessionPlan
+from noust.terminal.targets import KIND_CONTAINER, KIND_SERVER, SessionPlan
 from noust.terminal.tickets import KIND_APP, TerminalGrant
 
 logger = logging.getLogger(__name__)
@@ -526,6 +526,8 @@ class TerminalSession:
         target = self.plan.target
         if target.kind == KIND_SERVER:
             return "server"
+        if target.kind == KIND_CONTAINER:
+            return f"container:{target.label}"
         return f"app:{target.domain}"
 
 

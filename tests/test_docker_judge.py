@@ -319,3 +319,64 @@ def test_every_command_a_refusal_names_is_one_that_exists() -> None:
                     assert exists(words), (words, refused.value.details)
                     seen += 1
     assert seen >= 10
+
+
+class TestAConsoleInAContainer:
+    """A shell is how an operator looks inside what runs; only what Noust runs for itself is never opened."""
+
+    @pytest.mark.parametrize("owner", [NOBODY, SHOP, ENGINE])
+    def test_it_is_let_through_for_what_nobody_made_an_application_and_an_engine(
+        self, owner: Owner
+    ) -> None:
+        judge(
+            owner,
+            Action.CONSOLE,
+            ObjectKind.CONTAINER,
+            "web-1",
+            restricted=False,
+            sees_app=see_everything,
+        )
+
+    @pytest.mark.parametrize("owner", [CENTRAL, HELPER])
+    def test_it_is_refused_in_what_noust_runs_for_itself(self, owner: Owner) -> None:
+        with pytest.raises(DockerOwnedError) as refused:
+            judge(
+                owner,
+                Action.CONSOLE,
+                ObjectKind.CONTAINER,
+                "noust",
+                restricted=False,
+                sees_app=see_everything,
+            )
+
+        assert "part of Noust" in refused.value.message
+        assert refused.value.owner_kind == "noust"
+
+    def test_a_team_member_is_told_the_container_does_not_exist_before_anything_else(self) -> None:
+        with pytest.raises(DockerNotFoundError):
+            judge(
+                BLOG,
+                Action.CONSOLE,
+                ObjectKind.CONTAINER,
+                "web-1",
+                restricted=True,
+                sees_app=see_only_the_shop,
+            )
+
+    def test_a_row_offers_it_exactly_where_it_would_be_let_through(self) -> None:
+        for owner, expected in (
+            (NOBODY, True),
+            (SHOP, True),
+            (ENGINE, True),
+            (CENTRAL, False),
+            (HELPER, False),
+        ):
+            offered = can(
+                owner, ObjectKind.CONTAINER, "web-1", restricted=False, sees_app=see_everything
+            )
+            assert offered.console is expected, owner
+
+    def test_only_a_container_has_one(self) -> None:
+        offered = can(NOBODY, ObjectKind.IMAGE, "x", restricted=False, sees_app=see_everything)
+
+        assert offered.console is False

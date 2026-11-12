@@ -80,6 +80,8 @@ from noust.web.api.deps import NoustErrorRoute, install_error_handlers
 from noust.web.api.diagnose import router as diagnose_router
 from noust.web.api.dns import apps_router as app_dns_router
 from noust.web.api.dns import router as dns_providers_router
+from noust.web.api.docker import router as docker_router
+from noust.web.api.docker_views import router as docker_views_router
 from noust.web.api.domains import dns_router
 from noust.web.api.domains import router as domains_router
 from noust.web.api.ens import router as ens_router
@@ -290,6 +292,7 @@ router.include_router(self_backup_router, prefix="/self-backup", tags=["Self Bac
 router.include_router(databases_router, prefix="/databases", tags=["Databases"])
 router.include_router(databases_apps_router, prefix="/apps", tags=["Databases"])
 router.include_router(cron_router, prefix="/cron", tags=["Cron Jobs"])
+router.include_router(docker_router, prefix="/docker", tags=["Docker"])
 router.include_router(deployments_router, prefix="/deployments", tags=["Deployments"])
 router.include_router(first_deploys_router, prefix="/first-deploys", tags=["Deployments"])
 # Mounted at the same "/apps" prefix as apps_router: diagnose.py owns exactly
@@ -462,6 +465,7 @@ router.include_router(approvals_router, prefix="/approvals", tags=["Approvals"])
 router.include_router(fleet_router, prefix="/fleet", tags=["Fleet"])
 # The page of a resource across the servers, whether there is a fleet or not.
 router.include_router(views_router, prefix="/views", tags=["Fleet"])
+router.include_router(docker_views_router, prefix="/views/docker", tags=["Fleet"])
 router.include_router(fleet_settings_router, prefix="/fleet", tags=["Fleet settings"])
 router.include_router(fleet_sources_router, prefix="/fleet", tags=["Sources"])
 router.include_router(fleet_placements_router, prefix="/fleet/placements", tags=["Fleet"])

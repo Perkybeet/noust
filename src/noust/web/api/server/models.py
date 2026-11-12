@@ -607,6 +607,25 @@ class CleanupRunOut(BaseModel):
     actor: str | None = None
 
 
+class CleanupEntryOut(BaseModel):
+    """
+    One thing a cleanup would remove: what it is, whose it is and how much it holds.
+
+    Attributes:
+        name: What it is called (an image's name, ``Docker build cache``).
+        owner: Whose it is: ``kind`` (``app``, ``database``, ``noust`` or ``nobody``), ``subject`` and
+            ``project``.
+        size_bytes: How much it takes, when Docker said.
+        reason: Why it is offered: ``unused`` (no container uses it and no application keeps it to go
+            back to), ``dangling`` (no name and no container) or ``build-cache``.
+    """
+
+    name: str
+    owner: dict[str, str]
+    size_bytes: int | None = None
+    reason: str
+
+
 class CleanupPlanOut(BaseModel):
     """
     What a cleanup would do.
@@ -618,6 +637,9 @@ class CleanupPlanOut(BaseModel):
         needs_confirmation: It takes something the operator may want back.
         items: What it would remove, when the action can list it.
         effect_coded: ``effect`` as a code and its values, for the console to translate.
+        entries: What it would remove, each with whose it is and how much it holds; for a Docker
+            action, the images or the cache, and never a volume (the Docker zone's plan,
+            ``GET /api/docker/cleanup/plan``, is the one that offers volumes, named one by one).
     """
 
     action: str
@@ -626,6 +648,7 @@ class CleanupPlanOut(BaseModel):
     needs_confirmation: bool
     items: list[str] = Field(default_factory=list)
     effect_coded: CodedText | None = None
+    entries: list[CleanupEntryOut] = Field(default_factory=list)
 
 
 # -- swap ----------------------------------------------------------------------

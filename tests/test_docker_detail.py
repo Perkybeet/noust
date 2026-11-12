@@ -28,6 +28,7 @@ import pytest
 
 from noust.core.docker import events, inspect, states, stats
 from noust.core.docker.models import Container
+from noust.core.docker.owners import Registry
 from tests.support.docker_machine import DockerMachine, full_id
 
 NOW = datetime(2026, 11, 12, 12, 0, 0, tzinfo=timezone.utc)
@@ -403,3 +404,36 @@ class TestRestartsOfTheLastMinutes:
         machine.script(["docker", "events"], stdout="nonsense\n{}\n[]\n")
 
         assert events.recent_restarts(machine, minutes=10, now=1_700_000_600) == {}
+
+
+class TestWhatAnInspectionMayCarry:
+    def test_a_big_machine_is_asked_in_chunks_so_that_no_command_is_too_long(self) -> None:
+        machine = DockerMachine()
+        ids = [format(number, "064x") for number in range(450)]
+
+        inspect.read_inspect(machine, ids)
+
+        asked = [call for call in machine.calls if call[:2] == ("docker", "inspect")]
+        assert [len(call[6:]) for call in asked] == [inspect.MAX_IDS, 450 - inspect.MAX_IDS]
+
+    def test_what_the_health_check_printed_and_what_docker_said_of_a_failed_start_are_masked(
+        self,
+    ) -> None:
+        from noust.core.docker.gate import DockerGate
+
+        machine = DockerMachine()
+        machine.box(
+            "web",
+            health="unhealthy",
+            health_output="curl -H 'Authorization: Bearer abcdefghijklmnop123456' failed",
+            error="OCI runtime create failed: password=hunter2hunter2",
+        )
+
+        found = DockerGate(machine, registry=lambda: Registry()).container_detail("web")
+
+        body = found.to_dict()
+        assert "abcdefghijklmnop123456" not in str(body)
+        assert "hunter2hunter2" not in str(body)
+        assert body["why"]["health"]["status"] == "unhealthy"
+        assert "curl -H" in body["why"]["health"]["last_output"]
+        assert body["why"]["error"].startswith("OCI runtime create failed")

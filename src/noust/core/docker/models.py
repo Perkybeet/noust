@@ -52,6 +52,10 @@ class Action(str, Enum):
     STOP = "stop"
     RESTART = "restart"
     REMOVE = "remove"
+    #: Open a shell in a container. It changes what the container is running, so it is judged like the
+    #: rest, but it is allowed in what an application or an engine owns: a shell is how an operator
+    #: looks inside one (what Noust's own is, is never opened).
+    CONSOLE = "console"
 
 
 class OwnerKind(str, Enum):

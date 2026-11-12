@@ -51,7 +51,9 @@ MAX_PENDING = 256
 #: What a ticket can open.
 KIND_APP = "app"
 KIND_SERVER = "server"
-KINDS = (KIND_APP, KIND_SERVER)
+#: A shell in a container of the Docker zone, whoever's it is (4.3).
+KIND_CONTAINER = "container"
+KINDS = (KIND_APP, KIND_SERVER, KIND_CONTAINER)
 
 
 class TicketRefused(SecurityError):
@@ -81,8 +83,9 @@ class TerminalGrant:
     Attributes:
         session_id: The identifier the session will have, chosen at minting so
             the audit trail links the ticket to the session it opened.
-        kind: :data:`KIND_APP` or :data:`KIND_SERVER`.
-        domain: The application, for an application's terminal.
+        kind: :data:`KIND_APP`, :data:`KIND_SERVER` or :data:`KIND_CONTAINER`.
+        domain: The application, for an application's terminal, and for a container's that is an
+            application's.
         service: The Compose service, for a stack's; None for the only or the
             default one.
         shell: The shell asked for, by name; None for the default.
@@ -94,6 +97,7 @@ class TerminalGrant:
         expires_at: ``time.time()`` after which it is worth nothing.
         resume: The session to go back to, when the ticket is for a connection
             that dropped and not for a new terminal.
+        container: The id of the container, for a container's terminal.
     """
 
     session_id: str
@@ -108,6 +112,7 @@ class TerminalGrant:
     client_ip: str
     expires_at: float
     resume: str | None = None
+    container: str | None = None
 
 
 #: What a session's identifier looks like: sixteen hexadecimal digits.
@@ -164,12 +169,13 @@ class TicketStore:
         actor: str,
         client_ip: str,
         resume: str | None = None,
+        container: str | None = None,
     ) -> tuple[str, TerminalGrant]:
         """
         Issue a ticket for one terminal.
 
         Args:
-            kind: :data:`KIND_APP` or :data:`KIND_SERVER`.
+            kind: :data:`KIND_APP`, :data:`KIND_SERVER` or :data:`KIND_CONTAINER`.
             domain: The application, for an application's terminal.
             service: The Compose service, if one was named.
             shell_name: The shell asked for, if one was.
@@ -179,6 +185,7 @@ class TicketStore:
             actor: Who it is, for the audit trail.
             client_ip: Where the call came from.
             resume: The session to go back to, for a connection that dropped.
+            container: The id of the container, for a container's terminal.
 
         Returns:
             The ticket value, which is shown once, and what it authorises.
@@ -206,6 +213,7 @@ class TicketStore:
             client_ip=client_ip,
             expires_at=now + self._ttl,
             resume=resume,
+            container=container,
         )
         with self._lock:
             self._forget_expired(now)

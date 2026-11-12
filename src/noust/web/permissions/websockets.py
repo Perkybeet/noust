@@ -37,6 +37,9 @@ WEBSOCKETS: dict[str, str] = {
     # An application's journal, like GET /api/apps/{domain}/logs. The
     # console's own journal is refused below admin by the handler as well.
     "/ws/logs/{domain}": Permission.APPS_READ,
+    # A container's log, followed live, like GET /api/docker/containers/{ref}/logs. The
+    # handler holds it to the machine: a person of a team is told the container is not there.
+    "/ws/docker/logs/{ref}": Permission.DOCKER_READ,
     # A terminal in an application (the server's is judged again by the handler, which
     # asks for what a root shell needs). Opened with a ticket the HTTP route minted.
     "/ws/terminal": Permission.APPS_TERMINAL,

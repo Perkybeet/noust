@@ -42,7 +42,11 @@ from noust.core.docker import engine as engine_module
 from noust.core.docker import events, inspect, reading, states, stats
 from noust.core.docker import restart_loss as restart_loss_module
 from noust.core.docker import summary as summary_module
-from noust.core.docker.errors import DockerPlanChangedError, DockerUnavailableError
+from noust.core.docker.errors import (
+    DockerPlanChangedError,
+    DockerRefusedError,
+    DockerUnavailableError,
+)
 from noust.core.docker.judge import Can, can, judge, not_found, visible
 from noust.core.docker.models import (
     Action,
@@ -132,6 +136,33 @@ def _normal(reference: str) -> str:
     if "@" in last or ":" in last or reference.startswith("sha256:"):
         return reference
     return f"{reference}:latest"
+
+
+def _cut(
+    items: Sequence[T],
+    owner: OwnerKind | None,
+    search: str | None,
+    words: Callable[[T], Sequence[str]],
+) -> list[T]:
+    """
+    Cut a listing by who owns each thing and by a few words.
+
+    Args:
+        items: Objects that have an ``owner``.
+        owner: Keep only those of this kind of owner.
+        search: Keep only those that have this text in one of their words, any case.
+        words: The words of an object a search looks in.
+
+    Returns:
+        What is left, in order.
+    """
+    found = list(items)
+    if owner is not None:
+        found = [item for item in found if item.owner.kind is owner]  # type: ignore[attr-defined]
+    if search:
+        needle = search.lower()
+        found = [item for item in found if any(needle in word.lower() for word in words(item))]
+    return found
 
 
 def _page(items: Sequence[T], offset: int, limit: int | None) -> Page[T]:
@@ -490,13 +521,23 @@ class DockerGate:
             found = [c for c in found if needle in c.name.lower() or needle in c.image.lower()]
         return _page(sorted(found, key=lambda c: c.name), offset, limit)
 
-    def images(self, *, offset: int = 0, limit: int | None = None) -> Page[Image]:
+    def images(
+        self,
+        *,
+        offset: int = 0,
+        limit: int | None = None,
+        owner: OwnerKind | None = None,
+        search: str | None = None,
+    ) -> Page[Image]:
         """
         List the images the principal sees, with who runs each and whether it is a way back.
 
         Args:
             offset: Where the page starts.
             limit: How many at most; all when None.
+            owner: Only those of this kind of owner.
+            search: Only those whose name, id or the name of a container that uses it contains this
+                text, any case.
 
         Returns:
             The page, by name.
@@ -506,7 +547,13 @@ class DockerGate:
             DockerUnavailableError: Docker cannot be asked.
         """
         owned, index = self._look()
-        return _page(self._images_of(owned, index), offset, limit)
+        found = _cut(
+            self._images_of(owned, index),
+            owner,
+            search,
+            lambda i: [*i.tags, i.id, *i.used_by],
+        )
+        return _page(found, offset, limit)
 
     def _images_of(self, owned: Sequence[Container], index: OwnerIndex) -> list[Image]:
         """
@@ -542,13 +589,23 @@ class DockerGate:
         asked = reference.removeprefix("sha256:")
         return len(asked) >= 12 and bare.startswith(asked)
 
-    def volumes(self, *, offset: int = 0, limit: int | None = None) -> Page[Volume]:
+    def volumes(
+        self,
+        *,
+        offset: int = 0,
+        limit: int | None = None,
+        owner: OwnerKind | None = None,
+        search: str | None = None,
+    ) -> Page[Volume]:
         """
         List the volumes the principal sees, with who mounts each. Sizes are not measured here.
 
         Args:
             offset: Where the page starts.
             limit: How many at most; all when None.
+            owner: Only those of this kind of owner.
+            search: Only those whose name or the name of a container that mounts it contains this
+                text, any case.
 
         Returns:
             The page, by name.
@@ -558,7 +615,8 @@ class DockerGate:
             DockerUnavailableError: Docker cannot be asked.
         """
         owned, index = self._look()
-        return _page(self._volumes_of(owned, index), offset, limit)
+        found = _cut(self._volumes_of(owned, index), owner, search, lambda v: [v.name, *v.used_by])
+        return _page(found, offset, limit)
 
     def _volumes_of(self, owned: Sequence[Container], index: OwnerIndex) -> list[Volume]:
         """
@@ -593,13 +651,23 @@ class DockerGate:
             name: size for name, size in reading.volume_sizes(self.runner).items() if name in seen
         }
 
-    def networks(self, *, offset: int = 0, limit: int | None = None) -> Page[Network]:
+    def networks(
+        self,
+        *,
+        offset: int = 0,
+        limit: int | None = None,
+        owner: OwnerKind | None = None,
+        search: str | None = None,
+    ) -> Page[Network]:
         """
         List the networks the principal sees, with the containers on each.
 
         Args:
             offset: Where the page starts.
             limit: How many at most; all when None.
+            owner: Only those of this kind of owner.
+            search: Only those whose name or the name of a container on it contains this text, any
+                case.
 
         Returns:
             The page, by name.
@@ -609,7 +677,10 @@ class DockerGate:
             DockerUnavailableError: Docker cannot be asked.
         """
         owned, index = self._look()
-        return _page(self._networks_of(owned, index), offset, limit)
+        found = _cut(
+            self._networks_of(owned, index), owner, search, lambda n: [n.name, *n.containers]
+        )
+        return _page(found, offset, limit)
 
     def _networks_of(self, owned: Sequence[Container], index: OwnerIndex) -> list[Network]:
         """
@@ -629,13 +700,23 @@ class DockerGate:
                 found.append(network)
         return sorted(found, key=lambda n: n.name)
 
-    def projects(self, *, offset: int = 0, limit: int | None = None) -> Page[ComposeProject]:
+    def projects(
+        self,
+        *,
+        offset: int = 0,
+        limit: int | None = None,
+        owner: OwnerKind | None = None,
+        search: str | None = None,
+    ) -> Page[ComposeProject]:
         """
         List the Compose projects the principal sees, as their containers show them.
 
         Args:
             offset: Where the page starts.
             limit: How many at most; all when None.
+            owner: Only those of this kind of owner.
+            search: Only those whose name, directory or the name of a container of it contains this
+                text, any case.
 
         Returns:
             The page, by name.
@@ -645,8 +726,13 @@ class DockerGate:
             DockerUnavailableError: Docker cannot be asked.
         """
         owned, index = self._look()
-        found = self._projects_of(owned, index)
-        return _page([project for project, _members in found], offset, limit)
+        found = _cut(
+            [project for project, _members in self._projects_of(owned, index)],
+            owner,
+            search,
+            lambda p: [p.name, p.working_dir, *p.containers],
+        )
+        return _page(found, offset, limit)
 
     def _projects_of(
         self,
@@ -732,6 +818,7 @@ class DockerGate:
         thing: Container | Image | Volume | Network,
         *,
         manage: bool = True,
+        console: bool = True,
     ) -> Can:
         """
         What the principal may do to an object, for a row of the console to offer.
@@ -743,21 +830,27 @@ class DockerGate:
             thing: A container, an image, a volume or a network, with its owner.
             manage: Whether the principal may change Docker at all (the permission to). A principal
                 that may not is offered nothing and told nothing of who owns what.
+            console: Whether the principal may open a shell in this container (what it needs
+                depends on whose it is, which the caller knows from ``thing.owner``).
 
         Returns:
             What is allowed, and where the rest is done.
         """
         if not manage:
-            return Can.none()
+            return Can(blocked="permission")
+        users: Sequence[str] = ()
         if isinstance(thing, Container):
             kind, name = ObjectKind.CONTAINER, thing.name
         elif isinstance(thing, Image):
             kind, name = ObjectKind.IMAGE, thing.tags[0] if thing.tags else thing.id
+            users = thing.used_by
         elif isinstance(thing, Volume):
             kind, name = ObjectKind.VOLUME, thing.name
+            users = thing.used_by
         else:
             kind, name = ObjectKind.NETWORK, thing.name
-        return can(
+            users = thing.containers
+        verdict = can(
             thing.owner,
             kind,
             name,
@@ -765,6 +858,13 @@ class DockerGate:
             sees_app=self._sees,
             builtin=isinstance(thing, Network) and thing.builtin,
         )
+        if not console:
+            verdict = replace(verdict, console=False)
+        if users and verdict.remove:
+            # Docker refuses what something still uses, and a button that ends there is a button
+            # that should not have been drawn.
+            return replace(verdict, remove=False, blocked="in_use")
+        return verdict
 
     # -- finding one -----------------------------------------------------------------------
 
@@ -893,6 +993,28 @@ class DockerGate:
 
     # -- a container from the inside ---------------------------------------------------------
 
+    def container_for_console(self, ref: str) -> Container:
+        """
+        Find a container a shell may be opened in.
+
+        The container is resolved to its owner and judged (:attr:`Action.CONSOLE`) before anything
+        else is asked of it, so the id of a container cannot reach what its name could not.
+
+        Args:
+            ref: Its name or id.
+
+        Returns:
+            The container, with its owner.
+
+        Raises:
+            DockerNotFoundError: There is none, or the principal may not see it.
+            DockerOwnedError: It is part of Noust, which is never opened.
+            DockerUnavailableError: Docker cannot be asked.
+        """
+        target = self.container(ref)
+        self._judge(target.owner, Action.CONSOLE, ObjectKind.CONTAINER, target.name)
+        return target
+
     def container_detail(self, ref: str) -> ContainerDetail:
         """
         Look at one container: why it is the way it is, where it comes from and what it uses.
@@ -910,6 +1032,8 @@ class DockerGate:
         """
         container = self.container(ref)
         seen = inspect.read_inspect(self.runner, [container.id]).get(container.id)
+        if seen is not None:
+            seen = self._masked(container, seen)
         state = states.classify_container(
             container,
             exit_code=seen.exit_code if seen else None,
@@ -932,6 +1056,26 @@ class DockerGate:
         if state.problem or not container.running:
             last = self._lines(container, WHY_LINES, timestamps=False)
         return ContainerDetail(container, state, seen, usage, last, recent)
+
+    def _masked(self, container: Container, seen: inspect.Inspected) -> inspect.Inspected:
+        """
+        Mask the credentials in the words an inspection carries that a program wrote.
+
+        What a health check printed and what Docker said of a start that failed are text that a
+        program produced, like a log, and can hold what the program was given.
+
+        Args:
+            container: The container the words are about.
+            seen: What ``inspect`` said of it.
+
+        Returns:
+            The same, with those words masked.
+        """
+        scrubber = self._scrubber_for(container)
+        health = seen.health
+        if health is not None:
+            health = replace(health, last_output=scrubber.scrub(health.last_output))
+        return replace(seen, health=health, error=scrubber.scrub(seen.error))
 
     def _lines(self, container: Container, tail: int, *, timestamps: bool) -> str:
         """
@@ -1077,12 +1221,36 @@ class DockerGate:
 
     # -- the machine in short ------------------------------------------------------------------
 
-    def summary(self) -> summary_module.Summary:
+    def require_usable(
+        self, report: engine_module.EngineReport | None = None
+    ) -> engine_module.EngineReport:
+        """
+        Make sure containers can be looked at and controlled with this Docker.
+
+        Args:
+            report: The engine's report, when a caller has just asked for it.
+
+        Returns:
+            The report.
+
+        Raises:
+            DockerUnavailableError: Docker is not there, or does not answer, or is below what Noust
+                speaks; the doctor's own sentence says which.
+        """
+        report = report or self.doctor()
+        if not report.usable:
+            raise self._unusable(report)
+        return report
+
+    def summary(self, report: engine_module.EngineReport | None = None) -> summary_module.Summary:
         """
         Say what asks for the operator, worst first, and how much there is of each thing.
 
         One look at the containers, one ``inspect`` of all of them and one question about restarts:
         a handful of processes however big the machine is.
+
+        Args:
+            report: The engine's report, when a caller has just asked for it.
 
         Returns:
             The summary.
@@ -1091,9 +1259,7 @@ class DockerGate:
             DockerUnavailableError: Docker is not there, or does not answer, or is below what Noust
                 speaks.
         """
-        report = self.doctor()
-        if not report.usable:
-            raise self._unusable(report)
+        report = self.require_usable(report)
         owned, index = self._look()
         shown = [c for c in owned if self._visible(c.owner)]
         seen = inspect.read_inspect(self.runner, [c.id for c in shown])
@@ -1402,30 +1568,26 @@ class DockerGate:
             cache_bytes=cache,
         )
 
-    def apply_cleanup(
+    def prepare_cleanup(
         self,
         token: str,
         select: Sequence[str],
         *,
         confirm_names: Mapping[str, str] | None = None,
-        on_line: Callable[[str], None] | None = None,
-    ) -> cleanup_module.CleanupResult:
+    ) -> list[cleanup_module.PlanItem]:
         """
-        Apply a cleanup plan as it was shown.
+        Check that what a person chose is what the plan of now holds, before anything is touched.
 
         The plan is worked out again and must be the one the token names; what is chosen must be in
-        it, and each volume chosen must have been named by the person before anything is touched.
-        Then each thing is removed through the gate, which judges its owner once more, and one that
-        Docker refuses is told and does not stop the rest.
+        it, and each volume chosen must have been named by the person.
 
         Args:
             token: The token of the plan that was shown.
             select: The ids of what to remove: ``PlanItem.id`` of items of the plan.
             confirm_names: For each volume chosen, its name as the person typed it.
-            on_line: Told each thing that was removed, as a sentence.
 
         Returns:
-            What was removed, what Docker refused and what was freed.
+            The items chosen, in the order they go.
 
         Raises:
             DockerPlanChangedError: The plan is not the one that was shown; nothing was changed.
@@ -1433,7 +1595,6 @@ class DockerGate:
             ConfirmationRequired: A volume was chosen and not named; nothing was changed.
             DockerUnavailableError: Docker cannot be asked.
         """
-        say = on_line or (lambda line: None)
         plan = self.cleanup_plan()
         if plan.token != token:
             raise DockerPlanChangedError(
@@ -1466,6 +1627,40 @@ class DockerGate:
                 ],
                 field="confirm_names",
             )
+        return chosen
+
+    def apply_cleanup(
+        self,
+        token: str,
+        select: Sequence[str],
+        *,
+        confirm_names: Mapping[str, str] | None = None,
+        on_line: Callable[[str], None] | None = None,
+    ) -> cleanup_module.CleanupResult:
+        """
+        Apply a cleanup plan as it was shown.
+
+        What is chosen is checked first (:meth:`prepare_cleanup`). Then each thing is removed through
+        the gate, which judges its owner once more, and one that Docker refuses is told and does not
+        stop the rest.
+
+        Args:
+            token: The token of the plan that was shown.
+            select: The ids of what to remove: ``PlanItem.id`` of items of the plan.
+            confirm_names: For each volume chosen, its name as the person typed it.
+            on_line: Told each thing that was removed, as a sentence.
+
+        Returns:
+            What was removed, what Docker refused and what was freed.
+
+        Raises:
+            DockerPlanChangedError: The plan is not the one that was shown; nothing was changed.
+            ValidationError: Something chosen is not in the plan, or nothing was chosen.
+            ConfirmationRequired: A volume was chosen and not named; nothing was changed.
+            DockerUnavailableError: Docker cannot be asked.
+        """
+        say = on_line or (lambda line: None)
+        chosen = self.prepare_cleanup(token, select, confirm_names=confirm_names)
         result = cleanup_module.CleanupResult()
         for item in chosen:
             try:
@@ -1516,7 +1711,7 @@ class DockerGate:
                 self.prune_build_cache_argv(), on_line=collected.append, timeout=CLEANUP_TIMEOUT
             )
             if not outcome.success:
-                raise DockerError(
+                raise DockerRefusedError(
                     "Docker could not prune the build cache",
                     details="Docker's own message is below.",
                     output="\n".join(collected[-40:]) or outcome.stderr,
@@ -1539,7 +1734,7 @@ class DockerGate:
         """
         result = self.runner.run(argv, timeout=ACTION_TIMEOUT)
         if not result.success:
-            raise DockerError(
+            raise DockerRefusedError(
                 f"Docker could not {what}",
                 details="Docker's own message is below.",
                 output=(result.stderr or result.stdout).strip() or f"exit code {result.exit_code}",

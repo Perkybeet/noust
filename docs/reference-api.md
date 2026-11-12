@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-1148 operations.
+1178 operations.
 
 ## Access
 
@@ -685,6 +685,33 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/first-deploys` | List First Deploys | `apps.read` |  |  |
 | POST | `/api/first-deploys/{attempt}/dismiss` | Dismiss First Deploy | `apps.manage` |  |  |
 
+## Docker
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| POST | `/api/docker/cleanup` | Apply Cleanup | `docker.manage` | yes | yes |
+| GET | `/api/docker/cleanup/plan` | Get Cleanup Plan | `docker.read` |  |  |
+| GET | `/api/docker/containers` | List Containers | `docker.read` |  |  |
+| GET | `/api/docker/containers/{ref}` | Get Container | `docker.read` |  |  |
+| DELETE | `/api/docker/containers/{ref}` | Remove Container | `docker.manage` | yes | yes |
+| GET | `/api/docker/containers/{ref}/logs` | Get Container Logs | `docker.read` |  |  |
+| POST | `/api/docker/containers/{ref}/restart` | Restart Container | `docker.manage` | yes |  |
+| POST | `/api/docker/containers/{ref}/start` | Start Container | `docker.manage` | yes |  |
+| POST | `/api/docker/containers/{ref}/stop` | Stop Container | `docker.manage` | yes |  |
+| POST | `/api/docker/containers/{ref}/terminal` | Open Container Terminal | `docker.manage` | yes |  |
+| GET | `/api/docker/engine` | Get Engine | `docker.read` |  |  |
+| GET | `/api/docker/images` | List Images | `docker.read` |  |  |
+| DELETE | `/api/docker/images/{image_id}` | Remove Image | `docker.manage` | yes | yes |
+| GET | `/api/docker/networks` | List Networks | `docker.read` |  |  |
+| DELETE | `/api/docker/networks/{ref}` | Remove Network | `docker.manage` | yes | yes |
+| GET | `/api/docker/restart-loss` | Get Restart Loss | `docker.read` |  |  |
+| GET | `/api/docker/stacks` | List Stacks | `docker.read` |  |  |
+| GET | `/api/docker/stacks/{name}` | Get Stack | `docker.read` |  |  |
+| GET | `/api/docker/summary` | Get Summary | `docker.read` |  |  |
+| GET | `/api/docker/volumes` | List Volumes | `docker.read` |  |  |
+| GET | `/api/docker/volumes/sizes` | Get Volume Sizes | `docker.read` |  |  |
+| DELETE | `/api/docker/volumes/{name}` | Remove Volume | `docker.manage` | yes | yes |
+
 ## Domains
 
 | Method | Path | What it does | Permission | Sudo | Approval |
@@ -791,6 +818,14 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/views/cron` | View Cron | `apps.read` |  |  |
 | GET | `/api/views/databases` | View Databases | `databases.read` |  |  |
 | GET | `/api/views/deliveries` | View Deliveries | `settings.read` |  |  |
+| GET | `/api/views/docker/attention` | View Docker Attention | `docker.read` |  |  |
+| GET | `/api/views/docker/containers` | View Docker Containers | `docker.read` |  |  |
+| GET | `/api/views/docker/engine` | View Docker Engine | `docker.read` |  |  |
+| GET | `/api/views/docker/images` | View Docker Images | `docker.read` |  |  |
+| GET | `/api/views/docker/networks` | View Docker Networks | `docker.read` |  |  |
+| GET | `/api/views/docker/stacks` | View Docker Stacks | `docker.read` |  |  |
+| GET | `/api/views/docker/summary` | View Docker Summary | `docker.read` |  |  |
+| GET | `/api/views/docker/volumes` | View Docker Volumes | `docker.read` |  |  |
 | GET | `/api/views/logs` | View Logs | `apps.read` |  |  |
 | GET | `/api/views/search` | View Search | `apps.read` |  |  |
 | GET | `/api/views/sites` | View Sites | `apps.read` |  |  |
