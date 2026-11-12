@@ -9,6 +9,7 @@ import { Kit } from "./Kit";
 import { Kit32 } from "./Kit32";
 import { Kit40 } from "./Kit40";
 import { Kit42 } from "./Kit42";
+import { Kit43 } from "./Kit43";
 import { PageKit } from "./PageKit";
 import { Stone } from "./Stone";
 import { KitArrange } from "./KitArrange";
@@ -107,6 +108,15 @@ const NAV: { title: string; links: [string, string][] }[] = [
       ["k42-roles", "What each role can do"],
       ["k42-header", "A header as wide as its content"],
       ["k42-hints", "Command with its reason"],
+    ],
+  },
+  {
+    title: "Components (4.3)",
+    links: [
+      ["k43-scope", "Scope line"],
+      ["k43-fleet-list", "Fleet list"],
+      ["k43-servers-table", "Table of servers"],
+      ["k43-which-server", "On which server?"],
     ],
   },
   {
@@ -227,6 +237,7 @@ export function DesignGallery() {
           <Kit32 />
           <Kit40 />
           <Kit42 />
+          <Kit43 />
           <Components />
           <PageKit />
           <Patterns />

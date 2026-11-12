@@ -1012,6 +1012,11 @@ raised cards, a title and **one line** each, two to a row from 640px or one (`co
 one takes the accent as a ring and a check. What does not fit in a line is the option's `detail`,
 folded under the card behind a "Details" button that is beside the radio and not part of the choice, and
 not read as its description. A choice that needs no sentence is a `SegmentedControl` or a `Select`.
+`value` may be `null`: nothing is chosen and no card is preselected, for a choice whose wrong answer is
+expensive (which server a deployment goes to); the form says "Choose ..." through `error` when it is
+pressed with nothing chosen. An option may be `disabled`: it stays in the list, flat and not raised
+because nothing says it can be pressed, with its `description` saying why it cannot be chosen, and the
+arrow keys go past it. An option that does not apply at all is left out, not turned off.
 
 **`FieldGroup`** (`legend`, `description`, `error`, `optional`). Related controls under one name and
 one message: a set of checkboxes, a port and its protocol. A `fieldset` with a `legend` whose error
@@ -1415,6 +1420,40 @@ line, "+N" for the rest. **`SaidLines`** (`label`, `lines`): what a system answe
 **`Can`**, **`ReadOnlyLine`**, `useCan` (`components/page/permissions.tsx`): who can do what. `DataTable embedded` draws a table inside a
 slab with no slab of its own.
 
+**All servers (4.3, item 196).** Four pieces for the pages that speak of several servers at once, in `components/page/` and drawn
+in the gallery (`/__design`, "Components (4.3)"). They take plain data (`FleetServer`: its name, whether it is the central, how it
+answered) and never read the console's session, so every area feeds them from its own view. The kit never decides what choosing a
+server does to the selector: the page gives the destination (`ServerTarget`).
+
+- **`ScopeLine`** (`scope` `{ kind: "all", servers } | { kind: "server", server } | { kind: "library" }`, `serverTarget`, `hint`). The first line of a
+  page's body: "From the 5 servers that have it", "From web-01. To see them all, choose All servers above", or, for what is the same
+  on every server, "The same on every server". Under it, one line for each server that did not answer fresh and whole, with a glyph
+  of its state and the sentence of what is shown of it: a **stale** server shows the last it gave and how long ago ("web-02 has not
+  answered for 2h 8m"), an **unreachable** one has nothing to show, an **unsupported** one runs a Noust that does not know the view (grey: not
+  a fault; its version is said). The count is the servers whose rows are on screen. It is never in the header (6.11), it has no colour of
+  its own (only the glyph of a state is coloured) and a lone server draws none. A refusal or an error is not one of its lines: it keeps its
+  notice with the system's words verbatim (6.5).
+- **`FleetList`** (`scope` `"all" | "server"`, `servers`, `rows`, `serverOf`, `columns`, `filterLabel`, `search`, `filters`, `count`, `actions`, and
+  the `DataTable`'s own props). The table of always for rows that live on several servers: with All servers the server is a column right
+  after the first (identity first, 6.8) that sorts, and a filter in the bar whose options say what each server has ("web-01 (3)", counted over
+  the rows the page's own filters left). The rows of a stale server wear "Data from 2h 8m ago" under its name (a warning glyph and words). A server
+  that gave nothing, or whose Noust does not know the view, has no rows and is no option. With one server the same list has neither column
+  nor filter, so a page is one component for both scopes. The page keeps the server in the address by passing `server` and `onServerChange`.
+  Not one table for each server: it repeats the headers and cannot be sorted or filtered across servers.
+- **`ServersTable`** (`caption`, `summaryHeader`, `rows` of `{ server, summary, note, state }`, `open`). For what cannot be compared row by
+  row (a firewall, the interfaces) and for the tools of one machine (Files, Terminal): one row for each server with a summary of what the
+  section says of it, and the way in, **"Open on web-01"**, which is a link (it goes somewhere) and chooses that server, so the label says it. A
+  door has no summary: the server and the way in. A server whose Noust does not know the view says so in its row and its page still opens,
+  because that page is where it is explained.
+- **`WhichServerDialog`** (`open`, `onOpenChange`, `description`, `servers` of `{ name, central, detail, unfit, answer }`, `onChoose`, `confirmLabel`). "On which
+  server?", asked when a creation starts with All servers chosen: the button is where it always is, the selector stays as it was (the dialog
+  says so) and the flow goes on at the server chosen. Every server that is not a fit stays in the list, off, with its reason (no connection
+  first, then a Noust too old, then what it lacks, in the words of the table of what each server can do). **None is preselected unless exactly
+  one can take it**: a deployment on the wrong server by an Enter must not be possible. "Continue" is never disabled for it: pressed with
+  nothing chosen it says "Choose a server." and puts the keyboard on the first card that can be chosen. When none fits it says so and offers no way on.
+
+*Enforced by:* `components/page/{ScopeLine,FleetList,ServersTable,WhichServerDialog}.test.tsx` (with axe) and `components/ui/ChoiceCards.test.tsx`.
+
 **`ICONS`**, **`ICON_SIZE`** (`components/ui/icons.ts`) and **`useMediaQuery`**, `SM_UP`,
 `LG_UP`: section 2.8 and the `sm`/`lg` breakpoints in code.
 
@@ -1698,6 +1737,13 @@ area opens at its fleet face where it has one (NV-10, section 6.14), so the dest
 last server's under another's name. The pages that belong to the instance and to no server (the
 accounts, the tokens, the compliance, the audit) leave the selector where it was and say "All the
 fleet" beside their name, which is why the server a person was on is still the one they come back to.
+
+A page that speaks of several servers says whose it is in one place, the first line of its body (`ScopeLine`, section 5), and no click
+moves the selector under the person's feet: its menu does, and so does the one link that chooses a server and says it in its words,
+"Open on web-01". What a section lists with All servers is one of four things, and the kit has a piece
+for each: rows that can be compared are a `FleetList` (the server as a column and a filter); what is each machine's own is a
+`ServersTable` ("Open on web-01" chooses it); a creation asks "On which server?" first (`WhichServerDialog`, no server preselected
+unless only one fits); and what is the same on every server says so (`ScopeLine` `library`).
 ### 6.12 Notifications: which channel says it
 
 An event is said in one channel, never two:

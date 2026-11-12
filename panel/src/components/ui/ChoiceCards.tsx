@@ -26,13 +26,23 @@ export interface ChoiceCard<V extends string> {
   badge?: string;
   /** The label is a system value that is not translated: a template's own name. */
   untranslated?: boolean;
+  /**
+   * It cannot be chosen now, and its `description` says why (a server with no connection, a plan that lacks it): it
+   * stays in the list, so that nobody wonders where it went, but it is not raised, because nothing says it can be
+   * pressed, and the arrow keys go past it. An option that does not apply at all is left out, not turned off.
+   */
+  disabled?: boolean;
 }
 
 export interface ChoiceCardsProps<V extends string> {
   /** Names the choice, on screen and for assistive technology. */
   legend: string;
   options: readonly ChoiceCard<V>[];
-  value: V;
+  /**
+   * The chosen one. `null` is nothing chosen yet, for a choice whose wrong answer is expensive (which server a
+   * deployment goes to): no card is preselected, and a form that needs one says "Choose ..." through `error`.
+   */
+  value: V | null;
   onValueChange: (value: V) => void;
   /** One column (a list of roles) or two from 640px (a pair of choices). Defaults to two. */
   columns?: 1 | 2;
@@ -72,12 +82,13 @@ export function ChoiceCards<V extends string>({ legend, options, value, onValueC
       <p id={legendId} className="text-13 font-semibold text-fg">
         {legend}
       </p>
-      <RadioGroup<V>
+      <RadioGroup<V | null>
         aria-labelledby={legendId}
         {...(invalid ? { "aria-invalid": true, "aria-describedby": errorId } : {})}
+        // Nothing chosen is a value of the group, not an uncontrolled group: it never picks for the person.
         value={value}
-        onValueChange={(next: V) => {
-          onValueChange(next);
+        onValueChange={(next: V | null) => {
+          if (next !== null) onValueChange(next);
         }}
         className={cx("grid gap-2", columns === 2 && "sm:grid-cols-2")}
       >
@@ -86,6 +97,7 @@ export function ChoiceCards<V extends string>({ legend, options, value, onValueC
           const descriptionId = `${base}-${option.value}-description`;
           const detailId = `${base}-${option.value}-detail`;
           const chosen = option.value === value;
+          const off = option.disabled === true;
           const hasDetail = option.detail !== undefined;
           const expanded = open.has(option.value);
           const Icon = option.icon;
@@ -95,17 +107,19 @@ export function ChoiceCards<V extends string>({ legend, options, value, onValueC
                 value={option.value}
                 aria-labelledby={labelId}
                 aria-describedby={descriptionId}
+                disabled={off}
                 className={cx(
-                  "flex w-full cursor-pointer items-start gap-3 rounded-card px-3.5 py-3 text-left outline-none",
+                  "flex w-full items-start gap-3 rounded-card px-3.5 py-3 text-left outline-none",
                   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
-                  chosen ? "elev-raised-chosen bg-accent-soft" : "elev-raised bg-surface-raised",
+                  // Off is flat and carved-grey, not raised: the stone only rises where it can be pressed.
+                  off ? "cursor-not-allowed border border-border bg-bg-sunken" : chosen ? "cursor-pointer elev-raised-chosen bg-accent-soft" : "cursor-pointer elev-raised bg-surface-raised",
                   hasDetail && "pb-10",
                 )}
               >
                 {Icon !== undefined ? <Icon aria-hidden className={cx("mt-0.5 size-icon-lg shrink-0", chosen ? "text-accent-fg" : "text-fg-muted")} /> : null}
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="flex flex-wrap items-baseline gap-x-2">
-                    <span id={labelId} {...(option.untranslated === true ? { translate: "no" as const } : {})} className="text-14 font-semibold text-fg">
+                    <span id={labelId} {...(option.untranslated === true ? { translate: "no" as const } : {})} className={cx("text-14 font-semibold", off ? "text-fg-muted" : "text-fg")}>
                       {option.label}
                     </span>
                     {option.badge !== undefined ? <span className="text-12 text-fg-muted">{option.badge}</span> : null}
