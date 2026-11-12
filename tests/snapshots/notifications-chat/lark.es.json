@@ -7989,7 +7989,7 @@
       "header": {
         "title": {
           "tag": "plain_text",
-          "content": "▲ Cambio del cortafuegos deshecho · Allow 5432/tcp from 10.0.4.12"
+          "content": "▲ Cambio del cortafuegos deshecho · Permitir 5432/tcp desde 10.0.4.12"
         },
         "template": "orange"
       },
@@ -7998,7 +7998,7 @@
           "tag": "div",
           "text": {
             "tag": "plain_text",
-            "content": "El cambio del cortafuegos «Allow 5432/tcp from 10.0.4.12» se deshizo porque nadie lo confirmó en 5 minutos."
+            "content": "Nadie lo confirmó en 5 minutos, así que el cortafuegos está como antes del cambio. Vuelve a hacerlo y confírmalo desde una sesión nueva."
           }
         },
         {
@@ -8015,7 +8015,7 @@
               "is_short": true,
               "text": {
                 "tag": "plain_text",
-                "content": "Cambio\nAllow 5432/tcp from 10.0.4.12"
+                "content": "Cambio\nPermitir 5432/tcp desde 10.0.4.12"
               }
             },
             {
@@ -8076,7 +8076,7 @@
       "header": {
         "title": {
           "tag": "plain_text",
-          "content": "▲ Cambio de SSH deshecho · Turn password logins off"
+          "content": "▲ Cambio de SSH deshecho · Desactivar el acceso por contraseña en SSH"
         },
         "template": "orange"
       },
@@ -8085,7 +8085,7 @@
           "tag": "div",
           "text": {
             "tag": "plain_text",
-            "content": "El cambio de SSH «Turn password logins off» se deshizo porque nadie lo confirmó en 5 minutos."
+            "content": "Nadie lo confirmó en 5 minutos, así que sshd usa la configuración que tenía antes del cambio. Aplícalo otra vez y confírmalo desde un inicio de sesión nuevo."
           }
         },
         {
@@ -8099,10 +8099,10 @@
               }
             },
             {
-              "is_short": true,
+              "is_short": false,
               "text": {
                 "tag": "plain_text",
-                "content": "Cambio\nTurn password logins off"
+                "content": "Cambio\nDesactivar el acceso por contraseña en SSH"
               }
             },
             {

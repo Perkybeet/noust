@@ -40,22 +40,23 @@ class TestTheNotification:
     def test_a_firewall_change_says_what_was_undone_and_who_made_it(self) -> None:
         note = compose_access_change_reverted(
             "firewall",
-            "Allow 5432 from 10.0.4.12",
+            "Allow 5432/tcp from 10.0.4.12",
             _context(),
             actor="yago",
             applied_at=APPLIED,
             window_s=600,
             output="Rule deleted",
+            what="firewall_allow",
+            values={"port": "5432/tcp", "source": "10.0.4.12"},
         )
 
         assert note.kind == "access_change_reverted"
         assert note.code == "access.firewall_reverted"
         assert note.state is State.WARNING
-        assert "Allow 5432 from 10.0.4.12" in note.summary
-        assert "nobody confirmed" in note.summary
-        assert "10 minutes" in note.summary
+        assert note.summary.startswith("Nobody confirmed it within 10 minutes")
         facts = {fact.key: fact.value for fact in note.facts}
         assert facts["server"] == "shop-1"
+        assert facts["change"] == "Allow 5432/tcp from 10.0.4.12"
         assert facts["change_by"] == "yago"
         # What the undo printed is the system's own words: verbatim, not in a sentence of Noust's.
         assert note.excerpt is not None
@@ -82,7 +83,7 @@ class TestTheNotification:
         )
 
         assert "cortafuegos" in note.title.lower()
-        assert "nadie lo confirmó" in note.summary
+        assert "Nadie lo confirmó" in note.summary
         assert "1 minuto" in note.summary
 
     def test_a_change_with_no_undo_output_has_no_excerpt(self) -> None:
@@ -101,6 +102,109 @@ class TestTheNotification:
     def test_every_code_has_its_title_and_summary_in_both_languages(self, code: str) -> None:
         for key in (f"title.{code}", f"summary.{code}"):
             assert set(MESSAGES[key]) == {"en", "es"}
+
+
+class TestTheChangeIsSaidInTheReadersLanguage:
+    """The change is composed from what it is, never pasted from the sentence somebody wrote then."""
+
+    @pytest.mark.parametrize(
+        ("locale", "said"),
+        [
+            ("en", "Allow 5432/tcp from 10.0.4.12"),
+            ("es", "Permitir 5432/tcp desde 10.0.4.12"),
+        ],
+    )
+    def test_a_firewall_rule_is_composed_from_its_values(self, locale: str, said: str) -> None:
+        note = compose_access_change_reverted(
+            "firewall",
+            "Allow 5432/tcp from 10.0.4.12",
+            _context(locale),
+            actor="yago",
+            applied_at=APPLIED,
+            window_s=300,
+            what="firewall_allow",
+            values={"port": "5432/tcp", "source": "10.0.4.12"},
+        )
+
+        assert {fact.key: fact.value for fact in note.facts}["change"] == said
+        assert note.subject == said
+
+    def test_a_spanish_notice_keeps_no_english_sentence_of_noust(self) -> None:
+        note = compose_access_change_reverted(
+            "sshd",
+            "Turn off SSH password logins",
+            _context("es"),
+            actor="ana",
+            applied_at=APPLIED,
+            window_s=300,
+            what="ssh_disable_passwords",
+        )
+
+        said = {fact.key: fact.value for fact in note.facts}["change"]
+        assert said == "Desactivar el acceso por contraseña en SSH"
+        assert "Turn off" not in note.summary + note.title + said
+
+    @pytest.mark.parametrize("locale", ["en", "es"])
+    def test_the_summary_says_what_stands_now_and_what_to_do_not_the_change(
+        self, locale: str
+    ) -> None:
+        note = compose_access_change_reverted(
+            "firewall",
+            "Allow 5432/tcp from 10.0.4.12",
+            _context(locale),
+            actor="yago",
+            applied_at=APPLIED,
+            window_s=300,
+            what="firewall_allow",
+            values={"port": "5432/tcp", "source": "10.0.4.12"},
+        )
+
+        assert "5432" not in note.summary
+        assert "10.0.4.12" not in note.summary
+        assert note.title not in note.summary
+
+    @pytest.mark.parametrize(("locale", "quoted"), [("en", "“Allow 8443”"), ("es", "«Allow 8443»")])
+    def test_a_record_from_before_the_code_is_shown_as_recorded_between_quotes(
+        self, locale: str, quoted: str
+    ) -> None:
+        note = compose_access_change_reverted(
+            "firewall",
+            "Allow 8443",
+            _context(locale),
+            actor="yago",
+            applied_at=APPLIED,
+            window_s=300,
+        )
+
+        assert {fact.key: fact.value for fact in note.facts}["change"] == quoted
+
+    def test_a_code_this_version_does_not_know_falls_back_to_the_recorded_sentence(self) -> None:
+        note = compose_access_change_reverted(
+            "firewall",
+            "Allow 8443",
+            _context(),
+            actor="yago",
+            applied_at=APPLIED,
+            window_s=300,
+            what="firewall_from_the_future",
+            values={"port": "8443"},
+        )
+
+        assert {fact.key: fact.value for fact in note.facts}["change"] == "“Allow 8443”"
+
+    def test_a_record_that_lacks_a_value_of_its_sentence_says_what_it_can(self) -> None:
+        note = compose_access_change_reverted(
+            "firewall",
+            "Allow 8443",
+            _context(),
+            actor="yago",
+            applied_at=APPLIED,
+            window_s=300,
+            what="firewall_allow",
+            values={"port": "8443"},
+        )
+
+        assert {fact.key: fact.value for fact in note.facts}["change"] == "“Allow 8443”"
 
 
 class Recorder:
@@ -169,7 +273,8 @@ class TestTheLedgerSaysIt:
 
         [note] = recorder.sent
         assert note.code == "access.firewall_reverted"
-        assert "Allow 8443" in note.summary
+        # A record with no code is shown as it was written, between quotes.
+        assert {fact.key: fact.value for fact in note.facts}["change"] == "“Allow 8443”"
 
     def test_the_overdue_sweep_says_it_too(self, ledger: ChangeLedger, recorder: Recorder) -> None:
         _pending(ledger, kind="sshd", title="Disable password logins")
@@ -216,14 +321,37 @@ class TestTheLedgerSaysIt:
 
         assert undone.status == "expired"
 
-    def test_the_text_of_the_change_is_what_the_record_holds(
+    def test_a_change_that_keeps_what_it_was_is_said_from_it(
         self, ledger: ChangeLedger, recorder: Recorder
     ) -> None:
-        change = _pending(ledger, title="Allow 5432 from 10.0.4.12")
+        change = _pending(ledger, title="Allow 5432/tcp from 10.0.4.12")
+        change.what = "firewall_allow"
+        change.values = {"port": "5432/tcp", "source": "10.0.4.12"}
+        ledger.save(change)
 
         ledger.revert(change.id, by="timer", expired=True)
 
         [note] = recorder.sent
-        assert {fact.key: fact.value for fact in note.facts}[
-            "change"
-        ] == "Allow 5432 from 10.0.4.12"
+        assert {fact.key: fact.value for fact in note.facts}["change"] == (
+            "Allow 5432/tcp from 10.0.4.12"
+        )
+
+    def test_the_record_keeps_what_the_change_was_and_reads_one_that_does_not(
+        self, ledger: ChangeLedger
+    ) -> None:
+        change = _pending(ledger)
+        change.what = "firewall_allow_any"
+        change.values = {"port": "8443/tcp"}
+        ledger.save(change)
+
+        again = ledger.load(change.id)
+        old = {
+            key: value for key, value in again.to_dict().items() if key not in ("what", "values")
+        }
+        old.pop("unit")
+        old["files"] = []
+
+        assert (again.what, again.values) == ("firewall_allow_any", {"port": "8443/tcp"})
+        # A record written before 4.3 has neither: it loads, with the sentence it was written with.
+        legacy = PendingChange.from_dict(old)
+        assert (legacy.what, legacy.values, legacy.title) == ("", {}, "Allow 8443")

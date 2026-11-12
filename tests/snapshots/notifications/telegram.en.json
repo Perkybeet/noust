@@ -1793,7 +1793,7 @@
   },
   "access.firewall_reverted": {
     "chat_id": "-1001234567890",
-    "text": "▲ <b>Firewall change undone</b> · Allow 5432/tcp from 10.0.4.12\nThe firewall change “Allow 5432/tcp from 10.0.4.12” was undone because nobody confirmed it within 5 minutes.\n\n<b>Server:</b> web-1\n<b>Change:</b> Allow 5432/tcp from 10.0.4.12\n<b>Applied by:</b> yago\n<b>Applied:</b> 2026-11-12 10:40 UTC\n\n<i>What the undo printed</i>\n<pre>$ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\nRule deleted</pre>",
+    "text": "▲ <b>Firewall change undone</b> · Allow 5432/tcp from 10.0.4.12\nNobody confirmed it within 5 minutes, so the firewall is as it was before the change. Make the change again and confirm it from a new session.\n\n<b>Server:</b> web-1\n<b>Change:</b> Allow 5432/tcp from 10.0.4.12\n<b>Applied by:</b> yago\n<b>Applied:</b> 2026-11-12 10:40 UTC\n\n<i>What the undo printed</i>\n<pre>$ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\nRule deleted</pre>",
     "link_preview_options": {
       "is_disabled": true
     },
@@ -1812,7 +1812,7 @@
   },
   "access.ssh_reverted": {
     "chat_id": "-1001234567890",
-    "text": "▲ <b>SSH change undone</b> · Turn password logins off\nThe SSH change “Turn password logins off” was undone because nobody confirmed it within 5 minutes.\n\n<b>Server:</b> web-1\n<b>Change:</b> Turn password logins off\n<b>Applied by:</b> ana\n<b>Applied:</b> 2026-11-12 10:40 UTC\n\n<i>What the undo printed</i>\n<pre>Restored /etc/ssh/sshd_config.d/99-noust.conf\n$ sshd -t</pre>",
+    "text": "▲ <b>SSH change undone</b> · Turn off SSH password logins\nNobody confirmed it within 5 minutes, so sshd uses the configuration it had before the change. Apply the change again and confirm it from a new login.\n\n<b>Server:</b> web-1\n<b>Change:</b> Turn off SSH password logins\n<b>Applied by:</b> ana\n<b>Applied:</b> 2026-11-12 10:40 UTC\n\n<i>What the undo printed</i>\n<pre>Restored /etc/ssh/sshd_config.d/99-noust.conf\n$ sshd -t</pre>",
     "link_preview_options": {
       "is_disabled": true
     },

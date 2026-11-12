@@ -1793,7 +1793,7 @@
   },
   "access.firewall_reverted": {
     "chat_id": "-1001234567890",
-    "text": "▲ <b>Cambio del cortafuegos deshecho</b> · Allow 5432/tcp from 10.0.4.12\nEl cambio del cortafuegos «Allow 5432/tcp from 10.0.4.12» se deshizo porque nadie lo confirmó en 5 minutos.\n\n<b>Servidor:</b> web-1\n<b>Cambio:</b> Allow 5432/tcp from 10.0.4.12\n<b>Lo aplicó:</b> yago\n<b>Aplicado:</b> 2026-11-12 10:40 UTC\n\n<i>Lo que imprimió al deshacerlo</i>\n<pre>$ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\nRule deleted</pre>",
+    "text": "▲ <b>Cambio del cortafuegos deshecho</b> · Permitir 5432/tcp desde 10.0.4.12\nNadie lo confirmó en 5 minutos, así que el cortafuegos está como antes del cambio. Vuelve a hacerlo y confírmalo desde una sesión nueva.\n\n<b>Servidor:</b> web-1\n<b>Cambio:</b> Permitir 5432/tcp desde 10.0.4.12\n<b>Lo aplicó:</b> yago\n<b>Aplicado:</b> 2026-11-12 10:40 UTC\n\n<i>Lo que imprimió al deshacerlo</i>\n<pre>$ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\nRule deleted</pre>",
     "link_preview_options": {
       "is_disabled": true
     },
@@ -1812,7 +1812,7 @@
   },
   "access.ssh_reverted": {
     "chat_id": "-1001234567890",
-    "text": "▲ <b>Cambio de SSH deshecho</b> · Turn password logins off\nEl cambio de SSH «Turn password logins off» se deshizo porque nadie lo confirmó en 5 minutos.\n\n<b>Servidor:</b> web-1\n<b>Cambio:</b> Turn password logins off\n<b>Lo aplicó:</b> ana\n<b>Aplicado:</b> 2026-11-12 10:40 UTC\n\n<i>Lo que imprimió al deshacerlo</i>\n<pre>Restored /etc/ssh/sshd_config.d/99-noust.conf\n$ sshd -t</pre>",
+    "text": "▲ <b>Cambio de SSH deshecho</b> · Desactivar el acceso por contraseña en SSH\nNadie lo confirmó en 5 minutos, así que sshd usa la configuración que tenía antes del cambio. Aplícalo otra vez y confírmalo desde un inicio de sesión nuevo.\n\n<b>Servidor:</b> web-1\n<b>Cambio:</b> Desactivar el acceso por contraseña en SSH\n<b>Lo aplicó:</b> ana\n<b>Aplicado:</b> 2026-11-12 10:40 UTC\n\n<i>Lo que imprimió al deshacerlo</i>\n<pre>Restored /etc/ssh/sshd_config.d/99-noust.conf\n$ sshd -t</pre>",
     "link_preview_options": {
       "is_disabled": true
     },

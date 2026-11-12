@@ -2431,18 +2431,18 @@ Cambia lo que recibes en Ajustes > Notificaciones
 
 ========================================================================
 ### access.firewall_reverted
-Subject: [Noust] Cambio del cortafuegos deshecho: Allow 5432/tcp from 10.0.4.12 (web-1)
+Subject: [Noust] Cambio del cortafuegos deshecho: Permitir 5432/tcp desde 10.0.4.12 (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: access_change_reverted
 X-Noust-Code: access.firewall_reverted
 X-Noust-Server: web-1
 
-▲ Cambio del cortafuegos deshecho · Allow 5432/tcp from 10.0.4.12
-El cambio del cortafuegos «Allow 5432/tcp from 10.0.4.12» se deshizo porque nadie lo confirmó en 5 minutos.
+▲ Cambio del cortafuegos deshecho · Permitir 5432/tcp desde 10.0.4.12
+Nadie lo confirmó en 5 minutos, así que el cortafuegos está como antes del cambio. Vuelve a hacerlo y confírmalo desde una sesión nueva.
 
 Servidor: web-1
-Cambio: Allow 5432/tcp from 10.0.4.12
+Cambio: Permitir 5432/tcp desde 10.0.4.12
 Lo aplicó: yago
 Aplicado: 2026-11-12 10:40 UTC
 
@@ -2458,18 +2458,18 @@ Cambia lo que recibes en Ajustes > Notificaciones
 
 ========================================================================
 ### access.ssh_reverted
-Subject: [Noust] Cambio de SSH deshecho: Turn password logins off (web-1)
+Subject: [Noust] Cambio de SSH deshecho: Desactivar el acceso por contraseña en SSH (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: access_change_reverted
 X-Noust-Code: access.ssh_reverted
 X-Noust-Server: web-1
 
-▲ Cambio de SSH deshecho · Turn password logins off
-El cambio de SSH «Turn password logins off» se deshizo porque nadie lo confirmó en 5 minutos.
+▲ Cambio de SSH deshecho · Desactivar el acceso por contraseña en SSH
+Nadie lo confirmó en 5 minutos, así que sshd usa la configuración que tenía antes del cambio. Aplícalo otra vez y confírmalo desde un inicio de sesión nuevo.
 
 Servidor: web-1
-Cambio: Turn password logins off
+Cambio: Desactivar el acceso por contraseña en SSH
 Lo aplicó: ana
 Aplicado: 2026-11-12 10:40 UTC
 

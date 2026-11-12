@@ -4365,9 +4365,9 @@
     "code": "access.firewall_reverted",
     "state": "warning",
     "locale": "es",
-    "title": "Cambio del cortafuegos deshecho: Allow 5432/tcp from 10.0.4.12",
-    "summary": "El cambio del cortafuegos «Allow 5432/tcp from 10.0.4.12» se deshizo porque nadie lo confirmó en 5 minutos.",
-    "body": "El cambio del cortafuegos «Allow 5432/tcp from 10.0.4.12» se deshizo porque nadie lo confirmó en 5 minutos.\n\nServidor: web-1\nCambio: Allow 5432/tcp from 10.0.4.12\nLo aplicó: yago\nAplicado: 2026-11-12 10:40 UTC\n\nLo que imprimió al deshacerlo:\n  $ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\n  Rule deleted\n\nAbrir en la consola: https://console.example.com/n/web-1/network/firewall",
+    "title": "Cambio del cortafuegos deshecho: Permitir 5432/tcp desde 10.0.4.12",
+    "summary": "Nadie lo confirmó en 5 minutos, así que el cortafuegos está como antes del cambio. Vuelve a hacerlo y confírmalo desde una sesión nueva.",
+    "body": "Nadie lo confirmó en 5 minutos, así que el cortafuegos está como antes del cambio. Vuelve a hacerlo y confírmalo desde una sesión nueva.\n\nServidor: web-1\nCambio: Permitir 5432/tcp desde 10.0.4.12\nLo aplicó: yago\nAplicado: 2026-11-12 10:40 UTC\n\nLo que imprimió al deshacerlo:\n  $ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\n  Rule deleted\n\nAbrir en la consola: https://console.example.com/n/web-1/network/firewall",
     "domain": null,
     "server": "web-1",
     "ts": "2026-09-29T10:45:51Z",
@@ -4380,7 +4380,7 @@
       {
         "key": "change",
         "label": "Cambio",
-        "value": "Allow 5432/tcp from 10.0.4.12"
+        "value": "Permitir 5432/tcp desde 10.0.4.12"
       },
       {
         "key": "change_by",
@@ -4416,9 +4416,9 @@
     "code": "access.ssh_reverted",
     "state": "warning",
     "locale": "es",
-    "title": "Cambio de SSH deshecho: Turn password logins off",
-    "summary": "El cambio de SSH «Turn password logins off» se deshizo porque nadie lo confirmó en 5 minutos.",
-    "body": "El cambio de SSH «Turn password logins off» se deshizo porque nadie lo confirmó en 5 minutos.\n\nServidor: web-1\nCambio: Turn password logins off\nLo aplicó: ana\nAplicado: 2026-11-12 10:40 UTC\n\nLo que imprimió al deshacerlo:\n  Restored /etc/ssh/sshd_config.d/99-noust.conf\n  $ sshd -t\n\nAbrir en la consola: https://console.example.com/n/web-1/security/ssh",
+    "title": "Cambio de SSH deshecho: Desactivar el acceso por contraseña en SSH",
+    "summary": "Nadie lo confirmó en 5 minutos, así que sshd usa la configuración que tenía antes del cambio. Aplícalo otra vez y confírmalo desde un inicio de sesión nuevo.",
+    "body": "Nadie lo confirmó en 5 minutos, así que sshd usa la configuración que tenía antes del cambio. Aplícalo otra vez y confírmalo desde un inicio de sesión nuevo.\n\nServidor: web-1\nCambio: Desactivar el acceso por contraseña en SSH\nLo aplicó: ana\nAplicado: 2026-11-12 10:40 UTC\n\nLo que imprimió al deshacerlo:\n  Restored /etc/ssh/sshd_config.d/99-noust.conf\n  $ sshd -t\n\nAbrir en la consola: https://console.example.com/n/web-1/security/ssh",
     "domain": null,
     "server": "web-1",
     "ts": "2026-09-29T10:45:51Z",
@@ -4431,7 +4431,7 @@
       {
         "key": "change",
         "label": "Cambio",
-        "value": "Turn password logins off"
+        "value": "Desactivar el acceso por contraseña en SSH"
       },
       {
         "key": "change_by",

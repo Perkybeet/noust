@@ -6077,7 +6077,7 @@
             },
             {
               "type": "TextBlock",
-              "text": "The firewall change “Allow 5432/tcp from 10.0.4.12” was undone because nobody confirmed it within 5 minutes.",
+              "text": "Nobody confirmed it within 5 minutes, so the firewall is as it was before the change. Make the change again and confirm it from a new session.",
               "wrap": true
             },
             {
@@ -6138,7 +6138,7 @@
           "body": [
             {
               "type": "TextBlock",
-              "text": "▲ SSH change undone · Turn password logins off",
+              "text": "▲ SSH change undone · Turn off SSH password logins",
               "weight": "Bolder",
               "size": "Medium",
               "color": "Warning",
@@ -6146,7 +6146,7 @@
             },
             {
               "type": "TextBlock",
-              "text": "The SSH change “Turn password logins off” was undone because nobody confirmed it within 5 minutes.",
+              "text": "Nobody confirmed it within 5 minutes, so sshd uses the configuration it had before the change. Apply the change again and confirm it from a new login.",
               "wrap": true
             },
             {
@@ -6158,7 +6158,7 @@
                 },
                 {
                   "title": "Change",
-                  "value": "Turn password logins off"
+                  "value": "Turn off SSH password logins"
                 },
                 {
                   "title": "Applied by",

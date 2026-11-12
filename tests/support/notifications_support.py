@@ -604,15 +604,18 @@ def _access_events(ctx: NotificationContext) -> dict[str, Notification]:
             applied_at=applied,
             window_s=300,
             output="$ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\nRule deleted",
+            what="firewall_allow",
+            values={"port": "5432/tcp", "source": "10.0.4.12"},
         ),
         "access.ssh_reverted": compose_access_change_reverted(
             "sshd",
-            "Turn password logins off",
+            "Turn off SSH password logins",
             ctx,
             actor="ana",
             applied_at=applied,
             window_s=300,
             output="Restored /etc/ssh/sshd_config.d/99-noust.conf\n$ sshd -t",
+            what="ssh_disable_passwords",
         ),
     }
 

@@ -6194,13 +6194,13 @@
     "attachments": [
       {
         "color": "#e3a73c",
-        "fallback": "▲ Cambio del cortafuegos deshecho · Allow 5432/tcp from 10.0.4.12",
+        "fallback": "▲ Cambio del cortafuegos deshecho · Permitir 5432/tcp desde 10.0.4.12",
         "blocks": [
           {
             "type": "header",
             "text": {
               "type": "plain_text",
-              "text": "▲ Cambio del cortafuegos deshecho · Allow 5432/tcp from 10.0.4.12",
+              "text": "▲ Cambio del cortafuegos deshecho · Permitir 5432/tcp desde 10.0.4.12",
               "emoji": false
             }
           },
@@ -6208,7 +6208,7 @@
             "type": "section",
             "text": {
               "type": "mrkdwn",
-              "text": "El cambio del cortafuegos «Allow 5432/tcp from 10.0.4.12» se deshizo porque nadie lo confirmó en 5 minutos."
+              "text": "Nadie lo confirmó en 5 minutos, así que el cortafuegos está como antes del cambio. Vuelve a hacerlo y confírmalo desde una sesión nueva."
             }
           },
           {
@@ -6220,7 +6220,7 @@
               },
               {
                 "type": "mrkdwn",
-                "text": "*Cambio*\nAllow 5432/tcp from 10.0.4.12"
+                "text": "*Cambio*\nPermitir 5432/tcp desde 10.0.4.12"
               },
               {
                 "type": "mrkdwn",
@@ -6260,13 +6260,13 @@
     "attachments": [
       {
         "color": "#e3a73c",
-        "fallback": "▲ Cambio de SSH deshecho · Turn password logins off",
+        "fallback": "▲ Cambio de SSH deshecho · Desactivar el acceso por contraseña en SSH",
         "blocks": [
           {
             "type": "header",
             "text": {
               "type": "plain_text",
-              "text": "▲ Cambio de SSH deshecho · Turn password logins off",
+              "text": "▲ Cambio de SSH deshecho · Desactivar el acceso por contraseña en SSH",
               "emoji": false
             }
           },
@@ -6274,7 +6274,7 @@
             "type": "section",
             "text": {
               "type": "mrkdwn",
-              "text": "El cambio de SSH «Turn password logins off» se deshizo porque nadie lo confirmó en 5 minutos."
+              "text": "Nadie lo confirmó en 5 minutos, así que sshd usa la configuración que tenía antes del cambio. Aplícalo otra vez y confírmalo desde un inicio de sesión nuevo."
             }
           },
           {
@@ -6286,7 +6286,7 @@
               },
               {
                 "type": "mrkdwn",
-                "text": "*Cambio*\nTurn password logins off"
+                "text": "*Cambio*\nDesactivar el acceso por contraseña en SSH"
               },
               {
                 "type": "mrkdwn",

@@ -6069,7 +6069,7 @@
           "body": [
             {
               "type": "TextBlock",
-              "text": "▲ Cambio del cortafuegos deshecho · Allow 5432/tcp from 10.0.4.12",
+              "text": "▲ Cambio del cortafuegos deshecho · Permitir 5432/tcp desde 10.0.4.12",
               "weight": "Bolder",
               "size": "Medium",
               "color": "Warning",
@@ -6077,7 +6077,7 @@
             },
             {
               "type": "TextBlock",
-              "text": "El cambio del cortafuegos «Allow 5432/tcp from 10.0.4.12» se deshizo porque nadie lo confirmó en 5 minutos.",
+              "text": "Nadie lo confirmó en 5 minutos, así que el cortafuegos está como antes del cambio. Vuelve a hacerlo y confírmalo desde una sesión nueva.",
               "wrap": true
             },
             {
@@ -6089,7 +6089,7 @@
                 },
                 {
                   "title": "Cambio",
-                  "value": "Allow 5432/tcp from 10.0.4.12"
+                  "value": "Permitir 5432/tcp desde 10.0.4.12"
                 },
                 {
                   "title": "Lo aplicó",
@@ -6138,7 +6138,7 @@
           "body": [
             {
               "type": "TextBlock",
-              "text": "▲ Cambio de SSH deshecho · Turn password logins off",
+              "text": "▲ Cambio de SSH deshecho · Desactivar el acceso por contraseña en SSH",
               "weight": "Bolder",
               "size": "Medium",
               "color": "Warning",
@@ -6146,7 +6146,7 @@
             },
             {
               "type": "TextBlock",
-              "text": "El cambio de SSH «Turn password logins off» se deshizo porque nadie lo confirmó en 5 minutos.",
+              "text": "Nadie lo confirmó en 5 minutos, así que sshd usa la configuración que tenía antes del cambio. Aplícalo otra vez y confírmalo desde un inicio de sesión nuevo.",
               "wrap": true
             },
             {
@@ -6158,7 +6158,7 @@
                 },
                 {
                   "title": "Cambio",
-                  "value": "Turn password logins off"
+                  "value": "Desactivar el acceso por contraseña en SSH"
                 },
                 {
                   "title": "Lo aplicó",
