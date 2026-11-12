@@ -80,6 +80,14 @@ never run. What cannot be put back (a tablespace's directory, a setting for a da
 there) is listed. Noust's own state carries the same file, so `noust restore-server` has the roles
 before the databases.
 
+The database of a Compose stack is put back the same way, one step earlier: before a real restore loads
+the dump, Noust reads which roles it names (`pg_restore --schema-only`, which runs nothing) and asks the
+container's server which it has. The roles Noust made itself (`noust_ro_<database>`, the account the
+console's SQL signs in as) that are missing are made again, without a login; the next read of the database
+gives them theirs. A role the dump names that is not Noust's and is missing stops the restore before
+anything is touched, and the error names it and the `docker compose exec ... psql` command that makes it:
+a role somebody else owns is not made up for them.
+
 ```bash
 noust db globals dump [-o FILE]            # take them now (root-only file: it holds password hashes)
 noust db globals list                      # the files this server has dumped

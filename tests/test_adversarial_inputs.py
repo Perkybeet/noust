@@ -2324,3 +2324,52 @@ class TestWhatAComposeFileBringsInThatItDoesNotWrite:
 
         # What it says is text (the log puts it on one line: core/logsafe), whatever came in.
         assert all(isinstance(sentence, str) for sentence in findings.refused + findings.warned)
+
+
+class TestTheRolesADumpNames:
+    """
+    The text of a dump taken elsewhere names roles, and Noust makes some of them (item 193).
+
+    Whatever the schema script says, reading it answers with names and never crashes, and a name is
+    made by Noust only when it is one of Noust's own prefixes followed by plain characters: nothing
+    a dump carries is ever spliced into a statement as anything but a quoted identifier.
+    """
+
+    @SETTINGS
+    @given(script=st.text(max_size=400))
+    def test_any_text_is_read_without_a_crash(self, script: str) -> None:
+        from noust.managers.stack_roles import roles_named_by
+
+        names = roles_named_by(script)
+
+        assert names == sorted(set(names))
+        assert all(isinstance(name, str) for name in names)
+
+    @SETTINGS
+    @given(name=st.text(max_size=60))
+    def test_what_is_made_is_a_name_noust_could_have_made(self, name: str) -> None:
+        from noust.managers.stack_roles import create_statement, is_noust_role
+
+        if not is_noust_role(name):
+            return
+        statement = create_statement(name)
+
+        assert statement == f'CREATE ROLE "{name}" NOLOGIN'
+        assert not re.search(r'["\x00-\x1f;\s]', name)
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            'noust_ro_x"; DROP ROLE postgres; --',
+            "noust_ro_x\nDROP ROLE postgres",
+            "noust_ro_x;",
+            "noust_ro_\x00",
+            "NOUST_RO_x",
+            "noust_ro_",
+        ],
+    )
+    def test_the_payloads_that_have_beaten_validators_are_not_made(self, name: str) -> None:
+        from noust.managers.stack_roles import is_noust_role, plan_roles
+
+        assert not is_noust_role(name)
+        assert plan_roles([name], existing=set()).create == []
