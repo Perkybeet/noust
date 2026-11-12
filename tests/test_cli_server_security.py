@@ -233,6 +233,47 @@ class TestFirewall:
         assert "SSH listens there" in result.output
 
 
+class TestFirewallChangeOrigin:
+    @pytest.fixture
+    def office(self, machine):
+        machine.runner.script(
+            ["ufw", "status", "verbose"],
+            stdout="Status: active\nDefault: deny (incoming), allow (outgoing)\n",
+        )
+        machine.runner.script(
+            ["ufw", "show", "added"],
+            stdout="ufw allow from 10.0.0.0/8 to any port 5432 proto tcp comment 'noust: office'\n",
+        )
+        rules = json.loads(invoke("firewall", "status", "--json").output)["firewall"]["rules"]
+        return rules[0]["id"]
+
+    def test_the_origin_moves_in_one_command_that_waits_once(self, machine, office):
+        result = invoke("firewall", "change-source", office, "--from", "192.0.2.0/24")
+
+        assert result.exit_code == 0, result.output
+        assert "noust server security confirm" in result.output
+        assert machine.runner.ran(
+            "ufw", "allow", "from", "192.0.2.0/24", "to", "any", "port", "5432", "proto", "tcp"
+        )
+        assert machine.runner.ran(
+            "ufw", "delete", "allow", "from", "10.0.0.0/8", "to", "any", "port", "5432"
+        )
+
+    def test_the_status_shows_which_rules_can_move(self, machine, office):
+        rules = json.loads(invoke("firewall", "status", "--json").output)["firewall"]["rules"]
+
+        assert rules[0]["source_changeable"] is True
+
+    def test_a_rule_that_is_not_there_says_how_to_find_the_ids(self, machine, office):
+        result = invoke("firewall", "change-source", "000000000000", "--from", "192.0.2.0/24")
+
+        assert result.exit_code == 1
+        assert "noust server security firewall status" in result.output
+
+    def test_the_origin_is_required(self, machine, office):
+        assert invoke("firewall", "change-source", office).exit_code == 2
+
+
 class TestDryRun:
     def test_a_rehearsal_writes_nothing_and_arms_nothing(self, machine):
         machine.runner.script(["journalctl"], stdout=accepted("root", ED_FP, at=NOW - 3600) + "\n")

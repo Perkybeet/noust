@@ -41,6 +41,13 @@ from tests.support.web_server_security_api import (  # noqa: F401
 # ruff: noqa: F811
 
 
+UFW_ACTIVE = """Status: active
+Default: deny (incoming), allow (outgoing), disabled (routed)
+"""
+
+UFW_OFFICE = "ufw allow from 10.0.0.0/8 to any port 5432 proto tcp comment 'noust: office db'\n"
+
+
 class TestReads:
     def test_the_ssh_view_shows_effective_values_and_every_fix(self, client):
         response = client.get(f"{PREFIX}/ssh")
@@ -206,6 +213,74 @@ class TestChanges:
         assert response.json()["error"] == "accessguarderror"
         assert machine.jobs.jobs == []
 
+    def test_a_rule_moves_to_another_origin_in_one_job_that_waits_once(self, client, machine):
+        machine.runner.script(["ufw", "status", "verbose"], stdout=UFW_ACTIVE)
+        machine.runner.script(["ufw", "show", "added"], stdout=UFW_OFFICE)
+        rules = client.get(f"{PREFIX}/firewall").json()["firewall"]["rules"]
+        office = next(rule for rule in rules if rule["source"] == "10.0.0.0/8")
+        assert office["source_changeable"] is True
+
+        response = client.post(
+            f"{PREFIX}/firewall/rules/{office['id']}/source", json={"source": "192.0.2.0/24"}
+        )
+
+        assert response.status_code == 202, response.text
+        [job] = machine.jobs.jobs
+        assert job.status == JobStatus.COMPLETED
+        assert job.result["change"]["status"] == "pending"
+        assert "192.0.2.0/24" in job.result["change"]["title"]
+        assert machine.runner.ran(
+            "ufw", "allow", "from", "192.0.2.0/24", "to", "any", "port", "5432", "proto", "tcp"
+        )
+        assert machine.runner.ran(
+            "ufw", "delete", "allow", "from", "10.0.0.0/8", "to", "any", "port", "5432"
+        )
+
+    def test_a_move_the_guard_refuses_answers_at_once_and_queues_nothing(self, client, machine):
+        machine.runner.script(["ufw", "status", "verbose"], stdout=UFW_ACTIVE)
+        machine.runner.script(["ufw", "show", "added"], stdout="ufw allow 22/tcp\n")
+        machine.runner.script(
+            ["ss", "-Htnp"],
+            stdout='0 0 10.0.0.5:22 198.51.100.7:51234 users:(("sshd",pid=1,fd=4))\n',
+        )
+        machine.runner.script(
+            ["ss", "-Hltnup"],
+            stdout='tcp LISTEN 0 128 0.0.0.0:22 0.0.0.0:* users:(("sshd",pid=900,fd=3))\n',
+        )
+        rules = client.get(f"{PREFIX}/firewall").json()["firewall"]["rules"]
+
+        response = client.post(
+            f"{PREFIX}/firewall/rules/{rules[0]['id']}/source", json={"source": "192.0.2.0/24"}
+        )
+
+        assert response.status_code == 400
+        assert response.json()["error"] == "accessguarderror"
+        assert machine.jobs.jobs == []
+
+    def test_a_malformed_origin_is_a_validation_error(self, client, machine):
+        machine.runner.script(["ufw", "status", "verbose"], stdout=UFW_ACTIVE)
+        machine.runner.script(["ufw", "show", "added"], stdout=UFW_OFFICE)
+        rules = client.get(f"{PREFIX}/firewall").json()["firewall"]["rules"]
+
+        response = client.post(
+            f"{PREFIX}/firewall/rules/{rules[0]['id']}/source", json={"source": "x; y"}
+        )
+
+        assert response.status_code == 400
+        assert response.json()["fields"] == {"source": "'x; y' is not an address or a network"}
+        assert machine.jobs.jobs == []
+
+    def test_an_unknown_rule_is_refused_with_how_to_list_them(self, client, machine):
+        machine.runner.script(["ufw", "status", "verbose"], stdout=UFW_ACTIVE)
+        machine.runner.script(["ufw", "show", "added"], stdout=UFW_OFFICE)
+
+        response = client.post(
+            f"{PREFIX}/firewall/rules/000000000000/source", json={"source": "192.0.2.0/24"}
+        )
+
+        assert response.status_code == 400
+        assert machine.jobs.jobs == []
+
     def test_a_malformed_rule_is_a_validation_error(self, client):
         response = client.post(
             f"{PREFIX}/firewall/rules", json={"action": "allow", "port": 80, "source": "x; y"}
@@ -282,7 +357,7 @@ class TestContract:
         }
         permissions = route_map()
 
-        assert len(routes) == 25
+        assert len(routes) == 26
         assert routes <= set(permissions)
 
     def test_every_access_change_needs_host_access(self):
@@ -293,6 +368,7 @@ class TestContract:
             ("POST", f"{PREFIX}/ssh/keys/remove"),
             ("POST", f"{PREFIX}/firewall/rules"),
             ("DELETE", f"{PREFIX}/firewall/rules/{{rule_id}}"),
+            ("POST", f"{PREFIX}/firewall/rules/{{rule_id}}/source"),
             ("POST", f"{PREFIX}/firewall/enable"),
             ("POST", f"{PREFIX}/firewall/disable"),
             ("POST", f"{PREFIX}/checks/{{check_id}}/fix"),

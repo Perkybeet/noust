@@ -102,6 +102,7 @@ OPERATIONS: dict[str, tuple[tuple[str, ...], bool]] = {
     "ssh.key.remove": (("user", "fingerprint", "force"), False),
     "firewall.add": (("action", "port", "proto", "source", "comment"), True),
     "firewall.delete": (("rule_id",), True),
+    "firewall.source": (("rule_id", "source"), True),
     "firewall.enable": ((), True),
     "firewall.disable": ((), True),
     "fail2ban.install": (("epel", "ignore"), False),
@@ -564,6 +565,22 @@ class ServerSecurity:
         finally:
             self._changed()
 
+    def firewall_change_source(self, rule_id: str, source: str) -> PendingChange:
+        """
+        Move a rule to another origin in one step, pending one confirmation.
+
+        Args:
+            rule_id: The rule.
+            source: ``any``, or the address or network it should now admit.
+
+        Returns:
+            The pending change.
+        """
+        try:
+            return self._firewall().change_source(rule_id, source)
+        finally:
+            self._changed()
+
     def firewall_enable(self) -> PendingChange:
         """
         Turn ufw on, SSH allowed first, pending confirmation.
@@ -801,6 +818,10 @@ class ServerSecurity:
             return firewall.plan_add(self._rule(params)).title
         if operation == "firewall.delete":
             return firewall.plan_delete(str(params.get("rule_id", ""))).title
+        if operation == "firewall.source":
+            return firewall.plan_change_source(
+                str(params.get("rule_id", "")), str(params.get("source") or "any")
+            ).title
         if operation == "firewall.enable":
             return firewall.plan_enable().title
         if operation == "firewall.disable":
@@ -893,6 +914,12 @@ class ServerSecurity:
             return {"change": self.firewall_add(self._rule(params)).to_dict()}
         if operation == "firewall.delete":
             return {"change": self.firewall_delete(str(params.get("rule_id", ""))).to_dict()}
+        if operation == "firewall.source":
+            return {
+                "change": self.firewall_change_source(
+                    str(params.get("rule_id", "")), str(params.get("source") or "any")
+                ).to_dict()
+            }
         if operation == "firewall.enable":
             return {"change": self.firewall_enable().to_dict()}
         if operation == "firewall.disable":
