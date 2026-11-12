@@ -134,6 +134,7 @@ const rule = (over: Partial<FirewallRule>): FirewallRule => ({
   comment: "",
   noust: false,
   known: true,
+  source_changeable: false,
   ...over,
 });
 const GUARD = [{ port: 22, reason: "SSH" }];

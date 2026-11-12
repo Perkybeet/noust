@@ -199,7 +199,7 @@ describe("the one dialog that opens a port", () => {
   });
 
   describe("opening a port only to some addresses while a rule for everybody stands (item 139)", () => {
-    const WIDE: FirewallRule = { id: "w5432", backend: "ufw", action: "allow", ports: [[5432, 5432]], proto: "tcp", source: "any", spec: "5432/tcp ALLOW IN Anywhere", comment: "temporary: migration from the old host", noust: false, known: true };
+    const WIDE: FirewallRule = { id: "w5432", backend: "ufw", action: "allow", ports: [[5432, 5432]], proto: "tcp", source: "any", spec: "5432/tcp ALLOW IN Anywhere", comment: "temporary: migration from the old host", noust: false, known: true, source_changeable: false };
     const BOTH: FirewallRule = { ...WIDE, id: "w80", ports: [[80, 80], [5432, 5432]], spec: "80,5432/tcp ALLOW IN Anywhere" };
     const withRules = (...rules: Firewall["firewall"]["rules"]) => ({ "GET /api/server/security/firewall": () => json(200, firewallWith([], { rules: [...FIREWALL.firewall.rules, ...rules] })) });
 
