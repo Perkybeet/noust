@@ -645,12 +645,19 @@ def gather(sources: Sources | None = None) -> Facts:
         facts.hardening = reader()
 
     def backups() -> None:
+        from noust.core.backup_collection_store import CentralHeld
+        from noust.core.backup_files import is_sealed
         from noust.core.ens.profile import backup_encryption_required
         from noust.managers.backup_manager import BackupManager
 
         facts.backup_encryption_required = backup_encryption_required(config)
         the_store = store()
         manager = BackupManager(verbose=False)
+        # What the centrals that collect this server's copies say they hold (item 195): a copy
+        # taken away and kept by a central is a copy kept apart, and says where.
+        held = CentralHeld(the_store).holders_map("app")
+        held_domains: dict[str, set[str]] = {}
+        plain_at: set[str] = set()
         by_app: dict[str, dict[str, Any]] = {}
         for app in the_store.list_apps():
             if getattr(app, "preview_parent", None):
@@ -666,6 +673,10 @@ def gather(sources: Sources | None = None) -> Facts:
             if entry is None:
                 continue
             entry["count"] += 1
+            for central in held.get(backup.id, ()):
+                held_domains.setdefault(backup.domain, set()).add(central)
+                if not is_sealed(manager.local_files(backup)[0]):
+                    plain_at.add(central)
             if entry["newest"] is None or str(backup.created_at) > str(entry["newest"]):
                 entry["newest"] = backup.created_at
             if backup.verified_ok and (
@@ -684,6 +695,15 @@ def gather(sources: Sources | None = None) -> Facts:
             }
             for record in the_store.list_backup_schedules()
         ]
+        # A central is a place a copy is kept, named like a destination: ``central:<name>``.
+        for domain, centrals in sorted(held_domains.items()):
+            facts.schedules.append(
+                {"domain": domain, "destinations": [f"central:{name}" for name in sorted(centrals)]}
+            )
+        for name in sorted({c for centrals in held_domains.values() for c in centrals}):
+            facts.destinations.append(
+                {"name": f"central:{name}", "backend": "central", "encrypted": name not in plain_at}
+            )
 
     def restore_drills() -> None:
         from noust.core.restore_drills import DrillRecords
@@ -1632,6 +1652,29 @@ def _hardening_finding(
     )
 
 
+def sent_away(facts: Facts) -> dict[str, list[str]]:
+    """
+    Say where each application's backups are kept apart from this server.
+
+    The one answer ``ENS-BAK-01`` and ``noust compliance check`` both read, so they never
+    disagree: a destination a schedule sends to, and a central that collects the copies and says it
+    holds them (``central:<name>``, item 195).
+
+    Args:
+        facts: The facts.
+
+    Returns:
+        Each application that has somewhere, and the places, in the order they were found.
+    """
+    places: dict[str, list[str]] = {}
+    for schedule in facts.schedules:
+        for name in schedule.get("destinations") or []:
+            found = places.setdefault(schedule["domain"], [])
+            if name not in found:
+                found.append(name)
+    return places
+
+
 def check_backups(facts: Facts) -> Finding:
     """ENS-BAK-01: each application backed up within a day, verified within a week, sent away."""
     title = "Backups taken and verified"
@@ -1640,7 +1683,7 @@ def check_backups(facts: Facts) -> Finding:
         return _unknown("ENS-BAK-01", title, measures, "backups", facts)
     if not facts.backups:
         return Finding("ENS-BAK-01", title, "n/a", measures, "No application is deployed here.")
-    scheduled_away = {s["domain"] for s in facts.schedules if s.get("destinations")}
+    scheduled_away = sent_away(facts)
     problems: list[str] = []
     for entry in facts.backups:
         domain = entry["domain"]
@@ -1674,6 +1717,10 @@ def check_backups(facts: Facts) -> Finding:
         "ok",
         measures,
         f"All {len(facts.backups)} application(s) have a recent, verified backup sent away.",
+        tuple(
+            f"{domain}: kept at {', '.join(places)}"
+            for domain, places in sorted(scheduled_away.items())
+        ),
     )
 
 

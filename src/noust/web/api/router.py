@@ -51,6 +51,7 @@ from noust.web.api.apps import router as apps_router
 from noust.web.api.audit import router as audit_router
 from noust.web.api.auth import router as auth_router
 from noust.web.api.authdns import router as authdns_router
+from noust.web.api.backup_collection import router as backup_collection_router
 from noust.web.api.backup_destinations import router as backup_destinations_router
 from noust.web.api.backup_encryption import router as backup_encryption_router
 from noust.web.api.backup_failures import router as backup_failures_router
@@ -287,6 +288,9 @@ router.include_router(
 )
 router.include_router(volume_backups_router, prefix="/volume-backups", tags=["Volume Backups"])
 router.include_router(self_backup_router, prefix="/self-backup", tags=["Self Backup"])
+router.include_router(
+    backup_collection_router, prefix="/backup-collection", tags=["Backup Collection"]
+)
 router.include_router(databases_router, prefix="/databases", tags=["Databases"])
 router.include_router(databases_apps_router, prefix="/apps", tags=["Databases"])
 router.include_router(cron_router, prefix="/cron", tags=["Cron Jobs"])

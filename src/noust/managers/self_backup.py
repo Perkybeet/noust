@@ -69,7 +69,7 @@ from pathlib import Path
 from typing import Any
 
 from noust.central import backup as central_backup
-from noust.core import audit, paths, sealing
+from noust.core import audit, backup_hold, paths, sealing
 from noust.core.config import SYSTEMD_DIR, Config, resolve_backup_directory
 from noust.core.ens.envelope import EnvelopeError, open_envelope, read_header, seal_file
 from noust.core.exceptions import BackupError, NoustError, SourceError, ValidationError
@@ -966,7 +966,7 @@ class SelfBackupManager:
 
     # ----------------------------------------------------------------- sidecars
 
-    def _sidecar_path(self, bundle: Path) -> Path:
+    def sidecar_path(self, bundle: Path) -> Path:
         """
         Args:
             bundle: A bundle's path.
@@ -975,6 +975,8 @@ class SelfBackupManager:
             The path of the sidecar beside it.
         """
         return bundle.with_name(f"{bundle.name}.json")
+
+    _sidecar_path = sidecar_path
 
     def _write_sidecar(
         self, bundle: SelfBackup | SelfBackupEntry, *, kind: str | None = None, **extra: Any
@@ -1498,6 +1500,11 @@ class SelfBackupManager:
             (e.name, datetime.fromtimestamp(e.path.stat().st_mtime, tz=timezone.utc))
             for e in scheduled
         ]
+        # A bundle a central that follows this server has not taken yet is not rotated away
+        # (core/backup_hold.py): it counts neither toward the limit nor as a candidate.
+        waiting = backup_hold.spared("noust", candidates)
+        scheduled = [e for e in scheduled if e.name not in waiting]
+        candidates = [(name, moment) for name, moment in candidates if name not in waiting]
         expired = select_expired(
             candidates,
             count=retention_count,
@@ -1508,6 +1515,7 @@ class SelfBackupManager:
         )
         for name in expired:
             self.delete(name)
+            backup_hold.note_rotated_out("noust", name, owner="noust")
         return expired
 
     # ---------------------------------------------------------------- schedule

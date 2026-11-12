@@ -412,6 +412,9 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/notifications/**", INSTANCE),
     # What a central manages on this server: the server's, like the settings themselves.
     _rule("/api/managed-settings/**", INSTANCE),
+    # What a central takes away from this server, and what it says it holds: the server's whole
+    # data, so only a central (which sees every team) reads it.
+    _rule("/api/backup-collection/**", INSTANCE),
     # What a central gives this server to deploy from its repositories: a token to clone with and
     # the events of the repository. Only a central's, which sees every team.
     _rule("/api/sources/**", INSTANCE),

@@ -107,9 +107,71 @@ RELEASES_COLUMNS: list[Column] = []
 SLEEP_SQL = ""
 SLEEP_COLUMNS: list[Column] = []
 
-# Owned by the copies lane: what a backup destination was found able to do with a file
-# it was given (delete it, overwrite it) and the space its retention could not free (item 180).
-BACKUPS_SQL = ""
+# Owned by the copies lanes. Two of them write here, each its own block, and neither touches the
+# other's: the central that collects the copies of its servers (item 195), and what a backup
+# destination was found able to do with a file it was given - delete it, overwrite it - and the
+# space its retention could not free (item 180, the block that follows).
+#
+# Item 195, on a server: what each central that collects its copies said it holds
+# (``backup_central_held``, replaced as a whole whenever that central says it, by
+# ``noust.core.backup_collection_store``) and when it last said it (``backup_central_syncs``),
+# which is what a retention that waits for a copy nobody has taken yet reads, and what says a copy
+# is somewhere else too.
+#
+# Item 195, on a central (``noust.fleet.collect``): ``collected_backups``, one row per copy it holds
+# of a server (``node``, ``kind`` and the server's own identifier of it), with the files it keeps
+# for it and what it checked of them (``state`` is ``held``, or ``retired`` once the central's own
+# retention or its operator let it go, so that a server that still has it is not asked for it again);
+# ``collect_nodes``, one row per server that has anything to say
+# about its collecting (whether it follows, how the last pass went, the catalogue's fingerprint
+# then); ``collect_settings``, the knobs of the whole fleet's collecting, one row each.
+BACKUPS_SQL = """
+CREATE TABLE IF NOT EXISTS backup_central_held (
+    central TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    item_id TEXT NOT NULL,
+    sha256 TEXT,
+    held_at TEXT NOT NULL,
+    PRIMARY KEY (central, kind, item_id)
+);
+CREATE TABLE IF NOT EXISTS backup_central_syncs (
+    central TEXT PRIMARY KEY,
+    synced_at TEXT NOT NULL,
+    held INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS collected_backups (
+    node TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    item_id TEXT NOT NULL,
+    owner TEXT NOT NULL,
+    folder TEXT NOT NULL,
+    origin TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    collected_at TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    files TEXT NOT NULL,
+    verified TEXT NOT NULL,
+    state TEXT NOT NULL DEFAULT 'held',
+    PRIMARY KEY (node, kind, item_id)
+);
+CREATE INDEX IF NOT EXISTS idx_collected_backups_owner ON collected_backups(node, kind, owner);
+CREATE TABLE IF NOT EXISTS collect_nodes (
+    node TEXT PRIMARY KEY,
+    follow INTEGER,
+    last_pass_at TEXT,
+    last_ok_at TEXT,
+    last_error TEXT,
+    last_error_code TEXT,
+    failures INTEGER NOT NULL DEFAULT 0,
+    fingerprint TEXT,
+    support TEXT
+);
+CREATE TABLE IF NOT EXISTS collect_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+"""
 BACKUPS_COLUMNS: list[Column] = []
 
 # Owned by the clients lane, first of its two areas: the maintenance window of an

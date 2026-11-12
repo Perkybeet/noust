@@ -244,7 +244,9 @@ def _measure_offsite(facts: Any, required: Any) -> tuple[str, str, tuple[str, ..
         return None
     if not facts.backups:
         return STATUS_NA, "No application is deployed here.", (), ""
-    away = {s["domain"] for s in facts.schedules if s.get("destinations")}
+    from noust.core.ens import checks
+
+    away = checks.sent_away(facts)
     missing = [entry["domain"] for entry in facts.backups if entry["domain"] not in away]
     if missing:
         return (
@@ -253,7 +255,12 @@ def _measure_offsite(facts: Any, required: Any) -> tuple[str, str, tuple[str, ..
             tuple(f"{domain}: no schedule sends it away" for domain in missing),
             "noust backup schedule create <domain> --schedule daily --destination <name>",
         )
-    return STATUS_OK, "Every application has a backup sent to another place.", (), ""
+    return (
+        STATUS_OK,
+        "Every application has a backup sent to another place.",
+        tuple(f"{domain}: kept at {', '.join(places)}" for domain, places in sorted(away.items())),
+        "",
+    )
 
 
 def _measure_review(key: str, command: str) -> Measure:

@@ -40,7 +40,7 @@ from noust.core.server_text import say
 from noust.core.store import NoustStore, get_store
 from noust.fleet.central_calls import MAX_HEARTBEAT
 from noust.fleet.keys import TOKEN, secret_name
-from noust.fleet.tunnels import TunnelManager, get_tunnels
+from noust.fleet.tunnels import CONSOLE, TunnelManager, get_tunnels
 
 if TYPE_CHECKING:
     import httpx
@@ -174,6 +174,9 @@ class NodeClient:
             process-wide store by default.
         retry_refused: Present the token even to a node recorded as
             ``refused``: what ``noust node test`` and registration do.
+        channel: Which connection to the node the calls go over: the console's, or the one the
+            copies a central collects go over (:data:`~noust.fleet.tunnels.TRANSFER`), so that a
+            request a person waits for never queues behind a large file.
     """
 
     def __init__(
@@ -186,8 +189,10 @@ class NodeClient:
         transport: httpx.BaseTransport | None = None,
         store: NoustStore | None = None,
         retry_refused: bool = False,
+        channel: str = CONSOLE,
     ) -> None:
         self.node = node
+        self.channel = channel
         self._tunnels = tunnels
         self.timeout = timeout
         self._secrets = secrets or SecretStore()
@@ -249,7 +254,7 @@ class NodeClient:
             NodeError: When the node is not registered.
             NodeUnreachableError: When the tunnel cannot be opened.
         """
-        host, port = self.tunnels.endpoint(self.node)
+        host, port = self.tunnels.endpoint(self.node, self.channel)
         return f"http://{host}:{port}"
 
     def _token(self) -> str:

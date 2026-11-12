@@ -74,7 +74,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any, ClassVar
 
 from noust.central import require_server_role
-from noust.core import legacy_archive, legacy_names
+from noust.core import backup_hold, legacy_archive, legacy_names
 from noust.core.appdir.layout import RELEASES, env_file_in, layout_on_disk
 from noust.core.appdir.permissions import hand_over_tree
 from noust.core.appdir.releases import (
@@ -3212,13 +3212,13 @@ class BackupManager:
 
     def _protected_backup_ids(self, backups: Sequence[BackupMetadata]) -> set[str]:
         """
-        Name the backups a deployment still depends on.
+        Name the backups a deployment still depends on, or a central has not taken yet.
 
         On the in-place layout a deployment's pre-deploy backup is recorded as
         its snapshot, and going back to that deployment restores it; rotating
         it away silently removes that way back. The snapshots of the newest
         :data:`SNAPSHOT_DEPLOYMENTS_KEPT` deployments of each application are
-        kept.
+        kept, and so is a backup a central has not taken (core/backup_hold.py).
 
         Args:
             backups: The backups rotation is considering.
@@ -3236,7 +3236,7 @@ class BackupManager:
             for record in store.list_deployments(domain, limit=SNAPSHOT_DEPLOYMENTS_KEPT):
                 if record.snapshot_backup:
                     protected.add(record.snapshot_backup)
-        return protected
+        return protected | backup_hold.spared("app", [(b.id, b.created_at) for b in backups])
 
     def _rotation_candidates(
         self, app_name: str, *, tag: str | None, protect: Collection[str]
@@ -3288,7 +3288,7 @@ class BackupManager:
         if len(backups) > self.max_backups:
             for backup in backups[self.max_backups :]:
                 try:
-                    self.delete(backup.id)
+                    backup_hold.rotate_out(self.delete, "app", backup.id, backup.domain)
                     self.logger.debug(f"Rotated old backup: {backup.id}")
                 except BackupError as exc:
                     self.logger.warning(f"Failed to rotate backup {backup.id}: {exc}")
@@ -3358,7 +3358,7 @@ class BackupManager:
                     continue
                 try:
                     if datetime.fromisoformat(backup.created_at) < cutoff:
-                        self.delete(backup.id)
+                        backup_hold.rotate_out(self.delete, "app", backup.id, backup.domain)
                         deleted += 1
                         self.logger.debug(f"Rotated old backup (age): {backup.id}")
                 except (BackupError, ValueError) as exc:
@@ -3370,7 +3370,7 @@ class BackupManager:
                 if backup.id in spared:
                     continue
                 try:
-                    self.delete(backup.id)
+                    backup_hold.rotate_out(self.delete, "app", backup.id, backup.domain)
                     deleted += 1
                     self.logger.debug(f"Rotated old backup (count): {backup.id}")
                 except BackupError as exc:
@@ -3389,7 +3389,7 @@ class BackupManager:
                 if backup.id not in expired or backup.id in spared:
                     continue
                 try:
-                    self.delete(backup.id)
+                    backup_hold.rotate_out(self.delete, "app", backup.id, backup.domain)
                     deleted += 1
                     self.logger.debug(f"Rotated old backup (size): {backup.id}")
                 except BackupError as exc:
