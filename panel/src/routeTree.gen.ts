@@ -57,6 +57,7 @@ import { Route as ConsoleFleetActivityRouteImport } from "./routes/_console/flee
 import { Route as ConsoleFleetAlertsRouteImport } from "./routes/_console/fleet/alerts"
 import { Route as ConsoleFleetAppsRouteImport } from "./routes/_console/fleet/apps"
 import { Route as ConsoleFleetBackupsRouteImport } from "./routes/_console/fleet/backups"
+import { Route as ConsoleFleetCentralBackupsRouteImport } from "./routes/_console/fleet/central-backups"
 import { Route as ConsoleFleetCertificatesRouteImport } from "./routes/_console/fleet/certificates"
 import { Route as ConsoleFleetNetworkRouteImport } from "./routes/_console/fleet/network"
 import { Route as ConsoleFleetPlacementsRouteImport } from "./routes/_console/fleet/placements"
@@ -439,6 +440,12 @@ const ConsoleFleetBackupsRoute = ConsoleFleetBackupsRouteImport.update({
   path: "/backups",
   getParentRoute: () => ConsoleFleetRoute,
 } as any)
+const ConsoleFleetCentralBackupsRoute =
+  ConsoleFleetCentralBackupsRouteImport.update({
+    id: "/central-backups",
+    path: "/central-backups",
+    getParentRoute: () => ConsoleFleetRoute,
+  } as any)
 const ConsoleFleetCertificatesRoute =
   ConsoleFleetCertificatesRouteImport.update({
     id: "/certificates",
@@ -1249,6 +1256,7 @@ export interface FileRoutesByFullPath {
   "/fleet/alerts": typeof ConsoleFleetAlertsRoute
   "/fleet/apps": typeof ConsoleFleetAppsRoute
   "/fleet/backups": typeof ConsoleFleetBackupsRoute
+  "/fleet/central-backups": typeof ConsoleFleetCentralBackupsRoute
   "/fleet/certificates": typeof ConsoleFleetCertificatesRoute
   "/fleet/network": typeof ConsoleFleetNetworkRoute
   "/fleet/placements": typeof ConsoleFleetPlacementsRoute
@@ -1430,6 +1438,7 @@ export interface FileRoutesByTo {
   "/fleet/alerts": typeof ConsoleFleetAlertsRoute
   "/fleet/apps": typeof ConsoleFleetAppsRoute
   "/fleet/backups": typeof ConsoleFleetBackupsRoute
+  "/fleet/central-backups": typeof ConsoleFleetCentralBackupsRoute
   "/fleet/certificates": typeof ConsoleFleetCertificatesRoute
   "/fleet/network": typeof ConsoleFleetNetworkRoute
   "/fleet/placements": typeof ConsoleFleetPlacementsRoute
@@ -1618,6 +1627,7 @@ export interface FileRoutesById {
   "/_console/fleet/alerts": typeof ConsoleFleetAlertsRoute
   "/_console/fleet/apps": typeof ConsoleFleetAppsRoute
   "/_console/fleet/backups": typeof ConsoleFleetBackupsRoute
+  "/_console/fleet/central-backups": typeof ConsoleFleetCentralBackupsRoute
   "/_console/fleet/certificates": typeof ConsoleFleetCertificatesRoute
   "/_console/fleet/network": typeof ConsoleFleetNetworkRoute
   "/_console/fleet/placements": typeof ConsoleFleetPlacementsRoute
@@ -1809,6 +1819,7 @@ export interface FileRouteTypes {
     | "/fleet/alerts"
     | "/fleet/apps"
     | "/fleet/backups"
+    | "/fleet/central-backups"
     | "/fleet/certificates"
     | "/fleet/network"
     | "/fleet/placements"
@@ -1990,6 +2001,7 @@ export interface FileRouteTypes {
     | "/fleet/alerts"
     | "/fleet/apps"
     | "/fleet/backups"
+    | "/fleet/central-backups"
     | "/fleet/certificates"
     | "/fleet/network"
     | "/fleet/placements"
@@ -2177,6 +2189,7 @@ export interface FileRouteTypes {
     | "/_console/fleet/alerts"
     | "/_console/fleet/apps"
     | "/_console/fleet/backups"
+    | "/_console/fleet/central-backups"
     | "/_console/fleet/certificates"
     | "/_console/fleet/network"
     | "/_console/fleet/placements"
@@ -2672,6 +2685,13 @@ declare module "@tanstack/react-router" {
       path: "/backups"
       fullPath: "/fleet/backups"
       preLoaderRoute: typeof ConsoleFleetBackupsRouteImport
+      parentRoute: typeof ConsoleFleetRoute
+    }
+    "/_console/fleet/central-backups": {
+      id: "/_console/fleet/central-backups"
+      path: "/central-backups"
+      fullPath: "/fleet/central-backups"
+      preLoaderRoute: typeof ConsoleFleetCentralBackupsRouteImport
       parentRoute: typeof ConsoleFleetRoute
     }
     "/_console/fleet/certificates": {
@@ -3696,6 +3716,7 @@ interface ConsoleFleetRouteChildren {
   ConsoleFleetAlertsRoute: typeof ConsoleFleetAlertsRoute
   ConsoleFleetAppsRoute: typeof ConsoleFleetAppsRoute
   ConsoleFleetBackupsRoute: typeof ConsoleFleetBackupsRoute
+  ConsoleFleetCentralBackupsRoute: typeof ConsoleFleetCentralBackupsRoute
   ConsoleFleetCertificatesRoute: typeof ConsoleFleetCertificatesRoute
   ConsoleFleetNetworkRoute: typeof ConsoleFleetNetworkRoute
   ConsoleFleetPlacementsRoute: typeof ConsoleFleetPlacementsRoute
@@ -3711,6 +3732,7 @@ const ConsoleFleetRouteChildren: ConsoleFleetRouteChildren = {
   ConsoleFleetAlertsRoute: ConsoleFleetAlertsRoute,
   ConsoleFleetAppsRoute: ConsoleFleetAppsRoute,
   ConsoleFleetBackupsRoute: ConsoleFleetBackupsRoute,
+  ConsoleFleetCentralBackupsRoute: ConsoleFleetCentralBackupsRoute,
   ConsoleFleetCertificatesRoute: ConsoleFleetCertificatesRoute,
   ConsoleFleetNetworkRoute: ConsoleFleetNetworkRoute,
   ConsoleFleetPlacementsRoute: ConsoleFleetPlacementsRoute,

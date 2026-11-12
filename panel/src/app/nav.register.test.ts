@@ -245,6 +245,7 @@ describe("3. the budgets", () => {
     expect(area("/teams/acme/members")).toBe("apps");
     expect(area("/fleet/apps")).toBe("apps");
     expect(area("/fleet/placements")).toBe("apps");
+    expect(area("/fleet/central-backups")).toBe("backups");
     expect(area("/fleet/certificates")).toBe("domains");
     expect(area("/fleet/updates")).toBe("server");
     expect(area("/fleet/servers")).toBe("server");

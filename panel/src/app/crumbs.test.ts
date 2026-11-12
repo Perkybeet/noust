@@ -70,6 +70,8 @@ describe("the breadcrumbs the register gives a page", () => {
 
   it("says an area once from the fleet's pages, where its fleet face is the area", () => {
     expect(ids("/fleet/placements", "fleet")).toEqual(["apps", "fleet.apps.placements"]);
+    // The copies the central holds are the second view of the fleet's Backups.
+    expect(ids("/fleet/central-backups", "fleet")).toEqual(["backups", "fleet.backups.central"]);
     // The updates of every server are the second view of the fleet's Servers, a step of that area as Placements is of Applications.
     expect(ids("/fleet/updates", "fleet")).toEqual(["server", "fleet.servers.updates"]);
   });
