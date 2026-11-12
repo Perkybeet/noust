@@ -92,6 +92,8 @@ class TestWhereEachServerStands:
             "node": "web-1",
             "origin": "fleet",
             "sync": "in_sync",
+            "waiting": False,
+            "if_followed": None,
             "wanted_version": wanted.version,
             "applied_version": wanted.version,
             "state": "managed",

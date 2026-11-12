@@ -40,7 +40,7 @@ CHANNEL: dict[str, Any] = {
 
 
 class TestTheClosedList:
-    def test_the_six_of_this_release_are_available(self) -> None:
+    def test_the_seven_of_this_release_are_available(self) -> None:
         assert set(AVAILABLE) == {
             "channel",
             "alert_rule",
@@ -48,6 +48,7 @@ class TestTheClosedList:
             "registry",
             "variable",
             "console_link",
+            "policy",
         }
 
     def test_the_ones_that_wait_say_so_instead_of_being_unknown(self) -> None:
@@ -224,6 +225,94 @@ class TestTheSecretsOfAValue:
             split_secrets(kind_of("channel"), "ops", {**CHANNEL, "settings": {"token": REDACTED}})
 
         assert caught.value.field == "settings.token"
+
+
+POLICY: dict[str, Any] = {
+    "updates_check": False,
+    "ssl_email": "ops@example.com",
+    "backup_max_per_app": 5,
+    "delivery_max_minutes": 30,
+}
+
+
+class TestThePolicyOfAServer:
+    """The four settings of "General" that are about how a server behaves, as one setting."""
+
+    def test_there_is_one_and_it_is_called_general(self) -> None:
+        kind = kind_of("policy")
+
+        assert kind.check_name("general") == "general"
+        for bad in ("Ops", "general2", "general\n", "", "default"):
+            with pytest.raises(ValidationError) as caught:
+                kind.check_name(bad)
+            assert caught.value.coded is not None
+            assert caught.value.coded.code == "fleet_settings.single_name"
+            assert caught.value.field == "name"
+
+    def test_its_value_is_the_four_fields_of_the_servers_own_route(self) -> None:
+        kind = kind_of("policy")
+
+        assert kind.check_value(POLICY) == POLICY
+        assert kind.fields == {
+            "updates_check",
+            "ssl_email",
+            "backup_max_per_app",
+            "delivery_max_minutes",
+        }
+
+    @pytest.mark.parametrize("missing", sorted(POLICY))
+    def test_a_server_needs_all_four_to_make_one(self, missing: str) -> None:
+        partial = {k: v for k, v in POLICY.items() if k != missing}
+
+        with pytest.raises(ValidationError) as caught:
+            kind_of("policy").check_value(partial)
+
+        assert caught.value.coded is not None
+        assert caught.value.coded.code == "fleet_settings.missing_field"
+        assert caught.value.field == missing
+
+    def test_a_field_it_does_not_have_is_a_typo_found_when_it_is_saved(self) -> None:
+        with pytest.raises(ValidationError) as caught:
+            kind_of("policy").check_value({**POLICY, "apps_directory": "/srv"})
+
+        assert caught.value.field == "apps_directory"
+
+    def test_the_machines_own_fields_are_not_in_it(self) -> None:
+        # The folders, the web server and the console's bind are the machine's (Server).
+        assert not kind_of("policy").fields & {
+            "directory",
+            "backup_directory",
+            "apps_directory",
+            "webserver",
+            "max_concurrent_builds",
+            "queue_limit",
+        }
+
+    def test_a_server_is_the_judge_of_what_the_fields_hold(self) -> None:
+        value = {**POLICY, "backup_max_per_app": "a lot", "ssl_email": "not an address"}
+
+        assert kind_of("policy").check_value(value) == value
+
+    def test_it_holds_no_secret(self) -> None:
+        kind = kind_of("policy")
+
+        public, secrets = split_secrets(kind, "general", POLICY)
+
+        assert secrets == {}
+        assert public == POLICY
+
+    def test_it_asks_the_permission_of_the_routes_that_write_it(self) -> None:
+        from noust.web.permissions.registry import permission_for_route
+
+        kind = kind_of("policy")
+
+        assert [method for method, _path in kind.operations] == ["GET", "PUT"]
+        assert {path for _method, path in kind.operations} == {"/api/config/policy"}
+        assert permission_for_route("PUT", "/api/config/policy") == kind.permission
+        assert permission_for_route("GET", "/api/config/policy") == "settings.read"
+
+    def test_the_server_it_is_sent_to_is_given_the_value_as_it_is(self) -> None:
+        assert kind_of("policy").for_node(POLICY, "web-2") == POLICY
 
 
 class TestScope:

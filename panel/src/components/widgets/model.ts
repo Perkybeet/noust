@@ -71,6 +71,38 @@ export function spansFor(size: SizeKey, columns: number): Size {
   return { w: w <= 3 ? Math.ceil(columns / 2) : columns, h };
 }
 
+/**
+ * A size in the units a person counts it in: a width in quarters of the panel and a height in bands of two rows.
+ * Every size is 1, 2 or 4 wide and 1 or 2 high ("2 × 1" is a medium one), so the label of a size that is being
+ * dragged to says how much of the panel it will take without a word about columns.
+ */
+export function sizeUnits(size: SizeKey): Size {
+  const { w, h } = SIZES[size];
+  return { w: w / 3, h: h / 2 };
+}
+
+/** Which measure of a widget is changed: its width or its height. */
+export type Axis = "w" | "h";
+
+/**
+ * The size one step along an axis from `size`, among the sizes the widget takes, with the other measure kept: the
+ * next wider or the next taller (`direction` 1), the next narrower or shorter (`direction` -1). Null when there is
+ * none, which is when the keyboard says that the widget cannot get any bigger or smaller that way.
+ */
+export function stepSize(allowed: readonly SizeKey[], size: SizeKey, axis: Axis, direction: 1 | -1): SizeKey | null {
+  const other: Axis = axis === "w" ? "h" : "w";
+  const here = SIZES[size];
+  let best: SizeKey | null = null;
+  for (const key of SIZE_ORDER) {
+    if (!allowed.includes(key)) continue;
+    const candidate = SIZES[key];
+    if (candidate[other] !== here[other] || (candidate[axis] - here[axis]) * direction <= 0) continue;
+    const better = best === null || (candidate[axis] - SIZES[best][axis]) * direction < 0;
+    if (better) best = key;
+  }
+  return best;
+}
+
 /** The size that has exactly this width and height, or null when none has. */
 export function sizeOf(w: number, h: number): SizeKey | null {
   return SIZE_ORDER.find((key) => SIZES[key].w === w && SIZES[key].h === h) ?? null;

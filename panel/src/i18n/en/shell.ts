@@ -161,6 +161,7 @@ export const shell = {
   fleetStrip: {
     landmark: "The fleet",
     servers: { one: "{count} server", other: "{count} servers" },
+    none: "no servers added yet",
     answering: { one: "{count} answering", other: "{count} answering" },
     down: { one: "{count} not answering", other: "{count} not answering" },
     downShort: { one: "{count} down", other: "{count} down" },

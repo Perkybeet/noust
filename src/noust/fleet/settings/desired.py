@@ -212,17 +212,23 @@ class FleetSettings:
             "changed_at": setting.changed_at,
         }
 
-    def effective_for(self, node: str) -> builtins.list[DesiredSetting]:
+    def effective_for(
+        self, node: str, *, ignore_mode: bool = False
+    ) -> builtins.list[DesiredSetting]:
         """
         Say which value a server gets of each setting: its own exception, else the fleet's.
 
         Args:
             node: The server.
+            ignore_mode: Say what it would get if it followed the fleet's settings, whether or
+                not it does: how the screen tells an independent server what following again
+                would bring.
 
         Returns:
-            One row per setting, by kind and name; nothing for a server that is independent.
+            One row per setting, by kind and name; nothing for a server that is independent,
+            unless the mode is to be ignored.
         """
-        if self.mode(node) == "independent":
+        if not ignore_mode and self.mode(node) == "independent":
             return []
         chosen: dict[tuple[str, str], DesiredSetting] = {}
         for setting in self.list():

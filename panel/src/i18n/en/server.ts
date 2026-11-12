@@ -126,6 +126,13 @@ export const server = {
     supportEndedNoDate: "Out of support",
     supportUnknown: "Support dates unknown",
   },
+  /** A change the timer undid because nobody confirmed it. */
+  expired: {
+    titleSsh: "The SSH change was undone because nobody confirmed it",
+    titleFirewall: "The firewall change was undone because nobody confirmed it",
+    when: "It was undone {time}.",
+    hint: "Make it again and keep it from the console before its time runs out.",
+  },
   pending: {
     titleSsh: "An SSH change undoes itself in {left}",
     titleFirewall: "A firewall change undoes itself in {left}",

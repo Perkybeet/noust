@@ -35,8 +35,30 @@ __all__ = ["VERSION", "apply_v18", "incomplete"]
 VERSION = 18
 
 # Owned by the states lane: what a first deployment that failed leaves behind for its
-# domain (item 141), only if the job the console already keeps does not carry it.
-DEPLOYS_SQL = ""
+# domain (item 141). The job the store keeps carries the domain, the error and how it ended,
+# but not what was asked for, and the application's own row is undone on purpose when the first
+# deployment fails, so the page of that domain has nothing to retry from. One row per attempt
+# (``job_id`` is the job's): ``origin`` says how the application was to start (``source``,
+# ``image``, ``compose`` or ``recipe``), ``source`` and ``branch`` what to read again, with
+# every credential already masked by ``noust.core.first_deploys``, the only writer. The
+# project and the environment are the ones the deployment was queued for, so a team sees the
+# failure of its own and no other. ``dismissed_at`` puts an attempt away. Times are ISO 8601.
+DEPLOYS_SQL = """
+CREATE TABLE IF NOT EXISTS first_deploys (
+    job_id TEXT PRIMARY KEY,
+    domain TEXT NOT NULL,
+    origin TEXT NOT NULL,
+    source TEXT,
+    branch TEXT,
+    app_type TEXT,
+    recipe TEXT,
+    project_id INTEGER,
+    environment_id INTEGER,
+    created_at TEXT NOT NULL,
+    dismissed_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_first_deploys_domain ON first_deploys(domain);
+"""
 DEPLOYS_COLUMNS: list[Column] = []
 
 # Owned by the dates lane: when the registration of a domain expires, read from its

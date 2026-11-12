@@ -133,6 +133,41 @@ _MIN_SECRET = 4
 # -------------------------------------------------------------------------- the options
 
 
+def _setting_names(options: Mapping[str, Any], option: str) -> list[str]:
+    """
+    Read an option that is a list of settings.
+
+    Args:
+        options: The action's options.
+        option: Which one: ``restore`` or ``only``.
+
+    Returns:
+        The ``kind/name`` entries, without repeats and in order.
+
+    Raises:
+        ValidationError: It is not a list of ``kind/name``, or a kind is not one the fleet manages.
+    """
+    entries = options.get(option) or []
+    if not isinstance(entries, list) or not all(
+        isinstance(entry, str) and len(entry.split("/")) == 2 and all(entry.split("/"))
+        for entry in entries
+    ):
+        raise ValidationError(
+            f"{option} is a list of 'kind/name'",
+            details="Such as ['channel/ops', 'variable/REGION'].",
+            field="options",
+        )
+    for entry in entries:
+        kind = entry.split("/")[0]
+        if kind not in KINDS:
+            raise ValidationError(
+                f"{option} names {kind}, which is not something the fleet manages",
+                details=f"The fleet manages: {', '.join(KINDS)}.",
+                field="options",
+            )
+    return sorted(set(entries))
+
+
 def _check_options(options: Mapping[str, Any]) -> dict[str, Any]:
     """
     Check the options of the action.
@@ -140,7 +175,7 @@ def _check_options(options: Mapping[str, Any]) -> dict[str, Any]:
     Args:
         options: ``adopt`` (take over a setting a server already has that is not the fleet's),
             ``restore`` (a list of ``kind/name`` to put back where a server's operator changed
-            them) and ``restore_all``.
+            them), ``restore_all`` and ``only`` (a list of ``kind/name``: apply nothing else).
 
     Returns:
         The options, complete.
@@ -148,7 +183,7 @@ def _check_options(options: Mapping[str, Any]) -> dict[str, Any]:
     Raises:
         ValidationError: An unknown option, or one of the wrong kind.
     """
-    allowed = {"adopt", "restore", "restore_all"}
+    allowed = {"adopt", "restore", "restore_all", "only"}
     unknown = sorted(set(options) - allowed)
     if unknown:
         raise ValidationError(
@@ -162,16 +197,8 @@ def _check_options(options: Mapping[str, Any]) -> dict[str, Any]:
         if not isinstance(value, bool):
             raise ValidationError(f"{flag} must be bool", field="options")
         checked[flag] = value
-    restore = options.get("restore") or []
-    if not isinstance(restore, list) or not all(
-        isinstance(entry, str) and entry.count("/") == 1 for entry in restore
-    ):
-        raise ValidationError(
-            "restore is a list of 'kind/name'",
-            details="Such as ['channel/ops', 'variable/REGION'].",
-            field="options",
-        )
-    checked["restore"] = sorted(set(restore))
+    checked["restore"] = _setting_names(options, "restore")
+    checked["only"] = _setting_names(options, "only")
     return checked
 
 
@@ -474,6 +501,7 @@ def _settings_apply(run: NodeRun) -> None:
         [row for row in rows or [] if isinstance(row, dict)],
         restore=set(run.options.get("restore") or []),
         restore_all=bool(run.options.get("restore_all")),
+        only=run.options.get("only") or (),
         independent=store.mode(node) == "independent",
         central=str(me.get("central")) if isinstance(me, dict) and me.get("central") else None,
         out_of_reach=out_of_reach,

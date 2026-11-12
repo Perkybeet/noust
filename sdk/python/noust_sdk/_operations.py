@@ -377,6 +377,8 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("configuration", "update_telegram_config"): ("PUT", "/api/config/notifications/telegram", "settings.manage", True),
     ("configuration", "list_telegram_chats"): ("POST", "/api/config/notifications/telegram/chats", "settings.manage", False),
     ("configuration", "test_notification_channel"): ("POST", "/api/config/notifications/{channel}/test", "apps.operate", False),
+    ("configuration", "get_policy"): ("GET", "/api/config/policy", "settings.read", False),
+    ("configuration", "update_policy"): ("PUT", "/api/config/policy", "settings.manage", True),
     ("configuration", "reload_config"): ("POST", "/api/config/reload", "settings.manage", False),
     ("configuration", "get_smtp_config"): ("GET", "/api/config/smtp", "settings.read", False),
     ("configuration", "update_smtp_config"): ("PUT", "/api/config/smtp", "settings.manage", True),
@@ -602,6 +604,8 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("deployments", "list_deployments"): ("GET", "/api/deployments", "apps.read", False),
     ("deployments", "get_deployment"): ("GET", "/api/deployments/{deployment_id}", "apps.read", False),
     ("deployments", "get_deployment_log"): ("GET", "/api/deployments/{deployment_id}/log", "apps.read", False),
+    ("deployments", "list_first_deploys"): ("GET", "/api/first-deploys", "apps.read", False),
+    ("deployments", "dismiss_first_deploy"): ("POST", "/api/first-deploys/{attempt}/dismiss", "apps.manage", False),
     ("domains", "list_client_certificates"): ("GET", "/api/apps/{domain}/client-certs", "apps.read", False),
     ("domains", "issue_client_certificate"): ("POST", "/api/apps/{domain}/client-certs", "apps.manage", True),
     ("domains", "get_client_authority"): ("GET", "/api/apps/{domain}/client-certs/ca", "apps.read", False),
@@ -3915,7 +3919,7 @@ class Compose:
 
 
 class Configuration:
-    """Configuration: 25 operations."""
+    """Configuration: 27 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -4047,6 +4051,22 @@ class Configuration:
 
         Needs: permission `apps.operate`."""
         return self._call("POST", f"/api/config/notifications/{quote(str(channel), safe='')}/test", query=None, body=None)
+
+    def get_policy(self) -> "ServerPolicyResponse":
+        """GET /api/config/policy
+
+        Get Policy
+
+        Needs: permission `settings.read`."""
+        return self._call("GET", "/api/config/policy", query=None, body=None)
+
+    def update_policy(self, body: "ServerPolicyConfig") -> "MessageResponse":
+        """PUT /api/config/policy
+
+        Update Policy
+
+        Needs: permission `settings.manage`, sudo mode."""
+        return self._call("PUT", "/api/config/policy", query=None, body=body)
 
     def reload_config(self) -> "ConfigReloadResponse":
         """POST /api/config/reload
@@ -5859,7 +5879,7 @@ class DeployKeys:
 
 
 class Deployments:
-    """Deployments: 5 operations."""
+    """Deployments: 7 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -5903,6 +5923,22 @@ class Deployments:
 
         Needs: permission `apps.read`."""
         return self._call("GET", f"/api/deployments/{quote(str(deployment_id), safe='')}/log", query={"tail": tail, "level": level, "search": search, "timestamps": timestamps, "sanitize": sanitize}, body=None)
+
+    def list_first_deploys(self, *, domain: Union[str, None] = None) -> "FirstDeploysResponse":
+        """GET /api/first-deploys
+
+        List First Deploys
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", "/api/first-deploys", query={"domain": domain}, body=None)
+
+    def dismiss_first_deploy(self, attempt: str) -> Any:
+        """POST /api/first-deploys/{attempt}/dismiss
+
+        Dismiss First Deploy
+
+        Needs: permission `apps.manage`."""
+        return self._call("POST", f"/api/first-deploys/{quote(str(attempt), safe='')}/dismiss", query=None, body=None)
 
 
 

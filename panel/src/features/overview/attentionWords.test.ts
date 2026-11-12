@@ -19,6 +19,13 @@ describe("reasonText", () => {
     expect(reasonText(en, monitor("warning", "open-port"))).toBe("The monitor flagged this process (open-port)");
   });
 
+  it("says a first deploy that failed left no application, in both languages", async () => {
+    const first = { ...monitor("", ""), kind: "first_deploy", severity: "fail", code: "first_deploy_failed", params: {} };
+    expect(reasonText(en, first)).toBe("The first deploy failed, so no application was created");
+    await loadCatalog("es");
+    expect(reasonText(bindT("es"), first)).toBe("El primer despliegue falló y no se creó la aplicación");
+  });
+
   it("calls a failed unit a service", () => {
     expect(reasonText(en, { ...monitor("", ""), kind: "unit", code: "unit_failed", params: {} })).toBe("The service has failed");
   });

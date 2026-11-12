@@ -570,7 +570,11 @@ EVENTS: dict[str, EventSpec] = {
             "server.refresh": "The package index was refreshed.",
             "server.reboot": "A reboot or shutdown was requested or scheduled.",
             "server.firewall": "The firewall was changed.",
+            "server.firewall_expired": (
+                "A firewall change was undone because nobody confirmed it in time."
+            ),
             "server.ssh": "The SSH daemon or its keys were changed.",
+            "server.ssh_expired": ("An SSH change was undone because nobody confirmed it in time."),
             "server.fail2ban": "fail2ban was installed or changed.",
             "server.storage": "Storage was cleaned or swap was changed.",
             "server.time": "The clock, time zone or NTP was changed.",

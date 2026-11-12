@@ -68,6 +68,20 @@ export const appPages: Catalog<typeof en> = {
     logLine: "Lo que va saliendo, tal cual.",
   },
 
+  firstFailed: {
+    state: "Primer despliegue fallido",
+    title: "El primer despliegue de {domain} falló",
+    when: "Falló {time}.",
+    nothing: "No se ha creado nada: Noust deshizo cada paso que había dado, así que no hay ninguna aplicación en este dominio. Vuelve a intentarlo con lo que habías indicado, o olvida este fallo.",
+    retry: "Intentar de nuevo",
+    viewLog: "Ver el registro",
+    dismiss: "Olvidar este fallo",
+    sourceMasked: "La dirección llevaba una contraseña o un token y Noust no los guardó: vuelve a escribirla.",
+    recipe: "Receta {name}",
+    branch: "rama {branch}",
+    dismissFailed: "No se pudo olvidar el fallo",
+  },
+
   layout: {
     portFact: "Puerto {port}",
     liveSite: "{domain}, el sitio en producción",
@@ -89,8 +103,11 @@ export const appPages: Catalog<typeof en> = {
     noAnswerBody: "El servicio está en marcha, pero la aplicación no responde a las peticiones. Ver por qué comprueba el puerto, HTTP y sus registros.",
     restartingTitle: "El servicio se reinicia una y otra vez",
     restartingBody: "Se detiene poco después de arrancar, y systemd lo vuelve a iniciar. Sus últimas líneas de registro suelen decir por qué.",
-    deployFailedTitle: "El último despliegue falló {time} y sigue sirviendo el anterior",
-    deployFailedBody: "No se ha caído nada: la versión que estaba en marcha sigue siendo la que responde.",
+    deployFailedTitle: "El último despliegue falló {time}",
+    deployFailedBody: "La aplicación sigue respondiendo con la versión que estaba en marcha.",
+    deployFailedBodyInPlace:
+      "La aplicación sigue respondiendo con lo que ya estaba en marcha. Si la reinicias, arrancará lo que haya en su carpeta, que puede ser la versión que falló.",
+    deployFailedBodyStopped: "La aplicación está detenida.",
     unmanagedTitle: "Está en marcha fuera de Noust",
     unmanagedBody: "Sus contenedores están en marcha, pero su unidad está parada: Noust no la supervisa. Seguramente alguien la arrancó a mano con docker compose.",
   },

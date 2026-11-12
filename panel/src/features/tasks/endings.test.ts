@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { LONG_TASK_MS } from "./browserNotice";
 import { endedTask, endingOf, isLeavingLongTask, noticeStateOf } from "./endings";
+import { forgetLaunches, noteArrivals } from "./launches";
 import { taskOfJob } from "./model";
 import type { Task } from "./model";
 import { job } from "./taskFixtures";
@@ -32,6 +33,15 @@ describe("telling the person", () => {
     expect(endingOf(task({ state: "succeeded" }), me, "/apps/shop.example.com/deployments")).toBe("silent");
   });
 
+  it("is not silent about a failure on the page of the application it acts on: the failure is announced once, here", () => {
+    // The page of an application whose first deploy failed has, by design, no application left to show it (item 141), and the
+    // card a page draws for its own job does not announce: a success on the page is seen, a failure is said.
+    expect(endingOf(task({ state: "failed" }), me, "/apps/shop.example.com")).toBe("toast");
+    expect(endingOf(task({ state: "failed" }), me, "/apps/shop.example.com/deployments")).toBe("toast");
+    // Its own page says it with its log, which is what the person is reading.
+    expect(endingOf(task({ state: "failed", id: "ab12" }), me, "/activity/tasks/ab12")).toBe("silent");
+  });
+
   it("is silent on the Software page for an install it started there, which the page already says it ended", () => {
     const install = { title: { code: "jobs.title.server_action_software_install", params: { component: "nginx" } }, state: "succeeded" } as const;
     expect(endingOf(task(install), me, "/server/software")).toBe("silent");
@@ -50,6 +60,51 @@ describe("telling the person", () => {
     expect(noticeStateOf({ state: "succeeded" })).toBe("active");
     expect(noticeStateOf({ state: "failed" })).toBe("failed");
     expect(noticeStateOf({ state: "cancelled" })).toBe("idle");
+  });
+});
+
+describe("telling a person who left from one who did not", () => {
+  const launch = (key: string, pathname: string) => {
+    forgetLaunches();
+    noteArrivals([{ key, createdAt: NOW - 1_000, state: "running" }], pathname, NOW);
+  };
+  afterEach(() => {
+    forgetLaunches();
+  });
+
+  it("is silent while the person is still on the page that launched the task, whichever page that is", () => {
+    // Back up a database, open a port, deploy from the wizard: none of them has the task's page or an application's.
+    const backup = task({ state: "succeeded", id: "b1" });
+    launch(backup.key, "/databases/postgresql/shop/backups");
+    expect(endingOf(backup, me, "/databases/postgresql/shop/backups")).toBe("silent");
+    expect(endingOf(task({ state: "failed", id: "b1" }), me, "/databases/postgresql/shop/backups")).toBe("silent");
+  });
+
+  it("is a toast once the person has left that page, and silent again if they come back to it", () => {
+    const backup = task({ state: "succeeded", id: "b1" });
+    launch(backup.key, "/databases/postgresql/shop/backups");
+    expect(endingOf(backup, me, "/apps")).toBe("toast");
+    expect(endingOf(backup, me, "/databases/postgresql/shop/backups")).toBe("silent");
+  });
+
+  it("is a toast, or the browser's notification, when the tab is hidden: that person is elsewhere, whatever page it shows", () => {
+    const backup = task({ state: "succeeded", id: "b1" });
+    launch(backup.key, "/databases/postgresql/shop/backups");
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    expect(endingOf(backup, me, "/databases/postgresql/shop/backups")).toBe("toast");
+    vi.restoreAllMocks();
+  });
+
+  it("is what it was when the console did not see the task arrive", () => {
+    forgetLaunches();
+    expect(endingOf(task({ state: "succeeded", id: "b1" }), me, "/databases/postgresql/shop/backups")).toBe("toast");
+  });
+
+  it("does not take a long task for left while its person is on the page that launched it", () => {
+    const running = task({ startedAt: NOW - LONG_TASK_MS - 1, id: "b1" });
+    launch(running.key, "/network/firewall");
+    expect(isLeavingLongTask([running], me, "/network/firewall", NOW)).toBe(false);
+    expect(isLeavingLongTask([running], me, "/apps", NOW)).toBe(true);
   });
 });
 

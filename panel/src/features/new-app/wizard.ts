@@ -246,15 +246,7 @@ export function withScheme(value: string): string {
   return BARE_HOST.test(text) ? `https://${text}` : text;
 }
 
-/**
- * A source in a few characters, for places too narrow for all of it: the end of a path
- * (`src/storefront`), the repository of a URL (`you/app`).
- */
-export function shortSource(value: string): string {
-  const source = value.trim().replace(/\/+$/, "").replace(/\.git$/, "");
-  const parts = source.split(/[/:]/).filter((part) => part !== "");
-  return parts.slice(-2).join("/") || source;
-}
+export { shortSource } from "./shortSource";
 
 export const SOURCE_WORDS: Record<SourceKind, PlainKey> = {
   github: "newApp.source.kinds.github",
@@ -486,6 +478,17 @@ export function withAddressMode<T extends AddressChoice>(form: T, mode: AddressM
     return { ...form, addressMode: "temporary", ownDomain: form.domain, domain: form.temporaryDomain, includeWww: false, ssl: true };
   }
   return { ...form, addressMode: "own", domain: form.ownDomain };
+}
+
+/**
+ * Starts the address on a domain the operator had already given: the one a first deploy that failed was for, which
+ * "Try again" brings back. A temporary address is made again from what the application is called, so it is not
+ * brought back, and the temporary choice stays where `withAddressMode` keeps it.
+ */
+export function withDomain<T extends AddressChoice>(form: T, domain: string): T {
+  const name = normalizeDomain(domain);
+  if (name === "" || isTemporaryDomain(name)) return form;
+  return { ...form, addressMode: "own", domain: name, ownDomain: name };
 }
 
 /**

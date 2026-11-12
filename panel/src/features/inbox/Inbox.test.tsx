@@ -238,6 +238,37 @@ describe("the inbox", () => {
     expect(backend.callsTo("GET /api/system/version")).toHaveLength(0);
   });
 
+  it("does not cut the list short in the phone's sheet, which has the room and scrolls: every line is drawn", async () => {
+    // Item 144: the popover caps its list at a height, and the sheet of a phone carried the same cap, so three of five lines were
+    // drawn and the other two sat under a scroll nobody saw.
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      dispatchEvent: () => false,
+    }));
+    fakeBackend(inboxRoutes());
+    await openBell("Inbox, 4 things need you");
+    const panel = await screen.findByRole("dialog", { name: "Inbox" });
+    const list = await within(panel).findByRole("list", { name: "4 items need you" });
+
+    expect(list.closest("div")?.className).not.toContain("max-h-96");
+    expect(within(list).getAllByRole("listitem")).toHaveLength(4);
+  });
+
+  it("keeps the popover's list to a height, which is a place to scroll on a desktop", async () => {
+    fakeBackend(inboxRoutes());
+    await openBell("Inbox, 4 things need you");
+    const panel = await screen.findByRole("dialog", { name: "Inbox" });
+    const list = await within(panel).findByRole("list", { name: "4 items need you" });
+
+    expect(list.closest("div")?.className).toContain("max-h-96");
+  });
+
   it("is in Spanish too, and the bell says it in words", async () => {
     await act(() => setLocale("es"));
     fakeBackend(inboxRoutes());

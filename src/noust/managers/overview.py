@@ -41,6 +41,7 @@ from typing import Any
 from noust.core import cert_life
 from noust.core.deploy_failures import coded as deploy_failure
 from noust.core.exceptions import NoustError
+from noust.core.first_deploys import FirstDeploys
 from noust.core.server_text import ServerText
 from noust.core.timeutil import to_iso_offset
 from noust.monitor import sampler
@@ -610,7 +611,8 @@ def _attention(
     computed where the data is: an application whose service failed or is
     restarting, one whose newest deployment failed or was rolled back, a
     certificate about to expire or expired, a unit Noust manages that failed
-    beyond the applications' own, an open monitor observation, an alert that is
+    beyond the applications' own, a first deployment that failed and left no
+    application at all, an open monitor observation, an alert that is
     firing and a probe that is down. A source that cannot be read is skipped and
     logged; what remains is still worth showing.
 
@@ -682,6 +684,7 @@ def _attention(
             )
 
     _add_deployments(store, domains, add)
+    _add_first_deploys(store, add)
     _add_certificates(certificates, domains, add)
     _add_units(services, add)
     _add_observations(observations, add)
@@ -708,8 +711,8 @@ def _reason(
     Build one reason an item needs attention.
 
     Args:
-        kind: Where it comes from: ``state``, ``deploy``, ``certificate``,
-            ``unit``, ``monitor``, ``alert`` or ``probe``.
+        kind: Where it comes from: ``state``, ``deploy``, ``first_deploy``,
+            ``certificate``, ``unit``, ``monitor``, ``alert`` or ``probe``.
         severity: ``fail`` or ``warn``.
         code: Machine-readable and stable; the console words it.
         params: Values for the console's sentence.
@@ -786,19 +789,56 @@ def _add_deployments(store: Any, domains: set[str], add: Callable[..., None]) ->
             # what served before still serves.
             continue
         failed = deployment.status == "failed"
+        # Amber either way: the application is still there, and what is down (its service) is a
+        # reason of its own, in red, that this one only joins. It is the colour the application's
+        # page gives the same fact (item 147).
         add(
             f"app:{domain}",
             {"kind": "app", "domain": domain},
             domain,
             _reason(
                 "deploy",
-                "fail" if failed else "warn",
+                "warn",
                 "deploy_failed" if failed else "deploy_rolled_back",
                 detail=_first_line(deployment.error),
                 detail_coded=_coded_dict(deploy_failure(deployment.error)),
                 when=to_iso_offset(deployment.finished_at or deployment.started_at),
                 deployment_id=deployment.id,
                 actions=["view_deployment", "diagnose"],
+            ),
+        )
+
+
+def _add_first_deploys(store: Any, add: Callable[..., None]) -> None:
+    """
+    Add the first deployments that failed: there is no application to carry them.
+
+    A first deployment that fails undoes the application's row, so the loop over the
+    applications never meets it, and nothing else would tell the person who asked for it that
+    it did not work. Nothing serves on that domain, so it is a failure, not a warning.
+
+    Args:
+        store: The Noust store.
+        add: Adds a reason to an item.
+    """
+    try:
+        failed = FirstDeploys(store).failed()
+    except _SECTION_ERRORS as exc:
+        log.warning("The attention list could not read the first deployments: %s", exc)
+        return
+    for attempt in failed:
+        add(
+            f"app:{attempt.domain}",
+            {"kind": "app", "domain": attempt.domain},
+            attempt.domain,
+            _reason(
+                "first_deploy",
+                "fail",
+                "first_deploy_failed",
+                detail=_first_line(attempt.error),
+                detail_coded=_coded_dict(deploy_failure(attempt.error)),
+                when=to_iso_offset(attempt.finished_at) if attempt.finished_at else None,
+                actions=["view_first_deploy"],
             ),
         )
 

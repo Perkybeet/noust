@@ -5,7 +5,8 @@
 What can be a setting of the fleet: the closed list, how each is named, and which fields are secrets.
 
 The value of a setting is the body of the node's own typed route for it (a channel's is what
-``PUT /api/notifications/channels/{name}`` takes), so the central never says anything a node does
+``PUT /api/notifications/channels/{name}`` takes, a server's policy what ``PUT /api/config/policy``
+takes), so the central never says anything a node does
 not already know how to read, and the node judges the content with its own validators (rule 3).
 What the central checks is the shape: which fields a value may have and which a server needs to
 make one, so that a typo is found when the setting is saved and not once on every server.
@@ -30,6 +31,7 @@ from noust.core.config import REDACTED, is_secret_key
 from noust.core.exceptions import NoustError, ValidationError
 from noust.core.server_text import say
 from noust.fleet.models import validate_node_name
+from noust.fleet.settings import policy
 from noust.fleet.settings.reach import check_route
 
 __all__ = [
@@ -205,23 +207,24 @@ def _no_secrets(name: str, value: Mapping[str, Any]) -> tuple[str, ...]:
     return ()
 
 
-def _console_link_name(name: str) -> str:
+def _the_one_name(kind: str, only: str) -> Callable[[str], str]:
     """
     Args:
-        name: What the console link is called.
+        kind: A kind there is one of for the fleet.
+        only: The one name it has.
 
     Returns:
-        The name, when it is the one name there is.
-
-    Raises:
-        ValidationError: When it is any other.
+        The check of that name: anything else is refused, naming the field.
     """
-    if name != CONSOLE_LINK_NAME:
-        raise ValidationError.from_text(
-            say("fleet_settings.single_name", kind="console_link", name=CONSOLE_LINK_NAME),
-            field="name",
-        )
-    return name
+
+    def check(name: str) -> str:
+        if name != only:
+            raise ValidationError.from_text(
+                say("fleet_settings.single_name", kind=kind, name=only), field="name"
+            )
+        return name
+
+    return check
 
 
 def _console_link_check(value: Mapping[str, Any]) -> None:
@@ -610,10 +613,20 @@ KINDS: dict[str, SettingKind] = {
                 ("GET", "/api/notifications/console-url"),
                 ("PUT", "/api/notifications/console-url"),
             ),
-            name_check=_console_link_name,
+            name_check=_the_one_name("console_link", CONSOLE_LINK_NAME),
             secrets=_no_secrets,
             check=_console_link_check,
             per_node=_console_link_for,
+        ),
+        SettingKind(
+            key="policy",
+            title="Server policy",
+            fields=frozenset(policy.FIELDS),
+            required=policy.FIELDS,
+            permission="settings.manage",
+            operations=(("GET", "/api/config/policy"), ("PUT", "/api/config/policy")),
+            name_check=_the_one_name("policy", policy.NAME),
+            secrets=_no_secrets,
         ),
     )
 }

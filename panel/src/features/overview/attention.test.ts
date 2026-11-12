@@ -112,6 +112,11 @@ describe("attentionTarget and attentionAction", () => {
     expect(attentionTarget(down)).toEqual({ to: "/apps/$domain/diagnose", params: { domain: "shop.example.com" } });
     expect(attentionAction(down)).toMatchObject({ kind: "diagnose" });
 
+    // A first deploy that failed has no application, so no deployment to open: the page of its domain says what happened.
+    const firstDeploy = item("app:shop", "app", "fail", "shop.example.com", [{ kind: "first_deploy", severity: "fail", code: "first_deploy_failed", deployment_id: null }]);
+    expect(attentionTarget(firstDeploy)).toEqual({ to: "/apps/$domain", params: { domain: "shop.example.com" } });
+    expect(attentionAction(firstDeploy)).toMatchObject({ mode: "open", kind: "viewFailure", name: "shop.example.com" });
+
     const cert = item("certificate:d", "certificate", "warn", "d.example.com", [{ kind: "certificate", severity: "warn", code: "certificate_expires_in" }]);
     expect(attentionTarget(cert)).toEqual({ to: "/domains", search: { q: "d.example.com" } });
 

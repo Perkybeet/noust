@@ -152,6 +152,7 @@ export const shell: Catalog<typeof en> = {
   fleetStrip: {
     landmark: "La flota",
     servers: { one: "{count} servidor", other: "{count} servidores" },
+    none: "aún no hay servidores",
     answering: { one: "{count} responde", other: "{count} responden" },
     down: { one: "{count} no responde", other: "{count} no responden" },
     downShort: { one: "{count} caído", other: "{count} caídos" },

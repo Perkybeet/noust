@@ -28,6 +28,7 @@ import {
   typeName,
   typeOptions,
   withAddressMode,
+  withDomain,
   withProposal,
 } from "./wizard";
 import type { AppTypeOption, Inspection, PathRow, PlatformProposal, ReviewForm } from "./wizard";
@@ -725,6 +726,15 @@ describe("the address of a first deploy (the temporary address, 4.2)", () => {
     const typedOwn = { ...own, domain: "shop.example.com" };
     expect(withAddressMode(typedOwn, "temporary")).toMatchObject({ addressMode: "temporary", domain: TEMPORARY, ssl: true, includeWww: false });
     expect(withAddressMode(withAddressMode(typedOwn, "temporary"), "own").domain).toBe("shop.example.com");
+  });
+
+  it("starts on the domain a failed first deploy was for, when it was one of the operator's own", () => {
+    const seeded = withDomain(typed(), "Shop.Example.com");
+    expect(seeded).toMatchObject({ addressMode: "own", domain: "shop.example.com", ownDomain: "shop.example.com" });
+    // The temporary address is made again from what the application is called, never asked back.
+    expect(withDomain(typed(), "blog.93-184-216-34.sslip.io")).toEqual(typed());
+    // And the temporary one stays one click away, as it always is.
+    expect(withAddressMode(seeded, "temporary")).toMatchObject({ addressMode: "temporary", domain: TEMPORARY });
   });
 
   it("is sent over HTTPS without www: the certificate is tried, and the deploy does not fail on it", () => {

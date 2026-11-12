@@ -214,6 +214,46 @@ describe("the end of a task of yours", () => {
     expect(within(toasts).getAllByText(/Deploy shop\.example\.com/)).toHaveLength(1);
   });
 
+  describe("launched from a page that is neither the task's nor an application's", () => {
+    // A copy of a database, a port opened, a deploy from the wizard: the page that asked is where the person is looking (item 136).
+    const fresh = (patch: object = {}) =>
+      job({ id: "copy1", type: "backup", actor: ME, created_at: new Date().toISOString(), started_at: new Date().toISOString(), metadata: {}, title: { code: "jobs.title.backup", params: { domain: "shop_prod" } }, name: "Back up shop_prod", ...patch });
+    const done = (patch: object = {}) => fresh({ status: "completed", state: "succeeded", progress: 100, completed_at: new Date().toISOString(), ...patch });
+
+    it("is not said while you are still on the page you launched it from: you did not leave", async () => {
+      serve();
+      renderConsole("/databases");
+      await screen.findByRole("button", { name: "Tasks: 2 running, 1 queued" });
+      act(() => {
+        FakeEventSource.latest().open();
+        FakeEventSource.latest().emit("job", fresh());
+      });
+      await screen.findByRole("button", { name: "Tasks: 3 running, 1 queued" });
+      act(() => {
+        FakeEventSource.latest().emit("job", done());
+      });
+      await screen.findByRole("button", { name: "Tasks: 2 running, 1 queued" });
+      expect(within(screen.getByRole("region", { name: "Notifications" })).queryByText(/left that page/)).toBeNull();
+    });
+
+    it("is said once you have left it", async () => {
+      serve();
+      const { router } = renderConsole("/databases");
+      await screen.findByRole("button", { name: "Tasks: 2 running, 1 queued" });
+      act(() => {
+        FakeEventSource.latest().open();
+        FakeEventSource.latest().emit("job", fresh());
+      });
+      await screen.findByRole("button", { name: "Tasks: 3 running, 1 queued" });
+      await act(() => router.navigate({ to: "/domains" }));
+      act(() => {
+        FakeEventSource.latest().emit("job", done());
+      });
+      const toasts = await screen.findByRole("region", { name: "Notifications" });
+      expect(await within(toasts).findByText("You started it and left that page.")).toBeInTheDocument();
+    });
+  });
+
   it("is not said when you are on its page: you are looking at it", async () => {
     serve();
     renderConsole("/apps/shop.example.com");

@@ -136,6 +136,12 @@ export const server: Catalog<typeof en> = {
     supportEndedNoDate: "Fuera de soporte",
     supportUnknown: "Fechas de soporte desconocidas",
   },
+  expired: {
+    titleSsh: "El cambio de SSH se deshizo porque nadie lo confirmó",
+    titleFirewall: "El cambio del cortafuegos se deshizo porque nadie lo confirmó",
+    when: "Se deshizo {time}.",
+    hint: "Vuelve a hacerlo y consérvalo desde la consola antes de que se acabe el tiempo.",
+  },
   pending: {
     titleSsh: "Un cambio de SSH se deshace solo en {left}",
     titleFirewall: "Un cambio del cortafuegos se deshace solo en {left}",

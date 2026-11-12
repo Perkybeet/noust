@@ -264,6 +264,10 @@ def _held_ledgers() -> dict[str, int]:
 #: The audit event of each kind of change.
 AUDIT_EVENTS = {"sshd": "server.ssh", "firewall": "server.firewall"}
 
+#: The audit event of a change the timer undid because nobody confirmed it in time: an event of its own, so that what reads the
+#: trail (the console's Activity, a SIEM) says so by its name and not as one more "firewall changed".
+EXPIRED_EVENTS = {"sshd": "server.ssh_expired", "firewall": "server.firewall_expired"}
+
 
 def audit(event: str, target: str, *, outcome: str = "ok", **details: Any) -> None:
     """
@@ -682,7 +686,7 @@ class ChangeLedger:
             self.save(change)
             log.warning("Undid %s change %s (%s): %s", change.kind, change.id, by, change.title)
             audit(
-                AUDIT_EVENTS.get(change.kind, "server.ssh"),
+                (EXPIRED_EVENTS if expired else AUDIT_EVENTS).get(change.kind, "server.ssh"),
                 f"change:{change.id}",
                 action="expire" if expired else "revert",
                 title=change.title,

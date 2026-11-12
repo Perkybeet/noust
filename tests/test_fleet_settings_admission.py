@@ -136,6 +136,102 @@ class TestAPushOfTheFleetsSettings:
         assert response.json()["error"] == "validation_error"
 
 
+POLICY = {
+    "updates_check": False,
+    "ssl_email": "ops@example.com",
+    "backup_max_per_app": 5,
+    "delivery_max_minutes": 30,
+}
+
+
+class TestTheServerPolicyIsOneOfThem:
+    """The route the policy is written by is admitted as a push, and the rest of ``/api/config`` is not."""
+
+    def put_policy(self, app: Any, headers: dict[str, str], **changes: Any) -> Any:
+        return client_from(app).put(
+            "/api/config/policy", json={**POLICY, **changes}, headers=headers
+        )
+
+    def test_a_signed_push_writes_it_with_the_confirmation_the_central_gave(
+        self, app: Any, fleet_token: str
+    ) -> None:
+        response = self.put_policy(app, signed(fleet_token))
+
+        assert response.status_code == 200, response.text
+        read = client_from(app).get("/api/config/policy", headers=signed(fleet_token)).json()
+        assert read == {**POLICY, "customized": True}
+
+    def test_the_same_write_without_the_confirmation_is_refused_as_before(
+        self, app: Any, fleet_token: str
+    ) -> None:
+        headers = fleet_headers(
+            fleet_token, **{FLEET_ACTOR_HEADER: "ana", FLEET_ACTOR_ROLE_HEADER: "admin"}
+        )
+
+        response = self.put_policy(app, headers)
+
+        assert response.status_code == 403
+        assert response.json()["error"] == "elevation_required"
+
+    def test_a_node_held_below_admin_takes_none_of_it(
+        self, app: Any, fleet_token: str, store: NoustStore
+    ) -> None:
+        policy.set_access(policy.FleetAccess("deploy"), store=store)
+
+        response = self.put_policy(app, signed(fleet_token))
+
+        assert response.status_code == 403
+        assert response.json()["error"] == "fleet_sync_ceiling"
+
+    def test_the_central_records_it_and_the_node_notices_what_its_operator_changes(
+        self, app: Any, fleet_token: str
+    ) -> None:
+        assert self.put_policy(app, signed(fleet_token)).status_code == 200
+        recorded = client_from(app).put(
+            "/api/managed-settings/policy/general", json={"version": 4}, headers=signed(fleet_token)
+        )
+        assert recorded.status_code == 200, recorded.text
+        assert (recorded.json()["resource"], recorded.json()["state"]) == ("policy", "managed")
+
+        # Its own operator changes one of the four, by whatever way: here, the configuration.
+        config = Config()
+        config.reload()
+        config.set("ssl.email", "me@example.com")
+        config.write()
+        listed = client_from(app).get("/api/managed-settings", headers=signed(fleet_token)).json()
+
+        assert [(i["resource"], i["state"]) for i in listed["items"]] == [("policy", "overridden")]
+        assert "policy" in listed["kinds"]
+
+    def test_what_beside_the_four_keys_the_node_changes_is_not_a_change_of_the_policy(
+        self, app: Any, fleet_token: str
+    ) -> None:
+        self.put_policy(app, signed(fleet_token))
+        client_from(app).put(
+            "/api/managed-settings/policy/general", json={"version": 4}, headers=signed(fleet_token)
+        )
+        config = Config()
+        config.reload()
+        config.set("backup.directory", "/srv/backups")
+        config.set("deploy.max_concurrent_builds", 4)
+        config.write()
+
+        listed = client_from(app).get("/api/managed-settings", headers=signed(fleet_token)).json()
+
+        assert [(i["resource"], i["state"]) for i in listed["items"]] == [("policy", "managed")]
+
+    def test_the_whole_configuration_stays_out_of_a_push_s_reach(
+        self, app: Any, fleet_token: str
+    ) -> None:
+        # The loose routes are still not routes of the fleet's settings.
+        for method in ("PUT", "PATCH"):
+            response = client_from(app).request(
+                method, "/api/config", headers=signed(fleet_token), json={}
+            )
+            assert response.status_code == 403
+            assert response.json()["error"] == "fleet_sync_refused"
+
+
 class TestOnlyTheFleetsSettings:
     @pytest.mark.parametrize(
         ("method", "path"),

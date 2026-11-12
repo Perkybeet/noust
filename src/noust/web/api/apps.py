@@ -57,6 +57,7 @@ from noust.core.store import (
 from noust.core.teams import TeamStore, scoped_store
 from noust.core.utils import domain_to_app_name
 from noust.deployers.base import BaseDeployer
+from noust.deployers.bluegreen import serving_port
 from noust.deployers.compose_paste import analyze_document, write_document
 from noust.deployers.helpers.app_env import (
     check_app_env,
@@ -99,8 +100,9 @@ from noust.recipes.deploy import refuse_conflicts, require_available, with_datab
 from noust.terminal.targets import validate_service
 from noust.validators.environment import EnvironmentValidationError
 from noust.validators.source import is_upload_tree, validate_source
-from noust.web.api.app_container import ContainerSettingsRequest, request_to_changes
+from noust.web.api.app_container import ContainerSettingsRequest
 from noust.web.api.app_inspection import SourceInspectionResponse, inspection_response
+from noust.web.api.app_new import check_initial_health, database_for_job, new_container_settings
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import (
     JobAcceptedResponse,
@@ -109,6 +111,7 @@ from noust.web.api.deps import (
     require_elevated,
     strict_domain,
 )
+from noust.web.api.first_deploys import remember_attempt
 from noust.web.api.recipe_root import confirm_root_equivalent
 from noust.web.api.scope import resolve_target_for
 from noust.web.auth import (
@@ -126,7 +129,7 @@ from noust.web.jobs import (
     migrate_app_job,
 )
 from noust.web.permissions import Permission
-from noust.web.pydantic_compat import dump_model, iso_offset_validator
+from noust.web.pydantic_compat import iso_offset_validator
 
 #: app_state's display labels, translated to the fixed API vocabulary.
 #: Decoupled from AppState.label on purpose: that string is for a terminal
@@ -190,6 +193,8 @@ class AppInfo(BaseModel):
         pid: Main PID when running.
         uptime: How long the unit has been up.
         port: Upstream port.
+        serving_port: The port that answers now: the serving instance's in zero-downtime
+            mode (green is on the port after the record's), ``port`` otherwise.
         app_type: Deployer that owns it.
         path: Application directory.
         source: Git URL or local path it was deployed from.
@@ -244,6 +249,7 @@ class AppInfo(BaseModel):
     pid: int | None = None
     uptime: str | None = None
     port: int | None = None
+    serving_port: int | None = None
     app_type: str | None = None
     path: str | None = None
     source: str | None = None
@@ -794,6 +800,7 @@ def _to_app_info(
         pid=int(pid) if pid and str(pid) != "0" else None,
         uptime=str(status["uptime"]) if status.get("uptime") else None,
         port=app.port,
+        serving_port=serving_port(app),
         app_type=app.app_type,
         path=app.app_path,
         source=public_source(app.source),
@@ -1052,102 +1059,6 @@ def list_apps(
     return AppListResponse(apps=result, total=len(result))
 
 
-def _check_initial_health(path: str | None, expect: str | None, timeout: int | None) -> None:
-    """
-    Refuse health settings the gate could not use, naming the field.
-
-    Args:
-        path: Path to probe, or None.
-        expect: Accepted statuses, or None.
-        timeout: Seconds to wait, or None.
-
-    Raises:
-        ValidationError: A value is not usable; ``field`` names it.
-    """
-    from noust.validators.health import (
-        check_health_expect,
-        check_health_path,
-        check_health_timeout,
-    )
-
-    checks: tuple[tuple[str, Callable[[Any], Any], Any], ...] = (
-        ("health_path", check_health_path, path),
-        ("health_expect", check_health_expect, expect),
-        ("health_timeout", check_health_timeout, timeout),
-    )
-    for field, check, value in checks:
-        if value is None:
-            continue
-        try:
-            check(value)
-        except ValidationError as exc:
-            exc.field = field
-            raise
-
-
-def _database_for_job(body: CreateAppRequest) -> dict[str, Any]:
-    """
-    Describe the new application's database the way the deploy job takes it.
-
-    The version was checked when the request arrived; the job only needs to be
-    told what it did not know before 4.0, so a request that names none is the
-    job it always was.
-
-    Args:
-        body: The request, which has a database.
-
-    Returns:
-        The database as a plain mapping, without an unset version.
-    """
-    described = dump_model(body.database)  # type: ignore[arg-type]
-    for optional in ("version", "instance"):
-        if described.get(optional) is None:
-            described.pop(optional, None)
-    return described
-
-
-def _new_container_settings(
-    domain: str, request: ContainerSettingsRequest | None, source: str | None
-) -> dict[str, Any]:
-    """
-    Turn the container settings of a creation request into what the deploy job takes.
-
-    Args:
-        domain: The new application's domain.
-        request: What the client gave, or None for a repository with a Dockerfile.
-        source: The request's source, which an image from a registry has none of.
-
-    Returns:
-        The validated settings as a mapping; their secrets are already in the
-        secret store.
-
-    Raises:
-        ValidationError: The settings are not valid, an image was given a
-            source, or a build was given none.
-    """
-    from dataclasses import asdict
-
-    from noust.deployers.helpers.container_settings import settings_for_new_app
-
-    body = request if request is not None else ContainerSettingsRequest()
-    changes = request_to_changes(body)
-    method = changes.get("method") or ("image" if changes.get("image") else "dockerfile")
-    changes["method"] = method
-    if method == "image" and source:
-        raise ValidationError(
-            "An image from a registry has no source",
-            details="Give the image in container.image and leave source out.",
-            field="source",
-        )
-    if method != "image" and not source:
-        raise ValidationError(
-            "A source is required",
-            details="Give the repository to build in source, or an image in container.image.",
-            field="source",
-        )
-    return asdict(settings_for_new_app(domain, changes))
-
-
 @router.post("", response_model=JobAcceptedResponse, status_code=202)
 def create_app(
     body: CreateAppRequest,
@@ -1290,7 +1201,7 @@ def create_app(
     ).validated()
     # Checked before the job is queued, the same way PATCH .../health checks
     # them: a value the gate cannot use is a 400 now, not a failed deploy.
-    _check_initial_health(body.health_path, body.health_expect, body.health_timeout)
+    check_initial_health(body.health_path, body.health_expect, body.health_timeout)
 
     if body.package_manager is not None and body.package_manager not in SUPPORTED_PACKAGE_MANAGERS:
         raise ValidationError(
@@ -1302,7 +1213,7 @@ def create_app(
     # Last of the checks, because it writes: the registry password and the
     # build secrets go to the secret store, and only their names are queued.
     container_settings = (
-        _new_container_settings(domain, container, body.source) if app_type == "container" else None
+        new_container_settings(domain, container, body.source) if app_type == "container" else None
     )
     pasted_source = (
         str(write_document(domain_to_app_name(domain), body.compose_document, get_store()))
@@ -1349,7 +1260,7 @@ def create_app(
             "health_path": body.health_path,
             "health_expect": body.health_expect,
             "health_timeout": body.health_timeout,
-            "database": _database_for_job(body) if body.database is not None else None,
+            "database": database_for_job(body.database) if body.database is not None else None,
         },
         metadata={
             "domain": domain,
@@ -1359,6 +1270,19 @@ def create_app(
         },
         actor=actor_label(session),
         ownership=(target.project_id, target.environment_id),
+    )
+    # A first deployment that fails undoes the application's row, so what was asked for is kept
+    # for the page of the domain (item 141).
+    remember_attempt(
+        job.id,
+        domain,
+        owner=(target.project_id, target.environment_id),
+        source=body.source,
+        branch=body.branch,
+        app_type=app_type,
+        recipe=recipe.name if recipe is not None else None,
+        image=container.image if container is not None else None,
+        typed_document=body.compose_document is not None,
     )
 
     return JobAcceptedResponse(

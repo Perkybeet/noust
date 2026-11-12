@@ -20,7 +20,7 @@ import type { PlainKey } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { useReturnServer } from "../../nodes/servers";
 import { useConsoleContext, useSelection } from "../../nodes/useNode";
-import { areaOf, areaTarget, dest, sidebarFor } from "../nav";
+import { areaLabelKey, areaOf, areaTarget, dest, sidebarFor } from "../nav";
 import type { ConsolePath, Dest, Scope } from "../nav";
 import type { NavContext } from "../navCore";
 import { useNavScope } from "../useNavScope";
@@ -101,7 +101,7 @@ export function useAreas(): Areas {
       entry,
       to: areaTarget(entry, scope),
       ...(!face && node !== undefined ? { node } : {}),
-      ...(entry.id === "server" ? { labelKey: scope === "fleet" ? ("nav.server.label" as const) : ("nav.server.labelOne" as const) } : {}),
+      ...(entry.id === "server" ? { labelKey: areaLabelKey(entry, scope) } : {}),
       Icon: iconOf(entry),
       current: current?.id === entry.id,
       counts: counts[entry.id] ?? NONE,

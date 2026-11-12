@@ -8,12 +8,12 @@ import { appQuery, appsQuery } from "../../api/queries/apps";
 import type { App } from "../../api/queries/apps";
 import { certsQuery } from "../../api/queries/certs";
 import { appDomainsQuery } from "../../api/queries/domains";
+import { firstDeploysQuery } from "../../api/queries/firstDeploys";
 import { queueQuery } from "../../api/queries/queue";
 import type { PageHeaderProps } from "../../app/PageHeader";
 import { DetailPage } from "../../components/page/DetailPage";
 import { JobProgress } from "../../components/page/JobProgress";
 import { ErrorBlock } from "../../components/page/QueryState";
-import { appStatus } from "../../components/page/status";
 import type { StatusView } from "../../components/page/status";
 import { useAnnounceChange } from "../../components/page/useAnnounceChange";
 import { buttonClassName } from "../../components/ui/Button";
@@ -31,10 +31,12 @@ import { useCancelJob } from "../queue/useCancelJob";
 import { cancelReasonWords, cancelState, mergedRequests, placeOf } from "../queue/words";
 import { useAppHeaderActions } from "./AppActions";
 import { AppBanner, useAppCondition } from "./AppBanner";
+import { FirstDeployFailed } from "./FirstDeployFailed";
 import { HoldChip, NotAppliedChip } from "./HeaderChips";
 import { usePendingChanges } from "./PendingChanges";
 import { RollbackHost } from "./RollbackHost";
 import { ViewJobLog } from "./ViewJobLog";
+import { appViewOf } from "./appView";
 import { displayAddress } from "./displayAddress";
 import type { Address } from "./displayAddress";
 import { stepWords } from "./stepWords";
@@ -51,13 +53,15 @@ import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 function Facts({ app, address, t }: { app: App; address: Address; t: T }) {
   const typeName = useTypeName();
   const type = typeName(app.app_type);
+  // The port that answers: in zero-downtime mode green serves on the port after the one the record starts at.
+  const port = app.serving_port ?? app.port;
   // One line that never wraps: beside the logo the text has less room, and an address that dropped to a second
   // line when the facts arrived moved the whole page. The address, which the title above already says, is what
   // gives way, cut with an ellipsis.
   return (
     <span className="flex max-w-full min-w-0 items-center gap-x-3">
       {type !== null ? <span className="shrink-0">{type}</span> : null}
-      {app.port ? <span className="shrink-0 whitespace-nowrap">{t.rich("appPages.layout.portFact", { port: <Mono>{app.port}</Mono> })}</span> : null}
+      {port ? <span className="shrink-0 whitespace-nowrap">{t.rich("appPages.layout.portFact", { port: <Mono>{port}</Mono> })}</span> : null}
       <ExternalLink className="min-w-0" href={`${address.secure ? "https" : "http"}://${address.name}`} label={t("appPages.layout.liveSite", { domain: address.name })}>
         <span translate="no">{address.name}</span>
       </ExternalLink>
@@ -177,6 +181,25 @@ function NotFound({ domain, header, t }: { domain: string; header: PageHeaderPro
 }
 
 /**
+ * What a domain with no application says. A first deploy that fails undoes the application's own row on purpose, so
+ * the page that was following it would otherwise tell the operator there is nothing here: when the server kept the
+ * failure, that is what the page says (`FirstDeployFailed`). The answer is waited for, so "no application" is not
+ * drawn for a moment and then replaced; a server that has no such record (an older one) answers as it always did.
+ */
+function NoApplication({ domain, header, t }: { domain: string; header: PageHeaderProps; t: T }) {
+  const failed = useQuery(firstDeploysQuery(domain));
+  if (failed.isPending) {
+    return (
+      <DetailPage header={header}>
+        <BodySkeleton domain={domain} t={t} />
+      </DetailPage>
+    );
+  }
+  const attempt = failed.data?.items.find((item) => item.domain === domain);
+  return attempt === undefined ? <NotFound domain={domain} header={header} t={t} /> : <FirstDeployFailed domain={domain} attempt={attempt} header={header} />;
+}
+
+/**
  * One application, as a T2 page: a header that stays put on every section (its name, its state with
  * what is not applied or held, its type, port and live address, Update and the other actions),
  * then what is wrong with it when something is, the job in hand, and the section the column has
@@ -206,11 +229,8 @@ function AppPage({ domain, app, job }: { domain: string; app: UseQueryResult<App
   const onDeployment = matchRoute({ to: "/apps/$domain/deployments/$id", params: { domain } });
   const { dialogs, ...actions } = useAppHeaderActions(domain, app.data, { busy: job.running !== null, onJobQueued: job.track });
 
-  const base = appStatus(app.data?.status, t.locale);
-  // A job running on the app is its state, whatever systemd says about the unit meanwhile.
-  const view: StatusView = job.running
-    ? { state: "deploying", label: jobWords(job.running.type, domain, t.locale).running, attention: false }
-    : base;
+  // A job running on the app is its state, whatever systemd says about the unit meanwhile; the column beside the page asks the same.
+  const view: StatusView = appViewOf(app.data?.status, job.running, domain, t.locale);
 
   useAnnounceChange(app.data ? view.label : null, `${domain}: ${view.label}`, view.state === "failed" ? "assertive" : "polite");
 
@@ -227,7 +247,7 @@ function AppPage({ domain, app, job }: { domain: string; app: UseQueryResult<App
         : {}),
   };
 
-  if (app.isError && isApiError(app.error) && app.error.status === 404) return <NotFound domain={domain} header={header} t={t} />;
+  if (app.isError && isApiError(app.error) && app.error.status === 404) return <NoApplication domain={domain} header={header} t={t} />;
 
   const loaded = app.data;
   const failedToLoad = loaded === undefined && app.isError;

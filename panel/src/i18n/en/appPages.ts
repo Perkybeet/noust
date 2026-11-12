@@ -72,6 +72,21 @@ export const appPages = {
     logLine: "What the build prints, as it prints it.",
   },
 
+  /** What the page of a domain says when its first deploy failed and, by design, left no application. */
+  firstFailed: {
+    state: "First deploy failed",
+    title: "The first deploy of {domain} failed",
+    when: "It failed {time}.",
+    nothing: "Nothing was created: Noust undid every step it had taken, so there is no application at this domain. Try again with what you had filled in, or forget this failure.",
+    retry: "Try again",
+    viewLog: "View the log",
+    dismiss: "Forget this failure",
+    sourceMasked: "The address had a password or a token in it, and Noust did not keep it: type it again.",
+    recipe: "Recipe {name}",
+    branch: "branch {branch}",
+    dismissFailed: "Could not forget the failure",
+  },
+
   layout: {
     portFact: "Port {port}",
     liveSite: "{domain}, the live site",
@@ -94,8 +109,11 @@ export const appPages = {
     noAnswerBody: "The service is running, but the app does not answer requests. See why checks the port, HTTP and its logs.",
     restartingTitle: "The service keeps restarting",
     restartingBody: "It stops shortly after it starts, and systemd starts it again. Its last log lines usually say why.",
-    deployFailedTitle: "The last deploy failed {time}, and the one before it is still serving",
-    deployFailedBody: "Nothing went down: the version that was live is still the one answering.",
+    deployFailedTitle: "The last deploy failed {time}",
+    deployFailedBody: "The application still answers with the version that was live.",
+    deployFailedBodyInPlace:
+      "The application still answers with what was already running. If you restart it, it starts what is in its folder, which may be the version that failed.",
+    deployFailedBodyStopped: "The application is stopped.",
     unmanagedTitle: "It runs outside Noust",
     unmanagedBody: "Its containers run, but its unit is stopped: Noust is not supervising it. Someone probably started it with docker compose by hand.",
   },

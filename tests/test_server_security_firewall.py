@@ -410,6 +410,26 @@ class TestApply:
         )
         assert ledger.load(change.id).status == "expired"
 
+    def test_the_trail_says_the_change_was_undone_because_nobody_confirmed_it(
+        self, runner, host, ledger
+    ):
+        """Item 138: it said "Firewall changed", the same words as the change itself."""
+        from noust.core import audit
+
+        change = _firewall(runner, host, ledger).add_rule(RuleRequest("allow", 8443))
+
+        ledger.revert(change.id, by="timer", expired=True)
+
+        names = [entry.get("action") for entry in audit.get_log().iter_newest_first()]
+        assert "server.firewall_expired" in names
+        [undone] = [
+            entry
+            for entry in audit.get_log().iter_newest_first()
+            if entry.get("action") == "server.firewall_expired"
+        ]
+        assert undone["details"]["by"] == "timer"
+        assert undone["resource"] == f"change:{change.id}"
+
     def test_the_central_reconnecting_confirms_a_firewall_change(self, runner, host, ledger):
         change = _firewall(runner, host, ledger).add_rule(RuleRequest("allow", 8443))
         runner.script(

@@ -527,6 +527,7 @@ AppInfo = TypedDict("AppInfo", {
     "preview_parent": NotRequired[Union[str, None]],
     "project": NotRequired[Union[str, None]],
     "run_as": NotRequired[Union[str, None]],
+    "serving_port": NotRequired[Union[int, None]],
     "source": NotRequired[Union[str, None]],
     "start_command": NotRequired[Union[str, None]],
     "status": Required[str],
@@ -4034,6 +4035,24 @@ FirewallStateOut = TypedDict("FirewallStateOut", {
     "zone": NotRequired[Union[str, None]],
 })
 
+FirstDeployOut = TypedDict("FirstDeployOut", {
+    "app_type": NotRequired[Union[str, None]],
+    "branch": NotRequired[Union[str, None]],
+    "created_at": Required[str],
+    "domain": Required[str],
+    "error": NotRequired[Union[str, None]],
+    "error_coded": NotRequired[Union["CodedText", None]],
+    "finished_at": NotRequired[Union[str, None]],
+    "job_id": Required[str],
+    "origin": Required[str],
+    "recipe": NotRequired[Union[str, None]],
+    "source": NotRequired[Union[str, None]],
+})
+
+FirstDeploysResponse = TypedDict("FirstDeploysResponse", {
+    "items": Required[list["FirstDeployOut"]],
+})
+
 FixOwnerRequest = TypedDict("FixOwnerRequest", {
     "owner": NotRequired[Union[str, None]],
 })
@@ -4181,12 +4200,14 @@ FleetSettingsAppliedOut = TypedDict("FleetSettingsAppliedOut", {
 FleetSettingsApplyIn = TypedDict("FleetSettingsApplyIn", {
     "adopt": NotRequired[bool],
     "nodes": NotRequired[list[str]],
+    "only": NotRequired[list[str]],
     "plan": NotRequired[bool],
     "restore": NotRequired[list[str]],
     "restore_all": NotRequired[bool],
 })
 
 FleetSettingsModeIn = TypedDict("FleetSettingsModeIn", {
+    "adopt": NotRequired[bool],
     "mode": Required[str],
 })
 
@@ -8774,6 +8795,21 @@ ServerKeyResponse = TypedDict("ServerKeyResponse", {
 ServerListResponse = TypedDict("ServerListResponse", {
     "problems": NotRequired[list["ListingProblemResponse"]],
     "servers": Required[list["ServerResponse"]],
+})
+
+ServerPolicyConfig = TypedDict("ServerPolicyConfig", {
+    "backup_max_per_app": Required[int],
+    "delivery_max_minutes": Required[int],
+    "ssl_email": Required[str],
+    "updates_check": Required[bool],
+})
+
+ServerPolicyResponse = TypedDict("ServerPolicyResponse", {
+    "backup_max_per_app": Required[int],
+    "customized": Required[bool],
+    "delivery_max_minutes": Required[int],
+    "ssl_email": Required[str],
+    "updates_check": Required[bool],
 })
 
 ServerResponse = TypedDict("ServerResponse", {
