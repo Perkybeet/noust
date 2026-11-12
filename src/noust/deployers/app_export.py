@@ -368,6 +368,9 @@ def _export_cron(app: App, cron: CronManager) -> list[dict[str, Any]]:
     for job in cron.list_jobs():
         if job.get("app_domain") != app.domain:
             continue
+        # A task that runs once retires itself: on another server it would be a task that never does.
+        if job.get("once"):
+            continue
         directory = job.get("working_directory") or None
         if directory and any(directory == p or directory.startswith(f"{p}/") for p in own_paths):
             directory = None
