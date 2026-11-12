@@ -2420,12 +2420,8 @@ class DatabaseService:
             One view per database.
         """
         app = self._app(domain)
-        links = self.records.links(app_id=app.id)
-        known = {(link.engine, link.db_name) for link in links}
-        views = self._link_views(links)
-        for row in self.store.list_databases(app_id=app.id):
-            if (row.engine, row.name) in known:
-                continue
+        views = self._link_views(self.records.links(app_id=app.id))
+        for row in self.records.owned_without_link(app.id or 0):
             views.append(
                 LinkView(
                     domain=app.domain,
