@@ -56,9 +56,12 @@ from noust.validators.names import validate_filename
 
 __all__ = ["DestinationFileManager", "RemoteFile", "file_sha256"]
 
-#: One segment of a remote folder. ``$`` is a legal character of a database
-#: name; ``.`` is not, so ``..`` cannot be spelled.
-_SEGMENT = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_$-]{0,127}")
+#: One segment of a remote folder. ``$`` is a legal character of a database name, and ``.`` is
+#: inside the name of a Compose service (``mysql.shop-example-com.mysql`` is the folder of the
+#: engine of a stack). A segment never starts with ``.``, so neither ``.`` nor ``..`` can be
+#: spelled, and ``/`` is what separates segments before this is asked. 255 is what a file system
+#: takes as a name, which is the most a destination can hold.
+_SEGMENT = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_$.-]{0,254}")
 
 #: Bytes read at a time when hashing a dump.
 _CHUNK = 1024 * 1024
@@ -130,7 +133,8 @@ class DestinationFileManager(BackupDestinationManager):
         if not segments or any(not _SEGMENT.fullmatch(segment) for segment in segments):
             raise BackupError(
                 f"Invalid folder on the destination: {folder!r}",
-                details="A folder is made of names with letters, digits, '_', '$' and '-'.",
+                details="A folder is made of names with letters, digits, '_', '$', '-' and '.' "
+                "(never first).",
             )
         return f"{self.target(destination_name).rstrip('/')}/{'/'.join(segments)}"
 

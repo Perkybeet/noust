@@ -1649,10 +1649,6 @@ class BackupManager:
                 if include_databases:
                     # The roles those dumps name, which belong to the server, not the database.
                     server_roles = self._dump_globals(payload_dir / DATABASES_DIR, database_backups)
-                if include_databases and not database_backups:
-                    self.logger.warning(
-                        f"No database was backed up for {domain}: the archive contains files only"
-                    )
 
                 volume_backups: list[dict[str, Any]] = []
                 if include_docker_volumes:
@@ -3456,7 +3452,12 @@ class BackupManager:
             self.logger.debug(f"No app found in store for {domain}")
             return []
 
-        databases = get_store().list_databases(app_id=app.id)
+        # One service for every dump: a container's key (postgresql@project.db)
+        # resolves through it, and Docker is asked once, not once per database. It also
+        # says which databases the application uses: the rows the store says it owns and
+        # the links its environment names, wherever they live.
+        service = DatabaseService(store=get_store(), logger=self.logger)
+        databases = service.records.databases_of(app.id)
         if not databases:
             self.logger.debug(f"No databases associated with {domain}")
             return []
@@ -3465,47 +3466,44 @@ class BackupManager:
 
         self.logger.info(f"Backing up {len(databases)} database(s) for {domain}")
 
-        # One service for every dump: a container's key (postgresql@project.db)
-        # resolves through it, and Docker is asked once, not once per database.
-        service = DatabaseService(logger=self.logger)
         dumps: list[dict[str, Any]] = []
-        for db in databases:
-            if _held_by_own_stack(app, db.engine, db.name, covered):
+        for engine, name in databases:
+            if _held_by_own_stack(app, engine, name, covered):
                 self.logger.info(
-                    f"  {db.engine} database {db.name}: in the copy of the stack's databases"
+                    f"  {engine} database {name}: in the copy of the stack's databases"
                 )
                 continue
             try:
-                manager = service.manager(db.engine)
+                manager = service.manager(engine)
             except DatabaseError as exc:
                 raise BackupError(
-                    f"No manager available for database engine: {db.engine}",
+                    f"No manager available for database engine: {engine}",
                     details=(
-                        f"Database '{db.name}' is registered for {domain} but cannot be "
+                        f"Database '{name}' is registered for {domain} but cannot be "
                         f"dumped: {exc.message}. {exc.details or ''}"
                     ).strip(),
                 ) from exc
 
             if not manager.is_installed():
                 raise BackupError(
-                    f"{db.engine} is not installed, cannot back up '{db.name}'",
-                    details=f"Install {db.engine} or run the backup without --include-databases.",
+                    f"{engine} is not installed, cannot back up '{name}'",
+                    details=f"Install {engine} or run the backup without --include-databases.",
                 )
 
             suffix = getattr(manager, "BACKUP_SUFFIX", ".dump")
             # A container's key holds an @, which no file name may.
-            filename = validate_filename(f"{storage_name(db.engine)}-{db.name}{suffix}.gz")
+            filename = validate_filename(f"{storage_name(engine)}-{name}{suffix}.gz")
             target = destination / filename
 
             kwargs: dict[str, Any] = {}
-            if engine_of(db.engine) in {"redis", "valkey"}:
+            if engine_of(engine) in {"redis", "valkey"}:
                 kwargs["method"] = redis_method
 
             try:
-                info = manager.backup(database=db.name, output_path=target, compress=True, **kwargs)
+                info = manager.backup(database=name, output_path=target, compress=True, **kwargs)
             except (DatabaseError, OSError) as exc:
                 raise BackupError(
-                    f"Failed to back up {db.engine} database '{db.name}'",
+                    f"Failed to back up {engine} database '{name}'",
                     details=str(exc),
                 ) from exc
 
@@ -3517,21 +3515,21 @@ class BackupManager:
 
             if not target.is_file():
                 raise BackupError(
-                    f"Dump of '{db.name}' did not reach the backup archive",
-                    details=f"{db.engine} reported success but {target} does not exist.",
+                    f"Dump of '{name}' did not reach the backup archive",
+                    details=f"{engine} reported success but {target} does not exist.",
                 )
 
             dumps.append(
                 {
-                    "engine": db.engine,
-                    "name": db.name,
+                    "engine": engine,
+                    "name": name,
                     "archive_path": f"{PAYLOAD_DIR}/{DATABASES_DIR}/{filename}",
                     "size_bytes": target.stat().st_size,
                     "created": datetime.now().isoformat(),
                 }
             )
 
-            self.logger.info(f"  Backed up {db.engine} database: {db.name}")
+            self.logger.info(f"  Backed up {engine} database: {name}")
 
         return dumps
 

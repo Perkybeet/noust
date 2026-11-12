@@ -729,6 +729,14 @@ export const serverText = {
         text: "{site} still asks nginx to staple OCSP responses, which Let's Encrypt stopped giving in August 2025: nginx logs a warning about it at every reload. Noust writes the site again without it the next time it writes the site (a deployment, a change of its domains)",
       },
     },
+    store: {
+      orphan: {
+        text: "{path} is an empty file left where the store would be: it is not the store, and the move replaces it",
+      },
+      outside: {
+        text: "Noust's store is in {store}, outside {state}, the state directory of this server: what looks only there (a copy of that directory, a package upgrade) does not find it",
+      },
+    },
     web: {
       none: {
         text: "Web server: not installed",

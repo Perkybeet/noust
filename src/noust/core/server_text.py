@@ -488,6 +488,14 @@ CATALOG: dict[str, str] = {
     "doctor.limits.old": (
         "{unit} is limited to {limit} open files, and a unit written now gets {new}"
     ),
+    "doctor.store.outside": (
+        "Noust's store is in {store}, outside {state}, the state directory of this server: what "
+        "looks only there (a copy of that directory, a package upgrade) does not find it"
+    ),
+    "doctor.store.orphan": (
+        "{path} is an empty file left where the store would be: it is not the store, and the "
+        "move replaces it"
+    ),
     "doctor.stapling.site": (
         "{site} still asks nginx to staple OCSP responses, which Let's Encrypt stopped giving in "
         "August 2025: nginx logs a warning about it at every reload. Noust writes the site again "

@@ -36,6 +36,7 @@ from noust.core.runner import get_runner
 from noust.core.server_text import Param, ServerText, say
 from noust.core.utils import command_exists, run_command
 from noust.managers.server import platforms, requirements
+from noust.managers.store_location import StoreLocation, assess
 
 logger = logging.getLogger(__name__)
 
@@ -239,6 +240,8 @@ class DoctorEnvironment:
         app_types: The kinds of application the store holds (``nodejs``, ``docker-compose``...);
             None reads the real store. What a server runs decides whether Node.js missing is an
             error or only a note.
+        store_location: Where the store is against where a server keeps it; None asks the
+            machine.
     """
 
     command_exists: Callable[[str], bool] = command_exists
@@ -252,6 +255,7 @@ class DoctorEnvironment:
     listeners: Callable[[], list[tuple[int, tuple[str, ...]]]] | None = None
     include_ssh: bool = True
     app_types: Callable[[], Collection[str]] | None = None
+    store_location: Callable[[], StoreLocation] | None = None
 
     @classmethod
     def default(cls, *, include_ssh: bool = False) -> DoctorEnvironment:
@@ -758,6 +762,9 @@ def collect(env: DoctorEnvironment | None = None) -> DoctorReport:
     stapling = stapling_section()
     if stapling is not None:
         sections.append(stapling)
+    located = store_section(env.store_location() if env.store_location else None)
+    if located is not None:
+        sections.append(located)
     return DoctorReport(tuple(sections))
 
 
@@ -880,6 +887,44 @@ def limits_section(systemd_dir: Path | None = None) -> DoctorSection | None:
     if not items:
         return None
     return DoctorSection("Noust's own units", tuple(items), key="limits")
+
+
+def store_section(location: StoreLocation | None = None) -> DoctorSection | None:
+    """
+    Say when Noust's store is not in the state directory, and what moves it there.
+
+    The store stays where it is found (:mod:`noust.core.store` decides), so nothing stops working;
+    but what reads the state directory as if the store were in it (a copy of that directory, a
+    package upgrade) does not find it, and an empty ``noust.db`` there is what let this go
+    unseen. ``noust setup move-store`` moves the whole folder, the secrets sealed again under the
+    key of where they go.
+
+    Args:
+        location: Where the store is; the machine's unless a test describes another.
+
+    Returns:
+        The section, or None when the store is where it should be (or could not be found: the
+        other checks still stand, and this one is only a finding).
+    """
+    try:
+        found = location if location is not None else assess()
+    except (NoustError, OSError, sqlite3.Error) as exc:
+        logger.debug("The store's location was not read: %s", exc)
+        return None
+    if not found.outside:
+        return None
+    items = [
+        item(
+            "warn",
+            "doctor.store.outside",
+            fix="noust setup move-store",
+            store=str(found.store),
+            state=str(found.state),
+        )
+    ]
+    if found.orphan is not None:
+        items.append(item("info", "doctor.store.orphan", path=str(found.orphan)))
+    return DoctorSection("Noust's store", tuple(items), key="store")
 
 
 def stapling_section(sites_dir: Path | None = None) -> DoctorSection | None:

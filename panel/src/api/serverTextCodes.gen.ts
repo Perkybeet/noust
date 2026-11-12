@@ -220,6 +220,8 @@ export const SERVER_TEXT = {
   "doctor.ssh.key_ok": { text: ["path"], hint: null, commands: [] },
   "doctor.ssh.no_key": { text: [], hint: null, commands: [] },
   "doctor.stapling.site": { text: ["site"], hint: null, commands: [] },
+  "doctor.store.orphan": { text: ["path"], hint: null, commands: [] },
+  "doctor.store.outside": { text: ["state", "store"], hint: null, commands: [] },
   "doctor.web.none": { text: [], hint: null, commands: [] },
   "doctor.web.running": { text: ["unit"], hint: null, commands: [] },
   "doctor.web.stopped": { text: ["unit"], hint: null, commands: [] },

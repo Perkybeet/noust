@@ -23,7 +23,7 @@ import sqlite3
 from dataclasses import asdict, dataclass
 from typing import Any
 
-from noust.core.store import NoustStore
+from noust.core.store import Database, NoustStore
 from noust.core.timeutil import utc_now_iso
 
 #: What the link to a Redis instance is called by default; everything else
@@ -255,6 +255,47 @@ class DatabaseRecords:
             )
         stored = self.link(link.app_id, link.engine, link.db_name)
         return stored if stored is not None else link
+
+    def owned_without_link(self, app_id: int) -> list[Database]:
+        """
+        List the databases the store says an application owns that it has no link to.
+
+        A database provisioned for an application before 3.1 (a recipe's, a monorepo's) has no
+        link row; the store's ownership is all there is of it.
+
+        Args:
+            app_id: The application.
+
+        Returns:
+            The store's rows of those databases.
+        """
+        linked = {(link.engine, link.db_name) for link in self.links(app_id=app_id)}
+        return [
+            row
+            for row in self.store.list_databases(app_id=app_id)
+            if (row.engine, row.name) not in linked
+        ]
+
+    def databases_of(self, app_id: int) -> list[tuple[str, str]]:
+        """
+        Name every database an application uses: the one answer of the application's tab and of
+        its backup.
+
+        A database an application's environment names (recorded from detection, nothing of the
+        application rewritten) is a link and has no row in the store's ``databases`` table; one
+        provisioned for it before links existed is a row and has no link. A backup that read only
+        the rows left the first kind out, wherever it lived, a container's included.
+
+        Args:
+            app_id: The application.
+
+        Returns:
+            ``(engine key, database)`` for each, once: the linked ones oldest first, then the
+            owned ones that have no link.
+        """
+        return [(link.engine, link.db_name) for link in self.links(app_id=app_id)] + [
+            (row.engine, row.name) for row in self.owned_without_link(app_id)
+        ]
 
     def delete_link(self, app_id: int, engine: str, db_name: str) -> bool:
         """

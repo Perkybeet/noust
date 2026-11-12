@@ -148,18 +148,38 @@ def _labels(sources: Sequence[Path]) -> dict[str, Path]:
     """
     Name each source directory inside the archive.
 
+    ``state`` is the directory that holds the store Noust uses, which is the system's state
+    directory unless the store was never moved from the user's (``core/store.py`` chooses, and
+    this asks it). A server in that state keeps its store, its secrets and the key they are
+    sealed under in one directory and other state in the system's: that one is
+    ``system-state``, so a restore puts each back where this server keeps it.
+
     Args:
         sources: The directories.
 
     Returns:
-        ``config``, ``state``, then ``extra-N``, to each directory.
+        ``config``, ``state``, then ``extra-N``, to each directory; ``system-state`` too when
+        the store is somewhere else than the state directory.
     """
+    from noust.core.store import get_store
+
+    config = paths.config_dir().resolve()
+    system = paths.state_dir().resolve()
+    holder = get_store().db_path.parent.resolve()
+    resolved = [source.resolve() for source in sources]
+    elsewhere = holder in resolved and holder not in (config, system)
+    known = {config: "config", holder: "state", system: "system-state"}
+    if not elsewhere:
+        known = {config: "config", system: "state"}
     labels: dict[str, Path] = {}
-    known = {paths.config_dir().resolve(): "config", paths.state_dir().resolve(): "state"}
+    extras = 0
     for index, source in enumerate(sources):
-        label = known.get(source.resolve()) or (
-            ("config", "state")[index] if index < 2 else f"extra-{index - 1}"
-        )
+        label = known.get(resolved[index])
+        if label is None and elsewhere:
+            extras += 1
+            label = f"extra-{extras}"
+        elif label is None:
+            label = ("config", "state")[index] if index < 2 else f"extra-{index - 1}"
         while label in labels:
             label = f"{label}-{index}"
         labels[label] = source
@@ -257,6 +277,14 @@ def _copy_tree(
                 continue
             if not stat.S_ISREG(mode):
                 manifest["skipped"].append({"path": relative, "reason": "not a regular file"})
+                continue
+            if name == paths.STORE_NAME and full.lstat().st_size == 0:
+                # A store has its schema from the first moment it is opened. What is empty is a
+                # file somebody or something made where the store was expected, and a bundle
+                # that carried it would verify as a store with no schema.
+                manifest["skipped"].append(
+                    {"path": relative, "reason": "an empty file, which is not a store"}
+                )
                 continue
             target = target_dir / name
             if _is_sqlite(full):

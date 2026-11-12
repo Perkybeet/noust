@@ -82,7 +82,7 @@ from noust.core.notifications.composers import (
 )
 from noust.core.notifications.context import NotificationContext
 from noust.core.runner import CommandRunner, get_runner
-from noust.core.secrets import SecretStore
+from noust.core.secrets import SecretStore, at_rest_key_path
 from noust.core.store import SCHEMA_VERSION, NoustStore, get_store
 from noust.managers.backup_destination_files import DestinationFileManager, file_sha256
 from noust.managers.backup_failures import record_failure
@@ -108,6 +108,7 @@ __all__ = [
     "SelfBackupManager",
     "SelfBackupNotFound",
     "default_directory",
+    "store_path_in",
 ]
 
 _log = logging.getLogger(__name__)
@@ -161,9 +162,44 @@ _SLUG = re.compile(r"[^A-Za-z0-9_$-]+")
 #: The largest unit file a bundle takes: a unit is a few lines, never a quarter of a megabyte.
 _UNIT_TEXT_LIMIT = 256 * 1024
 
+#: Where a bundle keeps the store: the directory that holds the store Noust uses is its ``state``
+#: (:func:`noust.central.backup._labels`).
+STORE_IN_BUNDLE = f"state/{paths.STORE_NAME}"
+
+#: What a bundle calls the system's state directory when the store is in another one.
+SYSTEM_STATE_LABEL = "system-state"
+
 
 class SelfBackupNotFound(BackupError):
     """There is no such bundle (a 404 to the API)."""
+
+
+def store_path_in(manifest: dict[str, Any]) -> str | None:
+    """
+    Say which of a bundle's files is the store.
+
+    A bundle names it (``store.path``). One made before 4.3 does not, and its store is the first
+    ``noust.db`` it holds: that was right until a server whose state directory held an empty
+    ``noust.db`` and whose store was elsewhere, which is the case the name is for.
+
+    Args:
+        manifest: The bundle's manifest.
+
+    Returns:
+        The path inside the bundle, or None when it holds no store.
+    """
+    declared = manifest.get("store")
+    if isinstance(declared, dict):
+        named = declared.get("path")
+        return str(named) if isinstance(named, str) and named else None
+    return next(
+        (
+            str(entry["path"])
+            for entry in manifest.get("files", [])
+            if str(entry.get("path", "")).endswith(f"/{paths.STORE_NAME}")
+        ),
+        None,
+    )
 
 
 def default_directory(config: Config | None = None) -> Path:
@@ -460,8 +496,9 @@ class SelfBackupManager:
         Name the directories that are backed up.
 
         Returns:
-            Label to directory: ``config``, ``state`` and, when the store is
-            elsewhere, ``extra-N``.
+            Label to directory: ``config``, ``state`` (the directory that holds the store Noust
+            uses) and, when that is not the system's state directory, ``system-state`` for it;
+            then ``extra-N``.
         """
         if self._sources is not None:
             return dict(self._sources)
@@ -476,13 +513,15 @@ class SelfBackupManager:
 
         Returns:
             Label to this server's directory: ``config`` and ``state``
-            whether or not they exist yet, any other directory this server
-            backs up under the same label, ``letsencrypt``, ``units`` and the web servers'
-            directories.
+            whether or not they exist yet, ``system-state`` (the system's state directory, where
+            a bundle of a server whose store was elsewhere keeps what is not the store's), any
+            other directory this server backs up under the same label, ``letsencrypt``,
+            ``units`` and the web servers' directories.
         """
         known = dict(self._labels())
         known.setdefault("config", paths.config_dir())
         known.setdefault("state", paths.state_dir())
+        known.setdefault(SYSTEM_STATE_LABEL, paths.state_dir())
         known["letsencrypt"] = self.letsencrypt
         known["units"] = self.systemd_dir
         known.update(self.webservers)
@@ -729,6 +768,35 @@ class SelfBackupManager:
                         )
 
     @staticmethod
+    def _secrets_key_in(labels: dict[str, Path], manifest: dict[str, Any]) -> str | None:
+        """
+        Say which file of the bundle is the key the protected secrets of the store are sealed under.
+
+        It lives beside the store in the user's directory and in ``/etc/noust`` for the system's
+        (:func:`~noust.core.secrets.at_rest_key_path`), so it is in the bundle's ``state`` or in
+        its ``config``. A restore on a server that keeps its key in the other place needs to
+        know which one it is.
+
+        Args:
+            labels: Label to directory of what is backed up.
+            manifest: The manifest, with its files listed so far.
+
+        Returns:
+            The path inside the bundle, or None when there is no such key.
+        """
+        state = labels.get("state")
+        if state is None:
+            return None
+        key = at_rest_key_path(state / "secrets")
+        listed = {entry["path"] for entry in manifest["files"]}
+        for label, directory in labels.items():
+            if key.is_relative_to(directory):
+                relative = f"{label}/{key.relative_to(directory).as_posix()}"
+                if relative in listed:
+                    return relative
+        return None
+
+    @staticmethod
     def _contains(manifest: dict[str, Any]) -> dict[str, Any]:
         """
         Say what a bundle holds that a restore will need.
@@ -743,7 +811,7 @@ class SelfBackupManager:
         """
         names = [entry["path"] for entry in manifest["files"]]
         return {
-            "store": any(name.endswith(f"/{paths.STORE_NAME}") for name in names),
+            "store": store_path_in(manifest) in names,
             "secrets": any("/secrets/" in name for name in names),
             "seal_header": any(name.endswith(f"/{sealing.SEAL_FILE}") for name in names),
             "certificates": any(name.startswith("letsencrypt/archive/") for name in names),
@@ -843,21 +911,25 @@ class SelfBackupManager:
                     central_backup._copy_tree(
                         label, directory, staging, manifest, exclude, self.fs, SKIP_FILES
                     )
+                # Said before anything is sent: a bundle with no store is the one nobody can
+                # restore a server from, and it would pass for a good one until the day it is used.
+                if not any(entry["path"] == STORE_IN_BUNDLE for entry in manifest["files"]):
+                    raise BackupError(
+                        "The bundle would hold no store, so it is not made",
+                        details=f"There is no {paths.STORE_NAME} with content in "
+                        f"{labels.get('state', paths.state_dir())}, the directory that holds "
+                        "the store Noust uses. Run: noust setup doctor",
+                    )
+                manifest["store"] = {"path": STORE_IN_BUNDLE}
+                key = self._secrets_key_in(labels, manifest)
+                if key is not None:
+                    manifest["secrets_key"] = {"path": key}
                 self._stage_letsencrypt(staging, manifest)
                 self._stage_webservers(staging, manifest)
                 self._stage_pg_globals(staging, manifest)
                 self._stage_units(staging, manifest)
                 manifest["contains"] = self._contains(manifest)
-                snapshot = next(
-                    (
-                        staging / entry["path"]
-                        for entry in manifest["files"]
-                        if entry["path"].endswith(f"/{paths.STORE_NAME}")
-                    ),
-                    None,
-                )
-                if snapshot is not None:
-                    manifest["store_schema_version"] = self._store_version(snapshot)
+                manifest["store_schema_version"] = self._store_version(staging / STORE_IN_BUNDLE)
                 self.fs.write_text(
                     staging / MANIFEST_NAME,
                     json.dumps(manifest, indent=2, sort_keys=True),
@@ -1179,10 +1251,9 @@ class SelfBackupManager:
         Returns:
             The snapshot, or None.
         """
-        for entry in manifest.get("files", []):
-            if str(entry.get("path", "")).endswith(f"/{paths.STORE_NAME}"):
-                return root / str(entry["path"])
-        return None
+        named = store_path_in(manifest)
+        listed = {str(entry.get("path", "")) for entry in manifest.get("files", [])}
+        return root / named if named in listed else None
 
     @staticmethod
     def _check_snapshot(snapshot: Path) -> tuple[int | None, str]:
