@@ -21,6 +21,7 @@ from pathlib import Path
 
 import pytest
 
+from noust.core.access_changes import describe, known
 from noust.core.exceptions import SecurityError
 from noust.managers.server import security_pending, security_proof
 from noust.managers.server.security import ServerSecurity
@@ -39,7 +40,7 @@ from noust.managers.server.security_pending import CONFIRM_WINDOW, ChangeLedger
 from noust.managers.server.security_probe import SecurityProbe
 from noust.managers.server.security_proof import NEGATIVE_TTL, find_proof
 from noust.managers.server.security_sockets import parse_established, parse_listeners
-from noust.managers.server.security_ssh import SshSecurity
+from noust.managers.server.security_ssh import SSH_FIXES, SshSecurity
 from noust.managers.server.security_sshd import (
     DROPIN,
     SshdDropIn,
@@ -1463,6 +1464,26 @@ class TestAudit:
         [undone] = _events("server.ssh_expired")
         assert undone["details"]["by"] == "timer"
         assert undone["details"]["title"] == change.title
+
+    def test_a_fix_records_what_it_is_and_its_title_is_the_english_of_that(
+        self, sshd, host, ledger
+    ):
+        """Item 138: a notice says it in the reader's language from the code, not from a pasted sentence."""
+        _journal(sshd, accepted("root", ED_FP, at=NOW - 3600))
+
+        change = _security(sshd, host, ledger).apply("disable-passwords")
+
+        assert change.what == "ssh_disable_passwords"
+        assert change.title == "Turn off SSH password logins"
+        assert describe(change.what, change.values, "es") == (
+            "Desactivar el acceso por contraseña en SSH"
+        )
+
+    def test_every_fix_has_its_sentence_in_both_languages(self):
+        for fix in SSH_FIXES.values():
+            assert known(fix.what), fix.name
+            assert describe(fix.what, {}, "en") == fix.title
+            assert describe(fix.what, {}, "es") != fix.title
 
     def test_an_undo_asked_for_is_not_one_nobody_confirmed(self, sshd, host, ledger):
         _journal(sshd, accepted("root", ED_FP, at=NOW - 3600))

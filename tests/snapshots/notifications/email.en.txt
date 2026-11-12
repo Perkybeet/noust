@@ -2439,7 +2439,7 @@ X-Noust-Code: access.firewall_reverted
 X-Noust-Server: web-1
 
 ▲ Firewall change undone · Allow 5432/tcp from 10.0.4.12
-The firewall change “Allow 5432/tcp from 10.0.4.12” was undone because nobody confirmed it within 5 minutes.
+Nobody confirmed it within 5 minutes, so the firewall is as it was before the change. Make the change again and confirm it from a new session.
 
 Server: web-1
 Change: Allow 5432/tcp from 10.0.4.12
@@ -2458,18 +2458,18 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### access.ssh_reverted
-Subject: [Noust] SSH change undone: Turn password logins off (web-1)
+Subject: [Noust] SSH change undone: Turn off SSH password logins (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: access_change_reverted
 X-Noust-Code: access.ssh_reverted
 X-Noust-Server: web-1
 
-▲ SSH change undone · Turn password logins off
-The SSH change “Turn password logins off” was undone because nobody confirmed it within 5 minutes.
+▲ SSH change undone · Turn off SSH password logins
+Nobody confirmed it within 5 minutes, so sshd uses the configuration it had before the change. Apply the change again and confirm it from a new login.
 
 Server: web-1
-Change: Turn password logins off
+Change: Turn off SSH password logins
 Applied by: ana
 Applied: 2026-11-12 10:40 UTC
 

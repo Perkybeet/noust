@@ -2984,7 +2984,7 @@
         "fallback": "▲ Firewall change undone · Allow 5432/tcp from 10.0.4.12",
         "color": "#e3a73c",
         "title": "▲ Firewall change undone · Allow 5432/tcp from 10.0.4.12",
-        "text": "The firewall change “Allow 5432/tcp from 10.0.4.12” was undone because nobody confirmed it within 5 minutes.\n\n*What the undo printed*\n```\n$ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\nRule deleted\n```",
+        "text": "Nobody confirmed it within 5 minutes, so the firewall is as it was before the change. Make the change again and confirm it from a new session.\n\n*What the undo printed*\n```\n$ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\nRule deleted\n```",
         "fields": [
           {
             "short": true,
@@ -3016,10 +3016,10 @@
     "username": "Noust",
     "attachments": [
       {
-        "fallback": "▲ SSH change undone · Turn password logins off",
+        "fallback": "▲ SSH change undone · Turn off SSH password logins",
         "color": "#e3a73c",
-        "title": "▲ SSH change undone · Turn password logins off",
-        "text": "The SSH change “Turn password logins off” was undone because nobody confirmed it within 5 minutes.\n\n*What the undo printed*\n```\nRestored /etc/ssh/sshd_config.d/99-noust.conf\n$ sshd -t\n```",
+        "title": "▲ SSH change undone · Turn off SSH password logins",
+        "text": "Nobody confirmed it within 5 minutes, so sshd uses the configuration it had before the change. Apply the change again and confirm it from a new login.\n\n*What the undo printed*\n```\nRestored /etc/ssh/sshd_config.d/99-noust.conf\n$ sshd -t\n```",
         "fields": [
           {
             "short": true,
@@ -3029,7 +3029,7 @@
           {
             "short": true,
             "title": "Change",
-            "value": "Turn password logins off"
+            "value": "Turn off SSH password logins"
           },
           {
             "short": true,

@@ -52,6 +52,8 @@ def announce_expired(change: PendingChange) -> None:
             applied_at=change.applied_at,
             window_s=change.expires_at - change.applied_at,
             output=change.resolution,
+            what=change.what,
+            values=change.values,
         )
         Notifier(config).notify(notification)
     except _PUBLISH_ERRORS as exc:

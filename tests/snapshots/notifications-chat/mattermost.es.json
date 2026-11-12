@@ -2981,10 +2981,10 @@
     "username": "Noust",
     "attachments": [
       {
-        "fallback": "▲ Cambio del cortafuegos deshecho · Allow 5432/tcp from 10.0.4.12",
+        "fallback": "▲ Cambio del cortafuegos deshecho · Permitir 5432/tcp desde 10.0.4.12",
         "color": "#e3a73c",
-        "title": "▲ Cambio del cortafuegos deshecho · Allow 5432/tcp from 10.0.4.12",
-        "text": "El cambio del cortafuegos «Allow 5432/tcp from 10.0.4.12» se deshizo porque nadie lo confirmó en 5 minutos.\n\n*Lo que imprimió al deshacerlo*\n```\n$ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\nRule deleted\n```",
+        "title": "▲ Cambio del cortafuegos deshecho · Permitir 5432/tcp desde 10.0.4.12",
+        "text": "Nadie lo confirmó en 5 minutos, así que el cortafuegos está como antes del cambio. Vuelve a hacerlo y confírmalo desde una sesión nueva.\n\n*Lo que imprimió al deshacerlo*\n```\n$ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\nRule deleted\n```",
         "fields": [
           {
             "short": true,
@@ -2994,7 +2994,7 @@
           {
             "short": true,
             "title": "Cambio",
-            "value": "Allow 5432/tcp from 10.0.4.12"
+            "value": "Permitir 5432/tcp desde 10.0.4.12"
           },
           {
             "short": true,
@@ -3016,10 +3016,10 @@
     "username": "Noust",
     "attachments": [
       {
-        "fallback": "▲ Cambio de SSH deshecho · Turn password logins off",
+        "fallback": "▲ Cambio de SSH deshecho · Desactivar el acceso por contraseña en SSH",
         "color": "#e3a73c",
-        "title": "▲ Cambio de SSH deshecho · Turn password logins off",
-        "text": "El cambio de SSH «Turn password logins off» se deshizo porque nadie lo confirmó en 5 minutos.\n\n*Lo que imprimió al deshacerlo*\n```\nRestored /etc/ssh/sshd_config.d/99-noust.conf\n$ sshd -t\n```",
+        "title": "▲ Cambio de SSH deshecho · Desactivar el acceso por contraseña en SSH",
+        "text": "Nadie lo confirmó en 5 minutos, así que sshd usa la configuración que tenía antes del cambio. Aplícalo otra vez y confírmalo desde un inicio de sesión nuevo.\n\n*Lo que imprimió al deshacerlo*\n```\nRestored /etc/ssh/sshd_config.d/99-noust.conf\n$ sshd -t\n```",
         "fields": [
           {
             "short": true,
@@ -3027,9 +3027,9 @@
             "value": "web-1"
           },
           {
-            "short": true,
+            "short": false,
             "title": "Cambio",
-            "value": "Turn password logins off"
+            "value": "Desactivar el acceso por contraseña en SSH"
           },
           {
             "short": true,

@@ -4366,8 +4366,8 @@
     "state": "warning",
     "locale": "en",
     "title": "Firewall change undone: Allow 5432/tcp from 10.0.4.12",
-    "summary": "The firewall change “Allow 5432/tcp from 10.0.4.12” was undone because nobody confirmed it within 5 minutes.",
-    "body": "The firewall change “Allow 5432/tcp from 10.0.4.12” was undone because nobody confirmed it within 5 minutes.\n\nServer: web-1\nChange: Allow 5432/tcp from 10.0.4.12\nApplied by: yago\nApplied: 2026-11-12 10:40 UTC\n\nWhat the undo printed:\n  $ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\n  Rule deleted\n\nOpen in the console: https://console.example.com/n/web-1/network/firewall",
+    "summary": "Nobody confirmed it within 5 minutes, so the firewall is as it was before the change. Make the change again and confirm it from a new session.",
+    "body": "Nobody confirmed it within 5 minutes, so the firewall is as it was before the change. Make the change again and confirm it from a new session.\n\nServer: web-1\nChange: Allow 5432/tcp from 10.0.4.12\nApplied by: yago\nApplied: 2026-11-12 10:40 UTC\n\nWhat the undo printed:\n  $ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\n  Rule deleted\n\nOpen in the console: https://console.example.com/n/web-1/network/firewall",
     "domain": null,
     "server": "web-1",
     "ts": "2026-09-29T10:45:51Z",
@@ -4416,9 +4416,9 @@
     "code": "access.ssh_reverted",
     "state": "warning",
     "locale": "en",
-    "title": "SSH change undone: Turn password logins off",
-    "summary": "The SSH change “Turn password logins off” was undone because nobody confirmed it within 5 minutes.",
-    "body": "The SSH change “Turn password logins off” was undone because nobody confirmed it within 5 minutes.\n\nServer: web-1\nChange: Turn password logins off\nApplied by: ana\nApplied: 2026-11-12 10:40 UTC\n\nWhat the undo printed:\n  Restored /etc/ssh/sshd_config.d/99-noust.conf\n  $ sshd -t\n\nOpen in the console: https://console.example.com/n/web-1/security/ssh",
+    "title": "SSH change undone: Turn off SSH password logins",
+    "summary": "Nobody confirmed it within 5 minutes, so sshd uses the configuration it had before the change. Apply the change again and confirm it from a new login.",
+    "body": "Nobody confirmed it within 5 minutes, so sshd uses the configuration it had before the change. Apply the change again and confirm it from a new login.\n\nServer: web-1\nChange: Turn off SSH password logins\nApplied by: ana\nApplied: 2026-11-12 10:40 UTC\n\nWhat the undo printed:\n  Restored /etc/ssh/sshd_config.d/99-noust.conf\n  $ sshd -t\n\nOpen in the console: https://console.example.com/n/web-1/security/ssh",
     "domain": null,
     "server": "web-1",
     "ts": "2026-09-29T10:45:51Z",
@@ -4431,7 +4431,7 @@
       {
         "key": "change",
         "label": "Change",
-        "value": "Turn password logins off"
+        "value": "Turn off SSH password logins"
       },
       {
         "key": "change_by",

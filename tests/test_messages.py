@@ -112,6 +112,8 @@ class TestCatalogShape:
             "severity",
             "ui",
             "excerpt",
+            # What a change to how the server is reached was, said whole (core/access_changes.py).
+            "change",
         }
 
     def test_every_title_has_a_summary(self) -> None:

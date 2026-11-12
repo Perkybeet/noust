@@ -14,8 +14,10 @@ Pure: whoever undid the change hands it the facts.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime, timezone
 
+from noust.core.access_changes import describe_record
 from noust.core.messages import message, plural
 from noust.core.notifications.composers import _fact, build
 from noust.core.notifications.context import NotificationContext
@@ -39,18 +41,25 @@ def compose_access_change_reverted(
     applied_at: float,
     window_s: float,
     output: str = "",
+    what: str = "",
+    values: Mapping[str, str] | None = None,
 ) -> Notification:
     """
     Compose the notification for a change nobody confirmed in time, which the timer undid.
 
     Args:
         kind: ``firewall`` or ``sshd``, as the change ledger names the kind.
-        change: What was changed, in the words the change was recorded with.
+        change: What was changed, in the words the change was recorded with: said as it is, in
+            quotes, only when ``what`` is empty or not a sentence this version knows.
         ctx: The context.
         actor: Who applied it.
         applied_at: When it was applied, epoch seconds.
         window_s: How long it waited for a confirmation, in seconds.
         output: What undoing it printed, verbatim; empty when it printed nothing.
+        what: The code of the sentence that says what the change was
+            (:mod:`noust.core.access_changes`), kept by the ledger; empty for a change recorded
+            before it did.
+        values: What that sentence puts in.
 
     Returns:
         ``access.firewall_reverted`` or ``access.ssh_reverted``, a warning, under
@@ -61,8 +70,11 @@ def compose_access_change_reverted(
     """
     code, path = _KINDS[kind]
     minutes = max(1, round(window_s / 60))
+    # Said in the reader's language from what the change is, not pasted from the sentence somebody
+    # wrote when it was made, which is English in a Spanish notice.
+    said = describe_record(what, values or {}, change, ctx.locale)
     facts: list[Fact] = [
-        _fact("change", change, ctx),
+        _fact("change", said, ctx),
         _fact("change_by", actor, ctx),
         _fact("change_at", format_utc(datetime.fromtimestamp(applied_at, tz=timezone.utc)), ctx),
     ]
@@ -76,11 +88,10 @@ def compose_access_change_reverted(
         kind="access_change_reverted",
         code=code,
         state=State.WARNING,
-        subject=change,
+        subject=said,
         summary=message(
             f"summary.{code}",
             ctx.locale,
-            change=change,
             minutes=minutes,
             unit=plural("minute", ctx.locale, minutes),
         ),

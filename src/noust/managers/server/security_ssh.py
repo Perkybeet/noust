@@ -34,6 +34,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from noust.core.access_changes import describe
 from noust.core.exceptions import SecurityError
 from noust.core.fs import is_rehearsal
 from noust.fleet.authorize import AuthorizedKeys, _locked_for_write
@@ -85,7 +86,6 @@ class SshFix:
 
     Attributes:
         name: What a request asks for: ``disable-passwords``...
-        title: What it does, in a sentence.
         check_id: The hardening check it fixes.
         guard: ``key_access`` (another way in must be proven),
             ``key_access_non_root`` (a way in that is not root, with sudo) or
@@ -94,10 +94,19 @@ class SshFix:
     """
 
     name: str
-    title: str
     check_id: str
     guard: str
     values: tuple[tuple[str, str], ...]
+
+    @property
+    def what(self) -> str:
+        """The code of the sentence that says what it does (:mod:`noust.core.access_changes`)."""
+        return "ssh_" + self.name.replace("-", "_")
+
+    @property
+    def title(self) -> str:
+        """What it does, in a sentence of English: the one place it is worded."""
+        return describe(self.what, {})
 
     def settings(self, effective: SshdEffective) -> dict[str, str]:
         """
@@ -123,7 +132,6 @@ SSH_FIXES: dict[str, SshFix] = {
     for fix in (
         SshFix(
             "disable-passwords",
-            "Turn off SSH password logins",
             "ssh.password_auth",
             "key_access",
             # Both: with UsePAM, keyboard-interactive still takes a password
@@ -132,28 +140,24 @@ SSH_FIXES: dict[str, SshFix] = {
         ),
         SshFix(
             "root-prohibit-password",
-            "Let root log in over SSH with a key only",
             "ssh.root_password",
             "key_access",
             (("permitrootlogin", "prohibit-password"),),
         ),
         SshFix(
             "root-no",
-            "Refuse root logins over SSH",
             "ssh.root_login",
             "key_access_non_root",
             (("permitrootlogin", "no"),),
         ),
         SshFix(
             "no-empty-passwords",
-            "Refuse logins with an empty password",
             "ssh.empty_passwords",
             "none",
             (("permitemptypasswords", "no"),),
         ),
         SshFix(
             "sensible-defaults",
-            "Apply sensible SSH limits",
             "ssh.defaults",
             "none",
             (
@@ -166,7 +170,6 @@ SSH_FIXES: dict[str, SshFix] = {
         ),
         SshFix(
             "verbose-logging",
-            "Log the key fingerprint of every SSH login",
             "ssh.loglevel",
             "none",
             (("loglevel", "VERBOSE"),),
@@ -438,6 +441,7 @@ class SshSecurity:
                 id=new_change_id(),
                 kind="sshd",
                 title=plan.fix.title,
+                what=plan.fix.what,
                 actor=self.actor,
                 applied_at=now,
                 expires_at=now + CONFIRM_WINDOW,

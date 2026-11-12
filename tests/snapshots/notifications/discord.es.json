@@ -3408,8 +3408,8 @@
   "access.firewall_reverted": {
     "embeds": [
       {
-        "title": "▲ Cambio del cortafuegos deshecho · Allow 5432/tcp from 10.0.4.12",
-        "description": "El cambio del cortafuegos «Allow 5432/tcp from 10.0.4.12» se deshizo porque nadie lo confirmó en 5 minutos.\n\n*Lo que imprimió al deshacerlo*\n```\n$ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\nRule deleted\n```",
+        "title": "▲ Cambio del cortafuegos deshecho · Permitir 5432/tcp desde 10.0.4.12",
+        "description": "Nadie lo confirmó en 5 minutos, así que el cortafuegos está como antes del cambio. Vuelve a hacerlo y confírmalo desde una sesión nueva.\n\n*Lo que imprimió al deshacerlo*\n```\n$ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\nRule deleted\n```",
         "color": 14919484,
         "fields": [
           {
@@ -3419,7 +3419,7 @@
           },
           {
             "name": "Cambio",
-            "value": "Allow 5432/tcp from 10.0.4.12",
+            "value": "Permitir 5432/tcp desde 10.0.4.12",
             "inline": true
           },
           {
@@ -3447,8 +3447,8 @@
   "access.ssh_reverted": {
     "embeds": [
       {
-        "title": "▲ Cambio de SSH deshecho · Turn password logins off",
-        "description": "El cambio de SSH «Turn password logins off» se deshizo porque nadie lo confirmó en 5 minutos.\n\n*Lo que imprimió al deshacerlo*\n```\nRestored /etc/ssh/sshd_config.d/99-noust.conf\n$ sshd -t\n```",
+        "title": "▲ Cambio de SSH deshecho · Desactivar el acceso por contraseña en SSH",
+        "description": "Nadie lo confirmó en 5 minutos, así que sshd usa la configuración que tenía antes del cambio. Aplícalo otra vez y confírmalo desde un inicio de sesión nuevo.\n\n*Lo que imprimió al deshacerlo*\n```\nRestored /etc/ssh/sshd_config.d/99-noust.conf\n$ sshd -t\n```",
         "color": 14919484,
         "fields": [
           {
@@ -3458,7 +3458,7 @@
           },
           {
             "name": "Cambio",
-            "value": "Turn password logins off",
+            "value": "Desactivar el acceso por contraseña en SSH",
             "inline": true
           },
           {
