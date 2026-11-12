@@ -4,9 +4,9 @@
  * does not know which of the two it is showing, which is how Home has one board, one set of courses and
  * one timeline instead of one of each for the server and another for the fleet.
  *
- * One server: `GET /api/overview` and `GET /api/apps`, and the inbox's list (`useAttention`). The fleet:
- * `GET /api/fleet/summary` (every server's own Overview, verbatim) and `GET /api/views/apps`, and what the
- * console adds to the central's own list.
+ * One server: `GET /api/overview` and `GET /api/apps`, and the one list of what needs attention (`useAttention`). The fleet:
+ * `GET /api/fleet/summary` (every server's own Overview, verbatim) and `GET /api/views/apps`, and what is the person's
+ * own (`GET /api/attention?only=own`), which a central adds to the lists of its servers.
  */
 
 import { useQuery } from "@tanstack/react-query";
@@ -18,7 +18,7 @@ import type { OverviewAttentionItem } from "../../api/queries/overview";
 import { appsViewQuery } from "../../api/queries/views";
 import { fleetViewQuery, objectOf, textOf } from "../fleet/data";
 import type { FleetRow, FleetView } from "../fleet/data";
-import { useAttention, useExtraAttention } from "../inbox/useAttention";
+import { useAttention, useOwnAttention } from "../inbox/useAttention";
 import { ACTIVITY_SHOWN, attentionEntries, fleetServerHome, serverHome, timelineOf } from "./homeData";
 import type { ActivityLine, HomeApp, HomeAttention, HomeServer } from "./homeData";
 import { isEmptyServer } from "./overviewData";
@@ -55,7 +55,7 @@ const NONE: readonly OverviewAttentionItem[] = [];
 export function useServerHome(enabled = true): HomeData {
   const overview = useQuery({ ...overviewQuery(), enabled });
   const apps = useQuery({ ...appsQuery(), enabled });
-  const attention = useAttention(false, enabled);
+  const attention = useAttention(enabled);
   const servers = useMemo(() => {
     if (overview.data === undefined || apps.data === undefined) return undefined;
     const homeApps: HomeApp[] = apps.data.apps.map((app) => ({ domain: app.domain, status: app.status }));
@@ -93,7 +93,7 @@ function scheduledOf(row: FleetRow): number {
 export function useFleetHome(enabled = true): HomeData {
   const summary = useQuery({ ...fleetViewQuery("summary"), enabled });
   const views = useQuery({ ...appsViewQuery(), enabled });
-  const extras = useExtraAttention(false, enabled);
+  const extras = useOwnAttention(enabled);
   const servers = useMemo(() => {
     if (summary.data === undefined || views.data === undefined) return undefined;
     const rows = [...summary.data.items].sort((a, b) => (a["local"] === true ? -1 : b["local"] === true ? 1 : (textOf(a["name"]) ?? "").localeCompare(textOf(b["name"]) ?? "")));

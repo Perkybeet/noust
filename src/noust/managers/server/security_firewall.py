@@ -45,6 +45,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from noust.core import paths
+from noust.core.access_changes import describe
 from noust.core.exceptions import SecurityError, ValidationError
 from noust.core.package_family import PackageFamily, install_hint
 from noust.core.runner import EXIT_NOT_FOUND, CommandResult
@@ -409,16 +410,62 @@ class FirewallPlan:
     A firewall change, worked out and guarded, not yet made.
 
     Attributes:
-        title: What it does, in a sentence.
+        title: What it does, in a sentence: the English of ``what`` and ``values``.
         apply: The commands that make it, in order.
         undo: The commands that undo it, in order.
         commit: The commands that make it permanent once confirmed (firewalld).
+        what: The code of the sentence that says what it does
+            (:mod:`noust.core.access_changes`), which the ledger keeps so that it can be said in
+            any language.
+        values: What that sentence puts in.
     """
 
     title: str
     apply: list[list[str]]
     undo: list[list[str]]
     commit: list[list[str]]
+    what: str = ""
+    values: dict[str, str] = field(default_factory=dict)
+
+
+def _plan(
+    what: str,
+    values: dict[str, str],
+    apply: list[list[str]],
+    undo: list[list[str]],
+    commit: list[list[str]],
+) -> FirewallPlan:
+    """
+    A plan whose title is the English of its sentence: the one place a firewall change is worded.
+
+    Args:
+        what: The code of the sentence.
+        values: What it puts in.
+        apply: The commands that make it.
+        undo: The commands that undo it.
+        commit: The commands that make it permanent.
+
+    Returns:
+        The plan.
+    """
+    return FirewallPlan(describe(what, values), apply, undo, commit, what, dict(values))
+
+
+def _rule_words(rule: RuleRequest) -> tuple[str, dict[str, str]]:
+    """
+    The sentence that says a rule is added, and what it puts in.
+
+    Args:
+        rule: The validated rule.
+
+    Returns:
+        The code (``firewall_allow``, ``firewall_deny_any``...) and its values: the port, as
+        ``5432/tcp`` or ``5432`` for both protocols, and the source unless it is anywhere.
+    """
+    anywhere = rule.source == "any"
+    port = str(rule.port) if rule.proto == "any" else f"{rule.port}/{rule.proto}"
+    values = {"port": port} if anywhere else {"port": port, "source": rule.source}
+    return f"firewall_{rule.action}{'_any' if anywhere else ''}", values
 
 
 @dataclass(frozen=True)
@@ -1302,14 +1349,14 @@ class Firewall:
             The commands that make it, undo it and make it permanent.
         """
         note = f"{NOUST_COMMENT} {rule.comment}".strip()
-        title = f"{rule.action.capitalize()} {rule.proto} port {rule.port} from {rule.source}"
+        what, values = _rule_words(rule)
         if state.backend == "ufw":
             spec = ["from", rule.source, "to", "any", "port", str(rule.port)]
             if rule.proto != "any":
                 spec += ["proto", rule.proto]
             apply = [["ufw", rule.action, *spec, "comment", note]]
             undo = [["ufw", "delete", rule.action, *spec]]
-            return FirewallPlan(title, apply, undo, [])
+            return _plan(what, values, apply, undo, [])
         zone = state.zone or "public"
         protos = ["tcp", "udp"] if rule.proto == "any" else [rule.proto]
         apply, undo, commit = [], [], []
@@ -1326,7 +1373,7 @@ class Firewall:
                 ["firewall-cmd", "--permanent", f"--zone={zone}", f"--add-rich-rule={text}"]
             )
             undo.append(["firewall-cmd", f"--zone={zone}", f"--remove-rich-rule={text}"])
-        return FirewallPlan(title, apply, undo, commit)
+        return _plan(what, values, apply, undo, commit)
 
     def plan_delete(self, rule_id: str) -> FirewallPlan:
         """
@@ -1350,19 +1397,20 @@ class Firewall:
                 details="List the rules with 'noust server security firewall status'.",
             )
         self._guard_delete(rule, state, self.protected())
-        title = f"Delete the firewall rule '{rule.spec}'"
+        what, values = "firewall_delete", {"rule": rule.spec}
         if rule.backend == "ufw":
             tokens = shlex.split(rule.spec)
             readd = [*tokens, "comment", rule.comment] if rule.comment else tokens
-            return FirewallPlan(title, [["ufw", "delete", *tokens]], [["ufw", *readd]], [])
+            return _plan(what, values, [["ufw", "delete", *tokens]], [["ufw", *readd]], [])
         zone = state.zone or "public"
         if rule.spec.startswith("rich rule "):
             option = "rich-rule=" + rule.spec.removeprefix("rich rule ")
         else:
             kind, _, value = rule.spec.partition(" ")
             option = f"{kind}={value}"
-        return FirewallPlan(
-            title,
+        return _plan(
+            what,
+            values,
             [["firewall-cmd", f"--zone={zone}", f"--remove-{option}"]],
             [["firewall-cmd", f"--zone={zone}", f"--add-{option}"]],
             [["firewall-cmd", "--permanent", f"--zone={zone}", f"--remove-{option}"]],
@@ -1407,7 +1455,7 @@ class Firewall:
             ["ufw", "--force", "enable"],
         ]
         undo.insert(1, ["ufw", "default", previous, "incoming"])
-        return FirewallPlan("Turn on ufw, denying incoming by default", apply, undo, [])
+        return _plan("firewall_enable", {}, apply, undo, [])
 
     def plan_disable(self) -> FirewallPlan:
         """
@@ -1423,11 +1471,12 @@ class Firewall:
         if not state.active:
             raise SecurityError(f"{state.backend} is not active")
         if state.backend == "ufw":
-            return FirewallPlan(
-                "Turn off ufw", [["ufw", "disable"]], [["ufw", "--force", "enable"]], []
+            return _plan(
+                "firewall_disable", {}, [["ufw", "disable"]], [["ufw", "--force", "enable"]], []
             )
-        return FirewallPlan(
-            "Stop firewalld",
+        return _plan(
+            "firewall_stop",
+            {},
             [["systemctl", "stop", "firewalld"]],
             [["systemctl", "start", "firewalld"]],
             [["systemctl", "disable", "firewalld"]],
@@ -1503,9 +1552,9 @@ class Firewall:
                 )
             deletions.append(self.plan_delete(rule_id))
             titles.append(f"'{old.spec}'")
-        title = f"{added.title}, and delete {', '.join(titles)}"
-        return FirewallPlan(
-            title,
+        return _plan(
+            f"{added.what}_replacing",
+            {**added.values, "rules": ", ".join(titles)},
             [*added.apply, *(command for plan in deletions for command in plan.apply)],
             [*(command for plan in reversed(deletions) for command in plan.undo), *added.undo],
             [*added.commit, *(command for plan in deletions for command in plan.commit)],
@@ -1720,6 +1769,8 @@ class Firewall:
                 id=new_change_id(),
                 kind="firewall",
                 title=plan.title,
+                what=plan.what,
+                values=dict(plan.values),
                 actor=self.actor,
                 applied_at=now,
                 expires_at=now + CONFIRM_WINDOW,

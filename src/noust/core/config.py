@@ -379,6 +379,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "app_oom_killed": True,
             "domain_expiring": True,
             "domain_expired": True,
+            "access_change_reverted": True,
         },
         "channels": {
             # A webhook URL is a capability: Slack and Discord embed the
@@ -428,12 +429,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "enabled": False,
         "host": "127.0.0.1",
         "port": 8080,
-        # Where the console is reachable from a browser, not where this
-        # process binds: unset by default (host/port above are a bind
-        # address, often 127.0.0.1 behind a reverse proxy, and no site's
-        # public URL can be derived from that). Deploy notifications use it
-        # to link to a deployment's page; nothing else reads it today. Must
-        # be absolute https - see core/https_url.py.
+        # Where the console is reachable from a browser, not where this process binds: unset by
+        # default (host/port above are a bind address, often 127.0.0.1 behind a reverse proxy, and
+        # no site's public URL can be derived from that). Deploy notifications use it to link to a
+        # deployment's page; nothing else reads it today. Must be absolute https - see
+        # core/https_url.py.
         "public_url": "",
         # The public base of /hooks/ that code hosts deliver to, written by
         # `noust web expose-hooks`; unset while webhooks can only reach this

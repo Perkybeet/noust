@@ -380,7 +380,7 @@ class UnknownHosts:
                 default for a port (the answer names the file), or the web server refused
                 the new site (its own words are the error; nothing is left changed).
         """
-        require_server_role("Sites")
+        require_server_role("sites")
         if action not in ACTIONS:
             raise ValidationError(
                 f"{action!r} is not something to answer an unknown name with",
@@ -529,7 +529,7 @@ class UnknownHosts:
             ValidationError: The web server refused the configuration after the change
                 (nothing is left changed).
         """
-        require_server_role("Sites")
+        require_server_role("sites")
         record = self._header()
         if not record:
             return self.status()

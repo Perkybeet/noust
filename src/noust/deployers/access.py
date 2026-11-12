@@ -199,7 +199,7 @@ def set_policy(
             refuses the new configuration (nothing is left changed).
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Sites")
+    require_server_role("sites")
     domain = validate_domain(app_domain)
     with app_lock(domain, "site policy"):
         return _set_policy(
@@ -298,7 +298,7 @@ def reset_policy(app_domain: str, *, verbose: bool = False) -> AccessView:
         NoustError: When the application is unknown.
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Sites")
+    require_server_role("sites")
     domain = validate_domain(app_domain)
     with app_lock(domain, "site policy"):
         app = domains.application(domain)
@@ -336,7 +336,7 @@ def set_user(app_domain: str, username: str, password: str, *, verbose: bool = F
             server refuses the rewritten site.
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Sites")
+    require_server_role("sites")
     domain = validate_domain(app_domain)
     name = check_username(username)
     manager = SitePolicyManager()
@@ -389,7 +389,7 @@ def remove_user(app_domain: str, username: str, *, verbose: bool = False) -> Acc
             password is asked for, or the web server refuses the rewritten site.
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Sites")
+    require_server_role("sites")
     domain = validate_domain(app_domain)
     with app_lock(domain, "site policy"):
         app = domains.application(domain)
@@ -444,7 +444,7 @@ def refresh_trusted_ranges(*, verbose: bool = False) -> dict[str, Any]:
     Raises:
         IntegrationError: The ranges could not be fetched; the previous ones stay.
     """
-    require_server_role("Sites")
+    require_server_role("sites")
     before = trusted_proxies.current_ranges()
     after = trusted_proxies.refresh()
     result: dict[str, Any] = {
@@ -757,7 +757,7 @@ def issue_client_certificate(
         ValidationError: The name or the validity is not acceptable.
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Certificates")
+    require_server_role("certificates")
     domain = validate_domain(app_domain)
     with app_lock(domain, "client certificate"):
         app = domains.application(domain)
@@ -791,7 +791,7 @@ def revoke_client_certificate(
             operator has not accepted that.
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Certificates")
+    require_server_role("certificates")
     domain = validate_domain(app_domain)
     with app_lock(domain, "client certificate"):
         app = domains.application(domain)

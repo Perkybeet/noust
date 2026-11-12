@@ -30,13 +30,14 @@ import type { T } from "../../i18n";
 import { useNodeCapability } from "../../nodes/capability";
 import { useHasFleet } from "../../nodes/servers";
 import { useNode } from "../../nodes/useNode";
-import { attentionItems, verdictOf } from "./attention";
+import { useAttention } from "../inbox/useAttention";
+import { serverItems, verdictOf } from "./attention";
 import type { Verdict } from "./attention";
 import { HeaderSlot } from "./headerSlot";
 import { ExpiredChanges, useExpiredChanges } from "./ExpiredChanges";
 import { PendingChanges } from "./PendingChanges";
 import { PowerProvider, ScheduledPowerBanner, usePowerDialog } from "./PowerDialog";
-import { SERVER_CAPABILITY, changesQuery, firewallQuery, securityOverviewQuery, summaryQuery } from "./queries";
+import { SERVER_CAPABILITY, changesQuery, firewallQuery, summaryQuery } from "./queries";
 import type { ServerSummary } from "./queries";
 import { serverSection } from "./sections";
 import { ServerJobProvider, ServerJobSlot, useHasServerJob } from "./serverJob";
@@ -107,14 +108,15 @@ function Layout() {
   const capability = useNodeCapability(SERVER_CAPABILITY);
   const available = capability.status === "available" || capability.status === "unknown";
   const summary = useQuery({ ...summaryQuery(), enabled: available });
-  const security = useQuery({ ...securityOverviewQuery(), enabled: available && overview });
+  const attention = useAttention(available);
   const changes = useQuery({ ...changesQuery(), enabled: available });
   // Where the section's own actions are drawn: the page puts them here (`HeaderActions`), and the slot is a box with no
   // size of its own, so the header is the same height before they arrive.
   const [slot, setSlot] = useState<HTMLElement | null>(null);
 
   const name = node ?? sessionHostname ?? t("server.title");
-  const verdict = available && summary.data !== undefined ? verdictOf(attentionItems(summary.data, security.data)) : null;
+  // The header says what the machine's slice of the one list says, so it never disagrees with the bell or the Status page.
+  const verdict = available && summary.data !== undefined && !attention.loading ? verdictOf(serverItems(attention.items)) : null;
   const pending = (changes.data ?? []).filter((change) => change.status === "pending");
   // A change its timer undid because nobody confirmed it: the banner of the pending one is gone, and this says why.
   const expired = useExpiredChanges(changes.data ?? []);

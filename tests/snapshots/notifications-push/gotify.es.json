@@ -1126,6 +1126,30 @@
       }
     }
   },
+  "access.firewall_reverted": {
+    "title": "▲ Cambio del cortafuegos deshecho · Permitir 5432/tcp desde 10.0.4.12",
+    "message": "Nadie lo confirmó en 5 minutos, así que el cortafuegos está como antes del cambio. Vuelve a hacerlo y confírmalo desde una sesión nueva.\n\nServidor: web-1\nCambio: Permitir 5432/tcp desde 10.0.4.12\nLo aplicó: yago\nAplicado: 2026-11-12 10:40 UTC\n\nLo que imprimió al deshacerlo:\n  $ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\n  Rule deleted",
+    "priority": 5,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/network/firewall"
+        }
+      }
+    }
+  },
+  "access.ssh_reverted": {
+    "title": "▲ Cambio de SSH deshecho · Desactivar el acceso por contraseña en SSH",
+    "message": "Nadie lo confirmó en 5 minutos, así que sshd usa la configuración que tenía antes del cambio. Aplícalo otra vez y confírmalo desde un inicio de sesión nuevo.\n\nServidor: web-1\nCambio: Desactivar el acceso por contraseña en SSH\nLo aplicó: ana\nAplicado: 2026-11-12 10:40 UTC\n\nLo que imprimió al deshacerlo:\n  Restored /etc/ssh/sshd_config.d/99-noust.conf\n  $ sshd -t",
+    "priority": 5,
+    "extras": {
+      "client::notification": {
+        "click": {
+          "url": "https://console.example.com/n/web-1/security/ssh"
+        }
+      }
+    }
+  },
   "hostile.deploy_failed": {
     "title": "✕ Despliegue fallido · shop.example.com",
     "message": "Se ha detenido por un error antes de que la nueva versión tomara el relevo.\n\nServidor: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nVersión: 20260929-104449\nCommit: a1b2c3d (<b>x</b>&amp;<!channel> @everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @here <@U123> <#C1> red emoji 🚀\nIniciado por: Webhook\nDuración: 1 min 12 s\nRevísalo con: noust diagnose shop.example.com\n\nLo que ha informado el sistema:\n  Release did not pass <its> health & check\n  <urlopen error [Errno 111] Connection refused>\n  ```\n  @everyone <!channel> <@U123|admin> &lt;b&gt;\n  red *bold* _italic_ ~strike~ `code`\n  noitcnuf\n  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…",

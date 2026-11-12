@@ -1765,6 +1765,62 @@
       }
     ]
   },
+  "access.firewall_reverted": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/access_change_reverted/Allow 5432/tcp from 10.0.4.12",
+    "payload": {
+      "summary": "Firewall change undone · Allow 5432/tcp from 10.0.4.12: Nobody confirmed it within 5 minutes, so the firewall is as it was before the change. Make the change again and confirm it from a new session.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "access_change_reverted",
+      "class": "access.firewall_reverted",
+      "custom_details": {
+        "server": "web-1",
+        "change": "Allow 5432/tcp from 10.0.4.12",
+        "change_by": "yago",
+        "change_at": "2026-11-12 10:40 UTC",
+        "excerpt": "$ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\nRule deleted"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/network/firewall",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/network/firewall",
+        "text": "Open in the console"
+      }
+    ]
+  },
+  "access.ssh_reverted": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/access_change_reverted/Turn off SSH password logins",
+    "payload": {
+      "summary": "SSH change undone · Turn off SSH password logins: Nobody confirmed it within 5 minutes, so sshd uses the configuration it had before the change. Apply the change again and confirm it from a new login.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "access_change_reverted",
+      "class": "access.ssh_reverted",
+      "custom_details": {
+        "server": "web-1",
+        "change": "Turn off SSH password logins",
+        "change_by": "ana",
+        "change_at": "2026-11-12 10:40 UTC",
+        "excerpt": "Restored /etc/ssh/sshd_config.d/99-noust.conf\n$ sshd -t"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/security/ssh",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/security/ssh",
+        "text": "Open in the console"
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
     "event_action": "trigger",

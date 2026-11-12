@@ -48,6 +48,7 @@ from noust.web.api.app_tags import router as app_tags_router
 from noust.web.api.approvals import require_approval
 from noust.web.api.approvals import router as approvals_router
 from noust.web.api.apps import router as apps_router
+from noust.web.api.attention import router as attention_router
 from noust.web.api.audit import router as audit_router
 from noust.web.api.auth import router as auth_router
 from noust.web.api.authdns import router as authdns_router
@@ -171,6 +172,7 @@ from noust.web.api.views import router as views_router
 from noust.web.api.volume_backups import router as volume_backups_router
 from noust.web.api.waf import router as waf_router
 from noust.web.api.waf import server_router as waf_server_router
+from noust.web.api.watching import router as watching_router
 from noust.web.api.webserver_move import app_router as webserver_app_router
 from noust.web.api.webserver_move import router as webserver_router
 from noust.web.api.workspaces import router as workspaces_router
@@ -261,12 +263,16 @@ router.include_router(metrics_router, prefix="/metrics", tags=["Metrics"])
 # Rules on the recorded metrics (4.0), and the channels their messages leave by.
 router.include_router(probes_router, prefix="/probes", tags=["Probes"])
 router.include_router(alerts_router, prefix="/alerts", tags=["Alerts"])
+# What the monitor watches without a rule, and where it says so (4.3).
+router.include_router(watching_router, prefix="/alerts", tags=["Alerts"])
 router.include_router(notifications_router, prefix="/notifications", tags=["Notifications"])
 router.include_router(managed_settings_router, prefix="/managed-settings", tags=["Fleet settings"])
 # What a central gives this server to deploy from its repositories (4.1).
 router.include_router(source_leases_router, prefix="/sources", tags=["Sources"])
 router.include_router(source_events_router, prefix="/sources", tags=["Sources"])
 router.include_router(overview_router, prefix="/overview", tags=["Overview"])
+# What needs this person, as one list the server joins (4.3).
+router.include_router(attention_router, prefix="/attention", tags=["Overview"])
 # How the server fits together, as a graph read from it (4.0).
 router.include_router(map_router, prefix="/map", tags=["Map"])
 router.include_router(timeline_router, prefix="/timeline", tags=["Timeline"])

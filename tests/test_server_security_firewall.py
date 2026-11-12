@@ -19,6 +19,7 @@ from pathlib import Path
 
 import pytest
 
+from noust.core.access_changes import describe
 from noust.core.exceptions import SecurityError, ValidationError
 from noust.managers.server.security_access import AccessGuardError
 from noust.managers.server.security_firewall import (
@@ -719,3 +720,90 @@ class TestNoFirewallToChange:
         assert "apt install ufw; dnf install firewalld; zypper install firewalld" in (
             caught.value.details
         )
+
+
+class TestAChangeKeepsWhatItIs:
+    """
+    The ledger records a change as a code and its values, so it can be said in any language (item 138).
+
+    The English ``title`` is made from the same sentence, so what the CLI and the audit trail say
+    is what a notification says in English: there is one place that words a change.
+    """
+
+    def test_a_rule_for_some_addresses_keeps_its_port_and_its_source(self, runner, host, ledger):
+        change = _firewall(runner, host, ledger).add_rule(
+            RuleRequest("allow", 5432, source="10.0.4.12")
+        )
+
+        assert change.what == "firewall_allow"
+        assert change.values == {"port": "5432/tcp", "source": "10.0.4.12/32"}
+        assert change.title == "Allow 5432/tcp from 10.0.4.12/32"
+        assert describe(change.what, change.values, "es") == "Permitir 5432/tcp desde 10.0.4.12/32"
+
+    def test_a_rule_for_everybody_and_both_protocols_says_so(self, runner, host, ledger):
+        change = _firewall(runner, host, ledger).add_rule(RuleRequest("allow", 8443, proto="any"))
+
+        assert (change.what, change.values) == ("firewall_allow_any", {"port": "8443"})
+        assert change.title == "Allow 8443 from anywhere"
+        assert describe(change.what, change.values, "es") == "Permitir 8443 desde cualquier origen"
+
+    def test_a_deny_rule_is_its_own_sentence(self, runner, host, ledger):
+        change = _firewall(runner, host, ledger).add_rule(
+            RuleRequest("deny", 8080, source="203.0.113.0/24")
+        )
+
+        assert change.what == "firewall_deny"
+        assert change.title == "Deny 8080/tcp from 203.0.113.0/24"
+
+    def test_deleting_a_rule_keeps_the_rule_as_its_tool_spells_it(self, runner, host, ledger):
+        firewall = _firewall(runner, host, ledger)
+        office = next(rule for rule in firewall.state().rules if rule.source == "10.0.0.0/8")
+
+        change = firewall.delete_rule(office.id)
+
+        assert change.what == "firewall_delete"
+        assert change.values == {"rule": "allow from 10.0.0.0/8 to any port 5432 proto tcp"}
+        # The tool's own words stay as they are inside the sentence of the reader's language.
+        assert describe(change.what, change.values, "es") == (
+            "Eliminar la regla «allow from 10.0.0.0/8 to any port 5432 proto tcp» del cortafuegos"
+        )
+
+    def test_replacing_a_wide_rule_keeps_the_rules_it_took_away(self, runner, host, ledger):
+        runner.script(["ufw", "show", "added"], stdout=UFW_ADDED + "ufw allow 5432/tcp\n")
+        firewall = _firewall(runner, host, ledger)
+        everybody = next(rule for rule in firewall.state().rules if rule.spec == "allow 5432/tcp")
+
+        change = firewall.add_rule(
+            RuleRequest("allow", 5432, source="10.0.4.12"), replaces=[everybody.id]
+        )
+
+        assert change.what == "firewall_allow_replacing"
+        assert change.values == {
+            "port": "5432/tcp",
+            "source": "10.0.4.12/32",
+            "rules": "'allow 5432/tcp'",
+        }
+        assert change.title == "Allow 5432/tcp from 10.0.4.12/32, and delete 'allow 5432/tcp'"
+
+    def test_turning_the_firewall_off_or_on_is_a_sentence_without_values(
+        self, runner, host, ledger
+    ):
+        firewall = _firewall(runner, host, ledger)
+
+        off = firewall.plan_disable()
+        runner.script(["ufw", "status", "verbose"], stdout=UFW_INACTIVE)
+        on = _firewall(runner, host, ledger).plan_enable()
+
+        assert (off.what, off.values, off.title) == ("firewall_disable", {}, "Turn off ufw")
+        assert (on.what, on.values) == ("firewall_enable", {})
+        assert on.title == "Turn on ufw, denying incoming by default"
+
+    def test_stopping_firewalld_is_its_own_sentence(self, runner, host, ledger):
+        runner.only_knows("firewall-cmd")
+        runner.script(["firewall-cmd", "--state"], stdout="running\n")
+        runner.script(["firewall-cmd", "--get-default-zone"], stdout="public\n")
+        runner.script(["firewall-cmd", "--zone=public", "--list-all"], stdout=FIREWALLD_ZONE)
+
+        plan = _firewall(runner, host, ledger).plan_disable()
+
+        assert (plan.what, plan.title) == ("firewall_stop", "Stop firewalld")

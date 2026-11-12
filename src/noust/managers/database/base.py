@@ -1020,7 +1020,7 @@ class BaseDatabaseManager(BaseManager):
         Raises:
             RoleError: When this Noust is a hub.
         """
-        require_server_role("Databases")
+        require_server_role("databases")
         return get_runner()
 
     def _exec(

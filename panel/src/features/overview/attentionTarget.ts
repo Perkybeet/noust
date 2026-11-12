@@ -18,7 +18,25 @@ export interface AttentionTarget {
 /** A button that opens the screen where the item is dealt with. `name` is what it is about, for its accessible name. */
 export interface OpenAction {
   mode: "open";
-  kind: "viewLog" | "viewFailure" | "diagnose" | "renew" | "openService" | "openFinding" | "openProbes" | "review" | "openUpdates" | "reviewRecipe";
+  kind:
+    | "viewLog"
+    | "viewFailure"
+    | "diagnose"
+    | "renew"
+    | "openService"
+    | "openFinding"
+    | "openProbes"
+    | "review"
+    | "openUpdates"
+    | "reviewRecipe"
+    | "installUpdates"
+    | "repairPackages"
+    | "scheduleReboot"
+    | "freeSpace"
+    | "fixClock"
+    | "addSwap"
+    | "viewServices"
+    | "reviewFinding";
   name: string;
   target: AttentionTarget;
 }
@@ -73,10 +91,62 @@ export function attentionTarget(item: OverviewAttentionItem): AttentionTarget | 
       return { to: "/settings/about" };
     case "recipe":
       return { to: "/catalog/installed" };
+    case "machine":
+      return machineTarget(text(subject["fact"]));
+    case "finding":
+      return findingTarget(text(subject["group"]));
     default:
       return null;
   }
 }
+
+/** The page of the machine where each of its facts is dealt with; the Status page for one this console does not know. */
+function machineTarget(fact: string | null): AttentionTarget {
+  switch (fact) {
+    // The reboot is scheduled from the updates too, where the packages that ask for it are listed.
+    case "security_updates":
+    case "packages_broken":
+    case "os_support":
+    case "reboot_required":
+      return { to: "/server/updates" };
+    case "disk":
+    case "swap":
+      return { to: "/server/files" };
+    case "clock":
+      return { to: "/server/machine" };
+    case "failed_units":
+      return { to: "/server/services", search: { state: "failed", all: true } };
+    default:
+      return { to: "/server" };
+  }
+}
+
+/** The view of Security (or of Network, for the firewall) a finding of the checks is fixed in. */
+function findingTarget(group: string | null): AttentionTarget {
+  switch (group) {
+    case "ssh":
+      return { to: "/security/ssh" };
+    case "fail2ban":
+      return { to: "/security/blocks" };
+    // The firewall is Network and ports' since 4.1: its findings are fixed there.
+    case "firewall":
+      return { to: "/network/firewall" };
+    default:
+      return { to: "/security" };
+  }
+}
+
+/** The word of a machine fact's button, by the fact. */
+const MACHINE_ACTION: Readonly<Record<string, OpenAction["kind"]>> = {
+  security_updates: "installUpdates",
+  packages_broken: "repairPackages",
+  os_support: "openUpdates",
+  reboot_required: "scheduleReboot",
+  disk: "freeSpace",
+  clock: "fixClock",
+  swap: "addSwap",
+  failed_units: "viewServices",
+};
 
 /** The one button of an item's row, or none when the console has nothing to offer for it. */
 export function attentionAction(item: OverviewAttentionItem): AttentionAction | null {
@@ -109,6 +179,10 @@ export function attentionAction(item: OverviewAttentionItem): AttentionAction | 
       return { mode: "open", kind: "openUpdates", name, target };
     case "recipe":
       return { mode: "open", kind: "reviewRecipe", name, target };
+    case "machine":
+      return { mode: "open", kind: MACHINE_ACTION[text(item.subject["fact"]) ?? ""] ?? "openFinding", name, target };
+    case "finding":
+      return { mode: "open", kind: "reviewFinding", name, target };
     default:
       return null;
   }

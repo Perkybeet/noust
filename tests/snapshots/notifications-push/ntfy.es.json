@@ -1707,6 +1707,42 @@
       }
     ]
   },
+  "access.firewall_reverted": {
+    "topic": "noust-alerts",
+    "title": "▲ Cambio del cortafuegos deshecho · Permitir 5432/tcp desde 10.0.4.12",
+    "message": "Nadie lo confirmó en 5 minutos, así que el cortafuegos está como antes del cambio. Vuelve a hacerlo y confírmalo desde una sesión nueva.\n\nServidor: web-1\nCambio: Permitir 5432/tcp desde 10.0.4.12\nLo aplicó: yago\nAplicado: 2026-11-12 10:40 UTC\n\nLo que imprimió al deshacerlo:\n  $ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\n  Rule deleted",
+    "priority": 3,
+    "tags": [
+      "access_change_reverted",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/network/firewall",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/network/firewall"
+      }
+    ]
+  },
+  "access.ssh_reverted": {
+    "topic": "noust-alerts",
+    "title": "▲ Cambio de SSH deshecho · Desactivar el acceso por contraseña en SSH",
+    "message": "Nadie lo confirmó en 5 minutos, así que sshd usa la configuración que tenía antes del cambio. Aplícalo otra vez y confírmalo desde un inicio de sesión nuevo.\n\nServidor: web-1\nCambio: Desactivar el acceso por contraseña en SSH\nLo aplicó: ana\nAplicado: 2026-11-12 10:40 UTC\n\nLo que imprimió al deshacerlo:\n  Restored /etc/ssh/sshd_config.d/99-noust.conf\n  $ sshd -t",
+    "priority": 3,
+    "tags": [
+      "access_change_reverted",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/security/ssh",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/security/ssh"
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "topic": "noust-alerts",
     "title": "✕ Despliegue fallido · shop.example.com",

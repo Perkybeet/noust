@@ -4358,6 +4358,108 @@
     ],
     "excerpt": null
   },
+  "access.firewall_reverted": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000098",
+    "event": "access_change_reverted",
+    "code": "access.firewall_reverted",
+    "state": "warning",
+    "locale": "es",
+    "title": "Cambio del cortafuegos deshecho: Permitir 5432/tcp desde 10.0.4.12",
+    "summary": "Nadie lo confirmó en 5 minutos, así que el cortafuegos está como antes del cambio. Vuelve a hacerlo y confírmalo desde una sesión nueva.",
+    "body": "Nadie lo confirmó en 5 minutos, así que el cortafuegos está como antes del cambio. Vuelve a hacerlo y confírmalo desde una sesión nueva.\n\nServidor: web-1\nCambio: Permitir 5432/tcp desde 10.0.4.12\nLo aplicó: yago\nAplicado: 2026-11-12 10:40 UTC\n\nLo que imprimió al deshacerlo:\n  $ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\n  Rule deleted\n\nAbrir en la consola: https://console.example.com/n/web-1/network/firewall",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "change",
+        "label": "Cambio",
+        "value": "Permitir 5432/tcp desde 10.0.4.12"
+      },
+      {
+        "key": "change_by",
+        "label": "Lo aplicó",
+        "value": "yago"
+      },
+      {
+        "key": "change_at",
+        "label": "Aplicado",
+        "value": "2026-11-12 10:40 UTC"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/network/firewall"
+      }
+    ],
+    "excerpt": {
+      "label": "Lo que imprimió al deshacerlo",
+      "lines": [
+        "$ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp",
+        "Rule deleted"
+      ],
+      "omitted": 0
+    }
+  },
+  "access.ssh_reverted": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000099",
+    "event": "access_change_reverted",
+    "code": "access.ssh_reverted",
+    "state": "warning",
+    "locale": "es",
+    "title": "Cambio de SSH deshecho: Desactivar el acceso por contraseña en SSH",
+    "summary": "Nadie lo confirmó en 5 minutos, así que sshd usa la configuración que tenía antes del cambio. Aplícalo otra vez y confírmalo desde un inicio de sesión nuevo.",
+    "body": "Nadie lo confirmó en 5 minutos, así que sshd usa la configuración que tenía antes del cambio. Aplícalo otra vez y confírmalo desde un inicio de sesión nuevo.\n\nServidor: web-1\nCambio: Desactivar el acceso por contraseña en SSH\nLo aplicó: ana\nAplicado: 2026-11-12 10:40 UTC\n\nLo que imprimió al deshacerlo:\n  Restored /etc/ssh/sshd_config.d/99-noust.conf\n  $ sshd -t\n\nAbrir en la consola: https://console.example.com/n/web-1/security/ssh",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "change",
+        "label": "Cambio",
+        "value": "Desactivar el acceso por contraseña en SSH"
+      },
+      {
+        "key": "change_by",
+        "label": "Lo aplicó",
+        "value": "ana"
+      },
+      {
+        "key": "change_at",
+        "label": "Aplicado",
+        "value": "2026-11-12 10:40 UTC"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/security/ssh"
+      }
+    ],
+    "excerpt": {
+      "label": "Lo que imprimió al deshacerlo",
+      "lines": [
+        "Restored /etc/ssh/sshd_config.d/99-noust.conf",
+        "$ sshd -t"
+      ],
+      "omitted": 0
+    }
+  },
   "hostile.deploy_failed": {
     "version": 1,
     "id": "00000000-0000-4000-8000-000000001000",

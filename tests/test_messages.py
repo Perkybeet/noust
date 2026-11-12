@@ -112,6 +112,8 @@ class TestCatalogShape:
             "severity",
             "ui",
             "excerpt",
+            # What a change to how the server is reached was, said whole (core/access_changes.py).
+            "change",
         }
 
     def test_every_title_has_a_summary(self) -> None:
@@ -125,6 +127,7 @@ class TestCatalogShape:
         # runs outside its unit, worded by what a reboot does to its containers.
         assert summaries - titles == {
             "cert.expiring_today",
+            "domain.expiring_today",
             "app.unreachable_containers",
             "app.recovered_containers",
             "app.outside_unit_returns",

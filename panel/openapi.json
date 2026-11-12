@@ -4384,11 +4384,22 @@
         "type": "object"
       },
       "AttentionItem": {
-        "description": "Something that needs an operator.\n\nAttributes:\n    id: Stable across refreshes.\n    subject: What it is about: ``{\"kind\": \"app\", \"domain\": ...}``,\n        ``{\"kind\": \"certificate\", \"domain\": ...}``, ``{\"kind\": \"unit\",\n        \"name\": ...}``, ``{\"kind\": \"monitor\", \"process\": ..., \"pid\": ...}``,\n        ``{\"kind\": \"alert\", \"rule\": ..., \"subject\": ...}`` or\n        ``{\"kind\": \"probe\", \"name\": ...}``.\n    title: A domain, a unit, a process, a rule (and the application it fires for).\n    severity: The worst of its reasons.\n    reasons: Each reason, with its own severity.",
+        "description": "Something that needs an operator.\n\nAttributes:\n    id: Stable across refreshes.\n    subject: What it is about: ``{\"kind\": \"app\", \"domain\": ...}``,\n        ``{\"kind\": \"certificate\", \"domain\": ...}``, ``{\"kind\": \"unit\",\n        \"name\": ...}``, ``{\"kind\": \"monitor\", \"process\": ..., \"pid\": ...}``,\n        ``{\"kind\": \"alert\", \"rule\": ..., \"subject\": ...}``,\n        ``{\"kind\": \"probe\", \"name\": ...}``, ``{\"kind\": \"machine\", \"fact\": ...}`` or\n        ``{\"kind\": \"finding\", \"check\": ..., \"group\": ...}``.\n    title: A domain, a unit, a process, a rule (and the application it fires for).\n    origin: Where the row comes from: that of the reason that made it serious.\n    severity: The worst of its reasons.\n    reasons: Each reason, with its own severity.",
         "properties": {
           "id": {
             "title": "Id",
             "type": "string"
+          },
+          "origin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin"
           },
           "reasons": {
             "items": {
@@ -4422,7 +4433,7 @@
         "type": "object"
       },
       "AttentionReason": {
-        "description": "One reason an item needs attention.\n\nAttributes:\n    kind: ``state``, ``deploy``, ``certificate``, ``unit``, ``monitor``, ``alert`` or\n        ``probe``.\n    severity: ``fail`` or ``warn``.\n    code: Machine-readable and stable; the console words it. ``service_failed``,\n        ``service_restarting``, ``running_outside_unit``, ``deploy_failed``, ``deploy_rolled_back``,\n        ``certificate_expired``, ``certificate_expires_today``,\n        ``certificate_expires_in``, ``unit_failed``, ``unit_restarting``,\n        ``monitor_finding``, ``probe_down``, ``alert_firing`` (nobody has taken it) and ``alert_taken``\n        (somebody has; it still fires).\n    params: Values for the console's sentence (days, a signal).\n    detail: The system's own words, verbatim.\n    detail_coded: The detail as a sentence with a code and values, when it is one of Noust's\n        own (a deployment that did not pass its health check) and not another program's words;\n        the console says it in its language and keeps ``detail`` for any code it lacks.\n    when: When it happened.\n    deployment_id: A deployment to open for the full story.\n    actions: What can be done, as identifiers the console maps to buttons:\n        ``view_log``, ``diagnose``, ``view_deployment``,\n        ``renew_certificate``, ``open_service``, ``open_observation``,\n        ``acknowledge_alert``, ``reopen_alert``, ``open_probes``.",
+        "description": "One reason an item needs attention.\n\nAttributes:\n    kind: ``state``, ``deploy``, ``first_deploy``, ``certificate``, ``unit``, ``machine``,\n        ``monitor``, ``alert``, ``probe``, ``security``, ``approval``, ``noust`` or\n        ``recipe``.\n    origin: Where it comes from: ``state`` (what a thing is), ``alert`` (a rule, a probe or what\n        the monitor noted) or ``security`` (a finding of the hardening checks). A server\n        before 4.3 sends none, and it is a state.\n    severity: ``fail`` or ``warn``.\n    code: Machine-readable and stable; the console words it. ``service_failed``,\n        ``service_restarting``, ``running_outside_unit``, ``deploy_failed``, ``deploy_rolled_back``,\n        ``certificate_expired``, ``certificate_expires_today``,\n        ``certificate_expires_in``, ``unit_failed``, ``unit_restarting``,\n        ``monitor_finding``, ``probe_down``, ``alert_firing`` (nobody has taken it) and ``alert_taken``\n        (somebody has; it still fires); of the machine ``security_updates``, ``packages_broken``,\n        ``reboot_required``, ``os_unsupported``, ``os_ending``, ``disk_full``, ``clock_unsynced``,\n        ``no_swap`` and ``failed_units``; and ``security_finding`` for a check of the hardening.\n    params: Values for the console's sentence (days, a signal).\n    detail: The system's own words, verbatim.\n    detail_coded: The detail as a sentence with a code and values, when it is one of Noust's\n        own (a deployment that did not pass its health check) and not another program's words;\n        the console says it in its language and keeps ``detail`` for any code it lacks.\n    when: When it happened.\n    deployment_id: A deployment to open for the full story.\n    actions: What can be done, as identifiers the console maps to buttons:\n        ``view_log``, ``diagnose``, ``view_deployment``,\n        ``renew_certificate``, ``open_service``, ``open_observation``,\n        ``acknowledge_alert``, ``reopen_alert``, ``open_probes``, and for the machine\n        ``open_updates``, ``schedule_reboot``, ``free_space``, ``fix_clock``, ``add_swap``,\n        ``open_services``, and ``review_finding`` for a check.",
         "properties": {
           "actions": {
             "items": {
@@ -4471,6 +4482,17 @@
             "title": "Kind",
             "type": "string"
           },
+          "origin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin"
+          },
           "params": {
             "additionalProperties": true,
             "title": "Params",
@@ -4498,6 +4520,25 @@
           "code"
         ],
         "title": "AttentionReason",
+        "type": "object"
+      },
+      "AttentionResponse": {
+        "description": "What needs this person.\n\nAttributes:\n    items: The rows, the worst first (a state before an alert before a security finding within\n        a severity, then by name), each with the ``origin`` it comes from and every reason it\n        has; at most 100.\n    total: How many there are in all, which is the one number every screen shows.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AttentionItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "title": "AttentionResponse",
         "type": "object"
       },
       "AuditActor": {
@@ -10250,6 +10291,25 @@
           "default"
         ],
         "title": "ChannelModel",
+        "type": "object"
+      },
+      "ChannelRef": {
+        "description": "A channel that delivers, without any of its settings.\n\nAttributes:\n    name: What it is called.\n    type: Its type (``slack``, ``telegram``...).",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "type"
+        ],
+        "title": "ChannelRef",
         "type": "object"
       },
       "ChannelTypeModel": {
@@ -23644,6 +23704,260 @@
         "title": "Fail2banWebRequest",
         "type": "object"
       },
+      "FeatureReason": {
+        "description": "Why a function is not available here, as a sentence with a code.\n\nAttributes:\n    text: The sentence in English, always sent.\n    hint: How to fix it in English, when the sentence has a fix.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "params": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Params",
+            "type": "object"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "text"
+        ],
+        "title": "FeatureReason",
+        "type": "object"
+      },
+      "FeatureState": {
+        "description": "Whether one function of this Noust works here.\n\nAttributes:\n    available: It would work here now.\n    reason: Why it would not: ``features.hub_role`` on a hub, ``features.needs_*`` for what\n        the machine lacks, and the engine's own sentences (``docker.*``) for Docker. None when\n        ``available``.",
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FeatureReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "available"
+        ],
+        "title": "FeatureState",
+        "type": "object"
+      },
+      "FeatureStates": {
+        "properties": {
+          "application_backups": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "application_diagnosis": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "application_environments": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "applications": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "certificates": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "checking_a_moved_server": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "console_exposure": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "container_deploy": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "database_backups": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "database_instances": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "databases": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "dns_accounts": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "dns_records": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "domains": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "firewall": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "importing_applications": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "log_destinations": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "moving_a_server": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "native_deploy": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "noust_dns": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "point_in_time_recovery": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "power": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "preview_environments": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "process_monitor": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "public_database_access": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "published_ports": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "recipes": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "releases": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "restoring_a_server": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "rollbacks": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "root_shell": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "scheduled_jobs": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "server_health": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "server_security": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "server_setup": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "services": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "sites": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "software": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "status_page": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "system_clock": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "system_logs": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "tunnels": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "volume_backups": {
+            "$ref": "#/components/schemas/FeatureState"
+          }
+        },
+        "required": [
+          "applications",
+          "native_deploy",
+          "container_deploy",
+          "releases",
+          "rollbacks",
+          "preview_environments",
+          "importing_applications",
+          "recipes",
+          "application_environments",
+          "application_diagnosis",
+          "process_monitor",
+          "server_health",
+          "server_setup",
+          "domains",
+          "sites",
+          "certificates",
+          "console_exposure",
+          "status_page",
+          "published_ports",
+          "tunnels",
+          "noust_dns",
+          "dns_records",
+          "dns_accounts",
+          "databases",
+          "database_instances",
+          "public_database_access",
+          "database_backups",
+          "point_in_time_recovery",
+          "application_backups",
+          "volume_backups",
+          "restoring_a_server",
+          "moving_a_server",
+          "checking_a_moved_server",
+          "scheduled_jobs",
+          "services",
+          "software",
+          "log_destinations",
+          "system_clock",
+          "power",
+          "system_logs",
+          "root_shell",
+          "server_security",
+          "firewall"
+        ],
+        "title": "FeatureStates",
+        "type": "object"
+      },
       "FileActionResponse": {
         "description": "What a change to a file did.",
         "properties": {
@@ -35925,6 +36239,38 @@
         "title": "NotificationTestResult",
         "type": "object"
       },
+      "NotificationsModel": {
+        "description": "Whether what is found leaves the server at all.\n\nAttributes:\n    enabled: The master switch (``notifications.enabled``).\n    paused_until: When a pause of every notification ends, or null for none.\n    channels: The server's channels that are on and have what their type needs.",
+        "properties": {
+          "channels": {
+            "items": {
+              "$ref": "#/components/schemas/ChannelRef"
+            },
+            "title": "Channels",
+            "type": "array"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "paused_until": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused Until"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "NotificationsModel",
+        "type": "object"
+      },
       "OAuthApplicationOut": {
         "description": "An OAuth application registered in GitLab, without its secret.",
         "properties": {
@@ -36191,6 +36537,24 @@
           "count"
         ],
         "title": "ObservationListResponse",
+        "type": "object"
+      },
+      "Offer": {
+        "description": "What turning on a watch that ships off writes.\n\nAttributes:\n    key: The setting, through ``PATCH /api/config``.\n    value: The value that turns it on.",
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value"
+          }
+        },
+        "required": [
+          "key",
+          "value"
+        ],
+        "title": "Offer",
         "type": "object"
       },
       "OperationOut": {
@@ -43190,6 +43554,30 @@
           "count"
         ],
         "title": "RankedKeyModel",
+        "type": "object"
+      },
+      "Reach": {
+        "description": "A channel that would take what a watch says.\n\nAttributes:\n    name: The channel.\n    type: Its type.\n    limited: It does not say everything at once: a route that narrows it, a floor of\n        severity, quiet hours or a summary.",
+        "properties": {
+          "limited": {
+            "default": false,
+            "title": "Limited",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "type"
+        ],
+        "title": "Reach",
         "type": "object"
       },
       "ReasonModel": {
@@ -52973,6 +53361,40 @@
         "title": "ServiceTagsResponse",
         "type": "object"
       },
+      "SessionCentral": {
+        "description": "What the session says of the central: :class:`CentralInfo` and what it can do.\n\nAttributes:\n    features: For each function of this Noust, whether it works here and why not. Absent from a\n        server older than 4.3, which the console reads as \"what its role allows\", as it always\n        did.",
+        "properties": {
+          "features": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FeatureStates"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "locked": {
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "sealed": {
+            "title": "Sealed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "role",
+          "sealed",
+          "locked"
+        ],
+        "title": "SessionCentral",
+        "type": "object"
+      },
       "SessionEndedResponse": {
         "description": "A terminal that was ended.",
         "properties": {
@@ -53078,7 +53500,7 @@
           "central": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/CentralInfo"
+                "$ref": "#/components/schemas/SessionCentral"
               },
               {
                 "type": "null"
@@ -65729,6 +66151,132 @@
         "title": "WarningInfo",
         "type": "object"
       },
+      "WatchEvent": {
+        "description": "A message a watch can say.\n\nAttributes:\n    kind: The notification kind, as ``/api/notifications/events`` lists it.\n    on: Whether the server-wide switch has it on.",
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "on": {
+            "title": "On",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "kind",
+          "on"
+        ],
+        "title": "WatchEvent",
+        "type": "object"
+      },
+      "WatchModel": {
+        "description": "One thing Noust looks at without being asked.\n\nAttributes:\n    id: Stable; the console words it.\n    group: ``applications``, ``domains``, ``server``, ``backups`` or ``noust``.\n    state: ``on``, ``off`` (its check is turned off) or ``muted`` (none of its messages is\n        switched on anywhere).\n    events: The messages it can say.\n    params: The numbers its sentence quotes (``percent``, ``days``, ``hours``).\n    reach: The channels that would take what it says, whether or not it is on now.\n    offer: What to write to turn it on, for a watch that ships off and is worth offering.\n    asks_outside: It sends a request to somebody else, which the offer says first.",
+        "properties": {
+          "asks_outside": {
+            "default": false,
+            "title": "Asks Outside",
+            "type": "boolean"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/WatchEvent"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "group": {
+            "title": "Group",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "offer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Offer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "params": {
+            "additionalProperties": true,
+            "title": "Params",
+            "type": "object"
+          },
+          "reach": {
+            "items": {
+              "$ref": "#/components/schemas/Reach"
+            },
+            "title": "Reach",
+            "type": "array"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "group",
+          "state"
+        ],
+        "title": "WatchModel",
+        "type": "object"
+      },
+      "WatcherModel": {
+        "description": "Whether the monitor, which does the watching, runs.\n\nAttributes:\n    state: ``running``, ``not_running`` (enabled, and not running), ``disabled`` (installed and\n        not enabled), ``not_installed`` or ``unknown`` (systemd cannot be asked).\n    fix: The command that deals with it, or null when there is nothing to do.",
+        "properties": {
+          "fix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fix"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "WatcherModel",
+        "type": "object"
+      },
+      "WatchingResponse": {
+        "description": "What Noust watches by itself, and where what it finds goes.\n\nAttributes:\n    watcher: Whether the monitor that does the watching runs.\n    notifications: Whether it can be heard, and by which channels.\n    watches: Each thing watched, in the order the console draws them.",
+        "properties": {
+          "notifications": {
+            "$ref": "#/components/schemas/NotificationsModel"
+          },
+          "watcher": {
+            "$ref": "#/components/schemas/WatcherModel"
+          },
+          "watches": {
+            "items": {
+              "$ref": "#/components/schemas/WatchModel"
+            },
+            "title": "Watches",
+            "type": "array"
+          }
+        },
+        "required": [
+          "watcher",
+          "notifications"
+        ],
+        "title": "WatchingResponse",
+        "type": "object"
+      },
       "WebConfig": {
         "description": "Web interface configuration.",
         "properties": {
@@ -71906,6 +72454,29 @@
           "Alerts"
         ],
         "x-noust-permission": "server.manage"
+      }
+    },
+    "/api/alerts/watching": {
+      "get": {
+        "description": "Say what Noust watches without being asked and who hears what it finds.\n\nArgs:\n    session: Authenticated session, injected.\n\nReturns:\n    The watches, the channels, and whether the monitor that watches is running.",
+        "operationId": "watching_api_alerts_watching_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Watching",
+        "tags": [
+          "Alerts"
+        ],
+        "x-noust-permission": "server.read"
       }
     },
     "/api/approvals": {
@@ -83989,6 +84560,60 @@
         ],
         "x-noust-permission": "apps.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/attention": {
+      "get": {
+        "description": "Answer what needs this person, worst first, with one count.\n\nArgs:\n    session: Authenticated session, injected.\n    only: ``own`` leaves out the server's own list.\n\nReturns:\n    The list the bell, Home and the bar of the console show.",
+        "operationId": "attention_api_attention_get",
+        "parameters": [
+          {
+            "description": "`own`: only what is this person's own (requests to decide, a newer Noust, recipes behind), without the server's list: what a central adds to the lists of its servers.",
+            "in": "query",
+            "name": "only",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "const": "own",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "`own`: only what is this person's own (requests to decide, a newer Noust, recipes behind), without the server's list: what a central adds to the lists of its servers.",
+              "title": "Only"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttentionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Attention",
+        "tags": [
+          "Overview"
+        ],
+        "x-noust-permission": "self"
       }
     },
     "/api/audit": {

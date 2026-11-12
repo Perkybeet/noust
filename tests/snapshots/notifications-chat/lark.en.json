@@ -7980,6 +7980,180 @@
       ]
     }
   },
+  "access.firewall_reverted": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ Firewall change undone · Allow 5432/tcp from 10.0.4.12"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Nobody confirmed it within 5 minutes, so the firewall is as it was before the change. Make the change again and confirm it from a new session."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Server\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Change\nAllow 5432/tcp from 10.0.4.12"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Applied by\nyago"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Applied\n2026-11-12 10:40 UTC"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "What the undo printed\n$ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\nRule deleted"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Open in the console"
+              },
+              "url": "https://console.example.com/n/web-1/network/firewall",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "access.ssh_reverted": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ SSH change undone · Turn off SSH password logins"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Nobody confirmed it within 5 minutes, so sshd uses the configuration it had before the change. Apply the change again and confirm it from a new login."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Server\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Change\nTurn off SSH password logins"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Applied by\nana"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Applied\n2026-11-12 10:40 UTC"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "What the undo printed\nRestored /etc/ssh/sshd_config.d/99-noust.conf\n$ sshd -t"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Open in the console"
+              },
+              "url": "https://console.example.com/n/web-1/security/ssh",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
   "hostile.deploy_failed": {
     "msg_type": "interactive",
     "card": {

@@ -498,7 +498,7 @@ class SoftwareManager:
             RoleError: This Noust is a hub.
             UnsupportedHostError: The system is not one whose packages Noust changes.
         """
-        require_server_role("Software")
+        require_server_role("software")
         if self.platform.transactional or self.platform.family is PackageFamily.NONE:
             raise UnsupportedHostError(
                 "Noust does not change this system's software",

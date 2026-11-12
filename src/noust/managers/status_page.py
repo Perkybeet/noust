@@ -613,7 +613,7 @@ class StatusPageSite:
         """
         from noust.managers.console_exposure import normalise_domain
 
-        require_server_role("The status page")
+        require_server_role("status_page")
         name = normalise_domain(domain)
         existing = self.record()
         if existing is not None and existing.domain != name:

@@ -224,7 +224,7 @@ class Http3:
             ValidationError: HTTP/3 is not available, or the web server refused the site (its
                 own words are the error; nothing is left changed).
         """
-        require_server_role("Sites")
+        require_server_role("sites")
         support = self.support()
         if not support.available:
             raise ValidationError(support.problem, details=support.hint, field="http3")

@@ -2,99 +2,68 @@ import { useQuery } from "@tanstack/react-query";
 import type { QueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 
-import { appsQuery } from "../../api/queries/apps";
+import { isApiError } from "../../api/client";
+import { attentionKeys, attentionQuery, ownAttentionQuery } from "../../api/queries/attention";
 import { sessionQuery } from "../../api/queries/auth";
 import { overviewKeys, overviewQuery } from "../../api/queries/overview";
 import type { OverviewAttentionItem } from "../../api/queries/overview";
-import { installedRecipesQuery } from "../../api/queries/recipes";
-import { versionQuery } from "../../api/queries/system";
-import { approvalKeys, approvalsQuery } from "../approvals/api";
-import { approvalItems, attentionCounters, mergeAttention, noustItems, recipeItems } from "../overview/attention";
+import { approvalKeys } from "../approvals/api";
+import { attentionCounters } from "../overview/attention";
 import type { AttentionCounters } from "../overview/attention";
-import { attentionItems, attentionTotal } from "../overview/overviewData";
-
-/**
- * How often what only polling can know is read again: requests waiting. Two
- * minutes, because opening the inbox reads them again at once (`refreshAttention`) and an idle page
- * must ask the server for little (e2e/idle-requests.spec.ts).
- */
-const POLL_MS = 120_000;
-
-/** The Overview, read for what needs attention a little less often than the Overview page reads itself; the stream's events read it sooner. */
-const OVERVIEW_POLL_MS = 60_000;
-
-/** A newer recipe is not an emergency: its list is read at most every ten minutes. */
-const RECIPES_STALE_MS = 10 * 60_000;
 
 const NONE: readonly OverviewAttentionItem[] = [];
 
-/** Reads again what the inbox is made of: when it is opened, it must not say what was true two minutes ago. */
+/** Reads again what the list is made of: when the bell is opened it must not say what was true a minute ago. */
 export function refreshAttention(queryClient: QueryClient): void {
-  for (const queryKey of [overviewKeys.all, approvalKeys.all]) void queryClient.invalidateQueries({ queryKey });
+  for (const queryKey of [attentionKeys.all, overviewKeys.all, approvalKeys.all]) void queryClient.invalidateQueries({ queryKey });
 }
 
 /**
- * What the console adds to the server's own list: the requests waiting for this person's
- * decision, a newer Noust and the recipes with an update. Each read is
- * asked only by whoever may make it - what a role cannot see is not asked for, and not counted.
- *
- * The recipes are the one read that costs the server something (it compares every installed
- * application with the catalog), so the bell does not ask for it on every page: it counts what the
- * console already holds, and the inbox, once opened, reads it (`deep`).
- *
- * The alerts and the probes are not here: the server lists the ones firing and the ones down among
- * what needs attention, because a fleet reads each server's own list and would never count what
- * only a console added.
+ * What is this person's own and a central adds to the lists of the servers it manages: the requests waiting
+ * for their decision, a newer Noust and the recipes behind. The server says it (`GET /api/attention?only=own`),
+ * each only for whoever may act on it; a server before 4.3 has no such route and has nothing to add.
  */
-export function useExtraAttention(deep = false, enabled = true): readonly OverviewAttentionItem[] {
-  const { data: permissions } = useQuery({ ...sessionQuery(), select: (session) => session.permissions });
-  const can = (permission: string): boolean => permissions?.includes(permission) ?? false;
-  const approvals = useQuery({ ...approvalsQuery("requested"), enabled: enabled && permissions !== undefined, refetchInterval: POLL_MS, retry: false });
-  const version = useQuery({ ...versionQuery(), enabled: enabled && can("server.manage"), retry: false });
-  const recipes = useQuery({ ...installedRecipesQuery(), enabled: enabled && deep && can("apps.read"), staleTime: RECIPES_STALE_MS, retry: false });
-  return useMemo(
-    () => [...approvalItems(approvals.data), ...noustItems(version.data), ...recipeItems(recipes.data)],
-    [approvals.data, version.data, recipes.data],
-  );
+export function useOwnAttention(enabled = true): readonly OverviewAttentionItem[] {
+  const own = useQuery({ ...ownAttentionQuery(), enabled, retry: false });
+  return own.data?.items ?? NONE;
 }
 
 export interface Attention {
   /** Everything that needs the operator, worst first: the same list on every screen that shows it. */
   items: readonly OverviewAttentionItem[];
-  /** How many there are in all: the server may have cut its own list. */
+  /** How many there are in all: the server may have cut its own list. This is the one number every screen shows. */
   total: number;
   /** What the sidebar counts beside its destinations, from `items`. */
   counters: AttentionCounters;
-  /** The first read of the Overview is still on its way. */
+  /** The first read is still on its way. */
   loading: boolean;
-  /** The Overview could not be read and there is nothing of it to show. */
+  /** The list could not be read and there is nothing of it to show. */
   failed: boolean;
 }
 
 /**
- * What needs the operator, from every read that can say so (NV-16): the server's list (the
- * Overview) and what the console adds to it (`useExtraAttention`). One list for the inbox, the
- * Overview's "Needs attention" and the sidebar's counters, so they cannot disagree.
+ * What needs the operator: the one list the server joins and ranks (`GET /api/attention`). The bell, Home's
+ * "Needs attention", the Server page's slice and the sidebar's counters read it, so they cannot disagree
+ * (NV-16), and the console adds nothing to it.
  *
- * The applications are read only when something else already has: they refine one reason of the
- * Overview's own list (a service that runs and answers nothing), and the bell must not add a read of
- * the whole list to every page.
+ * A server before 4.3 has no such route (a 404 through the central): its own Overview is what it can say, and it
+ * is read in its place, without what only the new list holds.
  */
-export function useAttention(deep = false, enabled = true): Attention {
+export function useAttention(enabled = true): Attention {
   const { data: permissions } = useQuery({ ...sessionQuery(), select: (session) => session.permissions });
-  const readsServer = enabled && (permissions?.includes("server.read") ?? false);
-  const overview = useQuery({ ...overviewQuery(), enabled: readsServer, refetchInterval: OVERVIEW_POLL_MS, retry: false });
-  const apps = useQuery({ ...appsQuery(), enabled: false });
-  const extras = useExtraAttention(deep, enabled);
+  const listed = enabled && permissions !== undefined;
+  const list = useQuery({ ...attentionQuery(), enabled: listed, retry: false });
+  const older = list.isError && isApiError(list.error) && list.error.status === 404;
+  const overview = useQuery({ ...overviewQuery(), enabled: listed && older, retry: false });
   return useMemo(() => {
-    const base = overview.data === undefined ? NONE : attentionItems(overview.data, apps.data?.apps);
-    const items = mergeAttention(base, extras);
+    const items = list.data?.items ?? overview.data?.attention ?? NONE;
+    const unanswered = list.data === undefined && overview.data === undefined;
     return {
       items,
-      total: overview.data === undefined ? items.length : attentionTotal(overview.data, base) + extras.length,
+      total: list.data?.total ?? overview.data?.attention_total ?? items.length,
       counters: attentionCounters(items),
-      loading: readsServer && overview.isPending,
-      failed: overview.status === "error" && overview.data === undefined,
+      loading: listed && unanswered && (list.isPending || (older && overview.isPending)),
+      failed: listed && unanswered && (older ? overview.isError : list.isError),
     };
-  }, [overview.data, overview.isPending, overview.status, apps.data, extras, readsServer]);
+  }, [list.data, list.isPending, list.isError, overview.data, overview.isPending, overview.isError, older, listed]);
 }

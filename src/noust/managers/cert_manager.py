@@ -759,7 +759,7 @@ class CertManager(BaseManager):
             CertificateError: certbot, or the authority, refused it.
             ValidationError: The authority asks for an external account that is not set.
         """
-        require_server_role("Certificates")
+        require_server_role("certificates")
         cmd = ["certbot", "register", "--non-interactive", "--agree-tos"]
         address = email or self.config.ssl_email
         if address:
@@ -1223,7 +1223,7 @@ class CertManager(BaseManager):
         Raises:
             CertificateError: When no domain was given or issuance fails.
         """
-        require_server_role("Certificates")
+        require_server_role("certificates")
         if not domains:
             raise CertificateError(
                 "No domains given for certificate issuance",
@@ -1292,7 +1292,7 @@ class CertManager(BaseManager):
                 existing certificate cannot be read, or when issuance fails. A name with
                 a certificate of its own that could not be ordered is named in the error.
         """
-        require_server_role("Certificates")
+        require_server_role("certificates")
         done = self._obtain_shared(
             domain,
             email=email,
@@ -1353,7 +1353,7 @@ class CertManager(BaseManager):
             CertificateError: When a domain is invalid, when the state of the
                 existing certificate cannot be read, or when issuance fails.
         """
-        require_server_role("Certificates")
+        require_server_role("certificates")
         requested = self.certificate_domains(domain, additional_domains, include_www)
         primary = requested[0]
         settings = self.certificate_settings(primary)
@@ -1517,7 +1517,7 @@ class CertManager(BaseManager):
                 proven with, certbot's list cannot be read while a lineage is there, or
                 certbot refused (its output is carried verbatim).
         """
-        require_server_role("Certificates")
+        require_server_role("certificates")
         host = self._validated_name(name)
         lineage = lineage_name(host)
         settings = self.certificate_settings(host)
@@ -1853,7 +1853,7 @@ class CertManager(BaseManager):
         Raises:
             CertificateError: A name is not valid, or the order failed.
         """
-        require_server_role("Certificates")
+        require_server_role("certificates")
         primary = self._validated(domain)
         wanted = [self._validated_name(name) for name in names]
         if primary not in wanted:
@@ -2246,7 +2246,7 @@ class CertManager(BaseManager):
         Raises:
             CertificateError: When the domain is invalid or renewal fails.
         """
-        require_server_role("Certificates")
+        require_server_role("certificates")
         validated = self._validated(domain) if domain else None
         lineages: list[str | None] = [None]
         if validated:

@@ -173,7 +173,7 @@ def build_and_pack(
         DeploymentError: The build failed (its own output is carried).
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Applications")
+    require_server_role("applications")
     log = logger or Logger(verbose=verbose)
     report = on_phase or (lambda _i, _n, _message: None)
     domain = validate_domain(domain)
@@ -308,7 +308,7 @@ def receive(
             then), or the application's type does not build releases.
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Applications")
+    require_server_role("applications")
     log = logger or Logger()
     report = on_phase or (lambda _i, _n, _message: None)
     domain = validate_domain(domain)

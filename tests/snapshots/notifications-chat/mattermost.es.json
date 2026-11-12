@@ -2977,6 +2977,76 @@
       }
     ]
   },
+  "access.firewall_reverted": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Cambio del cortafuegos deshecho · Permitir 5432/tcp desde 10.0.4.12",
+        "color": "#e3a73c",
+        "title": "▲ Cambio del cortafuegos deshecho · Permitir 5432/tcp desde 10.0.4.12",
+        "text": "Nadie lo confirmó en 5 minutos, así que el cortafuegos está como antes del cambio. Vuelve a hacerlo y confírmalo desde una sesión nueva.\n\n*Lo que imprimió al deshacerlo*\n```\n$ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\nRule deleted\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Servidor",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Cambio",
+            "value": "Permitir 5432/tcp desde 10.0.4.12"
+          },
+          {
+            "short": true,
+            "title": "Lo aplicó",
+            "value": "yago"
+          },
+          {
+            "short": true,
+            "title": "Aplicado",
+            "value": "2026-11-12 10:40 UTC"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/network/firewall"
+      }
+    ]
+  },
+  "access.ssh_reverted": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Cambio de SSH deshecho · Desactivar el acceso por contraseña en SSH",
+        "color": "#e3a73c",
+        "title": "▲ Cambio de SSH deshecho · Desactivar el acceso por contraseña en SSH",
+        "text": "Nadie lo confirmó en 5 minutos, así que sshd usa la configuración que tenía antes del cambio. Aplícalo otra vez y confírmalo desde un inicio de sesión nuevo.\n\n*Lo que imprimió al deshacerlo*\n```\nRestored /etc/ssh/sshd_config.d/99-noust.conf\n$ sshd -t\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Servidor",
+            "value": "web-1"
+          },
+          {
+            "short": false,
+            "title": "Cambio",
+            "value": "Desactivar el acceso por contraseña en SSH"
+          },
+          {
+            "short": true,
+            "title": "Lo aplicó",
+            "value": "ana"
+          },
+          {
+            "short": true,
+            "title": "Aplicado",
+            "value": "2026-11-12 10:40 UTC"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/security/ssh"
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "username": "Noust",
     "attachments": [

@@ -40,7 +40,7 @@ import { appViewOf } from "./appView";
 import { displayAddress } from "./displayAddress";
 import type { Address } from "./displayAddress";
 import { stepWords } from "./stepWords";
-import { jobStep, jobWords, useAppJob } from "./useAppJob";
+import { ShownFailureContext, jobStep, jobWords, useAppJob } from "./useAppJob";
 import type { AppJob } from "./useAppJob";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
@@ -145,6 +145,7 @@ function Job({ job, domain, t }: { job: AppJob; domain: string; t: T }) {
         state="failed"
         title={words.failed}
         error={{ detail: job.failed.error ?? t("appPages.job.noReason") }}
+        failedAt={job.failed.completed_at ?? job.failed.created_at}
         onDismiss={job.dismiss}
       />
     );
@@ -211,9 +212,11 @@ export function AppLayout({ domain }: { domain: string }) {
   const app = useQuery(appQuery(domain));
   const job = useAppJob(domain);
   return (
-    <RollbackHost domain={domain} layout={app.data?.layout} onJobQueued={job.track}>
-      <AppPage domain={domain} app={app} job={job} />
-    </RollbackHost>
+    <ShownFailureContext.Provider value={job.failed?.id ?? null}>
+      <RollbackHost domain={domain} layout={app.data?.layout} onJobQueued={job.track}>
+        <AppPage domain={domain} app={app} job={job} />
+      </RollbackHost>
+    </ShownFailureContext.Provider>
   );
 }
 

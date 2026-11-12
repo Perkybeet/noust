@@ -769,6 +769,22 @@
     "url": "https://console.example.com/n/web-1/apps/shop.example.com",
     "url_title": "Open in the console"
   },
+  "access.firewall_reverted": {
+    "title": "▲ Firewall change undone · Allow 5432/tcp from 10.0.4.12",
+    "message": "Nobody confirmed it within 5 minutes, so the firewall is as it was before the change. Make the change again and confirm it from a new session.\n\nServer: web-1\nChange: Allow 5432/tcp from 10.0.4.12\nApplied by: yago\nApplied: 2026-11-12 10:40 UTC\n\nWhat the undo printed:\n  $ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\n  Rule deleted",
+    "priority": "0",
+    "timestamp": "1790678751",
+    "url": "https://console.example.com/n/web-1/network/firewall",
+    "url_title": "Open in the console"
+  },
+  "access.ssh_reverted": {
+    "title": "▲ SSH change undone · Turn off SSH password logins",
+    "message": "Nobody confirmed it within 5 minutes, so sshd uses the configuration it had before the change. Apply the change again and confirm it from a new login.\n\nServer: web-1\nChange: Turn off SSH password logins\nApplied by: ana\nApplied: 2026-11-12 10:40 UTC\n\nWhat the undo printed:\n  Restored /etc/ssh/sshd_config.d/99-noust.conf\n  $ sshd -t",
+    "priority": "0",
+    "timestamp": "1790678751",
+    "url": "https://console.example.com/n/web-1/security/ssh",
+    "url_title": "Open in the console"
+  },
   "hostile.deploy_failed": {
     "title": "✕ Deploy failed · shop.example.com",
     "message": "It stopped at an error before the new version could take over.\n\nServer: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nRelease: 20260929-104449\nCommit: a1b2c3d (<b>x</b>&amp;<!channel> @everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @here <@U123> <#C1> red emoji 🚀\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nWhat the system reported:\n  <urlopen error [Errno 111] Connection refused>\n  ```\n  @everyone <!channel> <@U123|admin> &lt;b&gt;\n  red *bold* _italic_ ~strike~ `code`\n  noitcnuf\n  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…\n  1 earlier line omitted",

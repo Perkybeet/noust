@@ -772,7 +772,7 @@ class VolumeBackupManager:
             ValidationError: When a value is unusable.
             BackupError: When the timer cannot be made or the application is unknown.
         """
-        require_server_role("Volume backups")
+        require_server_role("volume_backups")
         domain = self._app(domain).domain
         calendar = validate_calendar(schedule)
         timer_options = validate_options(max_runtime, zone)
@@ -1319,7 +1319,7 @@ class VolumeBackupManager:
                 written, or the application cannot be stilled or released.
             AppBusyError: Another operation holds the application's lock.
         """
-        require_server_role("Volume backups")
+        require_server_role("volume_backups")
         app = self._app(domain)
         chosen = self.plan(
             domain, targets=targets, extra_paths=extra_paths, consistency=consistency
@@ -1972,7 +1972,7 @@ class VolumeBackupManager:
                 data is back when the error says so).
             AppBusyError: Another operation holds the application's lock.
         """
-        require_server_role("Volume backups")
+        require_server_role("volume_backups")
         found = metadata if metadata is not None else self.require(backup_id)
         source = archive if archive is not None else self.archive_path(found)
         app = self._app(found.domain)

@@ -59,6 +59,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("alerts", "hand_back_rule"): ("DELETE", "/api/alerts/rules/{name}/acknowledge", "apps.operate", False),
     ("alerts", "disable_rule"): ("POST", "/api/alerts/rules/{name}/disable", "server.manage", False),
     ("alerts", "enable_rule"): ("POST", "/api/alerts/rules/{name}/enable", "server.manage", False),
+    ("alerts", "watching"): ("GET", "/api/alerts/watching", "server.read", False),
     ("applications", "list_apps"): ("GET", "/api/apps", "apps.read", False),
     ("applications", "create_app"): ("POST", "/api/apps", "apps.manage", False),
     ("applications", "adopt_app"): ("POST", "/api/apps/adopt", "apps.manage", True),
@@ -841,6 +842,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("notifications", "test_team_channel"): ("POST", "/api/teams/{team}/notifications/channels/{name}/test", "apps.operate", False),
     ("open_api", "get_openapi_schema"): ("GET", "/api/openapi.json", "self", False),
     ("other", "health_check"): ("GET", "/health", "public", False),
+    ("overview", "attention"): ("GET", "/api/attention", "self", False),
     ("overview", "overview"): ("GET", "/api/overview", "server.read", False),
     ("passkeys", "list_passkeys"): ("GET", "/api/auth/passkeys", "self", False),
     ("passkeys", "elevate_with_passkey"): ("POST", "/api/auth/passkeys/elevate", "self", False),
@@ -1368,7 +1370,7 @@ class Access:
 
 
 class Alerts:
-    """Alerts: 7 operations."""
+    """Alerts: 8 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -1428,6 +1430,14 @@ class Alerts:
 
         Needs: permission `server.manage`."""
         return self._call("POST", f"/api/alerts/rules/{quote(str(name), safe='')}/enable", query=None, body=None)
+
+    def watching(self) -> "WatchingResponse":
+        """GET /api/alerts/watching
+
+        Watching
+
+        Needs: permission `server.read`."""
+        return self._call("GET", "/api/alerts/watching", query=None, body=None)
 
 
 
@@ -8002,10 +8012,18 @@ class Other:
 
 
 class Overview:
-    """Overview: 1 operations."""
+    """Overview: 2 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
+
+    def attention(self, *, only: Union[Literal["own"], None] = None) -> "AttentionResponse":
+        """GET /api/attention
+
+        Attention
+
+        Needs: permission `self`."""
+        return self._call("GET", "/api/attention", query={"only": only}, body=None)
 
     def overview(self, *, spark: Union[bool, None] = None) -> "NoustWebApiOverviewOverviewResponse":
         """GET /api/overview

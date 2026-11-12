@@ -398,7 +398,7 @@ class AppPackages:
             DeploymentError: The package manager failed, or does not install here.
             AppBusyError: Another operation is running on the application.
         """
-        require_server_role("Applications")
+        require_server_role("applications")
         self._refuse_unsuitable(domain)
         names = validate_packages(packages)
         allow = self._policy()
@@ -447,7 +447,7 @@ class AppPackages:
             ValidationError: The policy no longer allows a declared package.
             AppBusyError: Another operation is running on the application.
         """
-        require_server_role("Applications")
+        require_server_role("applications")
         self._refuse_unsuitable(domain)
         record = app_packages_store.get(domain, store=self.store)
         names = record.packages if record is not None else ()

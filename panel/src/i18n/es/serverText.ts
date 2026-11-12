@@ -778,6 +778,28 @@ export const serverText: Catalog<typeof en> = {
       },
     },
   },
+  features: {
+    hub_role: {
+      text: "{feature}: no disponible en esta central, que es un hub",
+      hint: "Un hub (central.role = hub) gestiona otros servidores y no despliega nada por sí mismo. Elige el servidor en la consola o ejecuta la orden contra un nodo. En una máquina que también deba desplegar, ejecuta '{command}'; un contenedor no puede, no tiene nginx ni systemd.",
+    },
+    needs_journal: {
+      text: "Esta máquina no tiene diario que leer",
+      hint: "Noust lee el registro del sistema en journald (journalctl), que aquí no está.",
+    },
+    needs_root: {
+      text: "Noust no se ejecuta como root en esta máquina",
+      hint: "Cambiar el sistema exige root, y Noust se ejecuta aquí con una cuenta que no puede.",
+    },
+    needs_systemd: {
+      text: "Esta máquina no usa systemd",
+      hint: "Noust mantiene los servicios y los temporizadores con systemd, que un contenedor, o un sistema que arranca de otra forma, no tiene.",
+    },
+    needs_web_server: {
+      text: "No hay ningún servidor web en esta máquina",
+      hint: "Noust escribe sus sitios para nginx o Apache: instala uno desde Servidor > Software.",
+    },
+  },
   fleet: {
     node_descriptors_exhausted: {
       text: "{node} se quedó sin descriptores de archivo",

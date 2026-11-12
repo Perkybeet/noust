@@ -66,7 +66,9 @@ function useCounts(enabled: boolean): Readonly<Record<string, AreaCounts>> {
   if (!enabled) return {};
   return {
     apps: { ...NONE, failed: counters.appsFailed },
-    server: { ...NONE, failed: counters.unitsFailed },
+    // What is wrong with the machine and Noust's own services that failed: the one list's, as the bell counts them.
+    server: { ...NONE, failed: counters.unitsFailed + counters.machineFailed },
+    security: { ...NONE, failed: counters.findingsFailed },
     domains: { ...NONE, failed: counters.certificatesExpired, expiring: counters.certificates - counters.certificatesExpired },
     alerts: { ...NONE, failed: counters.alerts },
     activity: { ...NONE, running },

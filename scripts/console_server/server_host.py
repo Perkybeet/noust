@@ -12,6 +12,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from .host_profile import SERVER, HostProfile
 from .machine import Unit
 from .sandbox import Sandbox
 from .software_host import Packages
@@ -235,21 +236,31 @@ def _server_key(comment: str, seed: int) -> tuple[str, str]:
 class ServerHost:
     """The modelled VPS: a host tree below ``root`` and the tools' answers."""
 
-    def __init__(self, root: Path, hostname: str, units: dict[str, Unit]) -> None:
+    def __init__(
+        self,
+        root: Path,
+        hostname: str,
+        units: dict[str, Unit],
+        *,
+        profile: HostProfile = SERVER,
+    ) -> None:
         """
         Args:
             root: Where the host tree is written (HostPaths' root).
             hostname: The name the rest of the console reports.
             units: The runner's unit model, for ``systemctl --failed``.
+            profile: Which machine this is: the VPS, or the central's container, which has no
+                systemd and keeps no journal.
         """
         self.root = root
+        self.profile = profile
         self.hostname = hostname
         self.units = units
         self.boot_id = "3f1c2a4b5d6e7f8091a2b3c4d5e6f708"
         self.operator_key, self.operator_fingerprint = _server_key("yago@laptop", 1)
         self.deploy_key, self.deploy_fingerprint = _server_key("github-actions@deploy", 2)
         # What is installed, which Server > Software reads and its installs and removals change.
-        self.packages = Packages()
+        self.packages = Packages(dict(profile.packages) if profile.packages is not None else None)
 
     # -- the host tree ----------------------------------------------------------------
 
@@ -275,8 +286,11 @@ class ServerHost:
             "/proc/meminfo",
             "MemTotal:        2030612 kB\nMemFree:          210044 kB\nMemAvailable:     918332 kB\n",
         )
-        (self.root / "run/systemd/system").mkdir(parents=True, exist_ok=True)
-        (self.root / "var/log/journal").mkdir(parents=True, exist_ok=True)
+        if self.profile.systemd:
+            # What detect_platform reads to know the machine was booted with systemd, and the
+            # journal the system's logs are searched in: a container has neither.
+            (self.root / "run/systemd/system").mkdir(parents=True, exist_ok=True)
+            (self.root / "var/log/journal").mkdir(parents=True, exist_ok=True)
         self.write(
             "/var/run/reboot-required", "*** System restart required ***\n", age=timedelta(days=9)
         )
@@ -756,7 +770,9 @@ class ServerHost:
 _SERVER_HOST: ServerHost | None = None
 
 
-def model_server_host(sandbox: Sandbox, hostname: str, units: dict[str, Unit]) -> ServerHost:
+def model_server_host(
+    sandbox: Sandbox, hostname: str, units: dict[str, Unit], profile: HostProfile = SERVER
+) -> ServerHost:
     """
     Build the VPS the Server area manages, and point its managers at it.
 
@@ -768,6 +784,7 @@ def model_server_host(sandbox: Sandbox, hostname: str, units: dict[str, Unit]) -
         sandbox: The sandbox.
         hostname: The name the rest of the console reports.
         units: The runner's unit model.
+        profile: Which machine this is (``--host-profile``).
 
     Returns:
         The model, which the runner consults for every command.
@@ -776,7 +793,7 @@ def model_server_host(sandbox: Sandbox, hostname: str, units: dict[str, Unit]) -
     from noust.managers.server.host import HostPaths
     from noust.managers.server.storage import Mount, StorageManager
 
-    host = ServerHost(sandbox.root / "host", hostname, units)
+    host = ServerHost(sandbox.root / "host", hostname, units, profile=profile)
     host.build()
     HostPaths.__init__.__defaults__ = (host.root,)
 

@@ -1094,7 +1094,7 @@ def migrate(
         ServiceError: The unit could not be stopped; nothing was moved.
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Applications")
+    require_server_role("applications")
     log = logger if logger is not None else CapturingLogger()
     domain = validate_domain(domain)
     # Nothing else may run on the application while its tree moves: an
