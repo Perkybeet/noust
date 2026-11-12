@@ -215,7 +215,7 @@ describe("the notification settings", () => {
   });
 
   it("offers every event the notifier sends, each in exactly one group, the ones that ship off marked", () => {
-    // noust.core.notifications.model.EVENT_KINDS, in its order.
+    // noust.core.notifications.model.EVENT_KINDS, in its order (but for central_silent, which a server says of its central and this page does not offer).
     expect([...EVENT_KINDS]).toEqual([
       "deploy_started",
       "deploy_success",
@@ -255,6 +255,10 @@ describe("the notification settings", () => {
       "security_release",
       "container_restart_loop",
       "recipe_outdated",
+      "cert_renewal_failed",
+      "app_oom_killed",
+      "domain_expiring",
+      "domain_expired",
     ]);
     const grouped = EVENT_GROUPS.flatMap((group) => group.kinds);
     expect([...grouped].sort()).toEqual([...EVENT_KINDS].sort());
