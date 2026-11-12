@@ -28,6 +28,8 @@ import click
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.core.exceptions import ServiceError, ValidationError
 from noust.core.logger import Logger, state, styled
+from noust.core.notifier import notify_composed
+from noust.managers import cron_once
 from noust.managers.backup_scheduler import SCHEDULE_ALIASES
 from noust.managers.cron_manager import CronJob, CronManager
 
@@ -88,8 +90,14 @@ def _job_as_dict(entry: dict[str, Any]) -> dict[str, Any]:
         "user": entry.get("user", ""),
         "working_directory": entry.get("working_directory", ""),
         "app_domain": entry.get("app_domain", ""),
-        "schedule": _ALIAS_BY_CALENDAR.get(on_calendar, "custom" if on_calendar else "unknown"),
+        "schedule": (
+            "once"
+            if entry.get("once")
+            else _ALIAS_BY_CALENDAR.get(on_calendar, "custom" if on_calendar else "unknown")
+        ),
         "on_calendar": on_calendar,
+        "once": bool(entry.get("once")),
+        "once_at": entry.get("once_at", ""),
         "enabled": bool(entry.get("enabled")),
         "next_run": entry.get("next_run", "pending"),
         "last_run": entry.get("last_run", "never"),
@@ -130,7 +138,11 @@ def _list(*, logger: Logger, json_output: bool = False) -> int:
         rows.append(
             [
                 styled(job["name"], "bold"),
-                _schedule_label(job.get("on_calendar", "")),
+                (
+                    "once " + job["once_at"][:16].replace("T", " ")
+                    if job.get("once") and job.get("once_at")
+                    else _schedule_label(job.get("on_calendar", ""))
+                ),
                 state("enabled" if job.get("enabled") else "disabled"),
                 job.get("last_run", "never"),
                 job.get("last_result", "never ran"),
@@ -156,6 +168,7 @@ def _create(
     app_domain: str | None,
     timeout: int | None = None,
     service: str | None = None,
+    once_at: str | None = None,
     logger: Logger,
 ) -> int:
     """
@@ -171,6 +184,7 @@ def _create(
         app_domain: Associate the job with a deployed application.
         timeout: Seconds the command may run before it is stopped.
         service: The Compose service of the application's stack to run it in.
+        once_at: The moment, in this server's time, a one-time task runs at.
         logger: Logger for progress and errors.
 
     Returns:
@@ -187,14 +201,21 @@ def _create(
                 app_domain=app_domain,
                 timeout=timeout,
                 service=service,
+                once_at=once_at,
             )
         )
-    except ServiceError as e:
-        logger.error(str(e))
+    except (ServiceError, ValidationError) as e:
+        logger.error(e.message, e.details)
         return 1
 
-    logger.success(f"Created cron job: {created.name}")
-    logger.key_value("Schedule", _schedule_label(created.on_calendar))
+    if created.once_at:
+        moment = cron_once.moment_of_calendar(created.once_at)
+        zone = cron_once.zone_label(moment) if moment else "server time"
+        logger.success(f"Created one-time task: {created.name}")
+        logger.key_value("Runs once at", f"{created.once_at[:16]} (server time, {zone})")
+    else:
+        logger.success(f"Created cron job: {created.name}")
+        logger.key_value("Schedule", _schedule_label(created.on_calendar))
     logger.key_value("Command", command)
     if created.app_domain:
         logger.key_value("Application", created.app_domain)
@@ -202,6 +223,8 @@ def _create(
         logger.key_value("Runs in", f"the {created.service} service of its stack")
     if created.timeout:
         logger.key_value("Stopped after", f"{created.timeout} s")
+    if created.once_at:
+        logger.info("It retires itself when it has run. See how it ended with: noust cron history")
     return 0
 
 
@@ -411,6 +434,17 @@ def list_jobs(ctx: Context) -> None:
     help="Run the command in this service of the --app application's Compose stack "
     "(docker compose exec) instead of on this server.",
 )
+@click.option(
+    "--once",
+    is_flag=True,
+    help="Run it once, at the moment --at gives, and retire it: it leaves its result in 'cron history'.",
+)
+@click.option(
+    "--at",
+    "once_at",
+    metavar="DATE",
+    help="With --once: when to run it, 'YYYY-MM-DD HH:MM' in this server's time (or with an offset).",
+)
 @pass_context
 def create(
     ctx: Context,
@@ -422,6 +456,8 @@ def create(
     app_domain: str | None,
     timeout: int | None,
     service: str | None,
+    once: bool,
+    once_at: str | None,
 ) -> None:
     """
     Create a cron job as a systemd timer, or rewrite one Noust already owns.
@@ -429,7 +465,21 @@ def create(
     COMMAND is one command line, split like a POSIX shell would split it and
     run without a shell: pipes, '&&' and globs are inert text handed to the
     program as arguments. For shell features, write '/bin/sh -c "..."'.
+
+    With --once --at it runs once, at that moment in this server's time, and
+    removes itself; a server that was off then runs it when it comes back, and
+    the history says it was late.
     """
+    if once_at is not None and not once:
+        raise click.UsageError("--at is for a one-time task: add --once.")
+    if once and once_at is None:
+        raise click.UsageError("--once needs the moment to run at: --at 'YYYY-MM-DD HH:MM'.")
+    if (
+        once
+        and click.get_current_context().get_parameter_source("schedule")
+        == click.core.ParameterSource.COMMANDLINE
+    ):
+        raise click.UsageError("--schedule repeats a task; a one-time task is given --at instead.")
     _exit(
         _create(
             name,
@@ -440,6 +490,7 @@ def create(
             app_domain=app_domain,
             timeout=timeout,
             service=service,
+            once_at=once_at,
             logger=ctx.logger,
         )
     )
@@ -492,6 +543,98 @@ def disable(ctx: Context, name: str) -> None:
 def runs(ctx: Context, name: str, limit: int) -> None:
     """Show a job's recent executions, reconstructed from the journal."""
     _exit(_runs(name, limit=limit, logger=ctx.logger, json_output=ctx.json_output))
+
+
+def _settle(
+    name: str,
+    *,
+    result: str | None,
+    exit_kind: str | None,
+    exit_status: str | None,
+    logger: Logger,
+) -> int:
+    """
+    Record how a one-time task ended and retire it.
+
+    Args:
+        name: The task.
+        result: systemd's word for how it ended (``SERVICE_RESULT``), or None to ask systemd.
+        exit_kind: ``exited``, ``killed`` or ``dumped`` (``EXIT_CODE``).
+        exit_status: The exit status, or the signal's name when it was killed (``EXIT_STATUS``).
+        logger: Logger for the result and errors.
+
+    Returns:
+        Exit code.
+    """
+    status = exit_status or ""
+    exit_code = int(status) if exit_kind == "exited" and status.isdecimal() else None
+    try:
+        run = CronManager(verbose=logger.verbose).settle_once(
+            name, result=result or None, exit_code=exit_code
+        )
+    except ServiceError as e:
+        logger.error(e.message, e.details)
+        return 1
+    how = (
+        "ended well"
+        if run.ok
+        else f"failed ({run.result}"
+        + (f", exit {run.exit_code})" if run.exit_code is not None else ")")
+    )
+    logger.success(f"One-time task {run.name} {how}; it has retired")
+    # The failure goes out as a failure and a success as the heartbeat that ships switched off
+    # (notifications.events.cron_success): the same two the monitor says for a task that repeats.
+    notify_composed(cron_once.announcement(run))
+    return 0
+
+
+def _history(name: str | None, *, logger: Logger, json_output: bool = False) -> int:
+    """
+    Show the one-time tasks that ran and retired in the last thirty days.
+
+    Args:
+        name: Only this task's runs, with what they printed.
+        logger: Logger for the report.
+        json_output: Print the history as JSON, as ``GET /api/cron/history`` answers it.
+
+    Returns:
+        Exit code.
+    """
+    runs = [
+        run
+        for run in CronManager(verbose=logger.verbose).once_history()
+        if name is None or run.name == name
+    ]
+    document = cron_once.history_document(runs)
+    if json_output:
+        click.echo(json.dumps(document))
+        return 0
+    if not runs:
+        logger.info(
+            f"No one-time task has run in the last {document['days']} days"
+            + (f" named {name}" if name else "")
+        )
+        logger.blank()
+        logger.info("Schedule one with:")
+        logger.info("  noust cron create <name> '<command>' --once --at 'YYYY-MM-DD HH:MM'")
+        return 0
+    zone = document["zone"]
+    for item, run in zip(document["items"], runs, strict=True):
+        asked = f"{item['run_at'][:16].replace('T', ' ')} ({zone})"
+        if run.ok:
+            outcome, summary = "ok", "ended well"
+        else:
+            outcome = "error"
+            summary = f"failed ({run.result}" + (
+                f", exit {run.exit_code})" if run.exit_code is not None else ")"
+            )
+        if run.late:
+            summary += ", late: the server was off and ran it when it came back"
+        logger.check(f"{run.name}, asked for {asked}", summary, outcome)
+        if name is not None:
+            for line in run.output.splitlines():
+                logger._write(f"        {line}")
+    return 0
 
 
 def _ledger(name: str, *, days: int, logger: Logger, json_output: bool = False) -> int:
@@ -557,6 +700,47 @@ def _moment(seconds: float | None) -> str:
     if seconds is None:
         return "unknown"
     return dt.datetime.fromtimestamp(seconds, tz=dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+
+@cli.command("settle")
+@click.argument("name")
+@click.option("--result", envvar="SERVICE_RESULT", hidden=True)
+@click.option("--exit-kind", "exit_kind", envvar="EXIT_CODE", hidden=True)
+@click.option("--exit-status", "exit_status", envvar="EXIT_STATUS", hidden=True)
+@pass_context
+def settle(
+    ctx: Context, name: str, result: str | None, exit_kind: str | None, exit_status: str | None
+) -> None:
+    """
+    Record how a one-time task ended and retire it.
+
+    systemd runs this when the task's command has ended, and tells it how it ended; run by hand
+    it asks systemd. It keeps the result and what the task printed (see 'noust cron history'),
+    then removes the task's timer and service. A task that repeats is not settled.
+    """
+    _exit(
+        _settle(
+            name,
+            result=result,
+            exit_kind=exit_kind,
+            exit_status=exit_status,
+            logger=ctx.logger,
+        )
+    )
+
+
+@cli.command("history", read_only=True)
+@click.argument("name", required=False)
+@json_option("Print the history as JSON.")
+@pass_context
+def history(ctx: Context, name: str | None) -> None:
+    """
+    Show the one-time tasks that ran in the last 30 days: when, how it ended, if it was late.
+
+    A one-time task removes itself when it has run, so this is where its result is. Give a
+    NAME to see what each of its runs printed.
+    """
+    _exit(_history(name, logger=ctx.logger, json_output=ctx.json_output))
 
 
 @cli.command("ledger")

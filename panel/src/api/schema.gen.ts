@@ -7235,18 +7235,30 @@ export interface paths {
         };
         /**
          * Export Audit Log
-         * @description Export the audit log as NDJSON, every field and the chain included.
+         * @description Export the audit log, filtered as the console's Audit page is, as NDJSON or CSV.
          *
-         *     The export is recorded (``audit.export``).
+         *     NDJSON keeps every field and the chain; CSV is for a spreadsheet, with what each event
+         *     recorded in its last column, credentials masked. The selection and the two formats are
+         *     :mod:`noust.core.audit.export`, which ``noust audit export`` uses too. The export is recorded
+         *     (``audit.export``) with who asked, the period, the filter and the format.
          *
          *     Args:
          *         request: The request.
          *         session: The authenticated session.
+         *         format: ``ndjson`` or ``csv``.
          *         since: Lower bound on ``ts``.
          *         until: Upper bound on ``ts``.
+         *         action: Only this exact event.
+         *         result: Only this exact outcome.
+         *         actor: Only this exact actor.
+         *         category: Only this category.
+         *         categories: Only these categories, request lines described by their own events left out.
+         *         correlation_id: Only the events of this request, command or job.
+         *         target: Only events on this exact target.
+         *         q: Words to find in an event.
          *
          *     Returns:
-         *         The events, oldest first, one JSON object per line.
+         *         The events, oldest first, as a file.
          */
         get: operations["export_audit_log_api_audit_export_get"];
         put?: never;
@@ -12501,6 +12513,36 @@ export interface paths {
          *             else, or the timer cannot be written or enabled.
          */
         post: operations["create_job_api_cron_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cron/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Once History
+         * @description List the one-time tasks that ran and retired themselves, with how each ended.
+         *
+         *     Declared before ``/{name}`` like ``/preview``. A one-time task removes its units when it has
+         *     run, so this record, kept for thirty days, is the only place its result and its output are;
+         *     the console schedules it again from here.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The runs, newest first.
+         */
+        get: operations["once_history_api_cron_history_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -26371,6 +26413,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/server/security/firewall/rules/{rule_id}/source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change Firewall Rule Source
+         * @description Change where a rule admits from, in one step: the new rule is made, the old one removed, and
+         *     the whole waits ONCE to be confirmed, undoing itself unless it is. Never cuts off SSH.
+         *
+         *     Args:
+         *         rule_id: The rule's id, from ``GET /firewall`` (``source_changeable`` says which can move).
+         *         body: The new origin: ``any``, or an address or network.
+         *         request: The request.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        post: operations["change_firewall_rule_source_api_server_security_firewall_rules__rule_id__source_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/server/security/risks": {
         parameters: {
             query?: never;
@@ -39652,6 +39724,11 @@ export interface components {
              */
             name: string;
             /**
+             * Once At
+             * @description Run it once, at this moment in the server's time (YYYY-MM-DD HH:MM, or with an offset), and retire it; schedule is then ignored. Omitted: it repeats. A moment that has passed is refused
+             */
+            once_at?: string | null;
+            /**
              * Schedule
              * @description hourly, daily, weekly, monthly or a systemd OnCalendar expression
              * @default daily
@@ -40173,6 +40250,26 @@ export interface components {
             success: boolean;
         };
         /**
+         * CronHistoryResponse
+         * @description The one-time tasks that ran in the last thirty days.
+         *
+         *     Attributes:
+         *         items: The runs, newest first.
+         *         total: How many.
+         *         days: How long a run is kept.
+         *         zone: The server's zone, in which each ``run_at`` is written (``UTC+01:00``).
+         */
+        CronHistoryResponse: {
+            /** Days */
+            days: number;
+            /** Items */
+            items: components["schemas"]["CronOnceRunInfo"][];
+            /** Total */
+            total: number;
+            /** Zone */
+            zone: string;
+        };
+        /**
          * CronJobInfo
          * @description One cron job as systemd reports it.
          *
@@ -40195,6 +40292,9 @@ export interface components {
          *         timeout: Seconds the command may run before it is stopped, or None.
          *         service: The Compose service the command runs in, empty when it runs
          *             on this server.
+         *         once: The task runs once, at ``once_at``, and retires itself; ``schedule`` is ``once``.
+         *         once_at: The moment it runs at, ISO 8601 with the server's offset; empty for a task
+         *             that repeats.
          */
         CronJobInfo: {
             /** App Domain */
@@ -40215,6 +40315,16 @@ export interface components {
             next_run: string;
             /** On Calendar */
             on_calendar: string;
+            /**
+             * Once
+             * @default false
+             */
+            once: boolean;
+            /**
+             * Once At
+             * @default
+             */
+            once_at: string;
             /** Schedule */
             schedule: string;
             /**
@@ -40300,10 +40410,97 @@ export interface components {
             status: string;
         };
         /**
+         * CronOnceRunInfo
+         * @description A one-time task that ran and retired itself.
+         *
+         *     Attributes:
+         *         id: The record's number.
+         *         name: The task's name, which was the name of its units.
+         *         command: The command line as it was typed, credentials masked.
+         *         app_domain: The application it belonged to; empty for none.
+         *         run_as: The account it ran as.
+         *         working_directory: The directory it ran in; empty when none was set.
+         *         timeout: Seconds it was allowed, or None for no limit.
+         *         service: The Compose service it ran in; empty for this server.
+         *         run_at: The moment it was asked for, ISO 8601 with the server's offset.
+         *         started_at: When it started (UTC), or None when the journal could not say.
+         *         finished_at: When it ended (UTC).
+         *         result: systemd's word for how it ended: ``success``, ``exit-code``, ``timeout``... or
+         *             ``unknown``.
+         *         exit_code: The command's exit status, or None when it did not exit with one.
+         *         late: It started more than two minutes after ``run_at``: the server was off and ran it
+         *             when it came back.
+         *         output: The last lines it printed, credentials masked.
+         *         retired_at: When its units were removed (UTC).
+         *         ok: It ended without an error.
+         */
+        CronOnceRunInfo: {
+            /**
+             * App Domain
+             * @default
+             */
+            app_domain: string;
+            /** Command */
+            command: string;
+            /** Exit Code */
+            exit_code?: number | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Id */
+            id: number;
+            /**
+             * Late
+             * @default false
+             */
+            late: boolean;
+            /** Name */
+            name: string;
+            /** Ok */
+            ok: boolean;
+            /**
+             * Output
+             * @default
+             */
+            output: string;
+            /** Result */
+            result: string;
+            /**
+             * Retired At
+             * @default
+             */
+            retired_at: string;
+            /**
+             * Run As
+             * @default
+             */
+            run_as: string;
+            /** Run At */
+            run_at: string;
+            /**
+             * Service
+             * @default
+             */
+            service: string;
+            /** Started At */
+            started_at?: string | null;
+            /** Timeout */
+            timeout?: number | null;
+            /**
+             * Working Directory
+             * @default
+             */
+            working_directory: string;
+        };
+        /**
          * CronPreviewRequest
          * @description Request to preview a schedule before it is saved as a job.
          */
         CronPreviewRequest: {
+            /**
+             * Once At
+             * @description Preview a one-time task at this moment in the server's time instead; schedule is then ignored
+             */
+            once_at?: string | null;
             /**
              * Schedule
              * @description hourly, daily, weekly, monthly or a systemd OnCalendar expression
@@ -58047,6 +58244,11 @@ export interface components {
             service?: string | null;
             /** Source */
             source: string;
+            /**
+             * Source Changeable
+             * @default false
+             */
+            source_changeable: boolean;
             /** Spec */
             spec: string;
         };
@@ -58073,6 +58275,14 @@ export interface components {
              * Source
              * @default any
              */
+            source: string;
+        };
+        /**
+         * RuleSourceIn
+         * @description Where a rule should now admit from: ``any``, or an address or network.
+         */
+        RuleSourceIn: {
+            /** Source */
             source: string;
         };
         /**
@@ -77747,10 +77957,28 @@ export interface operations {
     export_audit_log_api_audit_export_get: {
         parameters: {
             query?: {
+                /** @description ndjson (the default) or csv */
+                format?: "ndjson" | "csv";
                 /** @description From this ISO timestamp */
                 since?: string | null;
                 /** @description Up to this ISO timestamp */
                 until?: string | null;
+                /** @description Filter by exact action */
+                action?: string | null;
+                /** @description Filter by exact result */
+                result?: string | null;
+                /** @description Filter by exact actor */
+                actor?: string | null;
+                /** @description Filter by catalog category */
+                category?: string | null;
+                /** @description Only entries of one of these categories, as the console's views read them */
+                categories?: string[] | null;
+                /** @description Only the events of one request, command or job */
+                correlation_id?: string | null;
+                /** @description Filter by exact target */
+                target?: string | null;
+                /** @description Words to find in the event, actor, target, detail, address or correlation id, as the Audit page's search box does */
+                q?: string | null;
             };
             header?: never;
             path?: never;
@@ -77758,13 +77986,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The events, oldest first, one JSON object per line. */
+            /** @description The events, oldest first: one JSON object per line (``ndjson``, the default, every field and the chain) or a CSV for a spreadsheet (``csv``). */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/x-ndjson": string;
+                    "text/csv": string;
                 };
             };
             /** @description Validation Error */
@@ -83054,6 +83283,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    once_history_api_cron_history_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CronHistoryResponse"];
                 };
             };
         };
@@ -98240,6 +98489,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_firewall_rule_source_api_server_security_firewall_rules__rule_id__source_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuleSourceIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             202: {

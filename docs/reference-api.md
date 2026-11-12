@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-1148 operations.
+1150 operations.
 
 ## Access
 
@@ -447,6 +447,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 |---|---|---|---|---|---|
 | GET | `/api/cron` | List Jobs | `apps.read` |  |  |
 | POST | `/api/cron` | Create Job | `root_equivalent` | yes | yes |
+| GET | `/api/cron/history` | Once History | `apps.read` |  |  |
 | POST | `/api/cron/preview` | Preview Schedule | `apps.read` |  |  |
 | DELETE | `/api/cron/{name}` | Delete Job | `apps.manage` | yes |  |
 | POST | `/api/cron/{name}/disable` | Disable Job | `apps.operate` |  |  |
@@ -1154,6 +1155,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/server/security/firewall/enable` | Enable Firewall | `server.host_access` | yes |  |
 | POST | `/api/server/security/firewall/rules` | Add Firewall Rule | `server.host_access` | yes |  |
 | DELETE | `/api/server/security/firewall/rules/{rule_id}` | Delete Firewall Rule | `server.host_access` | yes |  |
+| POST | `/api/server/security/firewall/rules/{rule_id}/source` | Change Firewall Rule Source | `server.host_access` | yes |  |
 | GET | `/api/server/security/risks` | Get Risks | `server.read` |  |  |
 | PUT | `/api/server/security/risks/{check_id}` | Accept Risk | `security.manage` | yes |  |
 | DELETE | `/api/server/security/risks/{check_id}` | Revoke Risk | `security.manage` | yes |  |

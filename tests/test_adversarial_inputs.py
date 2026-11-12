@@ -30,6 +30,7 @@ from __future__ import annotations
 import re
 import time
 from collections.abc import Callable
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -49,6 +50,7 @@ from noust.validators import (
     health,
     names,
     object_names,
+    once_at,
     package,
     port,
     source,
@@ -2050,3 +2052,50 @@ class TestThePasswordOfAnAddressIsFoundInLinearTime:
         masked = redact_url_credentials(f"{scheme}://u:secret@h")
 
         assert masked == f"{scheme}://u:{REDACTED}@h"
+
+
+class TestTheMomentAOneTimeTaskRunsAt:
+    """
+    A moment typed for a one-time task becomes the ``OnCalendar=`` of a root-owned timer (item 164).
+
+    What is accepted is a date and a time with at most a UTC offset, matched whole with ASCII
+    digits, and what reaches the unit is written from the moment that was read and never from
+    the text: so whatever a person typed around it, a line break or another directive, never
+    arrives.
+    """
+
+    NOW = datetime(2026, 11, 12, 10, 0).astimezone()
+
+    @SETTINGS
+    @given(HOSTILE)
+    def test_it_answers_or_refuses_cleanly(self, text: str) -> None:
+        accepted, moment = verdict(once_at.parse_once_at, text, now=self.NOW)
+
+        if accepted:
+            assert moment > self.NOW
+            written = moment.strftime("%Y-%m-%d %H:%M:%S")
+            assert not CONTROL.search(written)
+
+    @pytest.mark.parametrize("payload", PAYLOADS)
+    def test_no_payload_is_a_moment(self, payload: str) -> None:
+        accepted, _ = verdict(once_at.parse_once_at, payload, now=self.NOW)
+
+        assert not accepted
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "2030-01-01 10:00\n",
+            "2030-01-01 10:00\nOnBootSec=1",
+            "2030-01-01 10:00 ",
+            " 2030-01-01 10:00",
+            "2030-01-01\u00a010:00",
+            "\uff12030-01-01 10:00",
+            "2030-01-01 10:00\x00",
+            "2030-01-01 10:00Z\n",
+        ],
+    )
+    def test_nothing_is_allowed_around_the_moment(self, text: str) -> None:
+        accepted, _ = verdict(once_at.parse_once_at, text, now=self.NOW)
+
+        assert not accepted

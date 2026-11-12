@@ -6,6 +6,10 @@
 Description=Noust cron timer for {{ esc.line(name) }}
 
 [Timer]
+{% if once %}
+{# One date. The service removes both units when its command has ended. #}
+# One time: it runs once and retires itself
+{% endif %}
 OnCalendar={{ esc.line(schedule) }}
 {# Persistent, like backup timers: a machine that was off at the scheduled
    moment runs the job at boot instead of silently skipping it, which is the

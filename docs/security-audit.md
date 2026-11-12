@@ -25,6 +25,14 @@ Recorded:
   it writes that changes the system, linked to the event that caused it; read-only probes are
   not recorded.
 
+**Exporting.** `noust audit export` and the console's Audit page (**Export**) write the same file with
+the same code, for a period and with the filters the page has (event, outcome, actor, category,
+target, request and the search box). NDJSON keeps every field and the chain, for an auditor or a
+SIEM; CSV is for a spreadsheet, with what each event recorded in its last column, credentials of a
+recognisable shape masked and no cell that a spreadsheet would run as a formula. The console's export
+needs `audit.read`, and every export is an `audit.export` event with who asked, the period, the
+format and the filter.
+
 **Integrity.** Each line carries the MAC of the previous one (HMAC-SHA256 under the chain's own
 key), and a signed checkpoint is written every `audit.checkpoint_minutes`. `noust audit verify`
 reports the first broken link. Root holds the key and could rewrite a consistent chain, so a

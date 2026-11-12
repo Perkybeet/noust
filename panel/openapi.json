@@ -14259,6 +14259,18 @@
             "title": "Name",
             "type": "string"
           },
+          "once_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Run it once, at this moment in the server's time (YYYY-MM-DD HH:MM, or with an offset), and retire it; schedule is then ignored. Omitted: it repeats. A moment that has passed is refused",
+            "title": "Once At"
+          },
           "schedule": {
             "default": "daily",
             "description": "hourly, daily, weekly, monthly or a systemd OnCalendar expression",
@@ -15178,8 +15190,40 @@
         "title": "CronActionResponse",
         "type": "object"
       },
+      "CronHistoryResponse": {
+        "description": "The one-time tasks that ran in the last thirty days.\n\nAttributes:\n    items: The runs, newest first.\n    total: How many.\n    days: How long a run is kept.\n    zone: The server's zone, in which each ``run_at`` is written (``UTC+01:00``).",
+        "properties": {
+          "days": {
+            "title": "Days",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CronOnceRunInfo"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "zone": {
+            "title": "Zone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "days",
+          "zone"
+        ],
+        "title": "CronHistoryResponse",
+        "type": "object"
+      },
       "CronJobInfo": {
-        "description": "One cron job as systemd reports it.\n\nAttributes:\n    name: Job name the ``noust-cron-{name}`` unit names are built from.\n    command: The command as the operator typed it (what the unit runs, before systemd escaping).\n    user: Unix user the command runs as.\n    working_directory: Directory the command runs in, empty when unset.\n    app_domain: Domain of the associated application, empty when none.\n    schedule: The schedule in words: an alias such as ``daily`` when the\n        expression matches one, ``custom`` otherwise.\n    on_calendar: The systemd ``OnCalendar`` expression, verbatim.\n    enabled: Whether the timer is enabled.\n    next_run: When the timer fires next, as systemd prints it, or\n        ``pending`` when it cannot say.\n    last_run: When the timer last fired, or ``never``.\n    last_exit_code: Exit code of the last run, or None when the job never\n        ran.\n    last_result: Systemd's ``Result`` for the last run, or ``never ran``.\n    timeout: Seconds the command may run before it is stopped, or None.\n    service: The Compose service the command runs in, empty when it runs\n        on this server.",
+        "description": "One cron job as systemd reports it.\n\nAttributes:\n    name: Job name the ``noust-cron-{name}`` unit names are built from.\n    command: The command as the operator typed it (what the unit runs, before systemd escaping).\n    user: Unix user the command runs as.\n    working_directory: Directory the command runs in, empty when unset.\n    app_domain: Domain of the associated application, empty when none.\n    schedule: The schedule in words: an alias such as ``daily`` when the\n        expression matches one, ``custom`` otherwise.\n    on_calendar: The systemd ``OnCalendar`` expression, verbatim.\n    enabled: Whether the timer is enabled.\n    next_run: When the timer fires next, as systemd prints it, or\n        ``pending`` when it cannot say.\n    last_run: When the timer last fired, or ``never``.\n    last_exit_code: Exit code of the last run, or None when the job never\n        ran.\n    last_result: Systemd's ``Result`` for the last run, or ``never ran``.\n    timeout: Seconds the command may run before it is stopped, or None.\n    service: The Compose service the command runs in, empty when it runs\n        on this server.\n    once: The task runs once, at ``once_at``, and retires itself; ``schedule`` is ``once``.\n    once_at: The moment it runs at, ISO 8601 with the server's offset; empty for a task\n        that repeats.",
         "properties": {
           "app_domain": {
             "title": "App Domain",
@@ -15222,6 +15266,16 @@
           },
           "on_calendar": {
             "title": "On Calendar",
+            "type": "string"
+          },
+          "once": {
+            "default": false,
+            "title": "Once",
+            "type": "boolean"
+          },
+          "once_at": {
+            "default": "",
+            "title": "Once At",
             "type": "string"
           },
           "schedule": {
@@ -15390,9 +15444,139 @@
         "title": "CronOccurrenceInfo",
         "type": "object"
       },
+      "CronOnceRunInfo": {
+        "description": "A one-time task that ran and retired itself.\n\nAttributes:\n    id: The record's number.\n    name: The task's name, which was the name of its units.\n    command: The command line as it was typed, credentials masked.\n    app_domain: The application it belonged to; empty for none.\n    run_as: The account it ran as.\n    working_directory: The directory it ran in; empty when none was set.\n    timeout: Seconds it was allowed, or None for no limit.\n    service: The Compose service it ran in; empty for this server.\n    run_at: The moment it was asked for, ISO 8601 with the server's offset.\n    started_at: When it started (UTC), or None when the journal could not say.\n    finished_at: When it ended (UTC).\n    result: systemd's word for how it ended: ``success``, ``exit-code``, ``timeout``... or\n        ``unknown``.\n    exit_code: The command's exit status, or None when it did not exit with one.\n    late: It started more than two minutes after ``run_at``: the server was off and ran it\n        when it came back.\n    output: The last lines it printed, credentials masked.\n    retired_at: When its units were removed (UTC).\n    ok: It ended without an error.",
+        "properties": {
+          "app_domain": {
+            "default": "",
+            "title": "App Domain",
+            "type": "string"
+          },
+          "command": {
+            "title": "Command",
+            "type": "string"
+          },
+          "exit_code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Code"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "late": {
+            "default": false,
+            "title": "Late",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "output": {
+            "default": "",
+            "title": "Output",
+            "type": "string"
+          },
+          "result": {
+            "title": "Result",
+            "type": "string"
+          },
+          "retired_at": {
+            "default": "",
+            "title": "Retired At",
+            "type": "string"
+          },
+          "run_as": {
+            "default": "",
+            "title": "Run As",
+            "type": "string"
+          },
+          "run_at": {
+            "title": "Run At",
+            "type": "string"
+          },
+          "service": {
+            "default": "",
+            "title": "Service",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "timeout": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeout"
+          },
+          "working_directory": {
+            "default": "",
+            "title": "Working Directory",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "command",
+          "run_at",
+          "result",
+          "ok"
+        ],
+        "title": "CronOnceRunInfo",
+        "type": "object"
+      },
       "CronPreviewRequest": {
         "description": "Request to preview a schedule before it is saved as a job.",
         "properties": {
+          "once_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Preview a one-time task at this moment in the server's time instead; schedule is then ignored",
+            "title": "Once At"
+          },
           "schedule": {
             "default": "daily",
             "description": "hourly, daily, weekly, monthly or a systemd OnCalendar expression",
@@ -48349,6 +48533,11 @@
             "title": "Source",
             "type": "string"
           },
+          "source_changeable": {
+            "default": false,
+            "title": "Source Changeable",
+            "type": "boolean"
+          },
           "spec": {
             "title": "Spec",
             "type": "string"
@@ -48397,6 +48586,20 @@
           "port"
         ],
         "title": "RuleRequestIn",
+        "type": "object"
+      },
+      "RuleSourceIn": {
+        "description": "Where a rule should now admit from: ``any``, or an address or network.",
+        "properties": {
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source"
+        ],
+        "title": "RuleSourceIn",
         "type": "object"
       },
       "SMTPConfig": {
@@ -83147,9 +83350,25 @@
     },
     "/api/audit/export": {
       "get": {
-        "description": "Export the audit log as NDJSON, every field and the chain included.\n\nThe export is recorded (``audit.export``).\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    since: Lower bound on ``ts``.\n    until: Upper bound on ``ts``.\n\nReturns:\n    The events, oldest first, one JSON object per line.",
+        "description": "Export the audit log, filtered as the console's Audit page is, as NDJSON or CSV.\n\nNDJSON keeps every field and the chain; CSV is for a spreadsheet, with what each event\nrecorded in its last column, credentials masked. The selection and the two formats are\n:mod:`noust.core.audit.export`, which ``noust audit export`` uses too. The export is recorded\n(``audit.export``) with who asked, the period, the filter and the format.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n    format: ``ndjson`` or ``csv``.\n    since: Lower bound on ``ts``.\n    until: Upper bound on ``ts``.\n    action: Only this exact event.\n    result: Only this exact outcome.\n    actor: Only this exact actor.\n    category: Only this category.\n    categories: Only these categories, request lines described by their own events left out.\n    correlation_id: Only the events of this request, command or job.\n    target: Only events on this exact target.\n    q: Words to find in an event.\n\nReturns:\n    The events, oldest first, as a file.",
         "operationId": "export_audit_log_api_audit_export_get",
         "parameters": [
+          {
+            "description": "ndjson (the default) or csv",
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "ndjson",
+              "description": "ndjson (the default) or csv",
+              "enum": [
+                "ndjson",
+                "csv"
+              ],
+              "title": "Format",
+              "type": "string"
+            }
+          },
           {
             "description": "From this ISO timestamp",
             "in": "query",
@@ -83185,6 +83404,153 @@
               "description": "Up to this ISO timestamp",
               "title": "Until"
             }
+          },
+          {
+            "description": "Filter by exact action",
+            "in": "query",
+            "name": "action",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by exact action",
+              "title": "Action"
+            }
+          },
+          {
+            "description": "Filter by exact result",
+            "in": "query",
+            "name": "result",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by exact result",
+              "title": "Result"
+            }
+          },
+          {
+            "description": "Filter by exact actor",
+            "in": "query",
+            "name": "actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by exact actor",
+              "title": "Actor"
+            }
+          },
+          {
+            "description": "Filter by catalog category",
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by catalog category",
+              "title": "Category"
+            }
+          },
+          {
+            "description": "Only entries of one of these categories, as the console's views read them",
+            "in": "query",
+            "name": "categories",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only entries of one of these categories, as the console's views read them",
+              "title": "Categories"
+            }
+          },
+          {
+            "description": "Only the events of one request, command or job",
+            "in": "query",
+            "name": "correlation_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only the events of one request, command or job",
+              "title": "Correlation Id"
+            }
+          },
+          {
+            "description": "Filter by exact target",
+            "in": "query",
+            "name": "target",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by exact target",
+              "title": "Target"
+            }
+          },
+          {
+            "description": "Words to find in the event, actor, target, detail, address or correlation id, as the Audit page's search box does",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Words to find in the event, actor, target, detail, address or correlation id, as the Audit page's search box does",
+              "title": "Q"
+            }
           }
         ],
         "responses": {
@@ -83194,9 +83560,14 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
               }
             },
-            "description": "The events, oldest first, one JSON object per line."
+            "description": "The events, oldest first: one JSON object per line (``ndjson``, the default, every field and the chain) or a CSV for a spreadsheet (``csv``)."
           },
           "422": {
             "content": {
@@ -90453,6 +90824,29 @@
           "when": "always"
         },
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/cron/history": {
+      "get": {
+        "description": "List the one-time tasks that ran and retired themselves, with how each ended.\n\nDeclared before ``/{name}`` like ``/preview``. A one-time task removes its units when it has\nrun, so this record, kept for thirty days, is the only place its result and its output are;\nthe console schedules it again from here.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The runs, newest first.",
+        "operationId": "once_history_api_cron_history_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CronHistoryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Once History",
+        "tags": [
+          "Cron Jobs"
+        ],
+        "x-noust-permission": "apps.read"
       }
     },
     "/api/cron/preview": {
@@ -114517,6 +114911,61 @@
           }
         },
         "summary": "Delete Firewall Rule",
+        "tags": [
+          "Server"
+        ],
+        "x-noust-permission": "server.host_access",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/server/security/firewall/rules/{rule_id}/source": {
+      "post": {
+        "description": "Change where a rule admits from, in one step: the new rule is made, the old one removed, and\nthe whole waits ONCE to be confirmed, undoing itself unless it is. Never cuts off SSH.\n\nArgs:\n    rule_id: The rule's id, from ``GET /firewall`` (``source_changeable`` says which can move).\n    body: The new origin: ``any``, or an address or network.\n    request: The request.\n    session: The elevated session.\n\nReturns:\n    The queued job.",
+        "operationId": "change_firewall_rule_source_api_server_security_firewall_rules__rule_id__source_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "title": "Rule Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleSourceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Change Firewall Rule Source",
         "tags": [
           "Server"
         ],

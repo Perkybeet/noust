@@ -266,6 +266,7 @@ def compose_cron(
     ran_at: datetime | None = None,
     output: str | None = None,
     domain: str | None = None,
+    once: bool = False,
 ) -> Notification:
     """
     Compose the notification for a run of a scheduled task.
@@ -279,6 +280,8 @@ def compose_cron(
         ran_at: When it ended.
         output: The last lines the task printed, verbatim.
         domain: The application it belongs to, when it has one.
+        once: It was a one-time task: its units are gone, so what to run to see the run is the
+            history and not the runs of a task that no longer exists.
 
     Returns:
         ``cron.failed`` (a failure, under ``cron_failed``) or ``cron.succeeded``
@@ -305,7 +308,13 @@ def compose_cron(
         subject=job,
         summary=message(f"summary.{code}", ctx.locale),
         facts=facts,
-        command=None if ok else _fact("runs", f"noust cron runs {job}", ctx, mono=True),
+        command=(
+            None
+            if ok
+            else _fact(
+                "runs", "noust cron history" if once else f"noust cron runs {job}", ctx, mono=True
+            )
+        ),
         excerpt=excerpt,
         path="/cron",
         domain=domain,

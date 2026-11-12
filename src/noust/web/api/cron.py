@@ -29,7 +29,8 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from noust.core.exceptions import ServiceError
+from noust.core.exceptions import ServiceError, ValidationError
+from noust.managers import cron_once
 from noust.managers.backup_scheduler import SCHEDULE_ALIASES
 from noust.managers.cron_manager import CronJob, CronManager, validate_cron_calendar
 from noust.web.api.auth import get_current_session
@@ -69,6 +70,9 @@ class CronJobInfo(BaseModel):
         timeout: Seconds the command may run before it is stopped, or None.
         service: The Compose service the command runs in, empty when it runs
             on this server.
+        once: The task runs once, at ``once_at``, and retires itself; ``schedule`` is ``once``.
+        once_at: The moment it runs at, ISO 8601 with the server's offset; empty for a task
+            that repeats.
     """
 
     name: str
@@ -85,6 +89,8 @@ class CronJobInfo(BaseModel):
     last_result: str
     timeout: int | None = None
     service: str = ""
+    once: bool = False
+    once_at: str = ""
 
 
 class CronJobListResponse(BaseModel):
@@ -126,6 +132,12 @@ class CreateCronJobRequest(BaseModel):
         description="Run the command in this service of the application's Compose stack "
         "(docker compose exec) instead of on this server",
     )
+    once_at: str | None = Field(
+        default=None,
+        description="Run it once, at this moment in the server's time (YYYY-MM-DD HH:MM, or "
+        "with an offset), and retire it; schedule is then ignored. Omitted: it repeats. A "
+        "moment that has passed is refused",
+    )
 
     @field_validator("schedule")
     @classmethod
@@ -148,6 +160,47 @@ class CreateCronJobRequest(BaseModel):
         except ServiceError as exc:
             raise ValueError(f"{exc}. {exc.details}".strip()) from exc
         return value
+
+    @field_validator("once_at")
+    @classmethod
+    def _moment_the_manager_accepts(cls, value: str | None) -> str | None:
+        """
+        Refuse here a moment the manager would refuse, in the manager's words.
+
+        Args:
+            value: The moment as it arrived.
+
+        Returns:
+            The value unchanged; the manager writes the unit from the moment it reads, never from
+            the text.
+
+        Raises:
+            ValueError: It is not a moment, has passed or is too far ahead. FastAPI answers it as
+                a 422 naming ``once_at``.
+        """
+        return _checked_moment(value)
+
+
+def _checked_moment(value: str | None) -> str | None:
+    """
+    Judge a moment a request carries.
+
+    Args:
+        value: The moment, or None for a task that repeats.
+
+    Returns:
+        The value unchanged.
+
+    Raises:
+        ValueError: With the validator's message and what it advises.
+    """
+    if value is None:
+        return None
+    try:
+        cron_once.moment_of_text(value)
+    except ValidationError as exc:
+        raise ValueError(f"{exc.message}. {exc.details}".strip()) from exc
+    return value
 
 
 class CronActionResponse(BaseModel):
@@ -191,6 +244,11 @@ class CronPreviewRequest(BaseModel):
         default="daily",
         description="hourly, daily, weekly, monthly or a systemd OnCalendar expression",
     )
+    once_at: str | None = Field(
+        default=None,
+        description="Preview a one-time task at this moment in the server's time instead; "
+        "schedule is then ignored",
+    )
 
     @field_validator("schedule")
     @classmethod
@@ -213,6 +271,23 @@ class CronPreviewRequest(BaseModel):
         except ServiceError as exc:
             raise ValueError(f"{exc}. {exc.details}".strip()) from exc
         return value
+
+    @field_validator("once_at")
+    @classmethod
+    def _moment_the_manager_accepts(cls, value: str | None) -> str | None:
+        """
+        Refuse here a moment the manager would refuse, in the manager's words.
+
+        Args:
+            value: The moment as it arrived.
+
+        Returns:
+            The value unchanged.
+
+        Raises:
+            ValueError: It is not a moment, has passed or is too far ahead.
+        """
+        return _checked_moment(value)
 
 
 class CronPreviewResponse(BaseModel):
@@ -247,8 +322,14 @@ def _to_info(entry: dict[str, Any]) -> CronJobInfo:
         user=entry.get("user", ""),
         working_directory=entry.get("working_directory", ""),
         app_domain=entry.get("app_domain", ""),
-        schedule=_ALIAS_BY_CALENDAR.get(on_calendar, "custom" if on_calendar else "unknown"),
+        schedule=(
+            "once"
+            if entry.get("once")
+            else _ALIAS_BY_CALENDAR.get(on_calendar, "custom" if on_calendar else "unknown")
+        ),
         on_calendar=on_calendar,
+        once=bool(entry.get("once")),
+        once_at=entry.get("once_at", ""),
         enabled=bool(entry.get("enabled")),
         next_run=entry.get("next_run", "pending"),
         last_run=entry.get("last_run", "never"),
@@ -299,7 +380,7 @@ def create_job(
     audit_log.info(
         "create_cron_job name=%s schedule=%s session=%s",
         data.name,
-        data.schedule,
+        f"once {data.once_at}" if data.once_at else data.schedule,
         actor_label(session),
     )
     manager = CronManager(verbose=False)
@@ -313,6 +394,7 @@ def create_job(
             app_domain=data.app_domain,
             timeout=data.timeout,
             service=data.service,
+            once_at=data.once_at,
         )
     )
     entry = manager.get_job(created.name)
@@ -346,8 +428,97 @@ def preview_schedule(
     Raises:
         ServiceError: When systemd itself refuses the expression.
     """
+    if data.once_at:
+        # One moment, on the server's own clock: systemd-analyze is not asked, since it reads
+        # calendars in UTC and this one is a date in the zone the timer will read it in.
+        moment = cron_once.moment_of_text(data.once_at)
+        return CronPreviewResponse(
+            calendar=cron_once.calendar_of(moment),
+            next_runs=[moment.isoformat(timespec="seconds")],
+        )
     calendar, next_runs = CronManager(verbose=False).preview_calendar(data.schedule)
     return CronPreviewResponse(calendar=calendar, next_runs=next_runs)
+
+
+class CronOnceRunInfo(BaseModel):
+    """
+    A one-time task that ran and retired itself.
+
+    Attributes:
+        id: The record's number.
+        name: The task's name, which was the name of its units.
+        command: The command line as it was typed, credentials masked.
+        app_domain: The application it belonged to; empty for none.
+        run_as: The account it ran as.
+        working_directory: The directory it ran in; empty when none was set.
+        timeout: Seconds it was allowed, or None for no limit.
+        service: The Compose service it ran in; empty for this server.
+        run_at: The moment it was asked for, ISO 8601 with the server's offset.
+        started_at: When it started (UTC), or None when the journal could not say.
+        finished_at: When it ended (UTC).
+        result: systemd's word for how it ended: ``success``, ``exit-code``, ``timeout``... or
+            ``unknown``.
+        exit_code: The command's exit status, or None when it did not exit with one.
+        late: It started more than two minutes after ``run_at``: the server was off and ran it
+            when it came back.
+        output: The last lines it printed, credentials masked.
+        retired_at: When its units were removed (UTC).
+        ok: It ended without an error.
+    """
+
+    id: int
+    name: str
+    command: str
+    app_domain: str = ""
+    run_as: str = ""
+    working_directory: str = ""
+    timeout: int | None = None
+    service: str = ""
+    run_at: str
+    started_at: str | None = None
+    finished_at: str | None = None
+    result: str
+    exit_code: int | None = None
+    late: bool = False
+    output: str = ""
+    retired_at: str = ""
+    ok: bool
+
+
+class CronHistoryResponse(BaseModel):
+    """
+    The one-time tasks that ran in the last thirty days.
+
+    Attributes:
+        items: The runs, newest first.
+        total: How many.
+        days: How long a run is kept.
+        zone: The server's zone, in which each ``run_at`` is written (``UTC+01:00``).
+    """
+
+    items: list[CronOnceRunInfo]
+    total: int
+    days: int
+    zone: str
+
+
+@router.get("/history", response_model=CronHistoryResponse)
+def once_history(session: Annotated[dict, Depends(get_current_session)]) -> CronHistoryResponse:
+    """
+    List the one-time tasks that ran and retired themselves, with how each ended.
+
+    Declared before ``/{name}`` like ``/preview``. A one-time task removes its units when it has
+    run, so this record, kept for thirty days, is the only place its result and its output are;
+    the console schedules it again from here.
+
+    Args:
+        session: The authenticated session.
+
+    Returns:
+        The runs, newest first.
+    """
+    document = cron_once.history_document(CronManager(verbose=False).once_history())
+    return CronHistoryResponse(**document)
 
 
 @router.delete("/{name}", response_model=CronActionResponse)

@@ -160,6 +160,29 @@ Cloudflare's ranges again when they are a week old and a site trusts them, rende
 again. It also asks Tailscale again for a certificate it issued when thirty days are left, and
 reloads the sites that serve it.
 
+## Changing where a firewall rule admits from
+
+A rule that opens a port to everyone is often meant for one address: the office, a bastion, a
+monitoring server. **Network > Firewall** has **Change where it admits from** in the menu of each
+rule, and the command line has the same:
+
+```bash
+noust server security firewall status                        # each rule's id
+noust server security firewall change-source 4f6c1a9d2b07 --from 203.0.113.0/24
+noust server security firewall change-source 4f6c1a9d2b07 --from any
+```
+
+It is one change, not a delete and a create: the rule with the new origin is made first and the old
+one is removed after it, so the port is never left without one, and the whole waits **once** to be
+confirmed from a new SSH login (`noust server security confirm`), like every change that could cut
+you off. When nobody confirms, the old rule comes back and the new one goes. The guard says what it
+always said: moving the rule that lets everyone reach SSH or the console is refused when an SSH
+session open now would be left outside the new origin, and the refusal names its address. A rule of
+one port, allowed or denied, can be moved; a range, a service of the firewall, ufw's `limit` or a rich
+rule with more than a port and an origin is changed by adding the rule you want and deleting that one.
+`POST /api/server/security/firewall/rules/{rule_id}/source` is the same, and each rule in
+`GET /api/server/security/firewall` says whether it can be moved (`source_changeable`).
+
 ## Permissions and audit
 
 Published ports and tunnels are the server's, not an application's: reading them is

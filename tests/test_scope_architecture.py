@@ -528,6 +528,10 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
         ("GET", "/api/sites/{domain}/config/versions/{version}", RESOURCE),
         ("POST", "/api/sites/{domain}/config/versions/{version}/restore", RESOURCE),
     ),
+    # What a one-time task left when it retired (item 164): the scheduled tasks of a server run
+    # commands as root or as an application's account, so the whole page is the server's, the
+    # record of what they did with it.
+    "cron_once_history": (("GET", "/api/cron/history", INSTANCE),),
     # The certificates signed for an application's clients: reached through the application.
     "client_certificates": (
         ("GET", "/api/apps/{domain}/client-certs", RESOURCE),
