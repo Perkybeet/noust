@@ -39,6 +39,7 @@ AREAS = [
     "REPORTS",
     "AGENTS",
     "ASSISTANT",
+    "DOCKER",
 ]
 
 

@@ -19954,6 +19954,197 @@
         "title": "DockerAttentionOut",
         "type": "object"
       },
+      "DockerBringOut": {
+        "description": "What bringing a stack to Noust registers, or did.\n\nAttributes:\n    stack: The Compose project.\n    name: What the application is called in Noust's list.\n    folder: The directory the stack runs from, where it stays.\n    compose_file: Its compose file, relative to the folder.\n    project: The Compose project every command passes with ``-p`` from then on.\n    containers: The containers of the stack.\n    running: Whether any of them runs.\n    headless: The stack publishes no port.\n    port: The port registered for it; null for a worker.\n    site: The operator's site file that serves it, never rewritten.\n    source: Where updates fetch from; empty for a stack that is not a checkout.\n    unit: The unit created for it, enabled and not started.\n    counts: ``containers``, ``jobs`` (of them, the ones that already ended), ``volumes`` and ``networks``.\n    rehearsal: What ``docker compose up --dry-run`` said, verbatim.\n    recreates: What starting it the way Noust would changes, in Compose's own words; empty when nothing.\n    warnings: What adopting found worth saying.\n    restart_loss: What a restart of the machine would not bring back.\n    adopted: It was registered; false for a preview.\n    deployment_id: The adoption's history row.",
+        "properties": {
+          "adopted": {
+            "default": false,
+            "title": "Adopted",
+            "type": "boolean"
+          },
+          "compose_file": {
+            "title": "Compose File",
+            "type": "string"
+          },
+          "containers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Containers",
+            "type": "array"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "deployment_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deployment Id"
+          },
+          "folder": {
+            "title": "Folder",
+            "type": "string"
+          },
+          "headless": {
+            "default": false,
+            "title": "Headless",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project"
+          },
+          "recreates": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Recreates",
+            "type": "array"
+          },
+          "rehearsal": {
+            "default": "",
+            "title": "Rehearsal",
+            "type": "string"
+          },
+          "restart_loss": {
+            "items": {
+              "$ref": "#/components/schemas/DockerBringRestartOut"
+            },
+            "title": "Restart Loss",
+            "type": "array"
+          },
+          "running": {
+            "default": false,
+            "title": "Running",
+            "type": "boolean"
+          },
+          "site": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site"
+          },
+          "source": {
+            "default": "",
+            "title": "Source",
+            "type": "string"
+          },
+          "stack": {
+            "title": "Stack",
+            "type": "string"
+          },
+          "unit": {
+            "default": "",
+            "title": "Unit",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "stack",
+          "name",
+          "folder",
+          "compose_file"
+        ],
+        "title": "DockerBringOut",
+        "type": "object"
+      },
+      "DockerBringRequest": {
+        "description": "Bring a stack that already runs to Noust.\n\nAttributes:\n    name: What the application will be called in Noust's list; the stack's own name when absent. It is the\n        only thing typed: the folder and the compose file are what the stack's containers say.\n    preview: Answer what would be registered and what is not changed, and register nothing.\n    accept_recreate: Go on although Compose says starting the stack the way Noust would changes what\n        runs. It is read first; the preview shows Compose's own words.",
+        "properties": {
+          "accept_recreate": {
+            "default": false,
+            "title": "Accept Recreate",
+            "type": "boolean"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 253,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "preview": {
+            "default": false,
+            "title": "Preview",
+            "type": "boolean"
+          }
+        },
+        "title": "DockerBringRequest",
+        "type": "object"
+      },
+      "DockerBringRestartOut": {
+        "description": "A container of the stack that a restart of the machine would leave down.\n\nAttributes:\n    container: Its name.\n    policy: Its restart policy.\n    why: ``policy`` or ``stopped``.",
+        "properties": {
+          "container": {
+            "title": "Container",
+            "type": "string"
+          },
+          "policy": {
+            "title": "Policy",
+            "type": "string"
+          },
+          "why": {
+            "title": "Why",
+            "type": "string"
+          }
+        },
+        "required": [
+          "container",
+          "policy",
+          "why"
+        ],
+        "title": "DockerBringRestartOut",
+        "type": "object"
+      },
       "DockerCanOut": {
         "description": "What may be done to an object by whoever asks, decided by the judgement an action goes through.\n\nAttributes:\n    start: A container may be started.\n    stop: A container may be stopped.\n    restart: A container may be restarted.\n    remove: The object may be removed.\n    console: A shell may be opened in this container: it is not Noust's own, and the credential\n        holds the permission a shell in it needs (``apps.terminal`` for an application's,\n        ``server.terminal`` otherwise).\n    via: When an application, an engine or Noust changes it, the sentence that says where it is\n        changed (a command that exists).\n    blocked: Why nothing is offered: ``owner``, ``builtin`` (Docker makes it itself), ``in_use``\n        (something still uses it), ``permission`` (this credential may not change Docker); empty\n        when it is offered.",
         "properties": {
@@ -19994,6 +20185,42 @@
           }
         },
         "title": "DockerCanOut",
+        "type": "object"
+      },
+      "DockerCheckLineOut": {
+        "description": "One thing that was checked.\n\nAttributes:\n    name: ``compose``, ``privileges``, ``images`` or ``variables``.\n    ok: Whether it passed.\n    detail: What was found, in a few words.",
+        "properties": {
+          "detail": {
+            "default": "",
+            "title": "Detail",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "ok"
+        ],
+        "title": "DockerCheckLineOut",
+        "type": "object"
+      },
+      "DockerCheckRequest": {
+        "description": "Ask the registries whether the images in use have a new version.\n\nAttributes:\n    pull: Download what moved to compare, which is what a Docker without buildx needs. Without it nothing\n        is downloaded and a Docker that cannot read a manifest says so.",
+        "properties": {
+          "pull": {
+            "default": false,
+            "title": "Pull",
+            "type": "boolean"
+          }
+        },
+        "title": "DockerCheckRequest",
         "type": "object"
       },
       "DockerCleanupPlanOut": {
@@ -20071,6 +20298,352 @@
           "token"
         ],
         "title": "DockerCleanupRequest",
+        "type": "object"
+      },
+      "DockerComposeCheckOut": {
+        "description": "A document, judged and written nowhere.\n\nAttributes:\n    stack: The Compose project.\n    domain: The application.\n    kind: ``document`` or ``file``.\n    changed: Whether it differs from what the stack has.\n    valid: Whether nothing stops it from being applied.\n    problems: What stops it.\n    warnings: What is worth knowing and does not stop it.\n    checks: What was checked, in order.\n    services: The services of the document.\n    images: What is known of the images the change brings in.\n    diff: What changes, as a unified diff.\n    added: Lines added.\n    removed: Lines removed.\n    effects: What starting the stack from it would do; null when Compose could not rehearse it.",
+        "properties": {
+          "added": {
+            "default": 0,
+            "title": "Added",
+            "type": "integer"
+          },
+          "changed": {
+            "default": false,
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/DockerCheckLineOut"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "diff": {
+            "default": "",
+            "title": "Diff",
+            "type": "string"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "effects": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DockerEffectsOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "images": {
+            "items": {
+              "$ref": "#/components/schemas/DockerImageCheckOut"
+            },
+            "title": "Images",
+            "type": "array"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "problems": {
+            "items": {
+              "$ref": "#/components/schemas/DockerProblemOut"
+            },
+            "title": "Problems",
+            "type": "array"
+          },
+          "removed": {
+            "default": 0,
+            "title": "Removed",
+            "type": "integer"
+          },
+          "services": {
+            "items": {
+              "$ref": "#/components/schemas/DockerServiceOut"
+            },
+            "title": "Services",
+            "type": "array"
+          },
+          "stack": {
+            "title": "Stack",
+            "type": "string"
+          },
+          "valid": {
+            "default": true,
+            "title": "Valid",
+            "type": "boolean"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "stack",
+          "domain",
+          "kind"
+        ],
+        "title": "DockerComposeCheckOut",
+        "type": "object"
+      },
+      "DockerComposeCheckRequest": {
+        "description": "A document to judge, and write nowhere.\n\nAttributes:\n    text: The document as it would be saved.",
+        "properties": {
+          "text": {
+            "maxLength": 262144,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "DockerComposeCheckRequest",
+        "type": "object"
+      },
+      "DockerComposeOut": {
+        "description": "A stack's Compose document, or why it is not edited here.\n\nAttributes:\n    stack: The Compose project.\n    domain: The application it belongs to; null for a stack nobody of Noust made.\n    editable: Whether it is edited here.\n    kind: ``document`` (Noust keeps it) or ``file`` (a file in the folder the stack runs from) when it is.\n    why_code: When it is not: ``repository`` (its document is in git), ``recipe`` (the recipe's),\n        ``generated`` (a container application's, written by Noust), ``bring_first`` (Noust did not make the\n        stack), ``no_file`` or ``not_compose``.\n    why: The same in a sentence that says where it is changed.\n    text: The document, when it is edited here; reading it is a reveal and is recorded.\n    path: Where it is.\n    version: The number of its newest version in the history; null when none was kept.",
+        "properties": {
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
+          },
+          "editable": {
+            "title": "Editable",
+            "type": "boolean"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "stack": {
+            "title": "Stack",
+            "type": "string"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          },
+          "why": {
+            "default": "",
+            "title": "Why",
+            "type": "string"
+          },
+          "why_code": {
+            "default": "",
+            "title": "Why Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stack",
+          "editable"
+        ],
+        "title": "DockerComposeOut",
+        "type": "object"
+      },
+      "DockerComposeRestoreRequest": {
+        "description": "Put an earlier version back.\n\nAttributes:\n    reason: Why, in a line.",
+        "properties": {
+          "reason": {
+            "default": "",
+            "maxLength": 500,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "title": "DockerComposeRestoreRequest",
+        "type": "object"
+      },
+      "DockerComposeSaveRequest": {
+        "description": "A document to apply behind the health gate.\n\nAttributes:\n    text: The document as it would be saved.\n    reason: Why, in a line: it is kept with the version, with who saved it and when.",
+        "properties": {
+          "reason": {
+            "default": "",
+            "maxLength": 500,
+            "title": "Reason",
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 262144,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "DockerComposeSaveRequest",
+        "type": "object"
+      },
+      "DockerComposeVersionDetailOut": {
+        "description": "One version, with its text and what putting it back would change.\n\nAttributes:\n    version: Its number.\n    source: How it came to be.\n    actor: Who saved it.\n    reason: Why.\n    created_at: When.\n    text: The document; reading it is a reveal.\n    diff: What restoring it would change in what runs now, as a unified diff.\n    diff_against: What it is compared with: ``current``.",
+        "properties": {
+          "actor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "diff": {
+            "default": "",
+            "title": "Diff",
+            "type": "string"
+          },
+          "diff_against": {
+            "default": "current",
+            "title": "Diff Against",
+            "type": "string"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "source",
+          "created_at",
+          "text"
+        ],
+        "title": "DockerComposeVersionDetailOut",
+        "type": "object"
+      },
+      "DockerComposeVersionOut": {
+        "description": "One version of a stack's document.\n\nAttributes:\n    version: Its number for the stack, from 1, never reused.\n    sha256: The hash of the text.\n    size: The text's length in bytes.\n    source: ``found`` (what Noust first found), ``edit``, ``revert`` (put back after the update failed) or\n        ``restore`` (an earlier version put back).\n    actor: Who saved it; null for what Noust did on its own.\n    reason: Why, in a line.\n    created_at: When, ISO 8601 UTC.",
+        "properties": {
+          "actor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "sha256",
+          "size",
+          "source",
+          "created_at"
+        ],
+        "title": "DockerComposeVersionOut",
+        "type": "object"
+      },
+      "DockerComposeVersionsOut": {
+        "description": "The versions of a stack's document, newest first.\n\nAttributes:\n    items: The versions, without their text.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DockerComposeVersionOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "title": "DockerComposeVersionsOut",
         "type": "object"
       },
       "DockerContainerDetailOut": {
@@ -20380,6 +20953,41 @@
         "title": "DockerContainersOut",
         "type": "object"
       },
+      "DockerCopyOut": {
+        "description": "Whether there is a copy of an application's databases that was proven to restore.\n\nAttributes:\n    state: ``ok`` (a restore drill that loaded a database passed within the last day), ``stale`` (there\n        is one, older) or ``missing``.\n    last_ok_at: When the newest such drill ended.\n    databases: How many databases it loaded.\n    via: The commands that make one.",
+        "properties": {
+          "databases": {
+            "default": 0,
+            "title": "Databases",
+            "type": "integer"
+          },
+          "last_ok_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Ok At"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "via": {
+            "default": "",
+            "title": "Via",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "DockerCopyOut",
+        "type": "object"
+      },
       "DockerDiskOut": {
         "description": "The disk Docker lives on.\n\nAttributes:\n    docker_bytes: What Docker holds.\n    reclaimable_bytes: What a cleanup could give back without touching data.\n    free_bytes: Free where Docker keeps its data; null when this process cannot see it.\n    total_bytes: The size of that disk; null likewise.\n    path: Where Docker keeps its data.",
         "properties": {
@@ -20434,6 +21042,59 @@
           }
         },
         "title": "DockerDiskOut",
+        "type": "object"
+      },
+      "DockerEffectOut": {
+        "description": "One thing Compose's rehearsal says starting the stack from the document would do.\n\nAttributes:\n    kind: ``container``, ``volume`` or ``network``.\n    name: As Compose names it.\n    service: The service, for a container.\n    action: ``recreate``, ``create``, ``remove``, ``start`` or ``stop``.",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "service": {
+            "default": "",
+            "title": "Service",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "name",
+          "action"
+        ],
+        "title": "DockerEffectOut",
+        "type": "object"
+      },
+      "DockerEffectsOut": {
+        "description": "What the change would do, from Compose's own rehearsal (``up --dry-run``).\n\nAttributes:\n    changes: What would be recreated, created, removed, started or stopped; what only keeps running is not\n        here.\n    output: Compose's words, verbatim.\n    removes_volumes: Whether a volume would go, which is data.",
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/DockerEffectOut"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "output": {
+            "default": "",
+            "title": "Output",
+            "type": "string"
+          },
+          "removes_volumes": {
+            "default": false,
+            "title": "Removes Volumes",
+            "type": "boolean"
+          }
+        },
+        "title": "DockerEffectsOut",
         "type": "object"
       },
       "DockerEngineInfoOut": {
@@ -20616,6 +21277,35 @@
         "title": "DockerHealthOut",
         "type": "object"
       },
+      "DockerImageCheckOut": {
+        "description": "What is known of an image the change brings in.\n\nAttributes:\n    service: The service that runs it.\n    image: The image.\n    state: ``present`` (this machine has it), ``found`` (its registry has it), ``missing``, ``unknown`` (it\n        could not be asked) or ``built`` (the service builds it).\n    detail: What the registry said, when it could not tell.",
+        "properties": {
+          "detail": {
+            "default": "",
+            "title": "Detail",
+            "type": "string"
+          },
+          "image": {
+            "title": "Image",
+            "type": "string"
+          },
+          "service": {
+            "title": "Service",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "service",
+          "image",
+          "state"
+        ],
+        "title": "DockerImageCheckOut",
+        "type": "object"
+      },
       "DockerImageOut": {
         "description": "An image no container uses.",
         "properties": {
@@ -20651,7 +21341,7 @@
         "type": "object"
       },
       "DockerImageRowOut": {
-        "description": "An image, once, with every name it has.\n\nAttributes:\n    id: Its id.\n    tags: ``repository:tag`` of each name; none for an image with no name.\n    created: When it was made.\n    size_bytes: Its size, when Docker said.\n    used_by: The containers made from it, running or not.\n    way_back: An application keeps it to go back to: never offered as unused.\n    dangling: It has no name.\n    owner: Whose it is.\n    can: What may be done to it.",
+        "description": "An image, once, with every name it has.\n\nAttributes:\n    id: Its id.\n    tags: ``repository:tag`` of each name; none for an image with no name.\n    created: When it was made.\n    size_bytes: Its size, when Docker said.\n    used_by: The containers made from it, running or not.\n    way_back: An application keeps it to go back to: never offered as unused.\n    dangling: It has no name.\n    owner: Whose it is.\n    can: What may be done to it.\n    update: What the last look at the registries found of it and what updating it would do; null when\n        it was not worked out (a listing that cannot ask the registries' last findings).",
         "properties": {
           "can": {
             "$ref": "#/components/schemas/DockerCanOut"
@@ -20690,6 +21380,16 @@
             },
             "title": "Tags",
             "type": "array"
+          },
+          "update": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DockerUpdateOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "used_by": {
             "items": {
@@ -21196,6 +21896,52 @@
         "title": "DockerPortOut",
         "type": "object"
       },
+      "DockerProblemOut": {
+        "description": "Something that stops a document from being applied.\n\nAttributes:\n    code: ``compose`` (Compose does not read it), ``privileges`` (it asks for root on this server),\n        ``variables`` (it requires a value the stack lacks) or ``image_missing`` (a registry has no such\n        image).\n    message: What is wrong, in a sentence.\n    output: Compose's own words, verbatim, when the problem is its.\n    line: The line of the document it is about, when it says.\n    service: The service it is about, when there is one.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "output": {
+            "default": "",
+            "title": "Output",
+            "type": "string"
+          },
+          "service": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "DockerProblemOut",
+        "type": "object"
+      },
       "DockerRemoveVolumeRequest": {
         "description": "Remove a volume: its name is typed a second time.\n\nAttributes:\n    confirm_name: The volume's name again.",
         "properties": {
@@ -21311,6 +22057,31 @@
         "title": "DockerSentenceOut",
         "type": "object"
       },
+      "DockerServiceOut": {
+        "description": "A service of the document.\n\nAttributes:\n    name: Its name.\n    image: Its image; null when it is built.",
+        "properties": {
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "DockerServiceOut",
+        "type": "object"
+      },
       "DockerStackDetailOut": {
         "description": "One stack with its containers in full.\n\nAttributes:\n    available: Docker could be read.\n    engine: The doctor's report, only when it could not.\n    stack: The stack.\n    containers: Its containers, by name.\n    can_manage: The one who asks may change Docker at all.",
         "properties": {
@@ -21356,8 +22127,11 @@
         "type": "object"
       },
       "DockerStackOut": {
-        "description": "A Compose project, as its containers show it.\n\nAttributes:\n    name: The project's name.\n    working_dir: The directory it runs from.\n    config_files: Its compose files.\n    containers: The names of its containers.\n    total: How many containers it has.\n    running: How many of its workers run.\n    workers: How many of its containers are meant to keep running (a job that did its work and\n        ended is not one).\n    state: ``running``, ``warning`` (a worker is down or unhealthy), ``failed`` (a worker keeps\n        falling or ended badly) or ``stopped``.\n    owner: Whose it is.",
+        "description": "A Compose project, as its containers show it.\n\nAttributes:\n    name: The project's name.\n    working_dir: The directory it runs from.\n    config_files: Its compose files.\n    containers: The names of its containers.\n    total: How many containers it has.\n    running: How many of its workers run.\n    workers: How many of its containers are meant to keep running (a job that did its work and\n        ended is not one).\n    state: ``running``, ``warning`` (a worker is down or unhealthy), ``failed`` (a worker keeps\n        falling or ended badly) or ``stopped``.\n    owner: Whose it is.\n    can: What may be done to it by whoever asks: started, stopped and restarted as a whole when\n        nobody of Noust owns it, and where it is done when an application or an engine does (it\n        is never removed from here).",
         "properties": {
+          "can": {
+            "$ref": "#/components/schemas/DockerCanOut"
+          },
           "config_files": {
             "items": {
               "type": "string"
@@ -21576,6 +22350,188 @@
           }
         },
         "title": "DockerTouchesOut",
+        "type": "object"
+      },
+      "DockerUpdateOut": {
+        "description": "What updating an image does, and what the last look at the registries found of it.\n\nAttributes:\n    image: The image as the listing names it.\n    reference: The reference a registry is asked about for it; null when it has none.\n    mode: ``with_net`` (through its application, behind the health gate, the way back kept),\n        ``bring_first`` (bring its stack to Noust, then update), ``loose`` (a container on its own: not\n        updated), ``via_owner`` (a database engine's or Noust's: through its own door), ``rollback`` (a\n        version an application keeps to go back to), ``unknown`` (nothing to update to: nobody looked,\n        or the look could not tell) or ``none`` (it is current).\n    state: ``current``, ``newer``, ``unknown`` or ``not_looked``.\n    change: What the new version is to the one that runs: ``patch``, ``minor``, ``major`` or\n        ``unknown``; empty when there is none.\n    floating: The tag is one that moves (``latest``, ``stable``).\n    current_version: The version that runs, as far as the image says.\n    latest_version: The version behind the tag now.\n    latest_created: When that image was built.\n    checked_at: When the registries were asked.\n    detail: What the registry said, when the look could not tell.\n    owner: Whose the image is.\n    app: The application that is updated (``with_net``).\n    stack: The Compose project to bring to Noust (``bring_first``).\n    images: Every image that moves with the update, by reference.\n    steps: What it does, in order: ``pull``, ``copy_databases``, ``recreate_behind_health``,\n        ``keep_previous``, ``roll_back_on_failure``.\n    major: Something that moves is a new major version.\n    needs: What is missing before it can go ahead: ``verified_copy`` or ``accept_major``.\n    backup: The copy of the application's databases, when a database's major version moves.\n    apply: It can go ahead once the person has said so.\n    via: Where it is done instead, as a command, when it is not here.",
+        "properties": {
+          "app": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App"
+          },
+          "apply": {
+            "default": false,
+            "title": "Apply",
+            "type": "boolean"
+          },
+          "backup": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DockerCopyOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "change": {
+            "default": "",
+            "title": "Change",
+            "type": "string"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "current_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Version"
+          },
+          "detail": {
+            "default": "",
+            "title": "Detail",
+            "type": "string"
+          },
+          "floating": {
+            "default": false,
+            "title": "Floating",
+            "type": "boolean"
+          },
+          "image": {
+            "title": "Image",
+            "type": "string"
+          },
+          "images": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Images",
+            "type": "array"
+          },
+          "latest_created": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Created"
+          },
+          "latest_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Version"
+          },
+          "major": {
+            "default": false,
+            "title": "Major",
+            "type": "boolean"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "needs": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Needs"
+          },
+          "owner": {
+            "$ref": "#/components/schemas/DockerOwnerOut"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference"
+          },
+          "stack": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stack"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "via": {
+            "default": "",
+            "title": "Via",
+            "type": "string"
+          }
+        },
+        "required": [
+          "image",
+          "mode",
+          "state",
+          "owner"
+        ],
+        "title": "DockerUpdateOut",
+        "type": "object"
+      },
+      "DockerUpdateRequest": {
+        "description": "Update an image through its application.\n\nAttributes:\n    accept_major: The person takes a new major version. A database's also needs a copy that was proven\n        to restore: that is not something this can say yes to.",
+        "properties": {
+          "accept_major": {
+            "default": false,
+            "title": "Accept Major",
+            "type": "boolean"
+          }
+        },
+        "title": "DockerUpdateRequest",
         "type": "object"
       },
       "DockerUsageOut": {
@@ -106495,6 +107451,50 @@
         "x-noust-permission": "docker.read"
       }
     },
+    "/api/docker/images/check": {
+      "post": {
+        "description": "Ask the registries whether the images in use have a new version, as a job.\n\nThe registry of each image is asked what the tag points at now, which is the question ``docker pull``\nasks, without downloading anything (a Docker that cannot do that says so, and downloads only with\n``pull``). The accounts Noust keeps for a registry are used for it and for no other. What is found is\nkept, and the pages of the zone say it: nothing else asks a registry. Needs the permission to change\nDocker and sudo mode.\n\nArgs:\n    body: Whether to download what moved to compare.\n    session: The authenticated session, in sudo mode.\n\nReturns:\n    The queued job, whose result is what was found.\n\nRaises:\n    DockerUnavailableError: 409 when Docker is not there or is below what Noust speaks.",
+        "operationId": "check_images_api_docker_images_check_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DockerCheckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check Images",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/docker/images/{image_id}": {
       "delete": {
         "description": "Remove an image nobody keeps. One a container uses stays, and so does an application's way back.\n\nArgs:\n    image_id: The image's id, as the listing gives it.\n    session: The authenticated session, in sudo mode.\n\nReturns:\n    What was removed, with its size.\n\nRaises:\n    DockerNotFoundError: 404 when there is none.\n    DockerOwnedError: 409 when an application keeps it or an engine owns it.\n    ValidationError: 400 when a container still uses it.",
@@ -106542,6 +107542,110 @@
           "kind": "infrastructure",
           "when": "always"
         },
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/docker/images/{image_id}/update": {
+      "get": {
+        "description": "Say what updating an image would do, without doing it.\n\nArgs:\n    image_id: The image's id, as the listing gives it.\n    session: The authenticated session.\n\nReturns:\n    The plan: through which door, what moves with it, the steps in order, what is missing (a copy that\n    was proven to restore, the decision to take a major version) and where it is done when it is not\n    here.\n\nRaises:\n    DockerNotFoundError: 404 when there is none.\n    DockerUnavailableError: 409 when Docker is not there or is below what Noust speaks.",
+        "operationId": "get_image_update_api_docker_images__image_id__update_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "image_id",
+            "required": true,
+            "schema": {
+              "title": "Image Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerUpdateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Image Update",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.read"
+      },
+      "post": {
+        "description": "Update an image through its application, behind its health gate, with the way back kept.\n\nWhat an application owns is updated by its update: every image of it that has a new version moves with\nit, and the plan says which. A major version needs ``accept_major``, and a database's also a copy of\nthe application's databases that was proven to restore within the last day (409 ``docker_blocked``,\n``reason`` ``verified_copy``, with the commands that make one). What nobody of Noust made is not updated\nhere (``bring_first``: bring its stack to Noust; ``loose``: a container on its own), and what a database\nengine or Noust owns is updated through its own door (409 ``docker_owned``). Needs the permission to\nchange Docker, the one to deploy, and sudo mode.\n\nArgs:\n    image_id: The image's id, as the listing gives it.\n    session: The authenticated session, in sudo mode.\n    body: ``accept_major``.\n\nReturns:\n    The queued update of the application.\n\nRaises:\n    DockerNotFoundError: 404 when there is none.\n    DockerBlockedError: 409 ``docker_blocked`` with the reason.\n    DockerOwnedError: 409 when an engine or Noust owns it.",
+        "operationId": "update_image_api_docker_images__image_id__update_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "image_id",
+            "required": true,
+            "schema": {
+              "title": "Image Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/DockerUpdateRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Image",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.manage",
         "x-noust-requires-elevation": true
       }
     },
@@ -106864,6 +107968,518 @@
           "Docker"
         ],
         "x-noust-permission": "docker.read"
+      }
+    },
+    "/api/docker/stacks/{name}/bring": {
+      "post": {
+        "description": "Bring a stack that already runs to Noust, or say what that would do.\n\nThis is ``noust app adopt`` where the zone shows the stack: Noust registers it as it runs, and nothing\nthat runs is recreated, restarted or changed, nor is its compose file rewritten. The folder and the file\nare what the stack's containers say; the name the application will have is the only thing typed. With\n``preview`` nothing is registered and the answer is what would be: that the folder is on this server,\nwhat the rehearsed ``up`` says, the counts, what would not come back after a restart. Compose's own\nwords, when starting it the way Noust would changes something, are in ``output`` of a 409 and are not\nparaphrased. What is already Noust's, what is not on this server and a stack started from several files\nare refused first with the reason as a code (409 ``docker_blocked``). Needs the permission to change\nDocker, the one to manage applications, and sudo mode.\n\nArgs:\n    name: The Compose project's name.\n    body: The name the application will have, whether to only preview, and whether to accept a\n        rehearsal that changes something.\n    session: The authenticated session, in sudo mode.\n\nReturns:\n    What was, or would be, registered.\n\nRaises:\n    DockerNotFoundError: 404 when there is no such stack.\n    DockerOwnedError: 409 when an engine or Noust owns it.\n    DockerBlockedError: 409 ``docker_blocked`` with the reason.\n    DeploymentError: 409 when adopting is refused (Compose's rehearsal, a unit that exists).",
+        "operationId": "bring_stack_api_docker_stacks__name__bring_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DockerBringRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerBringOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "It cannot be brought, or starting it as Noust would changes it"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bring Stack",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/docker/stacks/{name}/compose": {
+      "get": {
+        "description": "Read the document of a stack, or say why it is not edited here.\n\nNeeds the permission that reveals secrets: a document can hold a value somebody typed into it. The read\nis recorded.\n\nArgs:\n    name: The Compose project's name.\n    session: The authenticated session.\n\nReturns:\n    The document and where it is; or ``editable: false`` with a code and a sentence that says whose it is\n    and where it is changed.\n\nRaises:\n    DockerNotFoundError: 404 when there is no such stack.\n    DockerOwnedError: 409 when a database engine or Noust owns it.",
+        "operationId": "get_compose_api_docker_stacks__name__compose_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerComposeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Compose",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "secrets.reveal"
+      },
+      "put": {
+        "description": "Apply a document to a stack: judged again, kept as a version, then the application's update behind its\nhealth gate.\n\nA document that does not pass is refused (409 ``docker_blocked``, ``reason`` ``invalid``) and nothing is\nkept. One that passes is kept as a version with who saved it and why, and a job runs the update with it;\nwhen the stack does not come up the document before is put back and the job fails saying so, and the\nhistory has that too. Needs the permission to change Docker, the one to manage applications and sudo mode.\n\nArgs:\n    name: The Compose project's name.\n    body: The document and why.\n    session: The authenticated session, in sudo mode.\n\nReturns:\n    The queued update.\n\nRaises:\n    DockerNotFoundError: 404 when there is no such stack.\n    DockerBlockedError: 409 ``docker_blocked``: its document is not edited here, it does not pass, or it\n        is what the stack has.\n    DeploysFrozenError: 409 while deploys are frozen for the application.",
+        "operationId": "save_compose_api_docker_stacks__name__compose_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DockerComposeSaveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Compose",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/docker/stacks/{name}/compose/check": {
+      "post": {
+        "description": "Judge a document for a stack without writing anything.\n\nCompose is asked for the model the document resolves to (``include``, ``extends`` and ``volumes_from``\ncount), and that model is what the guard of privileges reads. A document Compose does not read answers\nwith Compose's own words and the line. Then what the change would do: the services, whether the images it\nbrings in exist, the variables the stack lacks, the difference with what runs and what starting the stack\nfrom it would recreate, create or remove, from Compose's own rehearsal. The text is not written anywhere.\nNeeds the permission to change Docker and the one to reveal secrets: Compose resolves the document with\nthe stack's own variables, so an answer can carry the value of one (``image: ${DB_PASSWORD}``), which is\nwhat reading the document already asks for.\n\nArgs:\n    name: The Compose project's name.\n    body: The document as it would be saved.\n    session: The authenticated session.\n\nReturns:\n    The judgement.\n\nRaises:\n    DockerNotFoundError: 404 when there is no such stack.\n    DockerBlockedError: 409 ``docker_blocked`` when its document is not edited here.\n    PermissionDenied: 403 for whoever may not reveal secrets.",
+        "operationId": "check_compose_api_docker_stacks__name__compose_check_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DockerComposeCheckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerComposeCheckOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check Compose",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.manage"
+      }
+    },
+    "/api/docker/stacks/{name}/compose/versions": {
+      "get": {
+        "description": "List the versions of a stack's document, newest first: who saved each, when and why. There is no text.\n\nArgs:\n    name: The Compose project's name.\n    session: The authenticated session.\n\nReturns:\n    The versions.\n\nRaises:\n    DockerNotFoundError: 404 when there is no such stack.\n    DockerBlockedError: 409 ``docker_blocked`` when its document is not edited here.",
+        "operationId": "list_compose_versions_api_docker_stacks__name__compose_versions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerComposeVersionsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Compose Versions",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.read"
+      }
+    },
+    "/api/docker/stacks/{name}/compose/versions/{version}": {
+      "get": {
+        "description": "Read one version of a stack's document, with what putting it back would change in what runs now.\n\nNeeds the permission that reveals secrets; the read is recorded.\n\nArgs:\n    name: The Compose project's name.\n    version: The version's number.\n    session: The authenticated session.\n\nReturns:\n    The version, its text and the difference with what runs.\n\nRaises:\n    DockerNotFoundError: 404 when there is no such stack or version.",
+        "operationId": "get_compose_version_api_docker_stacks__name__compose_versions__version__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerComposeVersionDetailOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Compose Version",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "secrets.reveal"
+      }
+    },
+    "/api/docker/stacks/{name}/compose/versions/{version}/restore": {
+      "post": {
+        "description": "Put an earlier version of a stack's document back, by the same road as an edit.\n\nIt is judged like any edit (what no longer passes is refused), kept as a version of its own (``restore``)\nand applied behind the health gate. Needs the permission to change Docker, the one to manage applications\nand sudo mode.\n\nArgs:\n    name: The Compose project's name.\n    version: The version to go back to.\n    session: The authenticated session, in sudo mode.\n    body: Why.\n\nReturns:\n    The queued update.\n\nRaises:\n    DockerNotFoundError: 404 when there is no such stack or version.\n    DockerBlockedError: 409 ``docker_blocked``: it does not pass, or it is what the stack has.",
+        "operationId": "restore_compose_version_api_docker_stacks__name__compose_versions__version__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/DockerComposeRestoreRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore Compose Version",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/docker/stacks/{name}/restart": {
+      "post": {
+        "description": "Restart every container of a stack nobody of Noust owns.\n\nArgs:\n    name: The Compose project's name.\n    session: The authenticated session, in sudo mode.\n\nReturns:\n    What was done.\n\nRaises:\n    DockerNotFoundError: 404 when there is none.\n    DockerOwnedError: 409 when it is somebody's.",
+        "operationId": "restart_stack_api_docker_stacks__name__restart_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerActionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restart Stack",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/docker/stacks/{name}/start": {
+      "post": {
+        "description": "Start every container of a stack nobody of Noust owns, in the order Compose gives.\n\nWhat belongs to an application, a database engine or Noust is refused (409 ``docker_owned``) with the\ndoor to use. Needs sudo mode and ``docker.manage``.\n\nArgs:\n    name: The Compose project's name.\n    session: The authenticated session, in sudo mode.\n\nReturns:\n    What was done.\n\nRaises:\n    DockerNotFoundError: 404 when there is none.\n    DockerOwnedError: 409 when it is somebody's.",
+        "operationId": "start_stack_api_docker_stacks__name__start_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerActionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Stack",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/docker/stacks/{name}/stop": {
+      "post": {
+        "description": "Stop every container of a stack nobody of Noust owns, giving each 30 seconds before Docker kills it.\n\nArgs:\n    name: The Compose project's name.\n    session: The authenticated session, in sudo mode.\n\nReturns:\n    What was done.\n\nRaises:\n    DockerNotFoundError: 404 when there is none.\n    DockerOwnedError: 409 when it is somebody's.",
+        "operationId": "stop_stack_api_docker_stacks__name__stop_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerActionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stop Stack",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.manage",
+        "x-noust-requires-elevation": true
       }
     },
     "/api/docker/summary": {

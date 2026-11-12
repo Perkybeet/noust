@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from noust.core.docker.cleanup import CleanupPlan
 
 __all__ = [
+    "DockerBlockedError",
     "DockerNotFoundError",
     "DockerOwnedError",
     "DockerPlanChangedError",
@@ -97,6 +98,35 @@ class DockerPlanChangedError(DockerError, PrerequisiteError):
         """
         super().__init__(message, details)
         self.plan = plan
+
+
+class DockerBlockedError(DockerError, PrerequisiteError):
+    """
+    What was asked cannot be done yet, and what is missing is something a person can give.
+
+    Nothing was changed. ``reason`` says which door is shut so a console can draw the right thing and not
+    parse a sentence: ``verified_copy`` (a database's major version waits for a copy that was proven to
+    restore), ``accept_major`` (a major version is a decision, to be taken on purpose), ``bring_first`` (what
+    Noust did not create is brought to it before it is updated), ``loose`` (a container nobody made is not
+    updated blind), ``nothing_new``, ``not_looked`` and ``unknown`` (there is nothing to update to), or
+    ``way_back`` (the image is a version an application keeps to go back to).
+
+    Attributes:
+        reason: One of the words above.
+        via: The command that gives what is missing, or does it by the owner; empty when there is none.
+    """
+
+    def __init__(self, message: str, details: str = "", *, reason: str, via: str = "") -> None:
+        """
+        Args:
+            message: What cannot be done.
+            details: What would make it possible.
+            reason: Which door is shut.
+            via: The command that gives what is missing.
+        """
+        super().__init__(message, details)
+        self.reason = reason
+        self.via = via
 
 
 class DockerRefusedError(DockerError, PrerequisiteError):

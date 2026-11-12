@@ -57,6 +57,7 @@ from noust.core.access import AccessConflictError, AccessError, AccessNotFoundEr
 from noust.core.accounts import AccountNotFoundError, AuthenticationFailed
 from noust.core.applock import AppBusyError
 from noust.core.docker.errors import (
+    DockerBlockedError,
     DockerOwnedError,
     DockerPlanChangedError,
     DockerRefusedError,
@@ -282,6 +283,9 @@ _CODE_BY_ERROR: tuple[tuple[type[NoustError], str], ...] = (
     # is not there or refused is a state of the machine, and a cleanup plan that is not the one that
     # was shown is shown again. The console branches on each.
     (DockerOwnedError, "docker_owned"),
+    # What cannot be done yet and a person can give: a copy that was proven to restore, the decision to
+    # take a major version, bringing a stack to Noust first. ``reason`` says which.
+    (DockerBlockedError, "docker_blocked"),
     (DockerPlanChangedError, "plan_changed"),
     (DockerRefusedError, "docker_refused"),
     (DockerUnavailableError, "docker_unavailable"),
@@ -484,6 +488,10 @@ def error_response(exc: NoustError) -> JSONResponse:
     if isinstance(exc, DockerOwnedError):
         # Whose it is, for the console to lead to the application or the engine that changes it.
         content["owner"] = {"kind": exc.owner_kind, "subject": exc.subject}
+    if isinstance(exc, DockerBlockedError):
+        # Which door is shut and the command that opens it, for the console to draw and not to parse.
+        content["reason"] = exc.reason
+        content["via"] = exc.via
     if isinstance(exc, DockerPlanChangedError):
         # The plan as it is now, to be shown again.
         content["plan"] = exc.plan.to_dict()

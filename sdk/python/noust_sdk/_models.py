@@ -3370,6 +3370,40 @@ DockerAttentionOut = TypedDict("DockerAttentionOut", {
     "subject": NotRequired[Union[str, None]],
 })
 
+DockerBringOut = TypedDict("DockerBringOut", {
+    "adopted": NotRequired[bool],
+    "compose_file": Required[str],
+    "containers": NotRequired[list[str]],
+    "counts": NotRequired[dict[str, int]],
+    "deployment_id": NotRequired[Union[int, None]],
+    "folder": Required[str],
+    "headless": NotRequired[bool],
+    "name": Required[str],
+    "port": NotRequired[Union[int, None]],
+    "project": NotRequired[Union[str, None]],
+    "recreates": NotRequired[list[str]],
+    "rehearsal": NotRequired[str],
+    "restart_loss": NotRequired[list["DockerBringRestartOut"]],
+    "running": NotRequired[bool],
+    "site": NotRequired[Union[str, None]],
+    "source": NotRequired[str],
+    "stack": Required[str],
+    "unit": NotRequired[str],
+    "warnings": NotRequired[list[str]],
+})
+
+DockerBringRequest = TypedDict("DockerBringRequest", {
+    "accept_recreate": NotRequired[bool],
+    "name": NotRequired[Union[str, None]],
+    "preview": NotRequired[bool],
+})
+
+DockerBringRestartOut = TypedDict("DockerBringRestartOut", {
+    "container": Required[str],
+    "policy": Required[str],
+    "why": Required[str],
+})
+
 DockerCanOut = TypedDict("DockerCanOut", {
     "blocked": NotRequired[str],
     "console": NotRequired[bool],
@@ -3378,6 +3412,16 @@ DockerCanOut = TypedDict("DockerCanOut", {
     "start": NotRequired[bool],
     "stop": NotRequired[bool],
     "via": NotRequired[str],
+})
+
+DockerCheckLineOut = TypedDict("DockerCheckLineOut", {
+    "detail": NotRequired[str],
+    "name": Required[str],
+    "ok": Required[bool],
+})
+
+DockerCheckRequest = TypedDict("DockerCheckRequest", {
+    "pull": NotRequired[bool],
 })
 
 DockerCleanupPlanOut = TypedDict("DockerCleanupPlanOut", {
@@ -3393,6 +3437,73 @@ DockerCleanupRequest = TypedDict("DockerCleanupRequest", {
     "confirm_names": NotRequired[dict[str, str]],
     "select": NotRequired[list[str]],
     "token": Required[str],
+})
+
+DockerComposeCheckOut = TypedDict("DockerComposeCheckOut", {
+    "added": NotRequired[int],
+    "changed": NotRequired[bool],
+    "checks": NotRequired[list["DockerCheckLineOut"]],
+    "diff": NotRequired[str],
+    "domain": Required[str],
+    "effects": NotRequired[Union["DockerEffectsOut", None]],
+    "images": NotRequired[list["DockerImageCheckOut"]],
+    "kind": Required[str],
+    "problems": NotRequired[list["DockerProblemOut"]],
+    "removed": NotRequired[int],
+    "services": NotRequired[list["DockerServiceOut"]],
+    "stack": Required[str],
+    "valid": NotRequired[bool],
+    "warnings": NotRequired[list[str]],
+})
+
+DockerComposeCheckRequest = TypedDict("DockerComposeCheckRequest", {
+    "text": Required[str],
+})
+
+DockerComposeOut = TypedDict("DockerComposeOut", {
+    "domain": NotRequired[Union[str, None]],
+    "editable": Required[bool],
+    "kind": NotRequired[Union[str, None]],
+    "path": NotRequired[Union[str, None]],
+    "stack": Required[str],
+    "text": NotRequired[Union[str, None]],
+    "version": NotRequired[Union[int, None]],
+    "why": NotRequired[str],
+    "why_code": NotRequired[str],
+})
+
+DockerComposeRestoreRequest = TypedDict("DockerComposeRestoreRequest", {
+    "reason": NotRequired[str],
+})
+
+DockerComposeSaveRequest = TypedDict("DockerComposeSaveRequest", {
+    "reason": NotRequired[str],
+    "text": Required[str],
+})
+
+DockerComposeVersionDetailOut = TypedDict("DockerComposeVersionDetailOut", {
+    "actor": NotRequired[Union[str, None]],
+    "created_at": Required[str],
+    "diff": NotRequired[str],
+    "diff_against": NotRequired[str],
+    "reason": NotRequired[str],
+    "source": Required[str],
+    "text": Required[str],
+    "version": Required[int],
+})
+
+DockerComposeVersionOut = TypedDict("DockerComposeVersionOut", {
+    "actor": NotRequired[Union[str, None]],
+    "created_at": Required[str],
+    "reason": NotRequired[str],
+    "sha256": Required[str],
+    "size": Required[int],
+    "source": Required[str],
+    "version": Required[int],
+})
+
+DockerComposeVersionsOut = TypedDict("DockerComposeVersionsOut", {
+    "items": NotRequired[list["DockerComposeVersionOut"]],
 })
 
 DockerContainerDetailOut = TypedDict("DockerContainerDetailOut", {
@@ -3446,12 +3557,32 @@ DockerContainersOut = TypedDict("DockerContainersOut", {
     "total": NotRequired[int],
 })
 
+DockerCopyOut = TypedDict("DockerCopyOut", {
+    "databases": NotRequired[int],
+    "last_ok_at": NotRequired[Union[str, None]],
+    "state": Required[str],
+    "via": NotRequired[str],
+})
+
 DockerDiskOut = TypedDict("DockerDiskOut", {
     "docker_bytes": NotRequired[Union[int, None]],
     "free_bytes": NotRequired[Union[int, None]],
     "path": NotRequired[str],
     "reclaimable_bytes": NotRequired[Union[int, None]],
     "total_bytes": NotRequired[Union[int, None]],
+})
+
+DockerEffectOut = TypedDict("DockerEffectOut", {
+    "action": Required[str],
+    "kind": Required[str],
+    "name": Required[str],
+    "service": NotRequired[str],
+})
+
+DockerEffectsOut = TypedDict("DockerEffectsOut", {
+    "changes": NotRequired[list["DockerEffectOut"]],
+    "output": NotRequired[str],
+    "removes_volumes": NotRequired[bool],
 })
 
 DockerEngineInfoOut = TypedDict("DockerEngineInfoOut", {
@@ -3493,6 +3624,13 @@ DockerHealthOut = TypedDict("DockerHealthOut", {
     "status": Required[str],
 })
 
+DockerImageCheckOut = TypedDict("DockerImageCheckOut", {
+    "detail": NotRequired[str],
+    "image": Required[str],
+    "service": Required[str],
+    "state": Required[str],
+})
+
 DockerImageOut = TypedDict("DockerImageOut", {
     "containers": Required[str],
     "id": Required[str],
@@ -3509,6 +3647,7 @@ DockerImageRowOut = TypedDict("DockerImageRowOut", {
     "owner": Required["DockerOwnerOut"],
     "size_bytes": NotRequired[Union[int, None]],
     "tags": NotRequired[list[str]],
+    "update": NotRequired[Union["DockerUpdateOut", None]],
     "used_by": NotRequired[list[str]],
     "way_back": NotRequired[bool],
 })
@@ -3615,6 +3754,14 @@ DockerPortOut = TypedDict("DockerPortOut", {
     "proto": Required[str],
 })
 
+DockerProblemOut = TypedDict("DockerProblemOut", {
+    "code": Required[str],
+    "line": NotRequired[Union[int, None]],
+    "message": Required[str],
+    "output": NotRequired[str],
+    "service": NotRequired[Union[str, None]],
+})
+
 DockerRemoveVolumeRequest = TypedDict("DockerRemoveVolumeRequest", {
     "confirm_name": NotRequired[Union[str, None]],
 })
@@ -3637,6 +3784,11 @@ DockerSentenceOut = TypedDict("DockerSentenceOut", {
     "text": Required[str],
 })
 
+DockerServiceOut = TypedDict("DockerServiceOut", {
+    "image": NotRequired[Union[str, None]],
+    "name": Required[str],
+})
+
 DockerStackDetailOut = TypedDict("DockerStackDetailOut", {
     "available": NotRequired[bool],
     "can_manage": NotRequired[bool],
@@ -3646,6 +3798,7 @@ DockerStackDetailOut = TypedDict("DockerStackDetailOut", {
 })
 
 DockerStackOut = TypedDict("DockerStackOut", {
+    "can": NotRequired["DockerCanOut"],
     "config_files": NotRequired[list[str]],
     "containers": NotRequired[list[str]],
     "name": Required[str],
@@ -3687,6 +3840,34 @@ DockerTouchesOut = TypedDict("DockerTouchesOut", {
     "networks": NotRequired[list[str]],
     "ports": NotRequired[str],
     "privileged": NotRequired[bool],
+})
+
+DockerUpdateOut = TypedDict("DockerUpdateOut", {
+    "app": NotRequired[Union[str, None]],
+    "apply": NotRequired[bool],
+    "backup": NotRequired[Union["DockerCopyOut", None]],
+    "change": NotRequired[str],
+    "checked_at": NotRequired[Union[str, None]],
+    "current_version": NotRequired[Union[str, None]],
+    "detail": NotRequired[str],
+    "floating": NotRequired[bool],
+    "image": Required[str],
+    "images": NotRequired[list[str]],
+    "latest_created": NotRequired[Union[str, None]],
+    "latest_version": NotRequired[Union[str, None]],
+    "major": NotRequired[bool],
+    "mode": Required[str],
+    "needs": NotRequired[Union[str, None]],
+    "owner": Required["DockerOwnerOut"],
+    "reference": NotRequired[Union[str, None]],
+    "stack": NotRequired[Union[str, None]],
+    "state": Required[str],
+    "steps": NotRequired[list[str]],
+    "via": NotRequired[str],
+})
+
+DockerUpdateRequest = TypedDict("DockerUpdateRequest", {
+    "accept_major": NotRequired[bool],
 })
 
 DockerUsageOut = TypedDict("DockerUsageOut", {

@@ -533,6 +533,13 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
         ("GET", "/api/sites/{domain}/config/versions/{version}", RESOURCE),
         ("POST", "/api/sites/{domain}/config/versions/{version}/restore", RESOURCE),
     ),
+    # The text a stack's Compose document held (item 189): the Docker zone is the machine's, so the
+    # history of a stack is read and put back by whoever administers the server, and never by a team.
+    "docker_stack_versions": (
+        ("GET", "/api/docker/stacks/{name}/compose/versions", INSTANCE),
+        ("GET", "/api/docker/stacks/{name}/compose/versions/{version}", INSTANCE),
+        ("POST", "/api/docker/stacks/{name}/compose/versions/{version}/restore", INSTANCE),
+    ),
     # What a one-time task left when it retired (item 164): the scheduled tasks of a server run
     # commands as root or as an application's account, so the whole page is the server's, the
     # record of what they did with it.

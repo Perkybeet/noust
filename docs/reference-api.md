@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-1199 operations.
+1212 operations.
 
 ## Access
 
@@ -730,12 +730,25 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/docker/containers/{ref}/terminal` | Open Container Terminal | `docker.manage` | yes |  |
 | GET | `/api/docker/engine` | Get Engine | `docker.read` |  |  |
 | GET | `/api/docker/images` | List Images | `docker.read` |  |  |
+| POST | `/api/docker/images/check` | Check Images | `docker.manage` | yes |  |
 | DELETE | `/api/docker/images/{image_id}` | Remove Image | `docker.manage` | yes | yes |
+| GET | `/api/docker/images/{image_id}/update` | Get Image Update | `docker.read` |  |  |
+| POST | `/api/docker/images/{image_id}/update` | Update Image | `docker.manage` | yes |  |
 | GET | `/api/docker/networks` | List Networks | `docker.read` |  |  |
 | DELETE | `/api/docker/networks/{ref}` | Remove Network | `docker.manage` | yes | yes |
 | GET | `/api/docker/restart-loss` | Get Restart Loss | `docker.read` |  |  |
 | GET | `/api/docker/stacks` | List Stacks | `docker.read` |  |  |
 | GET | `/api/docker/stacks/{name}` | Get Stack | `docker.read` |  |  |
+| POST | `/api/docker/stacks/{name}/bring` | Bring Stack | `docker.manage` | yes |  |
+| GET | `/api/docker/stacks/{name}/compose` | Get Compose | `secrets.reveal` |  |  |
+| PUT | `/api/docker/stacks/{name}/compose` | Save Compose | `docker.manage` | yes |  |
+| POST | `/api/docker/stacks/{name}/compose/check` | Check Compose | `docker.manage` |  |  |
+| GET | `/api/docker/stacks/{name}/compose/versions` | List Compose Versions | `docker.read` |  |  |
+| GET | `/api/docker/stacks/{name}/compose/versions/{version}` | Get Compose Version | `secrets.reveal` |  |  |
+| POST | `/api/docker/stacks/{name}/compose/versions/{version}/restore` | Restore Compose Version | `docker.manage` | yes |  |
+| POST | `/api/docker/stacks/{name}/restart` | Restart Stack | `docker.manage` | yes |  |
+| POST | `/api/docker/stacks/{name}/start` | Start Stack | `docker.manage` | yes |  |
+| POST | `/api/docker/stacks/{name}/stop` | Stop Stack | `docker.manage` | yes |  |
 | GET | `/api/docker/summary` | Get Summary | `docker.read` |  |  |
 | GET | `/api/docker/volumes` | List Volumes | `docker.read` |  |  |
 | GET | `/api/docker/volumes/sizes` | Get Volume Sizes | `docker.read` |  |  |

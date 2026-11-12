@@ -42,6 +42,8 @@ ACTION_VERBS = frozenset(
 
 #: Reads that carry one of those words. Path template to why it is a read.
 READS_THAT_SOUND_LIKE_ACTIONS = {
+    "/api/docker/restart-loss": "what would not come back after the machine restarts, listed; nothing is restarted",
+    "/api/docker/images/{image_id}/update": "what updating an image would move and what it asks for first; the POST updates",
     "/api/apps/{domain}/previews/pull-requests": "the open pull requests a preview can be made from",
     "/api/apps/{domain}/rollback-points": "lists the releases one can roll back to",
     "/api/apps/{domain}/restore-drills": "the rehearsals of a restore so far, listed; making one is the POST",

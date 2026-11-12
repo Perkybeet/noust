@@ -450,6 +450,7 @@ def put_stack_back(
     store: NoustStore,
     log: Logger,
     gate: Callable[..., RestartingGate],
+    write_source: bool = True,
 ) -> None:
     """
     Run the previous version of a Compose stack again, after the new one failed.
@@ -480,10 +481,13 @@ def put_stack_back(
         store: The store.
         log: Where progress is reported.
         gate: :func:`noust.deployers.lifecycle.health_gate_for`.
+        write_source: Put the files back in the recipe's own source directory too. A stack that has
+            none (one brought to Noust where it already ran, whose file is in its own folder) says
+            no, and the directory is not made for it.
     """
     fs = get_fs()
-    directory = recipe_source_dir(app_name, store)
-    _write_files(fs, directory, snapshot)
+    if write_source:
+        _write_files(fs, recipe_source_dir(app_name, store), snapshot)
     reached = isinstance(failure, DeploymentError | DockerError)
     app = store.get_app(domain)
     if not reached or app is None:

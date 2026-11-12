@@ -42,9 +42,12 @@ from noust.core.docker.errors import DockerOwnedError, DockerUnavailableError
 from noust.core.docker.gate import DockerGate
 from noust.core.docker.models import Container, OwnerKind
 from noust.core.exceptions import DockerError, ValidationError
+from noust.managers.docker_image_versions import ImageVersions
+from noust.managers.docker_updates import ImageUpdates
 from noust.terminal.targets import KIND_CONTAINER
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, require_elevated
+from noust.web.api.docker_change_models import update_out
 from noust.web.api.docker_models import (
     DockerActionOut,
     DockerAttentionOut,
@@ -359,7 +362,7 @@ def list_stacks(
         offset=page.offset,
         limit=page.limit,
         can_manage=manage,
-        items=[stack_out(project) for project in page.items],
+        items=[stack_out(project, _can(gate, project, session)) for project in page.items],
     )
 
 
@@ -386,7 +389,7 @@ def get_stack(name: str, session: Session) -> DockerStackDetailOut:
         return DockerStackDetailOut(available=False, engine=engine_out(report), can_manage=manage)
     project, members = gate.project(name)
     return DockerStackDetailOut(
-        stack=stack_out(project),
+        stack=stack_out(project, _can(gate, project, session)),
         containers=[container_out(c, _can(gate, c, session)) for c in members],
         can_manage=manage,
     )
@@ -579,12 +582,15 @@ def list_images(
     if not report.usable:
         return DockerImagesOut(**_list_head(DockerImagesOut, report, manage))
     page = gate.images(offset=offset, limit=limit, owner=_owner_kind(owner), search=search)
+    # What the last look at the registries found, and what updating each would do: one look at the
+    # machine for the whole page, and no registry is asked.
+    plans = ImageUpdates(gate, versions=ImageVersions(gate)).plans(page.items)
     return DockerImagesOut(
         total=page.total,
         offset=page.offset,
         limit=page.limit,
         can_manage=manage,
-        items=[image_out(i, _can(gate, i, session)) for i in page.items],
+        items=[image_out(i, _can(gate, i, session), update_out(plans[i.id])) for i in page.items],
     )
 
 

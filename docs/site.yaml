@@ -289,6 +289,11 @@ tabs:
             slug: guides/compose/adopt
             type: guide
             summary: Register a stack that already runs without recreating a container, what it requires, and what updates do afterwards.
+          - source: docs/docker.md
+            slug: guides/compose/docker
+            title: Docker, with a net
+            type: guide
+            summary: "New versions of the images in use, updating them behind the health gate, bringing a stack that already runs to Noust, and editing a stack's Compose so that a bad edit goes back by itself."
           - source: docs/compose-backups.md
             slug: guides/compose/backups
             type: guide

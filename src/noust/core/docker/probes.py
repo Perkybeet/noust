@@ -25,4 +25,15 @@ READ_ONLY_PROBES: tuple[tuple[object, ...], ...] = (
     ("docker", "system", "df", "-v", "--format", "*"),
     ("docker", "system", "df", "--format", "*"),
     ("docker", "inspect", "--type", "*", "*"),
+    # Asking a registry for the manifest of a tag and the config behind it downloads no layer and moves
+    # no local tag (:mod:`noust.core.docker.registry`); a pull does both, and is not here.
+    ("docker", "buildx", "imagetools", "inspect", "*"),
+    ("docker", "buildx", "imagetools", "inspect", "--format", "*", "*"),
+    # What a local image says of itself, for any number of images.
+    ("docker", "inspect", "--type", "image", "--format", "*", ...),
+    # A document read on the standard input (``-f -``): what Compose resolves it to, and what starting the
+    # stack from it would do, rehearsed (``--dry-run``). Neither writes the document anywhere nor changes
+    # a container; they are how an edit is judged before it is saved.
+    ("docker", "compose", "-p", "*", "-f", "-", "config", "--format", "json"),
+    ("docker", "compose", "-p", "*", "-f", "-", "up", "-d", "--dry-run", "--no-build"),
 )

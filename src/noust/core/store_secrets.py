@@ -69,6 +69,9 @@ RULES: dict[str, dict[str, str]] = {
     # What a one-time task printed and the command it ran: both already masked by shape when they
     # are written, and masked again in a copy, since a task's output is whatever it chose to say.
     "cron_once_history": {"command": TEXT, "output": TEXT},
+    # A stack's Compose document can hold a value somebody typed into it (a password in an
+    # ``environment:``): masked by shape in a copy, as the document is never handed over as it is.
+    "docker_stack_versions": {"text": TEXT},
 }
 
 #: A column whose name reads as a secret and is not one, or whose value is kept by another rule.

@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     from noust.core.docker.cleanup import CleanupPlan
     from noust.core.docker.engine import EngineInfo, EngineReport, diagnose, read_engine
     from noust.core.docker.errors import (
+        DockerBlockedError,
         DockerNotFoundError,
         DockerOwnedError,
         DockerPlanChangedError,
@@ -73,6 +74,7 @@ __getattr__, __dir__ = lazy_exports(
         "Container": "noust.core.docker.models",
         "ContainerDetail": "noust.core.docker.gate",
         "DockerGate": "noust.core.docker.gate",
+        "DockerBlockedError": "noust.core.docker.errors",
         "DockerNotFoundError": "noust.core.docker.errors",
         "DockerOwnedError": "noust.core.docker.errors",
         "DockerPlanChangedError": "noust.core.docker.errors",
@@ -107,6 +109,7 @@ __all__ = [
     "ComposeProject",
     "Container",
     "ContainerDetail",
+    "DockerBlockedError",
     "DockerGate",
     "DockerNotFoundError",
     "DockerOwnedError",

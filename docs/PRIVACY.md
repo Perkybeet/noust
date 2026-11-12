@@ -74,7 +74,11 @@ Programs that Noust runs for you keep their own policies, and Noust gives them n
 you with: `git` talks to your Git host, `certbot` to Let's Encrypt (which receives the contact email
 you gave it, as its terms require), `apt`/`dnf` to your distribution's mirrors, `npm`, `pip`, `bun` or
 `docker` to the registries your application's dependencies come from. Those are the work you asked
-for, not reports about it.
+for, not reports about it. Looking for a new version of the images in use asks each image's own registry,
+through `docker`, what its tag points at (the question `docker pull` asks, without taking the layers) and
+only when you ask: `noust docker images check`, or the button in the console. No page of the console asks a
+registry, and nothing about your server goes with the question
+([docker.md](docker.md)).
 
 ## How to check it
 

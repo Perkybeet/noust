@@ -111,6 +111,11 @@ judges a candidate (the services, the variables, what refuses it and which requi
 stack lacks) and `PUT .../compose/document` keeps it; the update that runs it is
 `POST /api/apps/{domain}/update`.
 
+From the Docker section of the console (and `noust docker stack compose`) the same document is edited with
+a net: judged by the model Compose resolves it to, with what it would change said first, every saved text kept as
+a version, and the document before put back when the stack does not come up. A stack brought to Noust where it
+already ran, and is not a repository, is edited in its own file. See [docker.md](docker.md).
+
 ## Variables the compose file asks for
 
 A compose file interpolates `${NAME}` from the project's `.env` (and from the server's

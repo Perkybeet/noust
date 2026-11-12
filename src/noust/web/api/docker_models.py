@@ -243,6 +243,81 @@ class DockerContainersOut(DockerListOut):
     items: list[DockerContainerOut] = Field(default_factory=list)
 
 
+class DockerCopyOut(BaseModel):
+    """
+    Whether there is a copy of an application's databases that was proven to restore.
+
+    Attributes:
+        state: ``ok`` (a restore drill that loaded a database passed within the last day), ``stale`` (there
+            is one, older) or ``missing``.
+        last_ok_at: When the newest such drill ended.
+        databases: How many databases it loaded.
+        via: The commands that make one.
+    """
+
+    state: str
+    last_ok_at: str | None = None
+    databases: int = 0
+    via: str = ""
+
+
+class DockerUpdateOut(BaseModel):
+    """
+    What updating an image does, and what the last look at the registries found of it.
+
+    Attributes:
+        image: The image as the listing names it.
+        reference: The reference a registry is asked about for it; null when it has none.
+        mode: ``with_net`` (through its application, behind the health gate, the way back kept),
+            ``bring_first`` (bring its stack to Noust, then update), ``loose`` (a container on its own: not
+            updated), ``via_owner`` (a database engine's or Noust's: through its own door), ``rollback`` (a
+            version an application keeps to go back to), ``unknown`` (nothing to update to: nobody looked,
+            or the look could not tell) or ``none`` (it is current).
+        state: ``current``, ``newer``, ``unknown`` or ``not_looked``.
+        change: What the new version is to the one that runs: ``patch``, ``minor``, ``major`` or
+            ``unknown``; empty when there is none.
+        floating: The tag is one that moves (``latest``, ``stable``).
+        current_version: The version that runs, as far as the image says.
+        latest_version: The version behind the tag now.
+        latest_created: When that image was built.
+        checked_at: When the registries were asked.
+        detail: What the registry said, when the look could not tell.
+        owner: Whose the image is.
+        app: The application that is updated (``with_net``).
+        stack: The Compose project to bring to Noust (``bring_first``).
+        images: Every image that moves with the update, by reference.
+        steps: What it does, in order: ``pull``, ``copy_databases``, ``recreate_behind_health``,
+            ``keep_previous``, ``roll_back_on_failure``.
+        major: Something that moves is a new major version.
+        needs: What is missing before it can go ahead: ``verified_copy`` or ``accept_major``.
+        backup: The copy of the application's databases, when a database's major version moves.
+        apply: It can go ahead once the person has said so.
+        via: Where it is done instead, as a command, when it is not here.
+    """
+
+    image: str
+    reference: str | None = None
+    mode: str
+    state: str
+    change: str = ""
+    floating: bool = False
+    current_version: str | None = None
+    latest_version: str | None = None
+    latest_created: str | None = None
+    checked_at: str | None = None
+    detail: str = ""
+    owner: DockerOwnerOut
+    app: str | None = None
+    stack: str | None = None
+    images: list[str] = Field(default_factory=list)
+    steps: list[str] = Field(default_factory=list)
+    major: bool = False
+    needs: str | None = None
+    backup: DockerCopyOut | None = None
+    apply: bool = False
+    via: str = ""
+
+
 class DockerImageRowOut(BaseModel):
     """
     An image, once, with every name it has.
@@ -257,6 +332,8 @@ class DockerImageRowOut(BaseModel):
         dangling: It has no name.
         owner: Whose it is.
         can: What may be done to it.
+        update: What the last look at the registries found of it and what updating it would do; null when
+            it was not worked out (a listing that cannot ask the registries' last findings).
     """
 
     id: str
@@ -268,6 +345,7 @@ class DockerImageRowOut(BaseModel):
     dangling: bool = False
     owner: DockerOwnerOut
     can: DockerCanOut
+    update: DockerUpdateOut | None = None
 
 
 class DockerImagesOut(DockerListOut):
@@ -398,6 +476,9 @@ class DockerStackOut(BaseModel):
         state: ``running``, ``warning`` (a worker is down or unhealthy), ``failed`` (a worker keeps
             falling or ended badly) or ``stopped``.
         owner: Whose it is.
+        can: What may be done to it by whoever asks: started, stopped and restarted as a whole when
+            nobody of Noust owns it, and where it is done when an application or an engine does (it
+            is never removed from here).
     """
 
     name: str
@@ -409,6 +490,7 @@ class DockerStackOut(BaseModel):
     workers: int = 0
     state: str = ""
     owner: DockerOwnerOut
+    can: DockerCanOut = Field(default_factory=DockerCanOut)
 
 
 class DockerStacksOut(DockerListOut):
@@ -918,18 +1000,21 @@ def container_out(container: Container, can: DockerCanOut) -> DockerContainerOut
     return DockerContainerOut(**body, can=can)
 
 
-def image_out(image: Image, can: DockerCanOut) -> DockerImageRowOut:
+def image_out(
+    image: Image, can: DockerCanOut, update: DockerUpdateOut | None = None
+) -> DockerImageRowOut:
     """
     Args:
         image: An image with its owner.
         can: What may be done to it.
+        update: What the last look at the registries found of it and what updating it would do.
 
     Returns:
         Its API shape.
     """
     body = image.to_dict()
     body["owner"] = owner_out(image.owner)
-    return DockerImageRowOut(**body, dangling=not image.tags, can=can)
+    return DockerImageRowOut(**body, dangling=not image.tags, can=can, update=update)
 
 
 def volume_out(volume: Volume, can: DockerCanOut) -> DockerVolumeOut:
@@ -963,17 +1048,18 @@ def network_out(network: Network, can: DockerCanOut) -> DockerNetworkOut:
     return DockerNetworkOut(**body, can=can)
 
 
-def stack_out(project: ComposeProject) -> DockerStackOut:
+def stack_out(project: ComposeProject, can: DockerCanOut | None = None) -> DockerStackOut:
     """
     Args:
         project: A Compose project with its owner.
+        can: What may be done to it; nothing when not said.
 
     Returns:
         Its API shape.
     """
     body = project.to_dict()
     body["owner"] = owner_out(project.owner)
-    return DockerStackOut(**body)
+    return DockerStackOut(**body, can=can if can is not None else DockerCanOut())
 
 
 def plan_out(plan: cleanup_module.CleanupPlan) -> DockerCleanupPlanOut:

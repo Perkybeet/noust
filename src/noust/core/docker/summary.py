@@ -16,13 +16,16 @@ What is worth stopping for, in this order:
    failed), that nobody of Noust started for itself, and that is not a job that did its work.
 3. **The disk**: a fifth or less of the disk Docker lives on is free.
 
-Updating images and the databases whose version would change by a tag moving are asked about by
-the code that checks the registries, and slot into :data:`ORDER` where they belong.
+4. **A new version** (``update``) and **a new major version** (``major``) of an image a container
+   runs, as the last look at the registries found them (:func:`version_attention`). The summary never
+   asks a registry: asking is something the operator does on purpose, and what is said here is what was
+   found then, for the images that are still in use. A major version is a decision and not an update, so
+   it is a kind of its own.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -31,6 +34,7 @@ from noust.core.docker.engine import EngineReport
 from noust.core.docker.events import LOOP_MINUTES
 from noust.core.docker.inspect import Inspected
 from noust.core.docker.models import Container, Owner, OwnerKind
+from noust.core.docker_image_checks import VersionRecord
 
 __all__ = [
     "LOOP_AT",
@@ -41,6 +45,7 @@ __all__ = [
     "Summary",
     "attention",
     "counts",
+    "version_attention",
 ]
 
 #: Restarts in the window that make a container a loop.
@@ -49,8 +54,8 @@ LOOP_AT = 3
 #: Free over total at or below which the disk is something to look at.
 LOW_DISK_RATIO = 0.2
 
-#: The kinds of attention, worst first. The ones that need the registries (a version that is new, a
-#: database whose major version would change) go between the stop and the disk.
+#: The kinds of attention, worst first. The ones the registries decide (a version that is new, a new
+#: major version) go between the stop and the disk.
 ORDER = ("loop", "stopped", "update", "major", "disk")
 
 
@@ -204,11 +209,47 @@ def counts(
     }
 
 
+def version_attention(
+    records: Iterable[VersionRecord], in_use: Collection[str]
+) -> tuple[Attention, ...]:
+    """
+    Say how many images in use have a new version, and how many a new major one.
+
+    Args:
+        records: What the last look at the registries found, for any images.
+        in_use: The references containers run now; what is not among them is not counted.
+
+    Returns:
+        An ``update`` for the images with a new version that is not a major one and a ``major`` for the
+        ones whose new version is (each only when there is one), with the references and when the
+        look was as ``facts``.
+    """
+    newer = [item for item in records if item.state == "newer" and item.reference in in_use]
+    found: list[Attention] = []
+    for kind, group in (
+        ("update", [item for item in newer if item.change != "major"]),
+        ("major", [item for item in newer if item.change == "major"]),
+    ):
+        if group:
+            found.append(
+                Attention(
+                    kind,
+                    count=len(group),
+                    facts={
+                        "images": sorted(item.reference for item in group),
+                        "checked_at": max(item.checked_at for item in group),
+                    },
+                )
+            )
+    return tuple(found)
+
+
 def attention(
     containers: Sequence[Container],
     inspected: Mapping[str, Inspected],
     restarts: Mapping[str, int],
     disk: DiskInfo | None,
+    versions: Sequence[Attention] = (),
 ) -> tuple[Attention, ...]:
     """
     Find what asks for the operator.
@@ -218,6 +259,7 @@ def attention(
         inspected: What ``inspect`` said of them, by id.
         restarts: How many times Docker restarted each in the last :data:`~noust.core.docker.events.LOOP_MINUTES`.
         disk: The disk Docker lives on.
+        versions: The new versions of images (:func:`version_attention`).
 
     Returns:
         The items, worst first (:data:`ORDER`); within a kind, the one that hurts most first.
@@ -276,6 +318,7 @@ def attention(
         )
     found: list[Attention] = [item for _, item in sorted(loops, key=lambda pair: -pair[0])]
     found += [item for _, item in sorted(stops, key=lambda pair: pair[0], reverse=True)]
+    found += versions
     if (
         disk is not None
         and disk.free_bytes is not None

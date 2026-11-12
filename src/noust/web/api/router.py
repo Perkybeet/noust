@@ -85,6 +85,9 @@ from noust.web.api.diagnose import router as diagnose_router
 from noust.web.api.dns import apps_router as app_dns_router
 from noust.web.api.dns import router as dns_providers_router
 from noust.web.api.docker import router as docker_router
+from noust.web.api.docker_compose import router as docker_compose_router
+from noust.web.api.docker_stacks import router as docker_stacks_router
+from noust.web.api.docker_updates import router as docker_updates_router
 from noust.web.api.docker_views import router as docker_views_router
 from noust.web.api.domains import dns_router
 from noust.web.api.domains import router as domains_router
@@ -309,6 +312,9 @@ router.include_router(databases_router, prefix="/databases", tags=["Databases"])
 router.include_router(databases_apps_router, prefix="/apps", tags=["Databases"])
 router.include_router(cron_router, prefix="/cron", tags=["Cron Jobs"])
 router.include_router(docker_router, prefix="/docker", tags=["Docker"])
+router.include_router(docker_updates_router, prefix="/docker", tags=["Docker"])
+router.include_router(docker_stacks_router, prefix="/docker", tags=["Docker"])
+router.include_router(docker_compose_router, prefix="/docker", tags=["Docker"])
 router.include_router(deployments_router, prefix="/deployments", tags=["Deployments"])
 router.include_router(first_deploys_router, prefix="/first-deploys", tags=["Deployments"])
 # Mounted at the same "/apps" prefix as apps_router: diagnose.py owns exactly

@@ -222,6 +222,51 @@ AGENTS_COLUMNS: list[Column] = []
 ASSISTANT_SQL = ""
 ASSISTANT_COLUMNS: list[Column] = []
 
+# Owned by the Docker lane that updates images and edits a stack's Compose (item 189).
+# docker_image_checks: what the last look at the registries found of each image a container runs, one
+#   row per image reference, replaced whole by the next look (``noust.core.docker_image_checks``, the
+#   only reader and writer). ``state`` is ``current``, ``newer`` or ``unknown`` (the registry could not be
+#   asked, and ``detail`` says why); ``change`` says what the new version is to the one that runs
+#   (``patch``, ``minor``, ``major`` or ``unknown``) and ``floating`` that the tag is one that moves
+#   (``latest``). Nothing is asked of a registry unless the operator asks: the summary of the zone only
+#   reads these rows.
+# docker_stack_versions: the text of a stack's Compose document each time Noust kept it, as a site's
+#   file has its history (``noust.core.docker_stack_versions``, the only reader and writer): which
+#   number it has for the stack, its hash and size, how it came to be (``found``, ``edit``, ``revert`` or
+#   ``restore``), who saved it, why and when. The text can hold a value somebody typed into the
+#   document, so a copy of the store masks it (``core/store_secrets.py``).
+DOCKER_SQL = """
+CREATE TABLE IF NOT EXISTS docker_image_checks (
+    reference TEXT PRIMARY KEY,
+    state TEXT NOT NULL,
+    local_digest TEXT,
+    remote_digest TEXT,
+    current_version TEXT,
+    latest_version TEXT,
+    latest_created TEXT,
+    change TEXT NOT NULL DEFAULT '',
+    floating INTEGER NOT NULL DEFAULT 0,
+    method TEXT NOT NULL DEFAULT '',
+    detail TEXT NOT NULL DEFAULT '',
+    checked_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS docker_stack_versions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    domain TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    sha256 TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    source TEXT NOT NULL,
+    actor TEXT,
+    reason TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    text TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_docker_stack_versions_stack
+    ON docker_stack_versions(domain, version);
+"""
+DOCKER_COLUMNS: list[Column] = []
+
 
 def _fragments() -> list[str]:
     return [
@@ -236,6 +281,7 @@ def _fragments() -> list[str]:
         REPORTS_SQL,
         AGENTS_SQL,
         ASSISTANT_SQL,
+        DOCKER_SQL,
     ]
 
 
@@ -252,6 +298,7 @@ def _columns() -> list[Column]:
         *REPORTS_COLUMNS,
         *AGENTS_COLUMNS,
         *ASSISTANT_COLUMNS,
+        *DOCKER_COLUMNS,
     ]
 
 

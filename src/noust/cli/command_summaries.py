@@ -144,6 +144,12 @@ SUMMARIES: dict[str, tuple[bool, bool | str, str, str]] = {
         "",
         "DNS accounts, the DNS-01 challenge, and Noust DNS: a name server of your own.",
     ),
+    "docker": (
+        False,
+        False,
+        "",
+        "What Docker has on this server, and updating and editing it with a net.",
+    ),
     "domain": (
         False,
         False,

@@ -39,7 +39,7 @@ from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from noust.core.docker import cleanup as cleanup_module
 from noust.core.docker import engine as engine_module
-from noust.core.docker import events, inspect, reading, states, stats
+from noust.core.docker import events, image_sources, inspect, reading, registry, states, stats
 from noust.core.docker import restart_loss as restart_loss_module
 from noust.core.docker import summary as summary_module
 from noust.core.docker.errors import (
@@ -62,6 +62,8 @@ from noust.core.docker.models import (
     Volume,
 )
 from noust.core.docker.owners import OwnerIndex, Registry, registry_from_store
+from noust.core.docker.versions import with_default_tag
+from noust.core.docker_image_checks import ImageVersionStore, VersionRecord
 from noust.core.exceptions import ConfirmationRequired, DockerError, ValidationError
 from noust.core.redact import Scrubber, scrubber_for
 from noust.core.runner import CommandRunner, get_runner
@@ -79,6 +81,10 @@ STOP_GRACE = 30
 
 #: Seconds an action gets: the grace, then the daemon's own work.
 ACTION_TIMEOUT = 90
+
+#: Seconds an action on a whole stack gets: Compose stops what depends on a service before it, a layer at
+#: a time, and each layer is given the grace.
+STACK_TIMEOUT = 300
 
 #: The most a page may hold: a console asks for a few dozen.
 MAX_PAGE = 1000
@@ -122,20 +128,6 @@ def _human(size: int | None) -> str:
             return f"{value:.1f} {unit}".replace(".0 ", " ")
         value /= 1000
     return f"{size} B"  # pragma: no cover
-
-
-def _normal(reference: str) -> str:
-    """
-    Args:
-        reference: An image reference as a container was made from it.
-
-    Returns:
-        The reference with the tag Docker gives one that has none.
-    """
-    last = reference.rsplit("/", 1)[-1]
-    if "@" in last or ":" in last or reference.startswith("sha256:"):
-        return reference
-    return f"{reference}:latest"
 
 
 def _cut(
@@ -583,7 +575,7 @@ class DockerGate:
         Returns:
             Whether the container runs it: by a name it has or by its id.
         """
-        if _normal(reference) in image.tags:
+        if with_default_tag(reference) in image.tags:
             return True
         bare = image.id.removeprefix("sha256:")
         asked = reference.removeprefix("sha256:")
@@ -815,7 +807,7 @@ class DockerGate:
 
     def can(
         self,
-        thing: Container | Image | Volume | Network,
+        thing: Container | Image | Volume | Network | ComposeProject,
         *,
         manage: bool = True,
         console: bool = True,
@@ -847,6 +839,8 @@ class DockerGate:
         elif isinstance(thing, Volume):
             kind, name = ObjectKind.VOLUME, thing.name
             users = thing.used_by
+        elif isinstance(thing, ComposeProject):
+            kind, name = ObjectKind.PROJECT, thing.name
         else:
             kind, name = ObjectKind.NETWORK, thing.name
             users = thing.containers
@@ -1274,6 +1268,8 @@ class DockerGate:
             total_bytes=room[0] if room else None,
             path=report.info.root_dir,
         )
+        images = self._images_of(owned, index)
+        found = self._records_for(shown, images)
         return summary_module.Summary(
             engine=report,
             counts=summary_module.counts(
@@ -1281,13 +1277,60 @@ class DockerGate:
                 seen,
                 stacks=len(projects),
                 unowned_stacks=sum(1 for project, _ in projects if project.owner.unowned),
-                images=len(self._images_of(owned, index)),
+                images=len(images),
                 volumes=len(self._volumes_of(owned, index)),
                 networks=len(self._networks_of(owned, index)),
             ),
-            attention=summary_module.attention(shown, seen, restarts, disk),
+            attention=summary_module.attention(
+                shown,
+                seen,
+                restarts,
+                disk,
+                versions=summary_module.version_attention(found.values(), set(found)),
+            ),
             disk=disk,
         )
+
+    def version_records(self) -> dict[str, VersionRecord]:
+        """
+        Say what the last look at the registries found of the images the principal's containers run.
+
+        Nothing is asked of a registry. What a look found is read as of now: a version it called new that
+        already runs is current.
+
+        Returns:
+            The records by image reference, only for images a container the principal sees runs.
+
+        Raises:
+            DockerUnavailableError: Docker cannot be asked.
+        """
+        owned, index = self._look()
+        shown = [c for c in owned if self._visible(c.owner)]
+        return self._records_for(shown, self._images_of(owned, index))
+
+    def _records_for(
+        self, shown: Sequence[Container], images: Sequence[Image]
+    ) -> dict[str, VersionRecord]:
+        """
+        Args:
+            shown: The containers the principal sees.
+            images: The images, with who runs each.
+
+        Returns:
+            The records of the images those containers run, settled against what runs now.
+        """
+        from noust.core.store import get_store
+
+        references = image_sources.registry_references(shown, self._store or get_store())
+        in_use = set(references.values())
+        records = [
+            item
+            for item in ImageVersionStore(self._store or get_store()).all()
+            if item.reference in in_use
+        ]
+        image_of = {name: image.id for image in images for name in image.used_by}
+        ids = {references[name]: image_of[name] for name in references if name in image_of}
+        return {item.reference: item for item in registry.settled(self.runner, records, ids)}
 
     @staticmethod
     def _unusable(report: engine_module.EngineReport) -> DockerUnavailableError:
@@ -1413,6 +1456,91 @@ class DockerGate:
             ["docker", "restart", "--time", str(STOP_GRACE), target.id], f"restart {target.name}"
         )
         return target
+
+    def start_stack(self, name: str) -> ComposeProject:
+        """
+        Start the containers of a stack nobody of Noust owns, in the order Compose gives.
+
+        Args:
+            name: The Compose project's name.
+
+        Returns:
+            The stack, as it was before.
+
+        Raises:
+            DockerNotFoundError: There is none, or the principal may not see it.
+            DockerOwnedError: It belongs to an application, an engine or Noust: use its door.
+            DockerError: Docker refused; its own words are in ``output``.
+        """
+        return self._act_on_stack(name, Action.START, ["start"])
+
+    def stop_stack(self, name: str) -> ComposeProject:
+        """
+        Stop the containers of a stack nobody of Noust owns, giving each :data:`STOP_GRACE` seconds.
+
+        Args:
+            name: The Compose project's name.
+
+        Returns:
+            The stack, as it was before.
+
+        Raises:
+            DockerNotFoundError: There is none, or the principal may not see it.
+            DockerOwnedError: It belongs to an application, an engine or Noust: use its door.
+            DockerError: Docker refused; its own words are in ``output``.
+        """
+        return self._act_on_stack(name, Action.STOP, ["stop", "--timeout", str(STOP_GRACE)])
+
+    def restart_stack(self, name: str) -> ComposeProject:
+        """
+        Restart the containers of a stack nobody of Noust owns.
+
+        Args:
+            name: The Compose project's name.
+
+        Returns:
+            The stack, as it was before.
+
+        Raises:
+            DockerNotFoundError: There is none, or the principal may not see it.
+            DockerOwnedError: It belongs to an application, an engine or Noust: use its door.
+            DockerError: Docker refused; its own words are in ``output``.
+        """
+        return self._act_on_stack(name, Action.RESTART, ["restart", "--timeout", str(STOP_GRACE)])
+
+    def _act_on_stack(self, name: str, action: Action, verb: Sequence[str]) -> ComposeProject:
+        """
+        Judge an action on a stack and have Compose do it.
+
+        The stack is found among the projects Docker's own containers name, and Compose is given that
+        name: what was typed never reaches the command. Compose does it, and not a start of each
+        container, because it knows what a service waits for.
+
+        Args:
+            name: The Compose project's name, as the person typed it.
+            action: What is asked.
+            verb: Compose's subcommand and its options.
+
+        Returns:
+            The stack, as it was before.
+
+        Raises:
+            DockerNotFoundError: There is none, or the principal may not see it.
+            DockerOwnedError: It belongs to an application, an engine or Noust.
+            DockerError: Docker refused.
+        """
+        project, _members = self.project(name)
+        self._judge(project.owner, action, ObjectKind.PROJECT, project.name)
+        result = self.runner.run(
+            ["docker", "compose", "-p", project.name, *verb], timeout=STACK_TIMEOUT
+        )
+        if not result.success:
+            raise DockerRefusedError(
+                f"Docker could not {action.value} {project.name}",
+                details="Docker's own message is below.",
+                output=(result.stderr or result.stdout).strip() or f"exit code {result.exit_code}",
+            )
+        return project
 
     def remove_container(self, ref: str, *, force: bool = False) -> Removal:
         """

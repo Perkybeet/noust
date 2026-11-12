@@ -85,6 +85,7 @@ COMMAND_MODULES: dict[str, str] = {
     "dns": "noust.cli.commands.dns",
     "stream": "noust.cli.commands.stream",
     "tunnel": "noust.cli.commands.tunnel",
+    "docker": "noust.cli.commands.docker",
     "domain": "noust.cli.commands.domain",
     "ens": "noust.cli.commands.ens",
     "env": "noust.cli.commands.env",

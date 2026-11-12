@@ -86,7 +86,7 @@ def _through_the_application(domain: str, action: Action, kind: ObjectKind) -> s
     Returns:
         The command, written as a sentence, that does it through the application.
     """
-    if kind is ObjectKind.CONTAINER:
+    if kind in (ObjectKind.CONTAINER, ObjectKind.PROJECT):
         if action is Action.REMOVE:
             return (
                 f"A container of an application is replaced by its deploys: noust update {domain}. "
@@ -116,9 +116,10 @@ def _through_the_engine(name: str, action: Action, kind: ObjectKind) -> str:
     Returns:
         The command, written as a sentence, that does it through the instance.
     """
-    if kind is ObjectKind.CONTAINER and action is Action.START:
+    changes_the_instance = kind in (ObjectKind.CONTAINER, ObjectKind.PROJECT)
+    if changes_the_instance and action is Action.START:
         return f"Start the instance: noust db instance start {name}."
-    if kind is ObjectKind.CONTAINER and action in (Action.STOP, Action.RESTART):
+    if changes_the_instance and action in (Action.STOP, Action.RESTART):
         return (
             f"Stop the instance with: noust db instance stop {name}. "
             f"Start it again with: noust db instance start {name}."
@@ -311,19 +312,21 @@ def can(
         builtin: The object is one Docker makes itself.
 
     Returns:
-        What may be done to it. Only a container is started, stopped or restarted.
+        What may be done to it. A container and a stack are started, stopped and restarted (a stack is
+        not removed from here); everything else is only removed.
     """
     if not visible(owner, restricted=restricted, sees_app=sees_app):
         return Can.none()
-    actions = (
-        (Action.START, Action.STOP, Action.RESTART, Action.REMOVE, Action.CONSOLE)
-        if kind is ObjectKind.CONTAINER
-        else (Action.REMOVE,)
-    )
+    if kind is ObjectKind.PROJECT:
+        actions: tuple[Action, ...] = (Action.START, Action.STOP, Action.RESTART)
+    elif kind is ObjectKind.CONTAINER:
+        actions = (Action.START, Action.STOP, Action.RESTART, Action.REMOVE, Action.CONSOLE)
+    else:
+        actions = (Action.REMOVE,)
     verdicts = {action: refusal(owner, action, kind, name, builtin=builtin) for action in actions}
     # One sentence for the object: the door of the verb that fits whether it runs or not (a restart
-    # of a container, the removal of anything else).
-    said = verdicts.get(Action.RESTART) or verdicts[Action.REMOVE]
+    # of a container or a stack, the removal of anything else).
+    said = verdicts.get(Action.RESTART) or verdicts.get(Action.REMOVE)
     door = said.details if said is not None else ""
     blocked = ""
     if said is not None:
@@ -332,7 +335,7 @@ def can(
         start=Action.START in verdicts and verdicts[Action.START] is None,
         stop=Action.STOP in verdicts and verdicts[Action.STOP] is None,
         restart=Action.RESTART in verdicts and verdicts[Action.RESTART] is None,
-        remove=verdicts[Action.REMOVE] is None,
+        remove=Action.REMOVE in verdicts and verdicts[Action.REMOVE] is None,
         console=Action.CONSOLE in verdicts and verdicts[Action.CONSOLE] is None,
         via=door,
         blocked=blocked,

@@ -637,12 +637,25 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("docker", "open_container_terminal"): ("POST", "/api/docker/containers/{ref}/terminal", "docker.manage", True),
     ("docker", "get_engine"): ("GET", "/api/docker/engine", "docker.read", False),
     ("docker", "list_images"): ("GET", "/api/docker/images", "docker.read", False),
+    ("docker", "check_images"): ("POST", "/api/docker/images/check", "docker.manage", True),
     ("docker", "remove_image"): ("DELETE", "/api/docker/images/{image_id}", "docker.manage", True),
+    ("docker", "get_image_update"): ("GET", "/api/docker/images/{image_id}/update", "docker.read", False),
+    ("docker", "update_image"): ("POST", "/api/docker/images/{image_id}/update", "docker.manage", True),
     ("docker", "list_networks"): ("GET", "/api/docker/networks", "docker.read", False),
     ("docker", "remove_network"): ("DELETE", "/api/docker/networks/{ref}", "docker.manage", True),
     ("docker", "get_restart_loss"): ("GET", "/api/docker/restart-loss", "docker.read", False),
     ("docker", "list_stacks"): ("GET", "/api/docker/stacks", "docker.read", False),
     ("docker", "get_stack"): ("GET", "/api/docker/stacks/{name}", "docker.read", False),
+    ("docker", "bring_stack"): ("POST", "/api/docker/stacks/{name}/bring", "docker.manage", True),
+    ("docker", "get_compose"): ("GET", "/api/docker/stacks/{name}/compose", "secrets.reveal", False),
+    ("docker", "save_compose"): ("PUT", "/api/docker/stacks/{name}/compose", "docker.manage", True),
+    ("docker", "check_compose"): ("POST", "/api/docker/stacks/{name}/compose/check", "docker.manage", False),
+    ("docker", "list_compose_versions"): ("GET", "/api/docker/stacks/{name}/compose/versions", "docker.read", False),
+    ("docker", "get_compose_version"): ("GET", "/api/docker/stacks/{name}/compose/versions/{version}", "secrets.reveal", False),
+    ("docker", "restore_compose_version"): ("POST", "/api/docker/stacks/{name}/compose/versions/{version}/restore", "docker.manage", True),
+    ("docker", "restart_stack"): ("POST", "/api/docker/stacks/{name}/restart", "docker.manage", True),
+    ("docker", "start_stack"): ("POST", "/api/docker/stacks/{name}/start", "docker.manage", True),
+    ("docker", "stop_stack"): ("POST", "/api/docker/stacks/{name}/stop", "docker.manage", True),
     ("docker", "get_summary"): ("GET", "/api/docker/summary", "docker.read", False),
     ("docker", "list_volumes"): ("GET", "/api/docker/volumes", "docker.read", False),
     ("docker", "get_volume_sizes"): ("GET", "/api/docker/volumes/sizes", "docker.read", False),
@@ -6162,7 +6175,7 @@ class Deployments:
 
 
 class Docker:
-    """Docker: 22 operations."""
+    """Docker: 35 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -6263,6 +6276,14 @@ class Docker:
         Needs: permission `docker.read`."""
         return self._call("GET", "/api/docker/images", query={"offset": offset, "limit": limit, "owner": owner, "search": search}, body=None)
 
+    def check_images(self, body: "DockerCheckRequest") -> "JobAcceptedResponse":
+        """POST /api/docker/images/check
+
+        Check Images
+
+        Needs: permission `docker.manage`, sudo mode."""
+        return self._call("POST", "/api/docker/images/check", query=None, body=body)
+
     def remove_image(self, image_id: str) -> "DockerActionOut":
         """DELETE /api/docker/images/{image_id}
 
@@ -6270,6 +6291,22 @@ class Docker:
 
         Needs: permission `docker.manage`, sudo mode, a second person's approval can be required."""
         return self._call("DELETE", f"/api/docker/images/{quote(str(image_id), safe='')}", query=None, body=None)
+
+    def get_image_update(self, image_id: str) -> "DockerUpdateOut":
+        """GET /api/docker/images/{image_id}/update
+
+        Get Image Update
+
+        Needs: permission `docker.read`."""
+        return self._call("GET", f"/api/docker/images/{quote(str(image_id), safe='')}/update", query=None, body=None)
+
+    def update_image(self, image_id: str, *, body: Union["DockerUpdateRequest", None] = None) -> "JobAcceptedResponse":
+        """POST /api/docker/images/{image_id}/update
+
+        Update Image
+
+        Needs: permission `docker.manage`, sudo mode."""
+        return self._call("POST", f"/api/docker/images/{quote(str(image_id), safe='')}/update", query=None, body=body)
 
     def list_networks(self, *, offset: Union[int, None] = None, limit: Union[int, None] = None, owner: Union[str, None] = None, search: Union[str, None] = None) -> "DockerNetworksOut":
         """GET /api/docker/networks
@@ -6310,6 +6347,86 @@ class Docker:
 
         Needs: permission `docker.read`."""
         return self._call("GET", f"/api/docker/stacks/{quote(str(name), safe='')}", query=None, body=None)
+
+    def bring_stack(self, name: str, body: "DockerBringRequest") -> "DockerBringOut":
+        """POST /api/docker/stacks/{name}/bring
+
+        Bring Stack
+
+        Needs: permission `docker.manage`, sudo mode."""
+        return self._call("POST", f"/api/docker/stacks/{quote(str(name), safe='')}/bring", query=None, body=body)
+
+    def get_compose(self, name: str) -> "DockerComposeOut":
+        """GET /api/docker/stacks/{name}/compose
+
+        Get Compose
+
+        Needs: permission `secrets.reveal`."""
+        return self._call("GET", f"/api/docker/stacks/{quote(str(name), safe='')}/compose", query=None, body=None)
+
+    def save_compose(self, name: str, body: "DockerComposeSaveRequest") -> "JobAcceptedResponse":
+        """PUT /api/docker/stacks/{name}/compose
+
+        Save Compose
+
+        Needs: permission `docker.manage`, sudo mode."""
+        return self._call("PUT", f"/api/docker/stacks/{quote(str(name), safe='')}/compose", query=None, body=body)
+
+    def check_compose(self, name: str, body: "DockerComposeCheckRequest") -> "DockerComposeCheckOut":
+        """POST /api/docker/stacks/{name}/compose/check
+
+        Check Compose
+
+        Needs: permission `docker.manage`."""
+        return self._call("POST", f"/api/docker/stacks/{quote(str(name), safe='')}/compose/check", query=None, body=body)
+
+    def list_compose_versions(self, name: str) -> "DockerComposeVersionsOut":
+        """GET /api/docker/stacks/{name}/compose/versions
+
+        List Compose Versions
+
+        Needs: permission `docker.read`."""
+        return self._call("GET", f"/api/docker/stacks/{quote(str(name), safe='')}/compose/versions", query=None, body=None)
+
+    def get_compose_version(self, name: str, version: int | str) -> "DockerComposeVersionDetailOut":
+        """GET /api/docker/stacks/{name}/compose/versions/{version}
+
+        Get Compose Version
+
+        Needs: permission `secrets.reveal`."""
+        return self._call("GET", f"/api/docker/stacks/{quote(str(name), safe='')}/compose/versions/{quote(str(version), safe='')}", query=None, body=None)
+
+    def restore_compose_version(self, name: str, version: int | str, *, body: Union["DockerComposeRestoreRequest", None] = None) -> "JobAcceptedResponse":
+        """POST /api/docker/stacks/{name}/compose/versions/{version}/restore
+
+        Restore Compose Version
+
+        Needs: permission `docker.manage`, sudo mode."""
+        return self._call("POST", f"/api/docker/stacks/{quote(str(name), safe='')}/compose/versions/{quote(str(version), safe='')}/restore", query=None, body=body)
+
+    def restart_stack(self, name: str) -> "DockerActionOut":
+        """POST /api/docker/stacks/{name}/restart
+
+        Restart Stack
+
+        Needs: permission `docker.manage`, sudo mode."""
+        return self._call("POST", f"/api/docker/stacks/{quote(str(name), safe='')}/restart", query=None, body=None)
+
+    def start_stack(self, name: str) -> "DockerActionOut":
+        """POST /api/docker/stacks/{name}/start
+
+        Start Stack
+
+        Needs: permission `docker.manage`, sudo mode."""
+        return self._call("POST", f"/api/docker/stacks/{quote(str(name), safe='')}/start", query=None, body=None)
+
+    def stop_stack(self, name: str) -> "DockerActionOut":
+        """POST /api/docker/stacks/{name}/stop
+
+        Stop Stack
+
+        Needs: permission `docker.manage`, sudo mode."""
+        return self._call("POST", f"/api/docker/stacks/{quote(str(name), safe='')}/stop", query=None, body=None)
 
     def get_summary(self) -> "DockerSummaryOut":
         """GET /api/docker/summary

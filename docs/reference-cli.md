@@ -4,7 +4,7 @@
 
 Every command of `noust`, with its options. Global options (`--verbose`, `--dry-run`, `--json`, `--no-color`, `--reason`) go before or after the command name. `noust COMMAND --help` prints the same text, and `man noust` is generated from the same tree.
 
-Commands: [`2fa`](#noust-2fa), [`access`](#noust-access), [`alert`](#noust-alert), [`app`](#noust-app), [`approval`](#noust-approval), [`audit`](#noust-audit), [`auth`](#noust-auth), [`backup`](#noust-backup), [`central`](#noust-central), [`cert`](#noust-cert), [`compliance`](#noust-compliance), [`compose`](#noust-compose), [`config`](#noust-config), [`console`](#noust-console), [`context`](#noust-context), [`create`](#noust-create), [`cron`](#noust-cron), [`db`](#noust-db), [`delete`](#noust-delete), [`deploy`](#noust-deploy), [`diagnose`](#noust-diagnose), [`dns`](#noust-dns), [`domain`](#noust-domain), [`ens`](#noust-ens), [`env`](#noust-env), [`environment`](#noust-environment), [`fleet`](#noust-fleet), [`github`](#noust-github), [`gitlab`](#noust-gitlab), [`health`](#noust-health), [`import`](#noust-import), [`incident`](#noust-incident), [`list`](#noust-list), [`log`](#noust-log), [`logdrain`](#noust-logdrain), [`logs`](#noust-logs), [`manifest`](#noust-manifest), [`map`](#noust-map), [`mcp`](#noust-mcp), [`monitor`](#noust-monitor), [`node`](#noust-node), [`notify`](#noust-notify), [`passkey`](#noust-passkey), [`preview`](#noust-preview), [`probe`](#noust-probe), [`project`](#noust-project), [`push`](#noust-push), [`recipe`](#noust-recipe), [`registry`](#noust-registry), [`releases`](#noust-releases), [`restart`](#noust-restart), [`restore-server`](#noust-restore-server), [`rollback`](#noust-rollback), [`runtime`](#noust-runtime), [`secrets`](#noust-secrets), [`self-backup`](#noust-self-backup), [`self-update`](#noust-self-update), [`server`](#noust-server), [`service`](#noust-service), [`sessions`](#noust-sessions), [`setup`](#noust-setup), [`site`](#noust-site), [`start`](#noust-start), [`status`](#noust-status), [`stop`](#noust-stop), [`store`](#noust-store), [`stream`](#noust-stream), [`support`](#noust-support), [`team`](#noust-team), [`token`](#noust-token), [`tunnel`](#noust-tunnel), [`update`](#noust-update), [`upload`](#noust-upload), [`user`](#noust-user), [`variables`](#noust-variables), [`web`](#noust-web), [`webserver`](#noust-webserver), [`workspace`](#noust-workspace)
+Commands: [`2fa`](#noust-2fa), [`access`](#noust-access), [`alert`](#noust-alert), [`app`](#noust-app), [`approval`](#noust-approval), [`audit`](#noust-audit), [`auth`](#noust-auth), [`backup`](#noust-backup), [`central`](#noust-central), [`cert`](#noust-cert), [`compliance`](#noust-compliance), [`compose`](#noust-compose), [`config`](#noust-config), [`console`](#noust-console), [`context`](#noust-context), [`create`](#noust-create), [`cron`](#noust-cron), [`db`](#noust-db), [`delete`](#noust-delete), [`deploy`](#noust-deploy), [`diagnose`](#noust-diagnose), [`dns`](#noust-dns), [`docker`](#noust-docker), [`domain`](#noust-domain), [`ens`](#noust-ens), [`env`](#noust-env), [`environment`](#noust-environment), [`fleet`](#noust-fleet), [`github`](#noust-github), [`gitlab`](#noust-gitlab), [`health`](#noust-health), [`import`](#noust-import), [`incident`](#noust-incident), [`list`](#noust-list), [`log`](#noust-log), [`logdrain`](#noust-logdrain), [`logs`](#noust-logs), [`manifest`](#noust-manifest), [`map`](#noust-map), [`mcp`](#noust-mcp), [`monitor`](#noust-monitor), [`node`](#noust-node), [`notify`](#noust-notify), [`passkey`](#noust-passkey), [`preview`](#noust-preview), [`probe`](#noust-probe), [`project`](#noust-project), [`push`](#noust-push), [`recipe`](#noust-recipe), [`registry`](#noust-registry), [`releases`](#noust-releases), [`restart`](#noust-restart), [`restore-server`](#noust-restore-server), [`rollback`](#noust-rollback), [`runtime`](#noust-runtime), [`secrets`](#noust-secrets), [`self-backup`](#noust-self-backup), [`self-update`](#noust-self-update), [`server`](#noust-server), [`service`](#noust-service), [`sessions`](#noust-sessions), [`setup`](#noust-setup), [`site`](#noust-site), [`start`](#noust-start), [`status`](#noust-status), [`stop`](#noust-stop), [`store`](#noust-store), [`stream`](#noust-stream), [`support`](#noust-support), [`team`](#noust-team), [`token`](#noust-token), [`tunnel`](#noust-tunnel), [`update`](#noust-update), [`upload`](#noust-upload), [`user`](#noust-user), [`variables`](#noust-variables), [`web`](#noust-web), [`webserver`](#noust-webserver), [`workspace`](#noust-workspace)
 
 ## noust 2fa
 
@@ -8915,6 +8915,273 @@ Arguments: `name`
 | Option | What it does | Default |
 |---|---|---|
 | `--json` | Print the zone as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+## noust docker
+
+What Docker has on this server, and updating and editing it with a net.
+
+```bash
+noust docker [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`images`](#noust-docker-images), [`stack`](#noust-docker-stack)
+
+### noust docker images
+
+The images in use: which have a new version, and updating them with a net.
+
+```bash
+noust docker images [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`check`](#noust-docker-images-check), [`list`](#noust-docker-images-list), [`plan`](#noust-docker-images-plan), [`update`](#noust-docker-images-update)
+
+### noust docker images check
+
+Ask the registries whether the images in use have a new version.
+
+```bash
+noust docker images check [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--pull` | Download what moved to compare: what a Docker without buildx needs. Without it nothing is downloaded. |  |
+| `--json` | Print what was found as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust docker images list
+
+List the images, with what the last look at the registries found and what updating each does.
+
+```bash
+noust docker images list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--owner` |  |  |
+| `--json` | Print the images and what updating each does as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust docker images plan
+
+Say what updating an image would do, without doing it. IMAGE is a name or an id.
+
+```bash
+noust docker images plan [OPTIONS] IMAGE
+```
+
+Arguments: `image`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the plan as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust docker images update
+
+Update an image through its application, behind its health gate, with the way back kept.
+
+```bash
+noust docker images update [OPTIONS] IMAGE
+```
+
+Arguments: `image`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--accept-major` | Take a new major version. |  |
+| `--yes`, `-y` | Update without asking. |  |
+| `--json` | Print what was done as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust docker stack
+
+The Compose stacks on this server: start, stop, restart, bring to Noust and edit.
+
+```bash
+noust docker stack [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`bring`](#noust-docker-stack-bring), [`compose`](#noust-docker-stack-compose), [`list`](#noust-docker-stack-list), [`restart`](#noust-docker-stack-restart), [`start`](#noust-docker-stack-start), [`stop`](#noust-docker-stack-stop)
+
+### noust docker stack bring
+
+Bring a stack that already runs to Noust, without touching it.
+
+```bash
+noust docker stack bring [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--name` | What it is called in the list of applications. |  |
+| `--accept-recreate` | Bring it even if starting the stack the way Noust would recreates something. |  |
+| `--preview` | Say what would be registered and register nothing. |  |
+| `--yes`, `-y` | Bring it without asking. |  |
+| `--json` | Print what was found, or done, as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust docker stack compose
+
+Edit the Compose of a stack: judge, see what changes, apply behind the health gate, go back.
+
+```bash
+noust docker stack compose [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`apply`](#noust-docker-stack-compose-apply), [`check`](#noust-docker-stack-compose-check), [`diff`](#noust-docker-stack-compose-diff), [`history`](#noust-docker-stack-compose-history), [`restore`](#noust-docker-stack-compose-restore), [`show`](#noust-docker-stack-compose-show)
+
+### noust docker stack compose apply
+
+Apply a document to a stack, behind the health gate.
+
+```bash
+noust docker stack compose apply [OPTIONS] NAME FILE
+```
+
+Arguments: `name`, `file`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why: kept with the version, with who saved it and when. |  |
+| `--yes`, `-y` | Apply without asking. |  |
+| `--json` | Print what was done as JSON. |  |
+
+### noust docker stack compose check
+
+Judge a document for a stack and write nothing. FILE is a document, or - for standard input.
+
+```bash
+noust docker stack compose check [OPTIONS] NAME FILE
+```
+
+Arguments: `name`, `file`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the judgement as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust docker stack compose diff
+
+Show what putting a version back would change in what runs now.
+
+```bash
+noust docker stack compose diff [OPTIONS] NAME VERSION
+```
+
+Arguments: `name`, `version`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust docker stack compose history
+
+List the versions of a stack's document, newest first: who saved each, when and why.
+
+```bash
+noust docker stack compose history [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the versions as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust docker stack compose restore
+
+Put an earlier version back, by the same road as an edit: judged, kept, applied behind the gate.
+
+```bash
+noust docker stack compose restore [OPTIONS] NAME VERSION
+```
+
+Arguments: `name`, `version`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why; the default says which version it is. |  |
+| `--yes`, `-y` | Put it back without asking. |  |
+| `--json` | Print what was done as JSON. |  |
+
+### noust docker stack compose show
+
+Print the document of a stack, or say why it is not edited here.
+
+```bash
+noust docker stack compose show [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust docker stack list
+
+List the Compose stacks, whose each is and what may be done to it.
+
+```bash
+noust docker stack list [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the stacks as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust docker stack restart
+
+Restart every container of a stack nobody of Noust owns.
+
+```bash
+noust docker stack restart [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print what was done as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust docker stack start
+
+Start every container of a stack nobody of Noust owns, in the order Compose gives.
+
+```bash
+noust docker stack start [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print what was done as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust docker stack stop
+
+Stop every container of a stack nobody of Noust owns, giving each 30 seconds.
+
+```bash
+noust docker stack stop [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print what was done as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ## noust domain

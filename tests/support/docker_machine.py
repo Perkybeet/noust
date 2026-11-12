@@ -35,6 +35,32 @@ def full_id(name: str) -> str:
 
 
 @dataclass
+class ImageFacts:
+    """What ``docker inspect --type image`` says of a local image."""
+
+    repo_digests: list[str] = field(default_factory=list)
+    env: list[str] = field(default_factory=list)
+    labels: dict[str, str] = field(default_factory=dict)
+    created: str = "2026-10-01T10:00:00Z"
+    os: str = "linux"
+    architecture: str = "amd64"
+
+
+@dataclass
+class RemoteTag:
+    """What a registry has behind a reference: its digest and the image that digest names."""
+
+    digest: str
+    created: str = "2026-11-09T10:00:00Z"
+    env: list[str] = field(default_factory=list)
+    labels: dict[str, str] = field(default_factory=dict)
+    # More than one platform makes the config a map keyed by platform, as buildx prints it.
+    platforms: list[str] = field(default_factory=list)
+    # A registry that serves the manifest and not the config (an old buildx cannot print it).
+    config_readable: bool = True
+
+
+@dataclass
 class Box:
     """One container of the machine, with everything the commands read of it."""
 
@@ -45,6 +71,7 @@ class Box:
     project: str = ""
     service: str = ""
     working_dir: str = ""
+    config_files: str = ""
     mounts: str = ""
     networks: str = "default"
     ports: str = ""
@@ -115,6 +142,21 @@ class DockerMachine(FakeRunner):
         self.down = False
         self.removed: list[str] = []
         self.listings = 0
+        # The local images by id (what ``inspect`` says of them), and the registry: what each
+        # reference is behind, by its canonical name (``docker.io/library/redis:7``).
+        self.image_facts: dict[str, ImageFacts] = {}
+        self.remote: dict[str, RemoteTag] = {}
+        self.buildx = True
+        self.denied: set[str] = set()
+        self.pulled: dict[str, RemoteTag] = {}
+        # Compose reading a document on its standard input: what ``config`` says it resolves to when a
+        # test wants it to differ from the file (an ``include``), what it fails with, and what
+        # ``up --dry-run`` would do.
+        self.resolved: dict[str, Any] | None = None
+        self.resolved_for: str | None = None
+        self.compose_error = ""
+        self.dry_run_output = ""
+        self.dry_run_failure = ""
 
     # -- building the machine ---------------------------------------------------------------
 
@@ -157,6 +199,21 @@ class DockerMachine(FakeRunner):
             }
         )
         return image_id
+
+    def facts(self, image_id: str, **fields: Any) -> ImageFacts:
+        """
+        Say what ``inspect`` answers for a local image.
+
+        Args:
+            image_id: Its id.
+            **fields: Anything :class:`ImageFacts` has.
+
+        Returns:
+            The facts, to change further.
+        """
+        made = ImageFacts(**fields)
+        self.image_facts[image_id] = made
+        return made
 
     def volume(self, name: str, *, size: str | None = None, **labels: str) -> None:
         """
@@ -228,8 +285,11 @@ class DockerMachine(FakeRunner):
             ("version",): self._version,
             ("info",): self._info,
             ("compose", "version"): self._compose,
+            ("compose",): self._compose_verb,
             ("context", "inspect"): self._context,
             ("ps",): self._ps,
+            ("buildx", "imagetools"): self._imagetools,
+            ("pull",): self._pull,
             ("inspect",): self._inspect,
             ("stats",): self._stats,
             ("logs",): self._logs,
@@ -283,6 +343,59 @@ class DockerMachine(FakeRunner):
             return 1, "", "docker: 'compose' is not a docker command."
         return 0, f"Docker Compose version v{self.engine['compose']}", ""
 
+    def _compose_document(self, argv: tuple[str, ...]) -> tuple[int, str, str]:
+        """
+        ``docker compose -p NAME -f - config|up``: Compose reading a document from its standard input.
+
+        ``config`` answers the document as a model (or ``resolved`` when a test says what an ``include`` or
+        an ``extends`` would make of it), and fails with Compose's own words on what is not YAML.
+        ``up --dry-run`` answers ``dry_run_output``.
+        """
+        import yaml
+
+        text = (self.inputs[-1] if self.inputs else None) or ""
+        if "config" in argv:
+            if self.compose_error:
+                return 1, "", self.compose_error
+            try:
+                model = yaml.safe_load(text)
+            except yaml.YAMLError as exc:
+                mark = getattr(exc, "problem_mark", None)
+                line = mark.line + 1 if mark is not None else 1
+                return (
+                    1,
+                    "",
+                    f"validating <stdin>: yaml: line {line}: did not find expected ',' or ']'",
+                )
+            if not isinstance(model, dict):
+                return 1, "", "validating <stdin>: services must be a mapping"
+            says = self.resolved is not None and self.resolved_for in (None, text)
+            return 0, json.dumps(self.resolved if says else model), ""
+        if "--dry-run" in argv:
+            if self.dry_run_failure:
+                return 1, "", self.dry_run_failure
+            return 0, "", self.dry_run_output
+        return 0, "", ""
+
+    def _compose_verb(self, argv: tuple[str, ...]) -> tuple[int, str, str]:
+        """``docker compose -p NAME start|stop|restart``: what Compose does to a project's containers."""
+        if "-f" in argv and argv[argv.index("-f") + 1 : argv.index("-f") + 2] == ("-",):
+            return self._compose_document(argv)
+        if "-p" not in argv:
+            return 0, "", ""
+        project = argv[argv.index("-p") + 1]
+        rest = argv[argv.index("-p") + 2 :]
+        verb = next((word for word in rest if word in ("start", "stop", "restart")), "")
+        members = [box for box in self.boxes.values() if box.project == project]
+        if verb and not members:
+            return 1, "", f"no configuration file provided: not found ({project})"
+        for box in members:
+            if verb in ("start", "restart"):
+                box.state, box.status = "running", "Up Less than a second"
+            elif verb == "stop":
+                box.state, box.status = "exited", "Exited (143) Less than a second ago"
+        return 0, "", ""
+
     def _context(self, argv: tuple[str, ...]) -> tuple[int, str, str]:
         body = [{"Endpoints": {"docker": {"Host": "unix:///var/run/docker.sock"}}}]
         return 0, json.dumps(body), ""
@@ -303,7 +416,7 @@ class DockerMachine(FakeRunner):
                 "project": box.project,
                 "service": box.service,
                 "working_dir": box.working_dir,
-                "config_files": "",
+                "config_files": box.config_files,
                 "oneoff": "True" if box.oneoff else "False",
                 "instance": box.instance,
                 "helper": box.helper,
@@ -353,7 +466,82 @@ class DockerMachine(FakeRunner):
             "ports": {},
         }
 
+    def _inspect_image(self, argv: tuple[str, ...]) -> tuple[int, str, str]:
+        wanted = list(argv[argv.index("--format") + 2 :])
+        rows = []
+        missing: list[str] = []
+        for ident in wanted:
+            facts = self.image_facts.get(ident)
+            tag = self.pulled.get(ident)
+            if facts is None and tag is not None:
+                facts = ImageFacts(
+                    repo_digests=[
+                        f"{ident.rsplit(':', 1)[0].removeprefix('docker.io/library/')}@{tag.digest}"
+                    ],
+                    env=tag.env,
+                    labels=tag.labels,
+                    created=tag.created,
+                )
+            if facts is None:
+                # Docker prints the ones it found and complains of the one it did not.
+                missing.append(ident)
+                continue
+            rows.append(
+                {
+                    "id": ident,
+                    "digests": facts.repo_digests,
+                    "env": facts.env,
+                    "labels": facts.labels,
+                    "created": facts.created,
+                    "os": facts.os,
+                    "arch": facts.architecture,
+                }
+            )
+        out = "\n".join(json.dumps(row) for row in rows)
+        if missing:
+            return 1, out, f"Error: No such image: {missing[0]}"
+        return 0, out, ""
+
+    def _imagetools(self, argv: tuple[str, ...]) -> tuple[int, str, str]:
+        if not self.buildx:
+            return 1, "", "docker: 'buildx' is not a docker command."
+        reference = argv[-1]
+        if reference in self.denied:
+            return 1, "", f"ERROR: {reference}: unauthorized: authentication required"
+        found = self.remote.get(reference)
+        if found is None:
+            return 1, "", f"ERROR: {reference}: not found"
+        if "--format" not in argv:
+            return (
+                0,
+                f"Name:      {reference}\nMediaType: application/vnd.oci.image.index.v1+json\nDigest:    {found.digest}\n",
+                "",
+            )
+        if not found.config_readable:
+            return 1, "", "ERROR: unknown flag: --format"
+        config = {"created": found.created, "config": {"Env": found.env, "Labels": found.labels}}
+        body = dict.fromkeys(found.platforms, config) if found.platforms else config
+        return 0, json.dumps(body), ""
+
+    def _pull(self, argv: tuple[str, ...]) -> tuple[int, str, str]:
+        reference = argv[-1]
+        if reference in self.denied:
+            return (
+                1,
+                "",
+                f"Error response from daemon: pull access denied for {reference}, unauthorized",
+            )
+        found = self.remote.get(reference)
+        if found is None:
+            return 1, "", f"Error response from daemon: manifest for {reference} not found"
+        self.pulled[reference] = found
+        return 0, f"Digest: {found.digest}\nStatus: Downloaded newer image for {reference}", ""
+
     def _inspect(self, argv: tuple[str, ...]) -> tuple[int, str, str]:
+        if "--type" in argv and argv[argv.index("--type") + 1 : argv.index("--type") + 2] == (
+            "image",
+        ):
+            return self._inspect_image(argv)
         wanted = [part for part in argv[2:] if not part.startswith("-")]
         # ``--format`` takes the next argument as its value, which is not an id.
         if "--format" in argv:
@@ -501,4 +689,13 @@ class DockerMachine(FakeRunner):
         return [call for call in self.calls if call[:1] == ("docker",)]
 
 
-__all__ = ["BLOG", "RELEASE", "SHOP", "Box", "DockerMachine", "full_id"]
+__all__ = [
+    "BLOG",
+    "RELEASE",
+    "SHOP",
+    "Box",
+    "DockerMachine",
+    "ImageFacts",
+    "RemoteTag",
+    "full_id",
+]

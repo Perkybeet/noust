@@ -42,6 +42,28 @@ ROUTES: dict[tuple[str, str], str] = {
     ("DELETE", "/api/docker/volumes/{name}"): Permission.DOCKER_MANAGE,
     ("DELETE", "/api/docker/networks/{ref}"): Permission.DOCKER_MANAGE,
     ("POST", "/api/docker/cleanup"): Permission.DOCKER_MANAGE,
+    # A stack as a whole: Compose does it in its own order, and an application's or an engine's is refused.
+    ("POST", "/api/docker/stacks/{name}/start"): Permission.DOCKER_MANAGE,
+    ("POST", "/api/docker/stacks/{name}/stop"): Permission.DOCKER_MANAGE,
+    ("POST", "/api/docker/stacks/{name}/restart"): Permission.DOCKER_MANAGE,
+    # The Compose of a stack: reading a document or a version of it is a reveal (it can hold a value somebody
+    # typed into it); the list of versions has no text; judging writes nothing; applying and putting a version
+    # back change what runs as root, so they need sudo mode and the permission to manage applications.
+    ("GET", "/api/docker/stacks/{name}/compose"): Permission.SECRETS_REVEAL,
+    ("POST", "/api/docker/stacks/{name}/compose/check"): Permission.DOCKER_MANAGE,
+    ("PUT", "/api/docker/stacks/{name}/compose"): Permission.DOCKER_MANAGE,
+    ("GET", "/api/docker/stacks/{name}/compose/versions"): Permission.DOCKER_READ,
+    ("GET", "/api/docker/stacks/{name}/compose/versions/{version}"): Permission.SECRETS_REVEAL,
+    ("POST", "/api/docker/stacks/{name}/compose/versions/{version}/restore"): (
+        Permission.DOCKER_MANAGE
+    ),
+    # Bringing a stack to Noust registers an application and a unit that runs as root.
+    ("POST", "/api/docker/stacks/{name}/bring"): Permission.DOCKER_MANAGE,
+    # New versions of the images in use: what they are is read; asking the registries (with the accounts
+    # Noust keeps) and updating through the application are the administrator's.
+    ("GET", "/api/docker/images/{image_id}/update"): Permission.DOCKER_READ,
+    ("POST", "/api/docker/images/check"): Permission.DOCKER_MANAGE,
+    ("POST", "/api/docker/images/{image_id}/update"): Permission.DOCKER_MANAGE,
     # The zone of every server of the fleet at once: a view asks each server what its own page asks.
     ("GET", "/api/views/docker/summary"): Permission.DOCKER_READ,
     ("GET", "/api/views/docker/attention"): Permission.DOCKER_READ,

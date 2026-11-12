@@ -695,6 +695,10 @@ EVENTS: dict[str, EventSpec] = {
             "docker.action": "A container was started, stopped or restarted from the Docker zone.",
             "docker.remove": "A container, an image, a network or a volume was removed from the Docker zone.",
             "docker.cleanup": "A cleanup plan of Docker was applied.",
+            "docker.check": "The registries were asked whether the images in use have a new version.",
+            "docker.update": "An image was updated from the Docker zone, through its application.",
+            "docker.compose": "A stack's Compose document was changed, or put back, from the Docker zone.",
+            "docker.bring": "A stack that ran outside Noust was brought to it from the Docker zone, as it runs.",
         },
     ),
     **_events(
