@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 
 import { cronJobsQuery } from "../../api/queries/cron";
+import type { CronOnceRun } from "../../api/queries/cron";
 import { FilterBar } from "../../components/page/FilterBar";
 import { ListPage } from "../../components/page/ListPage";
 import { QueryState } from "../../components/page/QueryState";
@@ -10,6 +11,7 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { ICONS } from "../../components/ui/icons";
 import { useT } from "../../i18n";
 import { CronJobDialog } from "./CronJobDialog";
+import { CronOnceHistory } from "./CronOnceHistory";
 import { CronJobRowActions } from "./CronJobRowActions";
 import { CronJobsTable } from "./CronJobsTable";
 import { CronRunsDrawer } from "./CronRunsDrawer";
@@ -30,7 +32,7 @@ export interface CronPageProps {
 export function CronPage({ search, onSearchChange }: CronPageProps) {
   const t = useT();
   const jobs = useQuery(cronJobsQuery());
-  const [dialogJob, setDialogJob] = useState<CronJob | "new" | null>(null);
+  const [dialogJob, setDialogJob] = useState<CronJob | "new" | CronOnceRun | null>(null);
   const [runsFor, setRunsFor] = useState<string | null>(null);
 
   const all = useMemo(() => jobs.data?.jobs ?? [], [jobs.data]);
@@ -111,16 +113,18 @@ export function CronPage({ search, onSearchChange }: CronPageProps) {
           })}
     >
       {content}
+      {/* What the one-time tasks left when they retired: only a server that keeps the record has it. */}
+      <CronOnceHistory onAgain={setDialogJob} />
 
       <CronJobDialog
         // Remounts per job so a form field's local state never leaks from editing one job into
         // creating or editing another.
-        key={dialogJob === null ? "closed" : dialogJob === "new" ? "new" : dialogJob.name}
+        key={dialogJob === null ? "closed" : dialogJob === "new" ? "new" : "id" in dialogJob ? `again-${String(dialogJob.id)}` : dialogJob.name}
         open={dialogJob !== null}
         onOpenChange={(open) => {
           if (!open) setDialogJob(null);
         }}
-        {...(dialogJob !== null && dialogJob !== "new" ? { job: dialogJob } : {})}
+        {...(dialogJob !== null && dialogJob !== "new" ? ("id" in dialogJob ? { again: dialogJob } : { job: dialogJob }) : {})}
       />
       <CronRunsDrawer name={runsFor} onOpenChange={(open) => !open && setRunsFor(null)} />
     </ListPage>

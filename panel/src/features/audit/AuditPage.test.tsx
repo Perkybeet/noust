@@ -85,8 +85,51 @@ describe("Settings > Audit log", () => {
     expect(within(table).getByRole("table")).toHaveClass("table-fixed");
     expect(await screen.findByText("The audit log is intact")).toBeInTheDocument();
     expect(screen.getByText(/1,204 events verified from the first to the last/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Export" })).toHaveAttribute("href", "/api/audit/export");
+    expect(screen.getByRole("button", { name: "Export" })).toBeInTheDocument();
     await expectNoAxeViolations(container);
+  });
+
+  describe("export", () => {
+    function downloads(): string[] {
+      const clicks: string[] = [];
+      vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+        clicks.push(this.getAttribute("href") ?? "");
+      });
+      return clicks;
+    }
+
+    it("offers the CSV and the whole log with its chain, and sends the browser to the one chosen", { timeout: 20_000 }, async () => {
+      const clicks = downloads();
+      auditBackend();
+      const { user } = renderConsole("/settings/audit");
+      await findLoadedRegion("Audit events");
+
+      await user.click(screen.getByRole("button", { name: "Export" }));
+      expect(await screen.findByRole("menuitem", { name: /CSV, for a spreadsheet/ })).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: /NDJSON, with the chain/ })).toBeInTheDocument();
+      await user.click(screen.getByRole("menuitem", { name: /CSV, for a spreadsheet/ }));
+
+      await waitFor(() => {
+        expect(clicks).toEqual(["/api/audit/export?format=csv"]);
+      });
+    });
+
+    it("keeps the filter that is on in the CSV and says so, and the NDJSON stays whole", { timeout: 20_000 }, async () => {
+      const clicks = downloads();
+      auditBackend();
+      const { user } = renderConsole("/settings/audit?category=access&result=failure&q=ana");
+      await findLoadedRegion("Audit events");
+
+      await user.click(screen.getByRole("button", { name: "Export" }));
+      expect(await screen.findByText("The events these filters and this search keep, with what each one recorded.")).toBeInTheDocument();
+      await user.click(screen.getByRole("menuitem", { name: /CSV, for a spreadsheet/ }));
+      await user.click(screen.getByRole("button", { name: "Export" }));
+      await user.click(await screen.findByRole("menuitem", { name: /NDJSON, with the chain/ }));
+
+      await waitFor(() => {
+        expect(clicks).toEqual(["/api/audit/export?format=csv&category=access&result=failure&q=ana", "/api/audit/export?format=ndjson"]);
+      });
+    });
   });
 
   it("names the master token as Activity does, and says how it holds the console in words (item 152)", { timeout: 20_000 }, async () => {

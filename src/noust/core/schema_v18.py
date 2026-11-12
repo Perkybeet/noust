@@ -87,9 +87,35 @@ CREATE INDEX IF NOT EXISTS idx_domain_registrables_domain ON domain_registrables
 """
 DOMAINS_COLUMNS: list[Column] = []
 
-# Owned by the functions lane: the tasks that run once and retire themselves
-# (item 164).
-TASKS_SQL = ""
+# Owned by the functions lane: the tasks that run once and retire themselves (item 164).
+# cron_once_history: what a one-time task leaves when it has run and its units are gone, kept
+#   thirty days (noust.core.cron_once_history, the only writer): what it was, the moment it was
+#   asked for (``run_at``, ISO 8601 with the server's offset), when it started and ended, how it
+#   ended in systemd's own word, whether it came late (the server was off), and the last lines it
+#   printed, masked. One row per task: ``(name, run_at)`` is unique, so a hook that runs twice
+#   writes once. ``app_domain`` is empty for a task of no application.
+TASKS_SQL = """
+CREATE TABLE IF NOT EXISTS cron_once_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    command TEXT NOT NULL,
+    app_domain TEXT NOT NULL DEFAULT '',
+    run_as TEXT NOT NULL DEFAULT '',
+    working_directory TEXT NOT NULL DEFAULT '',
+    timeout INTEGER,
+    service TEXT NOT NULL DEFAULT '',
+    run_at TEXT NOT NULL,
+    started_at TEXT,
+    finished_at TEXT,
+    result TEXT NOT NULL,
+    exit_code INTEGER,
+    late INTEGER NOT NULL DEFAULT 0,
+    output TEXT NOT NULL DEFAULT '',
+    retired_at TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_cron_once_history_task ON cron_once_history(name, run_at);
+CREATE INDEX IF NOT EXISTS idx_cron_once_history_retired ON cron_once_history(retired_at);
+"""
 TASKS_COLUMNS: list[Column] = []
 
 # Owned by the settings lane: what a server follows of its central and which

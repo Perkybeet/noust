@@ -9,7 +9,7 @@ import { StatusPill } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import { parseTimestamp } from "../../lib/format";
 import type { CronJob } from "./data";
-import { calendarWords, runStatus } from "./data";
+import { calendarWords, onceWhen, runStatus } from "./data";
 import { choiceOf } from "./schedule";
 
 export interface CronJobsTableProps {
@@ -68,9 +68,10 @@ export function CronJobsTable({ jobs, caption, loading = false, empty, onRowActi
       header: t("cron.table.columns.schedule"),
       cell: (row) => (
         <span className="inline-flex min-w-0 flex-col align-top">
-          <span className="text-fg">{calendarWords(row.schedule, row.on_calendar, t.locale)}</span>
+          {/* A one-time task is said by its moment, on the server's clock with the zone, the one it will run in. */}
+          <span className="text-fg">{row.once ? t("cron.once.at", { when: onceWhen(row.once_at, t.locale) }) : calendarWords(row.schedule, row.on_calendar, t.locale)}</span>
           {/* The expression as written only when the words cannot say it (a custom schedule); a phone's card keeps the words. */}
-          {choiceOf(row).frequency === "custom" ? (
+          {!row.once && choiceOf(row).frequency === "custom" ? (
             <Mono tone="faint" truncate className="text-12 max-sm:hidden">
               {row.on_calendar}
             </Mono>

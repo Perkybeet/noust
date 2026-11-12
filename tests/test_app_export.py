@@ -135,6 +135,28 @@ def test_export_withholds_secrets_and_never_carries_wasm_credentials(
         assert leaked not in text
 
 
+def test_a_task_that_runs_once_is_not_part_of_what_an_application_is(
+    shop: App, cron: FakeCron
+) -> None:
+    """It retires itself: exported, it would come back on another server as a task that never does."""
+    cron.jobs["reindex-once"] = {
+        "name": "reindex-once",
+        "command": "php artisan search:reindex",
+        "on_calendar": "2026-12-01 14:30:00",
+        "enabled": True,
+        "user": "www-data",
+        "working_directory": "",
+        "app_domain": DOMAIN,
+        "once": True,
+        "once_at": "2026-12-01T14:30:00+01:00",
+    }
+
+    doc = export_app(DOMAIN, cron=cron)  # type: ignore[arg-type]
+
+    assert "reindex-once" not in [job["name"] for job in doc["cron"]]
+    assert doc["cron"], "the tasks that repeat are still exported"
+
+
 def test_export_with_secrets_includes_values(shop: App, cron: FakeCron) -> None:
     doc = export_app(DOMAIN, with_secrets=True, cron=cron)  # type: ignore[arg-type]
     assert doc["secrets_included"] is True

@@ -115,7 +115,10 @@ def _template_calls() -> list[tuple[str, str, bool]]:
     calls: list[tuple[str, str, bool]] = []
     for template in sorted(TEMPLATES.glob("*.j2")):
         for line in template.read_text().splitlines():
-            if not line.startswith("ExecStart=") or "esc.line(noust)" not in line:
+            # The stop hook of a one-time task (item 164) is a command a unit runs like ExecStart is.
+            if not line.startswith(("ExecStart=", "ExecStopPost=")):
+                continue
+            if "esc.line(noust)" not in line and "esc.path(noust)" not in line:
                 continue
             rest = line.split("}}", 1)[1]
             words = [word for word in rest.split() if not word.startswith("{{")]

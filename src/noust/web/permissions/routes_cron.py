@@ -16,6 +16,7 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/cron"): Permission.APPS_READ,
     ("POST", "/api/cron"): Permission.ROOT_EQUIVALENT,
     ("POST", "/api/cron/preview"): Permission.APPS_READ,
+    ("GET", "/api/cron/history"): Permission.APPS_READ,
     ("DELETE", "/api/cron/{name}"): Permission.APPS_MANAGE,
     ("POST", "/api/cron/{name}/run"): Permission.APPS_OPERATE,
     ("POST", "/api/cron/{name}/enable"): Permission.APPS_OPERATE,

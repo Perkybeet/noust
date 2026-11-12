@@ -177,9 +177,15 @@ def seed_cron(domain: str) -> None:
     Args:
         domain: The application the first job belongs to.
     """
+    from datetime import datetime, timedelta, timezone
+
+    from noust.core.cron_once_history import CronOnceHistory, OnceRun
     from noust.managers.cron_manager import CronJob, CronManager
 
     manager = CronManager()
+    # A task that runs once, a few days from now: it lists as a one-time task, and is the one the
+    # dialog's "Once" shows when it is edited.
+    in_three_days = (datetime.now().astimezone() + timedelta(days=3)).strftime("%Y-%m-%d 03:00")
     for job in (
         CronJob(
             name="sitemap",
@@ -194,5 +200,55 @@ def seed_cron(domain: str) -> None:
             schedule="*-*-* 03:30:00",
             user="root",
         ),
+        CronJob(
+            name="reindex-search",
+            command="/usr/bin/node scripts/reindex.js",
+            schedule="daily",
+            user="www-data",
+            app_domain=domain,
+            once_at=in_three_days,
+        ),
     ):
         manager.create_job(job)
+
+    # What two one-time tasks left when they ran and retired: one that ended well, and one the
+    # server ran late (it was off at that moment) that failed, with what it printed.
+    history = CronOnceHistory()
+    now = datetime.now(timezone.utc)
+    for name, command, days_ago, result, exit_code, late, output in (
+        (
+            "migrate-legacy-orders",
+            "/usr/bin/node scripts/migrate-orders.js --all",
+            2,
+            "success",
+            0,
+            False,
+            "migrated 1204 orders\ndone in 41s\n",
+        ),
+        (
+            "purge-old-exports",
+            "/usr/bin/find /var/exports -mtime +90 -delete",
+            5,
+            "exit-code",
+            1,
+            True,
+            "find: '/var/exports/2026-07': Permission denied\n",
+        ),
+    ):
+        asked = (now - timedelta(days=days_ago)).replace(hour=3, minute=0, second=0, microsecond=0)
+        started = asked + timedelta(minutes=18 if late else 0, seconds=2)
+        history.record(
+            OnceRun(
+                name=name,
+                command=command,
+                app_domain=domain if exit_code == 0 else "",
+                run_as="www-data" if exit_code == 0 else "root",
+                run_at=asked.astimezone().isoformat(timespec="seconds"),
+                started_at=started.isoformat(timespec="seconds"),
+                finished_at=(started + timedelta(seconds=41)).isoformat(timespec="seconds"),
+                result=result,
+                exit_code=exit_code,
+                late=late,
+                output=output,
+            )
+        )

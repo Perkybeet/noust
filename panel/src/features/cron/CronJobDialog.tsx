@@ -7,6 +7,7 @@ import { appsQuery } from "../../api/queries/apps";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
+import { SegmentedControl } from "../../components/page/SegmentedControl";
 import { Button } from "../../components/ui/Button";
 import { Checkbox } from "../../components/ui/Checkbox";
 import { Dialog } from "../../components/ui/Dialog";
@@ -18,10 +19,12 @@ import { Select } from "../../components/ui/Select";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { useT } from "../../i18n";
+import { useNodeCapability } from "../../nodes/capability";
+import type { CronOnceRun } from "../../api/queries/cron";
 import type { CronJob } from "./data";
 import { SYSTEMD_DAYS, calendarWords, runTimes, weekdayName } from "./data";
-import { choiceOf, scheduleOf, timeProblem } from "./schedule";
-import type { Frequency, ScheduleChoice, Weekday } from "./schedule";
+import { choiceOf, dateProblem, onceAtOf, onceFieldsOf, scheduleOf, timeProblem, tomorrow } from "./schedule";
+import type { Frequency, Mode, ScheduleChoice, Weekday } from "./schedule";
 import type { CreateCronJobBody } from "./useCronActions";
 import { useCronActions } from "./useCronActions";
 import { useCronPreview } from "./useCronPreview";
@@ -33,6 +36,9 @@ const NO_APP = "__none";
 const TIMEOUT_MAX = 86_400;
 /** What the limit starts at when a person turns it on: an hour is long for most tasks and short for none that matter. */
 const TIMEOUT_START = "3600";
+
+/** The route a server has when it can run a task once and retire it: a node before 4.3 does not, and then it is not offered. */
+const ONCE_ROUTE = "GET /api/cron/history";
 
 const FREQUENCIES: readonly Frequency[] = ["hourly", "daily", "weekly", "monthly", "custom"];
 const DAYS_OF_MONTH = Array.from({ length: 28 }, (_, index) => index + 1);
@@ -49,6 +55,8 @@ export interface CronJobDialogProps {
   onOpenChange: (open: boolean) => void;
   /** Present to rewrite an existing task; absent to create one. */
   job?: CronJob;
+  /** A one-time task that ran: the form opens as a new one-time task made like it, for a date to choose. */
+  again?: CronOnceRun;
 }
 
 /**
@@ -59,11 +67,14 @@ export interface CronJobDialogProps {
  * an expression systemd itself rejects raises past the request model, and `detail`/`hint` carry
  * its own message and output instead.
  */
-function schedulePreviewError(error: unknown): { message: string; output: string | null } | null {
+function schedulePreviewError(error: unknown): { message: string; output: string | null; note: string | null } | null {
   if (!isApiError(error)) return null;
   const fieldMessage = error.fields?.["schedule"];
-  if (fieldMessage !== undefined) return { message: fieldMessage, output: null };
-  return { message: error.detail, output: error.hint };
+  if (fieldMessage !== undefined) return { message: fieldMessage, output: null, note: null };
+  // A moment that is refused says why in the field and what to do in the hint, both the server's words.
+  const moment = error.fields?.["once_at"];
+  if (moment !== undefined) return { message: moment, output: null, note: error.hint };
+  return { message: error.detail, output: error.hint, note: null };
 }
 
 /**
@@ -71,17 +82,18 @@ function schedulePreviewError(error: unknown): { message: string; output: string
  * server's clock first, since that is the clock the expression is written in, then on the
  * reader's own when it differs. Or, when the schedule is refused, why, in systemd's words.
  */
-function SchedulePreview({ schedule }: { schedule: string }) {
+function SchedulePreview({ schedule, onceAt = null }: { schedule: string; onceAt?: string | null }) {
   const t = useT();
-  const preview = useCronPreview(schedule);
+  const preview = useCronPreview(schedule, onceAt);
 
-  if (schedule.trim() === "") return null;
+  if ((onceAt ?? schedule).trim() === "") return null;
 
   if (preview.isError) {
-    const refusal = schedulePreviewError(preview.error) ?? { message: t("cron.dialog.previewCheckError"), output: null };
+    const refusal = schedulePreviewError(preview.error) ?? { message: t("cron.dialog.previewCheckError"), output: null, note: null };
     return (
       <div role="alert" className="flex flex-col gap-1.5">
         <p className="text-13 text-fail">{refusal.message}</p>
+        {refusal.note !== null && refusal.note.trim() !== "" ? <p className="text-13 text-fg-muted">{refusal.note}</p> : null}
         {refusal.output !== null && refusal.output.trim() !== "" ? (
           <SystemOutput label={t("cron.dialog.systemdOutputLabel")} maxHeight="max-h-28">
             {refusal.output}
@@ -106,7 +118,7 @@ function SchedulePreview({ schedule }: { schedule: string }) {
   return (
     <div className="flex flex-col gap-2.5 rounded-control border border-border bg-bg-sunken p-3">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-        <p className="text-13 font-medium text-fg">{calendarWords(schedule, preview.data.calendar, t.locale)}</p>
+        <p className="text-13 font-medium text-fg">{onceAt === null ? calendarWords(schedule, preview.data.calendar, t.locale) : t("cron.once.previewWords")}</p>
         <Mono tone="muted" className="text-12">
           {preview.data.calendar}
         </Mono>
@@ -116,7 +128,7 @@ function SchedulePreview({ schedule }: { schedule: string }) {
       ) : (
         <>
           {zone !== "" ? <p className="text-12 text-fg-muted">{t("cron.dialog.serverClock", { zone })}</p> : null}
-          <ul aria-label={t("cron.dialog.nextRuns")} className="flex flex-col gap-1">
+          <ul aria-label={onceAt === null ? t("cron.dialog.nextRuns") : t("cron.once.once")} className="flex flex-col gap-1">
             {runs.map(({ run, times }) => (
               <li key={run} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-13">
                 <span className="tabular-nums text-fg">{times.zone === "" ? times.server : t("cron.dialog.serverTime", { time: times.server, zone: times.zone })}</span>
@@ -142,21 +154,30 @@ function SchedulePreview({ schedule }: { schedule: string }) {
  * the operator tries to save, rather than by a disabled button. What most tasks never change (who runs it,
  * where, for how long) is folded under "More options".
  */
-export function CronJobDialog({ open, onOpenChange, job }: CronJobDialogProps) {
+export function CronJobDialog({ open, onOpenChange, job, again }: CronJobDialogProps) {
   const t = useT();
   const editing = job !== undefined;
   const { create } = useCronActions();
-  const [name, setName] = useState(job?.name ?? "");
-  const [command, setCommand] = useState(job?.command ?? "");
-  const [choice, setChoice] = useState<ScheduleChoice>(() => choiceOf(job ?? { schedule: "daily", on_calendar: "" }));
-  const [user, setUser] = useState(job?.user ?? "");
-  const [workingDirectory, setWorkingDirectory] = useState(job?.working_directory ?? "");
+  // A task that ran once is made again with what it was: the same fields, a moment to choose.
+  const seed = job ?? (again === undefined ? undefined : { name: again.name, command: again.command, user: again.run_as, working_directory: again.working_directory, app_domain: again.app_domain, service: again.service, timeout: again.timeout });
+  const [name, setName] = useState(seed?.name ?? "");
+  const [command, setCommand] = useState(seed?.command ?? "");
+  // A one-time task has no schedule to open on: its calendar is one date, which "Repeats" would read as a custom expression.
+  const [choice, setChoice] = useState<ScheduleChoice>(() => choiceOf(job === undefined || job.once ? { schedule: "daily", on_calendar: "" } : job));
+  const [user, setUser] = useState(seed?.user ?? "");
+  const [workingDirectory, setWorkingDirectory] = useState(seed?.working_directory ?? "");
   // A limit is a choice to make, not a number that means "none" when it is left empty.
-  const [limited, setLimited] = useState(job?.timeout != null);
-  const [timeout, setTimeoutText] = useState(job?.timeout == null ? TIMEOUT_START : String(job.timeout));
-  const [service, setService] = useState(job?.service ?? "");
+  const [limited, setLimited] = useState(seed?.timeout != null);
+  const [timeout, setTimeoutText] = useState(seed?.timeout == null ? TIMEOUT_START : String(seed.timeout));
+  const [service, setService] = useState(seed?.service ?? "");
   // A task of no application comes back with an empty domain.
-  const [app, setApp] = useState(() => ((job?.app_domain ?? "") === "" ? NO_APP : (job?.app_domain ?? NO_APP)));
+  const [app, setApp] = useState(() => ((seed?.app_domain ?? "") === "" ? NO_APP : (seed?.app_domain ?? NO_APP)));
+  // Repeats, or runs once at a date and retires itself. Only a server that can do it offers the choice, and a task
+  // that already is a one-time one keeps it whatever the server says.
+  const onceServer = useNodeCapability(ONCE_ROUTE).status === "available";
+  const [mode, setMode] = useState<Mode>(job?.once === true || again !== undefined ? "once" : "repeat");
+  const [onceDate, setOnceDate] = useState(() => (job?.once === true ? onceFieldsOf(job.once_at).date : again === undefined ? tomorrow() : ""));
+  const [onceTime, setOnceTime] = useState(() => (job?.once === true ? onceFieldsOf(job.once_at).time : "02:00"));
   const apps = useQuery(appsQuery());
   const [submitted, setSubmitted] = useState(false);
   const formId = useId();
@@ -169,13 +190,18 @@ export function CronJobDialog({ open, onOpenChange, job }: CronJobDialogProps) {
 
   const set = (patch: Partial<ScheduleChoice>): void => setChoice((current) => ({ ...current, ...patch }));
   const schedule = scheduleOf(choice);
+  const repeating = mode === "repeat";
   const missing = {
     name: name.trim() === "" ? t("cron.fields.nameMissing") : null,
     command: command.trim() === "" ? t("cron.fields.commandMissing") : null,
-    calendar: choice.frequency === "custom" && schedule === "" ? t("cron.fields.calendarMissing") : null,
-    time: choice.frequency !== "hourly" && choice.frequency !== "custom" && timeProblem(choice.time) ? t("cron.fields.timeInvalid") : null,
+    calendar: repeating && choice.frequency === "custom" && schedule === "" ? t("cron.fields.calendarMissing") : null,
+    time: repeating && choice.frequency !== "hourly" && choice.frequency !== "custom" && timeProblem(choice.time) ? t("cron.fields.timeInvalid") : null,
+    onceDate: !repeating && dateProblem(onceDate) ? t("cron.once.dateMissing") : null,
+    onceTime: !repeating && timeProblem(onceTime) ? t("cron.fields.timeInvalid") : null,
     timeout: limited ? timeoutProblem(timeout, t("cron.fields.timeoutRange")) : null,
   };
+  // What the server is asked to preview and to write: the moment, once the two fields are a date and a time.
+  const onceAt = !repeating && missing.onceDate === null && missing.onceTime === null ? onceAtOf(onceDate, onceTime) : null;
   const valid = Object.values(missing).every((problem) => problem === null);
   const serverError = (field: string): string | undefined => (isApiError(create.error) ? create.error.fields?.[field] : undefined);
 
@@ -186,7 +212,9 @@ export function CronJobDialog({ open, onOpenChange, job }: CronJobDialogProps) {
     const body: CreateCronJobBody = {
       name: name.trim(),
       command: command.trim(),
-      schedule,
+      // A one-time task is given its moment: the type asks for a schedule too, and the server ignores it.
+      schedule: repeating ? schedule : "daily",
+      ...(repeating ? {} : { once_at: onceAtOf(onceDate, onceTime) }),
       ...(user.trim() !== "" ? { user: user.trim() } : {}),
       ...(workingDirectory.trim() !== "" ? { working_directory: workingDirectory.trim() } : {}),
       ...(limited ? { timeout: Number.parseInt(timeout.trim(), 10) } : {}),
@@ -235,33 +263,63 @@ export function CronJobDialog({ open, onOpenChange, job }: CronJobDialogProps) {
         <Field label={t("cron.fields.application")} name="app_domain" nativeLabel={false} description={t("cron.fields.applicationDescription")} error={serverError("app_domain")}>
           <Select value={app} onValueChange={setApp} options={appOptions} mono />
         </Field>
-        <div className="flex flex-wrap items-start gap-4">
-          <Field label={t("cron.fields.schedule")} name="schedule" nativeLabel={false} className="w-44">
-            <Select value={choice.frequency} onValueChange={(frequency) => set({ frequency })} options={FREQUENCIES.map((value) => ({ value, label: t(`cron.frequency.${value}`) }))} />
-          </Field>
-          {choice.frequency === "weekly" ? (
-            <Field label={t("cron.fields.weekday")} name="weekday" nativeLabel={false} className="w-40">
-              <Select value={choice.weekday} onValueChange={(weekday: Weekday) => set({ weekday })} options={weekdays} />
-            </Field>
-          ) : null}
-          {choice.frequency === "monthly" ? (
-            <Field label={t("cron.fields.day")} name="day" nativeLabel={false} className="w-28">
-              <Select value={String(choice.day)} onValueChange={(day) => set({ day: Number(day) })} options={DAYS_OF_MONTH.map((day) => ({ value: String(day), label: String(day) }))} />
-            </Field>
-          ) : null}
-          {showTime ? (
-            <Field label={t("cron.fields.time")} name="time" error={submitted ? missing.time : null} className="w-32">
-              {/* Written as the console writes every hour, 24 hours and two digits: a browser's own time field would say AM and PM in one language and not in another. */}
-              <Input value={choice.time} onValueChange={(time) => set({ time })} mono inputMode="numeric" maxLength={5} placeholder="03:30" autoComplete="off" spellCheck={false} />
-            </Field>
-          ) : null}
-        </div>
-        {choice.frequency === "custom" ? (
-          <Field label={t("cron.fields.calendarLabel")} name="calendar" description={t("cron.fields.calendarDescription")} error={submitted ? missing.calendar : null}>
-            <Input value={choice.calendar} onValueChange={(calendar) => set({ calendar })} mono placeholder="Mon..Fri *-*-* 09:00:00" autoComplete="off" spellCheck={false} />
-          </Field>
+        {onceServer || mode === "once" ? (
+          <SegmentedControl<Mode>
+            label={t("cron.once.modeLabel")}
+            value={mode}
+            onValueChange={setMode}
+            options={[
+              { value: "repeat", label: t("cron.once.repeats") },
+              { value: "once", label: t("cron.once.once") },
+            ]}
+            className="self-start"
+          />
         ) : null}
-        <SchedulePreview schedule={schedule} />
+        {repeating ? (
+          <>
+            <div className="flex flex-wrap items-start gap-4">
+              <Field label={t("cron.fields.schedule")} name="schedule" nativeLabel={false} className="w-44">
+                <Select value={choice.frequency} onValueChange={(frequency) => set({ frequency })} options={FREQUENCIES.map((value) => ({ value, label: t(`cron.frequency.${value}`) }))} />
+              </Field>
+              {choice.frequency === "weekly" ? (
+                <Field label={t("cron.fields.weekday")} name="weekday" nativeLabel={false} className="w-40">
+                  <Select value={choice.weekday} onValueChange={(weekday: Weekday) => set({ weekday })} options={weekdays} />
+                </Field>
+              ) : null}
+              {choice.frequency === "monthly" ? (
+                <Field label={t("cron.fields.day")} name="day" nativeLabel={false} className="w-28">
+                  <Select value={String(choice.day)} onValueChange={(day) => set({ day: Number(day) })} options={DAYS_OF_MONTH.map((day) => ({ value: String(day), label: String(day) }))} />
+                </Field>
+              ) : null}
+              {showTime ? (
+                <Field label={t("cron.fields.time")} name="time" error={submitted ? missing.time : null} className="w-32">
+                  {/* Written as the console writes every hour, 24 hours and two digits: a browser's own time field would say AM and PM in one language and not in another. */}
+                  <Input value={choice.time} onValueChange={(time) => set({ time })} mono inputMode="numeric" maxLength={5} placeholder="03:30" autoComplete="off" spellCheck={false} />
+                </Field>
+              ) : null}
+            </div>
+            {choice.frequency === "custom" ? (
+              <Field label={t("cron.fields.calendarLabel")} name="calendar" description={t("cron.fields.calendarDescription")} error={submitted ? missing.calendar : null}>
+                <Input value={choice.calendar} onValueChange={(calendar) => set({ calendar })} mono placeholder="Mon..Fri *-*-* 09:00:00" autoComplete="off" spellCheck={false} />
+              </Field>
+            ) : null}
+            {/* Keyed apart from the one-time preview: the two are different questions, and one instance serving both would ask the server about the old answer's text for the length of a debounce. */}
+            <SchedulePreview key="repeat" schedule={schedule} />
+          </>
+        ) : (
+          <>
+            <div className="flex flex-wrap items-start gap-4">
+              <Field label={t("cron.once.date")} name="once_date" error={(submitted ? missing.onceDate : null) ?? serverError("once_at")} className="w-44">
+                <Input type="date" value={onceDate} onValueChange={setOnceDate} />
+              </Field>
+              <Field label={t("cron.fields.time")} name="once_time" error={submitted ? missing.onceTime : null} className="w-32">
+                <Input value={onceTime} onValueChange={setOnceTime} mono inputMode="numeric" maxLength={5} placeholder="03:30" autoComplete="off" spellCheck={false} />
+              </Field>
+            </div>
+            <p className="-mt-2 text-12 text-fg-muted">{t("cron.once.zoneNote")}</p>
+            <SchedulePreview key="once" schedule="" onceAt={onceAt} />
+          </>
+        )}
         <Disclosure label={t("cron.dialog.more")} defaultOpen={optionsDiffer}>
           <div className="flex flex-col gap-5 pt-2">
             <div className="grid gap-5 sm:grid-cols-2">

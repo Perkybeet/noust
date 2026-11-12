@@ -762,6 +762,28 @@ def firewall_delete_command(ctx: Context, rule_id: str) -> None:
     _print_change(ctx, _run(ctx, "firewall.delete", {"rule_id": rule_id}, action="firewall delete"))
 
 
+@firewall.command("change-source")
+@click.argument("rule_id")
+@click.option(
+    "--from",
+    "source",
+    required=True,
+    help="The address or network the rule should now admit, or 'any'.",
+)
+@json_option("Print the pending change as JSON.")
+@pass_context
+def firewall_change_source_command(ctx: Context, rule_id: str, source: str) -> None:
+    """
+    Change where a rule admits from, in one step. Undone unless confirmed.
+
+    Adds the rule with the new origin and removes the old one as ONE change, so a single
+    confirmation from a new SSH login keeps it, and nobody confirming puts the old rule back.
+    Refused when it would cut off an SSH session open now. 'firewall status' shows each rule's id.
+    """
+    params = {"rule_id": rule_id, "source": source}
+    _print_change(ctx, _run(ctx, "firewall.source", params, action="firewall change-source"))
+
+
 @firewall.command("enable")
 @click.option("-y", "--yes", is_flag=True, help="Do not ask.")
 @json_option("Print the pending change as JSON.")

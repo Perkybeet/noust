@@ -3088,6 +3088,13 @@ noust audit export [OPTIONS]
 |---|---|---|
 | `--since` | From this date (YYYY-MM-DD) or timestamp. |  |
 | `--until` | Up to this date (YYYY-MM-DD) or timestamp, inclusive. |  |
+| `--action` | Only this event, such as apps.delete. |  |
+| `--actor` | Only this actor, as shown in the Actor column. |  |
+| `--result` | Only this outcome, such as denied. |  |
+| `--category` | Only this category, such as access or change. |  |
+| `--target` | Only events on this exact target. |  |
+| `--correlation` | Only the events of one request, command or job. |  |
+| `--search` | Only events with these words in their event, actor, target, detail or address. |  |
 | `-o`, `--output` | Write to this file (created 0600) instead of standard output. |  |
 | `--format` | NDJSON keeps every field and the chain; CSV is for a spreadsheet. | `ndjson` |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
@@ -5678,7 +5685,7 @@ Run commands on a schedule, as systemd timers.
 noust cron [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`create`](#noust-cron-create), [`delete`](#noust-cron-delete), [`disable`](#noust-cron-disable), [`enable`](#noust-cron-enable), [`ledger`](#noust-cron-ledger), [`list`](#noust-cron-list), [`run`](#noust-cron-run), [`runs`](#noust-cron-runs)
+Subcommands: [`create`](#noust-cron-create), [`delete`](#noust-cron-delete), [`disable`](#noust-cron-disable), [`enable`](#noust-cron-enable), [`history`](#noust-cron-history), [`ledger`](#noust-cron-ledger), [`list`](#noust-cron-list), [`run`](#noust-cron-run), [`runs`](#noust-cron-runs), [`settle`](#noust-cron-settle)
 
 ### noust cron create
 
@@ -5698,6 +5705,8 @@ Arguments: `name`, `command`
 | `--app` | Associate the job with a deployed application. It runs in the application's directory (current/ for a releases application), as its account, with its .env and its own tools (the virtual environment, node_modules/.bin) first on the PATH. |  |
 | `--timeout` | Stop the command after this many seconds (1 to 86400); the run counts as failed. |  |
 | `--service` | Run the command in this service of the --app application's Compose stack (docker compose exec) instead of on this server. |  |
+| `--once` | Run it once, at the moment --at gives, and retire it: it leaves its result in 'cron history'. |  |
+| `--at` | With --once: when to run it, 'YYYY-MM-DD HH:MM' in this server's time (or with an offset). |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust cron delete
@@ -5741,6 +5750,21 @@ Arguments: `name`
 
 | Option | What it does | Default |
 |---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust cron history
+
+Show the one-time tasks that ran in the last 30 days: when, how it ended, if it was late.
+
+```bash
+noust cron history [OPTIONS] [NAME]
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the history as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust cron ledger
@@ -5800,6 +5824,23 @@ Arguments: `name`
 |---|---|---|
 | `--limit` | Most runs to show. | `10` |
 | `--json` | Print the runs as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust cron settle
+
+Record how a one-time task ended and retire it.
+
+```bash
+noust cron settle [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--result` |  |  |
+| `--exit-kind` |  |  |
+| `--exit-status` |  |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ## noust db
@@ -14137,7 +14178,7 @@ The firewall against the ports that really answer, changed without locking you o
 noust server security firewall [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`allow`](#noust-server-security-firewall-allow), [`delete`](#noust-server-security-firewall-delete), [`deny`](#noust-server-security-firewall-deny), [`disable`](#noust-server-security-firewall-disable), [`enable`](#noust-server-security-firewall-enable), [`status`](#noust-server-security-firewall-status)
+Subcommands: [`allow`](#noust-server-security-firewall-allow), [`change-source`](#noust-server-security-firewall-change-source), [`delete`](#noust-server-security-firewall-delete), [`deny`](#noust-server-security-firewall-deny), [`disable`](#noust-server-security-firewall-disable), [`enable`](#noust-server-security-firewall-enable), [`status`](#noust-server-security-firewall-status)
 
 ### noust server security firewall allow
 
@@ -14154,6 +14195,22 @@ Arguments: `port`
 | `--proto` |  | `tcp` |
 | `--from` | An address or network. | `any` |
 | `--comment` | A note on the rule. | `` |
+| `--json` | Print the pending change as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust server security firewall change-source
+
+Change where a rule admits from, in one step. Undone unless confirmed.
+
+```bash
+noust server security firewall change-source [OPTIONS] RULE_ID
+```
+
+Arguments: `rule_id`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--from` | The address or network the rule should now admit, or 'any'. |  |
 | `--json` | Print the pending change as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 

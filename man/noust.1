@@ -3298,6 +3298,27 @@ From this date (YYYY\-MM\-DD) or timestamp.
 .B \-\-until
 Up to this date (YYYY\-MM\-DD) or timestamp, inclusive.
 .TP
+.B \-\-action
+Only this event, such as apps.delete.
+.TP
+.B \-\-actor
+Only this actor, as shown in the Actor column.
+.TP
+.B \-\-result
+Only this outcome, such as denied.
+.TP
+.B \-\-category
+Only this category, such as access or change.
+.TP
+.B \-\-target
+Only events on this exact target.
+.TP
+.B \-\-correlation
+Only the events of one request, command or job.
+.TP
+.B \-\-search
+Only events with these words in their event, actor, target, detail or address.
+.TP
 .B \-o, \-\-output
 Write to this file (created 0600) instead of standard output.
 .TP
@@ -6071,6 +6092,12 @@ Stop the command after this many seconds (1 to 86400); the run counts as failed.
 .B \-\-service
 Run the command in this service of the \-\-app application's Compose stack (docker compose exec) instead of on this server.
 .TP
+.B \-\-once
+Run it once, at the moment \-\-at gives, and retire it: it leaves its result in 'cron history'.
+.TP
+.B \-\-at
+With \-\-once: when to run it, 'YYYY\-MM\-DD HH:MM' in this server's time (or with an offset).
+.TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
@@ -6103,6 +6130,19 @@ Enable a job's timer and start it now.
 .B Arguments
 .br
 \fIname\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust cron history
+Show the one\-time tasks that ran in the last 30 days: when, how it ended, if it was late.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-json
+Print the history as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
@@ -6154,6 +6194,25 @@ Most runs to show. Default: 10.
 .TP
 .B \-\-json
 Print the runs as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust cron settle
+Record how a one\-time task ended and retire it.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-result
+No description.
+.TP
+.B \-\-exit\-kind
+No description.
+.TP
+.B \-\-exit\-status
+No description.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
@@ -14906,6 +14965,22 @@ An address or network. Default: any.
 .TP
 .B \-\-comment
 A note on the rule. Default: .
+.TP
+.B \-\-json
+Print the pending change as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust server security firewall change\-source
+Change where a rule admits from, in one step. Undone unless confirmed.
+.TP
+.B Arguments
+.br
+\fIrule_id\fR
+.TP
+.B \-\-from
+The address or network the rule should now admit, or 'any'.
 .TP
 .B \-\-json
 Print the pending change as JSON.

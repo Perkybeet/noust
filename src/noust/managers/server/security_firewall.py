@@ -164,15 +164,50 @@ class FirewallRule:
             return False
         return not self.ports or any(low <= port <= high for low, high in self.ports)
 
+    @property
+    def source_changeable(self) -> bool:
+        """
+        Whether :meth:`Firewall.change_source` can move this rule to another origin.
+
+        Noust spells a rule of one port, allowing or denying it over a protocol, and makes the new
+        rule from the fields it read: a rule it would not write back as it found it (a range, a
+        service, ufw's ``limit``, a rich rule with a log or a rate) is the operator's to change
+        by adding the rule they want and deleting this one.
+
+        Returns:
+            True when the rule is of that kind.
+        """
+        if not self.known or self.service is not None or len(self.ports) != 1:
+            return False
+        low, high = self.ports[0]
+        if low != high or self.proto not in ("tcp", "udp", "any"):
+            return False
+        if self.backend == "ufw":
+            return self.action in ("allow", "deny")
+        if self.spec.startswith("port "):
+            return self.action == "allow"
+        if self.spec.startswith("rich rule ") and self.action in ("allow", "reject"):
+            if self.proto == "any":
+                return False
+            request = RuleRequest(
+                "allow" if self.action == "allow" else "deny", low, self.proto, self.source
+            )
+            try:
+                return self.spec == f"rich rule {_rich_text(request, self.proto)}"
+            except ValueError:
+                return False
+        return False
+
     def to_dict(self) -> dict[str, Any]:
         """
         Describe the rule for the API and ``--json``.
 
         Returns:
-            Every field, the ranges as ``[low, high]`` pairs.
+            Every field, the ranges as ``[low, high]`` pairs, and whether its origin can be changed.
         """
         data = asdict(self)
         data["ports"] = [list(pair) for pair in self.ports]
+        data["source_changeable"] = self.source_changeable
         return data
 
 
@@ -1397,6 +1432,19 @@ class Firewall:
                 details="List the rules with 'noust server security firewall status'.",
             )
         self._guard_delete(rule, state, self.protected())
+        return self._build_delete(rule, state)
+
+    def _build_delete(self, rule: FirewallRule, state: FirewallState) -> FirewallPlan:
+        """
+        Spell the commands that delete a rule, and the ones that put it back.
+
+        Args:
+            rule: The rule, as the firewall reports it.
+            state: The firewall as it is.
+
+        Returns:
+            The commands that make it, undo it and make it permanent.
+        """
         what, values = "firewall_delete", {"rule": rule.spec}
         if rule.backend == "ufw":
             tokens = shlex.split(rule.spec)
@@ -1415,6 +1463,132 @@ class Firewall:
             [["firewall-cmd", f"--zone={zone}", f"--add-{option}"]],
             [["firewall-cmd", "--permanent", f"--zone={zone}", f"--remove-{option}"]],
         )
+
+    def plan_change_source(self, rule_id: str, source: str) -> FirewallPlan:
+        """
+        Work out moving a rule to another origin in one step, guard included, changing nothing.
+
+        The new rule is made first and the old one removed after it, so the port is never left
+        without one; the whole is one change, which waits once for the confirmation of a new SSH
+        login and, when nobody gives it, puts the old rule back and removes the new one.
+
+        Args:
+            rule_id: :attr:`FirewallRule.id` of the rule to move.
+            source: ``any``, or the address or network it should now admit.
+
+        Returns:
+            The commands that make it, undo it and make it permanent.
+
+        Raises:
+            AccessGuardError: It would cut off an SSH session open now, or the console.
+            SecurityError: There is no such rule, Noust cannot spell it again with another origin,
+                or a rule with that origin exists.
+            ValidationError: The origin is not an address or a network, or is the one it has.
+        """
+        state = self._editable()
+        rule = next((item for item in state.rules if item.id == rule_id), None)
+        if rule is None:
+            raise SecurityError(
+                f"There is no firewall rule {rule_id}",
+                details="List the rules with 'noust server security firewall status'.",
+            )
+        if not rule.source_changeable:
+            raise SecurityError(
+                f"Noust changes the origin of a rule for one port, and '{rule.spec}' is not one",
+                details="For this one, add the rule you want and then delete this one.",
+            )
+        comment = rule.comment.removeprefix(NOUST_COMMENT).strip()
+        action = "allow" if rule.action == "allow" else "deny"
+        moved = RuleRequest(action, rule.ports[0][0], rule.proto, source, comment).validated()
+        if _same_origin(rule.source, moved.source):
+            raise ValidationError(
+                f"The rule already admits from {_origin_words(rule.source)}", field="source"
+            )
+        if any(_same_rule_with_origin(other, moved) for other in state.rules):
+            raise SecurityError(
+                f"There is already a rule for {moved.proto} port {moved.port} from "
+                f"{_origin_words(moved.source)}",
+                details="Delete the rule you do not want, or choose another origin.",
+            )
+        protected = self.protected()
+        self._guard_rule(moved, protected)
+        self._guard_change_source(rule, moved, state, protected)
+        added = self._build_add(moved, state)
+        removed = self._build_delete(rule, state)
+        what, values = _source_words(rule, moved)
+        return _plan(
+            what,
+            values,
+            added.apply + removed.apply,
+            # Put back before taken away: a revert that stops half-way still leaves the old rule.
+            removed.undo + added.undo,
+            added.commit + removed.commit,
+        )
+
+    def _guard_change_source(
+        self,
+        rule: FirewallRule,
+        moved: RuleRequest,
+        state: FirewallState,
+        protected: Protected,
+    ) -> None:
+        """
+        Refuse to move the rule that opens a protected port to everyone when that cuts a session off.
+
+        Moving the origin removes the rule for everyone and makes one for a network: the SSH
+        sessions open now must all come from inside it. Another rule that already opens the port
+        to everyone makes the move harmless.
+
+        Args:
+            rule: The rule being moved.
+            moved: The rule that replaces it, validated.
+            state: The firewall.
+            protected: What must stay reachable.
+
+        Raises:
+            AccessGuardError: It would cut a session off, or close the port.
+        """
+        if rule.action not in ("allow", "limit") or not state.denies_by_default:
+            return
+        for port, what in sorted(protected.ports.items()):
+            if not rule.covers(port, "tcp") or rule.source != "any":
+                continue
+            if any(
+                other.id != rule.id
+                and other.action in ("allow", "limit")
+                and other.source == "any"
+                and other.covers(port, "tcp")
+                for other in state.rules
+            ):
+                continue
+            cut = sorted(
+                address
+                for address in protected.sources
+                if moved.source != "any"
+                and ipaddress.ip_address(address) not in ipaddress.ip_network(moved.source)
+            )
+            if moved.action == "allow" and not cut:
+                continue
+            audit(
+                "server.firewall",
+                "rules",
+                outcome="denied",
+                action=f"change the origin of '{rule.spec}'",
+                reason=f"it is what lets everyone reach port {port} ({what})",
+            )
+            raise AccessGuardError(
+                f"Refusing to change who reaches port {port} ({what}) to "
+                f"{_origin_words(moved.source)}",
+                details=(
+                    f"It would cut off the SSH sessions open now ({', '.join(cut)}) and could "
+                    "leave a central's tunnel out. Choose a network that holds the address you "
+                    "are connected from, or add the rule you want first and delete this one "
+                    "once you have proved it works."
+                    if cut
+                    else "It would leave nobody able to open a new SSH session or reach the "
+                    "console: the default policy denies and nothing else admits them."
+                ),
+            )
 
     def plan_enable(self) -> FirewallPlan:
         """
@@ -1571,6 +1745,19 @@ class Firewall:
             The change.
         """
         return self._apply(self.plan_delete(rule_id))
+
+    def change_source(self, rule_id: str, source: str) -> PendingChange:
+        """
+        Move a rule to another origin in one step, pending confirmation.
+
+        Args:
+            rule_id: :attr:`FirewallRule.id`.
+            source: ``any``, or the address or network the rule should now admit.
+
+        Returns:
+            The change: one, whatever it takes to make.
+        """
+        return self._apply(self.plan_change_source(rule_id, source))
 
     def enable(self) -> PendingChange:
         """
@@ -1829,3 +2016,83 @@ def _rich_text(rule: RuleRequest, proto: str) -> str:
     parts += [f'port port="{rule.port}" protocol="{proto}"']
     parts.append("accept" if rule.action == "allow" else "reject")
     return " ".join(parts)
+
+
+def _source_words(old: FirewallRule, moved: RuleRequest) -> tuple[str, dict[str, str]]:
+    """
+    The sentence that says a rule's origin is changed, and what it puts in.
+
+    The code and its values are kept with the change, so its notice is said in the language of
+    whoever reads it (item 138): the origin that is anywhere is a variant of the sentence and
+    never a word inside a value.
+
+    Args:
+        old: The rule as it is.
+        moved: The rule that replaces it, validated.
+
+    Returns:
+        The code (``firewall_source``, ``firewall_source_to_any``, ``firewall_source_from_any``)
+        and its values: the port, as ``5432/tcp`` or ``5432`` for both protocols, the origin it
+        had and the one it gets, each unless it is anywhere.
+    """
+    port = str(moved.port) if moved.proto == "any" else f"{moved.port}/{moved.proto}"
+    if moved.source == "any":
+        return "firewall_source_to_any", {"port": port, "old": old.source}
+    if old.source == "any":
+        return "firewall_source_from_any", {"port": port, "source": moved.source}
+    return "firewall_source", {"port": port, "old": old.source, "source": moved.source}
+
+
+def _same_origin(first: str, second: str) -> bool:
+    """
+    Tell whether two origins admit the same addresses.
+
+    Args:
+        first: ``any``, an address or a network, as a rule reports it.
+        second: Another.
+
+    Returns:
+        True for the same network, however it is spelled (a host is its own ``/32``).
+    """
+    if first == "any" or second == "any":
+        return first == second
+    try:
+        return ipaddress.ip_network(first, strict=False) == ipaddress.ip_network(
+            second, strict=False
+        )
+    except ValueError:
+        return first == second
+
+
+def _origin_words(source: str) -> str:
+    """
+    Name an origin for a title or an error.
+
+    Args:
+        source: ``any``, an address or a network.
+
+    Returns:
+        ``anywhere`` for ``any``, the address or network otherwise.
+    """
+    return "anywhere" if source == "any" else source
+
+
+def _same_rule_with_origin(rule: FirewallRule, request: RuleRequest) -> bool:
+    """
+    Tell whether a rule is exactly what a request would make.
+
+    Args:
+        rule: A rule of the firewall.
+        request: A validated request.
+
+    Returns:
+        True for a rule of the same action, port, protocol and origin.
+    """
+    return (
+        rule.known
+        and rule.service is None
+        and rule.ports == ((request.port, request.port),)
+        and rule.proto == request.proto
+        and ("allow" if rule.action == "allow" else "deny") == request.action
+        and _same_origin(rule.source, request.source)
+    )

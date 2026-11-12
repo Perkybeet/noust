@@ -412,6 +412,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("console", "preview_exposure"): ("POST", "/api/console/exposure/preview", "server.host_access", False),
     ("cron_jobs", "list_jobs"): ("GET", "/api/cron", "apps.read", False),
     ("cron_jobs", "create_job"): ("POST", "/api/cron", "root_equivalent", True),
+    ("cron_jobs", "once_history"): ("GET", "/api/cron/history", "apps.read", False),
     ("cron_jobs", "preview_schedule"): ("POST", "/api/cron/preview", "apps.read", False),
     ("cron_jobs", "delete_job"): ("DELETE", "/api/cron/{name}", "apps.manage", True),
     ("cron_jobs", "disable_job"): ("POST", "/api/cron/{name}/disable", "apps.operate", False),
@@ -965,6 +966,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("server", "enable_firewall"): ("POST", "/api/server/security/firewall/enable", "server.host_access", True),
     ("server", "add_firewall_rule"): ("POST", "/api/server/security/firewall/rules", "server.host_access", True),
     ("server", "delete_firewall_rule"): ("DELETE", "/api/server/security/firewall/rules/{rule_id}", "server.host_access", True),
+    ("server", "change_firewall_rule_source"): ("POST", "/api/server/security/firewall/rules/{rule_id}/source", "server.host_access", True),
     ("server", "get_risks"): ("GET", "/api/server/security/risks", "server.read", False),
     ("server", "accept_risk"): ("PUT", "/api/server/security/risks/{check_id}", "security.manage", True),
     ("server", "revoke_risk"): ("DELETE", "/api/server/security/risks/{check_id}", "security.manage", True),
@@ -2879,13 +2881,13 @@ class Audit:
         Needs: permission `audit.read`."""
         return self._call("GET", "/api/audit/events", query=None, body=None)
 
-    def export_audit_log(self, *, since: Union[str, None] = None, until: Union[str, None] = None) -> bytes:
+    def export_audit_log(self, *, format: Union[Literal["ndjson", "csv"], None] = None, since: Union[str, None] = None, until: Union[str, None] = None, action: Union[str, None] = None, result: Union[str, None] = None, actor: Union[str, None] = None, category: Union[str, None] = None, categories: Union[list[str], None] = None, correlation_id: Union[str, None] = None, target: Union[str, None] = None, q: Union[str, None] = None) -> bytes:
         """GET /api/audit/export
 
         Export Audit Log
 
         Needs: permission `audit.read`."""
-        return self._call("GET", "/api/audit/export", query={"since": since, "until": until}, body=None, binary=True)
+        return self._call("GET", "/api/audit/export", query={"format": format, "since": since, "until": until, "action": action, "result": result, "actor": actor, "category": category, "categories": categories, "correlation_id": correlation_id, "target": target, "q": q}, body=None, binary=True)
 
     def list_reviews(self, *, limit: Union[int, None] = None) -> "ReviewListResponse":
         """GET /api/audit/reviews
@@ -4362,7 +4364,7 @@ class Console:
 
 
 class CronJobs:
-    """Cron Jobs: 9 operations."""
+    """Cron Jobs: 10 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -4382,6 +4384,14 @@ class CronJobs:
 
         Needs: permission `root_equivalent`, sudo mode, a second person's approval can be required."""
         return self._call("POST", "/api/cron", query=None, body=body)
+
+    def once_history(self) -> "CronHistoryResponse":
+        """GET /api/cron/history
+
+        Once History
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", "/api/cron/history", query=None, body=None)
 
     def preview_schedule(self, body: "CronPreviewRequest") -> "CronPreviewResponse":
         """POST /api/cron/preview
@@ -8772,7 +8782,7 @@ class SelfBackup:
 
 
 class Server:
-    """Server: 80 operations."""
+    """Server: 81 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -9064,6 +9074,14 @@ class Server:
 
         Needs: permission `server.host_access`, sudo mode."""
         return self._call("DELETE", f"/api/server/security/firewall/rules/{quote(str(rule_id), safe='')}", query=None, body=None)
+
+    def change_firewall_rule_source(self, rule_id: str, body: "RuleSourceIn") -> "JobAcceptedResponse":
+        """POST /api/server/security/firewall/rules/{rule_id}/source
+
+        Change Firewall Rule Source
+
+        Needs: permission `server.host_access`, sudo mode."""
+        return self._call("POST", f"/api/server/security/firewall/rules/{quote(str(rule_id), safe='')}/source", query=None, body=body)
 
     def get_risks(self) -> list["AcceptedRiskOut"]:
         """GET /api/server/security/risks

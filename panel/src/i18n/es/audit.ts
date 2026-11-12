@@ -47,6 +47,11 @@ export const audit: Catalog<typeof en> = {
     correlationTitle: "Una petición",
     correlation: "Solo los eventos de {id}: lo que hizo una petición, una orden o una tarea.",
     correlationClear: "Mostrar todos",
+    exportCsv: "CSV, para una hoja de cálculo",
+    exportCsvAll: "Todos los eventos, con lo que registró cada uno.",
+    exportCsvFiltered: "Los eventos que dejan estos filtros y esta búsqueda, con lo que registró cada uno.",
+    exportNdjson: "NDJSON, con la cadena",
+    exportNdjsonDescription: "Todos los eventos con todos sus campos y la cadena, para un auditor o un SIEM. Los filtros no se aplican.",
   },
   table: {
     event: "Evento",

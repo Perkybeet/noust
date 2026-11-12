@@ -97,6 +97,32 @@ against the schema of 4.2.0.
   `restore_drill_days` (`backup.drill_days`, 30 days, `0` turns it off), and the ENS report
   (`GET /api/ens/report`) carries the check `ENS-BAK-03` and the indicators `restores_tested_percent` and
   `restore_time_observed_seconds`.
+- **A task that runs once** (`POST /api/cron`, `POST /api/cron/preview`). Both take `once_at`, the moment in
+  the server's time (`YYYY-MM-DD HH:MM`, or with an offset, which is converted), and then `schedule` is
+  ignored. A moment that has passed, one that is not a date and a time, or one more than two years ahead is a
+  `400` naming `once_at` in `fields`, and `hint` says the time it is on the server. The task is a timer with that one date and
+  `Persistent=true`, so a server that was off at that moment runs it when it comes back; its service records
+  how it ended and removes both units. Each task in `GET /api/cron` carries `once` and `once_at` (ISO 8601 with
+  the server's offset), and its `schedule` is `once`. A server before 4.3 ignores `once_at` and would make a
+  task that repeats: a client reads `GET /api/cron/history` first, which such a server lacks.
+- **What a one-time task left** (`GET /api/cron/history`, permission `apps.read`, the server's like the rest of
+  `/api/cron`). The runs of the last 30 days, newest first, each with when it was asked for (`run_at`), how it
+  ended (`result` in systemd's word, `exit_code`, `ok`), whether it came `late` (the server was off, and ran
+  it when it came back), when it started and ended, and the last lines it printed with credentials masked.
+  `zone` is the server's zone, the one every `run_at` is written in.
+- **Change where a firewall rule admits from, in one step**
+  (`POST /api/server/security/firewall/rules/{rule_id}/source`, permission `server.host_access`, sudo mode).
+  The body is `{"source": "any" | an address | a network}`. The new rule is made, the old one removed, and the
+  whole waits once for the confirmation every change of access waits for, which undoes it when nobody gives
+  it. The answer is a job, as for the other firewall changes; a change the guard refuses (it would cut off an
+  SSH session open now) is a `400` and queues nothing. Each rule in `GET /api/server/security/firewall`
+  carries `source_changeable`, whether this route can move it. A server before 4.3 has neither.
+- **The audit log as a CSV** (`GET /api/audit/export`, permission `audit.read`). It takes `format` (`ndjson`,
+  the default and what it always answered, or `csv`) and the filters of the console's Audit page: `action`,
+  `result`, `actor`, `category`, `categories`, `correlation_id`, `target` and `q` (the search box), next to
+  `since` and `until`. The CSV has a last column, `detail`, with what the event recorded, credentials of a
+  recognisable shape masked, and a cell a spreadsheet would run as a formula is written as text. The audit
+  event of an export (`audit.export`) says the period, the format and the filter.
 
 - **What Noust watches by itself, and where it says so.** `GET /api/alerts/watching` (permission `server.read`)
   answers the root of Alerts: `watcher` (whether `noust-monitor`, which does the watching, runs: `running`,

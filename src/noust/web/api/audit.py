@@ -18,13 +18,12 @@ the console loads. Each route's permission is in
 
 from __future__ import annotations
 
-import json
 import threading
 import time
 from collections.abc import Iterator
 from dataclasses import replace
 from datetime import datetime, timezone
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
@@ -33,6 +32,7 @@ from pydantic import BaseModel, Field
 from noust.core.audit import Actor, get_log, health, record
 from noust.core.audit.catalog import CATEGORIES, EVENTS
 from noust.core.audit.chain import LIMITATION
+from noust.core.audit.export import ExportFilter, detail_of, render, select_events
 from noust.core.audit.log import category_of
 from noust.core.exceptions import ValidationError
 from noust.web.api.deps import NoustErrorRoute
@@ -171,18 +171,6 @@ class AuditListResponse(BaseModel):
     next_before: str | None = None
 
 
-def _detail_of(raw: dict[str, Any]) -> str | None:
-    if raw.get("detail"):
-        return str(raw["detail"])
-    details = raw.get("details")
-    if isinstance(details, dict) and details:
-        return ", ".join(
-            f"{key}={value if isinstance(value, str) else json.dumps(value, sort_keys=True)}"
-            for key, value in details.items()
-        )
-    return None
-
-
 def _to_entry(raw: dict[str, Any]) -> AuditEntry:
     """
     Convert one line of the log into the API model.
@@ -201,7 +189,7 @@ def _to_entry(raw: dict[str, Any]) -> AuditEntry:
         actor=str(raw.get("actor", "")),
         client_ip=raw.get("ip"),
         resource=raw.get("resource"),
-        detail=_detail_of(raw),
+        detail=detail_of(raw),
         seq=raw.get("seq") if isinstance(raw.get("seq"), int) else None,
         id=raw.get("id"),
         category=category_of(raw),
@@ -648,58 +636,119 @@ class NdjsonResponse(StreamingResponse):
     media_type = "application/x-ndjson"
 
 
+#: What each export format is served as, and the file it downloads as.
+_EXPORT_FILES = {
+    "ndjson": ("application/x-ndjson", "noust-audit.ndjson"),
+    "csv": ("text/csv; charset=utf-8", "noust-audit.csv"),
+}
+
+
 @router.get(
     "/export",
     response_class=NdjsonResponse,
     responses={
         200: {
-            "description": "The events, oldest first, one JSON object per line.",
-            "content": {"application/x-ndjson": {"schema": {"type": "string"}}},
+            "description": (
+                "The events, oldest first: one JSON object per line (``ndjson``, the default, "
+                "every field and the chain) or a CSV for a spreadsheet (``csv``)."
+            ),
+            "content": {
+                "application/x-ndjson": {"schema": {"type": "string"}},
+                "text/csv": {"schema": {"type": "string"}},
+            },
         }
     },
 )
 def export_audit_log(
     request: Request,
     session: Annotated[dict, Depends(require_auth)],
+    format: Annotated[
+        Literal["ndjson", "csv"], Query(description="ndjson (the default) or csv")
+    ] = "ndjson",
     since: Annotated[str | None, Query(description="From this ISO timestamp")] = None,
     until: Annotated[str | None, Query(description="Up to this ISO timestamp")] = None,
-) -> NdjsonResponse:
+    action: Annotated[str | None, Query(description="Filter by exact action")] = None,
+    result: Annotated[str | None, Query(description="Filter by exact result")] = None,
+    actor: Annotated[str | None, Query(description="Filter by exact actor")] = None,
+    category: Annotated[str | None, Query(description="Filter by catalog category")] = None,
+    categories: Annotated[
+        list[str] | None,
+        Query(
+            description="Only entries of one of these categories, as the console's views read them"
+        ),
+    ] = None,
+    correlation_id: Annotated[
+        str | None, Query(description="Only the events of one request, command or job")
+    ] = None,
+    target: Annotated[str | None, Query(description="Filter by exact target")] = None,
+    q: Annotated[
+        str | None,
+        Query(
+            description=(
+                "Words to find in the event, actor, target, detail, address or correlation id,"
+                " as the Audit page's search box does"
+            )
+        ),
+    ] = None,
+) -> StreamingResponse:
     """
-    Export the audit log as NDJSON, every field and the chain included.
+    Export the audit log, filtered as the console's Audit page is, as NDJSON or CSV.
 
-    The export is recorded (``audit.export``).
+    NDJSON keeps every field and the chain; CSV is for a spreadsheet, with what each event
+    recorded in its last column, credentials masked. The selection and the two formats are
+    :mod:`noust.core.audit.export`, which ``noust audit export`` uses too. The export is recorded
+    (``audit.export``) with who asked, the period, the filter and the format.
 
     Args:
         request: The request.
         session: The authenticated session.
+        format: ``ndjson`` or ``csv``.
         since: Lower bound on ``ts``.
         until: Upper bound on ``ts``.
+        action: Only this exact event.
+        result: Only this exact outcome.
+        actor: Only this exact actor.
+        category: Only this category.
+        categories: Only these categories, request lines described by their own events left out.
+        correlation_id: Only the events of this request, command or job.
+        target: Only events on this exact target.
+        q: Words to find in an event.
 
     Returns:
-        The events, oldest first, one JSON object per line.
+        The events, oldest first, as a file.
     """
-    log = get_log()
-    selected: list[dict[str, Any]] = []
-    for entry in log.iter_newest_first():
-        timestamp = str(entry.get("ts", ""))
-        if until is not None and timestamp > until:
-            continue
-        if since is not None and timestamp < since:
-            break
-        selected.append(entry)
-    selected.reverse()
+    selection = ExportFilter(
+        action=action,
+        result=result,
+        actor=actor,
+        category=category,
+        categories=tuple(categories) if categories else None,
+        correlation_id=correlation_id,
+        target=target,
+        q=q,
+        since=since,
+        until=until,
+    )
+    selected = select_events(get_log(), selection)
     record(
         "audit.export",
         actor=_actor(request, session),
         target="api",
-        details={"events": len(selected), "since": since, "until": until, "format": "ndjson"},
+        details={
+            "events": len(selected),
+            "since": since,
+            "until": until,
+            "format": format,
+            "filter": selection.described(),
+        },
     )
+    media_type, filename = _EXPORT_FILES[format]
 
     def lines() -> Iterator[bytes]:
-        for entry in selected:
-            yield (json.dumps(entry, sort_keys=True) + "\n").encode()
+        yield render(selected, format).encode()
 
-    return NdjsonResponse(
+    return StreamingResponse(
         lines(),
-        headers={"Content-Disposition": 'attachment; filename="noust-audit.ndjson"'},
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

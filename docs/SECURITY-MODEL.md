@@ -364,8 +364,8 @@ only what recovering an account takes.
 ### The routes
 
 <!-- generated:routes -->
-- **1167** API operations. **1123** need a permission (`x-noust-permission`) and **44** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
-- **383** operations need sudo mode and **54** can need a second person.
+- **1169** API operations. **1125** need a permission (`x-noust-permission`) and **44** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
+- **384** operations need sudo mode and **54** can need a second person.
 - **6** WebSocket routes, each with its permission, checked at the handshake.
 
 | Permission | Operations |
@@ -375,7 +375,7 @@ only what recovering an account takes.
 | `apps.deploy` | 39 |
 | `apps.manage` | 147 |
 | `apps.operate` | 34 |
-| `apps.read` | 153 |
+| `apps.read` | 154 |
 | `apps.terminal` | 12 |
 | `audit.manage` | 1 |
 | `audit.read` | 10 |
@@ -394,7 +394,7 @@ only what recovering an account takes.
 | `secrets.reveal` | 16 |
 | `security.manage` | 10 |
 | `self` | 46 |
-| `server.host_access` | 27 |
+| `server.host_access` | 28 |
 | `server.manage` | 68 |
 | `server.read` | 88 |
 | `server.terminal` | 1 |

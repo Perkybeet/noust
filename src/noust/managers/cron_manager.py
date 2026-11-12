@@ -53,7 +53,7 @@ import re
 import shlex
 import shutil
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -64,15 +64,18 @@ from noust.core import paths
 from noust.core.appdir.layout import code_path_for, env_file_for
 from noust.core.config import SYSTEMD_DIR as _SYSTEMD_DIR
 from noust.core.config import Config
+from noust.core.cron_once_history import CronOnceHistory, OnceRun
 from noust.core.exceptions import BackupError, NoustError, ServiceError, ValidationError
 from noust.core.fs import FileSystem, get_fs
 from noust.core.logger import Logger
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import App, get_store
 from noust.core.templates import text_environment
+from noust.core.timeutil import utc_now_iso
+from noust.core.utils import find_noust_executable
 from noust.deployers.helpers.app_run_environment import RunEnvironment, run_environment
 from noust.deployers.helpers.compose_exec import ComposeExec, compose_exec
-from noust.managers import cron_ledger
+from noust.managers import cron_ledger, cron_once
 from noust.managers.app_identity import service_account_for
 from noust.managers.backup_scheduler import SCHEDULE_ALIASES, validate_calendar
 from noust.validators.environment import escape_systemd_value, validate_unit_value
@@ -87,6 +90,10 @@ READ_ONLY_PROBES: tuple[tuple[object, ...], ...] = (
 
 #: Deadline for a systemctl verb. Nothing here talks to the network.
 _SYSTEMCTL_TIMEOUT = 60
+
+#: Seconds a retired one-time task that failed waits before systemd is told to forget the failure:
+#: the stop hook that retires it is still running, and the unit is only failed when it ends.
+_FORGET_AFTER = 5
 
 #: Deadline for reading the journal. It is a local read, but a large journal
 #: takes real time to filter.
@@ -167,6 +174,19 @@ _ELAPSE_LINE = re.compile(r"^\s*(?:Next elapse|Iter\.\s*#\d+):\s*(.+)$", re.MULT
 #: The weekday-prefixed timestamp on an elapse line, once TZ=UTC pins every
 #: run to the zone the console displays in: "Thu 2026-01-01 00:00:00 UTC".
 _ELAPSE_TIMESTAMP = re.compile(r"^\w+\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})\s+UTC$")
+
+
+def datetime_utc(epoch: float) -> str:
+    """
+    Write a moment the journal gave as the store writes its own.
+
+    Args:
+        epoch: Seconds since the epoch.
+
+    Returns:
+        ISO 8601 in UTC to the second.
+    """
+    return dt.datetime.fromtimestamp(epoch, tz=dt.timezone.utc).isoformat(timespec="seconds")
 
 
 def command_comment(command: str) -> str:
@@ -255,6 +275,9 @@ class CronJob:
             as long as it takes.
         service: The service of the application's Compose stack the command
             runs in, or None to run it on this server.
+        once_at: The moment, in this server's time, a one-time task runs at (``YYYY-MM-DD HH:MM``,
+            or with an offset). The task runs then, once, and retires itself; ``schedule`` is
+            ignored. None for a task that repeats.
     """
 
     name: str
@@ -265,6 +288,7 @@ class CronJob:
     app_domain: str | None = None
     timeout: int | None = None
     service: str | None = None
+    once_at: str | None = None
 
     @property
     def on_calendar(self) -> str:
@@ -330,6 +354,7 @@ class CronOutcome:
         timer: systemd's ``ActiveState`` of the job's timer (``active``,
             ``inactive``, ``failed``); empty when it was not asked.
         timer_enabled: The timer is enabled, so it is meant to be running.
+        once: The task runs once and retires itself, so its timer ends by design.
     """
 
     name: str
@@ -340,6 +365,7 @@ class CronOutcome:
     app_domain: str = ""
     timer: str = ""
     timer_enabled: bool = True
+    once: bool = False
 
     @property
     def ok(self) -> bool:
@@ -557,7 +583,12 @@ class CronManager:
                 write into a root-owned unit file.
         """
         name = self._validate_name(job.name)
-        calendar = validate_cron_calendar(job.schedule)
+        # A moment is read here, whole, and the unit is written from the moment, never from what
+        # was typed; a task that repeats goes through the calendar rules it always did.
+        once_at = (
+            cron_once.calendar_of(cron_once.moment_of_text(job.once_at)) if job.once_at else None
+        )
+        calendar = once_at or validate_cron_calendar(job.schedule)
         timeout = self._validate_timeout(job.timeout)
         service = (job.service or "").strip() or None
         app_domain = (job.app_domain or "").strip() or None
@@ -629,6 +660,7 @@ class CronManager:
             app_domain=app_domain,
             timeout=timeout,
             service=service,
+            once_at=once_at,
         )
 
     @staticmethod
@@ -860,7 +892,9 @@ class CronManager:
         Returns:
             The unit file content, with every interpolated value escaped.
         """
-        return self._render("cron-timer.j2", name=job.name, schedule=job.on_calendar)
+        return self._render(
+            "cron-timer.j2", name=job.name, schedule=job.on_calendar, once=bool(job.once_at)
+        )
 
     def render_service(self, job: CronJob) -> str:
         """
@@ -900,6 +934,8 @@ class CronManager:
             service=job.service or "",
             environment=environment,
             environment_files=[str(path) for path in environment_files],
+            once=job.once_at or "",
+            noust=find_noust_executable() or "/usr/bin/noust",
         )
 
     # Operations -----------------------------------------------------------
@@ -969,7 +1005,21 @@ class CronManager:
             ServiceError: When no such job exists or the units are not Noust's.
         """
         checked, timer_path, service_path = self._require_owned(name, operation="delete")
+        self._remove_units(checked, timer_path, service_path)
+        return True
 
+    def _remove_units(self, checked: str, timer_path: Path, service_path: Path) -> None:
+        """
+        Stop a job's timer and remove its two unit files.
+
+        Only the timer is stopped: a one-time task removes itself from the stop hook of its own
+        service, which must not be asked to stop.
+
+        Args:
+            checked: The validated job name.
+            timer_path: Its timer unit file.
+            service_path: Its service unit file.
+        """
         self._systemctl("stop", f"{UNIT_PREFIX}{checked}.timer")
         self._systemctl("disable", f"{UNIT_PREFIX}{checked}.timer")
 
@@ -982,7 +1032,121 @@ class CronManager:
         self._systemctl("daemon-reload")
 
         self.logger.info(f"Removed cron job: {UNIT_PREFIX}{checked}")
-        return True
+
+    def settle_once(
+        self, name: str, *, result: str | None = None, exit_code: int | None = None
+    ) -> OnceRun:
+        """
+        Record how a one-time task ended and retire it: what its stop hook runs.
+
+        The result and the output are kept where the units will not be
+        (:class:`~noust.core.cron_once_history.CronOnceHistory`), then the timer and the service
+        are removed. Settling is safe to repeat: a task already retired is an unknown one, and the
+        record has one row per task.
+
+        Args:
+            name: The task.
+            result: systemd's word for how it ended (``success``, ``exit-code``, ``timeout``...),
+                as the stop hook is told it; asked of systemd when None.
+            exit_code: The command's exit status, as the stop hook is told it; with ``result`` it
+                is taken as it is (None for a command that was killed), and without it the status
+                systemd shows is used.
+
+        Returns:
+            The run, as recorded.
+
+        Raises:
+            ServiceError: There is no such task, its units are not Noust's, or it is not a
+                one-time task (the repeating ones are removed with ``delete``).
+        """
+        checked, timer_path, service_path = self._require_owned(name, operation="settle")
+        fields = self._read_service_fields(checked)
+        if not fields["once"]:
+            raise ServiceError(
+                f"{checked} is not a one-time task",
+                details=f"Only a task made with 'noust cron create --once' retires itself. "
+                f"To remove this one: noust cron delete {checked}",
+            )
+        run_at = cron_once.moment_of_calendar(fields["once"])
+        shown = self._show_properties(
+            self._systemctl(
+                "show",
+                f"{UNIT_PREFIX}{checked}.service",
+                "--property=InvocationID,ActiveState,Result,ExecMainStatus",
+            ).stdout
+        )
+        invocation = shown.get("InvocationID", "")
+        runs, _seen = self._read_runs(f"{UNIT_PREFIX}{checked}.service", _JOURNAL_ENTRIES)
+        found = runs.get(invocation) or (list(runs.values())[-1] if runs else None)
+        started = found["at"] if found else None
+        if result is None:
+            result = shown.get("Result") or ("success" if invocation and found else "unknown")
+            status = shown.get("ExecMainStatus", "")
+            exit_code = int(status) if invocation and status.isdigit() else None
+            if exit_code is None and found is not None:
+                exit_code = found["exit_code"]
+        lines = found["lines"] if found else []
+        run = OnceRun(
+            name=checked,
+            command=fields["command"],
+            app_domain=fields["app_domain"],
+            run_as=fields["user"],
+            working_directory=fields["working_directory"],
+            timeout=int(fields["timeout"]) if fields["timeout"].isdigit() else None,
+            service=fields["service"],
+            run_at=run_at.isoformat(timespec="seconds") if run_at else fields["once"],
+            started_at=(datetime_utc(started) if started is not None else None),
+            finished_at=utc_now_iso("seconds"),
+            result=result,
+            exit_code=exit_code,
+            late=cron_once.started_late(run_at, started),
+            output="\n".join(lines) + "\n" if lines else "",
+        )
+        history = CronOnceHistory()
+        recorded = replace(run, id=history.record(run))
+        self._remove_units(checked, timer_path, service_path)
+        if not recorded.ok:
+            self._forget_failure(checked)
+        return recorded
+
+    def _forget_failure(self, checked: str) -> None:
+        """
+        Have systemd forget a retired task's failed state once its stop hook has ended.
+
+        The hook runs while the service is still stopping, so the failure is only recorded after
+        it, and a failed unit whose file is gone stays in ``systemctl --failed`` until somebody
+        resets it. A transient timer does it a few seconds later, outside the unit.
+
+        Args:
+            checked: The validated job name.
+        """
+        result = self.runner.run(
+            [
+                "systemd-run",
+                "--no-block",
+                "--collect",
+                f"--on-active={_FORGET_AFTER}",
+                "--description=Noust: forget a one-time task that failed",
+                shutil.which("systemctl") or "/usr/bin/systemctl",
+                "reset-failed",
+                f"{UNIT_PREFIX}{checked}.service",
+            ],
+            timeout=_SYSTEMCTL_TIMEOUT,
+        )
+        if not result.success:
+            self.logger.warning(
+                f"Could not schedule the reset of {UNIT_PREFIX}{checked}.service: "
+                f"{(result.stderr or result.stdout).strip()}"
+            )
+
+    def once_history(self) -> list[OnceRun]:
+        """
+        List the one-time tasks that ran and retired in the last thirty days.
+
+        Returns:
+            Newest first.
+        """
+        return CronOnceHistory().recent()
 
     def run_now(self, name: str) -> str:
         """
@@ -1115,6 +1279,7 @@ class CronManager:
             "app_domain": "",
             "service": "",
             "timeout": "",
+            "once": "",
         }
         path = self.SYSTEMD_DIR / f"{UNIT_PREFIX}{name}.service"
         try:
@@ -1141,6 +1306,8 @@ class CronManager:
                 fields["service"] = line[len(_SERVICE_COMMENT) :].strip()
             elif line.startswith("TimeoutStartSec="):
                 fields["timeout"] = line[len("TimeoutStartSec=") :].strip()
+            elif line.startswith(cron_once.ONCE_COMMENT):
+                fields["once"] = line[len(cron_once.ONCE_COMMENT) :].strip()
         if fields["service"] and record is not None:
             # ExecStart is the compose prefix and the command: the record is
             # what the operator typed, and the only thing to hand back to edit.
@@ -1211,12 +1378,18 @@ class CronManager:
             "last_run": "never",
             "last_exit_code": None,
             "last_result": "never ran",
+            "once": False,
+            "once_at": "",
         }
         read = self._read_service_fields(name)
         timeout = read.pop("timeout")
+        once = read.pop("once")
         info.update(read)
         info["timeout"] = int(timeout) if timeout.isdigit() else None
         info["service"] = read["service"]
+        moment = cron_once.moment_of_calendar(once) if once else None
+        info["once"] = bool(once)
+        info["once_at"] = moment.isoformat(timespec="seconds") if moment else ""
 
         timer = self._systemctl(
             "show",
@@ -1480,16 +1653,21 @@ class CronManager:
             except ValueError:
                 exit_code = None
             invocation = properties.get("InvocationID", "")
+            fields = self._read_service_fields(name)
             outcomes.append(
                 CronOutcome(
                     name=name,
                     invocation=invocation,
-                    running=properties.get("ActiveState", "") in ("active", "activating"),
+                    # Deactivating is the stop hook running: the command has ended and the run
+                    # has not (a one-time task is recording itself there).
+                    running=properties.get("ActiveState", "")
+                    in ("active", "activating", "deactivating"),
                     result=properties.get("Result", "") if invocation else "",
                     exit_code=exit_code if invocation else None,
-                    app_domain=self._read_service_fields(name)["app_domain"],
+                    app_domain=fields["app_domain"],
                     timer=timer,
                     timer_enabled=enabled_timers.get(name, True),
+                    once=bool(fields["once"]),
                 )
             )
         return outcomes

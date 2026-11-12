@@ -87,6 +87,7 @@ async function cronAt(path = "/cron", extra: Record<string, RouteHandler> = {}) 
   const backend = fakeBackend({
     ...signedInRoutes(),
     "GET /api/cron": () => json(200, { jobs: JOBS, total: JOBS.length }),
+    "GET /api/cron/history": () => json(200, { items: [], total: 0, days: 30, zone: "UTC" }),
     "POST /api/cron/preview": previewRoute,
     ...extra,
   });
