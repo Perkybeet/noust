@@ -217,6 +217,13 @@ both keys is kept in `/var/backups/noust/store-move/`, the secrets are sealed ag
 `/etc/noust` (the file would be ciphertext nothing opens otherwise), the copy is checked before the store
 is switched and anything that fails is undone. The old store file is renamed, not deleted.
 
+A restore does the same when the bundle and the server keep the key in different places (a bundle of a
+user's store onto a server that keeps its store in `/var/lib/noust`, or the other way round): each
+protected secret is opened with the key the bundle carries and sealed again under the key this server
+reads, and the bundle's key is not left beside ciphertext it no longer opens. The report says how many
+were sealed again. A bundle whose own key does not open one of its secrets is refused before anything
+changes, and the error names the secret and what to do.
+
 `verify` proves a bundle restorable without restoring it: the envelope, every file's digest,
 the store's integrity check and that this Noust can migrate its schema. `restore` first checks
 every path in the bundle against this server's own directories (a bundle never decides where a

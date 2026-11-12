@@ -212,7 +212,7 @@ class TestTheKeyTheSecretsAreSealedUnder:
         assert made.manifest["secrets_key"] == {"path": "config/secrets.key"}
         assert "system-state" not in made.manifest["sources"]
 
-    def test_a_restore_onto_a_server_that_keeps_its_key_elsewhere_says_what_cannot_be_opened(
+    def test_a_restore_onto_a_server_that_keeps_its_key_elsewhere_seals_the_secrets_again(
         self, machine: Machine, runner: Runner
     ) -> None:
         made = machine.manager(runner).create(PASSPHRASE)
@@ -229,10 +229,16 @@ class TestTheKeyTheSecretsAreSealedUnder:
 
         report = SelfRestore(fresh, restart=False).restore(made.path.name, PASSPHRASE, force=True)
 
+        # Item 194: the secrets are opened with the key the bundle carries and sealed under the
+        # one this server reads (the configuration's), which the restore says; the other kind of
+        # server's key is not left beside ciphertext it no longer opens.
         notes = " ".join(report.notes)
-        assert str(machine.system / "secrets.key") in notes
         assert str(machine.config / "secrets.key") in notes
-        assert "enter them again" in notes
+        assert "enter them again" not in notes
+        assert not (machine.system / "secrets.key").exists()
+        assert SecretStore(root=machine.system / "secrets").read_protected_json(
+            "backups/destinations/nas"
+        ) == {"password": "nas-password"}
 
     def test_a_restore_onto_a_server_that_keeps_it_in_the_same_place_says_nothing_of_it(
         self, machine: Machine, runner: Runner

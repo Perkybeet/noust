@@ -50,9 +50,9 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from noust.core import paths
-from noust.core.exceptions import BackupError, NoustError
+from noust.core.exceptions import BackupError, ConfigError, NoustError
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE
-from noust.core.secrets import at_rest_key_path
+from noust.core.secrets import PROTECTED_DOMAIN, SecretStore, at_rest_key_path
 from noust.core.store import SCHEMA_VERSION, NoustStore, get_store
 from noust.managers.backup_destination_files import file_sha256
 from noust.managers.self_backup import SelfBackupManager, store_path_in
@@ -108,6 +108,23 @@ class RestoreReport:
             The report as plain data, JSON-ready.
         """
         return asdict(self)
+
+
+@dataclass(frozen=True)
+class _Reseal:
+    """
+    The secrets of a bundle that have to change keys to be opened on this server.
+
+    Attributes:
+        names: The protected secrets, by name, as the bundle holds them.
+        old_root: A private copy of those secrets, with the key the bundle carries beside it, in
+            the layout a secret store reads: where they are opened from.
+        key_path: The bundle's path of that key, which is not put back: it opens nothing here.
+    """
+
+    names: tuple[str, ...]
+    old_root: Path
+    key_path: str
 
 
 class SelfRestore:
@@ -307,7 +324,10 @@ class SelfRestore:
             root, manifest = manager.open_bundle(path, passphrase, Path(scratch))
             self._prove(root, manifest, report)
             targets = self._targets(manifest, report)
-            plan = self._plan(root, manifest, targets, report)
+            reseal = self._plan_reseal(root, manifest, targets, Path(scratch))
+            plan = self._plan(
+                root, manifest, targets, report, skip=reseal.key_path if reseal else None
+            )
             existing = self._has_state(targets)
             if existing and not force:
                 raise BackupError(
@@ -328,6 +348,8 @@ class SelfRestore:
             report.stopped = self._stop_writers()
             try:
                 self._put_back(plan, report)
+                if reseal is not None:
+                    self._reseal(reseal, targets, report)
                 self._migrate(root, manifest, targets, report)
             except (BackupError, OSError) as exc:
                 self._start(report.stopped)
@@ -344,7 +366,8 @@ class SelfRestore:
                     "The restore stopped on a file that could not be written",
                     details=f"{exc}.{kept}",
                 ) from exc
-            self._secrets_note(manifest, targets, report)
+            if reseal is None:
+                self._secrets_note(manifest, targets, report)
             self._units(manifest, targets, report)
         manager._audit(
             "self_backup.restore",
@@ -446,6 +469,7 @@ class SelfRestore:
         manifest: dict[str, Any],
         targets: dict[str, Path],
         report: RestoreReport,
+        skip: str | None = None,
     ) -> list[tuple[str, Path, Path, str, int]]:
         """
         Decide where every file and link of the bundle goes, before any is written.
@@ -458,6 +482,7 @@ class SelfRestore:
             manifest: Its manifest.
             targets: Label to this server's directory.
             report: Notes the links that are not made.
+            skip: The path of a file in the bundle that is not put back.
 
         Returns:
             One ``(kind, source, destination, link target, mode)`` per thing to
@@ -469,6 +494,8 @@ class SelfRestore:
         plan: list[tuple[str, Path, Path, str, int]] = []
         for entry in manifest.get("files", []):
             relative = str(entry["path"])
+            if relative == skip:
+                continue
             label, _, below = relative.partition("/")
             target_root = targets.get(label)
             if target_root is None:
@@ -561,6 +588,119 @@ class SelfRestore:
                 "The restored store could not be opened by this version of Noust",
                 details=f"{exc}",
             ) from exc
+
+    def _plan_reseal(
+        self, root: Path, manifest: dict[str, Any], targets: dict[str, Path], scratch: Path
+    ) -> _Reseal | None:
+        """
+        Work out whether the bundle's protected secrets must change keys, and prove they can.
+
+        A user's store keeps the key its secrets are sealed under beside them and the system's keeps
+        it in the configuration directory (:func:`~noust.core.secrets.at_rest_key_path`), so a bundle
+        taken from one and restored onto the other would put the key where this server does not read
+        it. The secrets are opened here with the key the bundle carries, before anything changes: a
+        bundle whose key does not open its own secrets is refused with the step to take, and nothing
+        has been stopped or written.
+
+        Args:
+            root: The extracted root.
+            manifest: Its manifest.
+            targets: Label to this server's directory.
+            scratch: A private directory that goes away when the restore ends.
+
+        Returns:
+            The plan, or None when the key lands where this server reads it (or the secrets are
+            sealed under a passphrase, which is a restore onto a central of its own).
+
+        Raises:
+            BackupError: A protected secret cannot be opened with the key the bundle carries.
+        """
+        named = (manifest.get("secrets_key") or {}).get("path")
+        state = targets.get("state")
+        label, _, relative = named.partition("/") if isinstance(named, str) else ("", "", "")
+        if state is None or label not in targets or not relative:
+            return None
+        placed = targets[label].joinpath(*PurePosixPath(relative).parts)
+        if placed == at_rest_key_path(state / "secrets"):
+            return None
+        if manifest.get("contains", {}).get("seal_header"):
+            return None
+        prefix = "state/secrets/"
+        old_root = scratch / "reseal" / "secrets"
+        names: list[str] = []
+        for entry in manifest.get("files", []):
+            path = str(entry.get("path", ""))
+            if not path.startswith(prefix):
+                continue
+            source = root / path
+            if not source.is_file() or source.is_symlink():
+                continue
+            try:
+                protected = PROTECTED_DOMAIN.is_sealed(source.read_text(encoding="utf-8"))
+            except (OSError, UnicodeDecodeError):
+                protected = False
+            if not protected:
+                continue
+            name = path[len(prefix) :]
+            copy = self._checked(old_root, name)
+            self.manager.fs.make_dir(copy.parent, mode=SECRET_DIR_MODE, parents=True)
+            shutil.copyfile(source, copy, follow_symlinks=False)
+            names.append(name)
+        if names:
+            bundle_key = root / str(named)
+            if not bundle_key.is_file():
+                raise BackupError(
+                    "The bundle holds secrets sealed under a key it does not carry",
+                    details="Nothing was changed. Restore the bundle's key (the file "
+                    f"{named} of a bundle that has it), or restore without the secrets and "
+                    "enter the credentials again.",
+                )
+            shutil.copyfile(bundle_key, old_root.parent / "secrets.key", follow_symlinks=False)
+            reader = SecretStore(root=old_root, fs=self.manager.fs)
+            for name in names:
+                try:
+                    reader.read_protected_json(name)
+                except ConfigError as exc:
+                    raise BackupError(
+                        f"The secret {name} in the bundle cannot be opened with the key the "
+                        "bundle carries",
+                        details=f"{exc.message}. Nothing was changed. Restore it onto the kind of "
+                        "server it came from, or enter that credential again once the "
+                        "restore is done.",
+                    ) from exc
+        return _Reseal(names=tuple(names), old_root=old_root, key_path=str(named))
+
+    def _reseal(self, reseal: _Reseal, targets: dict[str, Path], report: RestoreReport) -> None:
+        """
+        Seal each protected secret again under the key this server reads, as ``noust setup
+        move-store`` does when it moves a store.
+
+        Args:
+            reseal: What :meth:`_plan_reseal` decided.
+            targets: Label to this server's directory.
+            report: Notes how many were sealed again and under which key.
+
+        Raises:
+            BackupError: A secret that opened before cannot be written now.
+        """
+        if not reseal.names:
+            return
+        state = targets["state"]
+        reader = SecretStore(root=reseal.old_root, fs=self.manager.fs)
+        writer = SecretStore(root=state / "secrets", fs=self.manager.fs)
+        try:
+            for name in reseal.names:
+                writer.write_protected_json(name, reader.read_protected_json(name))
+        except ConfigError as exc:
+            raise BackupError(
+                f"A secret could not be sealed again under this server's key: {exc.message}",
+                details=exc.details or "",
+            ) from exc
+        report.notes.append(
+            f"{len(reseal.names)} protected secret(s) were sealed again under this server's own "
+            f"key, {at_rest_key_path(state / 'secrets')}: the bundle came from a server that "
+            "keeps its key elsewhere"
+        )
 
     @staticmethod
     def _secrets_note(
