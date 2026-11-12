@@ -87,6 +87,10 @@ MESSAGES: dict[str, dict[Locale, str]] = {
     "title.restore.completed": {"en": "Restored", "es": "Restaurado"},
     "title.restore.failed": {"en": "Restore failed", "es": "Restauración fallida"},
     "title.backup.failed": {"en": "Backup failed", "es": "Copia de seguridad fallida"},
+    "title.backup.collect_failed": {
+        "en": "Backups not collected",
+        "es": "Copias sin recoger",
+    },
     "title.backup.upload_failed": {
         "en": "Backup upload failed",
         "es": "Subida de la copia fallida",
@@ -297,6 +301,10 @@ MESSAGES: dict[str, dict[Locale, str]] = {
     "summary.backup.failed": {
         "en": "No new copy of the application was saved.",
         "es": "No se ha guardado ninguna copia nueva de la aplicación.",
+    },
+    "summary.backup.collect_failed": {
+        "en": "The central could not take this server's backups; they are still only on it.",
+        "es": "La central no ha podido recoger las copias de este servidor; siguen solo en él.",
     },
     "summary.backup.upload_failed": {
         "en": "The copy was kept on this server but could not be uploaded.",

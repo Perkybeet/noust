@@ -167,6 +167,13 @@
     "formatted_body": "<b>▲ Backup upload failed · shop.example.com</b><br>The copy was kept on this server but could not be uploaded.<ul><li><b>Server:</b> web-1</li><li><b>Destination:</b> s3-eu</li></ul><i>What the system reported</i><pre><code>2026/09/29 02:00:14 Failed to copy: AccessDenied: Access Denied\n    status code: 403</code></pre><a href=\"https://console.example.com/n/web-1/backups\">Open in the console</a>",
     "m.mentions": {}
   },
+  "backup.collect_failed": {
+    "msgtype": "m.text",
+    "body": "✕ Backups not collected · web-2\nThe central could not take this server's backups; they are still only on it.\n\nServer: web-1\n\nWhat the system reported:\n  The disk the copies are kept on is full. 1.2 GB are free under /data/backups and the next copy needs 3.4 GB: free space there, or keep fewer copies.\n\nOpen in the console: https://console.example.com/n/web-1/backups",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Backups not collected · web-2</b><br>The central could not take this server&#x27;s backups; they are still only on it.<ul><li><b>Server:</b> web-1</li></ul><i>What the system reported</i><pre><code>The disk the copies are kept on is full. 1.2 GB are free under /data/backups and the next copy needs 3.4 GB: free space there, or keep fewer copies.</code></pre><a href=\"https://console.example.com/n/web-1/backups\">Open in the console</a>",
+    "m.mentions": {}
+  },
   "backup.schedule_missing": {
     "msgtype": "m.text",
     "body": "▲ Backup schedule missing · shop.example.com\nThe timer fired but Noust has no schedule stored for this application, so the backup ran with the default settings.\n\nServer: web-1\nSave it again with: noust backup schedule update shop.example.com\n\nOpen in the console: https://console.example.com/n/web-1/backups",

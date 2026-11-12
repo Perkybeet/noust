@@ -566,6 +566,42 @@ def compose_backup_failed(
     )
 
 
+def compose_backup_collect_failed(
+    node: str, error: str | None, ctx: NotificationContext
+) -> Notification:
+    """
+    Compose the notification for a server's backups its central could not collect.
+
+    The server made its backups and has nothing to say; that they are nowhere else is something only
+    the central knows. It is a backup that did not complete, under the same switch.
+
+    Args:
+        node: The server whose copies were not taken.
+        error: What happened and what to do, in the collector's words.
+        ctx: The context.
+
+    Returns:
+        The notification.
+    """
+    code = "backup.collect_failed"
+    summary = message(f"summary.{code}", ctx.locale)
+    return build(
+        ctx,
+        kind="backup_failed",
+        code=code,
+        state=State.FAILED,
+        subject=node,
+        summary=summary,
+        excerpt=_error_excerpt(
+            error,
+            ctx,
+            repeated=[_english(code, "title"), _english(code, "summary"), node],
+            avoid=[summary],
+        ),
+        path="/backups",
+    )
+
+
 def compose_backup_upload_failed(
     domain: str,
     destination: str,
@@ -1584,6 +1620,7 @@ __all__ = [
     "compose_app_unreachable",
     "compose_approval_decided",
     "compose_approval_requested",
+    "compose_backup_collect_failed",
     "compose_backup_completed",
     "compose_backup_failed",
     "compose_backup_schedule_missing",

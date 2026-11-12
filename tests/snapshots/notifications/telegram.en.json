@@ -455,6 +455,25 @@
       ]
     }
   },
+  "backup.collect_failed": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Backups not collected</b> · web-2\nThe central could not take this server's backups; they are still only on it.\n\n<b>Server:</b> web-1\n\n<i>What the system reported</i>\n<pre>The disk the copies are kept on is full. 1.2 GB are free under /data/backups and the next copy needs 3.4 GB: free space there, or keep fewer copies.</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/backups"
+          }
+        ]
+      ]
+    }
+  },
   "backup.schedule_missing": {
     "chat_id": "-1001234567890",
     "text": "▲ <b>Backup schedule missing</b> · shop.example.com\nThe timer fired but Noust has no schedule stored for this application, so the backup ran with the default settings.\n\n<b>Server:</b> web-1\n<b>Save it again with:</b> <code>noust backup schedule update shop.example.com</code>",

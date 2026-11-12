@@ -420,6 +420,31 @@
       }
     ]
   },
+  "backup.collect_failed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/backup/web-2",
+    "payload": {
+      "summary": "Backups not collected · web-2: The central could not take this server's backups; they are still only on it.",
+      "source": "web-1",
+      "severity": "critical",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "backup_failed",
+      "class": "backup.collect_failed",
+      "custom_details": {
+        "server": "web-1",
+        "excerpt": "The disk the copies are kept on is full. 1.2 GB are free under /data/backups and the next copy needs 3.4 GB: free space there, or keep fewer copies."
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/backups",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/backups",
+        "text": "Open in the console"
+      }
+    ]
+  },
   "backup.schedule_missing": {
     "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
     "event_action": "trigger",

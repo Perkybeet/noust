@@ -21,6 +21,7 @@ from starlette.websockets import WebSocketDisconnect
 from noust.core.exceptions import NodeError, NodeUnreachableError
 from noust.core.store import NodeRecord
 from noust.fleet.client import NodeClient
+from noust.fleet.tunnels import CONSOLE
 from noust.web.api.openapi import ELEVATION_EXTENSION
 
 #: The token the central holds for the node.
@@ -222,13 +223,13 @@ class FakeTunnels:
         self.leases = 0
         self.leased = 0
 
-    def endpoint(self, node: str) -> tuple[str, int]:
+    def endpoint(self, node: str, channel: str = CONSOLE) -> tuple[str, int]:
         if self.error is not None:
             raise self.error
         return "127.0.0.1", self.port
 
-    def hold(self, node: str) -> tuple[tuple[str, int], Any]:
-        endpoint = self.endpoint(node)
+    def hold(self, node: str, channel: str = CONSOLE) -> tuple[tuple[str, int], Any]:
+        endpoint = self.endpoint(node, channel)
         self.leases += 1
         self.leased += 1
 

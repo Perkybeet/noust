@@ -431,6 +431,24 @@
       }
     ]
   },
+  "backup.collect_failed": {
+    "topic": "noust-alerts",
+    "title": "✕ Copias sin recoger · web-2",
+    "message": "La central no ha podido recoger las copias de este servidor; siguen solo en él.\n\nServidor: web-1\n\nLo que ha informado el sistema:\n  The disk the copies are kept on is full. 1.2 GB are free under /data/backups and the next copy needs 3.4 GB: free space there, or keep fewer copies.",
+    "priority": 4,
+    "tags": [
+      "backup_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/backups",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ]
+  },
   "backup.schedule_missing": {
     "topic": "noust-alerts",
     "title": "▲ Falta la programación de la copia · shop.example.com",

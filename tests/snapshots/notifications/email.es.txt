@@ -661,6 +661,29 @@ Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
 Cambia lo que recibes en Ajustes > Notificaciones
 
 ========================================================================
+### backup.collect_failed
+Subject: [Noust] Copias sin recoger: web-2 (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: backup_failed
+X-Noust-Code: backup.collect_failed
+X-Noust-Server: web-1
+
+✕ Copias sin recoger · web-2
+La central no ha podido recoger las copias de este servidor; siguen solo en él.
+
+Servidor: web-1
+
+Lo que ha informado el sistema:
+  The disk the copies are kept on is full. 1.2 GB are free under /data/backups and the next copy needs 3.4 GB: free space there, or keep fewer copies.
+
+Abrir en la consola: https://console.example.com/n/web-1/backups
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
 ### backup.schedule_missing
 Subject: [Noust] Falta la programación de la copia: shop.example.com (web-1)
 Auto-Submitted: auto-generated

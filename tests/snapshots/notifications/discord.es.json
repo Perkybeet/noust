@@ -936,6 +936,30 @@
       "parse": []
     }
   },
+  "backup.collect_failed": {
+    "embeds": [
+      {
+        "title": "✕ Copias sin recoger · web-2",
+        "description": "La central no ha podido recoger las copias de este servidor; siguen solo en él.\n\n*Lo que ha informado el sistema*\n```\nThe disk the copies are kept on is full. 1.2 GB are free under /data/backups and the next copy needs 3.4 GB: free space there, or keep fewer copies.\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
   "backup.schedule_missing": {
     "embeds": [
       {

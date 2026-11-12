@@ -661,6 +661,29 @@ Sent by Noust · web-1 · 2026-09-29 10:45 UTC
 Change what you receive in Settings > Notifications
 
 ========================================================================
+### backup.collect_failed
+Subject: [Noust] Backups not collected: web-2 (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: backup_failed
+X-Noust-Code: backup.collect_failed
+X-Noust-Server: web-1
+
+✕ Backups not collected · web-2
+The central could not take this server's backups; they are still only on it.
+
+Server: web-1
+
+What the system reported:
+  The disk the copies are kept on is full. 1.2 GB are free under /data/backups and the next copy needs 3.4 GB: free space there, or keep fewer copies.
+
+Open in the console: https://console.example.com/n/web-1/backups
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
 ### backup.schedule_missing
 Subject: [Noust] Backup schedule missing: shop.example.com (web-1)
 Auto-Submitted: auto-generated

@@ -431,6 +431,24 @@
       }
     ]
   },
+  "backup.collect_failed": {
+    "topic": "noust-alerts",
+    "title": "✕ Backups not collected · web-2",
+    "message": "The central could not take this server's backups; they are still only on it.\n\nServer: web-1\n\nWhat the system reported:\n  The disk the copies are kept on is full. 1.2 GB are free under /data/backups and the next copy needs 3.4 GB: free space there, or keep fewer copies.",
+    "priority": 4,
+    "tags": [
+      "backup_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/backups",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ]
+  },
   "backup.schedule_missing": {
     "topic": "noust-alerts",
     "title": "▲ Backup schedule missing · shop.example.com",

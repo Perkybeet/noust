@@ -236,7 +236,8 @@ class GiveBack:
             raise RestoreError(
                 f"{self.target} cannot receive a copy yet",
                 details="It runs a Noust before 4.3, which has no routes for a copy that comes "
-                "back. Update it (noust fleet update), then give the copy back. Nothing was sent.",
+                f"back. Update it (noust fleet run noust_update --nodes {self.target}), then give "
+                "the copy back. Nothing was sent.",
             )
         if response.status_code >= 400:
             raise self._failed("the list of the centrals that collect from it", response)

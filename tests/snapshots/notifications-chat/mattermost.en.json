@@ -829,6 +829,26 @@
       }
     ]
   },
+  "backup.collect_failed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "✕ Backups not collected · web-2",
+        "color": "#cf3a30",
+        "title": "✕ Backups not collected · web-2",
+        "text": "The central could not take this server's backups; they are still only on it.\n\n*What the system reported*\n```\nThe disk the copies are kept on is full. 1.2 GB are free under /data/backups and the next copy needs 3.4 GB: free space there, or keep fewer copies.\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/backups"
+      }
+    ]
+  },
   "backup.schedule_missing": {
     "username": "Noust",
     "attachments": [

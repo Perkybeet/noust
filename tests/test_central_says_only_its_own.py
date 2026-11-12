@@ -9,8 +9,9 @@ certificates, its alerts), so they keep arriving when the central is down or the
 central says three things, about the servers it manages: one stopped answering, one answers again,
 one presented another SSH host key. If the central also relayed what its servers raise, the
 operator would hear everything twice, once from the server and once from the central, and a
-channel sent to both would double. What is pinned: the three, and that nothing under the fleet's
-code reaches the notification pipeline by any other door.
+channel sent to both would double. A central that collects its servers' copies says one thing
+about its own work, which no server can say: it could not take them. What is pinned: the three, the
+one, and that nothing under the fleet's code reaches the notification pipeline by any other door.
 """
 
 from __future__ import annotations
@@ -63,6 +64,21 @@ def test_each_of_them_is_one_of_the_three_and_about_a_server(composed: list[Noti
         assert "web-2" in notification.subject or "web-2" in notification.summary
         # Said by the central, about a server: not an application's event.
         assert notification.domain is None
+
+
+def test_a_collection_that_failed_is_said_as_a_backup_that_did_not_complete(
+    composed: list[Notification],
+) -> None:
+    central_events.notify_collect_failed("web-2", "The disk of the central is full")
+
+    (notification,) = composed
+    assert notification.kind == central_events.COLLECT_KIND == "backup_failed"
+    assert notification.kind not in central_events.CENTRAL_KINDS
+    # The central's own work, about a server: not an application's backup.
+    assert notification.domain is None
+    assert (notification.code, notification.subject) == ("backup.collect_failed", "web-2")
+    assert notification.excerpt is not None
+    assert notification.excerpt.lines == ("The disk of the central is full",)
 
 
 def _imports_of(path: Path) -> set[str]:

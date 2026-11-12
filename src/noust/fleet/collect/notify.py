@@ -6,16 +6,15 @@ What a central tells its operator about collecting (item 195).
 
 The same channels and the same switch as any backup that did not complete (``backup_failed``): a
 copy the central could not take is a copy that is nowhere else. The collector decides *when* (it owns
-the state of each server, so it owns the "once per outage" rule); this only composes and delivers,
-on the notification worker, in order.
+the state of each server, so it owns the "once per outage" rule); what is said, and the one door it
+is said through, is with the rest of what a central says (:mod:`noust.core.notifications.fleet`).
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
 
-from noust.core.notifications.composers import compose_backup_failed
-from noust.core.notifier import notify_composed
+from noust.core.notifications.fleet import notify_collect_failed
 
 __all__ = ["Notify", "notify_failure"]
 
@@ -32,8 +31,4 @@ def notify_failure(node: str, code: str, text: str) -> None:
         code: A stable word for what went wrong (``disk_full``, ``mismatch``, ``unreachable``...).
         text: What happened and what to do, verbatim.
     """
-    notify_composed(
-        lambda ctx: compose_backup_failed(
-            None, f"Collecting the copies of {node} failed\n  Details: {text}", ctx
-        )
-    )
+    notify_collect_failed(node, text)

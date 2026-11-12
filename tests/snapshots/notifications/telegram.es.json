@@ -455,6 +455,25 @@
       ]
     }
   },
+  "backup.collect_failed": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Copias sin recoger</b> · web-2\nLa central no ha podido recoger las copias de este servidor; siguen solo en él.\n\n<b>Servidor:</b> web-1\n\n<i>Lo que ha informado el sistema</i>\n<pre>The disk the copies are kept on is full. 1.2 GB are free under /data/backups and the next copy needs 3.4 GB: free space there, or keep fewer copies.</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/backups"
+          }
+        ]
+      ]
+    }
+  },
   "backup.schedule_missing": {
     "chat_id": "-1001234567890",
     "text": "▲ <b>Falta la programación de la copia</b> · shop.example.com\nEl temporizador se ha activado, pero Noust no tiene una programación guardada para esta aplicación, así que la copia se ha hecho con los ajustes por defecto.\n\n<b>Servidor:</b> web-1\n<b>Guárdala de nuevo con:</b> <code>noust backup schedule update shop.example.com</code>",

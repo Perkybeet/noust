@@ -167,6 +167,13 @@
     "formatted_body": "<b>▲ Subida de la copia fallida · shop.example.com</b><br>La copia se ha guardado en este servidor, pero no se ha podido subir.<ul><li><b>Servidor:</b> web-1</li><li><b>Destino:</b> s3-eu</li></ul><i>Lo que ha informado el sistema</i><pre><code>2026/09/29 02:00:14 Failed to copy: AccessDenied: Access Denied\n    status code: 403</code></pre><a href=\"https://console.example.com/n/web-1/backups\">Abrir en la consola</a>",
     "m.mentions": {}
   },
+  "backup.collect_failed": {
+    "msgtype": "m.text",
+    "body": "✕ Copias sin recoger · web-2\nLa central no ha podido recoger las copias de este servidor; siguen solo en él.\n\nServidor: web-1\n\nLo que ha informado el sistema:\n  The disk the copies are kept on is full. 1.2 GB are free under /data/backups and the next copy needs 3.4 GB: free space there, or keep fewer copies.\n\nAbrir en la consola: https://console.example.com/n/web-1/backups",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Copias sin recoger · web-2</b><br>La central no ha podido recoger las copias de este servidor; siguen solo en él.<ul><li><b>Servidor:</b> web-1</li></ul><i>Lo que ha informado el sistema</i><pre><code>The disk the copies are kept on is full. 1.2 GB are free under /data/backups and the next copy needs 3.4 GB: free space there, or keep fewer copies.</code></pre><a href=\"https://console.example.com/n/web-1/backups\">Abrir en la consola</a>",
+    "m.mentions": {}
+  },
   "backup.schedule_missing": {
     "msgtype": "m.text",
     "body": "▲ Falta la programación de la copia · shop.example.com\nEl temporizador se ha activado, pero Noust no tiene una programación guardada para esta aplicación, así que la copia se ha hecho con los ajustes por defecto.\n\nServidor: web-1\nGuárdala de nuevo con: noust backup schedule update shop.example.com\n\nAbrir en la consola: https://console.example.com/n/web-1/backups",

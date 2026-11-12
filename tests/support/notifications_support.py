@@ -36,6 +36,7 @@ from noust.core.notifications.composers import (
     compose_app_unreachable,
     compose_approval_decided,
     compose_approval_requested,
+    compose_backup_collect_failed,
     compose_backup_completed,
     compose_backup_failed,
     compose_backup_schedule_missing,
@@ -297,6 +298,12 @@ def catalog(locale: Locale) -> dict[str, Notification]:
                 "2026/09/29 02:00:14 Failed to copy: AccessDenied: Access Denied\n\tstatus code: 403",
             )
         ),
+        ctx,
+    )
+    out["backup.collect_failed"] = compose_backup_collect_failed(
+        "web-2",
+        "The disk the copies are kept on is full. 1.2 GB are free under /data/backups and the "
+        "next copy needs 3.4 GB: free space there, or keep fewer copies.",
         ctx,
     )
     out["backup.schedule_missing"] = compose_backup_schedule_missing("shop.example.com", ctx)

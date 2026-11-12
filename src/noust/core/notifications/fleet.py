@@ -14,6 +14,13 @@ job, and these three functions are how the fleet code does it:
 - :func:`notify_node_host_key_changed` when a node presents another SSH host
   key: the tunnel stays closed, and someone has to look.
 
+A central that collects its servers' copies (item 195) says one thing more, about its own work:
+
+- :func:`notify_collect_failed` when it could not take a server's copies. The server made its
+  backup and said nothing, rightly; that the copy is nowhere else is something only the central
+  knows. It is said as a backup that did not complete (``backup_failed``), on the same channels
+  and under the same switch, so the operator has no new thing to turn on.
+
 The fleet code decides *when* (it owns the tunnels and their state, so it
 also owns the "once per outage" rule, the way the monitor does for units);
 these functions only compose and deliver. Delivery is on the notification
@@ -25,15 +32,21 @@ from __future__ import annotations
 from datetime import datetime
 
 from noust.core.notifications.composers import (
+    compose_backup_collect_failed,
     compose_node_host_key_changed,
     compose_node_recovered,
     compose_node_unreachable,
 )
 from noust.core.notifier import notify_composed
 
-#: Every kind of event a central says, and the only ones: the rest of what happens on a server is
-#: said by that server, through its own channels, so it arrives when the central is down too.
+#: Every kind of event a central says about a server, and the only ones: the rest of what happens
+#: on a server is said by that server, through its own channels, so it arrives when the central is
+#: down too.
 CENTRAL_KINDS: tuple[str, ...] = ("node_unreachable", "node_recovered", "node_host_key_changed")
+
+#: The kind the central's own work is said as: a collection that failed is a backup that did not
+#: complete, on the central.
+COLLECT_KIND = "backup_failed"
 
 
 def notify_node_unreachable(
@@ -92,3 +105,14 @@ def notify_node_host_key_changed(
             node, ctx, address=address, pinned=pinned, presented=presented, command=command
         )
     )
+
+
+def notify_collect_failed(node: str, text: str) -> None:
+    """
+    Tell the operator the central could not take a server's copies.
+
+    Args:
+        node: The server.
+        text: What happened and what to do, verbatim.
+    """
+    notify_composed(lambda ctx: compose_backup_collect_failed(node, text, ctx))
