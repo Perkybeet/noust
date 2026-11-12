@@ -1073,6 +1073,51 @@ export const serverText: Catalog<typeof en> = {
       },
     },
   },
+  how_it_runs: {
+    container: {
+      no_build: {
+        text: "Todavía no puede ir en un contenedor: el repositorio no tiene Dockerfile y Railpack no está instalado en este servidor.",
+        hint: "Añade un Dockerfile al repositorio o instala Railpack en este servidor ({command}), que construye sin él.",
+      },
+    },
+    server: {
+      nothing_recognised: {
+        text: "Nada de lo que hay en el repositorio se ejecuta directamente en el servidor: Noust no reconoce en él un programa propio.",
+      },
+    },
+    why: {
+      compose: {
+        text: "Un Compose siempre corre en contenedores: es su forma.",
+      },
+      container_dockerfile: {
+        text: "Noust propone un contenedor: el repositorio trae su Dockerfile, que dice cómo se construye y se arranca. También se puede construir y arrancar directamente en el servidor ({type}).",
+      },
+      container_machine: {
+        text: "Noust propone un contenedor: este servidor no puede ejecutarla directamente.",
+      },
+      container_only: {
+        text: "Noust propone un contenedor: el repositorio trae su Dockerfile, que dice cómo se construye y se arranca, y nada de lo que hay en él se ejecuta directamente en el servidor.",
+      },
+      container_railpack: {
+        text: "Noust propone un contenedor, construido con Railpack: nada de lo que hay en el repositorio se ejecuta directamente en el servidor.",
+      },
+      docker_only: {
+        text: "Esta máquina solo ejecuta aplicaciones en contenedores.",
+      },
+      none: {
+        text: "Ahora mismo no es posible ninguna de las dos formas en esta máquina; abajo se dice qué lo impide.",
+      },
+      server_dockerfile: {
+        text: "Noust propone ejecutarla directamente en el servidor: es un proyecto {type} y arranca con su propio comando. Tiene un Dockerfile, así que también puede ir en un contenedor.",
+      },
+      server_only: {
+        text: "Noust propone ejecutarla directamente en el servidor: es un proyecto {type} y arranca con su propio comando.",
+      },
+      server_railpack: {
+        text: "Noust propone ejecutarla directamente en el servidor: es un proyecto {type} y arranca con su propio comando. Railpack está instalado aquí, así que también puede ir en un contenedor, construida sin Dockerfile.",
+      },
+    },
+  },
   inspect: {
     can_deploy: {
       text: "Noust puede desplegar esto como {type}.",

@@ -9,6 +9,7 @@ import { JobProgress } from "../../components/page/JobProgress";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Card } from "../../components/ui/Card";
 import { Disclosure } from "../../components/ui/Disclosure";
+import { ServerText } from "../../components/ui/ServerText";
 import { textLinkClassName } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
@@ -16,6 +17,8 @@ import { readAppPage } from "../app/prefetch";
 import { stepWords } from "../app/stepWords";
 import { containerSummary } from "../container/summary";
 import { normalizeDomain } from "../domains/names";
+import { chosenForm, reasonInTheSource } from "./howItRuns";
+import type { Ways } from "./howItRuns";
 import { JobOutcome } from "./JobOutcome";
 import { useDeploymentLanding } from "./useDeploymentLanding";
 import type { LandingTarget } from "./useDeploymentLanding";
@@ -80,6 +83,34 @@ export function addressItem(
 export interface Summary {
   items: KeyValueItem[];
   details: KeyValueItem[];
+}
+
+/** How it will run, as a row of the summary: directly on the server or in a container, with the way to change it where the step was passed over. */
+export function howItRunsItem(t: T, ways: Ways, appType: string, onChange?: () => void): KeyValueItem {
+  const stack = ways.container.via === "compose";
+  const form = chosenForm(ways, appType);
+  // The step that says it may have been passed over (one way, nothing to choose): the other way is not left unsaid when
+  // it is something that could be fixed in the repository, a Dockerfile that is missing.
+  const missing = reasonInTheSource(ways[form === "server" ? "container" : "server"]);
+  const hint =
+    missing !== null || onChange !== undefined ? (
+      <>
+        {missing !== null ? (
+          <>
+            <ServerText coded={missing} text={missing.text} />
+            {onChange !== undefined ? " " : null}
+          </>
+        ) : null}
+        {onChange !== undefined ? <ChangeButton t={t} what={t("newApp.how.heading")} onClick={onChange} /> : null}
+      </>
+    ) : undefined;
+  return {
+    label: t("newApp.how.heading"),
+    value: form === "server" ? t("newApp.how.server") : stack ? t("newApp.how.onlyStack") : t("newApp.how.container"),
+    mono: false,
+    copy: false,
+    ...(hint !== undefined ? { hint } : {}),
+  };
 }
 
 /** The variables of a review, as one fact: how many, and how many are secret. */
@@ -150,6 +181,8 @@ export function deploySummary(
             : {}
           : { hint: t("newApp.deploy.chosenOver", { type: typeName(types, inspection.app_type) }) }),
       },
+      // Said when the server says how it can run: a person finds out how it will run before it does.
+      ...(inspection.ways != null ? [howItRunsItem(t, inspection.ways, form.appType, open.configure)] : []),
       addressItem(t, form, open.address),
       variablesItem(t, variables, open.variables),
     ],

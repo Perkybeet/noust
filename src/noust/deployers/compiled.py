@@ -36,6 +36,8 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -104,6 +106,31 @@ def install_suggestion_for(
     return say("inspect.install_toolchain", command=command) if command else None
 
 
+#: Set while a source is read for what it would be if its Dockerfile were not how it runs.
+_CONTAINER_FILE_IGNORED: ContextVar[bool] = ContextVar("container_file_ignored", default=False)
+
+
+@contextmanager
+def ignoring_container_files() -> Iterator[None]:
+    """
+    Read sources as if no Dockerfile said how they run.
+
+    Seven deployers decline a repository that commits a Dockerfile (it is how that repository says
+    it runs, so Noust defers to it), and all of them ask :func:`has_container_file`. Inside this
+    scope that question is answered "no", which is how the new-application wizard learns that a Go
+    module with a Dockerfile could also run directly on the server, without a second copy of any
+    detector. A context variable, so a thread reading another source is not affected.
+
+    Yields:
+        Nothing; the scope ends with the block.
+    """
+    token = _CONTAINER_FILE_IGNORED.set(True)
+    try:
+        yield
+    finally:
+        _CONTAINER_FILE_IGNORED.reset(token)
+
+
 def has_container_file(path: Path) -> bool:
     """
     Tell whether a repository says how to run itself as a container.
@@ -112,8 +139,10 @@ def has_container_file(path: Path) -> bool:
         path: The project.
 
     Returns:
-        True for a Dockerfile or a Containerfile.
+        True for a Dockerfile or a Containerfile, except inside :func:`ignoring_container_files`.
     """
+    if _CONTAINER_FILE_IGNORED.get():
+        return False
     return any((path / name).is_file() for name in DOCKERFILE_NAMES)
 
 

@@ -13,10 +13,16 @@ code on the default path.
 Detection needs the source, and the source arrives over the network, so this
 deployer fetches first and decides second, then hands the work to the real
 deployer without re-cloning.
+
+**How it runs.** Detection proposes what Noust has always deployed, and a Dockerfile in a Node.js,
+Python or Next.js repository never made it a container. ``run_as`` (``noust create --run-as``) takes
+the other way when the source can run in it (:mod:`noust.deployers.how_it_runs`), and without it the
+alternative is said once, because nobody could tell it existed.
 """
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +35,7 @@ from noust.core.config import Config
 from noust.core.exceptions import DeploymentError, ValidationError
 from noust.core.fs import FileSystem
 from noust.core.logger import Logger
+from noust.core.runner import get_runner
 from noust.core.store import App, get_store
 from noust.core.utils import domain_to_app_name
 from noust.deployers.helpers.build_config import project_dir, resolve_build
@@ -39,8 +46,17 @@ from noust.deployers.helpers.target import (
     claim_deploy_target,
     fetch_into_target,
 )
+from noust.deployers.how_it_runs import (
+    FORM_SERVER,
+    STATUS_YES,
+    HowItRuns,
+    decide,
+    machine_here,
+    read_tree,
+)
 from noust.deployers.interface import AppDeployer
 from noust.deployers.registry import DeployerRegistry
+from noust.managers import railpack
 from noust.managers.source_manager import SourceManager
 
 
@@ -90,6 +106,7 @@ class AutoDeployer(AppDeployer):
 
         self.resolved_type: str | None = None
         self.delegate: AppDeployer | None = None
+        self._run_as: str | None = None
 
     @property
     def source_manager(self) -> SourceManager:
@@ -151,8 +168,10 @@ class AutoDeployer(AppDeployer):
             app_path: Override the directory the application lives in.
             package_manager: Node package manager, or ``auto``.
             include_www: Also serve and certify the ``www.`` subdomain.
-            **options: Passed through to the chosen deployer.
+            **options: Passed through to the chosen deployer, except ``run_as`` (``server`` or
+                ``container``): which way it runs, which this deployer resolves itself.
         """
+        self._run_as = options.pop("run_as", None)
         self.domain = domain
         self.source = source
         self.branch = branch
@@ -374,6 +393,9 @@ class AutoDeployer(AppDeployer):
             # Nothing Noust deploys itself, but Railpack is installed and builds it.
             if ContainerDeployer.builds_with_railpack(tree):
                 app_type = ContainerDeployer.APP_TYPE
+        if app_type is None and self._run_as is not None:
+            # The fallback below would guess a Node.js service; a way that was asked for is not guessed.
+            app_type = self._way_asked_for(tree, "")
         if app_type is None:
             if not tree.is_dir() or not any(tree.iterdir()):
                 raise DeploymentError(
@@ -387,6 +409,7 @@ class AutoDeployer(AppDeployer):
             )
         else:
             self.logger.substep(f"Detected application type: {app_type}")
+            app_type = self._way_asked_for(tree, app_type)
 
         self.resolved_type = app_type
         deployer_class = DeployerRegistry.get(app_type)
@@ -400,6 +423,65 @@ class AutoDeployer(AppDeployer):
                 "or deploy the project as the type that runs it.",
             )
         return deployer_class
+
+    def _way_asked_for(self, tree: Path, detected: str) -> str:
+        """
+        Apply the way a person asked this to run, or say the other way when they did not.
+
+        Args:
+            tree: Directory holding the fetched source.
+            detected: The type detection settled on; empty when nothing recognised the source.
+
+        Returns:
+            ``detected``, or the type of the way that was asked for.
+
+        Raises:
+            DeploymentError: The way asked for cannot be here: it says why and what would make it
+                possible, in the words the wizard uses.
+        """
+        reading = read_tree(tree)
+        if not reading.detected and detected:
+            # Railpack builds what no deployer of Noust's knows: that is a container, not nothing.
+            reading = replace(reading, detected=(detected,))
+        if (
+            self._run_as is None
+            and not reading.dockerfile
+            and not get_runner().exists(railpack.BINARY_NAME)
+        ):
+            # Nothing a container could be built from, so there is nothing to say of one: and a create that
+            # has no reason to ask Docker for anything does not start asking it.
+            return detected
+        decision = decide(reading, machine_here())
+        if self._run_as is None:
+            self._say_the_other_way(decision)
+            return detected
+        way = decision.way(self._run_as)
+        if way.status != STATUS_YES or way.app_type is None:
+            reason = way.reason
+            raise DeploymentError(
+                reason.text if reason is not None else f"It cannot run as {self._run_as} here",
+                details=(reason.hint if reason is not None else None) or "",
+                coded=reason,
+            )
+        return way.app_type
+
+    def _say_the_other_way(self, decision: HowItRuns) -> None:
+        """
+        Say that the source could run the other way too, and how to choose it.
+
+        Args:
+            decision: How the source can run here.
+        """
+        if not decision.choice:
+            return
+        if decision.proposed == FORM_SERVER:
+            self.logger.substep(
+                "It runs directly on the server; --run-as container runs it in a container instead"
+            )
+        else:
+            self.logger.substep(
+                "It runs in a container; --run-as server runs it directly on the server instead"
+            )
 
     def deploy(self) -> bool:
         """

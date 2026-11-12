@@ -58,7 +58,7 @@ import tempfile
 import threading
 import time
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
 
 from noust.core.exceptions import DeploymentError
@@ -74,6 +74,7 @@ from noust.deployers.helpers.env_manager import (
     is_secret_env_name,
 )
 from noust.deployers.helpers.package_manager import PackageManagerHelper
+from noust.deployers.how_it_runs import HowItRuns, decide, machine_here, read_tree
 from noust.deployers.importers import PLATFORM_FILES, Proposal, propose
 from noust.deployers.interface import AppDeployer
 from noust.deployers.registry import DeployerRegistry, _import_deployers
@@ -265,6 +266,9 @@ class SourceInspection:
             :func:`noust.deployers.importers.propose`, so the wizard can
             prefill the build, the environment and the health check; None
             when the repository carries none.
+        ways: How it can run on this server (directly on it, or in a container),
+            which Noust proposes and why, and why the other cannot be when it
+            cannot (:mod:`noust.deployers.how_it_runs`).
     """
 
     app_type: str
@@ -283,6 +287,7 @@ class SourceInspection:
     platform_proposal: Proposal | None = None
     verdict_coded: ServerText | None = None
     suggestion_coded: ServerText | None = None
+    ways: HowItRuns | None = None
 
 
 @dataclass(frozen=True)
@@ -323,32 +328,6 @@ def _verdict(compatible: bool, said: ServerText, suggestion: ServerText | None =
     if suggestion is not None:
         return Verdict(compatible, said.text, suggestion.text, said, suggestion)
     return Verdict(compatible, said.text, said.hint, said)
-
-
-def _matching_types(path: Path) -> list[type[AppDeployer]]:
-    """
-    Every registered application type that recognises a directory.
-
-    Mirrors :meth:`DeployerRegistry.detect`, which stops at the first match;
-    the wizard wants every match, so the operator can see what else the
-    repository looked like and pick a different type than the one Noust
-    would have guessed.
-
-    Args:
-        path: Directory holding the fetched source.
-
-    Returns:
-        The matching deployer classes, most specific first (registry
-        priority order). Empty when nothing recognises the tree.
-    """
-    _import_deployers()
-    matches = []
-    for deployer_class in DeployerRegistry.in_detection_order():
-        if deployer_class.APP_TYPE == "auto":
-            continue
-        if deployer_class(verbose=False).detect(path):
-            matches.append(deployer_class)
-    return matches
 
 
 def sparse_patterns() -> list[str]:
@@ -605,11 +584,17 @@ def _describe(
     Raises:
         DeploymentError: Nothing matches; the error carries the verdict.
     """
-    matched = _matching_types(checkout)
+    reading = read_tree(checkout)
+    matched = [
+        deployer_class
+        for deployer_class in map(DeployerRegistry.get, reading.detected)
+        if deployer_class is not None
+    ]
     if not matched and ContainerDeployer.builds_with_railpack(checkout, get_runner()):
         # No deployer of Noust's knows it, but Railpack is installed here and
         # builds it into a container.
         matched = [ContainerDeployer]
+        reading = replace(reading, detected=(ContainerDeployer.APP_TYPE,))
     if not matched:
         verdict = _unmatched_verdict(checkout, listing)
         raise DeploymentError(
@@ -677,6 +662,7 @@ def _describe(
         platform_proposal=propose(checkout),
         verdict_coded=verdict.coded,
         suggestion_coded=verdict.suggestion_coded,
+        ways=decide(reading, machine_here(get_runner())),
     )
 
 

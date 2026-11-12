@@ -15,6 +15,7 @@ import type { LimitsDraft } from "../app/settings/limits";
 import { domainProblem, normalizeDomain } from "../domains/names";
 import { containerBody, containerProblems, emptyDraft } from "../container/model";
 import type { ContainerDraft } from "../container/model";
+import { askedHowItRuns, keepsType, startedWithWay } from "./howItRuns";
 import { generateSecret } from "./secrets";
 
 export type Inspection = ResponseOf<"/api/apps/inspect", "post">;
@@ -139,6 +140,8 @@ export function stepAsks(step: Step, kind: StartKind, { inspection, review, cont
     case "configure":
       return (
         inspection.detected_types.length !== 1 ||
+        // It can run directly on the server or in a container: that is a choice, and it is made here.
+        askedHowItRuns(inspection) ||
         // This server cannot deploy it as it is: what to do first is said on this step.
         inspection.compatible === false ||
         // A container is built and run the way its section says (Dockerfile or Railpack, port,
@@ -630,7 +633,7 @@ export function initialReview(
       container,
       useProposal: true,
     };
-    return withProposal(form, inspection, defaults.taken, true);
+    return withProposal(startedWithWay(form, inspection), inspection, defaults.taken, true);
   }
   const typed = new Map(previous.env.map((row) => [row.name, row]));
   const kept = env.map((row) => {
@@ -639,13 +642,16 @@ export function initialReview(
   });
   const extra = previous.env.filter((row) => !row.declared && !env.some((declared) => declared.name === row.name));
   const proposed = previous.env.filter((row) => row.proposed !== undefined);
-  const again: ReviewForm = {
+  const sameType = keepsType(inspection, previous.appType);
+  const rebuilt: ReviewForm = {
     ...previous,
     ...initialAddress(defaults, previous),
-    appType: inspection.detected_types.includes(previous.appType) ? previous.appType : inspection.app_type,
+    appType: sameType ? previous.appType : inspection.app_type,
     env: [...kept, ...proposed, ...extra],
     container,
   };
+  // A type that is no longer one of this inspection's starts again from what it proposes.
+  const again = sameType ? rebuilt : startedWithWay(rebuilt, inspection);
   // A proposal is used on the new inspection as the operator left it on the previous one.
   return withProposal(again, inspection, defaults.taken, previous.useProposal);
 }

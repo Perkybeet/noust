@@ -5689,6 +5689,7 @@ noust create [OPTIONS]
 | `--recipe` | Deploy a known application from its recipe (see 'noust recipe list'): its source, type, database and settings come from the recipe. |  |
 | `--env` | Set a variable of the application environment, over --env-file and a recipe's own. Repeat for several. |  |
 | `-t`, `--type` | Application type. Detected from the source when left on auto. | `auto` |
+| `--run-as` | How it runs: 'server' (directly on the server, a service of the system) or 'container'. Noust proposes the one it always did and says the other when the source can run in it; this chooses. Not with --type of the other form, --recipe or the container options. |  |
 | `-p`, `--port` | Port the application listens on. A free one is chosen when omitted. |  |
 | `-w`, `--webserver` | Web server that fronts the application. | `nginx` |
 | `-b`, `--branch` | Git branch to deploy. |  |

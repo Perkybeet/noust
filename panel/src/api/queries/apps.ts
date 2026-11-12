@@ -17,6 +17,8 @@ export type MigrationPlan = ResponseOf<"/api/apps/{domain}/migrate/plan", "get">
 export type AppTypesResponse = ResponseOf<"/api/apps/types", "get">;
 export type AppTypeInfo = AppTypesResponse["types"][number];
 export type DeletionPlan = ResponseOf<"/api/apps/{domain}/deletion", "get">;
+/** How an application runs: a service of the system, a container (and how it is built) or a Compose stack. */
+export type AppRuns = ResponseOf<"/api/apps/{domain}/runs", "get">;
 
 /**
  * Keys of the application queries. The list and each app are separate entries so that a
@@ -37,6 +39,7 @@ export const appKeys = {
   diagnosis: (domain: string) => ["app", domain, "diagnosis"] as const,
   migrationPlan: (domain: string) => ["app", domain, "migration-plan"] as const,
   deletion: (domain: string) => ["app", domain, "deletion"] as const,
+  runs: (domain: string) => ["app", domain, "runs"] as const,
 };
 
 export const appsQuery = () =>
@@ -49,6 +52,13 @@ export const appQuery = (domain: string) =>
   queryOptions({
     queryKey: appKeys.detail(domain),
     queryFn: ({ signal }) => request("get", "/api/apps/{domain}", { params: { domain }, signal }),
+  });
+
+/** How the application runs, and which image serves when it is a container. Changes only with a deploy, which refreshes everything under the app. */
+export const appRunsQuery = (domain: string) =>
+  queryOptions({
+    queryKey: appKeys.runs(domain),
+    queryFn: ({ signal }) => request("get", "/api/apps/{domain}/runs", { params: { domain }, signal }),
   });
 
 /**

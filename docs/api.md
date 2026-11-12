@@ -627,7 +627,10 @@ server's `deploy.layout`), `include_www`, `persistent_paths`, `memory_max_mb`,
 `cpu_quota_percent`, `tasks_max`, and for monorepos and Compose projects
 `subdomain_overrides`, `workspace_filter`, `skip_database`, `compose_file`,
 `compose_profiles`. `POST /api/apps/inspect` with `{"source", "branch"}` previews what would be
-deployed (type, commands, port, variables from `.env.example`) without deploying anything.
+deployed (type, commands, port, variables from `.env.example`) without deploying anything, and says in `ways`
+how it can run on this server, directly on it or in a container, which of the two it proposes and why, and why
+one cannot be when it cannot ([containers.md](containers.md#directly-on-the-server-or-in-a-container)).
+`GET /api/apps/{domain}/runs` says how an application that exists runs.
 
 Update, and roll back to a release:
 
@@ -1060,7 +1063,7 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | `/api/apps` | GET `apps.read`; POST `apps.manage`, four-eyes | List; deploy a new application (job). A local path needs sudo mode |
 | `/api/apps/adopt` | POST `apps.manage`, sudo | Register a Docker Compose stack that already runs, without touching it; `preview: true` answers what it would record. `409` with Compose's dry run when starting it would recreate something |
 | `/api/apps/import` | POST `apps.manage`, sudo |  |
-| `/api/apps/inspect` | POST `apps.manage` | Preview a source without deploying. A local path needs sudo mode |
+| `/api/apps/inspect` | POST `apps.manage` | Preview a source without deploying, and say how it can run here (`ways`). A local path needs sudo mode |
 | `/api/apps/types` | GET `apps.read` |  |
 | `/api/apps/{domain}` | GET `apps.read`; DELETE `apps.manage`, sudo | Delete (job). An adopted stack's directory, outside the apps directory, is kept unless `remove_adopted_directory` names it |
 | `/api/apps/{domain}/backup-before-update` | PATCH `apps.manage`, sudo | `{enabled}`: whether an update of a Compose stack dumps its databases first |

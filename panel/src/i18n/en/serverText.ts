@@ -1084,6 +1084,51 @@ export const serverText = {
       },
     },
   },
+  how_it_runs: {
+    container: {
+      no_build: {
+        text: "It cannot run in a container yet: the repository has no Dockerfile and Railpack is not installed on this server.",
+        hint: "Add a Dockerfile to the repository, or install Railpack on this server ({command}), which builds without one.",
+      },
+    },
+    server: {
+      nothing_recognised: {
+        text: "Nothing in it runs directly on the server: Noust does not recognise a program of its own in it.",
+      },
+    },
+    why: {
+      compose: {
+        text: "A Compose file always runs in containers: that is its form.",
+      },
+      container_dockerfile: {
+        text: "Noust proposes a container: the repository brings its Dockerfile, which says how it is built and started. It can also be built and started directly on the server ({type}).",
+      },
+      container_machine: {
+        text: "Noust proposes a container: this server cannot run it directly.",
+      },
+      container_only: {
+        text: "Noust proposes a container: the repository brings its Dockerfile, which says how it is built and started, and nothing in it runs directly on the server.",
+      },
+      container_railpack: {
+        text: "Noust proposes a container, built by Railpack: nothing in it runs directly on the server.",
+      },
+      docker_only: {
+        text: "This machine only runs applications in containers.",
+      },
+      none: {
+        text: "Neither way is possible on this machine now; what is in the way is said below.",
+      },
+      server_dockerfile: {
+        text: "Noust proposes running it directly on the server: it is a {type} project and starts with its own command. It has a Dockerfile, so it can also run in a container.",
+      },
+      server_only: {
+        text: "Noust proposes running it directly on the server: it is a {type} project and starts with its own command.",
+      },
+      server_railpack: {
+        text: "Noust proposes running it directly on the server: it is a {type} project and starts with its own command. Railpack is installed here, so it can also run in a container, built without a Dockerfile.",
+      },
+    },
+  },
   inspect: {
     can_deploy: {
       text: "Noust can deploy this as {type}.",

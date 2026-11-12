@@ -3705,6 +3705,57 @@
         "title": "AppRegistryLoginsRequest",
         "type": "object"
       },
+      "AppRunsResponse": {
+        "description": "How an application runs.\n\nAttributes:\n    domain: The application.\n    form: ``server`` (directly on the server, a service of the system) or ``container``.\n    via: For a container, how it is built: ``dockerfile``, ``railpack`` or ``image`` (from a\n        registry); ``compose`` for a Compose stack. Null for a service.\n    image: For a container application, the image that serves: the registry's reference, or\n        the one Noust built for the active release. Null when none serves yet, and for a stack.",
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "form": {
+            "enum": [
+              "server",
+              "container"
+            ],
+            "title": "Form",
+            "type": "string"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
+          },
+          "via": {
+            "anyOf": [
+              {
+                "enum": [
+                  "dockerfile",
+                  "railpack",
+                  "image",
+                  "compose"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Via"
+          }
+        },
+        "required": [
+          "domain",
+          "form"
+        ],
+        "title": "AppRunsResponse",
+        "type": "object"
+      },
       "AppTrafficResponse": {
         "description": "What an application's access log said over a window.\n\nAttributes:\n    domain: The application.\n    window: The window asked for.\n    start: Where the first point starts, epoch seconds.\n    end: Where the window ends.\n    step: Seconds per point: an hour up to two days, a day beyond.\n    available: True when the log is being read now.\n    log: The access log it is read from.\n    reason: Why not, when the site should have one.\n    totals: The window summed.\n    points: By step, oldest first, every step present.\n    top: Rankings by ``paths``, ``networks``, ``statuses`` and ``referrers``.\n    collector: Whether history is being recorded.",
         "properties": {
@@ -31142,6 +31193,91 @@
         "title": "HostnameRequest",
         "type": "object"
       },
+      "HowItRunsResponse": {
+        "description": "How a source can run on this server, and which way Noust proposes.\n\nWhat is proposed is what Noust has always deployed (the first of ``detected_types``): only what\nthis machine cannot do moves it.\n\nAttributes:\n    choice: Both ways can be, so there is something to choose.\n    proposed: The form Noust proposes: ``server`` or ``container``.\n    why: The sentence for the proposal.\n    server: Directly on the server.\n    container: In a container.",
+        "properties": {
+          "choice": {
+            "title": "Choice",
+            "type": "boolean"
+          },
+          "container": {
+            "$ref": "#/components/schemas/RunWayResponse"
+          },
+          "proposed": {
+            "enum": [
+              "server",
+              "container"
+            ],
+            "title": "Proposed",
+            "type": "string"
+          },
+          "server": {
+            "$ref": "#/components/schemas/RunWayResponse"
+          },
+          "why": {
+            "$ref": "#/components/schemas/HowItRunsSentence"
+          }
+        },
+        "required": [
+          "choice",
+          "proposed",
+          "why",
+          "server",
+          "container"
+        ],
+        "title": "HowItRunsResponse",
+        "type": "object"
+      },
+      "HowItRunsSentence": {
+        "description": "A sentence about how an application runs: its code and values, and its English beside them.\n\nAttributes:\n    text: The sentence in English, which is always sent.\n    hint: How to fix it, when the sentence has a fix (what a way that cannot be needs).",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "params": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Params",
+            "type": "object"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "text"
+        ],
+        "title": "HowItRunsSentence",
+        "type": "object"
+      },
       "Http3Model": {
         "description": "Whether this server can serve HTTP/3, and what stands in the way.\n\nAttributes:\n    available: nginx is 1.25.0 or later and was built with the HTTP/3 module.\n    webserver: ``nginx`` or ``apache``.\n    version: nginx's version.\n    problem: What is missing, when something is.\n    hint: How to fix it.\n    anchor: Whether the site that holds the QUIC socket is in place.\n    udp_allowed: Whether the firewall lets UDP 443 in; None when it filters nothing or\n        cannot be read.\n    firewall_hint: The command that opens UDP 443, when it is closed.",
         "properties": {
@@ -52923,6 +53059,82 @@
         "title": "RuleSourceIn",
         "type": "object"
       },
+      "RunWayResponse": {
+        "description": "One form an application can run in, on this server.\n\nAttributes:\n    form: ``server`` (directly on the server, a service of the system with an account of its\n        own) or ``container``.\n    status: ``yes``: it can be. ``no``: it cannot yet, and ``reason`` says why and what would\n        make it possible (add a Dockerfile, install Railpack or Docker). ``hidden``: there is\n        nothing to fix, so it is not offered: this machine can never run this form (one that\n        only has Docker has no systemd), or nothing in the source runs that way.\n    app_type: The ``app_type`` to create the application with to run it this way; null when it\n        cannot be.\n    via: For a container, how it is built: ``dockerfile``, ``railpack`` (no Dockerfile, with\n        ``container.method`` ``railpack``) or ``compose`` (a Compose file). Null for ``server``.\n    reason: Why it cannot be, when ``status`` is not ``yes``.\n    port: For a container of a repository that has a Dockerfile, the port the Dockerfile\n        exposes, when it says one (``container.container_port`` is empty to use it), even where\n        this machine cannot run a container yet. Null otherwise: what a service listens on is\n        the type's own, which ``default_port`` says.",
+        "properties": {
+          "app_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Type"
+          },
+          "form": {
+            "enum": [
+              "server",
+              "container"
+            ],
+            "title": "Form",
+            "type": "string"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HowItRunsSentence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "yes",
+              "no",
+              "hidden"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "via": {
+            "anyOf": [
+              {
+                "enum": [
+                  "dockerfile",
+                  "railpack",
+                  "compose"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Via"
+          }
+        },
+        "required": [
+          "form",
+          "status"
+        ],
+        "title": "RunWayResponse",
+        "type": "object"
+      },
       "SMTPConfig": {
         "description": "SMTP settings for the monitor's email notifications and test message.\n\n``password`` is write-only: it is never sent back by ``GET /config/smtp``\n(see :class:`SMTPSettingsResponse`), so unlike a secret round-tripped\nthrough the generic ``PUT``/``PATCH /api/config`` there is no\n:data:`~noust.core.config.REDACTED` placeholder for the console to echo\nback untouched. Instead an empty ``password`` keeps whatever is already\nstored - but only while it would still go where it went before: the same\nhost, port, username and transport. Changing any of those with a blank\npassword is refused (see :func:`_refuse_smtp_password_move`), so a\ncredential that may write this section but never saw the password cannot\npoint it at a server of its own and send itself a test email. There is no\nway to explicitly blank the password through this endpoint; ``noust config\nset monitor.smtp.password ''`` still does that directly.\n\n``recipients`` works the same way: left out, the stored list stays; an empty\nlist is the explicit way to clear it.",
         "properties": {
@@ -60592,6 +60804,17 @@
               }
             ],
             "description": "The verdict as a code and its values"
+          },
+          "ways": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HowItRunsResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How it can run on this server: directly on it (a service of the system) or in a container, which Noust proposes and why, and why the other cannot be when it cannot. Absent from a Noust older than 4.3"
           }
         },
         "required": [
@@ -86055,6 +86278,50 @@
           "Applications"
         ],
         "x-noust-permission": "apps.deploy"
+      }
+    },
+    "/api/apps/{domain}/runs": {
+      "get": {
+        "description": "Say how an application runs. Changes nothing.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    Its form and, for a container, how it is built and which image serves.\n\nRaises:\n    HTTPException: 404 when the application is unknown, or outside the caller's teams.\n    ValidationError: Noust adopted it and does not run it (400): it has no form of its own.",
+        "operationId": "get_app_runs_api_apps__domain__runs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppRunsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get App Runs",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
       }
     },
     "/api/apps/{domain}/sandbox": {

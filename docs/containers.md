@@ -23,6 +23,42 @@ new-application wizard asks, proposes the container type for a repository with o
 Dockerfile, and for the languages Noust has no deployer for it says to add a Dockerfile or to
 install Railpack (and, where Railpack is installed, proposes it).
 
+## Directly on the server, or in a container
+
+Noust deploys both, and says so before it deploys. An application runs **directly on the server** (a service of
+the system with an account of its own, each version in a folder of its own) or **in a container**. What `--type
+auto` proposes is what it has always deployed: the first type Noust recognises. A Node.js, Python, PHP, Next.js
+or Vite repository runs directly on the server **even when it has a Dockerfile**; Go, Rust, .NET, Elixir, Deno,
+Ruby and Java with a Dockerfile run as a container, because the repository said how. Nothing that deployed one
+way starts to deploy the other. What is new is that the other way is no longer hidden, and that you choose:
+
+- **The console** shows it in the **Configuration** step of a new application: what Noust read, which way it
+  proposes and why, and two cards, **Directly on the server** and **In a container**, with what each means.
+  Where the container is not possible it says why and what would make it possible (add a Dockerfile, or install
+  Railpack); where there is nothing to choose it says so in one sentence and draws no choice. The application's
+  page then says how it runs: **How it runs**, with the service or the containers and a way to them.
+- **The API** answers `ways` in `POST /api/apps/inspect`: for each form (`server`, `container`) its `status`
+  (`yes`, `no` with the `reason` and its fix, or `hidden` on a machine that can never run that form), the
+  `app_type` to create the application with to run it that way, and for a container how it is built (`via`:
+  `dockerfile`, `railpack` or `compose`, and for a Dockerfile the `port` it exposes); and `proposed` with `why`.
+  To run it as a container, send that `app_type` and, when `via` is `railpack`, `container.method` `railpack`. `GET /api/apps/{domain}/runs` says
+  how an application that exists runs and, for a container, which image serves.
+- **The command line**: `noust create --run-as server|container` takes the way after the source is read, and
+  without it `create` says the other way when there is one.
+
+```bash
+noust create -d shop.example.com -s https://github.com/owner/shop --run-as container
+```
+
+A container needs Docker on the machine and a Dockerfile in the repository, or Railpack on the server
+(`noust setup railpack`), which builds without one; running directly needs systemd, a web server and root. A
+machine that only has Docker (a central in a container, a NAS) is offered containers alone.
+
+**Changing the form of an application that runs is not offered.** It is deployed again as the other form, under
+another name or after deleting it, and the domain is moved to it (**Domains**, or `noust domain`). It is not
+converted on the fly because its data does not move by itself: a service keeps its files in its folder and a
+container in volumes.
+
 ### From a Dockerfile
 
 ```bash

@@ -11,6 +11,7 @@ import { Select } from "../../components/ui/Select";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { ContainerFields } from "../container/ContainerFields";
+import { HowItRuns } from "./HowItRuns";
 import { InspectionReadout } from "./InspectionReadout";
 import { PersistentPathsField } from "./PersistentPathsField";
 import { PlatformProposalPanel } from "./PlatformProposalPanel";
@@ -31,6 +32,17 @@ function portNote(t: T, inspection: Inspection, form: ReviewForm, types: readonl
   const type = typeName(types, inspection.app_type);
   if (owner === undefined) return t("newApp.review.portDefault", { type, port: String(preferred) });
   return t("newApp.review.portTaken", { type, port: String(preferred), owner });
+}
+
+/**
+ * The port a container's process listens on that its Dockerfile says, to name where "empty" leads. The server says it
+ * with the container way (a Node.js repository with a Dockerfile has Node.js's 3000 for its type and its own EXPOSE
+ * for its container); against a server that does not, it is the inspection's port when the repository is a container.
+ */
+function suggestedContainerPort(inspection: Inspection, form: ReviewForm): number | null {
+  if (form.container.method !== "dockerfile") return null;
+  if (inspection.ways != null) return inspection.ways.container.port ?? null;
+  return inspection.detected_types.includes("container") ? inspection.default_port : null;
 }
 
 /** The advanced choices in a line, for the folded group's summary: how deploys work and the web server. */
@@ -66,12 +78,39 @@ export function ConfigureStep({ inspection, types, taken, cores, source, form, e
     onChange({ ...form, ...patch });
   };
   const detected = inspection.detected_types.length > 0;
-  const chosenElsewhere = detected && form.appType !== inspection.app_type;
+  // The type of one of the two ways is the card's choice and not a choice against the detection (the card says what it
+  // is); the warning is for a type picked by hand, which the commands read above are not those of.
+  const ofAWay = inspection.ways?.server.app_type === form.appType || inspection.ways?.container.app_type === form.appType;
+  const chosenElsewhere = detected && form.appType !== inspection.app_type && !ofAWay;
   const proposal = inspection.platform_proposal ?? null;
   const container = form.appType === "container";
   // An image in a registry has no repository: nothing was inspected, so there is nothing to read out.
   const pulled = container && form.container.method === "image";
-  const advancedErrors = errorsOf(errors, "configure").some(([field]) => field.startsWith("path:") || field.startsWith("limit:"));
+  // How it runs is the server's decision, with its two cards; the type, which only a person who knows the
+  // repository better than detection does changes, is then a choice under "Advanced" and not the question.
+  const ways = detected && !pulled ? (inspection.ways ?? null) : null;
+  // Where there is a choice, its two cards are the question and the type moves under "Advanced"; where there is none
+  // (a Compose file, a lone Dockerfile) the type is where it always was.
+  const typeInAdvanced = ways?.choice === true;
+  const advancedErrors = errorsOf(errors, "configure").some(([field]) => field.startsWith("path:") || field.startsWith("limit:") || (typeInAdvanced && field === "appType"));
+
+  const typeField = (
+    <Field label={t("newApp.review.deployAs")} nativeLabel={false} error={errors["appType"]} description={t("newApp.review.deployAsDescription")} className="sm:max-w-96">
+      <Select
+        options={typeOptions(types, inspection.detected_types)}
+        value={form.appType === "" ? null : form.appType}
+        placeholder={t("newApp.review.chooseType")}
+        onValueChange={(appType) => set({ appType })}
+        className="w-full"
+      />
+    </Field>
+  );
+  const chosenNotice =
+    chosenElsewhere && !pulled ? (
+      <Notice tone="warning">
+        {t("newApp.review.chosenElsewhere", { detected: typeName(types, inspection.app_type), chosen: typeName(types, form.appType) })}
+      </Notice>
+    ) : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -105,23 +144,11 @@ export function ConfigureStep({ inspection, types, taken, cores, source, form, e
         />
       ) : null}
 
+      {ways !== null ? <HowItRuns ways={ways} form={form} onChange={onChange} /> : null}
+
       <div className="flex flex-col gap-5">
-        {pulled ? null : (
-          <Field label={t("newApp.review.deployAs")} nativeLabel={false} error={errors["appType"]} description={t("newApp.review.deployAsDescription")} className="sm:max-w-96">
-            <Select
-              options={typeOptions(types, inspection.detected_types)}
-              value={form.appType === "" ? null : form.appType}
-              placeholder={t("newApp.review.chooseType")}
-              onValueChange={(appType) => set({ appType })}
-              className="w-full"
-            />
-          </Field>
-        )}
-        {chosenElsewhere && !pulled ? (
-          <Notice tone="warning">
-            {t("newApp.review.chosenElsewhere", { detected: typeName(types, inspection.app_type), chosen: typeName(types, form.appType) })}
-          </Notice>
-        ) : null}
+        {pulled || typeInAdvanced ? null : typeField}
+        {chosenNotice}
         {hasPort(form.appType) ? (
           <Field label={t("newApp.review.port")} error={errors["port"]} description={portNote(t, inspection, form, types, taken)} className="sm:max-w-80">
             <Input mono inputMode="numeric" value={form.port} onValueChange={(value: string) => set({ port: value })} autoComplete="off" />
@@ -135,7 +162,7 @@ export function ConfigureStep({ inspection, types, taken, cores, source, form, e
           errors={errors}
           onChange={(next) => set({ container: next })}
           showImage={form.container.method === "image"}
-          suggestedPort={form.container.method === "dockerfile" && inspection.detected_types.includes("container") ? inspection.default_port : null}
+          suggestedPort={suggestedContainerPort(inspection, form)}
         />
       ) : null}
 
@@ -148,6 +175,7 @@ export function ConfigureStep({ inspection, types, taken, cores, source, form, e
         summary={advancedSummary(t, form)}
       >
         <div className="flex flex-col gap-6">
+          {typeInAdvanced ? typeField : null}
           {container ? null : (
           <ChoiceCards<Layout>
             legend={t("newApp.review.deploys")}

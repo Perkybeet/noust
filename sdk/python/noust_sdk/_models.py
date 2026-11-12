@@ -584,6 +584,13 @@ AppRegistryLoginsRequest = TypedDict("AppRegistryLoginsRequest", {
     "logins": NotRequired[list[str]],
 })
 
+AppRunsResponse = TypedDict("AppRunsResponse", {
+    "domain": Required[str],
+    "form": Required[Literal["server", "container"]],
+    "image": NotRequired[Union[str, None]],
+    "via": NotRequired[Union[Literal["dockerfile", "railpack", "image", "compose"], None]],
+})
+
 AppTrafficResponse = TypedDict("AppTrafficResponse", {
     "available": Required[bool],
     "collector": Required["CollectorModel"],
@@ -5410,6 +5417,21 @@ HostnameRequest = TypedDict("HostnameRequest", {
     "keep_against_cloud_init": NotRequired[bool],
 })
 
+HowItRunsResponse = TypedDict("HowItRunsResponse", {
+    "choice": Required[bool],
+    "container": Required["RunWayResponse"],
+    "proposed": Required[Literal["server", "container"]],
+    "server": Required["RunWayResponse"],
+    "why": Required["HowItRunsSentence"],
+})
+
+HowItRunsSentence = TypedDict("HowItRunsSentence", {
+    "code": Required[str],
+    "hint": NotRequired[Union[str, None]],
+    "params": NotRequired[dict[str, Union[bool, int, float, str]]],
+    "text": Required[str],
+})
+
 Http3Model = TypedDict("Http3Model", {
     "anchor": NotRequired[bool],
     "available": Required[bool],
@@ -9204,6 +9226,15 @@ RuleSourceIn = TypedDict("RuleSourceIn", {
     "source": Required[str],
 })
 
+RunWayResponse = TypedDict("RunWayResponse", {
+    "app_type": NotRequired[Union[str, None]],
+    "form": Required[Literal["server", "container"]],
+    "port": NotRequired[Union[int, None]],
+    "reason": NotRequired[Union["HowItRunsSentence", None]],
+    "status": Required[Literal["yes", "no", "hidden"]],
+    "via": NotRequired[Union[Literal["dockerfile", "railpack", "compose"], None]],
+})
+
 SMTPConfig = TypedDict("SMTPConfig", {
     "from_address": NotRequired[str],
     "host": NotRequired[str],
@@ -10437,6 +10468,7 @@ SourceInspectionResponse = TypedDict("SourceInspectionResponse", {
     "suggestion_coded": NotRequired[Union["CodedText", None]],
     "verdict": NotRequired[Union[str, None]],
     "verdict_coded": NotRequired[Union["CodedText", None]],
+    "ways": NotRequired[Union["HowItRunsResponse", None]],
 })
 
 SourceOptionsRequest = TypedDict("SourceOptionsRequest", {

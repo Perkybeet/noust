@@ -6061,6 +6061,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get App Runs
+         * @description Say how an application runs. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its form and, for a container, how it is built and which image serves.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown, or outside the caller's teams.
+         *         ValidationError: Noust adopted it and does not run it (400): it has no form of its own.
+         */
+        get: operations["get_app_runs_api_apps__domain__runs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/sandbox": {
         parameters: {
             query?: never;
@@ -35964,6 +35995,31 @@ export interface components {
             logins?: string[];
         };
         /**
+         * AppRunsResponse
+         * @description How an application runs.
+         *
+         *     Attributes:
+         *         domain: The application.
+         *         form: ``server`` (directly on the server, a service of the system) or ``container``.
+         *         via: For a container, how it is built: ``dockerfile``, ``railpack`` or ``image`` (from a
+         *             registry); ``compose`` for a Compose stack. Null for a service.
+         *         image: For a container application, the image that serves: the registry's reference, or
+         *             the one Noust built for the active release. Null when none serves yet, and for a stack.
+         */
+        AppRunsResponse: {
+            /** Domain */
+            domain: string;
+            /**
+             * Form
+             * @enum {string}
+             */
+            form: "server" | "container";
+            /** Image */
+            image?: string | null;
+            /** Via */
+            via?: ("dockerfile" | "railpack" | "image" | "compose") | null;
+        };
+        /**
          * AppTrafficResponse
          * @description What an application's access log said over a window.
          *
@@ -51378,6 +51434,52 @@ export interface components {
             keep_against_cloud_init: boolean;
         };
         /**
+         * HowItRunsResponse
+         * @description How a source can run on this server, and which way Noust proposes.
+         *
+         *     What is proposed is what Noust has always deployed (the first of ``detected_types``): only what
+         *     this machine cannot do moves it.
+         *
+         *     Attributes:
+         *         choice: Both ways can be, so there is something to choose.
+         *         proposed: The form Noust proposes: ``server`` or ``container``.
+         *         why: The sentence for the proposal.
+         *         server: Directly on the server.
+         *         container: In a container.
+         */
+        HowItRunsResponse: {
+            /** Choice */
+            choice: boolean;
+            container: components["schemas"]["RunWayResponse"];
+            /**
+             * Proposed
+             * @enum {string}
+             */
+            proposed: "server" | "container";
+            server: components["schemas"]["RunWayResponse"];
+            why: components["schemas"]["HowItRunsSentence"];
+        };
+        /**
+         * HowItRunsSentence
+         * @description A sentence about how an application runs: its code and values, and its English beside them.
+         *
+         *     Attributes:
+         *         text: The sentence in English, which is always sent.
+         *         hint: How to fix it, when the sentence has a fix (what a way that cannot be needs).
+         */
+        HowItRunsSentence: {
+            /** Code */
+            code: string;
+            /** Hint */
+            hint?: string | null;
+            /** Params */
+            params?: {
+                [key: string]: boolean | number | string;
+            };
+            /** Text */
+            text: string;
+        };
+        /**
          * Http3Model
          * @description Whether this server can serve HTTP/3, and what stands in the way.
          *
@@ -63179,6 +63281,46 @@ export interface components {
             source: string;
         };
         /**
+         * RunWayResponse
+         * @description One form an application can run in, on this server.
+         *
+         *     Attributes:
+         *         form: ``server`` (directly on the server, a service of the system with an account of its
+         *             own) or ``container``.
+         *         status: ``yes``: it can be. ``no``: it cannot yet, and ``reason`` says why and what would
+         *             make it possible (add a Dockerfile, install Railpack or Docker). ``hidden``: there is
+         *             nothing to fix, so it is not offered: this machine can never run this form (one that
+         *             only has Docker has no systemd), or nothing in the source runs that way.
+         *         app_type: The ``app_type`` to create the application with to run it this way; null when it
+         *             cannot be.
+         *         via: For a container, how it is built: ``dockerfile``, ``railpack`` (no Dockerfile, with
+         *             ``container.method`` ``railpack``) or ``compose`` (a Compose file). Null for ``server``.
+         *         reason: Why it cannot be, when ``status`` is not ``yes``.
+         *         port: For a container of a repository that has a Dockerfile, the port the Dockerfile
+         *             exposes, when it says one (``container.container_port`` is empty to use it), even where
+         *             this machine cannot run a container yet. Null otherwise: what a service listens on is
+         *             the type's own, which ``default_port`` says.
+         */
+        RunWayResponse: {
+            /** App Type */
+            app_type?: string | null;
+            /**
+             * Form
+             * @enum {string}
+             */
+            form: "server" | "container";
+            /** Port */
+            port?: number | null;
+            reason?: components["schemas"]["HowItRunsSentence"] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "yes" | "no" | "hidden";
+            /** Via */
+            via?: ("dockerfile" | "railpack" | "compose") | null;
+        };
+        /**
          * SMTPConfig
          * @description SMTP settings for the monitor's email notifications and test message.
          *
@@ -67169,6 +67311,8 @@ export interface components {
             verdict?: string | null;
             /** @description The verdict as a code and its values */
             verdict_coded?: components["schemas"]["CodedText"] | null;
+            /** @description How it can run on this server: directly on it (a service of the system) or in a container, which Noust proposes and why, and why the other cannot be when it cannot. Absent from a Noust older than 4.3 */
+            ways?: components["schemas"]["HowItRunsResponse"] | null;
         };
         /**
          * SourceOptionsRequest
@@ -81825,6 +81969,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ResumeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_app_runs_api_apps__domain__runs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppRunsResponse"];
                 };
             };
             /** @description Validation Error */

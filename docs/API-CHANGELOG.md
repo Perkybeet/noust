@@ -164,6 +164,16 @@ against the schema of 4.2.0.
 - **A firewall or SSH change nobody confirmed.** `GET /api/notifications/events` lists `access_change_reverted`
   (on by default): said through the channels when the timer undoes a change to the firewall or to SSH that was not
   confirmed in time.
+- **How an application can run, and how it does.** `POST /api/apps/inspect` answers `ways` (null from a Noust before
+  4.3, which a client reads as "nothing to choose"): `choice` (both ways can be), `proposed` (`server` or
+  `container`: the form of the first of `detected_types`, as it always was, unless this machine cannot run it),
+  `why` (a sentence with its code), and one object per form, `server` and `container`, each with `status` (`yes`,
+  `no` or `hidden`), the `app_type` to create the application with to run it that way, for a container `via`
+  (`dockerfile`, `railpack`, `compose`) and, for a container built from its Dockerfile, the `port` the Dockerfile
+  exposes (a Node.js repository's own `default_port` is Node.js's), and when it cannot be a `reason` with its code,
+  its English and its fix.
+  `GET /api/apps/{domain}/runs` (`apps.read`) says how an application that exists runs: `form` (`server` or
+  `container`), `via` (`dockerfile`, `railpack`, `image` or `compose`) and, for a container, the `image` that serves.
 
 ## 4.2.0
 

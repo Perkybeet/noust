@@ -80,7 +80,8 @@ export function InspectionReadout({ inspection, types, source }: { inspection: I
   const keys = inspection.env_keys;
   const required = keys.filter((key) => key.required).length;
   const secrets = keys.filter((key) => key.secret).length;
-  const others = inspection.detected_types.slice(1);
+  // "It also matches Container" is said by the cards of how it runs, when the server says how it can run.
+  const others = inspection.detected_types.slice(1).filter((type) => inspection.ways == null || type !== "container");
 
   return (
     <Card padding="none" as="div" className="overflow-hidden">

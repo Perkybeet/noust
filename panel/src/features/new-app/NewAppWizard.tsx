@@ -35,7 +35,8 @@ import { normalizeDomain } from "../domains/names";
 import { imageProblem } from "../container/model";
 import { AddressFields } from "./AddressFields";
 import { ConfigureStep } from "./ConfigureStep";
-import { DeployStep, deploySummary } from "./DeployStep";
+import { DeployStep, deploySummary, howItRunsItem } from "./DeployStep";
+import type { Ways } from "./howItRuns";
 import type { OpenSteps } from "./DeployStep";
 import type { DeployKind } from "./DeployStep";
 import { DetectedLine } from "./DetectedLine";
@@ -1259,7 +1260,7 @@ export function NewAppWizard() {
         {...(locked ? {} : { onSelectStep: (id: string) => go(id as Step) })}
         title={view?.title ?? ""}
         description={view?.description}
-        {...(current !== "server" && current !== "source" && current !== "setup" && current !== "deploy" ? { summary: <SoFar t={t} kind={kind} source={inspected?.for ?? source} review={review} recipe={recipe} recipeForm={recipeForm} loaded={loaded} importForm={importForm} typeName={(type) => typeName(typeList, type)} onChangeType={kind === "code" && passedOver.includes("configure") ? () => go("configure") : undefined} /> } : {})}
+        {...(current !== "server" && current !== "source" && current !== "setup" && current !== "deploy" ? { summary: <SoFar t={t} kind={kind} source={inspected?.for ?? source} review={review} recipe={recipe} recipeForm={recipeForm} loaded={loaded} importForm={importForm} ways={kind === "code" ? (inspected?.inspection.ways ?? null) : null} typeName={(type) => typeName(typeList, type)} onChangeType={kind === "code" && passedOver.includes("configure") ? () => go("configure") : undefined} /> } : {})}
         actions={view?.actions ?? { next: { onClick: () => undefined } }}
       >
         {view?.content}
@@ -1283,6 +1284,7 @@ function SoFar({
   recipeForm,
   loaded,
   importForm,
+  ways,
   typeName: nameOf,
   onChangeType,
 }: {
@@ -1294,6 +1296,8 @@ function SoFar({
   recipeForm: RecipeForm | null;
   loaded: LoadedExport | null;
   importForm: ImportForm | null;
+  /** How the source can run on this server, when the server says. */
+  ways: Ways | null;
   typeName: (type: string) => string;
   /** Opens the Configuration step, which was passed over because nothing in it needed asking. */
   onChangeType?: (() => void) | undefined;
@@ -1308,6 +1312,7 @@ function SoFar({
   items.push({ label: t("newApp.deploy.address"), value: domain !== undefined && domain.trim() !== "" ? normalizeDomain(domain) : null, copy: false });
   if (kind === "code" && review !== null) {
     items.push({ label: t("newApp.deploy.type"), value: review.appType === "" ? null : nameOf(review.appType), mono: false, copy: false });
+    if (ways !== null && review.appType !== "") items.push(howItRunsItem(t, ways, review.appType));
   }
   // Stacked, not side by side: the summary's column is narrow beside the step.
   return (
@@ -1324,9 +1329,9 @@ function SoFar({
               ) : (
                 <Mono truncate>{item.value}</Mono>
               )}
-              {onChangeType !== undefined && item.label === t("newApp.deploy.type") ? (
+              {onChangeType !== undefined && (item.label === t("newApp.deploy.type") || item.label === t("newApp.how.heading")) ? (
                 <button type="button" onClick={onChangeType} className={cx("mt-0.5 block", textLinkClassName("inline", "cursor-pointer text-12"))}>
-                  {t("newApp.deploy.change")} <span className="sr-only">{t("newApp.deploy.type").toLowerCase()}</span>
+                  {t("newApp.deploy.change")} <span className="sr-only">{item.label.toLowerCase()}</span>
                 </button>
               ) : null}
             </dd>

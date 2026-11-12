@@ -54,6 +54,7 @@ import { PreviewLogsDrawer } from "./settings/PreviewLogsDrawer";
 import { previewName, previewStatus } from "./settings/previews";
 import { AdoptedOverview } from "./AdoptedOverview";
 import { FirstDeploy } from "./FirstDeploy";
+import { HowItRunsCard } from "./HowItRunsCard";
 import { useAppJob } from "./useAppJob";
 import { isAdopted } from "./adopted";
 import { RECENT_APP_DEPLOYS } from "./AppBanner";
@@ -740,6 +741,8 @@ export function AppOverview({ domain }: { domain: string }) {
       <Deploys app={app.data} t={t} />
       <div className="grid min-w-0 gap-8 lg:grid-cols-5">
         <div className="flex min-w-0 flex-col gap-8 lg:col-span-3">
+          {/* Three fifths: a unit, an account and a folder are paths and names that a narrow column would cut into lines. */}
+          <HowItRunsCard app={app.data} t={t} />
           <Reach app={app.data} t={t} />
           <Previews domain={domain} t={t} />
         </div>

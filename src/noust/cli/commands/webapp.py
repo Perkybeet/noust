@@ -70,6 +70,7 @@ from noust.deployers.helpers import edge as edges
 from noust.deployers.helpers.env_manager import EnvManager
 from noust.deployers.helpers.package_manager import SUPPORTED_PACKAGE_MANAGERS
 from noust.deployers.helpers.php_fpm import is_php_fpm
+from noust.deployers.how_it_runs import FORM_CONTAINER, FORMS, run_as_conflict
 from noust.deployers.lifecycle import (
     NOTHING_NEW_HINT,
     AppUpdate,
@@ -250,6 +251,7 @@ def _create_app(
     registry_logins: tuple[str, ...] = (),
     seed_files: dict[str, str] | None = None,
     seed_modes: dict[str, int] | None = None,
+    run_as: str | None = None,
 ) -> int:
     """
     Deploy an application.
@@ -310,6 +312,8 @@ def _create_app(
         seed_files: Text of files that must be in place before the first start, by path
             relative to the application (an import's mounted files); written once.
         seed_modes: Their permissions.
+        run_as: ``server`` or ``container`` (``--run-as``): which way an application whose type is
+            detected runs, when the source can run in either. None leaves it to detection.
 
     Returns:
         Exit code.
@@ -352,6 +356,9 @@ def _create_app(
     # real type from the fetched source. Rewriting app_type here, as this used
     # to, deployed every untyped app as a plain Node service.
     readiness_type = "nodejs" if app_type == "auto" else app_type
+    if app_type == "auto" and run_as == FORM_CONTAINER:
+        # A container needs Docker, not the Node.js that a source nobody has read yet is assumed to need.
+        readiness_type = "container"
 
     can_deploy, missing, warnings = check_deployment_ready(
         app_type=readiness_type,
@@ -452,6 +459,10 @@ def _create_app(
     container_options: dict[str, Any] = (
         {} if container_settings is None else {"container": container_settings}
     )
+    if run_as is not None and app_type == "auto":
+        # Only the deployer that detects the type has a way to choose: a type that was named already
+        # said it (`run_as_conflict` refused the ones that disagree).
+        container_options["run_as"] = run_as
     deployer = get_deployer(app_type, verbose=logger.verbose)
     try:
         deployer.configure(
@@ -2222,6 +2233,16 @@ def cli() -> None:
     help="Application type. Detected from the source when left on auto.",
 )
 @click.option(
+    "--run-as",
+    "run_as",
+    type=click.Choice(FORMS),
+    default=None,
+    help="How it runs: 'server' (directly on the server, a service of the system) or "
+    "'container'. Noust proposes the one it always did and says the other when the source "
+    "can run in it; this chooses. Not with --type of the other form, --recipe or the "
+    "container options.",
+)
+@click.option(
     "-p",
     "--port",
     type=click.INT,
@@ -2365,6 +2386,7 @@ def create(
     recipe: str | None,
     env_pairs: tuple[str, ...],
     app_type: str,
+    run_as: str | None,
     port: int | None,
     webserver: str,
     branch: str | None,
@@ -2414,6 +2436,14 @@ def create(
             if source:
                 raise click.UsageError("--image is the source of a container: leave -s out.")
             source = container["image"]
+    if run_as is not None:
+        if recipe is not None:
+            raise click.UsageError(
+                "--run-as cannot be used with --recipe: the recipe brings its own."
+            )
+        conflict = run_as_conflict(run_as, app_type)
+        if conflict is not None:
+            raise click.UsageError(conflict)
     if temporary:
         if domain:
             raise click.UsageError("--temporary makes the domain itself: leave -d out.")
@@ -2502,6 +2532,7 @@ def create(
             build_document=build_document,
             no_cache=no_cache,
             registry_logins=registry_logins,
+            run_as=run_as,
         ),
     )
     # Reached only when the deploy succeeded: _exit leaves on a failure code.

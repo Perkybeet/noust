@@ -1761,6 +1761,55 @@ CATALOG: dict[str, str] = {
         "Noust can deploy this as a container, built by Railpack: it has no Dockerfile. It also "
         "looks like {others}; choose that type instead to deploy it that way."
     ),
+    # -- How an application runs (noust.deployers.how_it_runs): the two forms, which one Noust
+    # proposes and why, and why the other cannot be. ``why.*`` is the reason of the proposal, whole
+    # sentences because the word order is not the same in both languages; ``container.*`` and
+    # ``server.*`` are the reasons a form cannot be, each with its fix. The reasons the machine gives
+    # (no Docker, no web server) are the sentences of ``docker.*`` and ``features.*``.
+    "how_it_runs.why.server_dockerfile": (
+        "Noust proposes running it directly on the server: it is a {type} project and starts "
+        "with its own command. It has a Dockerfile, so it can also run in a container."
+    ),
+    "how_it_runs.why.server_railpack": (
+        "Noust proposes running it directly on the server: it is a {type} project and starts "
+        "with its own command. Railpack is installed here, so it can also run in a container, "
+        "built without a Dockerfile."
+    ),
+    "how_it_runs.why.server_only": (
+        "Noust proposes running it directly on the server: it is a {type} project and starts "
+        "with its own command."
+    ),
+    "how_it_runs.why.container_dockerfile": (
+        "Noust proposes a container: the repository brings its Dockerfile, which says how it is "
+        "built and started. It can also be built and started directly on the server ({type})."
+    ),
+    "how_it_runs.why.container_only": (
+        "Noust proposes a container: the repository brings its Dockerfile, which says how it is "
+        "built and started, and nothing in it runs directly on the server."
+    ),
+    "how_it_runs.why.container_railpack": (
+        "Noust proposes a container, built by Railpack: nothing in it runs directly on the server."
+    ),
+    "how_it_runs.why.container_machine": (
+        "Noust proposes a container: this server cannot run it directly."
+    ),
+    "how_it_runs.why.compose": "A Compose file always runs in containers: that is its form.",
+    "how_it_runs.why.docker_only": "This machine only runs applications in containers.",
+    "how_it_runs.why.none": (
+        "Neither way is possible on this machine now; what is in the way is said below."
+    ),
+    "how_it_runs.container.no_build": (
+        "It cannot run in a container yet: the repository has no Dockerfile and Railpack is not "
+        "installed on this server."
+    ),
+    "how_it_runs.container.no_build.hint": (
+        "Add a Dockerfile to the repository, or install Railpack on this server ({command}), "
+        "which builds without one."
+    ),
+    "how_it_runs.server.nothing_recognised": (
+        "Nothing in it runs directly on the server: Noust does not recognise a program of its own "
+        "in it."
+    ),
     "inspect.missing_programs": "This is a {type} project, but this server does not have {programs}.",
     "inspect.install_toolchain": "Install the toolchain with: {command}. Then deploy it.",
     "inspect.install_deno": (

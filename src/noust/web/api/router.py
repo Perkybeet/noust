@@ -38,6 +38,7 @@ from noust.web.api.app_promote import router as app_promote_router
 from noust.web.api.app_release_bundles import router as app_release_bundles_router
 from noust.web.api.app_replication import router as app_replication_router
 from noust.web.api.app_rollout import router as app_rollout_router
+from noust.web.api.app_runs import router as app_runs_router
 from noust.web.api.app_runtime import router as app_runtime_router
 from noust.web.api.app_schedule import router as app_schedule_router
 from noust.web.api.app_source import router as app_source_router
@@ -407,6 +408,8 @@ router.include_router(git_credentials_router, prefix="/apps", tags=["Application
 router.include_router(app_container_router, prefix="/apps", tags=["Applications"])
 # app_address.py owns only "/{domain}/address".
 router.include_router(app_address_router, prefix="/apps", tags=["Applications"])
+# app_runs.py owns only "/{domain}/runs".
+router.include_router(app_runs_router, prefix="/apps", tags=["Applications"])
 # app_build.py owns only paths under "/{domain}/build".
 router.include_router(app_build_router, prefix="/apps", tags=["Applications"])
 # app_deploy.py owns only "/{domain}/deploy" under "/apps", and the one "/deploy".

@@ -61,6 +61,14 @@ service without starting it. If the rehearsal lists changes, the adoption is ref
 Compose's own output, unless you tick **Adopt anyway, recreating what Compose lists** after reading
 it. Adopting needs sudo mode. See [compose.md](compose-adopt.md#adopting-a-running-stack).
 
+**Configuration** says **how it runs**: directly on the server (a service of the system) or in a container. Noust
+says what it read, which one it proposes and why (what it proposes is what it has always deployed), and when the
+source can run either way it shows both as cards for you to choose. Where one cannot be it says why and what
+would make it possible: a Dockerfile in the repository, or Railpack on the server. A machine that only has
+Docker is offered containers alone. The application's **Overview** then says how it runs and leads to its
+service or to its containers; moving an application from one form to the other is deploying it again and moving
+the domain, and the page says so. See [containers.md](containers.md#directly-on-the-server-or-in-a-container).
+
 ![New application](assets/console/apps-new.png)
 
 Besides a repository, the Source step offers **A Docker image**: an image from a registry runs as

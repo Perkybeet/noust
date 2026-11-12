@@ -201,6 +201,10 @@ src/noust/
     lifecycle.py    the one "update an app"; release activation; resource limits
     migrate.py      in-place to releases, explicit only, undone exactly on failure
     domains.py      the one "names an app answers on": store, site, certificate, DNS check
+    how_it_runs.py  the one "how can this run here": directly on the server or in a container, which is
+                    proposed and why, and why the other cannot be (`POST /api/apps/inspect`'s `ways`,
+                    `noust create --run-as`, and an application's `GET .../runs`); what the machine can
+                    run comes from `central/features.py`, never a second look at Docker
     compose_relay.py  zero-downtime for Compose: a twin of each web service while it is recreated
     compose_adopt.py  `noust app adopt`: register a stack that already runs, touching nothing
     container.py    `--type container`: a Dockerfile, a registry image or Railpack, run as a compose

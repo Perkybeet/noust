@@ -5957,6 +5957,9 @@ Set a variable of the application environment, over \-\-env\-file and a recipe's
 .B \-t, \-\-type
 Application type. Detected from the source when left on auto. Default: auto.
 .TP
+.B \-\-run\-as
+How it runs: 'server' (directly on the server, a service of the system) or 'container'. Noust proposes the one it always did and says the other when the source can run in it; this chooses. Not with \-\-type of the other form, \-\-recipe or the container options.
+.TP
 .B \-p, \-\-port
 Port the application listens on. A free one is chosen when omitted.
 .TP

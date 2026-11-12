@@ -195,6 +195,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("applications", "put_rollout"): ("PUT", "/api/apps/{domain}/rollout", "apps.manage", False),
     ("applications", "pause_deploys"): ("POST", "/api/apps/{domain}/rollout/pause", "apps.deploy", False),
     ("applications", "resume_deploys"): ("POST", "/api/apps/{domain}/rollout/resume", "apps.deploy", False),
+    ("applications", "get_app_runs"): ("GET", "/api/apps/{domain}/runs", "apps.read", False),
     ("applications", "get_sandbox"): ("GET", "/api/apps/{domain}/sandbox", "apps.read", False),
     ("applications", "put_compose_exception"): ("PUT", "/api/apps/{domain}/sandbox/compose-exception", "root_equivalent", True),
     ("applications", "delete_compose_exception"): ("DELETE", "/api/apps/{domain}/sandbox/compose-exception", "apps.manage", False),
@@ -1490,7 +1491,7 @@ class Alerts:
 
 
 class Applications:
-    """Applications: 171 operations."""
+    """Applications: 172 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -2574,6 +2575,14 @@ class Applications:
 
         Needs: permission `apps.deploy`."""
         return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/rollout/resume", query=None, body=None)
+
+    def get_app_runs(self, domain: str) -> "AppRunsResponse":
+        """GET /api/apps/{domain}/runs
+
+        Get App Runs
+
+        Needs: permission `apps.read`."""
+        return self._call("GET", f"/api/apps/{quote(str(domain), safe='')}/runs", query=None, body=None)
 
     def get_sandbox(self, domain: str) -> "SandboxResponse":
         """GET /api/apps/{domain}/sandbox

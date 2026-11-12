@@ -124,6 +124,31 @@ class DeployerRegistry:
 
         return None
 
+    @classmethod
+    def detect_all(cls, path: Path, verbose: bool = False) -> list[type[AppDeployer]]:
+        """
+        Every application type that recognises a directory.
+
+        :meth:`detect` stops at the first, which is what is deployed; the wizard and
+        ``noust create`` also want the others, so a person can see what else the source looks like
+        and which way it could run.
+
+        Args:
+            path: Path to check. Must already contain the fetched source.
+            verbose: Enable verbose output.
+
+        Returns:
+            The matching deployer classes, most specific first (registry priority order). Empty
+            when nothing recognises the tree.
+        """
+        matches: list[type[AppDeployer]] = []
+        for deployer_class in cls.in_detection_order():
+            if deployer_class.APP_TYPE == "auto":
+                continue
+            if deployer_class(verbose=verbose).detect(path):
+                matches.append(deployer_class)
+        return matches
+
 
 def get_deployer(app_type: str, verbose: bool = False) -> AppDeployer:
     """
