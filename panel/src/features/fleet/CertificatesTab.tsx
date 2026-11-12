@@ -14,7 +14,7 @@ import type { T } from "../../i18n";
 import { serverPath } from "../../app/nodeRoute";
 import { formatDate, parseTimestamp } from "../../lib/format";
 import { CertificateStatus } from "../domains/CertificateStatus";
-import { certificateView, issuerName } from "../domains/certificates";
+import { certificateLife, certificateView, issuerName } from "../domains/certificates";
 import { useFleetActions } from "./BulkActionDialog";
 import { field, numberOf, originOf } from "./data";
 import type { FleetRow, NodeOutcome } from "./data";
@@ -32,8 +32,9 @@ function daysOf(row: FleetRow): number | null {
 function stateOf(row: FleetRow): (typeof CERT_STATES)[number] | null {
   const days = daysOf(row);
   if (days === null) return null;
-  const tone = certificateView({ days_remaining: days }).tone;
-  return tone === "fail" ? "expired" : tone === "warn" ? "expiring" : "valid";
+  // The node says how the certificate is doing on its own life; a node of 4.2 sends none, and its days decide.
+  const life = certificateLife({ days_remaining: days, state: field(row, "state") });
+  return life === "expired" ? "expired" : life === "renewal_pending" || life === "critical" ? "expiring" : "valid";
 }
 
 function names(row: FleetRow): string[] {
@@ -80,7 +81,7 @@ function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>): Column<Fleet
       width: "w-48",
       sortValue: (row) => daysOf(row) ?? Number.POSITIVE_INFINITY,
       cell: (row) => {
-        const view = certificateView({ days_remaining: daysOf(row) }, t.locale);
+        const view = certificateView({ days_remaining: daysOf(row), state: field(row, "state") }, t.locale);
         return <CertificateStatus tone={view.tone} label={view.label} />;
       },
     },

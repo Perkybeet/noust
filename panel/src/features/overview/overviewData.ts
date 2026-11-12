@@ -29,7 +29,7 @@ export function appsTotal(apps: Overview["apps"]): number {
 export function isEmptyServer(overview: Overview): boolean {
   const { apps } = overview;
   if (apps.error) return false;
-  if ((overview.attention?.length ?? 0) > 0 || (overview.attention_total ?? 0) > 0) return false;
+  if ((overview.attention?.length ?? 0) > 0 || overview.attention_total > 0) return false;
   return appsTotal(apps) === 0;
 }
 

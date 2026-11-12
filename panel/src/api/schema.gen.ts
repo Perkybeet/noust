@@ -33271,6 +33271,9 @@ export interface components {
          *             certificate is not issued yet, the shared one, which serves it meanwhile.
          *         certificate_pending: Whether the name asked for a certificate of its own that is not
          *             issued yet.
+         *         registration: When the registration of the domain this name belongs to expires, as the
+         *             registry last said (the monitor asks once a day, only with ``monitor.domain_expiry``
+         *             on); null when it was never looked at. Reading it asks nobody.
          */
         AppDomain: {
             /**
@@ -33296,6 +33299,7 @@ export interface components {
             kind: string;
             /** Port */
             port?: number | null;
+            registration?: components["schemas"]["DomainRegistration"] | null;
             /** Served By */
             served_by?: string | null;
             /**
@@ -36923,6 +36927,17 @@ export interface components {
          *         valid_until: Raw expiry line from certbot, including its validity note.
          *         expires_on: Expiry date as ``YYYY-MM-DD`` when it could be parsed.
          *         days_remaining: Whole days until expiry, negative once expired.
+         *         not_before: When it began to be valid, ISO 8601 in UTC, when it could be read from the
+         *             certificate file; null otherwise.
+         *         state: How it is doing on its own life, the answer ``noust health`` and the monitor give:
+         *             ``healthy`` (at least a third of its life left), ``renewal_pending`` (under a third
+         *             and not yet renewed), ``critical`` (under a sixth), ``expired`` or ``unknown``. A
+         *             console does not count days to decide: a certificate of 45 days is healthy with 25
+         *             left, one of 90 is not.
+         *         life_days: How long the certificate lives, whole days; the assumed 90 when its start is
+         *             not known. Null when its end is not known.
+         *         life_assumed: Whether ``life_days`` is the assumed one.
+         *         fraction_left: What is left of its life, 1.0 when new and 0.0 at the end; null when unknown.
          *         auto_renew: Whether certbot's renewal timer covers this certificate.
          *         path: Directory holding the certificate files.
          *         key_path: Path of the private key. The key itself is never read.
@@ -36957,10 +36972,21 @@ export interface components {
             domains: string[];
             /** Expires On */
             expires_on?: string | null;
+            /** Fraction Left */
+            fraction_left?: number | null;
             /** Issuer */
             issuer?: string | null;
             /** Key Path */
             key_path?: string | null;
+            /**
+             * Life Assumed
+             * @default false
+             */
+            life_assumed: boolean;
+            /** Life Days */
+            life_days?: number | null;
+            /** Not Before */
+            not_before?: string | null;
             /** Path */
             path?: string | null;
             /**
@@ -36973,6 +36999,11 @@ export interface components {
              * @default letsencrypt
              */
             source: string;
+            /**
+             * State
+             * @default unknown
+             */
+            state: string;
             /** Valid Until */
             valid_until?: string | null;
         };
@@ -42470,6 +42501,41 @@ export interface components {
         DomainPortRequest: {
             /** Port */
             port?: number | null;
+        };
+        /**
+         * DomainRegistration
+         * @description What the registry of a domain last said of when its registration expires (item 173).
+         *
+         *     Attributes:
+         *         domain: The registrable domain the name belongs to, as the registry recognised it.
+         *         status: ``ok`` (it said when), ``no_rdap`` (its registry does not publish through RDAP),
+         *             ``no_expiry`` (it answered without an expiry), ``not_found`` (it does not know the name)
+         *             or ``error`` (it could not be asked; looked at again soon).
+         *         expires_at: When the registration expires, ISO 8601 with an explicit UTC offset; null unless
+         *             ``status`` is ``ok``.
+         *         days_left: Whole days until then, negative once it has; null unless ``status`` is ``ok``.
+         *         registry: The host of the registry that answered; null when none did.
+         *         checked_at: When it was last looked at, ISO 8601 with an explicit UTC offset.
+         *         detail: What came back when there is no date, in a sentence; empty otherwise.
+         */
+        DomainRegistration: {
+            /** Checked At */
+            checked_at?: string | null;
+            /** Days Left */
+            days_left?: number | null;
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+            /** Domain */
+            domain: string;
+            /** Expires At */
+            expires_at?: string | null;
+            /** Registry */
+            registry?: string | null;
+            /** Status */
+            status: string;
         };
         /**
          * DrainInfo

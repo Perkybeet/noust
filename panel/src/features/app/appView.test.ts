@@ -18,7 +18,7 @@ describe("the state an application is drawn in", () => {
     expect(appViewOf("stopped", JOB, "shop.example.com", "en")).toMatchObject({ state: "deploying", label: "Deploying" });
     // A redeploy: the old one still runs.
     expect(appViewOf("running", JOB, "shop.example.com", "en")).toMatchObject({ state: "deploying", label: "Deploying" });
-    expect(appViewOf("running", { ...JOB, type: "update" } as unknown as Job, "shop.example.com", "en").state).toBe("deploying");
+    expect(appViewOf("running", { ...JOB, type: "update" }, "shop.example.com", "en").state).toBe("deploying");
   });
 
   it("says the job in the console's language", async () => {

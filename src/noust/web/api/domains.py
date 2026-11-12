@@ -29,6 +29,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from noust.core.domain_certificates import check_mode
+from noust.core.domain_registrations import Registration
 from noust.core.server_text import say
 from noust.core.store import DomainKind, DomainRecord
 from noust.core.teams import scoped_store
@@ -54,6 +55,7 @@ from noust.deployers.temporary_domain import (
     is_temporary,
     suggest,
 )
+from noust.managers.domain_registration import known_registrations
 from noust.managers.site_policy import SitePolicyManager
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import (
@@ -76,6 +78,34 @@ router = APIRouter(route_class=NoustErrorRoute)
 #: the app-scoped check below - one implementation of "resolve a domain and
 #: compare it with this server", asked two ways.
 dns_router = APIRouter(route_class=NoustErrorRoute)
+
+
+class DomainRegistration(BaseModel):
+    """
+    What the registry of a domain last said of when its registration expires (item 173).
+
+    Attributes:
+        domain: The registrable domain the name belongs to, as the registry recognised it.
+        status: ``ok`` (it said when), ``no_rdap`` (its registry does not publish through RDAP),
+            ``no_expiry`` (it answered without an expiry), ``not_found`` (it does not know the name)
+            or ``error`` (it could not be asked; looked at again soon).
+        expires_at: When the registration expires, ISO 8601 with an explicit UTC offset; null unless
+            ``status`` is ``ok``.
+        days_left: Whole days until then, negative once it has; null unless ``status`` is ``ok``.
+        registry: The host of the registry that answered; null when none did.
+        checked_at: When it was last looked at, ISO 8601 with an explicit UTC offset.
+        detail: What came back when there is no date, in a sentence; empty otherwise.
+    """
+
+    domain: str
+    status: str
+    expires_at: str | None = None
+    days_left: int | None = None
+    registry: str | None = None
+    checked_at: str | None = None
+    detail: str = ""
+
+    _iso_timestamps = iso_offset_validator("expires_at", "checked_at")
 
 
 class AppDomain(BaseModel):
@@ -101,6 +131,9 @@ class AppDomain(BaseModel):
             certificate is not issued yet, the shared one, which serves it meanwhile.
         certificate_pending: Whether the name asked for a certificate of its own that is not
             issued yet.
+        registration: When the registration of the domain this name belongs to expires, as the
+            registry last said (the monitor asks once a day, only with ``monitor.domain_expiry``
+            on); null when it was never looked at. Reading it asks nobody.
     """
 
     domain: str
@@ -112,6 +145,7 @@ class AppDomain(BaseModel):
     certificate: str = "shared"
     served_by: str | None = None
     certificate_pending: bool = False
+    registration: DomainRegistration | None = None
 
     _iso_timestamps = iso_offset_validator("created_at")
 
@@ -213,13 +247,18 @@ class DnsCheckResponse(BaseModel):
     resolver: str = ""
 
 
-def _entry(record: DomainRecord, binding: NameBinding | None = None) -> AppDomain:
+def _entry(
+    record: DomainRecord,
+    binding: NameBinding | None = None,
+    registration: Registration | None = None,
+) -> AppDomain:
     """
     Translate a domain record to its response model.
 
     Args:
         record: The store's record.
         binding: Which certificate serves the name, when it is known.
+        registration: What the registry of its domain last said, when it was looked at.
 
     Returns:
         The response model.
@@ -234,6 +273,9 @@ def _entry(record: DomainRecord, binding: NameBinding | None = None) -> AppDomai
         certificate=record.certificate,
         served_by=binding.served_by if binding is not None else None,
         certificate_pending=binding.pending if binding is not None else False,
+        registration=DomainRegistration(**registration.to_dict())
+        if registration is not None
+        else None,
     )
 
 
@@ -249,7 +291,10 @@ def _entries(app_domain: str, records: Sequence[DomainRecord]) -> list[AppDomain
         The response models, in the rows' order.
     """
     served = {binding.name: binding for binding in bindings(app_domain)}
-    return [_entry(record, served.get(record.domain)) for record in records]
+    known = known_registrations([record.domain for record in records])
+    return [
+        _entry(record, served.get(record.domain), known.get(record.domain)) for record in records
+    ]
 
 
 def _changed(change: DomainChange, job_id: str | None = None) -> AppDomainChange:

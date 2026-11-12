@@ -85,6 +85,18 @@ def good_facts() -> Facts:
                 "count": 7,
             }
         ],
+        restore_drills=[
+            {
+                "domain": "shop.example.com",
+                "last_ok_at": (NOW - timedelta(days=3)).isoformat(),
+                "duration_s": 252.0,
+                "databases": 2,
+                "backup_id": "shop-2026-09-27",
+                "last_at": (NOW - timedelta(days=3)).isoformat(),
+                "last_ok": True,
+                "last_summary": "",
+            }
+        ],
         destinations=[{"name": "nas", "backend": "sftp", "encrypted": True}],
         schedules=[{"domain": "shop.example.com", "destinations": ["nas"]}],
         backup_encryption_required=True,

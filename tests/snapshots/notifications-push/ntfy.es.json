@@ -1617,6 +1617,96 @@
       "web-1"
     ]
   },
+  "cert.renewal_failed": {
+    "topic": "noust-alerts",
+    "title": "✕ Ha fallado la renovación de certificados · certbot.timer",
+    "message": "La última vez que certbot intentó renovar los certificados falló, así que no se renovarán solos hasta que funcione.\n\nServidor: web-1\nCertificados: shop.example.com, blog.example.com\nÚltimo intento: Tue 2026-11-10 12:11:09 UTC\nRenuévalo con: noust cert renew\n\nLo que ha informado certbot:\n  Failed to renew certificate shop.example.com with error: Some challenges have failed.\n  Detail: 203.0.113.9: Fetching http://shop.example.com/.well-known/acme-challenge/x: Timeout during connect (likely firewall problem)",
+    "priority": 4,
+    "tags": [
+      "cert_renewal_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/domains",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/domains"
+      }
+    ]
+  },
+  "cert.renewal_stopped": {
+    "topic": "noust-alerts",
+    "title": "▲ La renovación de certificados está parada · certbot.timer",
+    "message": "El temporizador que hace que certbot renueve los certificados no está en marcha, así que no se renovarán solos.\n\nServidor: web-1\nCertificados: shop.example.com\nPróximo intento: Wed 2026-11-11 00:41:10 UTC\nVuelve a ponerlo en marcha con: systemctl enable --now certbot.timer",
+    "priority": 3,
+    "tags": [
+      "cert_renewal_failed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/domains",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/domains"
+      }
+    ]
+  },
+  "domain.expiring": {
+    "topic": "noust-alerts",
+    "title": "▲ Registro de dominio a punto de caducar · example.com",
+    "message": "El registro de example.com caduca en 20 días (30 nov 2026).\n\nServidor: web-1\nNombres que cubre: shop.example.com, www.shop.example.com\nRegistro: rdap.verisign.com\nMíralos todos con: noust domain expiry",
+    "priority": 3,
+    "tags": [
+      "domain_expiring",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/domains",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/domains"
+      }
+    ]
+  },
+  "domain.expired": {
+    "topic": "noust-alerts",
+    "title": "✕ Registro de dominio caducado · example.com",
+    "message": "El registro de example.com caducó hace 3 días (7 nov 2026).\n\nServidor: web-1\nNombres que cubre: shop.example.com\nRegistro: rdap.verisign.com\nMíralos todos con: noust domain expiry",
+    "priority": 4,
+    "tags": [
+      "domain_expired",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/domains",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/domains"
+      }
+    ]
+  },
+  "app.oom_killed": {
+    "topic": "noust-alerts",
+    "title": "✕ Aplicación cerrada por falta de memoria · shop.example.com",
+    "message": "El núcleo ha cerrado shop.example.com por falta de memoria.\n\nServidor: web-1\nCerrada: 2 veces\nLímite de memoria: 512.0 MB\nLo máximo que usó: 511.0 MB\nContando desde: Tue 2026-11-10 03:00:00 UTC\nDiagnostícala con: noust diagnose shop.example.com",
+    "priority": 4,
+    "tags": [
+      "app_oom_killed",
+      "web-1"
+    ],
+    "click": "https://console.example.com/n/web-1/apps/shop.example.com",
+    "actions": [
+      {
+        "action": "view",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "topic": "noust-alerts",
     "title": "✕ Despliegue fallido · shop.example.com",

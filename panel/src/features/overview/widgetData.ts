@@ -13,7 +13,7 @@ import type { Status } from "../../components/ui/StatusPill";
 import type { T } from "../../i18n";
 import { formatCount, formatPercent, parseTimestamp } from "../../lib/format";
 import { serverSentence } from "../../lib/serverSentence";
-import { CERT_WARNING_DAYS } from "./attention";
+import { certificateLife, certificateNeedsAttention } from "../domains/certificates";
 import { appsTotal, unmanagedApps } from "./overviewData";
 
 // ---------------------------------------------------------------------------------------
@@ -228,15 +228,15 @@ export interface CertificatesView {
 }
 
 /**
- * The certificates that need a look: those that expire within the days Noust warns (`CERT_WARNING_DAYS`),
- * soonest first, and how many are well. A certificate with no date (an unreadable one) is not guessed at.
+ * The certificates that need a look: those past the point where they are renewed, on their own life (the
+ * server's `state`), soonest first, and how many are well. A certificate with no date (an unreadable one) is not guessed at.
  */
 export function certificatesOf(certificates: readonly CertEntry[]): CertificatesView {
   const dated = certificates.flatMap((entry): CertificateRow[] =>
-    entry.days_remaining === null || entry.days_remaining === undefined ? [] : [{ domain: entry.domain, days: entry.days_remaining, expiring: entry.days_remaining < CERT_WARNING_DAYS }],
+    entry.days_remaining === null || entry.days_remaining === undefined ? [] : [{ domain: entry.domain, days: entry.days_remaining, expiring: certificateNeedsAttention(entry) }],
   );
   const needing = dated.filter((row) => row.expiring).sort((a, b) => a.days - b.days);
-  const wellOnes = certificates.filter((entry) => entry.days_remaining !== null && entry.days_remaining !== undefined && entry.days_remaining >= CERT_WARNING_DAYS);
+  const wellOnes = certificates.filter((entry) => certificateLife(entry) === "healthy");
   return { total: certificates.length, needing, well: wellOnes.length, renewing: wellOnes.filter((entry) => entry.auto_renew).length };
 }
 

@@ -99,8 +99,9 @@ export function removeSetting(resource: string, name: string, scope: string) {
   return request("delete", "/api/fleet/settings/{resource}/{name}", { params: { resource, name }, query: { scope, apply: true } });
 }
 
-export function setServerMode(node: string, mode: "managed" | "independent") {
-  return request("put", "/api/fleet/servers/{node}/settings-mode", { params: { node }, body: { mode } });
+/** `adopt` takes over what the server kept under the fleet's names when it follows again, instead of leaving it as a conflict. */
+export function setServerMode(node: string, mode: "managed" | "independent", adopt = false) {
+  return request("put", "/api/fleet/servers/{node}/settings-mode", { params: { node }, body: { mode, adopt } });
 }
 
 /** Puts a setting back to the fleet's value on one server where its operator changed it. */

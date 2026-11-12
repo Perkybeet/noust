@@ -650,6 +650,41 @@
     "formatted_body": "<b>● The central calls again · nas</b><br>This server is getting the central&#x27;s calls again.<ul><li><b>Server:</b> web-1</li><li><b>Was silent for:</b> 23 min 40 s</li></ul>",
     "m.mentions": {}
   },
+  "cert.renewal_failed": {
+    "msgtype": "m.text",
+    "body": "✕ Certificate renewal failed · certbot.timer\nThe last time certbot tried to renew the certificates it failed, so they will not renew by themselves until it works.\n\nServer: web-1\nCertificates: shop.example.com, blog.example.com\nLast attempt: Tue 2026-11-10 12:11:09 UTC\nRenew with: noust cert renew\n\nWhat certbot reported:\n  Failed to renew certificate shop.example.com with error: Some challenges have failed.\n  Detail: 203.0.113.9: Fetching http://shop.example.com/.well-known/acme-challenge/x: Timeout during connect (likely firewall problem)\n\nOpen in the console: https://console.example.com/n/web-1/domains",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Certificate renewal failed · certbot.timer</b><br>The last time certbot tried to renew the certificates it failed, so they will not renew by themselves until it works.<ul><li><b>Server:</b> web-1</li><li><b>Certificates:</b> shop.example.com, blog.example.com</li><li><b>Last attempt:</b> Tue 2026-11-10 12:11:09 UTC</li><li><b>Renew with:</b> <code>noust cert renew</code></li></ul><i>What certbot reported</i><pre><code>Failed to renew certificate shop.example.com with error: Some challenges have failed.\nDetail: 203.0.113.9: Fetching http://shop.example.com/.well-known/acme-challenge/x: Timeout during connect (likely firewall problem)</code></pre><a href=\"https://console.example.com/n/web-1/domains\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "cert.renewal_stopped": {
+    "msgtype": "m.text",
+    "body": "▲ Certificate renewal stopped · certbot.timer\nThe timer that makes certbot renew the certificates is not running, so they will not renew by themselves.\n\nServer: web-1\nCertificates: shop.example.com\nNext attempt: Wed 2026-11-11 00:41:10 UTC\nStart it again with: systemctl enable --now certbot.timer\n\nOpen in the console: https://console.example.com/n/web-1/domains",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Certificate renewal stopped · certbot.timer</b><br>The timer that makes certbot renew the certificates is not running, so they will not renew by themselves.<ul><li><b>Server:</b> web-1</li><li><b>Certificates:</b> shop.example.com</li><li><b>Next attempt:</b> Wed 2026-11-11 00:41:10 UTC</li><li><b>Start it again with:</b> <code>systemctl enable --now certbot.timer</code></li></ul><a href=\"https://console.example.com/n/web-1/domains\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "domain.expiring": {
+    "msgtype": "m.text",
+    "body": "▲ Domain registration expiring · example.com\nThe registration of example.com expires in 20 days (30 Nov 2026).\n\nServer: web-1\nNames it covers: shop.example.com, www.shop.example.com\nRegistry: rdap.verisign.com\nSee them all with: noust domain expiry\n\nOpen in the console: https://console.example.com/n/web-1/domains",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>▲ Domain registration expiring · example.com</b><br>The registration of example.com expires in 20 days (30 Nov 2026).<ul><li><b>Server:</b> web-1</li><li><b>Names it covers:</b> shop.example.com, www.shop.example.com</li><li><b>Registry:</b> rdap.verisign.com</li><li><b>See them all with:</b> <code>noust domain expiry</code></li></ul><a href=\"https://console.example.com/n/web-1/domains\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "domain.expired": {
+    "msgtype": "m.text",
+    "body": "✕ Domain registration expired · example.com\nThe registration of example.com expired 3 days ago (7 Nov 2026).\n\nServer: web-1\nNames it covers: shop.example.com\nRegistry: rdap.verisign.com\nSee them all with: noust domain expiry\n\nOpen in the console: https://console.example.com/n/web-1/domains",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Domain registration expired · example.com</b><br>The registration of example.com expired 3 days ago (7 Nov 2026).<ul><li><b>Server:</b> web-1</li><li><b>Names it covers:</b> shop.example.com</li><li><b>Registry:</b> rdap.verisign.com</li><li><b>See them all with:</b> <code>noust domain expiry</code></li></ul><a href=\"https://console.example.com/n/web-1/domains\">Open in the console</a>",
+    "m.mentions": {}
+  },
+  "app.oom_killed": {
+    "msgtype": "m.text",
+    "body": "✕ Application killed for lack of memory · shop.example.com\nThe kernel killed shop.example.com for running out of memory.\n\nServer: web-1\nKilled: 2 times\nMemory limit: 512.0 MB\nMost it used: 511.0 MB\nCounting since: Tue 2026-11-10 03:00:00 UTC\nDiagnose with: noust diagnose shop.example.com\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com",
+    "format": "org.matrix.custom.html",
+    "formatted_body": "<b>✕ Application killed for lack of memory · shop.example.com</b><br>The kernel killed shop.example.com for running out of memory.<ul><li><b>Server:</b> web-1</li><li><b>Killed:</b> 2 times</li><li><b>Memory limit:</b> 512.0 MB</li><li><b>Most it used:</b> 511.0 MB</li><li><b>Counting since:</b> Tue 2026-11-10 03:00:00 UTC</li><li><b>Diagnose with:</b> <code>noust diagnose shop.example.com</code></li></ul><a href=\"https://console.example.com/n/web-1/apps/shop.example.com\">Open in the console</a>",
+    "m.mentions": {}
+  },
   "hostile.deploy_failed": {
     "msgtype": "m.text",
     "body": "✕ Deploy failed · shop.example.com\nIt stopped at an error before the new version could take over.\n\nServer: wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\nRelease: 20260929-104449\nCommit: a1b2c3d (<b>x</b>&amp;<!channel> @​everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @​here <@​U123> <#C1> red emoji 🚀\nStarted by: Webhook\nDuration: 1 min 12 s\nInspect with: noust diagnose shop.example.com\n\nWhat the system reported:\n  Release did not pass <its> health & check\n  <urlopen error [Errno 111] Connection refused>\n  ```\n  @​everyone <!channel> <@​U123|admin> &lt;b&gt;\n  red *bold* _italic_ ~strike~ `code`\n  noitcnuf\n  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",

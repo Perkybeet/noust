@@ -42,6 +42,8 @@ export interface Check {
   description: PlainKey;
   /** The key of the number that is 0 when the check is off; absent when the check cannot be off. */
   off?: string;
+  /** The on/off setting of a check that is only a switch (a yes/no key of the server), read as 1 or 0 and written as such. */
+  flag?: CheckSetting;
   fields: readonly CheckSetting[];
 }
 
@@ -122,6 +124,14 @@ export const CHECKS: readonly Check[] = [
     fields: [{ key: "recipe_check_hours", fallback: 24, label: "alerts.thresholds.recipes.check.label" }],
   },
   {
+    id: "domains",
+    title: "alerts.thresholds.domains.title",
+    description: "alerts.thresholds.domains.description",
+    off: "domain_expiry",
+    flag: { key: "domain_expiry", fallback: 0, label: "alerts.thresholds.domains.title" },
+    fields: [],
+  },
+  {
     id: "history",
     title: "alerts.thresholds.history.title",
     description: "alerts.thresholds.history.description",
@@ -132,7 +142,7 @@ export const CHECKS: readonly Check[] = [
 ];
 
 /** Every number of every check, in the order the page draws them. */
-export const CHECK_SETTINGS: readonly CheckSetting[] = CHECKS.flatMap((check) => check.fields);
+export const CHECK_SETTINGS: readonly CheckSetting[] = CHECKS.flatMap((check) => [...check.fields, ...(check.flag === undefined ? [] : [check.flag])]);
 
 /** The dotted configuration key a check is read from and written to. */
 export function checkPath(setting: CheckSetting): string {
@@ -149,6 +159,8 @@ export function readChecks(config: unknown): Record<string, string> {
       for (const part of checkPath(setting).split(".")) {
         value = typeof value === "object" && value !== null ? (value as Record<string, unknown>)[part] : undefined;
       }
+      // A yes/no key of the server is a switch here: on is 1, off is 0.
+      if (typeof value === "boolean") return [setting.key, value ? "1" : "0"];
       return [setting.key, typeof value === "number" ? String(value) : String(setting.fallback)];
     }),
   );
@@ -179,7 +191,7 @@ function CheckRow({ check, form, kept, onKeep }: { check: Check; form: SettingsF
   const on = isOn(check, values);
   const switchable = check.off !== undefined;
   const offKey = check.off;
-  const defaultOn = check.fields.find((field) => field.key === offKey)?.fallback ?? 0;
+  const defaultOn = check.flag !== undefined ? 1 : (check.fields.find((field) => field.key === offKey)?.fallback ?? 0);
   const fields = switchable && !on ? [] : check.fields;
   // One number sits beside what the check says (a row of 76px), several are a line under it: the page is the monitor's
   // whole list of checks and a screen and a half is what it may take (FM-8).

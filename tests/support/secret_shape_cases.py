@@ -147,6 +147,44 @@ CASES: tuple[ShapeCase, ...] = (
         "redis://:s3cr3tvalue@cache:6379/0",
         f"redis://:{MASK}@cache:6379/0",
     ),
+    # Where a scheme may start: at the beginning of the text and after any character that is not
+    # one of a scheme's own, which is what keeps a long run of letters from being read from every
+    # letter. Whatever stands before the scheme stays as it was.
+    _hides(
+        "a connection string that is the whole text",
+        "postgres://app:hunter22@db.internal/shop",
+        f"postgres://app:{MASK}@db.internal/shop",
+    ),
+    _hides(
+        "a connection string in brackets",
+        "(postgres://app:hunter22@db.internal)",
+        f"(postgres://app:{MASK}@db.internal)",
+    ),
+    _hides(
+        "a connection string in quotes after an equals sign",
+        'DATABASE_URL="mysql://root:hunter22@db:3306/shop"',
+        f'DATABASE_URL="mysql://root:{MASK}@db:3306/shop"',
+    ),
+    _hides(
+        "a connection string after an underscore",
+        "_postgres://app:hunter22@db.internal/shop",
+        f"_postgres://app:{MASK}@db.internal/shop",
+    ),
+    _hides(
+        "two connection strings one after the other",
+        "primary postgres://app:one11111@a replica postgres://app:two22222@b",
+        f"primary postgres://app:{MASK}@a replica postgres://app:{MASK}@b",
+    ),
+    _hides(
+        "a connection string right after the at sign of another",
+        "a://u:one11111@b://v:two22222@h",
+        f"a://u:{MASK}@b://v:{MASK}@h",
+    ),
+    _hides(
+        "a scheme with the characters a scheme may have",
+        "git+ssh://deploy:hunter22@git.example.test/app.git",
+        f"git+ssh://deploy:{MASK}@git.example.test/app.git",
+    ),
     # A private key goes whole, or to the end when the text was cut before its footer.
     _hides(
         "a private key block",

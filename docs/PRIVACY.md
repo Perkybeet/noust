@@ -56,9 +56,19 @@ except where the other end is yours and needs nothing.
 | Cloud providers | The Hetzner, DigitalOcean or Vultr API with the token you gave | When you provision or list servers |
 | Import | The Coolify or Dokploy server you named, with the read-only token you typed once | When you import |
 | Cloudflare's address ranges | `www.cloudflare.com` | Only when you press refresh on the trusted proxies |
+| When a domain's registration expires | The RDAP server of the registry of each registrable domain you serve (`rdap.verisign.com` for `.com`, `rdap.nominet.uk` for `.uk`...); which server answers for which top-level domain is a table that ships with Noust, so IANA is never asked | Once a day for each registrable domain, only after you turn on `monitor.domain_expiry` (it is off, and no profile, the ENS one included, turns it on), or when you run `noust domain expiry --refresh` |
 | A remote console | The Noust server named by `--context` | When you run a command against it |
 | Your own applications | This machine, to check a port or a health path | Every deploy; the monitor's reachability scan |
 | Your fleet | Each node, through an SSH tunnel that ends on that node's loopback | While a central manages nodes |
+
+**The registration request** is the one that sends a name you serve to somebody who did not ask for it,
+so it is off until you turn it on (`noust config set monitor.domain_expiry true`, or the switch in
+Alerts) and turning it off stops it at once. What leaves is the domain name (the first time, the name
+and the labels above it, until the registry recognises one, which Noust then remembers) and a
+`User-Agent` of `noust/<version>`: no host name, no identifier, no cookie. The registry sees this
+server's address, as any request shows it. It goes only to the server the bundled table names, over
+https, never to an internal address, never follows a redirect and reads at most 256 KiB. A registry
+with no RDAP service (`.es`, for one) is said once and not asked again every day.
 
 Programs that Noust runs for you keep their own policies, and Noust gives them nothing to identify
 you with: `git` talks to your Git host, `certbot` to Let's Encrypt (which receives the contact email

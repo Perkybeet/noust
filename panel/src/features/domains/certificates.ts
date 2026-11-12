@@ -7,6 +7,7 @@ import { getLocale } from "../../app/locale";
 import { translate } from "../../i18n";
 import type { Locale } from "../../i18n";
 import type { CertEntry } from "../../api/queries/certs";
+import type { AppDomain } from "../../api/queries/domains";
 import type { Job } from "../../api/queries/jobs";
 import { CERT_WARNING_DAYS } from "../overview/attention";
 
@@ -32,10 +33,44 @@ function days(count: number, locale: Locale): string {
   return translate(locale, "domains.certificates.day", { count });
 }
 
-/** The state of a certificate from the days it has left. */
-export function certificateView(cert: Pick<CertEntry, "days_remaining">, locale: Locale = getLocale()): CertificateView {
+/** How a certificate is doing on its own life: what the server says (`GET /api/certs`, item 172). */
+export type CertificateLife = "healthy" | "renewal_pending" | "critical" | "expired" | "unknown";
+
+/** What the console needs of an entry to judge it; `state` is absent from a server that predates 4.3. */
+export type CertificateFacts = Pick<CertEntry, "days_remaining"> & { state?: string | null | undefined };
+
+/**
+ * How a certificate stands. The server decides, on the fraction of the certificate's own life that is
+ * left (a third is where it is renewed, a sixth is critical), so one of 45 days is not in warning at
+ * the age one of 90 is. Only a server that does not send `state` (a node of 4.2 behind a central) is
+ * judged here on the days it has left, as the console always did.
+ */
+export function certificateLife(cert: CertificateFacts): CertificateLife {
+  const given = cert.state;
+  if (given === "healthy" || given === "renewal_pending" || given === "critical" || given === "expired") return given;
   const left = cert.days_remaining;
-  if (left === null || left === undefined) return { tone: "idle", label: translate(locale, "domains.certificates.expiryUnknown"), attention: false };
+  if (given === "unknown" || left === null || left === undefined) return "unknown";
+  if (left < 0) return "expired";
+  return left < CERT_WARNING_DAYS ? "renewal_pending" : "healthy";
+}
+
+/** Whether the certificate is past the point where it is renewed, so it needs a look. */
+export function certificateNeedsAttention(cert: CertificateFacts): boolean {
+  const life = certificateLife(cert);
+  return life === "renewal_pending" || life === "critical" || life === "expired";
+}
+
+/** The state of a certificate: from the server's own judgement of its life, from the days only when it sends none. */
+export function certificateView(cert: CertificateFacts, locale: Locale = getLocale()): CertificateView {
+  const left = cert.days_remaining;
+  const life = certificateLife(cert);
+  if (life === "unknown" || left === null || left === undefined) return { tone: "idle", label: translate(locale, "domains.certificates.expiryUnknown"), attention: false };
+  // The server's own words for a certificate that is late; a server that sends no `state` gets the days it always got.
+  if ((cert.state === "renewal_pending" || cert.state === "critical") && left === 0) return { tone: "warn", label: translate(locale, "domains.certificates.expiresToday"), attention: true };
+  if (cert.state === "renewal_pending") return { tone: "warn", label: translate(locale, "domains.certificates.renewalPending", { days: days(left, locale) }), attention: true };
+  if (cert.state === "critical") return { tone: "fail", label: translate(locale, "domains.certificates.notRenewed", { days: days(left, locale) }), attention: true };
+  if (life === "renewal_pending" && left === 0) return { tone: "warn", label: translate(locale, "domains.certificates.expiresToday"), attention: true };
+  if (life === "renewal_pending") return { tone: "warn", label: translate(locale, "domains.certificates.expiresIn", { days: days(left, locale) }), attention: true };
   if (left < 0) {
     return {
       tone: "fail",
@@ -46,9 +81,28 @@ export function certificateView(cert: Pick<CertEntry, "days_remaining">, locale:
       attention: true,
     };
   }
-  if (left === 0) return { tone: "warn", label: translate(locale, "domains.certificates.expiresToday"), attention: true };
-  if (left < CERT_WARNING_DAYS) return { tone: "warn", label: translate(locale, "domains.certificates.expiresIn", { days: days(left, locale) }), attention: true };
   return { tone: "ok", label: translate(locale, "domains.certificates.validFor", { days: days(left, locale) }), attention: false };
+}
+
+/** What the registry of a domain last said of its registration (item 173): `registration` of a name of an app. */
+export type RegistrationFacts = NonNullable<AppDomain["registration"]>;
+
+/**
+ * How the registration of a domain stands, for a table cell: the date and the days when the registry said, with the
+ * tone of the same thresholds `noust health` uses (a warning within 30 days, a failure within 7 or expired); or why
+ * there is no date. Null for a name nobody looked at, so the cell says nothing it does not know.
+ */
+export function registrationView(registration: RegistrationFacts | null | undefined, locale: Locale = getLocale()): { tone: CertTone; label: string } | null {
+  if (registration === null || registration === undefined) return null;
+  if (registration.status === "ok" && registration.expires_at !== null && registration.expires_at !== undefined) {
+    const left = registration.days_left ?? 0;
+    const date = registration.expires_at.slice(0, 10);
+    if (left < 0) return { tone: "fail", label: translate(locale, "domains.appTab.registrationExpired", { days: days(-left, locale), date }) };
+    return { tone: left < 7 ? "fail" : left <= 30 ? "warn" : "ok", label: translate(locale, "domains.appTab.registrationExpires", { date, days: days(left, locale) }) };
+  }
+  if (registration.status === "no_rdap" || registration.status === "no_expiry") return { tone: "idle", label: translate(locale, "domains.appTab.registrationNoDate") };
+  if (registration.status === "not_found") return { tone: "idle", label: translate(locale, "domains.appTab.registrationNotFound") };
+  return { tone: "idle", label: translate(locale, "domains.appTab.registrationError") };
 }
 
 /** Most urgent first: expired, then the fewest days left; unknown expiry last. */

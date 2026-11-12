@@ -535,6 +535,9 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
         ("DELETE", "/api/apps/{domain}/client-certs/{serial}", RESOURCE),
         ("GET", "/api/apps/{domain}/client-certs/ca", RESOURCE),
     ),
+    # What each registry said of the registrable domain a name an application answers on belongs
+    # to (item 173): read with that application's own domains, so another team's reads as absent.
+    "domain_registrations": (("GET", "/api/apps/{domain}/domains", RESOURCE),),
     # A rule may name an application to watch; the rules are the server's, like the monitor.
     "alert_rules": (
         ("GET", "/api/alerts/rules", INSTANCE),

@@ -1322,7 +1322,7 @@ def test_the_health_check_consumes_the_record_this_manager_produces(
     assert health._certificate_label(info) == "example.com"
     # certbot prints a date and the reader compares it against a timestamp, so
     # the count lands on 2 or 3 depending on the time of day.
-    assert health._days_until(info.get("expiry")) in (2, 3)
+    assert info.life().days_left in (2, 3)
 
 
 def test_the_expiry_key_that_was_never_written_is_now_an_error(

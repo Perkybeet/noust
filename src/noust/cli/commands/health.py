@@ -88,6 +88,7 @@ def _print_report(logger: Logger, report: HealthReport) -> None:
     logger.blank()
     logger.info("Checking SSL certificates...")
     _print_check(logger, report.certificates)
+    _print_check(logger, report.domains)
 
     logger.blank()
     logger.info("Checking system resources...")

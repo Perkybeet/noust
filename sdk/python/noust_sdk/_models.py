@@ -424,6 +424,7 @@ AppDomain = TypedDict("AppDomain", {
     "enabled": NotRequired[bool],
     "kind": Required[str],
     "port": NotRequired[Union[int, None]],
+    "registration": NotRequired[Union["DomainRegistration", None]],
     "served_by": NotRequired[Union[str, None]],
     "temporary": NotRequired[bool],
 })
@@ -1595,11 +1596,16 @@ CertInfo = TypedDict("CertInfo", {
     "domain": Required[str],
     "domains": NotRequired[list[str]],
     "expires_on": NotRequired[Union[str, None]],
+    "fraction_left": NotRequired[Union[float, None]],
     "issuer": NotRequired[Union[str, None]],
     "key_path": NotRequired[Union[str, None]],
+    "life_assumed": NotRequired[bool],
+    "life_days": NotRequired[Union[int, None]],
+    "not_before": NotRequired[Union[str, None]],
     "path": NotRequired[Union[str, None]],
     "serves": NotRequired[list[str]],
     "source": NotRequired[str],
+    "state": NotRequired[str],
     "valid_until": NotRequired[Union[str, None]],
 })
 
@@ -3294,6 +3300,16 @@ DomainEnabledRequest = TypedDict("DomainEnabledRequest", {
 
 DomainPortRequest = TypedDict("DomainPortRequest", {
     "port": NotRequired[Union[int, None]],
+})
+
+DomainRegistration = TypedDict("DomainRegistration", {
+    "checked_at": NotRequired[Union[str, None]],
+    "days_left": NotRequired[Union[int, None]],
+    "detail": NotRequired[str],
+    "domain": Required[str],
+    "expires_at": NotRequired[Union[str, None]],
+    "registry": NotRequired[Union[str, None]],
+    "status": Required[str],
 })
 
 DrainInfo = TypedDict("DrainInfo", {

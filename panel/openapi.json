@@ -2644,7 +2644,7 @@
         "type": "object"
       },
       "AppDomain": {
-        "description": "One domain an application answers on.\n\nAttributes:\n    domain: The domain.\n    kind: ``primary`` (the domain the application was deployed as),\n        ``alias`` (served the same) or ``redirect`` (sent permanently to\n        the primary).\n    created_at: When it was added, ISO 8601 with an explicit UTC offset.\n    port: The port of the application this name is proxied to, when it is not\n        the application's own.\n    temporary: Whether it is a name made of this server's address (sslip.io), good\n        for trying an application out and not for keeping.\n    enabled: Whether it is served. A name that is switched off keeps its row and its\n        port; the site and the certificate leave it out.\n    certificate: ``shared`` when the application's certificate covers the name, ``own`` when\n        it holds one of its own (a lineage named after it and a server block for it).\n    served_by: The certificate that presents the name: a lineage certbot keeps (the\n        application's, or the name's own) or an uploaded certificate. For a name whose own\n        certificate is not issued yet, the shared one, which serves it meanwhile.\n    certificate_pending: Whether the name asked for a certificate of its own that is not\n        issued yet.",
+        "description": "One domain an application answers on.\n\nAttributes:\n    domain: The domain.\n    kind: ``primary`` (the domain the application was deployed as),\n        ``alias`` (served the same) or ``redirect`` (sent permanently to\n        the primary).\n    created_at: When it was added, ISO 8601 with an explicit UTC offset.\n    port: The port of the application this name is proxied to, when it is not\n        the application's own.\n    temporary: Whether it is a name made of this server's address (sslip.io), good\n        for trying an application out and not for keeping.\n    enabled: Whether it is served. A name that is switched off keeps its row and its\n        port; the site and the certificate leave it out.\n    certificate: ``shared`` when the application's certificate covers the name, ``own`` when\n        it holds one of its own (a lineage named after it and a server block for it).\n    served_by: The certificate that presents the name: a lineage certbot keeps (the\n        application's, or the name's own) or an uploaded certificate. For a name whose own\n        certificate is not issued yet, the shared one, which serves it meanwhile.\n    certificate_pending: Whether the name asked for a certificate of its own that is not\n        issued yet.\n    registration: When the registration of the domain this name belongs to expires, as the\n        registry last said (the monitor asks once a day, only with ``monitor.domain_expiry``\n        on); null when it was never looked at. Reading it asks nobody.",
         "properties": {
           "certificate": {
             "default": "shared",
@@ -2690,6 +2690,16 @@
               }
             ],
             "title": "Port"
+          },
+          "registration": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DomainRegistration"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "served_by": {
             "anyOf": [
@@ -9292,7 +9302,7 @@
         "type": "object"
       },
       "CertInfo": {
-        "description": "One certificate as certbot reports it.\n\nAttributes:\n    domain: Certificate (lineage) name.\n    domains: Every domain the certificate covers.\n    valid_until: Raw expiry line from certbot, including its validity note.\n    expires_on: Expiry date as ``YYYY-MM-DD`` when it could be parsed.\n    days_remaining: Whole days until expiry, negative once expired.\n    auto_renew: Whether certbot's renewal timer covers this certificate.\n    path: Directory holding the certificate files.\n    key_path: Path of the private key. The key itself is never read.\n    issuer: The certificate authority that signed it, read from the\n        certificate itself. None when it could not be read.\n    source: ``letsencrypt`` for a lineage certbot keeps (whichever authority\n        issued it), ``custom`` for one that was uploaded, which is never renewed.\n    challenge: How it is renewed: ``http-01`` or ``dns-01``; empty for an upload.\n    serves: The names of the applications this certificate presents: all of an\n        application's for its shared certificate, one for a certificate a name holds on\n        its own. Only the names the caller may see.",
+        "description": "One certificate as certbot reports it.\n\nAttributes:\n    domain: Certificate (lineage) name.\n    domains: Every domain the certificate covers.\n    valid_until: Raw expiry line from certbot, including its validity note.\n    expires_on: Expiry date as ``YYYY-MM-DD`` when it could be parsed.\n    days_remaining: Whole days until expiry, negative once expired.\n    not_before: When it began to be valid, ISO 8601 in UTC, when it could be read from the\n        certificate file; null otherwise.\n    state: How it is doing on its own life, the answer ``noust health`` and the monitor give:\n        ``healthy`` (at least a third of its life left), ``renewal_pending`` (under a third\n        and not yet renewed), ``critical`` (under a sixth), ``expired`` or ``unknown``. A\n        console does not count days to decide: a certificate of 45 days is healthy with 25\n        left, one of 90 is not.\n    life_days: How long the certificate lives, whole days; the assumed 90 when its start is\n        not known. Null when its end is not known.\n    life_assumed: Whether ``life_days`` is the assumed one.\n    fraction_left: What is left of its life, 1.0 when new and 0.0 at the end; null when unknown.\n    auto_renew: Whether certbot's renewal timer covers this certificate.\n    path: Directory holding the certificate files.\n    key_path: Path of the private key. The key itself is never read.\n    issuer: The certificate authority that signed it, read from the\n        certificate itself. None when it could not be read.\n    source: ``letsencrypt`` for a lineage certbot keeps (whichever authority\n        issued it), ``custom`` for one that was uploaded, which is never renewed.\n    challenge: How it is renewed: ``http-01`` or ``dns-01``; empty for an upload.\n    serves: The names of the applications this certificate presents: all of an\n        application's for its shared certificate, one for a certificate a name holds on\n        its own. Only the names the caller may see.",
         "properties": {
           "auto_renew": {
             "default": true,
@@ -9338,6 +9348,17 @@
             ],
             "title": "Expires On"
           },
+          "fraction_left": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fraction Left"
+          },
           "issuer": {
             "anyOf": [
               {
@@ -9359,6 +9380,33 @@
               }
             ],
             "title": "Key Path"
+          },
+          "life_assumed": {
+            "default": false,
+            "title": "Life Assumed",
+            "type": "boolean"
+          },
+          "life_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Life Days"
+          },
+          "not_before": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Not Before"
           },
           "path": {
             "anyOf": [
@@ -9382,6 +9430,11 @@
           "source": {
             "default": "letsencrypt",
             "title": "Source",
+            "type": "string"
+          },
+          "state": {
+            "default": "unknown",
+            "title": "State",
             "type": "string"
           },
           "valid_until": {
@@ -19521,6 +19574,74 @@
           }
         },
         "title": "DomainPortRequest",
+        "type": "object"
+      },
+      "DomainRegistration": {
+        "description": "What the registry of a domain last said of when its registration expires (item 173).\n\nAttributes:\n    domain: The registrable domain the name belongs to, as the registry recognised it.\n    status: ``ok`` (it said when), ``no_rdap`` (its registry does not publish through RDAP),\n        ``no_expiry`` (it answered without an expiry), ``not_found`` (it does not know the name)\n        or ``error`` (it could not be asked; looked at again soon).\n    expires_at: When the registration expires, ISO 8601 with an explicit UTC offset; null unless\n        ``status`` is ``ok``.\n    days_left: Whole days until then, negative once it has; null unless ``status`` is ``ok``.\n    registry: The host of the registry that answered; null when none did.\n    checked_at: When it was last looked at, ISO 8601 with an explicit UTC offset.\n    detail: What came back when there is no date, in a sentence; empty otherwise.",
+        "properties": {
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "days_left": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Left"
+          },
+          "detail": {
+            "default": "",
+            "title": "Detail",
+            "type": "string"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "registry": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registry"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "status"
+        ],
+        "title": "DomainRegistration",
         "type": "object"
       },
       "DrainInfo": {

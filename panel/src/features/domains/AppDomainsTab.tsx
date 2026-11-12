@@ -53,6 +53,7 @@ import {
   certificateJobFor,
   certificateOf,
   certificateView,
+  registrationView,
   coverageOf,
   covers,
   issuerName,
@@ -412,6 +413,19 @@ export function AppDomainsTab({ domain }: { domain: string }) {
         );
       },
     },
+    ...((list.data?.domains ?? []).some((entry) => entry.registration !== null && entry.registration !== undefined)
+      ? [
+          {
+            id: "registration",
+            header: t("domains.appTab.registrationColumn"),
+            hideBelow: "md" as const,
+            cell: (entry: AppDomain) => {
+              const view = registrationView(entry.registration, t.locale);
+              return view === null ? <span className="text-fg-faint">{t("common.statusPill.unknown")}</span> : <CertificateStatus tone={view.tone} label={view.label} />;
+            },
+          },
+        ]
+      : []),
     {
       id: "added",
       header: t("domains.appTab.addedColumn"),

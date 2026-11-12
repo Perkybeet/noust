@@ -13,7 +13,7 @@ of K-17, K-18, K-22 and K-23 (the watches), G-18 (the alert engine) and K-30
 from __future__ import annotations
 
 from collections.abc import Iterator
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -231,6 +231,53 @@ class TestTheCertificateWindow:
         monitor._check_certificates()
 
         assert [e.code for e in notifier.events] == ["cert.expiring"]
+
+    def lived(self, days_left: float, life: int) -> CertificateInfo:
+        """A certificate that lived ``life`` days and has ``days_left`` to go (item 172)."""
+        end = datetime.now(timezone.utc) + timedelta(days=days_left)
+        return CertificateInfo(
+            name="example.com",
+            domains=["example.com"],
+            expiry=end.date().isoformat(),
+            not_before=(end - timedelta(days=life)).isoformat(timespec="seconds"),
+            not_after=end.isoformat(timespec="seconds"),
+        )
+
+    def test_a_ceiling_wider_than_the_life_does_not_make_a_healthy_certificate_late(
+        self, tmp_path: Path, config: Config
+    ) -> None:
+        """25 days is half the life of a 45-day certificate: it renews at 15, whatever the ceiling."""
+        config.set("monitor.cert_warning_days", 30)
+        monitor, notifier, _ = make(
+            tmp_path, config, certificates=Certificates(self.lived(25, life=45))
+        )
+
+        monitor._check_certificates()
+
+        assert notifier.events == []
+
+    def test_a_certificate_of_45_days_is_announced_once_it_is_past_its_renewal_and_under_the_ceiling(
+        self, tmp_path: Path, config: Config
+    ) -> None:
+        monitor, notifier, _ = make(
+            tmp_path, config, certificates=Certificates(self.lived(12, life=45))
+        )
+
+        monitor._check_certificates()
+
+        assert [e.code for e in notifier.events] == ["cert.expiring"]
+
+    def test_a_certificate_past_its_renewal_but_over_the_ceiling_is_not_announced_yet(
+        self, tmp_path: Path, config: Config
+    ) -> None:
+        """64 days of life: the renewal point is at 21 days, the default ceiling is 14."""
+        monitor, notifier, _ = make(
+            tmp_path, config, certificates=Certificates(self.lived(18, life=64))
+        )
+
+        monitor._check_certificates()
+
+        assert notifier.events == []
 
 
 class Recorder(Watch):

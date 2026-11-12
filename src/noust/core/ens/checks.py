@@ -175,6 +175,9 @@ class Facts:
         audit_events: Last reviews, break-glass uses and lockouts.
         hardening: Hardening check results (``Check.to_dict``).
         backups: Per application: newest backup, newest good verification.
+        restore_drills: Per application: the newest restore that was tried and passed (when, how
+            long it took, how many databases it loaded) and the newest attempt, whatever its
+            result. None when the drills could not be read.
         destinations: Remote destinations and whether they are encrypted.
         schedules: Backup schedules and their destinations.
         backup_encryption_required: Whether uploads must be encrypted.
@@ -212,6 +215,7 @@ class Facts:
     audit_events: dict[str, Any] = field(default_factory=dict)
     hardening: list[dict[str, Any]] | None = None
     backups: list[dict[str, Any]] | None = None
+    restore_drills: list[dict[str, Any]] | None = None
     destinations: list[dict[str, Any]] = field(default_factory=list)
     schedules: list[dict[str, Any]] = field(default_factory=list)
     backup_encryption_required: bool = False
@@ -681,6 +685,16 @@ def gather(sources: Sources | None = None) -> Facts:
             for record in the_store.list_backup_schedules()
         ]
 
+    def restore_drills() -> None:
+        from noust.core.restore_drills import DrillRecords
+
+        records = DrillRecords(store())
+        facts.restore_drills = [
+            records.evidence(app.domain)
+            for app in store().list_apps()
+            if not getattr(app, "preview_parent", None)
+        ]
+
     def exposure() -> None:
         reader = sources.exposure or exposure_from_installation
         facts.exposure = reader()
@@ -740,6 +754,7 @@ def gather(sources: Sources | None = None) -> Facts:
         ("audit", audit),
         ("hardening", hardening),
         ("backups", backups),
+        ("restore_drills", restore_drills),
         ("exposure", exposure),
         ("fleet", fleet),
         ("sandbox", sandbox),
@@ -1662,6 +1677,95 @@ def check_backups(facts: Facts) -> Finding:
     )
 
 
+def restore_drill_findings(
+    facts: Facts, days: int | None
+) -> tuple[str, str, tuple[str, ...], str] | None:
+    """
+    Judge whether a restore of each application's backup was tried recently.
+
+    The one judgement ``ENS-BAK-03`` and ``noust compliance check`` both give, so they never
+    disagree: a backup that was verified is an archive that reads, and mp.info.6.r1 (like ISO/IEC
+    27001 A.8.13, NIS2 21(2)(c) and the GDPR's 32(1)(c)) asks that restoring it was tried. The
+    evidence of each application is its date, its result and how long the rehearsal took.
+
+    Args:
+        facts: The facts.
+        days: How recent a rehearsal has to be; None when nothing asks for one.
+
+    Returns:
+        ``(status, summary, evidence, remediation)``, or None when the drills could not be read
+        and nothing can be said.
+    """
+    from noust.core.notifications.formatting import format_duration
+
+    if facts.restore_drills is None:
+        return None
+    if not facts.restore_drills:
+        return "n/a", "No application is deployed here.", (), ""
+    limit = days if days else None
+    evidence: list[str] = []
+    late = 0
+    to_do: list[str] = []
+    for entry in facts.restore_drills:
+        domain = entry["domain"]
+        age = _age_days(entry.get("last_ok_at"), facts.now)
+        too_old = limit is not None and age is not None and age > limit
+        failed_since = entry.get("last_ok") is False and entry.get("last_at") != entry.get(
+            "last_ok_at"
+        )
+        if age is None:
+            line = f"{domain}: never tested"
+        elif too_old:
+            line = (
+                f"{domain}: last good restore test {_day(entry['last_ok_at'])} "
+                f"({int(age)} days ago)"
+            )
+        else:
+            took = entry.get("duration_s")
+            line = (
+                f"{domain}: restore tested {_day(entry['last_ok_at'])}"
+                + (f", completed in {format_duration(took)}" if took is not None else "")
+                + f", databases loaded: {entry.get('databases', 0)}"
+            )
+        if failed_since:
+            line += (
+                f"; the last attempt ({_day(entry.get('last_at'))}) failed: "
+                f"{entry.get('last_summary') or 'no detail'}"
+            )
+        if age is None or too_old or failed_since:
+            late += 1
+            to_do.append(domain)
+        evidence.append(line)
+    if late:
+        return (
+            "warning",
+            f"{late} restore problem(s) across {len(facts.restore_drills)} application(s).",
+            tuple(evidence),
+            "Try one now: "
+            + ", ".join(f"noust backup drill {domain}" for domain in to_do[:3])
+            + ("..." if len(to_do) > 3 else "")
+            + ". A schedule rehearses one on its own every 30 days (backup.drill_days).",
+        )
+    horizon = f"within {limit} days" if limit is not None else "recently"
+    return (
+        "ok",
+        f"Every one of the {len(facts.restore_drills)} application(s) had a restore tried {horizon}.",
+        tuple(evidence),
+        "",
+    )
+
+
+def check_restore_drills(facts: Facts) -> Finding:
+    """ENS-BAK-03: a restore of each application's backup was tried recently, and how long it took."""
+    title = "Restores tried"
+    measures = ("mp.info.6.r1",)
+    judged = restore_drill_findings(facts, ENS_MEDIUM.restore_drill_days)
+    if judged is None:
+        return _unknown("ENS-BAK-03", title, measures, "restore_drills", facts)
+    status, summary, evidence, remediation = judged
+    return Finding("ENS-BAK-03", title, status, measures, summary, evidence, remediation)
+
+
 def check_backup_encryption(facts: Facts) -> Finding:
     """ENS-BAK-02: backups leave the server only encrypted."""
     title = "Backups leave encrypted"
@@ -1939,6 +2043,7 @@ def evaluate(facts: Facts) -> list[Finding]:
             "A firewall is on and nothing internal is reachable from outside.",
         ),
         check_backups(facts),
+        check_restore_drills(facts),
         check_backup_encryption(facts),
         _hardening_finding(
             "ENS-UPD-01",
@@ -1994,6 +2099,14 @@ def indicators(facts: Facts) -> dict[str, Any]:
         if (age := _age_days(entry.get("verified"), facts.now)) is not None
         and age <= ENS_MEDIUM.backup_verify_days
     )
+    drills = facts.restore_drills or []
+    tested = sum(
+        1
+        for entry in drills
+        if (age := _age_days(entry.get("last_ok_at"), facts.now)) is not None
+        and age <= ENS_MEDIUM.restore_drill_days
+    )
+    observed = [e["duration_s"] for e in drills if e.get("duration_s") is not None]
     inventory = facts.inventory or []
     by_role: dict[str, int] = {}
     for account in accounts:
@@ -2022,6 +2135,8 @@ def indicators(facts: Facts) -> dict[str, Any]:
         "backup_verifications_30d": facts.audit_events.get("backup_verifications_30d", 0),
         "applications": len(backups),
         "backups_verified_percent": percent(verified, len(backups)),
+        "restores_tested_percent": percent(tested, len(drills)),
+        "restore_time_observed_seconds": max(observed) if observed else None,
         "hardening_failing": sum(1 for c in hardening if c.get("status") == "fail"),
         "hardening_warning": sum(1 for c in hardening if c.get("status") == "warn"),
         "hardening_accepted": sum(1 for c in hardening if c.get("status") == "accepted"),

@@ -274,6 +274,10 @@ export const complianceSetup = {
       title: "Backup verification",
       summary: "A backup is proved restorable at least this often.",
     },
+    restore_drill_days: {
+      title: "Restore rehearsal",
+      summary: "Restoring a backup is rehearsed at least this often: the data loads into a temporary database, which is more than the archive reading.",
+    },
     backup_max_age_hours: {
       title: "Newest backup age",
       summary: "The newest backup of an application must be younger than this.",

@@ -154,6 +154,7 @@ export const FIX_LINKS: Readonly<Record<string, FixLink>> = {
   log_shipping_tls: { to: "/settings/log-shipping", label: "complianceSetup.fix.logShipping" },
   backup_encryption: BACKUPS,
   backup_verify_days: BACKUPS,
+  restore_drill_days: BACKUPS,
   backup_max_age_hours: BACKUPS,
   backup_offsite: BACKUPS,
   console_exposure: { to: "/settings/console", label: "complianceSetup.fix.console" },

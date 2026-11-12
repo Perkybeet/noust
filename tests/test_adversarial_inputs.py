@@ -28,6 +28,7 @@ matched), which let ``validate_app_name("shop\\n")`` through.
 from __future__ import annotations
 
 import re
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -38,6 +39,7 @@ from hypothesis import strategies as st
 
 from noust.core import domain_certificates, outbound
 from noust.core.exceptions import NoustError, SecurityError, ValidationError
+from noust.core.secret_detection import REDACTED, URL_CREDENTIALS, redact_url_credentials
 from noust.managers import site_routes
 from noust.recipes import logo_paint, logo_png, logo_sanitize, logos
 from noust.validators import (
@@ -1993,3 +1995,58 @@ class TestThePictureOnTheSignInScreen:
         if accepted:
             assert isinstance(value, str)
             assert base64.b64encode(result).decode() == value
+
+
+class TestThePasswordOfAnAddressIsFoundInLinearTime:
+    """
+    A build log or a variable can be a megabyte on one line, and the pattern that hides the password of
+    a connection string reads all of it (item 87).
+
+    Each text below makes a pattern that can start in many places read the same stretch again from
+    every one of them: a line of letters (every letter a possible start of a scheme), a scheme
+    separator with no end, colons after one. The pattern starts a scheme only at a boundary, so a
+    line a thousand times longer takes a thousand times longer and not a million: the budget is
+    generous for the first and impossible for the second.
+    """
+
+    LENGTH = 60_000
+
+    #: Name of the text and how to make it at a length.
+    HOSTILE_TEXTS: dict[str, Callable[[int], str]] = {
+        "letters": lambda n: "A" * n,
+        "letters and a separator": lambda n: "A" * n + "://",
+        "a scheme and an endless user": lambda n: "a://" + "x" * n,
+        "a scheme and colons": lambda n: "a://" + ":" * n,
+        "a password with no end": lambda n: "a://u:" + "x" * n,
+        "separators one after the other": lambda n: "a://" * (n // 4),
+        "users one after the other": lambda n: "a://u:" * (n // 6),
+        "a boundary before each scheme": lambda n: "_a://x:" * (n // 7),
+        "scheme characters with dots": lambda n: "a." * (n // 2) + "://",
+        "separators alone": lambda n: "://" * (n // 3),
+        "colons alone": lambda n: ":" * n,
+        "slashes alone": lambda n: "/" * n,
+    }
+
+    @pytest.mark.parametrize("name", sorted(HOSTILE_TEXTS))
+    def test_a_long_hostile_line_is_read_in_a_blink(self, name: str) -> None:
+        text = self.HOSTILE_TEXTS[name](self.LENGTH)
+
+        started = time.perf_counter()
+        redact_url_credentials(text)
+        URL_CREDENTIALS.search(text)
+
+        assert time.perf_counter() - started < 1.0
+
+    def test_a_password_of_any_length_is_hidden_whole(self) -> None:
+        password = ("p:q.r-s" * 20_000) + "t"
+
+        masked = redact_url_credentials(f"x a://u:{password}@h y")
+
+        assert masked == f"x a://u:{REDACTED}@h y"
+
+    def test_a_long_run_of_letters_before_the_separator_is_the_scheme(self) -> None:
+        scheme = "A" * self.LENGTH
+
+        masked = redact_url_credentials(f"{scheme}://u:secret@h")
+
+        assert masked == f"{scheme}://u:{REDACTED}@h"

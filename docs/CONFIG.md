@@ -92,7 +92,7 @@ upgrade runs `noust config upgrade` and then `noust config clean`.
 | `backup.max_bytes` | 256 GiB | Largest total size a backup archive may extract to; one past it is refused instead of filling the disk during a restore. Not in the defaults. |
 | `backup.max_entries` | `2000000` | Most files a backup archive may hold when it is extracted; one past it is refused. Not in the defaults. |
 | `backup.encrypt_new_destinations` | `true` | Whether a backup destination made without a word about encryption is wrapped in rclone's crypt backend. What the operator said wins. Not in the defaults. |
-| `backup.drill_days` | `30` | A scheduled backup rehearses restoring itself when the last good drill is older than this many days; `0` turns it off. Not in the defaults. |
+| `backup.drill_days` | `30` | A scheduled backup rehearses restoring itself when the last good drill is older than this many days; `0` turns it off. A framework that asks for restores that were tried (ENS MEDIA, ISO/IEC 27001, NIS2, the GDPR) holds it to 30 and does not let it be turned off (the control `restore_drill_days`); `noust ens check` and `noust ens report` show the last restore tried, its result and how long it took. Not in the defaults. |
 | `updates.check` | `true` | Whether Noust asks GitHub for the latest release (the CLI's background check and `GET /api/system/version`). Off means the request is never made. |
 | `updates.auto.enabled` | `false` | Whether Noust installs its own new releases by itself, inside the window below. Needs `updates.check`. Turn it on with `noust self-update set --enable`, which also writes the timer. |
 | `updates.auto.channel` | `patch` | Which releases it takes: `security` (only one that fixes a vulnerability), `patch` (also the patch releases of the minor it runs) or `stable` (also a new minor). A new major version is never taken. |
@@ -209,12 +209,13 @@ How the console's terminal behaves. `docs/terminal.md` explains what each limit 
 | `monitor.disk_threshold` | `90.0` | The percentage from which the disk of the applications is announced (`disk_threshold`), 1 to 100. |
 | `monitor.disk_check_seconds` | `0` | The least seconds between two looks at the disks; 0 looks on every scan. A longer wait is a longer delay before the message, never a different message. |
 | `monitor.disk_renotify_hours` | `0` | While a disk stays over its threshold, announce it again every this many hours (up to 720). 0 sends one message per crossing. |
-| `monitor.cert_warning_days` | `14` | A certificate with fewer days left than this is announced (`cert_expiring`), at most once a day. |
+| `monitor.cert_warning_days` | `14` | The ceiling on when a late certificate is announced (`cert_expiring`), at most once a day: it speaks when fewer days than this are left and the certificate is past the point where it is renewed (a third of its life). It never makes a certificate with most of its life ahead late. |
 | `monitor.backup_missing_days` | `2` | A backup schedule or policy (an application's, a database's, an application's data or Noust's own state) with no successful backup newer than this many days is announced (`backup_missing`). A weekly or monthly schedule is allowed its period and a day. 0 turns the check off. |
 | `monitor.backup_check_hours` | `6` | How often the monitor looks for backups that did not run, and asks the backup destinations in use whether they answer (`destination_unreachable`). |
 | `monitor.backup_missing_renotify_hours` | `24` | While a backup stays missing, announce it again every this many hours. |
 | `monitor.os_patches_check_hours` | `24` | How often the monitor asks the package manager what is waiting (`os_patches`). 0 turns the check off. |
 | `monitor.token_warning_days` | `7` | An API token is announced (`token_expiring`) this many days before it expires. 0 turns the check off. |
+| `monitor.domain_expiry` | `false` | Ask the registry of each domain Noust serves when its registration expires (RDAP), once a day, and announce it at 30 and 7 days and when it has (`domain_expiring`, `domain_expired`). Off by default, and no profile turns it on: the domain name goes to the registry, which `docs/PRIVACY.md` says. `noust domain expiry` shows what they said. |
 | `monitor.webserver_check_seconds` | `60` | How often the monitor looks at nginx (or Apache); 0 turns the watch off, 3600 at most. A web server that fell is started again after its configuration test passes ([MONITOR.md](MONITOR.md#the-web-server)). |
 | `monitor.restart_webserver` | `true` | Start the web server again when it fell. `false` announces it and does nothing else. |
 | `monitor.webserver_restart_limit` | `3` | Restarts of the web server in an hour; past it the monitor says so once and stops, 1 to 20. |
@@ -257,7 +258,11 @@ How the console's terminal behaves. `docs/terminal.md` explains what each limit 
 | `notifications.events.deploy_hook_failed` | `true` | Notify when a deployment went live with warnings: a `post_deploy` hook failed once the new version was serving. |
 | `notifications.events.restore_success` | `true` | Notify when a restore succeeds. |
 | `notifications.events.restore_failed` | `true` | Notify when a restore fails. |
-| `notifications.events.cert_expiring` | `true` | Notify when a certificate is about to expire. |
+| `notifications.events.cert_expiring` | `true` | Notify when a certificate is late to renew or expired. |
+| `notifications.events.cert_renewal_failed` | `true` | certbot's last renewal failed, or the timer that runs it is not running; with certbot's own words. |
+| `notifications.events.domain_expiring` | `true` | The registration of a domain is within 30 or 7 days of expiring (needs `monitor.domain_expiry`). |
+| `notifications.events.domain_expired` | `true` | The registration of a domain has expired (needs `monitor.domain_expiry`). |
+| `notifications.events.app_oom_killed` | `true` | The kernel killed an application for running out of memory (cgroup v2), with how many times, its memory limit and the most it used. |
 | `notifications.events.unit_failed` | `true` | Notify when a watched unit fails. |
 | `notifications.events.app_unreachable` | `true` | Notify when an application whose unit is running stops answering its health check: three failed probes over at least a minute, once per outage; not asked while the application is being deployed or runs a job, nor when its unit was stopped on purpose or failed (that is `unit_failed`). A stack with no published port is judged by its containers instead. |
 | `notifications.events.app_recovered` | `true` | Notify when an application that was reported unreachable answers again. |

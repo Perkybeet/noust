@@ -7559,6 +7559,427 @@
       ]
     }
   },
+  "cert.renewal_failed": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ Ha fallado la renovación de certificados · certbot.timer"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "La última vez que certbot intentó renovar los certificados falló, así que no se renovarán solos hasta que funcione."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Certificados\nshop.example.com, blog.example.com"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Último intento\nTue 2026-11-10 12:11:09 UTC"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Renuévalo con: noust cert renew"
+          }
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Lo que ha informado certbot\nFailed to renew certificate shop.example.com with error: Some challenges have failed.\nDetail: 203.0.113.9: Fetching http://shop.example.com/.well-known/acme-challenge/x: Timeout during connect (likely firewall problem)"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/domains",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "cert.renewal_stopped": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ La renovación de certificados está parada · certbot.timer"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "El temporizador que hace que certbot renueve los certificados no está en marcha, así que no se renovarán solos."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Certificados\nshop.example.com"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Próximo intento\nWed 2026-11-11 00:41:10 UTC"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Vuelve a ponerlo en marcha con: systemctl enable --now certbot.timer"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/domains",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "domain.expiring": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "▲ Registro de dominio a punto de caducar · example.com"
+        },
+        "template": "orange"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "El registro de example.com caduca en 20 días (30 nov 2026)."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Nombres que cubre\nshop.example.com, www.shop.example.com"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Registro\nrdap.verisign.com"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Míralos todos con: noust domain expiry"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/domains",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "domain.expired": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ Registro de dominio caducado · example.com"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "El registro de example.com caducó hace 3 días (7 nov 2026)."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Nombres que cubre\nshop.example.com"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Registro\nrdap.verisign.com"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Míralos todos con: noust domain expiry"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/domains",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "app.oom_killed": {
+    "msg_type": "interactive",
+    "card": {
+      "config": {
+        "wide_screen_mode": true
+      },
+      "header": {
+        "title": {
+          "tag": "plain_text",
+          "content": "✕ Aplicación cerrada por falta de memoria · shop.example.com"
+        },
+        "template": "red"
+      },
+      "elements": [
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "El núcleo ha cerrado shop.example.com por falta de memoria."
+          }
+        },
+        {
+          "tag": "div",
+          "fields": [
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Servidor\nweb-1"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Cerrada\n2 veces"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Límite de memoria\n512.0 MB"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Lo máximo que usó\n511.0 MB"
+              }
+            },
+            {
+              "is_short": true,
+              "text": {
+                "tag": "plain_text",
+                "content": "Contando desde\nTue 2026-11-10 03:00:00 UTC"
+              }
+            }
+          ]
+        },
+        {
+          "tag": "div",
+          "text": {
+            "tag": "plain_text",
+            "content": "Diagnostícala con: noust diagnose shop.example.com"
+          }
+        },
+        {
+          "tag": "note",
+          "elements": [
+            {
+              "tag": "plain_text",
+              "content": "Noust · web-1"
+            }
+          ]
+        },
+        {
+          "tag": "action",
+          "actions": [
+            {
+              "tag": "button",
+              "text": {
+                "tag": "plain_text",
+                "content": "Abrir en la consola"
+              },
+              "url": "https://console.example.com/n/web-1/apps/shop.example.com",
+              "type": "default"
+            }
+          ]
+        }
+      ]
+    }
+  },
   "hostile.deploy_failed": {
     "msg_type": "interactive",
     "card": {

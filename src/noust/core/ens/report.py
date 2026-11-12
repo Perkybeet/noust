@@ -152,6 +152,27 @@ def _tokens(facts: Facts) -> list[dict[str, Any]]:
     ]
 
 
+#: What the restore drills prove and what they do not, said once for the JSON and the Markdown.
+#: The time is what a rehearsal observed: calling it a recovery time would promise what nothing here
+#: measured.
+RESTORE_SCOPE: dict[str, str] = {
+    "observed_time": (
+        "El tiempo de restauración observado es lo que tardó el último ensayo correcto de cada "
+        "aplicación: verificar el archivo, descomprimirlo y cargar sus bases de datos en una base "
+        "temporal. No es un tiempo de recuperación garantizado: depende de la máquina, de la "
+        "carga que tenía en ese momento y del tamaño de la copia."
+    ),
+    "proves": (
+        "El ensayo prueba que el archivo de la copia se verifica y se descomprime y que los datos "
+        "se cargan: cada volcado de base de datos se carga en una base temporal del mismo motor."
+    ),
+    "does_not_prove": (
+        "El ensayo no prueba que un servidor nuevo arranque con esos datos ni que la aplicación "
+        "funcione sobre ellos; esa parte se ensaya con `noust restore-server --plan`."
+    ),
+}
+
+
 def build_report(check: ComplianceCheck, facts: Facts) -> dict[str, Any]:
     """
     Assemble the evidence bundle.
@@ -199,6 +220,10 @@ def build_report(check: ComplianceCheck, facts: Facts) -> dict[str, Any]:
             "destinations": facts.destinations,
             "schedules": facts.schedules,
             "encryption_required": facts.backup_encryption_required,
+            "restore_drills": {
+                "applications": facts.restore_drills,
+                "scope": RESTORE_SCOPE,
+            },
         },
         "hardening": facts.hardening,
         "console": {
@@ -237,6 +262,36 @@ _ICON = {"ok": "OK", "warning": "AVISO", "fail": "FALLO", "n/a": "N/A"}
 
 def _cell(text: Any) -> str:
     return str(text if text is not None else "").replace("|", "\\|").replace("\n", " ")
+
+
+def _drill_row(entry: dict[str, Any]) -> str:
+    """
+    Args:
+        entry: One application's restore evidence (:meth:`DrillRecords.evidence`).
+
+    Returns:
+        Its row of the table: when a restore was last tried and passed, how it ended, how long it
+        took and how many databases it loaded; a newer attempt that failed is said beside it.
+    """
+    from noust.core.notifications.formatting import format_duration
+
+    domain = entry["domain"]
+    failed_since = entry.get("last_ok") is False and entry.get("last_at") != entry.get("last_ok_at")
+    failure = (
+        f"el último intento ({str(entry.get('last_at'))[:10]}) falló: "
+        f"{_cell(entry.get('last_summary') or 'sin detalle')}"
+        if failed_since
+        else ""
+    )
+    if entry.get("last_ok_at") is None:
+        result = failure or "-"
+        return f"| {domain} | nunca | {result} | - | - |"
+    took = entry.get("duration_s")
+    result = "correcta" + (f"; {failure}" if failure else "")
+    return (
+        f"| {domain} | {str(entry['last_ok_at'])[:10]} | {result} | "
+        f"{format_duration(took) if took is not None else '-'} | {entry.get('databases', 0)} |"
+    )
 
 
 def render_markdown(report: dict[str, Any]) -> str:
@@ -365,6 +420,23 @@ def render_markdown(report: dict[str, Any]) -> str:
             f"| {entry['domain']} | {entry.get('newest') or 'ninguna'} | "
             f"{entry.get('verified') or 'nunca'} | {entry.get('count', 0)} |"
         )
+    drills = (report["backups"].get("restore_drills") or {}).get("applications")
+    if drills is not None:
+        lines += [
+            "",
+            "## Restauraciones probadas (mp.info.6.r1)",
+            "",
+            "| Aplicación | Última restauración probada | Resultado | Duración | Bases de datos cargadas |",
+            "|---|---|---|---|--:|",
+        ]
+        for entry in drills:
+            lines.append(_drill_row(entry))
+        lines += [
+            "",
+            f"- **Tiempo de restauración observado.** {RESTORE_SCOPE['observed_time']}",
+            f"- **Qué prueba.** {RESTORE_SCOPE['proves']}",
+            f"- **Qué no prueba.** {RESTORE_SCOPE['does_not_prove']}",
+        ]
     lines += [
         "",
         "## Inventario (op.exp.1)",

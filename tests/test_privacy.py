@@ -91,6 +91,10 @@ NODE = "an enrolled node, through an SSH tunnel to this machine's loopback"
 RELEASE = "release information, the one request made unasked; updates.check turns it off"
 PUBLIC_LIST = "a public list, only when the operator asks to refresh it"
 CI = "a release gate run by the project's CI, never by an installation"
+REGISTRY = (
+    "the registry of a domain the operator serves, at the address a table that ships with Noust names; "
+    "monitor.domain_expiry is off until the operator turns it on"
+)
 
 #: Every module that imports an outbound client, and for whom it speaks. Keep it sorted by path.
 CLIENTS: dict[str, tuple[str, str]] = {
@@ -131,6 +135,10 @@ CLIENTS: dict[str, tuple[str, str]] = {
         "GitHub or GitHub Enterprise, as the connected account",
     ),
     "managers/diagnose.py": (OWN, "the probe that says why an application is down"),
+    "managers/domain_registration.py": (
+        REGISTRY,
+        "when the registration of each registrable domain expires (RDAP): the name and nothing else",
+    ),
     "managers/dns/rest.py": (
         OPERATOR,
         "the DNS API of Cloudflare, DigitalOcean, Hetzner, Gandi, IONOS or Route 53, with the operator's token",

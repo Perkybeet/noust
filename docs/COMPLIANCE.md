@@ -75,6 +75,7 @@ The console has the same under Settings > Compliance. Disabling a framework, or 
 |---|---|---|---|---|
 | `backup_encryption` | Backups leave the server only encrypted. | optional | `backup.encryption` | last choice is stricter |
 | `backup_verify_days` | How often a backup is proved restorable; 0 turns it off where no framework asks. | 7 days | `backup.verify_days` | a smaller number is stricter |
+| `restore_drill_days` | How often restoring a backup is rehearsed (`noust backup drill`), so that a restore that was tried is evidence and not only an archive that reads; 0 turns it off where no framework asks. | 30 days | `backup.drill_days` | a smaller number is stricter |
 | `backup_max_age_hours` | The newest backup of an application must be younger than this. | 26 hours | `security.backup_max_age_hours` (judged by `noust compliance check`, nothing refuses) | a smaller number is stricter |
 | `backup_offsite` | At least one backup is kept apart, in a different place from the server. | off | `security.backup_offsite` (judged by `noust compliance check`, nothing refuses) | on is stricter |
 
@@ -138,7 +139,7 @@ Spain's National Security Scheme, category MEDIA: what Noust has called the ens-
 
 Reference: Real Decreto 311/2022, Annex II.
 
-Enable it with `noust compliance enable ens-media`. It asks of 39 control(s); 34 of them ask for more than the default.
+Enable it with `noust compliance enable ens-media`. It asks of 40 control(s); 34 of them ask for more than the default.
 
 | Control | Value | Clause | Note |
 |---|---|---|---|
@@ -170,6 +171,7 @@ Enable it with `noust compliance enable ens-media`. It asks of 39 control(s); 34
 | `log_shipping_tls` | on | mp.com.2.1: Encrypted channels outside the security domain |  |
 | `backup_encryption` | required | mp.si.2.1: Cryptographic mechanisms for confidentiality and integrity |  |
 | `backup_verify_days` | 7 days | mp.info.6.r1.1: Backup and restore procedures are tested regularly | the default already; the floor cannot be lowered The frequency is the organisation's; 7 days is Noust's. |
+| `restore_drill_days` | 30 days | mp.info.6.r1.1: Backup and restore procedures are tested regularly | the default already; the floor cannot be lowered The frequency is the organisation's; 30 days is Noust's. |
 | `backup_max_age_hours` | 26 hours | mp.info.6.1: Backups allow recovering lost data | the default already; the floor cannot be lowered |
 | `tls_certificate` | operator | mp.com.2.r1.1: Algorithms and parameters authorised by the CCN<br>mp.com.3.r2.1: Authenticity of the other end, with authorised parameters |  |
 | `certificate_min_days` | 30 days | mp.com.2.r1.1: Algorithms and parameters authorised by the CCN | the default already; the floor cannot be lowered |
@@ -198,7 +200,7 @@ Spain's National Security Scheme, category ALTA: MEDIA plus a backup kept apart.
 
 Reference: Real Decreto 311/2022, Annex II.
 
-Enable it with `noust compliance enable ens-alta`. It asks of 40 control(s); 35 of them ask for more than the default.
+Enable it with `noust compliance enable ens-alta`. It asks of 41 control(s); 35 of them ask for more than the default.
 
 | Control | Value | Clause | Note |
 |---|---|---|---|
@@ -230,6 +232,7 @@ Enable it with `noust compliance enable ens-alta`. It asks of 40 control(s); 35 
 | `log_shipping_tls` | on | mp.com.2.1: Encrypted channels outside the security domain |  |
 | `backup_encryption` | required | mp.si.2.r2.1: Backups are encrypted |  |
 | `backup_verify_days` | 7 days | mp.info.6.r1.1: Backup and restore procedures are tested regularly | the default already; the floor cannot be lowered The frequency is the organisation's; 7 days is Noust's. |
+| `restore_drill_days` | 30 days | mp.info.6.r1.1: Backup and restore procedures are tested regularly | the default already; the floor cannot be lowered The frequency is the organisation's; 30 days is Noust's. |
 | `backup_max_age_hours` | 26 hours | mp.info.6.1: Backups allow recovering lost data | the default already; the floor cannot be lowered |
 | `backup_offsite` | on | mp.info.6.r2.1: One backup is kept apart, in a different place |  |
 | `tls_certificate` | operator | mp.com.2.r1.1: Algorithms and parameters authorised by the CCN<br>mp.com.3.r2.1: Authenticity of the other end, with authorised parameters |  |
@@ -265,7 +268,7 @@ The international information security management standard: the technical contro
 
 Reference: ISO/IEC 27001:2022, Annex A.
 
-Enable it with `noust compliance enable iso-27001`. It asks of 38 control(s); 33 of them ask for more than the default.
+Enable it with `noust compliance enable iso-27001`. It asks of 39 control(s); 33 of them ask for more than the default.
 
 | Control | Value | Clause | Note |
 |---|---|---|---|
@@ -296,6 +299,7 @@ Enable it with `noust compliance enable iso-27001`. It asks of 38 control(s); 33
 | `log_shipping_tls` | on | A.8.24: Use of cryptography |  |
 | `backup_encryption` | required | A.8.13: Information backup<br>A.8.24: Use of cryptography |  |
 | `backup_verify_days` | 7 days | A.8.13: Information backup | the default already; the floor cannot be lowered ISO/IEC 27001 prescribes no number; this one is Noust's reading. |
+| `restore_drill_days` | 30 days | A.8.13: Information backup | the default already; the floor cannot be lowered ISO/IEC 27001 prescribes no number; this one is Noust's reading. |
 | `backup_max_age_hours` | 26 hours | A.8.13: Information backup | the default already; the floor cannot be lowered ISO/IEC 27001 prescribes no number; this one is Noust's reading. |
 | `backup_offsite` | on | A.8.13: Information backup |  |
 | `certificate_min_days` | 30 days | A.8.24: Use of cryptography | the default already; the floor cannot be lowered ISO/IEC 27001 prescribes no number; this one is Noust's reading. |
@@ -322,7 +326,7 @@ The EU directive on the security of network and information systems: the risk-ma
 
 Reference: Directive (EU) 2022/2555, article 21.
 
-Enable it with `noust compliance enable nis2`. It asks of 21 control(s); 16 of them ask for more than the default.
+Enable it with `noust compliance enable nis2`. It asks of 22 control(s); 16 of them ask for more than the default.
 
 | Control | Value | Clause | Note |
 |---|---|---|---|
@@ -344,6 +348,7 @@ Enable it with `noust compliance enable nis2`. It asks of 21 control(s); 16 of t
 | `log_shipping_tls` | on | Art. 21(2)(h): Policies and procedures regarding the use of cryptography and, where appropriate, encryption |  |
 | `backup_encryption` | required | Art. 21(2)(h): Policies and procedures regarding the use of cryptography and, where appropriate, encryption |  |
 | `backup_verify_days` | 7 days | Art. 21(2)(c): Business continuity, such as backup management and disaster recovery, and crisis management | the default already; the floor cannot be lowered Article 21 names areas, not settings; this number is Noust's reading. |
+| `restore_drill_days` | 30 days | Art. 21(2)(c): Business continuity, such as backup management and disaster recovery, and crisis management | the default already; the floor cannot be lowered Article 21 names areas, not settings; this number is Noust's reading. |
 | `backup_max_age_hours` | 26 hours | Art. 21(2)(c): Business continuity, such as backup management and disaster recovery, and crisis management | the default already; the floor cannot be lowered Article 21 names areas, not settings; this number is Noust's reading. |
 | `backup_offsite` | on | Art. 21(2)(c): Business continuity, such as backup management and disaster recovery, and crisis management |  |
 | `certificate_min_days` | 30 days | Art. 21(2)(h): Policies and procedures regarding the use of cryptography and, where appropriate, encryption | the default already; the floor cannot be lowered Article 21 names areas, not settings; this number is Noust's reading. |
@@ -458,7 +463,7 @@ Security of processing under the General Data Protection Regulation: the technic
 
 Reference: Regulation (EU) 2016/679, article 32.
 
-Enable it with `noust compliance enable gdpr-32`. It asks of 17 control(s); 13 of them ask for more than the default.
+Enable it with `noust compliance enable gdpr-32`. It asks of 18 control(s); 13 of them ask for more than the default.
 
 | Control | Value | Clause | Note |
 |---|---|---|---|
@@ -475,6 +480,7 @@ Enable it with `noust compliance enable gdpr-32`. It asks of 17 control(s); 13 o
 | `log_shipping_tls` | on | Art. 32(1)(a): Pseudonymisation and encryption of personal data |  |
 | `backup_encryption` | required | Art. 32(1)(a): Pseudonymisation and encryption of personal data |  |
 | `backup_verify_days` | 7 days | Art. 32(1)(c): The ability to restore the availability of and access to personal data in a timely manner<br>Art. 32(1)(d): A process for regularly testing, assessing and evaluating the effectiveness of the measures | the default already; the floor cannot be lowered Article 32 asks for measures appropriate to the risk, not for a number; this one is Noust's. |
+| `restore_drill_days` | 30 days | Art. 32(1)(c): The ability to restore the availability of and access to personal data in a timely manner<br>Art. 32(1)(d): A process for regularly testing, assessing and evaluating the effectiveness of the measures | the default already; the floor cannot be lowered Article 32 asks for measures appropriate to the risk, not for a number; this one is Noust's. |
 | `backup_max_age_hours` | 26 hours | Art. 32(1)(c): The ability to restore the availability of and access to personal data in a timely manner | the default already; the floor cannot be lowered Article 32 asks for measures appropriate to the risk, not for a number; this one is Noust's. |
 | `backup_offsite` | on | Art. 32(1)(c): The ability to restore the availability of and access to personal data in a timely manner |  |
 | `console_exposure` | refused | Art. 32(1)(b): Ongoing confidentiality, integrity, availability and resilience of processing systems |  |
@@ -521,6 +527,7 @@ What each framework asks of each control. A blank cell means it asks nothing.
 | `log_shipping_tls` | on | on | on | on | on |  | on | on | on |
 | `backup_encryption` |  | required | required | required | required | required | required | required | required |
 | `backup_verify_days` |  | 7 days | 7 days | 7 days | 7 days |  |  |  | 7 days |
+| `restore_drill_days` |  | 30 days | 30 days | 30 days | 30 days |  |  |  | 30 days |
 | `backup_max_age_hours` | 26 hours | 26 hours | 26 hours | 26 hours | 26 hours |  |  |  | 26 hours |
 | `backup_offsite` |  |  | on | on | on | on | on |  | on |
 | `tls_certificate` |  | operator | operator |  |  |  |  |  |  |

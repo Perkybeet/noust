@@ -49,7 +49,7 @@ from noust.core.logger import Logger
 from noust.core.package_family import install_hint
 from noust.deployers import certificates
 from noust.deployers.name_certificates import names_served_by_certificate
-from noust.managers.cert_manager import CertManager
+from noust.managers.cert_manager import CertificateInfo, CertManager
 from noust.validators.domain import validate_domain
 
 #: Alternative spellings of the subcommands. They are in scripts, in the
@@ -256,6 +256,8 @@ def _list_certificates(manager: CertManager, logger: Logger, *, json_output: boo
                             "name": cert.name,
                             "domains": list(cert.domains),
                             "expiry": cert.expiry,
+                            "state": cert.life().state,
+                            "days_left": cert.life().days_left,
                             "serves": serves.get(cert.name, []),
                         }
                         for cert in certificates
@@ -277,10 +279,29 @@ def _list_certificates(manager: CertManager, logger: Logger, *, json_output: boo
         shown = ", ".join(cert.domains[:2])
         if len(cert.domains) > 2:
             shown += f" (+{len(cert.domains) - 2} more)"
-        rows.append([cert.name, shown, cert.expiry or "Unknown", _serves_shown(serves, cert.name)])
+        rows.append([cert.name, shown, _expiry_shown(cert), _serves_shown(serves, cert.name)])
 
     logger.table(["Name", "Domains", "Expiry", "Serves"], rows)
     return 0
+
+
+#: What the Expiry column adds beside the date of a certificate that is past its renewal point.
+_LATE = {"renewal_pending": "renewal pending", "critical": "renew now", "expired": "expired"}
+
+
+def _expiry_shown(cert: CertificateInfo) -> str:
+    """
+    Args:
+        cert: One certificate.
+
+    Returns:
+        Its expiry date and, when it is past the point where it is renewed (a third of its life
+        left), what that means, so a date is not left to be read as a number of days.
+    """
+    note = _LATE.get(cert.life().state)
+    return (
+        f"{cert.expiry or 'Unknown'} ({note})" if note and cert.expiry else cert.expiry or "Unknown"
+    )
 
 
 def _names_served() -> dict[str, list[str]]:
@@ -591,8 +612,9 @@ def renew_command(ctx: Context, domain: str | None, force: bool) -> None:
     """
     Renew certificates before they expire.
 
-    Certbot renews a certificate in its last thirty days, so running this on a
-    fresh one does nothing unless you pass --force.
+    Certbot renews a certificate once a third of its life is left (its last thirty
+    days before certbot 4), so running this on a fresh one does nothing unless you
+    pass --force.
     """
     _renew_certificates(_manager(ctx.verbose), ctx.logger, domain=domain, force=force)
 

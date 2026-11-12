@@ -608,6 +608,10 @@ from noust.core.messages_netobs import NETOBS_MESSAGES, NETOBS_PLURALS  # noqa: 
 MESSAGES.update(NETOBS_MESSAGES)
 _PLURAL_FORMS.update(NETOBS_PLURALS)
 
+from noust.core.messages_dates import DATES_MESSAGES  # noqa: E402
+
+MESSAGES.update(DATES_MESSAGES)
+
 #: Abbreviated month names, for the dates a notification spells out. Not
 #: sentences, so not in :data:`MESSAGES`.
 MONTHS: dict[Locale, tuple[str, ...]] = {

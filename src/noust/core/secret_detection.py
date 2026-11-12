@@ -86,16 +86,20 @@ from noust.core.config import NON_SECRET_KEYS, REDACTED, SECRET_KEY_MARKERS, is_
 #: the authority in RFC 3986, so refusing them keeps
 #: ``http://host:8080/a@b`` from being read as a credential and redacted.
 #:
-#: A scheme starts where the run of scheme characters starts. Without that
-#: (the lookbehind), a long line of letters made the search try every letter as
-#: a start and read to the end of the run each time: quadratic, and a build log
-#: is a place a line can be a megabyte long.
+#: A scheme starts where the run of scheme characters starts: at the beginning
+#: of the text or after a character that is not one of a scheme's. Without that,
+#: a long line of letters made the search try every letter as a start and read
+#: to the end of the run each time: quadratic, and a build log is a place a line
+#: can be a megabyte long. The character before the scheme is part of the match
+#: (in group 1, so it stays) instead of a lookbehind that says the same thing:
+#: a lookbehind is not read by a static analysis of the pattern, which then takes
+#: every letter of the run for a start, and the boundary is there to be read.
 #:
 #: Group 1 is everything up to the password, and the ``@`` that ends it is only looked
 #: at, not part of the match: that is what lets :data:`TEXT_SHAPES` keep a head and hide
 #: the rest, as the console does with the very same pattern.
 URL_CREDENTIALS = re.compile(
-    r"(?<![A-Za-z0-9+.\-])([A-Za-z][A-Za-z0-9+.\-]*://[^:/?#@\s]*:)[^@\s/?#]*(?=@)"
+    r"((?:^|[^A-Za-z0-9+.\-])[A-Za-z][A-Za-z0-9+.\-]*://[^:/?#@\s]*:)[^@\s/?#]*(?=@)"
 )
 
 

@@ -24,14 +24,33 @@ Start it with `noust start wrenfield.io`. If its unit is gone, deploy it again w
 
 ## It ran out of memory
 
+On a server with cgroup v2 (Debian 11 and later, Ubuntu 22.04 and later, the RHEL family 9 and
+later), the kernel counts what it kills by unit, so the diagnosis says which application it was, how
+many times, since when, and what its limit was against the most it used:
+
+```text
+The kernel killed wrenfield.io for running out of memory: its limit is 512.0 MB and it used up to
+511.0 MB, so it needs more than it is allowed. Raise the limit with:
+noust app limits wrenfield.io --memory 768M --restart
+```
+
+The count is `oom_kill` in the `memory.events` of the unit's cgroup, and the check shows it, with
+`memory.max` and `memory.peak`, as the kernel wrote them. A unit that systemd restarts gets a new
+cgroup and the count starts again at zero, so the diagnosis also reads the result systemd recorded
+for the last run (`oom-kill`). With no limit set it says that the machine itself ran out; give the
+machine room with swap (`noust server swap create --size 2G`) or the application a limit it can keep
+to. On a small server, a build running next to the application is the usual cause.
+
+Where there is no cgroup v2, or the unit's `memory.events` cannot be read, the diagnosis is what it
+was before 4.3: the kernel's log mentions running out of memory, a line that names a process and
+not a unit, and it says that it cannot tell which application it was.
+
 ```text
 Killed by the kernel for running out of memory (limit or machine).
 ```
 
-Either its own memory limit or the whole machine ran out. `noust app limits wrenfield.io` shows its
-limit; raise it with `noust app limits wrenfield.io --memory 1G --restart`, or give the machine room
-with swap: `noust server swap create --size 2G`. On a small server, a build running next to the
-application is the usual cause.
+With the monitor running (`noust monitor enable`), the notification `app_oom_killed` says it once
+for every rise of the count, with the limit and the peak, so you hear of it when it happens.
 
 ## It stops as soon as it starts
 

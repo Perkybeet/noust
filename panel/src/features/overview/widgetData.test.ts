@@ -157,8 +157,10 @@ describe("work in progress", () => {
   });
 });
 
-function cert(domain: string, days: number | null, autoRenew = true): CertEntry {
-  return { domain, domains: [domain], serves: [domain], days_remaining: days, auto_renew: autoRenew, challenge: "http", expires_on: null, issuer: null, key_path: null, path: null, source: "certbot", valid_until: null };
+// A node of 4.2 sends no `state`: its certificates are judged on the days they have left, as they always were.
+function cert(domain: string, days: number | null, autoRenew = true, state?: string): CertEntry {
+  const entry = { domain, domains: [domain], serves: [domain], days_remaining: days, auto_renew: autoRenew, challenge: "http", expires_on: null, issuer: null, key_path: null, path: null, source: "certbot", valid_until: null, life_assumed: false };
+  return (state === undefined ? entry : { ...entry, state }) as CertEntry;
 }
 
 describe("certificates", () => {
@@ -170,6 +172,12 @@ describe("certificates", () => {
     ]);
     expect(view.well).toBe(2);
     expect(view.total).toBe(4);
+  });
+
+  it("are judged on their own life when the server says so: 25 days is half of 45 and a warning for 90", () => {
+    const view = certificatesOf([cert("long.example.com", 25, true, "renewal_pending"), cert("mid.example.com", 25, true, "healthy"), cert("late.example.com", 4, true, "critical")]);
+    expect(view.needing.map((row) => row.domain)).toEqual(["late.example.com", "long.example.com"]);
+    expect(view.well).toBe(1);
   });
 
   it("count how many of the fine ones renew by themselves", () => {

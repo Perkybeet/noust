@@ -133,8 +133,8 @@ export const alerts: Catalog<typeof en> = {
     },
     certificates: {
       title: "Certificados",
-      description: "Se anuncia un certificado al que le quedan menos días que el límite.",
-      warning: { label: "Días antes de que caduquen" },
+      description: "Se anuncia un certificado que ha pasado el punto en que se renueva (le queda un tercio de su propia vida) y al que le quedan menos días que el límite. Uno con la mayor parte de su vida por delante nunca se anuncia.",
+      warning: { label: "Anunciar cuando queden menos días que estos" },
     },
     backups: {
       title: "Copias de seguridad que faltan",
@@ -169,6 +169,10 @@ export const alerts: Catalog<typeof en> = {
       title: "Versiones de seguridad",
       description: "Se anuncia una versión de Noust que corrige una vulnerabilidad.",
       check: { label: "Mirar cada (horas)" },
+    },
+    domains: {
+      title: "Registro de los dominios",
+      description: "Una vez al día Noust le pregunta al registro de cada dominio que sirves cuándo caduca su registro (RDAP), y te avisa a los 30 días, a los 7 y cuando ya ha caducado. El nombre del dominio le llega a ese registro, un tercero, así que esto está apagado hasta que lo enciendas.",
     },
     recipes: {
       title: "Actualizaciones de recetas",

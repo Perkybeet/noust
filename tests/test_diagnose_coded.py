@@ -157,7 +157,8 @@ def test_a_crash_loop_says_the_exit_status_and_blames_the_kernel_when_it_was_oom
     assert plain.probable_cause_coded.params == {"status": "137"}
     assert killed.probable_cause_coded is not None
     assert killed.probable_cause_coded.code == "diagnose.cause.oom"
-    assert _said(killed, "oom")[0] == "diagnose.oom.found"
+    # With no cgroup v2 to read, the log is all there is and the check says it cannot tell whose.
+    assert _said(killed, "oom")[0] == "diagnose.oom.found_no_cgroup_v2"
 
 
 def test_a_unit_that_failed_says_its_result(

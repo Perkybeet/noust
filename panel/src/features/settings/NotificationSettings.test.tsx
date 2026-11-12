@@ -257,8 +257,9 @@ describe("Settings > Notifications", () => {
     // The alerts and jobs: only the heartbeat of a cron job that ended well ships off.
     expect(screen.getAllByText("7 of 8 sent")).toHaveLength(1);
     // This server: a disk cleanup that freed space ships off too; the security release, the
-    // container restart loop and the recipe updates ship on.
-    expect(screen.getAllByText("13 of 14 sent")).toHaveLength(1);
+    // container restart loop, the recipe updates, a certificate renewal that does not work, an
+    // application the kernel killed and the registration of a domain about to lapse ship on.
+    expect(screen.getAllByText("17 of 18 sent")).toHaveLength(1);
     expect(screen.getByRole("button", { name: /^Alerts and scheduled jobs/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Servers you manage/ })).toBeInTheDocument();
     // One save bar for the form, and nothing to save yet.
@@ -557,7 +558,7 @@ describe("Settings > Notifications", () => {
     });
     const events = written("notifications.events")?.body as { path: string; value: Record<string, boolean> };
     expect(events.value).toMatchObject({ backup_success: true, deploy_started: false, restore_failed: true });
-    expect(Object.keys(events.value)).toHaveLength(38);
+    expect(Object.keys(events.value)).toHaveLength(42);
     expect(written("notifications.language")?.body).toEqual({ path: "notifications.language", value: "es" });
   });
 
@@ -721,13 +722,13 @@ describe("Settings > Notifications", () => {
       expect(backend.callsTo("PUT /api/notifications/channels/slack")).toHaveLength(2);
     });
     const events = (backend.callsTo("PUT /api/notifications/channels/slack").at(-1)?.body as { events: Record<string, boolean> }).events;
-    expect(Object.keys(events)).toHaveLength(38);
+    expect(Object.keys(events)).toHaveLength(42);
     expect(events).toMatchObject({ deploy_failed: false, deploy_started: true, deploy_success: true });
     await user.click(within(drawer).getByRole("button", { name: "Done" }));
     await waitFor(() => {
       expect(screen.queryByRole("dialog", { name: "Routing for Slack" })).toBeNull();
     });
-    expect(await within(row("Slack")).findByText("Own switches for 38 events")).toBeInTheDocument();
+    expect(await within(row("Slack")).findByText("Own switches for 42 events")).toBeInTheDocument();
   });
 
   it("adds a channel by name and type, then asks for its destination in the drawer it opens", { timeout: 30_000 }, async () => {

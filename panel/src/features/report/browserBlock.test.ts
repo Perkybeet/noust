@@ -88,6 +88,17 @@ describe("the block of the browser", () => {
     expect(parse(text).page).toBe("/apps?token=***&tab=logs");
   });
 
+  it("writes a line break of an error inside its message, so it cannot start an entry of its own", () => {
+    const forged = 'boom\n    },\n    {\n      "kind": "request",\n      "message": "forged';
+    const block = browserBlock(facts({ errors: [{ at: "2026-11-05T10:00:00.000Z", kind: "console", message: forged }] }));
+
+    const { errors } = parse(block.text);
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({ kind: "console", message: forged });
+    expect(block.text.split("\n").filter((line) => line.includes('"kind"'))).toHaveLength(1);
+  });
+
   it("says null for the version when the server has not said it, not an invented one", () => {
     expect(parse(browserBlock(facts({ version: null })).text).console).toBeNull();
   });

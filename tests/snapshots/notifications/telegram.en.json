@@ -1696,6 +1696,101 @@
     "disable_notification": true,
     "parse_mode": "HTML"
   },
+  "cert.renewal_failed": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Certificate renewal failed</b> · certbot.timer\nThe last time certbot tried to renew the certificates it failed, so they will not renew by themselves until it works.\n\n<b>Server:</b> web-1\n<b>Certificates:</b> shop.example.com, blog.example.com\n<b>Last attempt:</b> Tue 2026-11-10 12:11:09 UTC\n<b>Renew with:</b> <code>noust cert renew</code>\n\n<i>What certbot reported</i>\n<pre>Failed to renew certificate shop.example.com with error: Some challenges have failed.\nDetail: 203.0.113.9: Fetching http://shop.example.com/.well-known/acme-challenge/x: Timeout during connect (likely firewall problem)</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/domains"
+          }
+        ]
+      ]
+    }
+  },
+  "cert.renewal_stopped": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Certificate renewal stopped</b> · certbot.timer\nThe timer that makes certbot renew the certificates is not running, so they will not renew by themselves.\n\n<b>Server:</b> web-1\n<b>Certificates:</b> shop.example.com\n<b>Next attempt:</b> Wed 2026-11-11 00:41:10 UTC\n<b>Start it again with:</b> <code>systemctl enable --now certbot.timer</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/domains"
+          }
+        ]
+      ]
+    }
+  },
+  "domain.expiring": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Domain registration expiring</b> · example.com\nThe registration of example.com expires in 20 days (30 Nov 2026).\n\n<b>Server:</b> web-1\n<b>Names it covers:</b> shop.example.com, www.shop.example.com\n<b>Registry:</b> rdap.verisign.com\n<b>See them all with:</b> <code>noust domain expiry</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/domains"
+          }
+        ]
+      ]
+    }
+  },
+  "domain.expired": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Domain registration expired</b> · example.com\nThe registration of example.com expired 3 days ago (7 Nov 2026).\n\n<b>Server:</b> web-1\n<b>Names it covers:</b> shop.example.com\n<b>Registry:</b> rdap.verisign.com\n<b>See them all with:</b> <code>noust domain expiry</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/domains"
+          }
+        ]
+      ]
+    }
+  },
+  "app.oom_killed": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Application killed for lack of memory</b> · shop.example.com\nThe kernel killed shop.example.com for running out of memory.\n\n<b>Server:</b> web-1\n<b>Killed:</b> 2 times\n<b>Memory limit:</b> 512.0 MB\n<b>Most it used:</b> 511.0 MB\n<b>Counting since:</b> Tue 2026-11-10 03:00:00 UTC\n<b>Diagnose with:</b> <code>noust diagnose shop.example.com</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+          }
+        ]
+      ]
+    }
+  },
   "hostile.deploy_failed": {
     "chat_id": "-1001234567890",
     "text": "✕ <b>Deploy failed</b> · shop.example.com\nIt stopped at an error before the new version could take over.\n\n<b>Server:</b> wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n<b>Release:</b> 20260929-104449\n<b>Commit:</b> a1b2c3d (&lt;b&gt;x&lt;/b&gt;&amp;amp;&lt;!channel&gt; @everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @here &lt;@U123&gt; &lt;#C1&gt; red emoji 🚀\n<b>Started by:</b> Webhook\n<b>Duration:</b> 1 min 12 s\n<b>Inspect with:</b> <code>noust diagnose shop.example.com</code>\n\n<i>What the system reported</i>\n<pre>Release did not pass &lt;its&gt; health &amp; check\n&lt;urlopen error [Errno 111] Connection refused&gt;\n```\n@everyone &lt;!channel&gt; &lt;@U123|admin&gt; &amp;lt;b&amp;gt;\nred *bold* _italic_ ~strike~ `code`\nnoitcnuf\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…</pre>",

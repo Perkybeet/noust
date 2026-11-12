@@ -38,13 +38,13 @@ from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from noust.core import cert_life
 from noust.core.deploy_failures import coded as deploy_failure
 from noust.core.exceptions import NoustError
 from noust.core.first_deploys import FirstDeploys
 from noust.core.server_text import ServerText
 from noust.core.timeutil import to_iso_offset
 from noust.monitor import sampler
-from noust.monitor.process_monitor import days_until_expiry
 
 log = logging.getLogger(__name__)
 
@@ -59,8 +59,9 @@ APP_STATIC = "static"
 APP_RESTARTING = "restarting"
 APP_UNMANAGED = "running_unmanaged"
 
-#: Days before expiry at which a certificate needs attention: the same window
-#: the console's attention list has always used.
+#: What ``warning_days`` of the certificates figure says. A certificate is no longer judged on a
+#: number of days (it is on its own life, :mod:`noust.core.cert_life`); the key stays because the
+#: API only grows and a console of 4.2 reads it.
 CERT_WARNING_DAYS = 21
 
 #: How far back "backups in the last 24 hours" looks.
@@ -333,21 +334,25 @@ def _deploys(store: Any, moment: datetime) -> dict[str, Any]:
 
 def _certificates(read: Callable[[], list[Any]] | None) -> dict[str, Any]:
     """
-    Count certificates that are expiring or expired.
+    Count certificates that are past their renewal point or expired.
 
     Args:
         read: Lists certificates; certbot's, by default.
 
     Returns:
-        The total, how many expire within :data:`CERT_WARNING_DAYS`, how many
-        already have, the days to the next expiry and the warning window.
+        The total, how many are past the point where they are renewed (a third of their life
+        left) without having expired, how many already have, the days to the next expiry and
+        :data:`CERT_WARNING_DAYS`, which no longer counts anything.
     """
     listed = _list_certificates(read)
-    days = [d for d in (_days(cert) for cert in listed) if d is not None]
+    lives = [cert_life.life_of(cert) for cert in listed]
+    days = [life.days_left for life in lives if life.days_left is not None]
     return {
         "total": len(listed),
-        "expiring": sum(0 <= d < CERT_WARNING_DAYS for d in days),
-        "expired": sum(d < 0 for d in days),
+        "expiring": sum(
+            life.state in (cert_life.RENEWAL_PENDING, cert_life.CRITICAL) for life in lives
+        ),
+        "expired": sum(life.state == cert_life.EXPIRED for life in lives),
         "next_days": min(days) if days else None,
         "warning_days": CERT_WARNING_DAYS,
     }
@@ -368,19 +373,6 @@ def _list_certificates(read: Callable[[], list[Any]] | None) -> list[Any]:
     from noust.managers.cert_manager import CertManager
 
     return list(CertManager(verbose=False).list_certificates())
-
-
-def _days(cert: Any) -> int | None:
-    """
-    Days a certificate has left.
-
-    Args:
-        cert: A certificate record.
-
-    Returns:
-        Whole days, negative once expired, or None when unknown.
-    """
-    return days_until_expiry(cert.expiry, datetime.now().date())
 
 
 def _parse_moment(text: str | None) -> datetime | None:
@@ -869,22 +861,23 @@ def _add_certificates(
         log.warning("The attention list could not read the certificates: %s", exc)
         return
     for cert in listed:
-        days = _days(cert)
-        if days is None or days >= CERT_WARNING_DAYS:
+        life = cert_life.life_of(cert)
+        days = life.days_left
+        if days is None or not life.needs_renewal:
             continue
         name, expiry = cert.name, cert.expiry
-        if days < 0:
+        if life.state == cert_life.EXPIRED:
             reason = _reason(
                 "certificate", "fail", "certificate_expired", actions=["renew_certificate"]
             )
         elif days == 0:
             reason = _reason(
-                "certificate", "warn", "certificate_expires_today", actions=["renew_certificate"]
+                "certificate", "fail", "certificate_expires_today", actions=["renew_certificate"]
             )
         else:
             reason = _reason(
                 "certificate",
-                "warn",
+                "fail" if life.state == cert_life.CRITICAL else "warn",
                 "certificate_expires_in",
                 params={"days": days},
                 actions=["renew_certificate"],

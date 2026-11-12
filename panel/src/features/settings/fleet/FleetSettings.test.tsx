@@ -110,7 +110,7 @@ describe("Settings > Fleet settings", () => {
     await waitFor(() => {
       expect(calls.callsTo("PUT /api/fleet/servers/web-2/settings-mode")).toHaveLength(1);
     });
-    expect(calls.callsTo("PUT /api/fleet/servers/web-2/settings-mode")[0]?.body).toEqual({ mode: "independent" });
+    expect(calls.callsTo("PUT /api/fleet/servers/web-2/settings-mode")[0]?.body).toEqual({ mode: "independent", adopt: false });
   });
 
   it("puts a value changed on a server back to the fleet's", { timeout: 30_000 }, async () => {

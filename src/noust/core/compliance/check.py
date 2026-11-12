@@ -334,6 +334,14 @@ def _measure_backup_verified(
     return STATUS_OK, f"Every application was verified within {required} days.", (), ""
 
 
+def _measure_restore_drilled(
+    facts: Any, required: Any
+) -> tuple[str, str, tuple[str, ...], str] | None:
+    from noust.core.ens import checks
+
+    return checks.restore_drill_findings(facts, required)
+
+
 def _measure_certificate(facts: Any, required: Any) -> tuple[str, str, tuple[str, ...], str] | None:
     exposure = facts.exposure
     if exposure is None:
@@ -411,6 +419,7 @@ MEASURES: dict[str, Measure] = {
     "stale_account_days": _measure_stale,
     "backup_max_age_hours": _measure_backup_age,
     "backup_verify_days": _measure_backup_verified,
+    "restore_drill_days": _measure_restore_drilled,
     "tls_certificate": _measure_certificate,
     "certificate_min_days": _measure_certificate_days,
     "explicit_allowlist": _measure_allowlist,
