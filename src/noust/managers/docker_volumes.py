@@ -29,6 +29,7 @@ __all__ = [
     "HELPER_IMAGE",
     "HELPER_LABEL_ARGS",
     "docker_archive_argv",
+    "docker_merge_argv",
     "docker_restore_argv",
 ]
 
@@ -109,4 +110,38 @@ def docker_restore_argv(volume: str, directory: Path, filename: str) -> list[str
         'find /data -mindepth 1 -delete && tar xzf "/backup/$1" -C /data',
         "sh",
         filename,
+    ]
+
+
+def docker_merge_argv(volume: str, directory: Path, filename: str) -> list[str]:
+    """
+    Build the command that unpacks an archive over a Docker volume, keeping what is already there.
+
+    This is what an application backup's restore does: the files of the archive are put back and the
+    rest of the volume is left as it is. A volume backup's restore empties it first
+    (:func:`docker_restore_argv`).
+
+    Args:
+        volume: The volume's name.
+        directory: The host directory holding the archive, mounted read-only.
+        filename: The archive's name there.
+
+    Returns:
+        The argv.
+    """
+    return [
+        "docker",
+        "run",
+        "--rm",
+        "-v",
+        f"{volume}:/data",
+        "-v",
+        f"{directory}:/backup:ro",
+        *HELPER_LABEL_ARGS,
+        HELPER_IMAGE,
+        "tar",
+        "xzf",
+        f"/backup/{filename}",
+        "-C",
+        "/data",
     ]

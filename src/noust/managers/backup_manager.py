@@ -106,7 +106,7 @@ from noust.core.sealing import SealError
 from noust.core.store import AppType, get_store
 from noust.core.utils import domain_to_app_name
 from noust.managers.app_identity import ensure_service_account
-from noust.managers.docker_volumes import HELPER_IMAGE, HELPER_LABEL_ARGS, docker_archive_argv
+from noust.managers.docker_volumes import docker_archive_argv, docker_merge_argv
 from noust.managers.retention import select_expired
 from noust.managers.service_manager import ServiceManager
 from noust.managers.source_manager import SourceError, extract_archive, git_tree_owner
@@ -3999,23 +3999,7 @@ class BackupManager:
             archive = self._resolve_payload_file(extracted, entry, f"volume '{volume}'")
 
             result = self._exec(
-                [
-                    "docker",
-                    "run",
-                    "--rm",
-                    "-v",
-                    f"{volume}:/data",
-                    "-v",
-                    f"{archive.parent}:/backup:ro",
-                    *HELPER_LABEL_ARGS,
-                    HELPER_IMAGE,
-                    "tar",
-                    "xzf",
-                    f"/backup/{archive.name}",
-                    "-C",
-                    "/data",
-                ],
-                timeout=_DOCKER_TIMEOUT,
+                docker_merge_argv(volume, archive.parent, archive.name), timeout=_DOCKER_TIMEOUT
             )
 
             if not result.success:

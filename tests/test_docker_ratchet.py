@@ -37,7 +37,7 @@ THE_GATE = "core/docker/"
 #: Modules that still write a ``["docker", ...]`` argument list. Taking one off means giving what it
 #: asks to the gate (``noust.core.docker.reading`` for a look, ``DockerGate`` for an action) or to the
 #: deployer's door to its stack (``DockerComposeDeployer._compose``). 27 before 4.3's gate; the
-#: storage manager, the installation check and the installer of Docker use it now.
+#: storage manager, the installation check, the installer of Docker and the application backup use it now.
 STILL_ASK_DOCKER = {
     "deployers/compose_adopt.py",  # list_stack_containers: its own tab format, three fakes of it
     "deployers/compose_reclaim.py",
@@ -45,7 +45,6 @@ STILL_ASK_DOCKER = {
     "deployers/docker_compose.py",
     "deployers/helpers/compose_retention.py",
     "deployers/helpers/container_image.py",
-    "managers/backup_manager.py",
     "managers/database/base.py",
     "managers/database/exposure.py",
     "managers/database/instances.py",
