@@ -26,6 +26,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal
 
+from noust.core.docker.engine import compose_answers
 from noust.core.exceptions import DependencyError
 from noust.core.logger import Logger
 from noust.core.package_family import PackageFamily, detect_family
@@ -398,8 +399,7 @@ class ServerProvisioner:
         Returns:
             Whether ``docker compose`` answers.
         """
-        result = self.runner.run(["docker", "compose", "version"], timeout=SYSTEMCTL_TIMEOUT)
-        return result.success
+        return compose_answers(self.runner, timeout=SYSTEMCTL_TIMEOUT)
 
     def _docker_ready(self) -> bool:
         """

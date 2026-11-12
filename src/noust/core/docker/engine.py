@@ -45,6 +45,8 @@ __all__ = [
     "EngineInfo",
     "EngineReport",
     "SocketInfo",
+    "compose_answers",
+    "daemon_answers",
     "diagnose",
     "read_engine",
     "version_tuple",
@@ -376,6 +378,34 @@ def read_engine(
         os=str(info_raw.get("OperatingSystem") or ""),
         error="" if reachable else _first_line(answer.stderr or answer.stdout),
     )
+
+
+def compose_answers(runner: CommandRunner, *, timeout: int = PROBE_TIMEOUT) -> bool:
+    """
+    Ask whether ``docker compose`` (the plugin, Compose v2) answers.
+
+    Args:
+        runner: Runs the question.
+        timeout: Seconds it has.
+
+    Returns:
+        True when it does.
+    """
+    return runner.run(["docker", "compose", "version"], timeout=timeout).success
+
+
+def daemon_answers(runner: CommandRunner, *, timeout: int = PROBE_TIMEOUT) -> bool:
+    """
+    Ask whether the Docker daemon answers.
+
+    Args:
+        runner: Runs the question.
+        timeout: Seconds it has.
+
+    Returns:
+        True when ``docker info`` does.
+    """
+    return runner.run(["docker", "info"], timeout=timeout).success
 
 
 def _host_of(runner: CommandRunner) -> tuple[str, str]:
