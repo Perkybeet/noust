@@ -2,7 +2,7 @@ import type { autoUpdate as en } from "../en/autoUpdate";
 import type { Catalog } from "../types";
 
 export const autoUpdate: Catalog<typeof en> = {
-  title: "Actualizaciones automáticas",
+  title: "Actualizaciones automáticas de Noust",
   description: "Deja que este servidor instale por sí mismo las nuevas versiones de Noust, solo dentro de las horas que elijas.",
   what: "la actualización automática",
   pill: { on: "Activadas", off: "Desactivadas", problem: "Activadas, sin instalar" },

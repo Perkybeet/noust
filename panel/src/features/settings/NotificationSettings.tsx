@@ -31,6 +31,8 @@ import type { T } from "../../i18n";
 import { reportActionError } from "../apps/useAppActions";
 import { useSaveBar } from "../app/settings/formParts";
 import { DeliveryLog } from "./DeliveryLog";
+import { FleetBlock } from "./fleet/FleetBlock";
+import { FleetStrip } from "./fleet/FollowLine";
 import { EmailChannel } from "./EmailChannel";
 import { HttpChannel } from "./HttpChannel";
 import { MoreChannels } from "./MoreChannels";
@@ -300,7 +302,7 @@ function Messages({ language, publicUrl }: { language: SettingsForm<{ language: 
           {publicUrl === ""
             ? t.rich("settings.notifications.messages.noLink", {
                 general: (
-                  <TextLink key="general" to="/settings">
+                  <TextLink key="general" to="/server/machine">
                     {t("settings.notifications.messages.generalLink")}
                   </TextLink>
                 ),
@@ -373,6 +375,7 @@ function NotificationsForm({ settings, publicUrl, smtp }: { settings: Settings; 
   const until = pausedUntil(settings.mutedUntil, new Date(now));
   return (
     <>
+      <FleetStrip />
       <DeliverySwitch settings={settings} paused={until !== null} />
       {until !== null ? <PausedLine until={until} now={now} settings={settings} /> : null}
       <SwitchedRegion on={settings.enabled && until === null} className="flex flex-col gap-8">
@@ -380,6 +383,8 @@ function NotificationsForm({ settings, publicUrl, smtp }: { settings: Settings; 
         <MoreChannels />
         <EventsCard form={events} language={language} privateHosts={privateHosts} publicUrl={publicUrl} />
       </SwitchedRegion>
+      {/* What the central carries to every server: the servers' own channels are theirs, and this switch is the central's. */}
+      <FleetBlock resource="channel" />
       <DeliveryLog />
       <SaveBar changes={bar.changes} saving={bar.saving} onSave={bar.onSave} onDiscard={bar.onDiscard} />
     </>

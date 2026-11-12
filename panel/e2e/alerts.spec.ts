@@ -96,7 +96,7 @@ test("the built-in checks are one form: only what changed is written, and the ba
   await signIn(page, consoleServer, "/alerts/checks");
   const disk = page.getByLabel("Almost full at (%)");
   await expect(disk).toHaveValue("90");
-  await expect(page.getByLabel("Days before they expire")).toHaveValue("14");
+  await expect(page.getByLabel("Announce when fewer days than these are left")).toHaveValue("14");
 
   await disk.fill("120");
   await page.getByRole("region", { name: "Unsaved changes" }).getByRole("button", { name: "Save" }).click();
@@ -110,7 +110,7 @@ test("the built-in checks are one form: only what changed is written, and the ba
   await expect(page.getByRole("region", { name: "Unsaved changes" }).getByText("No unsaved changes")).toBeVisible();
   await page.reload();
   await expect(page.getByLabel("Almost full at (%)")).toHaveValue("95");
-  await expect(page.getByLabel("Days before they expire")).toHaveValue("14");
+  await expect(page.getByLabel("Announce when fewer days than these are left")).toHaveValue("14");
   await settle(page);
   await expectNoA11yViolations(page, "the alerts page");
 });

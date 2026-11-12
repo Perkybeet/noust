@@ -92,10 +92,10 @@ describe("alerts on every server", () => {
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 
-  it("opens a rule on the server it lives on, where it is edited and taken", async () => {
+  it("opens a rule on Alerts of the central, which is not a page of any one server: the rules are the central's, each server follows them", async () => {
     await alertsAt(() => json(200, envelope("alerts", ITEMS)));
     const link = await screen.findByRole("link", { name: "disk-almost-full" });
-    expect(link).toHaveAttribute("href", "/n/web-2/alerts");
+    expect(link).toHaveAttribute("href", "/alerts");
   });
 
   it("narrows to what is firing, and to one server by asking the central for it", async () => {

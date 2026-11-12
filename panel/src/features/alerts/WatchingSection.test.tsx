@@ -109,20 +109,22 @@ describe("the opening of Alerts: what Noust watches", () => {
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 
-  it("says a server before 4.3 cannot say it, instead of failing", { timeout: 40_000 }, async () => {
-    const backend = fakeBackend({
-      ...signedInRoutes(),
-      "GET /api/nodes": () => json(200, { nodes: [{ name: "web-2", status: "reachable", version: "4.2.1" }], total: 1 }),
-      ...onNode("web-2", {
-        "GET /api/openapi.json": () => json(200, { paths: { "/api/alerts/rules": { get: {} } } }),
-        "GET /api/alerts/rules": () => json(200, { items: [], metrics: [], firing: 0 }),
-        "GET /api/config": () => json(200, { config: { notifications: { enabled: true } }, path: "/etc/noust/config.yaml", writable: true }),
+  it("is the central's own with a server chosen elsewhere, so a server is never asked what it watches (the selector there is a label)", { timeout: 40_000 }, async () => {
+    const backend = fakeBackend(
+      routes(WATCHING, {
+        "GET /api/nodes": () => json(200, { items: [{ name: "web-2", status: "reachable", version: "4.2.1" }] }),
+        ...onNode("web-2", {
+          "GET /api/openapi.json": () => json(200, { paths: { "/api/alerts/rules": { get: {} } } }),
+          "GET /api/alerts/rules": () => json(200, { items: [], metrics: [], firing: 0 }),
+        }),
       }),
-    });
+    );
     renderConsole("/n/web-2/alerts");
-    expect(await screen.findByText("This server runs a Noust that cannot say what it watches yet.")).toBeInTheDocument();
-    expect(backend.callsTo("GET /api/alerts/watching")).toHaveLength(0);
-    // The rules of that server are still its own page's.
+    // The address drops the server and the page reads the central's: its own watching, its own rules.
+    expect(await screen.findByRole("heading", { level: 2, name: "What Noust watches for you" })).toBeInTheDocument();
     expect(await screen.findByText("No alert rules yet")).toBeInTheDocument();
+    expect(backend.callsTo("GET /api/alerts/watching")).toHaveLength(1);
+    expect(backend.callsTo("GET /api/nodes/web-2/api/alerts/watching")).toHaveLength(0);
+    expect(screen.getByRole("group", { name: /the central\. Not chosen here$/ })).toBeInTheDocument();
   });
 });

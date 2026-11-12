@@ -1,5 +1,5 @@
 /**
- * Settings > Console access (checklist N-05): the console published on a name of its own over
+ * Server > Console (checklist N-05; it was Settings > Console access): the console published on a name of its own over
  * TLS, and taken down again. The checks come first and are said by name (an account that signs in
  * with a password alone stops it), what Noust will do is shown before it does it, publishing and
  * unpublishing are jobs followed in the page, and nothing is written until "Confirm it's you".
@@ -18,7 +18,7 @@ const NAME = "console.example.org";
 test("the console is published on a name of its own, with an allow-list, and made private again", async ({ page, consoleServer, problems }) => {
   // Publishing is behind sudo mode: the first answer is the 403 that asks for it.
   problems.expect(/status of 403 .*\/api\/console\/exposure$/);
-  await signIn(page, consoleServer, "/settings/console");
+  await signIn(page, consoleServer, "/server/console");
   await expect(page.getByRole("heading", { name: "Public name" })).toBeVisible();
   await expect(page.locator("[data-state]").getByText("Private", { exact: true })).toBeVisible();
   // What it checks first is on the page before anything is asked.
@@ -26,7 +26,7 @@ test("the console is published on a name of its own, with an allow-list, and mad
   await expect(page.getByText("The ENS profile")).toBeVisible();
   await expect(page.getByText("A name that points at this server")).toBeVisible();
   await settle(page);
-  await expectNoA11yViolations(page, "Settings, Console access, private");
+  await expectNoA11yViolations(page, "Server, Console, private");
 
   await page.getByRole("button", { name: "Publish the console…" }).click();
   const dialog = page.getByRole("dialog", { name: "Publish the console" });
@@ -68,7 +68,7 @@ test("the console is published on a name of its own, with an allow-list, and mad
   await expect(page.getByText("203.0.113.0/24", { exact: true })).toBeVisible();
   await expect(page.getByText("Written by Noust: it is removed when the console is unpublished").first()).toBeVisible();
   await settle(page);
-  await expectNoA11yViolations(page, "Settings, Console access, published");
+  await expectNoA11yViolations(page, "Server, Console, published");
 
   // Unpublishing removes exactly what publishing made, and says so before it does.
   await page.getByRole("button", { name: "Unpublish the console" }).click();
@@ -104,13 +104,13 @@ test("an account that signs in with a password alone is named, and the server's 
     expect(created.status(), await created.text()).toBe(201);
     await api.dispose();
 
-    await page.goto(`${server.url}/login?with=token&next=${encodeURIComponent("/settings/console")}`);
+    await page.goto(`${server.url}/login?with=token&next=${encodeURIComponent("/server/console")}`);
     await signIn(page, server);
     await expect(page.getByText("1 account signs in with a password alone")).toBeVisible();
     await expect(page.getByText("ana", { exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Open accounts" })).toBeVisible();
     await settle(page);
-    await expectNoA11yViolations(page, "Console access, an account without a second factor");
+    await expectNoA11yViolations(page, "Server, Console, an account without a second factor");
 
     await page.getByRole("button", { name: "Publish the console…" }).click();
     const dialog = page.getByRole("dialog", { name: "Publish the console" });

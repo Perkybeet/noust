@@ -22,6 +22,9 @@ import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { describeError } from "../../lib/errors";
+import { useCentral } from "../central/central";
+import { FleetBlock } from "../settings/fleet/FleetBlock";
+import { FleetStrip } from "../settings/fleet/FollowLine";
 import { backendLabel } from "./backendCatalog";
 import { BackupsListPage } from "./BackupsListPage";
 import { BrowseDestinationDialog } from "./BrowseDestinationDialog";
@@ -160,7 +163,7 @@ function DestinationActions({
  * `useBackupRefresh` covers the backups themselves; a destination's list refreshes only from
  * its own actions, since nothing else on the server changes it.
  */
-export function DestinationsPage() {
+function LocalDestinations() {
   const t = useT();
   const destinations = useQuery(backupDestinationsQuery());
   const { test, protect } = useDestinationActions();
@@ -315,6 +318,7 @@ export function DestinationsPage() {
         : {})}
       primaryAction={addButton("primary")}
     >
+      <FleetStrip />
       {/* The central's own place for copies, offered only on the central's own page of Backups. */}
       <CentralDestinationCard />
       {inClear.length > 0 ? (
@@ -331,6 +335,8 @@ export function DestinationsPage() {
         </Notice>
       ) : null}
       {content}
+      {/* The destinations the central carries to every server, with the servers that follow each one. */}
+      <FleetBlock resource="backup_destination" />
       {addOpen ? <DestinationDialog open onOpenChange={setAddOpen} /> : null}
       {/* Keyed by which destination opened it, so browsing a different row starts fresh
           instead of keeping the previous one's selected destination and app filter. */}
@@ -345,4 +351,21 @@ export function DestinationsPage() {
       ) : null}
     </BackupsListPage>
   );
+}
+
+/**
+ * The destinations: this server's own, and what the central carries to every server. A hub has no destinations of its own (it
+ * keeps no backups), so for it this is the one page of Backups that holds something: what it carries to the servers it manages.
+ */
+export function DestinationsPage() {
+  const { role } = useCentral();
+  if (role === "hub") {
+    return (
+      <BackupsListPage>
+        <FleetStrip />
+        <FleetBlock resource="backup_destination" />
+      </BackupsListPage>
+    );
+  }
+  return <LocalDestinations />;
 }

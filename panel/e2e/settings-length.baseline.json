@@ -5,17 +5,12 @@
   "tolerance": 24,
   "slack": 120,
   "routes": {
-    "settings-general": {
-      "path": "/settings/general",
-      "height": 1413,
-      "reason": "One form holds the server's identity, the console address, the folders, the limits, the web server and the deploy freeze; the console address has its own section, and what stays is measured again when it leaves."
-    },
+    "settings-general": { "path": "/settings/general", "height": 733 },
     "settings-registries": { "path": "/settings/registries", "height": 125 },
     "settings-deploy-keys": { "path": "/settings/deploy-keys", "height": 703 },
-    "settings-fleet": { "path": "/settings/fleet", "height": 495 },
     "settings-variables": { "path": "/settings/variables", "height": 330 },
     "settings-secret-managers": { "path": "/settings/secret-managers", "height": 308 },
-    "settings-console": { "path": "/settings/console", "height": 394 },
+    "settings-console": { "path": "/settings/console", "height": 268 },
     "settings-integrations": { "path": "/settings/integrations", "height": 983 },
     "settings-about": {
       "path": "/settings/about",
@@ -30,7 +25,6 @@
     "settings-log-shipping": { "path": "/settings/log-shipping", "height": 977 },
     "settings-tokens": { "path": "/settings/tokens", "height": 427 },
     "settings-api": { "path": "/settings/api", "height": 1163 },
-    "settings-manifest": { "path": "/settings/manifest", "height": 554 },
     "settings-mcp": {
       "path": "/settings/mcp",
       "height": 1953,

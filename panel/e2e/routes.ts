@@ -137,7 +137,8 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "settings-general", path: "/settings/general" },
   { name: "settings-registries", path: "/settings/registries" },
   { name: "settings-deploy-keys", path: "/settings/deploy-keys" },
-  { name: "settings-fleet", path: "/settings/fleet" },
+  { name: "server-folders", path: "/server/folders" },
+  { name: "server-console", path: "/server/console" },
   // 4.0: the person's own pages, and the controls that left Security (its old address redirects to the account).
   { name: "account", path: "/account" },
   { name: "account-security", path: "/account/security" },
@@ -161,7 +162,7 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "settings-access", path: "/settings/access" },
   { name: "settings-sso", path: "/settings/sso" },
   { name: "settings-mcp", path: "/settings/mcp" },
-  { name: "settings-manifest", path: "/settings/manifest" },
+  { name: "server-manifest", path: "/server/manifest" },
   { name: "settings-api", path: "/settings/api" },
   // The fleet, on a plain server with none added yet: fleet.spec.ts covers it with a node.
   { name: "fleet", path: "/fleet" },

@@ -5,7 +5,7 @@
  * shown as it wrote it.
  */
 export const consoleAccess = {
-  documentTitle: "Console address",
+  documentTitle: "Console",
   loadFailed: "Could not read whether the console is published",
   loading: "Loading whether the console is published",
   state: {
@@ -87,5 +87,16 @@ export const consoleAccess = {
     running: "Unpublishing the console",
     succeeded: "The console is private again",
     failed: "Unpublishing the console failed",
+  },
+  address: {
+    documentTitle: "Console address",
+    loading: "Loading the console address",
+    thisTitle: "This console",
+    thisDescription: "The address it is opened at, and where the links in its own notices lead.",
+    unset: "Not set: the links in its notices use the address the server reaches itself by.",
+    addressLabel: "Address",
+    publishTitle: "Publish it on a name of its own",
+    publishDescription: "A site, a certificate and an allow-list for a name of this machine's console. It belongs to each machine, so it is in Server.",
+    publishAction: "Open the console of the machine",
   },
 } as const;

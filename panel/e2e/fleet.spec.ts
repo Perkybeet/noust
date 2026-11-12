@@ -10,7 +10,7 @@
  *   shows where the central's never do;
  * - a deep link to a node's page survives a reload;
  * - the selector's two places: a server and All servers, the area kept on the way, and an instance page that leaves it where it was;
- * - a node's own settings stay on the node, and the central's say "All the fleet" without moving the selector;
+ * - Settings is the central's whatever server was chosen: the selector is a label, and the bar leads back to that server;
  * - the Fleet's views list this server and the node together, each row naming its server;
  * - a bulk action is planned, run as a job and followed server by server;
  * - the Add server dialog catches a console token pasted as a join code, and a code the
@@ -179,8 +179,8 @@ withFleet("the selector has two places, a server and All servers, keeps the area
   // An area with no fleet face leads back to the server the operator came from.
   await expect(main.getByRole("link", { name: "Databases" })).toHaveAttribute("href", `/n/${NODE_NAME}/databases`);
   await expect(page.getByRole("link", { name: /^Back to / })).toHaveCount(0);
-  // Settings still lead to the server the operator came from.
-  await expect(page.getByRole("link", { name: "Settings", exact: true })).toHaveAttribute("href", `/n/${NODE_NAME}/settings`);
+  // Settings are the central's, whatever server the operator came from.
+  await expect(page.getByRole("link", { name: "Settings", exact: true })).toHaveAttribute("href", "/settings");
   // The machine's areas are the list of servers from here: choosing one is choosing it in the selector.
   await main.getByRole("link", { name: "Network" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Network" })).toBeVisible();
@@ -218,24 +218,27 @@ withFleet("the fleet's pages fit a phone, in Spanish: the selector gives way to 
   }
 });
 
-withFleet("a node's own settings stay on the node; the central's say whose they are and how to manage the node's", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, `/n/${NODE_NAME}/settings/notifications`);
-  await expect(page).toHaveURL(new RegExp(`/n/${NODE_NAME}/settings/notifications$`));
-  await expect(page.getByRole("button", { name: `Server: ${NODE_NAME}` })).toBeVisible();
+withFleet("Settings is the central's, whatever server was chosen; what is each server's own keeps the node, and the bar leads back", async ({ page, consoleServer }) => {
+  await signIn(page, consoleServer, `/n/${NODE_NAME}/apps`);
+  // From a server's page, the door to Settings leads to the central's: the node is dropped, and the selector is a label that says why.
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Settings", exact: true }).click();
+  await page.getByRole("navigation", { name: "Settings sections" }).first().getByRole("link", { name: "Notification channels" }).click();
+  await expect(page).toHaveURL(/\/settings\/notifications$/);
+  await expect(page.getByRole("group", { name: /the central\. Not chosen here$/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Server:/ })).toHaveCount(0);
   const sections = page.getByRole("navigation", { name: "Settings sections" }).first();
-  await expect(sections.getByRole("link", { name: "General" })).toHaveAttribute("href", `/n/${NODE_NAME}/settings/general`);
+  await expect(sections.getByRole("link", { name: "General" })).toHaveAttribute("href", "/settings/general");
   await settle(page);
-  await expectNoA11yViolations(page, "a node's own settings");
+  await expectNoA11yViolations(page, "the central's settings, with a server chosen");
 
   await sections.getByRole("link", { name: /^API tokens/ }).click();
   await expect(page).toHaveURL(/\/settings\/tokens$/);
-  // The instance's page is no server's: the selector stays on the node, and the section says it is for the whole fleet.
-  await expect(page.getByRole("button", { name: `Server: ${NODE_NAME}` })).toBeVisible();
-  await expect(sections.getByRole("link", { name: /^API tokens/ }).getByText("All the fleet")).toBeVisible();
-  await expect(page.getByText(`Sign-in, two-factor and API tokens of ${NODE_NAME} are managed on ${NODE_NAME}`)).toBeVisible();
-  await expect(sections.getByRole("link", { name: "General" })).toHaveAttribute("href", `/n/${NODE_NAME}/settings/general`);
+  // The tokens of each server are managed on that server, and the page says so with the command.
+  await expect(page.getByText("Each server's tokens are managed on that server")).toBeVisible();
+  // The bar still leads to the server that was chosen.
+  await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Databases" })).toHaveAttribute("href", `/n/${NODE_NAME}/databases`);
   await settle(page);
-  await expectNoA11yViolations(page, "the central's settings, from a node");
+  await expectNoA11yViolations(page, "the central's API tokens, on a fleet");
 });
 
 withFleet("a bulk action is planned, run as a job of the central and followed server by server", async ({ page, consoleServer }) => {
@@ -312,52 +315,35 @@ withFleet("Add a server: a console token pasted as a join code is caught, and a 
 withFleet(
   "a destructive action on the node asks to confirm it's you, then succeeds there and only there",
   async ({ page, consoleServer, problems }) => {
-    // A backup destination: within the node's default ceiling (admin, without host access), where
-    // a raw unit is not - that one is root-equivalent, and the node refuses it to any central.
+    // A destination of logs: each server's own, which the central reads and cannot carry, so it is written on the node and
+    // only there. Writing it and removing it are root-equivalent: each asks for sudo mode first.
     const name = `e2e-fleet-${String(Date.now())}`;
-    problems.expect(new RegExp(`status of 403 .*\\/api\\/nodes\\/${NODE_NAME}\\/api\\/backup-destinations$`));
-    const rows = () => page.getByRole("region", { name: "Backup destinations" }).getByRole("row").filter({ has: page.getByRole("cell", { name, exact: true }) });
+    problems.expect(new RegExp(`status of 403 .*\\/api\\/nodes\\/${NODE_NAME}\\/api\\/log-drains\\/${name}$`));
 
-    await signIn(page, consoleServer, `/n/${NODE_NAME}/backups/destinations`);
-    await page.getByRole("button", { name: "Add destination" }).click();
-    const create = page.getByRole("dialog", { name: "Add backup destination" });
-    await create.getByLabel("Name", { exact: true }).fill(name);
-    await create.getByRole("combobox", { name: "Backend" }).click();
-    await page.getByRole("option", { name: /^SFTP server/ }).click();
-    // A host the node's model of rclone reaches (".invalid" is one no resolver answers): the node
-    // tries the connection before it keeps a destination, and this test is about who is asked.
-    await create.getByLabel("Host", { exact: true }).fill("backup.fleet.example");
-    await create.getByLabel("User", { exact: true }).fill("noust");
-    await create.getByLabel("Remote folder").fill("/volume1/backups");
-    await create.getByRole("button", { name: "Add destination" }).click();
+    await signIn(page, consoleServer, `/n/${NODE_NAME}/settings/log-shipping`);
+    await page.getByRole("button", { name: "Add a destination" }).click();
+    const create = page.getByRole("dialog", { name: "Add a destination" });
+    await create.getByRole("textbox", { name: "Name" }).fill(name);
+    await create.getByRole("textbox", { name: "Address" }).fill("https://logs.example.com");
+    await create.getByLabel(/Token or password/).fill("glc_e2e_secret_token");
+    const saved = page.waitForResponse((response) => response.url().endsWith(`/api/nodes/${NODE_NAME}/api/log-drains/${name}`) && response.request().method() === "PUT" && response.status() !== 403);
+    await create.getByRole("button", { name: "Save destination" }).click();
     await confirmItsYou(page, consoleServer);
-    await expect(create).toBeHidden();
-    await expect(page.getByTestId("announcer-polite")).toHaveText(`Backup destination created: ${name}`);
-    // A destination is encrypted unless the box is unticked: its key is shown once, and the dialog
-    // closes only after the operator says it is somewhere safe.
-    const key = page.getByRole("dialog", { name: `Encryption key for ${name}` });
-    await key.getByRole("checkbox", { name: "I have saved this key somewhere safe" }).check();
-    await key.getByRole("button", { name: "Done" }).click();
-    await expect(key).toBeHidden();
-    await expect(rows()).toHaveCount(1);
+    expect((await saved).status()).toBe(200);
+    const list = page.getByRole("list", { name: "Destinations of logs" });
+    await expect(list.getByText(name, { exact: true })).toBeVisible();
 
-    // It landed on the node's own configuration, not the central's: the central's own
-    // destinations never saw it, which only the proxy actually reaching the node could produce.
-    await page.goto("/backups/destinations");
-    await expect(page.getByRole("region", { name: "Backup destinations" })).toBeVisible();
-    await expect(rows()).toHaveCount(0);
+    // It landed on the node's own configuration, not the central's: the central's own destinations never saw it, which only
+    // the proxy actually reaching the node could produce.
+    await page.goto("/settings/log-shipping");
+    await expect(page.getByRole("heading", { level: 2, name: "The other servers" })).toBeVisible();
+    await expect(page.getByRole("list", { name: "Destinations of logs" }).getByText(name, { exact: true })).toHaveCount(0);
 
-    await page.goto(`/n/${NODE_NAME}/backups/destinations`);
+    await page.goto(`/n/${NODE_NAME}/settings/log-shipping`);
     await page.getByRole("button", { name: `Actions for ${name}`, exact: true }).click();
     await page.getByRole("menuitem", { name: "Remove" }).click();
-    // The key of an encrypted destination is shown once more before the only copy goes.
-    const saveKey = page.getByRole("dialog", { name: `Save the key before removing ${name}` });
-    await saveKey.getByRole("checkbox", { name: "I have saved this key somewhere safe" }).check();
-    await saveKey.getByRole("button", { name: "Continue to remove" }).click();
-    const remove = page.getByRole("alertdialog", { name: `Remove ${name}` });
-    await remove.getByRole("button", { name: "Remove destination" }).click();
-    await expect(remove).toBeHidden();
-    await expect(rows()).toHaveCount(0);
+    await page.getByRole("alertdialog", { name: `Stop shipping logs to ${name}?` }).getByRole("button", { name: "Remove" }).click();
+    await expect(page.getByRole("list", { name: "Destinations of logs" }).getByText(name, { exact: true })).toHaveCount(0);
   },
 );
 

@@ -5,6 +5,7 @@ import { setLocale } from "../../../app/locale";
 import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../../test/fakes";
+import { serverRoutes } from "../../server/testing";
 import type { RouteHandler } from "../../../test/fakes";
 import { screenWidth } from "../../app/testRoutes";
 
@@ -44,16 +45,17 @@ async function pageAt(extra: Record<string, RouteHandler> = {}) {
   screenWidth(1440);
   const backend = fakeBackend({
     ...signedInRoutes(),
+    ...serverRoutes(),
     "POST /api/manifest/plan": () => json(200, PLAN),
     "GET /api/jobs/active": () => json(200, { jobs: [], total: 0 }),
     ...extra,
   });
-  const harness = renderConsole("/settings/manifest");
-  await screen.findByRole("heading", { level: 1, name: "Manifest" });
+  const harness = renderConsole("/server/manifest");
+  await screen.findByRole("heading", { level: 2, name: "Preview a manifest" });
   return { ...harness, backend };
 }
 
-describe("Settings > Manifest", () => {
+describe("Server > Manifest", () => {
   it("previews what applying a manifest would change, in order, and what it leaves alone, and passes axe", { timeout: 30_000 }, async () => {
     const { backend, user } = await pageAt();
     const button = await screen.findByRole("button", { name: "Preview changes" });
@@ -164,9 +166,9 @@ describe("Settings > Manifest", () => {
     expect(screen.getByText("Did you mean applications[0].limits.memory_mb?")).toBeInTheDocument();
   });
 
-  it("is in the settings navigation, as the server's own section", async () => {
+  it("is a section of the machine, in the column of Server", async () => {
     await pageAt();
-    const nav = await screen.findByRole("navigation", { name: "Settings sections" });
+    const nav = await screen.findByRole("navigation", { name: "Server sections" });
     expect(within(nav).getByRole("link", { name: "Manifest" })).toHaveAttribute("aria-current", "page");
   });
 

@@ -6,8 +6,7 @@ import type { Dest, NavContext } from "../../app/navCore";
 import type { SettingsNavItem } from "../../components/page/SettingsLayout";
 import { useT } from "../../i18n";
 import type { PlainKey } from "../../i18n";
-import { useHasFleet, useReturnServer, useServerList } from "../../nodes/servers";
-import { useConsoleContext, useSelection } from "../../nodes/useNode";
+import { useHasFleet } from "../../nodes/servers";
 import { useCentral } from "../central/central";
 import { iconOf } from "../nav/icons";
 import { RENAMED, SETTINGS_SCREENS, groupSettings } from "../nav/settings";
@@ -19,56 +18,34 @@ export const GROUP_TITLES: Readonly<Record<string, PlainKey>> = {
   connections: "nav.settingsGroups.titles.connections",
   security: "nav.settingsGroups.titles.security",
   api: "nav.settingsGroups.titles.api",
-  fleet: "nav.settingsGroups.titles.fleet",
   noust: "nav.settingsGroups.titles.noust",
 };
 
-/** An item of the list, with the register's id of the section and whether it is the central's whichever server is selected. */
+/** An item of the list, with the register's id of the section. */
 export interface SettingsSection extends SettingsNavItem {
   id: string;
-  central: boolean;
-  /** The section is every server's at once: the central's, and not this server's own (what is shown before sign-in is the central's and no fleet's). */
-  fleetWide: boolean;
+  /** What is each server's own: on the central a table of servers, and with a server a page of that server. */
+  table: boolean;
 }
 
 /** What the sections of Settings are about, for the page that frames them and for the second column. */
 export interface SettingsView {
   items: SettingsSection[];
-  /** The page is the central's own, not a server's. */
-  onCentral: boolean;
   hasFleet: boolean;
-  /** The server the server's sections are about: the one on screen, or the one to go back to. */
-  serverNode: string | null;
-  serverName: string;
-  centralName: string;
-  /** How many servers a section of the whole fleet holds for: every server the central manages, and the central itself unless it is a hub. */
-  serverCount: number;
 }
 
 /**
- * The sections of Settings as one list, in the groups a person looks for a setting by (people and
- * access, notifications, connections, security, API, the fleet, Noust) and drawn from the register.
- * One list for the page that frames them (SettingsShell), for the hub that opens them
- * (SettingsHome) and for the second column of the double bar, so the three can never name different
- * sections. Whose a section is (the selected server's, or the central's whichever server is
- * selected) is decided by where it leads, not by a heading over it: from the central's sections the
- * server's lead back to the server the operator came from.
+ * The sections of Settings as one list, in the groups a person looks for a setting by (people and access, notices,
+ * connections, security, API, Noust) and drawn from the register. One list for the page that frames them
+ * (SettingsShell), for the hub that opens them (SettingsHome) and for the second column of the double bar, so the three
+ * can never name different sections. The sections are the central's and the server chosen in the selector does not count
+ * in them (item 166); the ones that are each server's own open the table of servers, so their link carries no server.
  */
 export function useSettingsItems(): SettingsView {
   const t = useT();
-  const context = useConsoleContext();
   const hasFleet = useHasFleet();
   const central = useCentral();
-  const back = useReturnServer();
-  const { hostname, nodes } = useServerList();
   const { data: session } = useQuery(sessionQuery());
-
-  const selection = useSelection(central.role === "hub");
-  // A page of the instance is no server's: the server the sections that are a server's lead to is the one the selector is on.
-  const onCentral = context.kind === "central";
-  const serverNode = context.kind === "server" ? context.node : selection.kind === "server" ? selection.node : (back?.node ?? null);
-  const serverName = serverNode ?? hostname ?? t("fleet.selector.thisServer");
-  const centralName = hostname ?? t("fleet.selector.central");
   const permissions = session?.permissions;
   const sealed = central.sealed;
 
@@ -81,18 +58,17 @@ export function useSettingsItems(): SettingsView {
         label: t(entry.label),
         icon: iconOf(entry),
         keywords: names.join(" ").trim(),
-        // From the central's sections, the server's lead back to the server the operator was on.
-        ...(entry.central !== true && onCentral ? { search: { node: serverNode ?? undefined } } : {}),
+        // A table of servers is the section as the central has it: a link that carried a server would open that server's own page.
+        ...(entry.table === true ? { search: { node: undefined } } : {}),
         group: t(GROUP_TITLES[group] ?? "nav.settingsGroups.titles.noust"),
         groupKey: group,
         id: entry.id,
-        central: entry.central === true,
-        fleetWide: entry.central === true && entry.own !== true,
+        table: entry.table === true,
         ...(entry.hint !== undefined ? { hint: t(entry.hint) } : {}),
       };
     };
     return groupSettings(SETTINGS_SCREENS, ctx).flatMap((group) => group.sections.map((entry) => item(entry, group.id)));
-  }, [t, hasFleet, sealed, permissions, onCentral, serverNode]);
+  }, [t, hasFleet, sealed, permissions]);
 
-  return { items, onCentral, hasFleet, serverNode, serverName, centralName, serverCount: nodes.length + (central.role === "hub" ? 0 : 1) };
+  return { items, hasFleet };
 }

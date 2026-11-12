@@ -73,6 +73,9 @@ test("the old names of the sections still open them", async ({ page, consoleServ
   await expect(page.getByRole("navigation", { name: "Settings sections" }).getByRole("link", { name: "Notification channels" })).toHaveAttribute("aria-current", "page");
   await page.goto("/settings/console");
   await expect(page.getByRole("navigation", { name: "Settings sections" }).getByRole("link", { name: "Console address" })).toHaveAttribute("aria-current", "page");
+  // The old addresses of what moved to the machine, and what Fleet settings held, open where they are now.
+  await page.goto("/settings/manifest");
+  await expect(page).toHaveURL(/\/server\/manifest$/);
 });
 
 test("on a phone the hub is the index page, with its groups, and a section has its way back", async ({ page, consoleServer }) => {

@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { SecretManagers } from "../../../features/variables/SecretManagers";
+import { SecretManagersByServer } from "../../../features/settings/ownTables/OwnSections";
 
 export const Route = createFileRoute("/_console/settings/secret-managers")({
-  component: SecretManagers,
+  component: SecretManagersByServer,
 });

@@ -1,3 +1,4 @@
+import { ServersOwnNote } from "./ServersOwnNote";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { KeyRound } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -204,6 +205,8 @@ export function TokensSettings() {
           <CommandHint command={`curl -H "Authorization: Bearer noust_tok_..." ${window.location.origin}/api/apps`} label={t("settings.tokens.usingFrom")} reason="otro-servidor" />
         </Section>
       ) : null}
+
+      <ServersOwnNote about="tokens" />
 
       <CreateTokenDialog
         open={creating}

@@ -17,7 +17,7 @@ export const overview = {
     diagnose: "Diagnose",
     diagnoseAria: "Diagnose {domain}",
     viewFailure: "See the failure",
-    viewFailureAria: "See why the first deploy of {domain} failed",
+    viewFailureAria: "See the failure of the first deploy of {domain}",
     certificate: "Certificate",
     certificateAria: "Certificate of {domain}",
     openService: "Open service",

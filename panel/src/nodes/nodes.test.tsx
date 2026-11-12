@@ -53,8 +53,8 @@ describe("a page on a node", () => {
     const nav = screen.getByRole("navigation", { name: "Main" });
     expect(within(nav).getByRole("link", { name: "Databases" })).toHaveAttribute("href", "/n/web-2/databases");
     expect(within(nav).getByRole("link", { name: "Home" })).toHaveAttribute("href", "/n/web-2");
-    // A node's own settings are the node's; the central's sections never carry it (see below).
-    expect(screen.getAllByRole("link", { name: "Settings" })[0]).toHaveAttribute("href", "/n/web-2/settings");
+    // Settings is the central's: its door never carries the node (see below).
+    expect(screen.getAllByRole("link", { name: "Settings" })[0]).toHaveAttribute("href", "/settings");
 
     fireEvent.click(within(nav).getByRole("link", { name: /^Server\b/ }));
     // A server's page is titled by the server: on a node, the node.
@@ -353,10 +353,10 @@ describe("the two contexts", () => {
       "/fleet/backups",
       "/fleet/security",
       "/fleet/servers",
-      "/n/web-2/settings",
+      "/settings",
     ]);
-    // Settings still lead to the server the operator came from.
-    expect(screen.getAllByRole("link", { name: "Settings" })[0]).toHaveAttribute("href", "/n/web-2/settings");
+    // Settings are the central's, whichever server the operator came from.
+    expect(screen.getAllByRole("link", { name: "Settings" })[0]).toHaveAttribute("href", "/settings");
 
     // Choosing a server from the fleet's pages opens the area the page is the face of, on that server.
     await user.click(await trigger("Server: all servers"));
@@ -366,59 +366,62 @@ describe("the two contexts", () => {
     });
   });
 
-  it("keeps a node's own settings on the node, and says whose the central's are, without moving the selector", async () => {
-    const { user, history } = await consoleAt("/n/web-2/settings/notifications");
+  it("makes Settings the central's: the node is dropped, the selector is a label with its reason, and the bar leads back to the server chosen", async () => {
+    const { user, location } = await consoleAt("/n/web-2/settings/notifications");
     const nav = await screen.findByRole("navigation", { name: "Settings sections" });
-    expect(within(nav).getByRole("link", { name: "General" })).toHaveAttribute("href", "/n/web-2/settings/general");
-    expect(within(nav).getByRole("link", { name: "Notification channels" })).toHaveAttribute("href", "/n/web-2/settings/notifications");
-    // The central's sections never carry the node, and sit under the same groups, by what they are for (no server's name above them).
+    // The node is dropped from the address: what is written here is the central's.
+    expect(location().pathname).toBe("/settings/notifications");
+    expect(location().search).not.toHaveProperty("node");
+    expect(within(nav).getByRole("link", { name: "General" })).toHaveAttribute("href", "/settings/general");
     expect(within(nav).getByRole("link", { name: /^API tokens/ })).toHaveAttribute("href", "/settings/tokens");
+    // The sections that are each server's own open their table of servers, never one server's page.
+    expect(within(nav).getByRole("link", { name: /^Integrations/ })).toHaveAttribute("href", "/settings/integrations");
     expect(within(nav).getByText("Notices")).toBeInTheDocument();
     expect(within(nav).getByText("API")).toBeInTheDocument();
-    expect(within(nav).queryByText(/web-01 ·|web-2 ·/)).not.toBeInTheDocument();
-    // Those that are of the whole instance say so beside their name, and the ones that are a server's do not.
-    expect(within(within(nav).getByRole("link", { name: /^API tokens/ })).getByText("All the fleet")).toBeInTheDocument();
-    expect(within(within(nav).getByRole("link", { name: "Notification channels" })).queryByText("All the fleet")).toBeNull();
-    expect(await trigger("Server: web-2")).toBeInTheDocument();
+    // Nothing says whose a section is, and the selector is a label that names the central and says why nothing is chosen.
+    expect(screen.queryByText("All the fleet")).toBeNull();
+    expect(screen.getByRole("group", { name: "Server: web-01, the central. Not chosen here" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Server:/ })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Why it is not chosen here" }));
+    expect(await screen.findByText("What is here belongs to the central")).toBeInTheDocument();
+    await user.keyboard("{Escape}");
 
     await user.click(within(nav).getByRole("link", { name: /^API tokens/ }));
     await waitFor(() => {
-      expect(history.location.pathname).toBe("/settings/tokens");
+      expect(location().pathname).toBe("/settings/tokens");
     });
-    // The instance's page is no server's: the selector is where it was, on web-2, and the page says it is for the whole fleet.
-    expectLabelInName(await trigger("Server: web-2"));
-    expect(screen.queryByRole("button", { name: /^Server: this central/ })).toBeNull();
-    expect(screen.getAllByText("All the fleet").length).toBeGreaterThan(1);
-    // web-2's own sign-in and tokens are managed on web-2, and the page says so and why.
-    expect(await screen.findByText("Sign-in, two-factor and API tokens of web-2 are managed on web-2")).toBeInTheDocument();
-    // The server's sections still lead back to web-2, and so does the bar.
-    expect(within(screen.getByRole("navigation", { name: "Settings sections" })).getByRole("link", { name: "General" })).toHaveAttribute(
-      "href",
-      "/n/web-2/settings/general",
-    );
+    // The tokens of each server are managed on that server, and the page says so.
+    expect(await screen.findByText("Each server's tokens are managed on that server")).toBeInTheDocument();
+    // The bar still leads to the server that was chosen.
     expect(within(screen.getAllByRole("navigation", { name: "Main" })[0] ?? nav).getByRole("link", { name: "Databases" })).toHaveAttribute("href", "/n/web-2/databases");
   });
 
-  it("moves only the selector when a server is chosen on a page of the instance, and the bar follows it", async () => {
-    const { user, history } = await consoleAt("/n/web-2/settings/notifications");
-    await user.click(within(await screen.findByRole("navigation", { name: "Settings sections" })).getByRole("link", { name: /^API tokens/ }));
+  it("draws the selector as a label on the table of servers, where no server is chosen, and as a control on a server's own page of it", async () => {
+    await consoleAt("/settings/log-shipping");
+    expect(await screen.findByRole("group", { name: "Server: web-01, the central. Not chosen here" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Server:/ })).toBeNull();
+  });
+
+  it("opens a server's own page of what is each server's own, with the way back to the table", async () => {
+    const { location } = await consoleAt("/n/web-2/settings/log-shipping");
+    // The page keeps the node, and the selector counts there.
+    expect(location().pathname).toBe("/settings/log-shipping");
+    expect(location().search).toMatchObject({ node: "web-2" });
+    expect(await trigger("Server: web-2")).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Back to all servers" })).toHaveAttribute("href", "/settings/log-shipping");
+  });
+
+  it("leaves the server the person had chosen where it was while they are on a page of the central, and the bar follows it", async () => {
+    const { user, location } = await consoleAt("/n/web-2/apps");
+    const door = screen.getAllByRole("link", { name: "Settings" })[0];
+    if (door === undefined) throw new Error("no door to Settings");
+    await user.click(door);
     await waitFor(() => {
-      expect(history.location.pathname).toBe("/settings/tokens");
+      expect(location().pathname).toBe("/settings");
     });
-    await user.click(await trigger("Server: web-2"));
-    await user.click(await screen.findByRole("menuitemradio", { name: /^All servers/ }));
-    // No page was opened: the page is the instance's, and the selector is on the whole fleet now.
-    expect(await trigger("Server: all servers")).toBeInTheDocument();
-    expect(history.location.pathname).toBe("/settings/tokens");
     const nav = screen.getAllByRole("navigation", { name: "Main" })[0];
     if (nav === undefined) throw new Error("no main navigation");
-    expect(within(nav).getByRole("link", { name: "Applications" })).toHaveAttribute("href", "/fleet/apps");
-
-    await user.click(await trigger("Server: all servers"));
-    await user.click(await screen.findByRole("menuitemradio", { name: /^db-1/ }));
-    expect(await trigger(/^Server: db-1/)).toBeInTheDocument();
-    expect(history.location.pathname).toBe("/settings/tokens");
-    expect(within(screen.getAllByRole("navigation", { name: "Main" })[0] ?? nav).getByRole("link", { name: "Applications" })).toHaveAttribute("href", "/n/db-1/apps");
+    expect(within(nav).getByRole("link", { name: "Applications" })).toHaveAttribute("href", "/n/web-2/apps");
   });
 
   it("marks the central where it is selected, in the selector and in what the selector says of it", async () => {

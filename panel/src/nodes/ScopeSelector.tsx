@@ -6,14 +6,15 @@ import type { ReactNode } from "react";
 
 import { sessionQuery } from "../api/queries/auth";
 import { announce } from "../app/Announcer";
+import { isTablePath } from "../app/nodeRoute";
 import { Badge } from "../components/ui/Badge";
+import { HelpPopover } from "../components/ui/HelpPopover";
 import { Mono } from "../components/ui/Mono";
 import { StatusGlyph, stateTextClass } from "../components/ui/StatusPill";
 import { POPUP_MOTION } from "../components/ui/Tooltip";
 import { useCentral } from "../features/central/central";
 import { useT } from "../i18n";
 import { cx } from "../lib/cx";
-import { rememberAll } from "./lastServer";
 import { NODE_STATE, nodeStatus, useHasFleet, useServerList } from "./servers";
 import type { NodeRecord } from "./servers";
 import { allServersTarget, useConsoleContext, useSelection, useSwitchNode } from "./useNode";
@@ -65,6 +66,30 @@ function NodeItem({ node }: { node: NodeRecord }) {
   );
 }
 
+/**
+ * In place of the selector on the central's pages: the central's name, marked as what it is, and a "?" that says why
+ * nothing is chosen. It is not a control and has no chevron: a server chosen elsewhere does not count here, and a disabled
+ * selector would only ask what it is waiting for.
+ */
+function CentralLabel({ name, hub, placement, className }: { name: string; hub: boolean; placement: ScopePlacement; className?: string }) {
+  const t = useT();
+  const Icon = OBJECT_ICONS.central;
+  return (
+    <span data-context="central" data-placement={placement} className={cx("flex min-w-0 shrink-0 items-center gap-1", className)}>
+      <span className="flex h-control-md min-w-0 items-center gap-2 text-13 font-medium text-fg" role="group" aria-label={t("fleet.selector.labelCentral", { name })}>
+        <Icon aria-hidden="true" className="size-icon-sm shrink-0 text-fg-faint" />
+        <Mono truncate className="min-w-0 font-medium">
+          {name}
+        </Mono>
+        <Badge className="max-sm:hidden">{hub ? t("fleet.selector.hub") : t("fleet.selector.centralMark")}</Badge>
+      </span>
+      <HelpPopover label={t("fleet.selector.whyLabel")} title={t("fleet.selector.whyTitle")} side="bottom">
+        <p className="text-13 text-fg-muted">{t("fleet.selector.whyBody")}</p>
+      </HelpPopover>
+    </span>
+  );
+}
+
 /** Where the selector is drawn: the head of the sidebar (from `lg`), or the top bar (below it). */
 export type ScopePlacement = "sidebar" | "topbar";
 
@@ -95,6 +120,10 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
   if (!hasFleet && node === null) return null;
 
   const hostname = servers.hostname ?? t("fleet.selector.thisServer");
+  // The central's pages (Settings and the two pages of other areas that keep what the central carries to every server) are
+  // not a server's: the selector is a label that says whose they are, with its reason, and is no control there (item 166).
+  const onTable = context.kind === "server" && context.node === null && isTablePath(pathname);
+  if (context.kind === "central" || onTable) return <CentralLabel name={hostname} hub={role === "hub"} placement={placement} {...(className !== undefined ? { className } : {})} />;
   const current = node === null ? undefined : servers.nodes.find((candidate) => candidate.name === node);
   const currentView = current === undefined ? null : NODE_STATE[nodeStatus(current)];
   // A node that does not answer says so on the trigger itself, in its word and shape; a
@@ -120,12 +149,6 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
   const choose = (chosen: unknown): void => {
     if (typeof chosen !== "string" || chosen === value) return;
     if (chosen === ALL_SERVERS) {
-      // A page of the instance has no place of its own: only the selector moves. Anywhere else the fleet's face of the area opens.
-      if (context.kind === "central") {
-        rememberAll();
-        announce(t("fleet.selector.switchedAll"));
-        return;
-      }
       void navigate({ to: allServersTarget(pathname), search: { node: undefined } }).then(() => {
         announce(t("fleet.selector.switchedAll"));
       });

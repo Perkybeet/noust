@@ -45,7 +45,7 @@ describe("Settings, the hub", () => {
     // A door says where it goes and what is inside, so it is found by its purpose and not by its name.
     const channels = screen.getByRole("link", { name: /^Notification channels Where messages go, and how to silence them for a while/ });
     expect(channels).toHaveAttribute("href", "/settings/notifications");
-    expect(screen.getByRole("link", { name: /^General Name, folders, web server and builds/ })).toHaveAttribute("href", "/settings/general");
+    expect(screen.getByRole("link", { name: /^General What Noust decides by default/ })).toHaveAttribute("href", "/settings/general");
     await expectNoAxeViolations(container);
   });
 
@@ -76,11 +76,14 @@ describe("Settings, the hub", () => {
     expect(screen.getByRole("link", { name: /^Notification channels / })).toBeInTheDocument();
   });
 
-  it("is the same on a fleet, with the fleet's settings as a door", { timeout: 30_000 }, async () => {
+  it("is the same on a fleet, with the central's own page as a door and no page of fleet settings", { timeout: 30_000 }, async () => {
     hub({ "GET /api/nodes": () => json(200, { items: NODES }) });
     renderConsole("/settings");
-    const door = await screen.findByRole("link", { name: /^Fleet settings What every server shares/ });
-    expect(door).toHaveAttribute("href", "/settings/fleet");
+    const door = await screen.findByRole("link", { name: /^Central and sealing / });
+    expect(door).toHaveAttribute("href", "/settings/central");
+    expect(screen.queryByRole("link", { name: /^Fleet settings / })).toBeNull();
+    // What the central carries is in the section it belongs to, and its door says so.
+    expect(screen.getByRole("link", { name: /^Notification channels / })).toHaveAttribute("href", "/settings/notifications");
   });
 
   it("speaks Spanish, with the group titles of the information architecture", { timeout: 30_000 }, async () => {

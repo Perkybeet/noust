@@ -56,10 +56,6 @@ export const nav = {
     switchServer: "Switch server",
     sections: "Sections",
     sectionsOf: "Sections of {area}",
-    /** After the name of a section of Settings that is of every server, not of the one chosen. */
-    fleetWide: "All the fleet",
-    /** Under the title of a section that holds for every server: what it holds for, and that the selector does not change it. */
-    fleetWideLine: { one: "Holds for the server it manages; it does not depend on the server chosen above", other: "Holds for the {count} servers; it does not depend on the server chosen above" },
   },
   /** The main bar's own controls. */
   rail: {
@@ -87,17 +83,17 @@ export const nav = {
    * groups, and what the page says about whose the sections are on a fleet.
    */
   settingsGroups: {
-    nodeNoteTitle: "Sign-in, two-factor and API tokens of {node} are managed on {node}",
-    nodeNote:
-      "{node} refuses this central on them on purpose: a central that was taken over could otherwise lock you out of every server. Sign in to the console of {node}, or run these on {node}:",
-    nodeNoteCommands: "On {node}",
+    /** On the pages of accounts and tokens, which are the central's: the servers' own are managed on each server. */
+    ownAccountsTitle: "Each server's accounts are managed on that server",
+    ownTokensTitle: "Each server's tokens are managed on that server",
+    ownNote: "A server does not let the central see or change its own: a central that was taken over could otherwise lock you out of every server. Sign in to its console or run this on it:",
+    ownCommands: "On the server",
     titles: {
       people: "People and access",
       notices: "Notices",
       connections: "Connections",
       security: "Compliance and audit",
       api: "API",
-      fleet: "Fleet",
       noust: "Noust",
     },
   },
@@ -304,6 +300,8 @@ export const nav = {
     domainsTunnels: "Domains, tunnels",
     settingsServers: "Settings, Servers",
     channels: "Channels",
+    fleetSettings: "Fleet settings",
+    settingsManifest: "Settings, Manifest",
     frameworks: "Frameworks",
     controls: "Controls",
     people: "People",

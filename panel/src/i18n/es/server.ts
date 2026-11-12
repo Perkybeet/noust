@@ -14,8 +14,11 @@ export const server: Catalog<typeof en> = {
     softwareKeywords: "paquetes apt dnf zypper instalar quitar desinstalar nginx docker certbot fail2ban cloudflared qué instaló noust",
     files: "Archivos",
     filesKeywords: "disco almacenamiento espacio limpieza swap volumen carpetas persistentes subidas",
-    central: "Permisos de la central",
-    centralKeywords: "flota central acceso nivel acceso al host techo permisos",
+    central: "Con la central",
+    centralKeywords: "flota central acceso nivel acceso al host techo permisos sigue independiente ajustes de la flota",
+    foldersKeywords: "carpeta de aplicaciones carpeta de copias servidor web compilaciones a la vez cola directorio",
+    console: "Consola",
+    consoleKeywords: "consola acceso publicar exponer dominio https certificado nombre público nginx lista de permitidos",
   },
   verdict: {
     healthy: "Correcto",
@@ -779,6 +782,7 @@ export const server: Catalog<typeof en> = {
     views: {
       updates: "Actualizaciones",
       machine: "Máquina",
+      folders: "Carpetas y compilación",
       processes: "Procesos",
       monitor: "Monitor de recursos",
     },

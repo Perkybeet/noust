@@ -96,19 +96,21 @@ function JobProgress({ t, id }: { t: T; id: string }) {
  * "Apply to the fleet": what would run, then the job that does it, with each server in its own state (item 90).
  * Every server is asked what it holds and is given what the fleet says; what a server already holds that is not
  * the fleet's, and what its operator changed, are left unless the person says to take them over or put them back.
+ * From a setting's row or a server's page it is asked for those only (`only`, `nodes`): "Apply now" there is this
+ * dialog with its plan, so what will happen is said before it does.
  */
-export function ApplyDialog({ onClose }: { onClose: () => void }) {
+export function ApplyDialog({ onClose, nodes, only }: { onClose: () => void; nodes?: readonly string[]; only?: readonly string[] }) {
   const t = useT();
   const queryClient = useQueryClient();
   const formId = useId();
   const [adopt, setAdopt] = useState(false);
   const [restoreAll, setRestoreAll] = useState(false);
   const plan = useQuery({
-    queryKey: ["fleet", "settings-plan", adopt, restoreAll],
-    queryFn: () => applyToFleet({ plan: true, adopt, restoreAll }),
+    queryKey: ["fleet", "settings-plan", adopt, restoreAll, nodes ?? null, only ?? null],
+    queryFn: () => applyToFleet({ plan: true, adopt, restoreAll, ...(nodes !== undefined ? { nodes } : {}), ...(only !== undefined ? { only } : {}) }),
   });
   const start = useMutation({
-    mutationFn: () => applyToFleet({ plan: false, adopt, restoreAll }),
+    mutationFn: () => applyToFleet({ plan: false, adopt, restoreAll, ...(nodes !== undefined ? { nodes } : {}), ...(only !== undefined ? { only } : {}) }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: fleetSettingsKeys.all });
     },

@@ -349,7 +349,6 @@
       "features/settings/DeliveryLog.tsx": 1,
       "features/settings/EmailChannel.tsx": 1,
       "features/settings/fleet/ApplyDialog.tsx": 1,
-      "features/settings/fleet/FleetSettings.tsx": 2,
       "features/settings/fleet/ShareDialog.tsx": 1,
       "features/settings/github/GitHubCallback.tsx": 3,
       "features/settings/gitlab/GitLabCallback.tsx": 2,

@@ -77,13 +77,13 @@ export interface Dest {
   needs?: readonly string[];
   /** Active only on this exact path, not on the paths beneath it. */
   exact?: true;
-  /** The central's, whichever server is selected: a node refuses a central on it on purpose (nodeRoute.ts). */
+  /** The central's, whichever server is selected: a node refuses a central on it on purpose, or what it holds is written once on the central (nodeRoute.ts). */
   central?: true;
   /**
-   * With `central`: the central's own, and no fleet's. What a server shows before anyone signs in is its own, so
-   * its page is the central's whichever server is selected, and it is not "All the fleet": the other servers keep theirs.
+   * Settings only: what is each server's own and the central can read but not carry. On the central it is a table of
+   * servers; with a server chosen it is that server's own page. Its link never carries a server, so it opens the table.
    */
-  own?: true;
+  table?: true;
   /** Settings only: a line under the name in the list, for a name that does not say what it is for ("With the company account"). */
   hint?: PlainKey;
   /** A screen that is in no list says where it is reached from (NV-13). */

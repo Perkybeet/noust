@@ -51,45 +51,33 @@ describe("reading the general settings", () => {
   });
 });
 
-describe("Settings > General", () => {
-  it("shows one form with one save bar, the read-only details apart, and passes axe", { timeout: 20_000 }, async () => {
+describe("Settings > General: the policy", () => {
+  it("is the policy only: versions, certificates, backups kept and how long a deployment may take, with one save bar, and passes axe", { timeout: 20_000 }, async () => {
     fakeBackend(generalRoutes({ service_user: "www-data" }));
     const { container } = renderConsole("/settings/general");
-    await screen.findByDisplayValue("/var/www/apps");
-    // The server's name is empty: the machine's own name is what it goes by, and says so.
-    const name = screen.getByLabelText(/Server name/);
-    expect(name).toHaveValue("");
-    await waitFor(() => {
-      expect(name).toHaveAttribute("placeholder", "web-01");
-    });
-    expect(screen.getByLabelText(/Backups kept per app/)).toHaveValue("10");
+    expect(await screen.findByLabelText(/Backups kept per app/)).toHaveValue("10");
+    expect(screen.getByLabelText(/Longest a deployment may take/)).toHaveValue("60");
+    expect(screen.getByLabelText(/Email for certificates/)).toHaveValue("ops@example.com");
     expect(screen.getByRole("checkbox", { name: /Check for new versions/ })).toBeChecked();
     expect(await screen.findByText(/the apt repository/)).toBeInTheDocument();
-    // What is not edited here is shown apart, with where it is set.
-    const details = screen.getByRole("region", { name: "Details" });
-    expect(within(details).getByText("/etc/noust/config.yaml")).toBeInTheDocument();
-    expect(within(details).getByText("noust web expose-hooks hooks.example.com")).toBeInTheDocument();
+    // What is the machine's is Server's: neither its folders, nor its name, nor the details of its installation are here.
+    expect(screen.queryByLabelText(/Applications folder/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Server name/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Details" })).not.toBeInTheDocument();
     // One save bar, there from the start, with nothing to save.
     expect(within(saveBar()).getByText("No unsaved changes")).toBeInTheDocument();
     expect(within(saveBar()).getByRole("button", { name: "Save" })).toBeDisabled();
-    expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 
   it("saves every changed group from the one bar, and a refusal stays beside its field", { timeout: 20_000 }, async () => {
     let backup = { directory: "/var/backups/noust", max_per_app: 10 };
-    let config: Record<string, unknown> = {};
     const backend = fakeBackend(
       generalRoutes(
         {},
         {
-          "GET /api/config": () => json(200, { config, path: "/etc/noust/config.yaml", writable: true }),
           "GET /api/config/backup": () => json(200, backup),
-          "PATCH /api/config": (call) => {
-            const body = call.body as { path: string; value: unknown };
-            config = { ...config, server: { name: body.value } };
-            return json(200, { message: "ok", path: "/etc/noust/config.yaml", value: body.value });
-          },
+          "PUT /api/config/ssl": () => json(200, { message: "SSL configuration updated" }),
           "PUT /api/config/backup": (call) => {
             const body = call.body as typeof backup;
             if (body.max_per_app > 100) {
@@ -102,18 +90,19 @@ describe("Settings > General", () => {
       ),
     );
     const { user } = renderConsole("/settings/general");
-    const name = await screen.findByLabelText(/Server name/);
+    const email = await screen.findByLabelText(/Email for certificates/);
     const count = screen.getByLabelText(/Backups kept per app/);
-    await user.type(name, "web-1");
+    await user.clear(email);
+    await user.type(email, "sistemas@example.com");
     await user.clear(count);
     await user.type(count, "500");
     expect(within(saveBar()).getByText("2 unsaved changes")).toBeInTheDocument();
     await user.click(within(saveBar()).getByRole("button", { name: "Save" }));
 
-    // The name was saved; the count was refused and says why, where it is.
+    // The e-mail was saved; the count was refused and says why, where it is.
     expect(await screen.findByText("Input should be less than or equal to 100")).toBeInTheDocument();
     expect(count).toHaveAttribute("aria-invalid", "true");
-    expect(backend.callsTo("PATCH /api/config")[0]?.body).toEqual({ path: "server.name", value: "web-1" });
+    expect(backend.callsTo("PUT /api/config/ssl")[0]?.body).toEqual({ enabled: true, provider: "certbot", email: "sistemas@example.com" });
     await waitFor(() => {
       expect(within(saveBar()).getByText("1 unsaved change")).toBeInTheDocument();
     });
@@ -124,11 +113,12 @@ describe("Settings > General", () => {
     await waitFor(() => {
       expect(within(saveBar()).getByText("No unsaved changes")).toBeInTheDocument();
     });
+    // The folder, which is the machine's, goes back as it came: the endpoint replaces the whole block.
     expect(backend.callsTo("PUT /api/config/backup").at(-1)?.body).toEqual({ directory: "/var/backups/noust", max_per_app: 20 });
     expect(count).toHaveValue("20");
   });
 
-  it("sets how long a deployment may take, with the other limits of the server, from the same bar", { timeout: 20_000 }, async () => {
+  it("sets how long a deployment may take and leaves the machine's limits as they were", { timeout: 20_000 }, async () => {
     let limits = { max_concurrent_builds: 2, queue_limit: 25, max_minutes: 60 };
     const backend = fakeBackend(
       generalRoutes(
@@ -149,8 +139,7 @@ describe("Settings > General", () => {
     const { user } = renderConsole("/settings/general");
     const minutes = await screen.findByLabelText(/Longest a deployment may take/);
     expect(minutes).toHaveValue("60");
-    expect(screen.getByLabelText(/Builds at the same time/)).toHaveValue("2");
-    expect(screen.getByLabelText(/Deployments that may wait/)).toHaveValue("25");
+    expect(screen.queryByLabelText(/Builds at the same time/)).not.toBeInTheDocument();
 
     await user.clear(minutes);
     await user.type(minutes, "5000");
@@ -171,28 +160,65 @@ describe("Settings > General", () => {
   it("discards every change at once", { timeout: 20_000 }, async () => {
     const backend = fakeBackend(generalRoutes());
     const { user } = renderConsole("/settings/general");
-    const directory = await screen.findByLabelText(/Applications folder/);
-    await user.clear(directory);
-    await user.type(directory, "/srv/apps");
+    const email = await screen.findByLabelText(/Email for certificates/);
+    await user.clear(email);
+    await user.type(email, "otros@example.com");
     await user.click(screen.getByRole("checkbox", { name: /Check for new versions/ }));
     expect(within(saveBar()).getByText("2 unsaved changes")).toBeInTheDocument();
     await user.click(within(saveBar()).getByRole("button", { name: "Discard" }));
-    expect(directory).toHaveValue("/var/www/apps");
+    expect(email).toHaveValue("ops@example.com");
     expect(screen.getByRole("checkbox", { name: /Check for new versions/ })).toBeChecked();
-    expect(backend.callsTo("PUT /api/config/apps-directory")).toHaveLength(0);
+    expect(backend.callsTo("PUT /api/config/ssl")).toHaveLength(0);
   });
 
-  it("on a central that runs no applications, leaves out where applications live", { timeout: 20_000 }, async () => {
+  it("on a central that runs no applications, keeps only the notice about versions", { timeout: 20_000 }, async () => {
     fakeBackend(generalRoutes({ central: { role: "hub" } }));
     renderConsole("/settings/general");
-    expect(await screen.findByText("This central runs no applications")).toBeInTheDocument();
-    expect(screen.queryByLabelText(/Applications folder/)).not.toBeInTheDocument();
-    expect(screen.getByLabelText(/Server name/)).toBeInTheDocument();
+    expect(await screen.findByRole("checkbox", { name: /Check for new versions/ })).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Backups kept per app/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Email for certificates/)).not.toBeInTheDocument();
   });
 
   it("warns before anything is typed when the configuration file cannot be written", { timeout: 20_000 }, async () => {
     fakeBackend(generalRoutes({}, { "GET /api/config": () => json(200, { config: {}, path: "/etc/noust/config.yaml", writable: false }) }));
     renderConsole("/settings/general");
     expect(await screen.findByText("Saving will fail")).toBeInTheDocument();
+  });
+});
+
+describe("Server > Folders and builds", () => {
+  it("is where applications and backups live and how much it builds at once, with the details of the installation", { timeout: 20_000 }, async () => {
+    fakeBackend(generalRoutes({ service_user: "www-data" }));
+    const { container } = renderConsole("/server/folders");
+    expect(await screen.findByDisplayValue("/var/www/apps")).toBeInTheDocument();
+    expect(screen.getByLabelText(/Backups folder/)).toHaveValue("/var/backups/noust");
+    expect(screen.getByLabelText(/Builds at the same time/)).toHaveValue("2");
+    expect(screen.getByLabelText(/Deployments that may wait/)).toHaveValue("25");
+    // The policy is Settings': not here.
+    expect(screen.queryByLabelText(/Backups kept per app/)).not.toBeInTheDocument();
+    const details = screen.getByRole("region", { name: "Details" });
+    expect(within(details).getByText("/etc/noust/config.yaml")).toBeInTheDocument();
+    expect(within(details).getByText("noust web expose-hooks hooks.example.com")).toBeInTheDocument();
+    await expectNoAxeViolations(container);
+  });
+
+  it("saves the folder of the backups with the number of backups kept as it was", { timeout: 20_000 }, async () => {
+    const backend = fakeBackend(generalRoutes({}, { "PUT /api/config/backup": () => json(200, { message: "Backup configuration updated" }) }));
+    const { user } = renderConsole("/server/folders");
+    const folder = await screen.findByLabelText(/Backups folder/);
+    await user.clear(folder);
+    await user.type(folder, "/srv/backups");
+    await user.click(within(saveBar()).getByRole("button", { name: "Save" }));
+    await waitFor(() => {
+      expect(backend.callsTo("PUT /api/config/backup")).toHaveLength(1);
+    });
+    expect(backend.callsTo("PUT /api/config/backup")[0]?.body).toEqual({ directory: "/srv/backups", max_per_app: 10 });
+  });
+
+  it("on a central that runs no applications, says so", { timeout: 20_000 }, async () => {
+    fakeBackend(generalRoutes({ central: { role: "hub" } }));
+    renderConsole("/server/folders");
+    expect(await screen.findByText("This central runs no applications")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Applications folder/)).not.toBeInTheDocument();
   });
 });

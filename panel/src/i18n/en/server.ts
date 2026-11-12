@@ -12,8 +12,11 @@ export const server = {
     softwareKeywords: "packages apt dnf zypper install remove uninstall nginx docker certbot fail2ban cloudflared what noust installed",
     files: "Files",
     filesKeywords: "disk storage space cleanup swap volume persistent folders uploads",
-    central: "Central's permissions",
-    centralKeywords: "fleet central access level host access ceiling permissions",
+    central: "With the central",
+    centralKeywords: "fleet central access level host access ceiling permissions follow independent settings fleet settings",
+    foldersKeywords: "applications folder backups folder web server builds at once queue build directory",
+    console: "Console",
+    consoleKeywords: "console access publish expose domain https certificate public name nginx allow list",
   },
   verdict: {
     healthy: "Healthy",
@@ -764,6 +767,7 @@ export const server = {
     views: {
       updates: "Updates",
       machine: "Machine",
+      folders: "Folders and builds",
       processes: "Processes",
       monitor: "Resource monitor",
     },

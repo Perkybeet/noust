@@ -237,7 +237,7 @@ serial("the MCP endpoint is turned on, a group of tools switched off, and the to
 serial("a manifest is previewed against the server and nothing is changed", async ({ page, consoleServer, problems }) => {
   // A document with an unknown key is refused on purpose.
   problems.expect(/status of 400 .*\/api\/manifest\/plan$/);
-  await signIn(page, consoleServer, "/settings/manifest");
+  await signIn(page, consoleServer, "/server/manifest");
   await elevate(page, consoleServer);
   const before = (await (await page.request.get("/api/apps")).json()) as unknown;
   await page.getByLabel("Manifest", { exact: true }).fill("version: 1\napplications:\n  - domain: manifest-preview.example.org\n    source: https://github.com/acme/shop\n    branch: main\n");
@@ -246,7 +246,7 @@ serial("a manifest is previewed against the server and nothing is changed", asyn
   await expect(table.getByText("Create application")).toBeVisible();
   await expect(table.getByText("manifest-preview.example.org", { exact: true })).toBeVisible();
   await settle(page);
-  await expectNoA11yViolations(page, "Settings, Manifest, a preview");
+  await expectNoA11yViolations(page, "Server, Manifest, a preview");
   // A document with a key the schema does not know is refused with the server's own words.
   await page.getByLabel("Manifest", { exact: true }).fill("version: 1\napplications:\n  - domain: manifest-preview.example.org\n    memory_mb: 512\n");
   await page.getByRole("button", { name: "Preview changes" }).click();
@@ -255,7 +255,7 @@ serial("a manifest is previewed against the server and nothing is changed", asyn
 });
 
 serial("a manifest is applied as the person who asks, and the server then matches it", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/settings/manifest");
+  await signIn(page, consoleServer, "/server/manifest");
   await elevate(page, consoleServer);
   await page.getByLabel("Manifest", { exact: true }).fill("version: 1\napplications:\n  - domain: shop.example.net\n    health:\n      path: /e2e-applied\n");
   await page.getByRole("button", { name: "Preview changes" }).click();

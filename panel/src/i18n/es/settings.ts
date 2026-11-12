@@ -19,9 +19,14 @@ export const settings: Catalog<typeof en> = {
     notSaved: "No se guardaron los ajustes generales",
     notWritableTitle: "Guardar fallará",
     notWritable: "La consola no puede escribir en {path}. Comprueba su propietario y sus permisos.",
+    policy: {
+      title: "Política",
+      description: "Lo que Noust decide por defecto: avisos de versiones nuevas, la cuenta de los certificados, copias y despliegues.",
+      failed: "No se pudo guardar la política",
+    },
     server: {
-      title: "Este servidor",
-      description: "Su nombre, sus direcciones y la cuenta de sus certificados.",
+      title: "Nombre y direcciones",
+      description: "Cómo se llama este servidor y las direcciones por las que se llega a él.",
       failed: "No se pudieron guardar los ajustes de este servidor",
       nameLabel: "Nombre del servidor",
       nameDescription: "En las notificaciones y en una flota. Vacío, el nombre del host.",
@@ -37,7 +42,7 @@ export const settings: Catalog<typeof en> = {
     },
     applications: {
       title: "Aplicaciones",
-      description: "Dónde viven las aplicaciones nuevas, qué las sirve y cuántas copias se guardan.",
+      description: "Dónde viven las aplicaciones nuevas y sus copias, qué las sirve y cuánto compila a la vez.",
       failed: "No se pudieron guardar los ajustes de aplicaciones",
       directoryLabel: "Carpeta de aplicaciones",
       directoryDescription: "Una ruta absoluta. Las aplicaciones que ya existen conservan la suya.",
@@ -551,7 +556,7 @@ export const settings: Catalog<typeof en> = {
       linkTitle: "Enlace a la consola",
       link: "Los mensajes enlazan a {url}.",
       noLink: "Los mensajes no llevan enlace: define la dirección de la consola en {general}.",
-      generalLink: "General",
+      generalLink: "Máquina",
     },
     language: {
       fieldLabel: "Idioma de las notificaciones",
@@ -690,7 +695,7 @@ export const settings: Catalog<typeof en> = {
 
   about: {
     documentTitle: "Acerca de",
-    loading: "Cargando la versión y las actualizaciones automáticas",
+    loading: "Cargando la versión",
     method: {
       apt: "el repositorio apt",
       rpm: "el repositorio RPM ({tool})",

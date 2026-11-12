@@ -7,6 +7,7 @@ import { renderConsole } from "../../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../../test/fakes";
 import type { RouteHandler } from "../../../test/fakes";
 import { screenWidth } from "../../app/testRoutes";
+import { serverRoutes } from "../../server/testing";
 
 const JOB = {
   id: "expose-1",
@@ -72,18 +73,19 @@ async function pageAt(exposure: unknown, extra: Record<string, RouteHandler> = {
   screenWidth(1440);
   const backend = fakeBackend({
     ...signedInRoutes(),
+    ...serverRoutes(),
     "GET /api/console/exposure": () => json(200, exposure),
     "GET /api/auth/accounts": () => json(200, { accounts, conflicts: [] }),
     "GET /api/jobs/active": () => json(200, { jobs: [], total: 0 }),
     [`GET /api/jobs/${JOB.id}`]: () => json(200, JOB),
     ...extra,
   });
-  const harness = renderConsole("/settings/console");
-  await screen.findByRole("heading", { level: 1, name: "Console address" });
+  const harness = renderConsole("/server/console");
+  await screen.findByRole("heading", { level: 2, name: "Public name" });
   return { ...harness, backend };
 }
 
-describe("Settings > Console access", () => {
+describe("Server > Console", () => {
   it("says the console is private, and what is checked before it can be published, naming the accounts that stop it", async () => {
     await pageAt(PRIVATE);
     expect(await screen.findByText("Private")).toBeInTheDocument();
@@ -96,10 +98,10 @@ describe("Settings > Console access", () => {
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 
-  it("is in the settings navigation, as the server's own section", async () => {
+  it("is a section of the machine, in the column of Server, and Settings says where the console is published", async () => {
     await pageAt(PRIVATE);
-    const nav = await screen.findByRole("navigation", { name: "Settings sections" });
-    expect(within(nav).getByRole("link", { name: "Console address" })).toHaveAttribute("aria-current", "page");
+    const nav = await screen.findByRole("navigation", { name: "Server sections" });
+    expect(within(nav).getByRole("link", { name: "Console" })).toHaveAttribute("aria-current", "page");
   });
 
   it("says every account is covered when they are, and leaves the check to the server when the accounts cannot be read", async () => {

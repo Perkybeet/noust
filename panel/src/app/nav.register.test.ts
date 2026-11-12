@@ -565,9 +565,8 @@ describe("whose a screen is", () => {
       ["notices", ["notifications"]],
       ["connections", ["integrations", "log-shipping", "registries", "deploy-keys", "cloud", "secret-managers"]],
       ["security", ["compliance", "audit"]],
-      ["api", ["tokens", "api", "manifest", "mcp"]],
-      ["fleet", ["fleet", "central"]],
-      ["noust", ["general", "console", "sign-in-image", "variables", "about"]],
+      ["api", ["tokens", "api", "mcp"]],
+      ["noust", ["general", "console", "sign-in-image", "variables", "central", "about"]],
     ]);
   });
 
@@ -592,7 +591,6 @@ describe("whose a screen is", () => {
       "settings.accounts": "Accounts",
       "settings.central": "Central and sealing",
       "settings.registries": "Image registries",
-      "settings.fleet": "Fleet settings",
       "settings.cloud": "Cloud providers",
     });
     expect(text("nav.renamed.notifications")).toBe("Notifications");
@@ -649,7 +647,21 @@ describe("what the pages draw from the register", () => {
     expect(paths(TEAM_TABS)).toEqual(["/teams/$team", "/teams/$team/members", "/teams/$team/variables", "/teams/$team/notifications", "/teams/$team/settings"]);
     expect(paths(tabsOf(FLEET_APPS_SCREENS))).toEqual(["/fleet/apps", "/fleet/placements"]);
     expect(paths(tabsOf(FLEET_SERVERS_SCREENS))).toEqual(["/fleet/servers", "/fleet/updates", "/fleet/software"]);
-    expect(paths(tabsById("server"))).toEqual(["/server", "/server/machine", "/server/processes", "/server/monitor", "/server/updates", "/server/services", "/server/webserver", "/server/software", "/server/files", "/server/central"]);
+    expect(paths(tabsById("server"))).toEqual([
+      "/server",
+      "/server/machine",
+      "/server/folders",
+      "/server/processes",
+      "/server/monitor",
+      "/server/updates",
+      "/server/services",
+      "/server/webserver",
+      "/server/console",
+      "/server/software",
+      "/server/files",
+      "/server/manifest",
+      "/server/central",
+    ]);
     expect(paths(tabsById("network"))).toEqual(["/network", "/network/tunnels", "/network/firewall", "/network/listening", "/network/interfaces"]);
     expect(paths(tabsById("security"))).toEqual(["/security", "/security/ssh", "/security/blocks", "/security/waf", "/security/access"]);
     expect(paths(tabsById("backups"))).toEqual(["/backups", "/backups/schedules", "/backups/volumes", "/backups/noust", "/backups/destinations"]);

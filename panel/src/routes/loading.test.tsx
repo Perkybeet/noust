@@ -118,9 +118,12 @@ const PAGES: readonly (readonly [route: string, address: string])[] = [
   ["/security/waf", "/security/waf"],
   ["/server", "/server"],
   ["/server/central", "/server/central"],
+  ["/server/console", "/server/console"],
   ["/server/files", "/server/files"],
+  ["/server/folders", "/server/folders"],
   ["/server/logs", "/server/logs"],
   ["/server/machine", "/server/machine"],
+  ["/server/manifest", "/server/manifest"],
   ["/server/monitor", "/server/monitor"],
   ["/server/processes", "/server/processes"],
   ["/server/network", "/server/network"],
@@ -212,7 +215,8 @@ const NOTHING_TO_WAIT_FOR: Readonly<Record<string, string>> = {
   "/integrations/github/callback": "reads the address GitHub sent the browser back to, not the server",
   "/integrations/gitlab/callback": "reads the address GitLab sent the browser back to, not the server",
   "/server/central": "on the central itself it is one sentence that points to each server's own page; on a server it manages, the gate and the permissions read show their skeleton",
-  "/settings/manifest": "a form: the manifest is pasted into it, and nothing is read until a preview is asked for",
+  "/server/manifest": "a form: the manifest is pasted into it, and nothing is read until a preview is asked for",
+  "/settings/manifest": "the old address of the manifest: it lands on Server > Manifest, a form",
 };
 
 /**

@@ -26,21 +26,19 @@ export const centralBackupKeys = {
 export const COLLECTING_POLL_MS = 4_000;
 
 /** The copies the central holds, newest first. */
-export const centralCopiesQuery = (enabled = true) =>
+export const centralCopiesQuery = () =>
   queryOptions({
     queryKey: centralBackupKeys.copies,
     queryFn: ({ signal }) => request("get", "/api/central-backups", { signal }),
-    enabled,
   });
 
 /**
  * How collecting is going: who is followed, each server's state, what is moving and the disk. It is read again on
  * its own while a server is moving a copy, because nothing else tells the console that the central is busy.
  */
-export const collectingStatusQuery = (enabled = true) =>
+export const collectingStatusQuery = () =>
   queryOptions({
     queryKey: centralBackupKeys.status,
     queryFn: ({ signal }) => request("get", "/api/central-backups/status", { signal }),
-    enabled,
     refetchInterval: (query) => (query.state.data?.nodes.some((node) => node.moving !== null && node.moving !== undefined) === true ? COLLECTING_POLL_MS : false),
   });

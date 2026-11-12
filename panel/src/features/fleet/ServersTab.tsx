@@ -27,6 +27,9 @@ import type { T } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { downloadText } from "../../lib/clipboard";
 import { describeError } from "../../lib/errors";
+import { fleetStatusQuery } from "../settings/fleet/data";
+import type { StatusServer } from "../settings/fleet/data";
+import { isWaiting } from "../settings/fleet/faces";
 import { MonitoringNote } from "../settings/servers/MonitoringNote";
 import { PauseMonitoringDialog } from "../settings/servers/PauseMonitoringDialog";
 import { RemoveServerDialog } from "../settings/servers/RemoveServerDialog";
@@ -82,6 +85,25 @@ interface RowHandlers {
   onUpdate: (node: string) => void;
   /** The view is the servers that are waiting for something: it says what, and leaves out the meters. */
   updates: boolean;
+  /** Whether each server follows the settings of the fleet and how many changes wait for it; empty where the person may not read them. */
+  settings: ReadonlyMap<string, { mode: StatusServer["mode"]; waiting: number }>;
+}
+
+/**
+ * What a server does with the settings the central carries: it follows them (and how many changes have not reached it) or it is
+ * independent, which is decided on its page. Plain text when it follows and nothing waits: only what is not so has a mark.
+ */
+function SettingsCell({ t, node, local, settings }: { t: T; node: string; local: boolean; settings: RowHandlers["settings"] }) {
+  if (local) return <span className="text-13 text-fg-muted">{t("fleetSettings.servers.source")}</span>;
+  const found = settings.get(node);
+  if (found === undefined) return <EmptyCell reason={t("fleet.summary.notRead")} />;
+  if (found.mode === "independent") return <StatusPill state="stopped" label={t("fleetSettings.face.independent")} appearance="inline" size="sm" />;
+  return (
+    <span className="flex min-w-0 flex-col items-start gap-0.5">
+      <span className="text-13 text-fg">{t("fleetSettings.face.follows")}</span>
+      {found.waiting > 0 ? <StatusPill state="queued" label={t("fleetSettings.servers.waiting", { count: found.waiting })} appearance="inline" size="sm" /> : null}
+    </span>
+  );
 }
 
 /** One reading of a server as a small meter that turns amber and red by itself; nothing where the server gave none. */
@@ -210,6 +232,12 @@ function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>, handlers: Row
       },
     },
     {
+      id: "settings",
+      header: t("fleetSettings.servers.column"),
+      card: "meta",
+      cell: (row) => <SettingsCell t={t} node={originOf(row).node} local={originOf(row).local} settings={handlers.settings} />,
+    },
+    {
       id: "noust",
       header: t("fleet.column.noust"),
       card: "meta",
@@ -235,14 +263,14 @@ function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>, handlers: Row
           {
             id: "memory",
             header: t("fleet.servers.memory"),
-            hideBelow: "md" as const,
+            hideBelow: "2xl" as const,
             card: "hidden" as const,
             cell: (row: FleetRow) => <LoadCell label={t("fleet.servers.memory")} value={loadOf(row)?.memory} />,
           },
           {
             id: "disk",
             header: t("fleet.servers.disk"),
-            hideBelow: "md" as const,
+            hideBelow: "2xl" as const,
             card: "hidden" as const,
             cell: (row: FleetRow) => <LoadCell label={t("fleet.servers.disk")} value={loadOf(row)?.disk} />,
           },
@@ -453,6 +481,19 @@ export function ServersTab({ search, onSearchChange, preset = "all" }: ServersTa
   // The monitoring state is the servers list's own (`/api/nodes`); the fleet view answers for the rest.
   const nodes = useQuery(nodesQuery());
   const { data: session } = useQuery(sessionQuery());
+  const canSee = session?.permissions?.includes("fleet.read") ?? false;
+  const fleetStatus = useQuery({ ...fleetStatusQuery(), enabled: canSee });
+  // Following is read from the central's status of the fleet's settings, which already asks every server; the waiting count is the central's `waiting`.
+  const settings = useMemo(
+    () =>
+      new Map(
+        (fleetStatus.data?.servers ?? []).map((server) => [
+          server.node,
+          { mode: server.mode, waiting: (fleetStatus.data?.settings ?? []).filter((setting) => setting.servers.some((cell) => cell.node === server.node && isWaiting(cell))).length },
+        ] as const),
+      ),
+    [fleetStatus.data],
+  );
   const monitoring = useMemo(() => new Map((nodes.data?.items ?? []).map((node) => [node.name, node.monitoring ?? null] as const)), [nodes.data]);
   const resume = useMutation({
     mutationFn: (name: string) => setNodeMonitoring(name, false),
@@ -555,6 +596,7 @@ export function ServersTab({ search, onSearchChange, preset = "all" }: ServersTa
         caption={updates ? t("fleet.updates.caption") : t("fleet.servers.caption")}
         columns={columns(t, view.outcomes, {
           monitoring,
+          settings,
           selected,
           updates,
           onUpdate: (node) => {

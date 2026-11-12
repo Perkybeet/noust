@@ -220,38 +220,22 @@ const withFleet = test.extend<object, FleetFixtures>({
   },
 });
 
-withFleet("on a fleet, All the fleet is said once for a group that is all of it, and on the row where the group is mixed", async ({ page, central }) => {
+withFleet("on a fleet, nothing in Settings says whose a section is: the sections are the central's, the group Fleet is gone and the tables of servers carry no server", async ({ page, central }) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page, central, "/settings/accounts");
   const list = page.getByRole("navigation", { name: "Settings sections" }).first();
   await expect(list.getByRole("link", { name: "Accounts" })).toBeVisible();
-
-  // A group is named by its heading, which the tag is part of: matched from its start, so "Fleet" is not "All the fleet".
-  const group = (name: string) => list.getByRole("list", { name: new RegExp(`^${name}`) });
-  const heading = (name: string) => list.locator("p").filter({ hasText: new RegExp(`^${name}`) });
-  // People and access, Compliance and audit and Fleet are the fleet's whole: the tag is over the group and not on its rows.
-  for (const name of ["People and access", "Compliance and audit", "Fleet"]) {
-    await expect(heading(name).getByText("All the fleet")).toBeVisible();
-    await expect(group(name).getByText("All the fleet")).toHaveCount(0);
-  }
-  // Connections and API mix what is the fleet's and what is a server's: the tag is on the row of the first.
-  for (const name of ["Connections", "API"]) await expect(heading(name).getByText("All the fleet")).toHaveCount(0);
-  await expect(group("Connections").getByRole("link", { name: /^Cloud providers/ }).getByText("All the fleet")).toBeVisible();
-  await expect(group("API").getByRole("link", { name: /^API tokens/ }).getByText("All the fleet")).toBeVisible();
-  await expect(group("API").getByRole("link", { name: /^API reference/ }).getByText("All the fleet")).toHaveCount(0);
-  // What a server shows before anyone signs in is its own, never the fleet's, and neither are Noust's own.
-  await expect(group("Noust").getByText("All the fleet")).toHaveCount(0);
-  await expect(heading("Noust").getByText("All the fleet")).toHaveCount(0);
-  await expect(group("Noust").getByRole("link", { name: /^Sign-in image/ })).toBeVisible();
-
-  // The page says it once, on the title's line and in a sentence: it holds for both servers and not for the one chosen above.
+  await expect(page.getByText("All the fleet")).toHaveCount(0);
+  await expect(page.getByText(/it does not depend on the server chosen above/)).toHaveCount(0);
+  // Six groups: Fleet is gone, and what it held is in the sections of the kinds, or with Noust.
+  const headings = await list.locator("p").allTextContents();
+  expect(headings).toEqual(["People and access", "Notices", "Connections", "Compliance and audit", "API", "Noust"]);
+  await expect(list.getByRole("link", { name: /^Central and sealing/ })).toBeVisible();
+  await expect(list.getByRole("link", { name: /^Fleet settings/ })).toHaveCount(0);
+  // The sections that are each server's own open the table of servers: their link carries no server.
+  for (const name of [/^Integrations/, /^Logs and metrics export/, /^Secret managers/, /^Deploy keys/]) await expect(list.getByRole("link", { name })).not.toHaveAttribute("href", /\/n\//);
   await expect(page.getByRole("heading", { level: 1, name: "Accounts" })).toBeVisible();
-  await expect(page.getByText(/Holds for the 2 servers; it does not depend on the server chosen above/)).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "Settings on a fleet");
-
-  // The image of the sign-in is this server's: its page does not say it is the fleet's.
-  await list.getByRole("link", { name: /^Sign-in image/ }).click();
-  await expect(page.getByText(/it does not depend on the server chosen above/)).toHaveCount(0);
 });

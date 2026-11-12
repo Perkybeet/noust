@@ -35,7 +35,6 @@ const PAIRS: Pair[] = [
   ["the deploy in the list of an app's metrics", (l) => ["#25 14:01", translate(l, "appPages.metrics.deployMarkLabel", { id: "25", when: "14:01", status: "succeeded" })]],
   ["the button to sign a certificate again", (l) => [translate(l, "internalCa.renew"), translate(l, "internalCa.renewLabel", { name: "intranet" })]],
   ["the button to send a notification again", (l) => [translate(l, "notifyRouting.deliveries.retry"), translate(l, "notifyRouting.deliveries.retryLabel", { subject: "Backup failed", channel: "Slack" })]],
-  ["the button to put a setting back to the fleet's value", (l) => [translate(l, "fleetSettings.actions.putBack"), translate(l, "fleetSettings.actions.putBackLabel", { name: "retention", server: "web-2" })]],
   ["the button of a job that was asked to stop", (l) => [translate(l, "queue.cancel.stopping"), translate(l, "queue.cancel.stoppingLabel", { name: "Updating shop.example.com" })]],
   ["the button that cancels a job", (l) => [translate(l, "common.words.cancel"), translate(l, "queue.cancel.label", { name: "Updating shop.example.com" })]],
   ["the action that ends a session, in a row of the table", (l) => [translate(l, "settings.security.sessions.signOutText"), translate(l, "settings.security.sessions.signOutLabel", { sid: "59455c53" })]],

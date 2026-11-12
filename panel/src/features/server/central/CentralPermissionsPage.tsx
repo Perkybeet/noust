@@ -26,6 +26,7 @@ import { NodeCapabilityGate } from "../../../nodes/capability";
 import { useNode } from "../../../nodes/useNode";
 import { ServerQueryState } from "../errors";
 import { HeaderActions } from "../headerSlot";
+import { FleetFollowSection } from "./FleetFollowSection";
 import { LEVELS, LEVEL_WORDS, accessCommand, isLevel } from "./data";
 import type { Level } from "./data";
 import { FLEET_SELF_CAPABILITY, fleetSelfQuery } from "./queries";
@@ -113,9 +114,13 @@ function CentralPermissions() {
     return <InlineMessage>{t("serverCentral.thisCentral")}</InlineMessage>;
   }
   return (
-    <ServerQueryState query={self} label={t("serverCentral.label")} skeleton={<SkeletonCard lines={4} />}>
-      {(data) => <Permissions node={node} self={data} checking={self.isFetching} onCheck={() => void self.refetch()} />}
-    </ServerQueryState>
+    <div className="flex min-w-0 flex-col gap-6">
+      {/* What it does with the settings the central carries is decided here, before what the central may do on it. */}
+      <FleetFollowSection node={node} />
+      <ServerQueryState query={self} label={t("serverCentral.label")} skeleton={<SkeletonCard lines={4} />}>
+        {(data) => <Permissions node={node} self={data} checking={self.isFetching} onCheck={() => void self.refetch()} />}
+      </ServerQueryState>
+    </div>
   );
 }
 

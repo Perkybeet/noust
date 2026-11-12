@@ -1,5 +1,5 @@
 /**
- * Settings > About > Automatic updates (checklist N-28): off, on, on with a problem, the editor with
+ * Server > Updates > Automatic updates of Noust (checklist N-28; it was in Settings > About): off, on, on with a problem, the editor with
  * its own checks, the server's refusal, and sudo mode.
  */
 
@@ -11,6 +11,7 @@ import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
+import { serverRoutes } from "../server/testing";
 
 const OFF = {
   settings: { enabled: false, channel: "patch", window: "03:00-05:00", days: "daily" },
@@ -46,6 +47,7 @@ const ON = {
 function routes(auto: unknown, extra: Record<string, RouteHandler> = {}): Record<string, RouteHandler> {
   return {
     ...signedInRoutes(),
+    ...serverRoutes(),
     "GET /api/system/version": () => json(200, { current_version: "3.4.0", has_update: false, update_state: "up_to_date" }),
     "GET /api/config": () => json(200, { config: {}, path: "/etc/noust/config.yaml", writable: true }),
     "GET /api/system/update": () => json(200, { current_version: "3.4.0", method: "apt", supported: true }),
@@ -55,14 +57,22 @@ function routes(auto: unknown, extra: Record<string, RouteHandler> = {}): Record
   };
 }
 
+/** The card of Noust's own automatic update, once it has been read: the page draws it with a skeleton first. */
+async function sectionNamed(name: string): Promise<HTMLElement> {
+  return waitFor(() => {
+    const card = screen.getByRole("heading", { level: 3, name }).closest("section");
+    if (card === null || card.getAttribute("aria-busy") === "true") throw new Error("the card is still being read");
+    return card;
+  });
+}
+
 async function openAbout() {
-  const harness = renderConsole("/settings/about");
-  const section = (await screen.findByRole("heading", { level: 3, name: "Automatic updates" })).closest("section");
-  if (section === null) throw new Error("the card is not a section");
+  const harness = renderConsole("/server/updates");
+  const section = await sectionNamed("Automatic updates of Noust");
   return { ...harness, section };
 }
 
-describe("Settings > About > Automatic updates", () => {
+describe("Server > Updates > Automatic updates of Noust", () => {
   it("says it is off, and how updating works meanwhile, and passes axe", async () => {
     fakeBackend(routes(OFF));
     const { section, container } = await openAbout();
@@ -208,9 +218,8 @@ describe("Settings > About > Automatic updates", () => {
   it("speaks Spanish", async () => {
     fakeBackend(routes(ON));
     await act(() => setLocale("es"));
-    renderConsole("/settings/about");
-    const section = (await screen.findByRole("heading", { level: 3, name: "Actualizaciones automáticas" })).closest("section");
-    if (section === null) throw new Error("the card is not a section");
+    renderConsole("/server/updates");
+    const section = await sectionNamed("Actualizaciones automáticas de Noust");
     expect(await within(section).findByText(/Noust instala sus correcciones de seguridad por sí mismo/)).toBeInTheDocument();
     expect(within(section).getByText("Solo correcciones de seguridad")).toBeInTheDocument();
   });

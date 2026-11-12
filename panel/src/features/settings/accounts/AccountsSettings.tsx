@@ -1,3 +1,4 @@
+import { ServersOwnNote } from "../ServersOwnNote";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { KeyRound, LockOpen, Mail, MailPlus, ShieldOff, UserCheck, UserCog, UserPlus, UserX } from "lucide-react";
@@ -476,6 +477,7 @@ export function AccountsSettings({ search, onSearchChange }: AccountsSettingsPro
           ),
         })}
       </p>
+      <ServersOwnNote about="accounts" />
       {!empty ? <ExceptionsSection t={t} canManage={canManage} onAdd={() => setPending({ kind: "exception", person: "" })} /> : null}
       {!empty ? <AccessReviewSection canManage={canManage} /> : null}
 

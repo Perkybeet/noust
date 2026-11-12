@@ -114,6 +114,8 @@ export function hubRedirect(session: SessionInfo, pathname: string, node: string
   // A new application starts by asking which of the fleet's servers deploys it.
   if (pathname === "/apps/new") return null;
   if (pathname === "/") return { hub: "overview" };
+  // The destinations the central carries to every server are written here: a hub has no destinations of its own, and this is the one page of Backups it keeps.
+  if (pathname === "/backups/destinations") return null;
   const area = hubAreaOf(pathname);
   return area === null ? null : { hub: area };
 }

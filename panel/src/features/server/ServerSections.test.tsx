@@ -44,7 +44,7 @@ describe("the central's permissions", () => {
     expect(screen.getByText("No: it cannot touch SSH, the firewall or install software")).toBeInTheDocument();
     const column = await screen.findByRole("navigation", { name: "Server sections" });
     await waitFor(() => {
-      expect(within(column).getByRole("link", { name: "Central's permissions" })).toHaveAttribute("aria-current", "page");
+      expect(within(column).getByRole("link", { name: "With the central" })).toHaveAttribute("aria-current", "page");
     });
     // The level it has now is marked, in the fleet's own words.
     const now = screen.getByRole("radio", { name: /Operate and update/ });
@@ -107,7 +107,7 @@ describe("the central's permissions", () => {
     await screen.findByRole("heading", { level: 1 });
 
     const column = await screen.findByRole("navigation", { name: "Server sections" });
-    expect(within(column).queryByRole("link", { name: "Central's permissions" })).toBeNull();
+    expect(within(column).queryByRole("link", { name: "With the central" })).toBeNull();
     expect(backend.callsTo("GET /api/nodes").length).toBeGreaterThan(0);
   });
 

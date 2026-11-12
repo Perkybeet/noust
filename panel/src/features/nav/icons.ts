@@ -32,7 +32,6 @@ const OBJECT_OF: Readonly<Record<string, ObjectName>> = {
   settings: "settings",
   // Settings.
   "settings.general": "general",
-  "settings.fleet": "fleetSettings",
   "settings.registries": "registry",
   "settings.deploy-keys": "key",
   "settings.variables": "variable",
@@ -45,7 +44,6 @@ const OBJECT_OF: Readonly<Record<string, ObjectName>> = {
   "settings.log-shipping": "logShipping",
   "settings.tokens": "token",
   "settings.api": "api",
-  "settings.manifest": "manifest",
   "settings.mcp": "mcp",
   "settings.accounts": "account",
   "settings.access": "role",
@@ -114,6 +112,9 @@ const COLUMN_OBJECT: Readonly<Record<string, ObjectName>> = {
   "server.webserver": "site",
   "server.software": "packages",
   "server.files": "file",
+  "server.folders": "build",
+  "server.console": "domain",
+  "server.manifest": "manifest",
   "server.terminal": "terminal",
   "server.central": "central",
   // Network and Security: the head of each is its first section, named for what it holds there.

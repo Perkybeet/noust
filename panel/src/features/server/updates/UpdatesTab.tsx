@@ -41,6 +41,7 @@ import { SERVER_CAPABILITY, restartPlanQuery, updateRunsQuery, updatesQuery } fr
 import type { UpdatePackage, UpdateRun, UpdateScope, Updates } from "../queries";
 import { useServerJob } from "../serverJob";
 import { HeaderActions } from "../headerSlot";
+import { AutoUpdateSection } from "../../settings/AutoUpdateSection";
 import { NoustSection } from "../system/NoustUpdate";
 import { ApplyDialog, Names } from "./ApplyDialog";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
@@ -519,6 +520,8 @@ function UpdatesBody({ data }: { data: Updates }) {
         <NoustSection />
         <AutoUpdates updates={data} />
       </div>
+      {/* Noust's own automatic update: a thing of this machine, so it is with the machine's updates (item 166). */}
+      <AutoUpdateSection />
       {data.supported ? <SystemPackages updates={data} busy={busy} /> : null}
       <StaleServices updates={data} />
       <RecentRuns />

@@ -2,7 +2,7 @@ import type { consoleAccess as en } from "../en/consoleAccess";
 import type { Catalog } from "../types";
 
 export const consoleAccess: Catalog<typeof en> = {
-  documentTitle: "Dirección de la consola",
+  documentTitle: "Consola",
   loadFailed: "No se pudo leer si la consola está publicada",
   loading: "Cargando si la consola está publicada",
   state: {
@@ -88,5 +88,16 @@ export const consoleAccess: Catalog<typeof en> = {
     running: "Despublicando la consola",
     succeeded: "La consola vuelve a ser privada",
     failed: "Falló la despublicación de la consola",
+  },
+  address: {
+    documentTitle: "Dirección de la consola",
+    loading: "Cargando la dirección de la consola",
+    thisTitle: "Esta consola",
+    thisDescription: "La dirección en la que se abre y adónde llevan los enlaces de sus propios avisos.",
+    unset: "Sin poner: los enlaces de sus avisos usan la dirección por la que el servidor se alcanza a sí mismo.",
+    addressLabel: "Dirección",
+    publishTitle: "Publicarla en un nombre propio",
+    publishDescription: "Un sitio, un certificado y una lista de permitidos para un nombre de la consola de esta máquina. Es de cada máquina, así que está en Servidor.",
+    publishAction: "Abrir la consola de la máquina",
   },
 };

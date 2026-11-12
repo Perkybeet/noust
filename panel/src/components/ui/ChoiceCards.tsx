@@ -109,7 +109,7 @@ export function ChoiceCards<V extends string>({ legend, options, value, onValueC
                 aria-describedby={descriptionId}
                 disabled={off}
                 className={cx(
-                  "flex w-full items-start gap-3 rounded-card px-3.5 py-3 text-left outline-none",
+                  "flex h-full w-full items-start gap-3 rounded-card px-3.5 py-3 text-left outline-none",
                   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus",
                   // Off is flat and carved-grey, not raised: the stone only rises where it can be pressed.
                   off ? "cursor-not-allowed border border-border bg-bg-sunken" : chosen ? "cursor-pointer elev-raised-chosen bg-accent-soft" : "cursor-pointer elev-raised bg-surface-raised",

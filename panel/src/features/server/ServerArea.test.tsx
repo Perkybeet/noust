@@ -68,13 +68,16 @@ describe("the Server area", () => {
     ).toEqual([
       "Status",
       "Machine",
+      "Folders and builds",
       "Processes",
       "Resource monitor",
       "Updates23",
       "Services",
       "Web server",
+      "Console",
       "Software",
       "Files",
+      "Manifest",
     ]);
     // Status says how loaded the machine is and what uses the most now; the long facts are on Machine.
     expect(await screen.findByText("What uses the most now")).toBeInTheDocument();
@@ -107,7 +110,7 @@ describe("the Server area", () => {
     // The reboot is scheduled from the updates, where the packages that ask for it are listed.
     const reboot = rows.find((row) => row.textContent.includes("A reboot is needed"));
     if (reboot === undefined) throw new Error("the reboot is not a row");
-    expect(within(reboot).getByRole("link", { name: "Schedule the reboot the updates ask for" })).toHaveAttribute("href", "/server/updates");
+    expect(within(reboot).getByRole("link", { name: "Schedule reboot to finish the updates" })).toHaveAttribute("href", "/server/updates");
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 

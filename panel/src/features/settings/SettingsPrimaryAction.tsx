@@ -2,6 +2,8 @@ import { createContext, useContext } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 
+import { HeaderActions, HeaderSlot } from "../server/headerSlot";
+
 /**
  * Where a section's primary action goes: the settings' page header. It lives apart from the shell so that a
  * section that only needs the slot does not import the shell, whose navigation names every settings screen and
@@ -16,7 +18,10 @@ export const PrimarySlot = createContext<HTMLElement | null>(null);
  */
 export function SettingsPrimaryAction({ children }: { children: ReactNode }) {
   const slot = useContext(PrimarySlot);
-  return slot === null ? null : createPortal(children, slot);
+  const header = useContext(HeaderSlot);
+  if (slot !== null) return createPortal(children, slot);
+  // The manifest and the console are pages of the machine now: their one action goes to the header of that page.
+  return header === undefined ? null : <HeaderActions>{children}</HeaderActions>;
 }
 
 /**

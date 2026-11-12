@@ -41,7 +41,8 @@ function routes(extra: Record<string, RouteHandler> = {}): Record<string, RouteH
 async function general(extra: Record<string, RouteHandler> = {}) {
   const backend = fakeBackend(routes(extra));
   const harness = renderConsole("/settings/general");
-  await screen.findByDisplayValue("/var/www/apps");
+  // The policy form is what General draws now (the applications folder went to Server > Folders and builds): its certificate email says it is loaded.
+  await screen.findByDisplayValue("ops@example.com");
   return { ...harness, backend };
 }
 

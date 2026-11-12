@@ -5,6 +5,7 @@
  * says what depends on it, with the way to those pages.
  */
 
+import { GeneralSettings } from "../../settings/GeneralSettings";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Power, RotateCw } from "lucide-react";
@@ -385,6 +386,8 @@ export function MachineSections() {
           </ServerQueryState>
         )}
       </ServerQueryState>
+      {/* The name Noust gives this server and the addresses it is reached at: what was General about the machine. */}
+      <GeneralSettings part="identity" />
       <PowerSection />
     </div>
   );

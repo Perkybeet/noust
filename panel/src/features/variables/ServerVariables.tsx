@@ -1,5 +1,7 @@
 import { useDocumentTitle } from "../../app/documentTitle";
 import { useT } from "../../i18n";
+import { FleetBlock } from "../settings/fleet/FleetBlock";
+import { FleetStrip } from "../settings/fleet/FollowLine";
 import { SharedVariables } from "./SharedVariables";
 import { useCan } from "../../components/page/permissions";
 
@@ -14,7 +16,10 @@ export function ServerVariables() {
   const canManage = useCan("settings.manage");
   return (
     <div className="flex flex-col gap-6">
+      <FleetStrip />
       <SharedVariables scope={{ kind: "server" }} canManage={canManage} primary />
+      {/* The variables every server of the fleet has, with the servers that follow each one. */}
+      <FleetBlock resource="variable" />
     </div>
   );
 }

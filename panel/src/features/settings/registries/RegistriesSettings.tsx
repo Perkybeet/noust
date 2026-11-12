@@ -1,6 +1,8 @@
 import { Sections } from "../../../components/page/Section";
 import { useDocumentTitle } from "../../../app/documentTitle";
 import { useT } from "../../../i18n";
+import { FleetBlock } from "../fleet/FleetBlock";
+import { FleetStrip } from "../fleet/FollowLine";
 import { RegistriesSection } from "./RegistriesSection";
 
 /**
@@ -13,7 +15,10 @@ export function RegistriesSettings() {
   useDocumentTitle(t("registries.nav.label"), 1);
   return (
     <Sections>
+      <FleetStrip />
       <RegistriesSection />
+      {/* What the central carries to every server: the accounts the others pull private images with. */}
+      <FleetBlock resource="registry" />
     </Sections>
   );
 }

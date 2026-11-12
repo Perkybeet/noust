@@ -19,7 +19,7 @@ export const overview: Catalog<typeof en> = {
     diagnose: "Diagnosticar",
     diagnoseAria: "Diagnosticar {domain}",
     viewFailure: "Ver el fallo",
-    viewFailureAria: "Ver por qué falló el primer despliegue de {domain}",
+    viewFailureAria: "Ver el fallo del primer despliegue de {domain}",
     certificate: "Certificado",
     certificateAria: "Certificado de {domain}",
     openService: "Abrir servicio",

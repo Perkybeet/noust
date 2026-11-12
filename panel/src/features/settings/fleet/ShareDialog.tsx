@@ -16,9 +16,19 @@ import type { PlainKey } from "../../../i18n";
 import { focusFirstInvalid, splitErrors } from "../formErrors";
 import { kindOptions, needsServer } from "../registries/registries";
 import { fleetSettingsKeys, saveSetting } from "./data";
-import type { FleetSetting, FleetSettingKind } from "./data";
+import type { FleetSetting, FleetSettingKind, StatusSetting } from "./data";
+import { PlanPreview } from "./PlanPreview";
 
-const FIELDS = ["name", "value", "scope", "kind", "server", "username", "password", "secret"] as const;
+const FIELDS = ["name", "value", "scope", "kind", "server", "username", "password", "secret", "url", "updates_check", "ssl_email", "backup_max_per_app", "delivery_max_minutes"] as const;
+
+/** The kinds that have one setting, whose name is not the person's to choose. */
+const SINGLE: Readonly<Record<string, string>> = { console_link: "console", policy: "general" };
+
+/** A whole number typed into a field as a number; anything else is sent as typed, so the server's refusal is shown beside the field. */
+function whole(value: string): number {
+  const trimmed = value.trim();
+  return /^-?\d+$/.test(trimmed) ? Number(trimmed) : (trimmed as unknown as number);
+}
 
 /** What a secret shows as, and what is sent back to keep the one stored. */
 const KEPT = "***";
@@ -32,6 +42,7 @@ const KIND_WORDS: Readonly<Record<string, PlainKey>> = {
   registry: "fleetSettings.kind.registry",
   variable: "fleetSettings.kind.variable",
   console_link: "fleetSettings.kind.console_link",
+  policy: "fleetSettings.kind.policy",
 };
 
 export function kindWord(t: (key: PlainKey) => string, key: string, fallback: string): string {
@@ -47,6 +58,10 @@ export interface ShareDialogProps {
   servers: readonly string[];
   /** Start on a server's exception rather than on the fleet's value. */
   node?: string | null;
+  /** The kind the section it is opened from is about: the person is not asked what it is. */
+  kind?: string;
+  /** Where each server stands on the setting being changed: what saving it would do there is shown before it is saved. */
+  plan?: StatusSetting;
   onClose: () => void;
 }
 
@@ -61,15 +76,16 @@ function text(value: unknown): string {
  * shows as `***` and is kept as it was until another is typed. For one server it is an exception: that server
  * gets this value and the others keep following the fleet.
  */
-export function ShareDialog({ kinds, setting, servers, node = null, onClose }: ShareDialogProps) {
+export function ShareDialog({ kinds, setting, servers, node = null, kind: fixedKind, plan, onClose }: ShareDialogProps) {
   const t = useT();
   const queryClient = useQueryClient();
   const formId = useId();
   const available = kinds.filter((kind) => kind.available);
   const editing = setting !== null;
   const registries = useQuery(registryLoginsQuery());
-  const [kind, setKind] = useState(setting?.resource ?? available[0]?.key ?? "variable");
-  const [name, setName] = useState(setting?.name ?? "");
+  const [kind, setKind] = useState(setting?.resource ?? fixedKind ?? available[0]?.key ?? "variable");
+  const single = SINGLE[kind] !== undefined;
+  const [name, setName] = useState(setting?.name ?? SINGLE[setting?.resource ?? fixedKind ?? ""] ?? "");
   const [scope, setScope] = useState(node !== null ? `node:${node}` : (setting?.scope ?? "fleet"));
   const initial: Value = setting?.value ?? {};
   const [variableValue, setVariableValue] = useState(text(initial["value"]));
@@ -79,12 +95,19 @@ export function ShareDialog({ kinds, setting, servers, node = null, onClose }: S
   const [username, setUsername] = useState(text(initial["username"]));
   const [password, setPassword] = useState(text(initial["password"]));
   const [json, setJson] = useState(setting === null ? "{}" : JSON.stringify(initial, null, 2));
+  const [url, setUrl] = useState(text(initial["url"]));
+  const [updatesCheck, setUpdatesCheck] = useState(initial["updates_check"] !== false);
+  const [sslEmail, setSslEmail] = useState(text(initial["ssl_email"]));
+  const [keep, setKeep] = useState(typeof initial["backup_max_per_app"] === "number" ? String(initial["backup_max_per_app"]) : "7");
+  const [minutes, setMinutes] = useState(typeof initial["delivery_max_minutes"] === "number" ? String(initial["delivery_max_minutes"]) : "30");
   const [apply, setApply] = useState(true);
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [tried, setTried] = useState(false);
 
   const body = (): Value | null => {
     if (kind === "variable") return { value: variableValue, secret };
+    if (kind === "console_link") return { url: url.trim() };
+    if (kind === "policy") return { updates_check: updatesCheck, ssl_email: sslEmail.trim(), backup_max_per_app: whole(keep), delivery_max_minutes: whole(minutes) };
     if (kind === "registry") return { kind: registryKind, username: username.trim(), password, ...(server.trim() === "" ? {} : { server: server.trim() }) };
     try {
       const parsed: unknown = JSON.parse(json);
@@ -144,12 +167,12 @@ export function ShareDialog({ kinds, setting, servers, node = null, onClose }: S
     >
       <form id={formId} noValidate onSubmit={submit} className="flex flex-col gap-5">
         {errors.form !== null ? <ErrorBlock live compact error={errors.form} title={t("fleetSettings.share.failed")} /> : null}
-        {!editing ? (
+        {!editing && fixedKind === undefined ? (
           <Field label={t("fleetSettings.share.kind")} nativeLabel={false}>
             <Select options={available.map((entry) => ({ value: entry.key, label: kindWord(t, entry.key, entry.title) }))} value={kind} onValueChange={setKind} />
           </Field>
         ) : null}
-        {!editing ? (
+        {!editing && !single ? (
           <Field label={t("common.words.name")} description={t("fleetSettings.share.nameHelp")} error={errors.fields.name ?? (tried && name.trim() === "" ? t("settings.shared.required") : undefined)}>
             <Input mono autoComplete="off" autoCapitalize="off" spellCheck={false} maxLength={128} value={name} onValueChange={setName} />
           </Field>
@@ -169,6 +192,25 @@ export function ShareDialog({ kinds, setting, servers, node = null, onClose }: S
               <Textarea rows={2} spellCheck={false} value={variableValue} onChange={(event) => setVariableValue(event.target.value)} />
             </Field>
             <Checkbox label={t("fleetSettings.share.variable.secret")} description={t("fleetSettings.share.variable.secretHelp")} checked={secret} onCheckedChange={setSecret} />
+          </>
+        ) : kind === "console_link" ? (
+          <Field label={t("fleetSettings.share.url.label")} description={t("fleetSettings.share.url.help")} error={errors.fields.url}>
+            <Input mono type="url" autoComplete="off" spellCheck={false} placeholder="https://console.example.com" value={url} onValueChange={setUrl} />
+          </Field>
+        ) : kind === "policy" ? (
+          <>
+            <Checkbox label={t("fleetSettings.share.policy.updates")} description={t("fleetSettings.share.policy.updatesHelp")} checked={updatesCheck} onCheckedChange={setUpdatesCheck} />
+            <Field label={t("fleetSettings.share.policy.email")} description={t("fleetSettings.share.policy.emailHelp")} error={errors.fields.ssl_email}>
+              <Input type="email" autoComplete="off" spellCheck={false} placeholder="ops@example.com" value={sslEmail} onValueChange={setSslEmail} />
+            </Field>
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Field label={t("fleetSettings.share.policy.keep")} description={t("fleetSettings.share.policy.keepHelp")} error={errors.fields.backup_max_per_app}>
+                <Input mono inputMode="numeric" value={keep} onValueChange={setKeep} />
+              </Field>
+              <Field label={t("fleetSettings.share.policy.minutes")} description={t("fleetSettings.share.policy.minutesHelp")} error={errors.fields.delivery_max_minutes}>
+                <Input mono inputMode="numeric" value={minutes} onValueChange={setMinutes} />
+              </Field>
+            </div>
           </>
         ) : kind === "registry" ? (
           <>
@@ -190,6 +232,7 @@ export function ShareDialog({ kinds, setting, servers, node = null, onClose }: S
             <Textarea mono rows={9} spellCheck={false} value={json} onChange={(event) => setJson(event.target.value)} />
           </Field>
         )}
+        {plan !== undefined && !exception ? <PlanPreview row={plan} /> : null}
         <Checkbox label={t("fleetSettings.share.apply")} checked={apply} onCheckedChange={setApply} />
       </form>
     </Dialog>

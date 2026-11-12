@@ -6,6 +6,7 @@ import { useTabStrip } from "../components/ui/tabStrip";
 import { useT } from "../i18n";
 import { cx } from "../lib/cx";
 import type { TabItem } from "./nav";
+import { useCentralReturn } from "./useCentralReturn";
 
 export interface LinkTab extends TabItem {
   params?: Record<string, string>;
@@ -33,6 +34,7 @@ export interface LinkTabsProps {
 export function LinkTabs({ label, tabs, className }: LinkTabsProps) {
   const t = useT();
   const ref = useRef<HTMLElement>(null);
+  const withServer = useCentralReturn();
   // On a phone the row is wider than the screen: the current section stays in view.
   useTabStrip(ref, '[data-status="active"]', "data-status");
   return (
@@ -53,6 +55,8 @@ export function LinkTabs({ label, tabs, className }: LinkTabsProps) {
               // The union of every path loses the per-path params type; the caller supplies them.
               to={tab.to as string}
               params={tab.params as never}
+              // On a page of the central's (the backup destinations) the tabs of the area lead to the server the person was on.
+              {...(withServer(tab.to) !== undefined ? { search: withServer(tab.to) as never } : {})}
               activeOptions={{ exact: tab.exact ?? false, includeSearch: false }}
               // A section of the page it is on: the strip stays under the pointer (searchNavigation.ts).
               resetScroll={false}

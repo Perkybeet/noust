@@ -9,7 +9,6 @@ import { configQuery } from "../../api/queries/config";
 import { isJobFinished, useFollowedJob } from "../../api/queries/jobs";
 import { machineQuery, systemKeys, versionQuery } from "../../api/queries/system";
 import { useDocumentTitle } from "../../app/documentTitle";
-import { autoUpdateQuery } from "../../api/queries/autoUpdate";
 import { KeyValueList } from "../../components/page/KeyValueList";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../components/page/QueryState";
@@ -26,7 +25,6 @@ import type { T } from "../../i18n";
 import { isHttpUrl } from "../../lib/url";
 import { useNode } from "../../nodes/useNode";
 import { reportActionError } from "../apps/useAppActions";
-import { AutoUpdateSection } from "./AutoUpdateSection";
 import { installMethodWords, readServerIdentity, selfUpdateQuery } from "./GeneralSettings.model";
 import { InstallCheck } from "./InstallCheck";
 import { SupportReport } from "./SupportReport";
@@ -328,21 +326,18 @@ function ProjectSection() {
 }
 
 /**
- * The page waits for the two answers that decide the height of what is on screen. The update state
- * is one line or a paragraph and a disclosure, the automatic updates are a sentence or a sentence
- * and six facts, and each lands on its own: drawn as they arrived, each pushed every section under
- * it, and the page scored twice what the layout gate allows when the server had them on. Both are
- * read once (the sections below find them in the cache), and a failed one counts as read, for its
- * section to say so.
+ * The page waits for the answer that decides the height of what is on screen: the update state is one line or a paragraph
+ * and a disclosure, and drawn as it arrived it pushed every section under it. It is read once (the section below finds it
+ * in the cache), and a failed read counts as read, for its section to say so. Noust's own automatic update is a page of
+ * the machine now (Server > Updates) and is not waited for here.
  */
 function useAboutRead(): boolean {
   const version = useQuery(versionQuery());
-  const automatic = useQuery(autoUpdateQuery());
   // Once, and for good: a section that mounts on a failed read asks again, which makes the query
   // pending for a moment, and a page that went back to its skeleton for that would unmount the
   // section and mount it again, asking again, for as long as the answer is a refusal.
   const [read, setRead] = useState(false);
-  const answered = !version.isPending && !automatic.isPending;
+  const answered = !version.isPending;
   if (answered && !read) setRead(true);
   return read || answered;
 }
@@ -374,7 +369,6 @@ export function AboutSettings() {
       <Section title={t("settings.about.groups.updates.title")} icon={OBJECT_ICONS.update} description={t("settings.about.groups.updates.description")}>
         <div className="flex min-w-0 flex-col gap-6">
           <VersionSection />
-          <AutoUpdateSection />
         </div>
       </Section>
       <Section title={t("settings.about.groups.support.title")} description={t("settings.about.groups.support.description")}>

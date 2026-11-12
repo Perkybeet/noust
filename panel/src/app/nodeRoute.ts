@@ -50,11 +50,42 @@ export const CENTRAL_PATHS: readonly string[] = [
   "/settings/audit",
   "/settings/compliance",
   "/settings/controls",
+  // 4.3 (item 166): what the central writes once and carries to every server it manages, in the section where it
+  // belongs. The server chosen in the selector does not count in Settings: what is written here is the central's and,
+  // setting by setting, the servers'. (What is each server's own, which the central reads and cannot yet carry, are
+  // the four sections that are not listed: a table of servers here, and the server's own page with a node.)
+  "/settings/notifications",
+  "/settings/registries",
+  "/settings/variables",
+  "/settings/console",
+  "/settings/general",
+  "/settings/api",
+  "/settings/mcp",
+  "/settings/about",
   // The signed-in account is the central's: a node refuses a central's sign-in on purpose.
   "/account",
   "/integrations",
   "/servers",
 ];
+
+/**
+ * The four sections of Settings that are each server's own and that the central can read but not carry. On the central, with
+ * no server chosen, each is a table of servers (the selector there is a label, as on the rest of Settings); with a server in the
+ * address it is that server's own page and the selector counts.
+ */
+export const TABLE_PATHS: readonly string[] = ["/settings/integrations", "/settings/log-shipping", "/settings/secret-managers", "/settings/deploy-keys"];
+
+/** Whether a path is one of the sections that are each server's own (`TABLE_PATHS`). */
+export function isTablePath(pathname: string): boolean {
+  return TABLE_PATHS.includes(pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname);
+}
+
+/**
+ * Pages that are the central's by themselves and whose siblings are not: the hub of Settings, and the two pages of
+ * other areas that keep what the central carries to every server (the alert rules, the backup destinations), whose
+ * other tabs are each server's. Exact, never a prefix.
+ */
+export const CENTRAL_EXACT_PATHS: readonly string[] = ["/settings", "/alerts", "/backups/destinations"];
 
 /**
  * Pages outside any server: signing in, choosing a password with the link of a mail, and the design
@@ -73,7 +104,8 @@ function under(pathname: string, prefix: string): boolean {
 
 /** True for a console path that never carries a node (`/settings/security`, `/fleet`). */
 export function isCentralOnlyPath(pathname: string): boolean {
-  return CENTRAL_ONLY_PATHS.some((prefix) => under(pathname, prefix));
+  const bare = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+  return CENTRAL_ONLY_PATHS.some((prefix) => under(pathname, prefix)) || CENTRAL_EXACT_PATHS.includes(bare);
 }
 
 /** Which of the three contexts a page is in. */

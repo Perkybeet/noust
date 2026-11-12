@@ -25,13 +25,19 @@ export const SERVER_SCREENS = strip(
   }),
   (server) => [
     tab(server, "machine", "server.system.views.machine", { column: "machine", keywords: "server.tabs.systemKeywords" }),
+    // What was General about the machine (item 166): where its applications and backups live, what it builds at once.
+    tab(server, "folders", "server.system.views.folders", { column: "machine", keywords: "server.tabs.foldersKeywords", permission: "server.read" }),
     tab(server, "processes", "server.system.views.processes", { column: "machine", keywords: "nav.screens.processes.keywords" }),
     tab(server, "monitor", "server.system.views.monitor", { column: "machine", keywords: "nav.screens.monitor.keywords" }),
     tab(server, "updates", "server.system.views.updates", { column: "machine", keywords: "nav.screens.updates.keywords" }),
     tab(server, "services", "server.tabs.services", { column: "running" }),
     tab(server, "webserver", "server.tabs.webserver", { column: "running", keywords: "server.tabs.webserverKeywords", permission: "server.read" }),
+    // Publishing this machine's console on a name of its own over HTTPS: the machine's, whatever the central carries to the others.
+    tab(server, "console", "server.tabs.console", { column: "running", keywords: "server.tabs.consoleKeywords", permission: "settings.read" }),
     tab(server, "software", "server.tabs.software", { column: "running", keywords: "server.tabs.softwareKeywords", permission: "server.read" }),
     tab(server, "files", "server.tabs.files", { column: "tools", keywords: "server.tabs.filesKeywords" }),
+    // The machine written down in a file: what applying it would change here, before anything does.
+    tab(server, "manifest", "manifestPreview.nav.label", { column: "tools", keywords: "manifestPreview.nav.keywords", command: "manifestPreview.nav.command", permission: "apps.read" }),
     hidden("server.terminal", "/server/terminal", "terminal.page.title", "server", {
       parent: "server",
       permission: "server.terminal",

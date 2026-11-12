@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { contextOf, isCentralOnlyPath, nodeFromSearch, nodeOfConsolePath, nodeRewrite, onNodeDropped, returnTarget, serverPath, switchTarget, validateNodeSearch } from "./nodeRoute";
+import { contextOf, isCentralOnlyPath, isTablePath, nodeFromSearch, nodeOfConsolePath, nodeRewrite, onNodeDropped, returnTarget, serverPath, switchTarget, validateNodeSearch } from "./nodeRoute";
 
 function input(href: string): string {
   const url = new URL(href, "http://console.test");
@@ -39,10 +39,16 @@ describe("the node in the URL", () => {
     expect(output("/fleet/apps?node=web-2")).toBe("/fleet/apps");
   });
 
-  it("keeps a server's own settings on that server", () => {
-    expect(input("/n/web-2/settings")).toBe("/settings?node=%22web-2%22");
-    expect(input("/n/web-2/settings/notifications")).toBe("/settings/notifications?node=%22web-2%22");
-    expect(output("/settings/about?node=web-2")).toBe("/n/web-2/settings/about");
+  it("drops a server from Settings, which is the central's, except the four sections that are each server's own", () => {
+    expect(input("/n/web-2/settings")).toBe("/settings");
+    expect(input("/n/web-2/settings/notifications")).toBe("/settings/notifications");
+    expect(input("/n/web-2/backups/destinations")).toBe("/backups/destinations");
+    expect(input("/n/web-2/alerts")).toBe("/alerts");
+    // The tabs beside them are a server's.
+    expect(input("/n/web-2/alerts/checks")).toBe("/alerts/checks?node=%22web-2%22");
+    expect(input("/n/web-2/settings/log-shipping")).toBe("/settings/log-shipping?node=%22web-2%22");
+    expect(output("/settings/log-shipping?node=web-2")).toBe("/n/web-2/settings/log-shipping");
+    expect(output("/settings/about?node=web-2")).toBe("/settings/about");
   });
 
   it("remembers the server an old address named on a page that cannot carry one", () => {
@@ -98,7 +104,8 @@ describe("the node in the URL", () => {
     expect(serverPath("web-2", "/apps")).toBe("/n/web-2/apps");
     expect(serverPath("web-2", "/")).toBe("/n/web-2");
     expect(serverPath(null, "/apps")).toBe("/apps");
-    expect(serverPath("web-2", "/settings")).toBe("/n/web-2/settings");
+    expect(serverPath("web-2", "/settings")).toBe("/settings");
+    expect(serverPath("web-2", "/settings/log-shipping")).toBe("/n/web-2/settings/log-shipping");
     expect(serverPath("web-2", "/settings/security")).toBe("/settings/security");
     expect(serverPath("web-2", "/fleet/apps")).toBe("/fleet/apps");
     expect(isCentralOnlyPath("/settingsx")).toBe(false);
@@ -127,12 +134,25 @@ describe("where switching servers lands", () => {
   });
 });
 
+describe("the sections that are each server's own", () => {
+  it("are four, whatever trailing slash the address has, and nothing else in Settings", () => {
+    for (const path of ["/settings/integrations", "/settings/log-shipping/", "/settings/secret-managers", "/settings/deploy-keys"]) expect(isTablePath(path), path).toBe(true);
+    for (const path of ["/settings/notifications", "/settings", "/settings/log-shipping/x", "/server/files"]) expect(isTablePath(path), path).toBe(false);
+  });
+});
+
 describe("the three contexts", () => {
   it("tells a server's page from the fleet's and the central's", () => {
     expect(contextOf("/apps", null)).toEqual({ kind: "server", node: null });
     expect(contextOf("/apps", "web-2")).toEqual({ kind: "server", node: "web-2" });
-    expect(contextOf("/settings", "web-2")).toEqual({ kind: "server", node: "web-2" });
-    expect(contextOf("/settings/notifications", null)).toEqual({ kind: "server", node: null });
+    expect(contextOf("/settings", "web-2")).toEqual({ kind: "central" });
+    expect(contextOf("/settings/notifications", null)).toEqual({ kind: "central" });
+    expect(contextOf("/settings/log-shipping", "web-2")).toEqual({ kind: "server", node: "web-2" });
+    expect(contextOf("/settings/log-shipping", null)).toEqual({ kind: "server", node: null });
+    expect(contextOf("/alerts", "web-2")).toEqual({ kind: "central" });
+    expect(contextOf("/alerts/checks", "web-2")).toEqual({ kind: "server", node: "web-2" });
+    expect(contextOf("/backups/destinations", null)).toEqual({ kind: "central" });
+    expect(contextOf("/backups/schedules", null)).toEqual({ kind: "server", node: null });
     expect(contextOf("/fleet", null)).toEqual({ kind: "fleet" });
     expect(contextOf("/fleet/jobs/abc", null)).toEqual({ kind: "fleet" });
     expect(contextOf("/settings/servers", null)).toEqual({ kind: "central" });

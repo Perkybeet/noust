@@ -3,7 +3,7 @@
  * the hours, on the days and for the releases the operator chose (checklist N-28).
  */
 export const autoUpdate = {
-  title: "Automatic updates",
+  title: "Automatic updates of Noust",
   description: "Let this server install Noust's new releases by itself, only inside the hours you choose.",
   what: "the automatic update",
   pill: { on: "On", off: "Off", problem: "On, not installing" },

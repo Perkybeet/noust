@@ -72,6 +72,11 @@ export const REDIRECT_ROWS = [
   { from: "/map", to: "/", state: "live", plain: true },
   // 4.2: Controls and the frameworks were two pages for one question; Compliance is one page (the frameworks, their report, and the controls).
   { from: "/settings/controls", to: "/settings/compliance", state: "live", plain: true },
+  // 4.3 (item 166): what the central carries to every server is shown in the section it belongs to, and Fleet settings is not a
+  // page of its own. With `?kind=` the route opens that kind's section (channels, alert rules, backup destinations, image registries,
+  // shared variables, the console address); without one, the hub of Settings. The manifest is a machine written in a file: Server.
+  { from: "/settings/fleet", to: "/settings", state: "live", plain: true },
+  { from: "/settings/manifest", to: "/server/manifest", state: "live", plain: true },
 ] as const;
 
 /**

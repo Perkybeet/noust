@@ -20,9 +20,14 @@ export const settings = {
     notSaved: "The general settings were not saved",
     notWritableTitle: "Saving will fail",
     notWritable: "The console cannot write {path}. Check its owner and permissions.",
+    policy: {
+      title: "Policy",
+      description: "What Noust decides by default: version notices, the account certificates are issued to, backups and deployments.",
+      failed: "Could not save the policy",
+    },
     server: {
-      title: "This server",
-      description: "Its name, the addresses it is reached at and the account its certificates are issued to.",
+      title: "Name and addresses",
+      description: "What this server is called and the addresses it is reached at.",
       failed: "Could not save this server's settings",
       nameLabel: "Server name",
       nameDescription: "Used in notifications and on a fleet. Empty uses the host name.",
@@ -38,7 +43,7 @@ export const settings = {
     },
     applications: {
       title: "Applications",
-      description: "Where new applications live, which web server serves them and how many backups are kept.",
+      description: "Where new applications and their backups live, which web server serves them and how much it builds at once.",
       failed: "Could not save the application settings",
       directoryLabel: "Applications folder",
       directoryDescription: "An absolute path. Applications that already exist keep theirs.",
@@ -561,7 +566,7 @@ export const settings = {
       linkTitle: "Link to the console",
       link: "Messages link to {url}.",
       noLink: "Messages carry no link: set the console's address in {general}.",
-      generalLink: "General",
+      generalLink: "Machine",
     },
     language: {
       fieldLabel: "Language of notifications",
@@ -706,7 +711,7 @@ export const settings = {
 
   about: {
     documentTitle: "About",
-    loading: "Loading the version and the automatic updates",
+    loading: "Loading the version",
     method: {
       apt: "the apt repository",
       rpm: "the RPM repository ({tool})",

@@ -77,7 +77,6 @@ const SERVER_SETTINGS: readonly Route[] = [
   { id: "settings-general", path: "/settings/general" },
   { id: "settings-registries", path: "/settings/registries" },
   { id: "settings-deploy-keys", path: "/settings/deploy-keys" },
-  { id: "settings-fleet", path: "/settings/fleet" },
   { id: "settings-variables", path: "/settings/variables" },
   { id: "settings-secret-managers", path: "/settings/secret-managers" },
   { id: "settings-console", path: "/settings/console" },
@@ -87,7 +86,6 @@ const SERVER_SETTINGS: readonly Route[] = [
   { id: "settings-log-shipping", path: "/settings/log-shipping" },
   { id: "settings-tokens", path: "/settings/tokens" },
   { id: "settings-api", path: "/settings/api" },
-  { id: "settings-manifest", path: "/settings/manifest" },
   { id: "settings-mcp", path: "/settings/mcp" },
   { id: "settings-accounts", path: "/settings/accounts" },
   { id: "settings-access", path: "/settings/access" },
@@ -135,6 +133,8 @@ const NOT_A_SUBSECTION: Readonly<Record<string, string>> = {
   "settings/servers.tsx": "it redirects to Fleet > Servers: the fleet's list is the one list of servers since 4.0",
   "settings/alerts.tsx": "it redirects to Alerts, an area of the bar since 4.1",
   "settings/probes.tsx": "it redirects to Alerts > Probes and status page, since 4.1",
+  "settings/fleet.tsx": "it redirects to the section of the kind of setting it names, or to the hub: what Fleet settings held is in each section since 4.3",
+  "settings/manifest.tsx": "it redirects to Server > Manifest: the manifest is a page of the machine since 4.3",
   "settings/controls.tsx": "it redirects to Compliance: in 4.2 the controls joined the frameworks and their report on one page",
 };
 
