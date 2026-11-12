@@ -100,6 +100,10 @@ class Docker(FakeRunner):
             rest = list(call[2:])
             while rest and rest[0] in ("-p", "-f"):
                 rest = rest[2:]
+            # What the guard asks Compose to resolve the file to changes nothing and is no step
+            # of the update (test_compose_guard_resolved holds it).
+            if "config" in rest:
+                continue
             calls.append(tuple(rest))
         return calls
 

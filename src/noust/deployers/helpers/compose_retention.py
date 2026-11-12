@@ -19,31 +19,39 @@ runs docker through the :class:`~noust.core.runner.CommandRunner` it is given.
 
 from __future__ import annotations
 
-import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-from noust.core import legacy_names
 from noust.core.compose_release_store import RetainedImage
+from noust.core.docker.names import (
+    LEGACY_PREVIOUS_TAG,
+    PREVIOUS_TAG,
+    PREVIOUS_TAGS,
+    TAG_PREFIX,
+    release_tag,
+    repository_name,
+)
 from noust.core.runner import CommandRunner
 
-#: What every tag that keeps a release's image starts with after the colon.
-TAG_PREFIX = "noust-"
-
-#: The tag the image each service ran before an update is kept under while the update runs
-#: (``<project>-<service>:noust_previous``, with an underscore because every tag that starts with
-#: ``noust-`` is a release's), and the one an update before 4.0 left: the next
-#: update of a stack retags what is under the old name and removes it, and nothing that lists
-#: unused images may offer either for removal.
-PREVIOUS_TAG = "noust_previous"
-LEGACY_PREVIOUS_TAG = legacy_names.PREVIOUS_IMAGE_TAG
-PREVIOUS_TAGS = (PREVIOUS_TAG, LEGACY_PREVIOUS_TAG)
+# What the tags are called is said once, with the rest of what Noust names in Docker
+# (noust.core.docker.names); this module is where they are listed, restored and removed.
+__all__ = [
+    "IMAGE_TIMEOUT",
+    "LEGACY_PREVIOUS_TAG",
+    "PREVIOUS_TAG",
+    "PREVIOUS_TAGS",
+    "TAG_PREFIX",
+    "ImageRelease",
+    "kept_tags",
+    "release_tag",
+    "remove",
+    "repository_name",
+    "restore",
+    "retain",
+]
 
 #: Deadline of one docker image command: they only touch names.
 IMAGE_TIMEOUT = 60
-
-#: Characters an image repository name cannot hold.
-_NAME_INVALID = re.compile(r"[^a-z0-9._-]+")
 
 
 @dataclass(frozen=True)
@@ -68,35 +76,6 @@ class ImageRelease:
     status: str
     active: bool
     present: bool
-
-
-def repository_name(project: str, service: str) -> str:
-    """
-    Name the repository a service's kept images live under.
-
-    Args:
-        project: The Compose project.
-        service: The service.
-
-    Returns:
-        ``<project>-<service>`` restricted to what an image name may hold.
-    """
-    return _NAME_INVALID.sub("-", f"{project}-{service}".lower()).strip("._-") or "noust"
-
-
-def release_tag(project: str, service: str, release_id: str) -> str:
-    """
-    Name the tag that keeps a service's image of a release.
-
-    Args:
-        project: The Compose project.
-        service: The service.
-        release_id: The release.
-
-    Returns:
-        ``<project>-<service>:noust-<release id>``.
-    """
-    return f"{repository_name(project, service)}:{TAG_PREFIX}{release_id}"
 
 
 def kept_tags(runner: CommandRunner) -> set[str] | None:

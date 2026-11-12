@@ -110,6 +110,15 @@ src/noust/
                     deployers that both read it: releases.py (ReleaseManager: the only code that
                     knows releases/, current, shared/), layout.py (which layout, where .env
                     lives) and permissions.py (handing files to the app's account)
+    docker/         the one door from Noust to Docker, through the runner and the `docker` command and no
+                    SDK: `engine.py` (which Docker there is and what does not fit in it, as sentences with
+                    a code), `reading.py` (Docker's JSON for containers, images, volumes and networks;
+                    labels are asked by name, never split from a string), `owners.py` (whose each object is,
+                    from what the store registered and never from the object's own labels), `judge.py` (an
+                    action is (owner, action, object): what is an application's is changed through the
+                    application) and `gate.py` (`DockerGate`); `names.py` is what Noust calls things in
+                    Docker. New code asks Docker through it; `tests/test_docker_ratchet.py` lists the
+                    modules that still ask by themselves, and the list only gets shorter
     deploy_events.py  the deployment events every deployment publishes and its subscribers
     store.py        SQLite persistence (WAL) with versioned migrations
     schema_fragments.py  what a schema version written one fragment per area shares: apply it, and

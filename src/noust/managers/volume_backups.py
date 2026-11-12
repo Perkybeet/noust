@@ -89,7 +89,7 @@ from noust.core.notifications.composers import (
 from noust.core.notifications.context import NotificationContext
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.signal_guard import stop_as_exit
-from noust.core.store import App, NoustStore, get_store
+from noust.core.store import App, NoustStore, get_store, is_compose_backed
 from noust.core.utils import domain_to_app_name
 from noust.managers.backup_destination_files import DestinationFileManager, file_sha256
 from noust.managers.backup_failures import record_failure
@@ -647,7 +647,7 @@ class VolumeBackupManager:
                 add_path(raw, "persistent path")
         for raw in extra_paths:
             add_path(raw, "added to the policy")
-        if app.app_type == "docker-compose":
+        if is_compose_backed(app.app_type):
             for name in BackupManager(runner=self._runner, fs=self._fs).docker_volumes(domain):
                 if not DOCKER_VOLUME_NAME.fullmatch(name):
                     self.logger.warning(f"Skipping Docker volume with an unusable name: {name!r}")
@@ -990,7 +990,7 @@ class VolumeBackupManager:
         if mode == "live":
             yield
             return
-        compose = app.app_type == "docker-compose"
+        compose = is_compose_backed(app.app_type)
         if mode == "pause" and compose:
             containers = self._compose_containers(app)
             if containers:

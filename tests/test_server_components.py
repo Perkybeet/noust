@@ -142,11 +142,29 @@ class TestHowItIsInstalled:
         docker, waf = components.component("docker"), components.component("waf")
 
         assert docker is not None and waf is not None
+        # The RPM family is Fedora, which packages Docker, and a dozen that do not: it is the
+        # distribution that decides, not the package manager.
+        assert [f for f in FAMILIES if docker.installable_on(f, "fedora")] == FAMILIES
+        assert [f for f in FAMILIES if docker.installable_on(f, "rocky")] == [
+            PackageFamily.APT,
+            PackageFamily.ZYPPER,
+        ]
         assert [f for f in FAMILIES if docker.installable_on(f)] == [
             PackageFamily.APT,
             PackageFamily.ZYPPER,
         ]
         assert [f for f in FAMILIES if waf.installable_on(f)] == [PackageFamily.APT]
+
+    def test_docker_is_made_of_what_each_distribution_packages(self) -> None:
+        docker = components.component("docker")
+
+        assert docker is not None
+        # Debian has no docker-compose-v2 and Fedora no docker.io: what a removal looks for and
+        # what Software lists as Docker's packages is the union of what the distributions call them.
+        assert set(docker.packages_on(PackageFamily.APT)) >= {"docker.io", "docker-compose-v2"}
+        assert "docker-compose" in docker.candidates_on(PackageFamily.APT)
+        assert docker.packages_on(PackageFamily.DNF) == ("moby-engine", "docker-compose")
+        assert "docker-cli" in docker.candidates_on(PackageFamily.DNF)
 
     def test_a_component_installed_by_the_package_manager_has_a_package_to_name(self) -> None:
         for item in COMPONENTS:

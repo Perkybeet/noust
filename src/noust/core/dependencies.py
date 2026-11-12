@@ -15,6 +15,7 @@ from enum import Enum
 from pathlib import Path
 from typing import ClassVar, TypedDict
 
+from noust.core.docker.engine import compose_answers, daemon_answers
 from noust.core.exceptions import DeploymentError, SecurityError
 from noust.core.package_family import PackageFamily, install_apt_packages, install_hint
 from noust.core.runner import CommandRunner, get_runner
@@ -467,15 +468,13 @@ class DependencyChecker:
                 missing.append(f"docker: Docker is required for {app_type} deployments")
             else:
                 # Verify Docker daemon is running
-                result = self.runner.run(["docker", "info"], timeout=PROBE_TIMEOUT)
-                if not result.success:
+                if not daemon_answers(self.runner, timeout=PROBE_TIMEOUT):
                     missing.append(
                         "docker: Docker daemon is not running. Start with: systemctl start docker"
                     )
 
                 # Check Docker Compose v2
-                result = self.runner.run(["docker", "compose", "version"], timeout=PROBE_TIMEOUT)
-                if not result.success:
+                if not compose_answers(self.runner, timeout=PROBE_TIMEOUT):
                     missing.append("docker compose: Docker Compose v2 plugin is required")
 
         elif app_type == "php-fpm":

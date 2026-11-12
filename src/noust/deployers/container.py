@@ -528,7 +528,9 @@ class ContainerDeployer(DockerComposeDeployer):
         self.compose_file = COMPOSE_FILE
         self.compose_path = self.app_path / COMPOSE_FILE
 
-    def _compose(self, *args: str, project: str | None = None) -> list[str]:
+    def _compose(
+        self, *args: str, project: str | None = None, all_profiles: bool = False
+    ) -> list[str]:
         """
         Build a ``docker compose`` command for this application.
 
@@ -538,13 +540,14 @@ class ContainerDeployer(DockerComposeDeployer):
         Args:
             args: Subcommand and its arguments.
             project: The project to address instead of the derived one.
+            all_profiles: Turn every profile on, as the base class does.
 
         Returns:
             The full argument vector.
         """
         if self.compose_path is None:
             self._discover_compose_file()
-        return super()._compose(*args, project=project)
+        return super()._compose(*args, project=project, all_profiles=all_profiles)
 
     def _parse_compose_services(self, *, guard: bool = True) -> None:
         """

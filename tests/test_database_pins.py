@@ -22,6 +22,7 @@ from types import ModuleType, SimpleNamespace
 import pytest
 
 from noust.managers.database.instance_catalog import SPECS
+from noust.managers.docker_volumes import HELPER_IMAGE
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "database_pins.py"
 
@@ -50,6 +51,9 @@ def registry(
         for variant in spec.variants
         for pin in variant.pins
     }
+    # The image the copies of a volume run in is read with the catalog's.
+    helper, _, helper_digest = HELPER_IMAGE.partition("@")
+    pinned[helper] = helper_digest
     broken = kwargs.get("broken")
     only_amd64 = kwargs.get("only_amd64")
     # What the catalog says each image is published for, unless a test changes it.
@@ -93,10 +97,11 @@ def test_when_the_registry_serves_what_the_catalog_pins_nothing_is_reported(
     report = tool.check([])
 
     assert report["problems"] == []
-    assert len(report["images"]) == sum(
+    assert len(report["images"]) == 1 + sum(
         len(spec.pins) + sum(len(variant.pins) for variant in spec.variants)
         for spec in SPECS.values()
     )
+    assert "volume-helper" in {entry["flavour"] for entry in report["images"]}
     assert all(entry["served"] == entry["pinned"] for entry in report["images"])
 
 
@@ -129,7 +134,7 @@ def test_a_registry_that_does_not_answer_is_one_problem_and_the_rest_are_still_r
     report = tool.check([])
 
     assert any("HTTP 500" in problem for problem in report["problems"])
-    assert len(report["images"]) == sum(
+    assert len(report["images"]) == 1 + sum(
         len(spec.pins) + sum(len(variant.pins) for variant in spec.variants)
         for spec in SPECS.values()
     )

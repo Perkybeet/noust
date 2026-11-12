@@ -78,7 +78,7 @@ export const containers = {
   },
   volumes: {
     title: "Volumes",
-    description: "Container paths kept in named volumes across deploys: what the application writes there survives the container being replaced. Volumes are not part of Noust's backups.",
+    description: "Container paths kept in named volumes across deploys: what the application writes there survives the container being replaced. Their data is copied from Backups, under Volumes.",
     path: "Path in the container",
     add: "Add volume",
     remove: "Remove {path}",

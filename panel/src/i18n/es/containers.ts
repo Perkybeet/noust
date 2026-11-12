@@ -77,7 +77,7 @@ export const containers: Catalog<typeof en> = {
   },
   volumes: {
     title: "Volúmenes",
-    description: "Rutas del contenedor que se guardan en volúmenes con nombre entre despliegues: lo que la aplicación escribe ahí sobrevive a que se sustituya el contenedor. Los volúmenes no entran en las copias de seguridad de Noust.",
+    description: "Rutas del contenedor que se guardan en volúmenes con nombre entre despliegues: lo que la aplicación escribe ahí sobrevive a que se sustituya el contenedor. Sus datos se copian desde Copias, en Volúmenes.",
     path: "Ruta en el contenedor",
     add: "Añadir volumen",
     remove: "Quitar {path}",

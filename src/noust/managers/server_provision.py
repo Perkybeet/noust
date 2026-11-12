@@ -13,7 +13,8 @@ Two rules:
 
 * **Nothing is installed that was not asked for**, and nothing from a repository nobody chose.
   A distribution whose own repositories do not carry Docker (the RPM families, apart from
-  openSUSE) is told how, in a sentence, instead of being given a third-party repository.
+  Fedora and openSUSE) is told how, in a sentence, instead of being given a third-party
+  repository.
 * **A failure says what the package manager said.** Every command is an argv with a deadline.
 
 The database engines are installed by their own manager (``noust db install``); this is the rest.
@@ -25,12 +26,14 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal
 
+from noust.core.docker.engine import compose_answers
 from noust.core.exceptions import DependencyError
 from noust.core.logger import Logger
 from noust.core.package_family import PackageFamily, detect_family
 from noust.core.runner import CommandRunner, get_runner
+from noust.managers.server.host import OsRelease, read_os_release
 
-__all__ = ["ProvisionStep", "ServerProvisioner"]
+__all__ = ["DockerPlan", "ProvisionStep", "ServerProvisioner", "docker_plan"]
 
 #: Seconds a package manager refreshing its lists gets.
 REFRESH_TIMEOUT = 300
@@ -91,16 +94,92 @@ _WEBSERVERS: dict[str, _WebServer] = {
     ),
 }
 
-#: Docker: the engine, then the Compose plugin, which has a different name on each release (the
-#: first that installs and answers ``docker compose version`` is kept). A family with no entry
-#: does not carry Docker in its own repositories.
-_DOCKER: dict[PackageFamily, tuple[tuple[str, ...], tuple[str, ...]]] = {
-    PackageFamily.APT: (("docker.io",), ("docker-compose-v2", "docker-compose-plugin")),
-    PackageFamily.ZYPPER: (("docker",), ("docker-compose",)),
-}
-
-#: Where Docker says how to install its engine on every distribution.
+#: Where Docker says how to install its engine on every distribution, and on Debian, whose own
+#: repositories cannot give Compose v2 before Debian 13.
 DOCKER_INSTALL_DOCS = "https://docs.docker.com/engine/install/"
+DOCKER_INSTALL_DOCS_DEBIAN = "https://docs.docker.com/engine/install/debian/"
+
+
+@dataclass(frozen=True)
+class DockerPlan:
+    """
+    What installs Docker with its Compose plugin on one distribution, from its own repositories.
+
+    Attributes:
+        engine: The packages that bring the engine and its client.
+        compose: The packages that bring ``docker compose`` (Compose v2), tried in order; the
+            first that installs and answers ``docker compose version`` is kept. Empty when the
+            distribution's repositories have none: Debian 12 and 11 package Compose v1, a
+            program of its own that is not the plugin.
+    """
+
+    engine: tuple[str, ...]
+    compose: tuple[str, ...]
+
+
+#: The Debian release that first packages Compose v2 (``docker-compose`` 2.26.1 in trixie; in
+#: bookworm the package of that name is Compose 1.29.2).
+_DEBIAN_WITH_COMPOSE_V2 = 13
+
+#: ``docker-compose-v2`` is Ubuntu's name for the plugin: Debian has no package of that name, and
+#: ``docker-compose-plugin`` is the one of Docker's own repository, which Noust does not add.
+_UBUNTU = DockerPlan(("docker.io",), ("docker-compose-v2",))
+_DEBIAN = DockerPlan(("docker.io",), ("docker-compose",))
+_DEBIAN_OLD = DockerPlan(("docker.io",), ())
+#: Fedora's engine is Moby (``moby-engine`` brings the ``docker`` client with it) and its Compose
+#: is the Go one, ``docker-compose``, from Fedora 43.
+_FEDORA = DockerPlan(("moby-engine",), ("docker-compose",))
+_ZYPPER = DockerPlan(("docker",), ("docker-compose",))
+#: A distribution of the apt family that is not known by name: each name, verified by asking.
+_APT_UNKNOWN = DockerPlan(("docker.io",), ("docker-compose-v2", "docker-compose"))
+
+
+def docker_plan(family: PackageFamily, os_release: OsRelease) -> DockerPlan | None:
+    """
+    Choose what installs Docker on a distribution.
+
+    The package names are the distribution's, not a family's: ``docker-compose-v2`` exists on
+    Ubuntu and not on Debian, ``docker-compose`` is Compose v2 on Debian 13 and Compose v1 before
+    it, and the RPM family is Fedora and a dozen that do not package Docker at all.
+
+    Args:
+        family: The package manager.
+        os_release: The distribution's identity.
+
+    Returns:
+        The plan, or None when the distribution's own repositories do not carry Docker.
+    """
+    if family is PackageFamily.ZYPPER:
+        return _ZYPPER
+    if family is PackageFamily.DNF:
+        return _FEDORA if os_release.id == "fedora" else None
+    if family is not PackageFamily.APT:
+        return None
+    if os_release.id == "ubuntu" or "ubuntu" in os_release.id_like:
+        return _UBUNTU
+    if os_release.id == "debian" or "debian" in os_release.id_like:
+        release = _debian_release(os_release)
+        if release is None:
+            return _APT_UNKNOWN
+        return _DEBIAN if release >= _DEBIAN_WITH_COMPOSE_V2 else _DEBIAN_OLD
+    return _APT_UNKNOWN
+
+
+def _debian_release(os_release: OsRelease) -> int | None:
+    """
+    Args:
+        os_release: A Debian or a distribution made from it.
+
+    Returns:
+        The Debian release it carries: its major version, or a number past every released one
+        for testing and unstable (which have no ``VERSION_ID``), or None when it cannot be told.
+    """
+    major = os_release.version_id.split(".", 1)[0]
+    if major.isdigit():
+        return int(major)
+    if os_release.codename in {"forky", "sid"}:
+        return 99
+    return None
 
 
 @dataclass(frozen=True)
@@ -130,6 +209,8 @@ class ServerProvisioner:
         runner: Every process goes through it.
         logger: Where progress is reported.
         family: The package manager's family; found by the programs that exist when None.
+        os_release: The distribution's identity, which decides the names of Docker's packages;
+            read from the machine when None.
     """
 
     def __init__(
@@ -138,10 +219,12 @@ class ServerProvisioner:
         runner: CommandRunner | None = None,
         logger: Logger | None = None,
         family: PackageFamily | None = None,
+        os_release: OsRelease | None = None,
     ) -> None:
         self._runner = runner
         self.logger = logger or Logger(verbose=False)
         self._family = family
+        self._os_release = os_release
 
     @property
     def runner(self) -> CommandRunner:
@@ -154,6 +237,13 @@ class ServerProvisioner:
         if self._family is None:
             self._family = detect_family(self.runner)[0]
         return self._family
+
+    @property
+    def os_release(self) -> OsRelease:
+        """This machine's distribution."""
+        if self._os_release is None:
+            self._os_release = read_os_release()
+        return self._os_release
 
     # ------------------------------------------------------------------ helpers
 
@@ -309,8 +399,7 @@ class ServerProvisioner:
         Returns:
             Whether ``docker compose`` answers.
         """
-        result = self.runner.run(["docker", "compose", "version"], timeout=SYSTEMCTL_TIMEOUT)
-        return result.success
+        return compose_answers(self.runner, timeout=SYSTEMCTL_TIMEOUT)
 
     def _docker_ready(self) -> bool:
         """
@@ -328,12 +417,13 @@ class ServerProvisioner:
         """
         if self._docker_ready():
             return ProvisionStep("docker", "present", "Docker and its Compose plugin are installed")
-        plan = _DOCKER.get(self.family)
-        command = (
-            " ".join(self._install_argv((*plan[0], plan[1][0])))
-            if plan
-            else f"See {DOCKER_INSTALL_DOCS}"
-        )
+        plan = docker_plan(self.family, self.os_release)
+        if plan is None:
+            command = f"See {DOCKER_INSTALL_DOCS}"
+        elif not plan.compose:
+            command = f"See {DOCKER_INSTALL_DOCS_DEBIAN}"
+        else:
+            command = " ".join(self._install_argv((*plan.engine, plan.compose[0])))
         return ProvisionStep(
             "docker", "missing", "Docker or its Compose plugin is missing", command
         )
@@ -346,13 +436,13 @@ class ServerProvisioner:
             ``present`` or ``installed``.
 
         Raises:
-            DependencyError: This distribution does not carry Docker in its own repositories
-                (the message says where Docker explains how), there is no package manager,
-                or the installation failed.
+            DependencyError: This distribution does not carry Docker, or its Compose v2, in its
+                own repositories (the message says where Docker explains how), there is no
+                package manager, or the installation failed.
         """
         if self._docker_ready():
             return ProvisionStep("docker", "present", "Docker and its Compose plugin are installed")
-        plan = _DOCKER.get(self.family)
+        plan = docker_plan(self.family, self.os_release)
         if plan is None:
             if self.family is PackageFamily.NONE:
                 self._install_argv(())
@@ -362,11 +452,23 @@ class ServerProvisioner:
                 f"as {DOCKER_INSTALL_DOCS} explains, then run the command again. Noust does not "
                 "add a third-party repository by itself.",
             )
-        engine, compose = plan
+        if not plan.compose:
+            # Before installing anything: an engine without the plugin is a machine that cannot
+            # deploy, and it would have to be undone by hand.
+            release = self.os_release
+            name = release.pretty_name if release.pretty_name != "Linux" else release.id
+            raise DependencyError(
+                f"{name} does not package Docker Compose v2",
+                details="Its repositories carry Docker's engine (docker.io) and Compose v1, a "
+                "program of its own that has no 'docker compose', and Noust needs the plugin. "
+                f"Install Docker from Docker's own repository as {DOCKER_INSTALL_DOCS_DEBIAN} "
+                "explains, then run the command again. Noust does not add a third-party "
+                "repository by itself.",
+            )
         self.logger.info("Installing Docker")
-        self._install(engine)
+        self._install(plan.engine)
         self._enable("docker")
-        for candidate in compose:
+        for candidate in plan.compose:
             try:
                 self._install((candidate,))
             except DependencyError:
@@ -375,6 +477,6 @@ class ServerProvisioner:
                 return ProvisionStep("docker", "installed", "Docker and Compose were installed")
         raise DependencyError(
             "Docker was installed but its Compose plugin could not be",
-            details=f"Tried: {', '.join(compose)}. Install the Compose v2 plugin as "
+            details=f"Tried: {', '.join(plan.compose)}. Install the Compose v2 plugin as "
             f"{DOCKER_INSTALL_DOCS} explains, then run the command again.",
         )

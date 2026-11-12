@@ -26,6 +26,8 @@ from __future__ import annotations
 import fnmatch
 from collections.abc import Sequence
 
+from noust.core.docker import probes as docker_probes
+
 #: Every argv shape a manager runs to look and not to change.
 READ_ONLY_PROBES: tuple[tuple[object, ...], ...] = (
     # What machine this is.
@@ -92,9 +94,8 @@ READ_ONLY_PROBES: tuple[tuple[object, ...], ...] = (
     ("ip", "-6", "route", "show", "default"),
     # Disks and containers.
     ("ionice", "-c3", "nice", "-n", "19", "du", "-sx", "-B1", "--", "*"),
-    ("docker", "system", "df", "--format", "json"),
-    ("docker", "image", "ls", "--format", "{{json .}}"),
-    ("docker", "ps", "-a", "--format", "{{.Image}}"),
+    # What the storage page asks Docker is what the gate to Docker asks (rule 3).
+    *docker_probes.READ_ONLY_PROBES,
 )
 
 
