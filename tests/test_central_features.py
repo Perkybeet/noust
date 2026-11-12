@@ -16,6 +16,7 @@ from __future__ import annotations
 import ast
 import re
 from collections.abc import Iterator
+from functools import cache
 from pathlib import Path
 
 import pytest
@@ -56,7 +57,8 @@ def hub(monkeypatch: pytest.MonkeyPatch) -> None:
     Config.reset_instance()
 
 
-def guard_calls() -> list[tuple[str, int, ast.expr]]:
+@cache
+def guard_calls() -> tuple[tuple[str, int, ast.expr], ...]:
     """
     Find every call of ``require_server_role`` in the package, from the syntax tree.
 
@@ -80,7 +82,7 @@ def guard_calls() -> list[tuple[str, int, ast.expr]]:
             )
             if name == "require_server_role":
                 found.append((str(path.relative_to(SOURCE)), node.lineno, node.args[0]))
-    return found
+    return tuple(found)
 
 
 def keys_in_use() -> set[str]:
