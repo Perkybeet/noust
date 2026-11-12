@@ -50,6 +50,7 @@ export const centralBackups: Catalog<typeof en> = {
       follow: "Recoge",
     },
     never: "Aún no se ha mirado",
+    said: "Lo que dijo {server}",
     held: { one: "{count} copia, {size}", other: "{count} copias, {size}" },
     heldNone: "Nada guardado",
     follow: {

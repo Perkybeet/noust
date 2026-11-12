@@ -73,21 +73,21 @@ export function GiveBackDialog({ copy, servers, open, onOpenChange }: GiveBackDi
     onOpenChange,
     title: t("centralBackups.give.title", { owner: copy.owner }),
     description: (
+      // The dialog draws its description inside a paragraph: spans, never paragraphs in it.
       <>
-        <p>{t("centralBackups.give.description")}</p>
-        <p className="mt-2">
+        <span className="block">{t("centralBackups.give.description")}</span>
+        <span className="mt-2 block">
           {t.rich("centralBackups.give.source", {
             owner: <Mono tone="default">{copy.owner}</Mono>,
             when: <RelativeTime value={copy.created_at} />,
             server: <Mono tone="default">{copy.node}</Mono>,
           })}
-        </p>
-        {kind === "noust" ? <p className="mt-2">{t("centralBackups.give.noust")}</p> : null}
+        </span>
+        {kind === "noust" ? <span className="mt-2 block">{t("centralBackups.give.noust")}</span> : null}
       </>
     ),
     actionLabel: t("centralBackups.give.action"),
     destructive: !beside && kind !== "noust",
-    server: target,
     ready,
     size: "md" as const,
     onConfirm: submit,

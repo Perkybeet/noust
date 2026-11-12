@@ -23,6 +23,7 @@ import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 import { StatusPill } from "../../../components/ui/StatusPill";
+import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { formatBytes } from "../../../lib/format";
@@ -130,9 +131,9 @@ function serverColumns(t: T): Column<CollectingNode>[] {
             {hint !== null ? <p className="max-w-measure-help text-12 text-pretty text-fg-muted">{hint}</p> : null}
             {/* The server's own words, verbatim: what failed is never paraphrased. */}
             {view.status === "failed" && (row.last_error ?? "") !== "" ? (
-              <p className="max-w-measure-help text-12 break-words text-fg-muted">
-                <Mono tone="default">{row.last_error}</Mono>
-              </p>
+              <SystemOutput label={t("centralBackups.servers.said", { server: row.node })} className="max-w-measure-help rounded-control bg-bg-sunken px-2 py-1.5">
+                {row.last_error ?? ""}
+              </SystemOutput>
             ) : null}
           </div>
         );

@@ -52,6 +52,7 @@ export const centralBackups = {
       follow: "Collects",
     },
     never: "Not looked at yet",
+    said: "What {server} said",
     held: { one: "{count} copy, {size}", other: "{count} copies, {size}" },
     heldNone: "Nothing held",
     follow: {

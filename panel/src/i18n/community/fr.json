@@ -3519,6 +3519,7 @@
   "centralBackups.servers.column.held": "Conservé",
   "centralBackups.servers.column.follow": "Récupère",
   "centralBackups.servers.never": "Pas encore examiné",
+  "centralBackups.servers.said": "Ce qu'a dit {server}",
   "centralBackups.servers.held": {
     "one": "{count} copie, {size}",
     "other": "{count} copies, {size}"

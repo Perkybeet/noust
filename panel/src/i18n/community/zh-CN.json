@@ -3445,6 +3445,7 @@
   "centralBackups.servers.column.held": "已保存",
   "centralBackups.servers.column.follow": "收集",
   "centralBackups.servers.never": "尚未查看",
+  "centralBackups.servers.said": "{server} 的原话",
   "centralBackups.servers.held": {
     "other": "{count} 份副本，{size}"
   },
