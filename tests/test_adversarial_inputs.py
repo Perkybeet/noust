@@ -1051,6 +1051,68 @@ class TestTheKeyOfADatabaseServer:
                 check_server_key(value)
 
 
+class TestTheFolderOfAnEnginesDumpsOnADestination:
+    """The folder is built from an engine's key, which a request can carry (item 191)."""
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_what_is_accepted_is_one_plain_folder_below_the_destinations_own(
+        self, value: str
+    ) -> None:
+        from noust.managers.backup_destination_files import DestinationFileManager
+        from noust.managers.database.backups import remote_folder
+
+        accepted, folder = verdict(remote_folder, value, "shop")
+
+        if accepted:
+            segments = folder.split("/")
+            assert segments[0] == "databases" and len(segments) == 3
+            assert segments[2] == "shop"
+            assert re.fullmatch(r"[a-z][a-z0-9]{1,23}(\.[A-Za-z0-9][A-Za-z0-9_.-]*)?", segments[1])
+            assert len(segments[1]) <= 255
+            assert not CONTROL.search(folder) and " " not in folder
+            manager = DestinationFileManager.__new__(DestinationFileManager)
+            manager.target = lambda name: "nas:noust-backups"  # type: ignore[method-assign]
+            target = manager._folder_target("nas", folder)
+            assert target == f"nas:noust-backups/{folder}"
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_the_destination_refuses_every_folder_that_is_not_plain_names(self, value: str) -> None:
+        from noust.core.exceptions import BackupError
+        from noust.managers.backup_destination_files import DestinationFileManager
+
+        manager = DestinationFileManager.__new__(DestinationFileManager)
+        manager.target = lambda name: "nas:noust-backups"  # type: ignore[method-assign]
+        try:
+            target = manager._folder_target("nas", f"databases/{value}/shop")
+        except BackupError:
+            return
+        remote = target.removeprefix("nas:noust-backups/")
+        for segment in remote.split("/"):
+            assert segment not in ("", ".", "..") and not segment.startswith(".")
+            assert not CONTROL.search(segment) and "\\" not in segment and ":" not in segment
+
+    @pytest.mark.parametrize(
+        "key",
+        [
+            "mysql@../etc",
+            "mysql@a/b",
+            "mysql@a\n",
+            "postgresql@.",
+            "postgresql@..",
+            "postgresql@a..b/../c",
+            "../postgresql",
+            "postgresql/../../x",
+        ],
+    )
+    def test_the_keys_that_have_beaten_other_parsers(self, key: str) -> None:
+        from noust.managers.database.backups import remote_folder
+
+        with pytest.raises(ValidationError):
+            remote_folder(key, "shop")
+
+
 class TestWhatAMoveOfADatabaseNames:
     @SETTINGS
     @given(value=HOSTILE)
