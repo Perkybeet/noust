@@ -297,7 +297,10 @@ a restored database of its own and an environment rewritten per application type
 throwaway container of **the image the service ran** (the dump's manifest records it): no network, no
 published port, a memory and process limit, a name `noust-drill-<random>` and the label `noust.drill=1`,
 a password made for the occasion that reaches Docker through its environment and never an argument, and
-removed by its exact name, with its volume, whatever happened; what it holds is counted. A Redis or Valkey
+removed by its exact name, with its volume, whatever happened; what it holds is counted. A PostgreSQL dump
+is loaded without its grants and owners (`pg_restore --no-acl --no-owner`), because the roles they name
+belong to the server and the container has only the one its image made: the read-only role Noust creates
+for the console's SQL is not there, and its absence must not fail a proof about the data. The report says so. A Redis or Valkey
 snapshot, which replaces every key and so cannot be tried beside the real data, is loaded into a second
 server that listens on no port but a private socket and is stopped afterwards. It exits 1 when something
 fails. A scheduled backup runs
