@@ -410,6 +410,20 @@ class TestAuditCommands:
         assert len(rows) == 4
         assert invoke("audit", "export", "--until", "2000-01-01").output == ""
 
+    def test_export_takes_the_filters_the_page_has_and_says_them(self) -> None:
+        seed()
+        result = invoke("audit", "export", "--format", "csv", "--actor", "u1", "--search", "app:1")
+        header, *rows = result.output.splitlines()
+        assert len(rows) == 1 and "u1" in rows[0]
+        details = events("audit.export")[0]["details"]
+        assert details["events"] == 1
+        assert details["filter"] == {"actor": "u1", "q": "app:1"}
+
+    def test_export_csv_is_the_consoles_csv_with_what_the_event_recorded(self) -> None:
+        seed()
+        header = invoke("audit", "export", "--format", "csv").output.splitlines()[0]
+        assert header.endswith(",mac,detail")
+
     def test_review_records_an_attestation_with_the_chain_state(self) -> None:
         seed()
         result = invoke(

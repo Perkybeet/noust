@@ -24,8 +24,6 @@ A front end over :mod:`noust.core.audit`, the same log the console writes and
 
 from __future__ import annotations
 
-import csv
-import io
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -39,6 +37,7 @@ from noust.core.audit import Actor, get_log, health, record
 from noust.core.audit.catalog import markdown_table
 from noust.core.audit.chain import LIMITATION as HONESTY_NOTE
 from noust.core.audit.chain import VerifyResult
+from noust.core.audit.export import FORMATS, ExportFilter, render, select_events
 from noust.core.exceptions import NoustError
 from noust.core.fs import SECRET_MODE, get_fs
 
@@ -97,17 +96,7 @@ def _between(since: str | None, until: str | None) -> list[dict[str, Any]]:
     Returns:
         The events.
     """
-    log = get_log()
-    selected: list[dict[str, Any]] = []
-    for entry in log.iter_newest_first():
-        timestamp = str(entry.get("ts", ""))
-        if until is not None and timestamp > until:
-            continue
-        if since is not None and timestamp < since:
-            break
-        selected.append(entry)
-    selected.reverse()
-    return selected
+    return select_events(get_log(), ExportFilter(since=since, until=until))
 
 
 @click.group("audit", cls=NoustGroup)
@@ -237,6 +226,16 @@ def verify_command(ctx: Context) -> None:
 @cli.command("export", read_only=True)
 @click.option("--since", help="From this date (YYYY-MM-DD) or timestamp.")
 @click.option("--until", help="Up to this date (YYYY-MM-DD) or timestamp, inclusive.")
+@click.option("--action", help="Only this event, such as apps.delete.")
+@click.option("--actor", help="Only this actor, as shown in the Actor column.")
+@click.option("--result", help="Only this outcome, such as denied.")
+@click.option("--category", help="Only this category, such as access or change.")
+@click.option("--target", help="Only events on this exact target.")
+@click.option("--correlation", help="Only the events of one request, command or job.")
+@click.option(
+    "--search",
+    help="Only events with these words in their event, actor, target, detail or address.",
+)
 @click.option(
     "-o",
     "--output",
@@ -246,46 +245,56 @@ def verify_command(ctx: Context) -> None:
 @click.option(
     "--format",
     "fmt",
-    type=click.Choice(["ndjson", "csv"]),
+    type=click.Choice(list(FORMATS)),
     default="ndjson",
     show_default=True,
     help="NDJSON keeps every field and the chain; CSV is for a spreadsheet.",
 )
 @pass_context
 def export_command(
-    ctx: Context, since: str | None, until: str | None, output: Path | None, fmt: str
+    ctx: Context,
+    since: str | None,
+    until: str | None,
+    action: str | None,
+    actor: str | None,
+    result: str | None,
+    category: str | None,
+    target: str | None,
+    correlation: str | None,
+    search: str | None,
+    output: Path | None,
+    fmt: str,
 ) -> None:
-    """Export the audit log for a period, for an auditor or a SIEM."""
-    entries = _read(lambda: _between(_day(since), _day(until, end=True)))
-    if fmt == "ndjson":
-        text = "".join(json.dumps(entry, sort_keys=True) + "\n" for entry in entries)
-    else:
-        buffer = io.StringIO()
-        writer = csv.writer(buffer)
-        writer.writerow(["seq", "ts", "actor", "action", "resource", "result", "ip", "corr", "mac"])
-        for entry in entries:
-            writer.writerow(
-                [
-                    entry.get(field, "")
-                    for field in (
-                        "seq",
-                        "ts",
-                        "actor",
-                        "action",
-                        "resource",
-                        "result",
-                        "ip",
-                        "corr",
-                        "mac",
-                    )
-                ]
-            )
-        text = buffer.getvalue()
+    """
+    Export the audit log for a period, for an auditor or a SIEM.
+
+    The filters are the ones the console's Audit page has, and the console's export is made by
+    the same code: what a page shows filtered is what the file holds.
+    """
+    selection = ExportFilter(
+        action=action,
+        result=result,
+        actor=actor,
+        category=category,
+        correlation_id=correlation,
+        target=target,
+        q=search,
+        since=_day(since),
+        until=_day(until, end=True),
+    )
+    entries = _read(lambda: select_events(get_log(), selection))
+    text = render(entries, fmt)
     record(
         "audit.export",
         actor=audit_trail.cli_actor(),
         target=str(output) if output else "stdout",
-        details={"events": len(entries), "since": since, "until": until, "format": fmt},
+        details={
+            "events": len(entries),
+            "since": since,
+            "until": until,
+            "format": fmt,
+            "filter": selection.described(),
+        },
     )
     if output is None:
         click.echo(text, nl=False)

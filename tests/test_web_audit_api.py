@@ -301,6 +301,68 @@ def test_export_is_ndjson_with_the_chain_and_is_recorded(sandbox: Path) -> None:
     assert client.get("/api/audit?action=audit.export").json()["items"]
 
 
+def test_export_csv_holds_what_the_page_filters_and_says_so_in_the_audit(sandbox: Path) -> None:
+    import csv
+    import io
+
+    from noust.core.audit import Actor, record
+
+    client = build_client(sandbox)
+    login_admin(client)
+    record("apps.update", actor=Actor(kind="user", name="ana"), target="app:shop.example.com")
+    record(
+        "apps.delete", actor=Actor(kind="user", name="luis"), target="app:blog", outcome="denied"
+    )
+
+    response = client.get("/api/audit/export", params={"format": "csv", "result": "denied"})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/csv")
+    assert 'filename="noust-audit.csv"' in response.headers["content-disposition"]
+    table = list(csv.DictReader(io.StringIO(response.text)))
+    assert [row["action"] for row in table] == ["apps.delete"]
+    recorded = client.get("/api/audit?action=audit.export").json()["items"][0]
+    assert recorded["details"]["format"] == "csv"
+    assert recorded["details"]["events"] == 1
+    assert recorded["details"]["filter"] == {"result": "denied"}
+    assert recorded["who"]["kind"] != "anonymous"
+
+
+def test_export_takes_the_search_box_and_the_categories_of_the_page(sandbox: Path) -> None:
+    import csv
+    import io
+
+    from noust.core.audit import Actor, record
+
+    client = build_client(sandbox)
+    login_admin(client)
+    record("apps.update", actor=Actor(kind="user", name="ana"), target="app:shop.example.com")
+    record("apps.update", actor=Actor(kind="user", name="luis"), target="app:blog.example.com")
+
+    response = client.get("/api/audit/export", params={"format": "csv", "q": "SHOP"})
+
+    table = list(csv.DictReader(io.StringIO(response.text)))
+    assert [row["resource"] for row in table] == ["app:shop.example.com"]
+    narrowed = client.get(
+        "/api/audit/export", params={"format": "csv", "categories": ["no-such-category"]}
+    )
+    assert len(list(csv.DictReader(io.StringIO(narrowed.text)))) == 0
+
+
+def test_export_refuses_a_format_it_does_not_write(sandbox: Path) -> None:
+    client = build_client(sandbox)
+    login_admin(client)
+    assert client.get("/api/audit/export", params={"format": "xlsx"}).status_code == 422
+
+
+def test_export_is_ndjson_unless_csv_is_asked_for(sandbox: Path) -> None:
+    client = build_client(sandbox)
+    login_admin(client)
+    response = client.get("/api/audit/export")
+    assert response.headers["content-type"].startswith("application/x-ndjson")
+    assert 'filename="noust-audit.ndjson"' in response.headers["content-disposition"]
+
+
 def test_the_catalog_is_published_for_the_console(sandbox: Path) -> None:
     client = build_client(sandbox)
     login_admin(client)
