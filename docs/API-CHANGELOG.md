@@ -100,6 +100,29 @@ against the schema of 4.2.0.
   recognisable shape masked, and a cell a spreadsheet would run as a formula is written as text. The audit
   event of an export (`audit.export`) says the period, the format and the filter.
 
+- **What Noust watches by itself, and where it says so.** `GET /api/alerts/watching` (permission `server.read`)
+  answers the root of Alerts: `watcher` (whether `noust-monitor`, which does the watching, runs: `running`,
+  `not_running`, `disabled`, `not_installed` or `unknown`, with the command that fixes it), `notifications`
+  (the master switch, when a pause ends and the server's channels that can deliver, each a name and a type, never
+  a setting) and `watches`: each with its `state` (`on`; `off` when its check is turned off; `muted` when none of
+  its messages is on anywhere), its `events` and whether each is on, the `params` its sentence quotes, the
+  channels that would take what it says (`reach`, with `limited` for one that narrows what it hears), `offer`
+  (the setting and the value that turn on a watch that ships off, `monitor.domain_expiry` today) and
+  `asks_outside`. [notifications.md](notifications.md) lists the watches.
+- **What needs this person, as one list.** `GET /api/attention` (permission `self`, narrowed by the handler)
+  returns `items` and `total`: the Overview's own list (for whoever holds `server.read`) joined with the requests
+  waiting for the caller's decision, a newer Noust (`server.manage`) and the recipes with an update
+  (`apps.read`, only the caller's teams'), worst first. Each item and each reason of the Overview's list now
+  carries `origin` (`state`, `alert` or `security`; absent from a server before 4.3, where it is a state), and the
+  list holds more: the machine's own facts (`subject.kind: machine`: pending security updates, broken packages,
+  a reboot that is due, the end of support of the system, a disk, the clock, the swap, failed services) and the
+  open findings of the hardening checks (`subject.kind: finding`), read from the last run and never starting one.
+  A client that listed only the kinds it knew keeps working: a row of a kind it does not know has a `title`, a
+  `severity` and reasons with codes.
+- **A firewall or SSH change nobody confirmed.** `GET /api/notifications/events` lists `access_change_reverted`
+  (on by default): said through the channels when the timer undoes a change to the firewall or to SSH that was not
+  confirmed in time.
+
 ## 4.2.0
 
 API version 1. No operation is removed or deprecated, no documented response code changes, and

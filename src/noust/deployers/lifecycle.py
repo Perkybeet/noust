@@ -315,7 +315,7 @@ def update_app(
         DeploymentError: The tag is older than one already deployed.
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Applications")
+    require_server_role("applications")
     domain = validate_domain(domain)
     _refuse_adopted(domain, "update")
     if rollback_of is None:
@@ -446,7 +446,7 @@ def set_update_backup_required(
     Raises:
         NoustError: The application is not deployed.
     """
-    require_server_role("Applications")
+    require_server_role("applications")
     previous = update_backup_policy(domain)
     policy = set_policy(domain, required, updated_by=actor, store=get_store())
     if policy is None:
@@ -1838,7 +1838,7 @@ def activate_release(
             again by then).
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Releases")
+    require_server_role("releases")
     log = logger if logger is not None else CapturingLogger(verbose=verbose)
     app = _release_app(validate_domain(domain))
     # An update pruning releases, or a second activation, must not run while
@@ -3203,7 +3203,7 @@ def rollback_to_deployment(
         BackupError: The restore failed.
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Rollbacks")
+    require_server_role("rollbacks")
     domain = validate_domain(domain)
     store = get_store()
     record = store.get_deployment(deployment_id)
@@ -3457,7 +3457,7 @@ def set_resource_limits(
             rewritten are put back.
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Applications")
+    require_server_role("applications")
     log = logger if logger is not None else Logger()
     domain = validate_domain(domain)
     store = get_store()
@@ -3734,7 +3734,7 @@ def set_stop_policy(
             are put back.
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Applications")
+    require_server_role("applications")
     log = logger if logger is not None else Logger()
     domain = validate_domain(domain)
     seconds = app_rollout_store.check_stop_timeout(timeout)
@@ -3874,7 +3874,7 @@ def set_health_check(
         ValidationError: A value is not one the gate can use.
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Applications")
+    require_server_role("applications")
     store = get_store()
     app = require_app(store, validate_domain(domain))
     if app.is_static and app.app_type != PHP_FPM:
@@ -3943,7 +3943,7 @@ def set_branch(
     from noust.core import audit
     from noust.managers.source_manager import validate_git_ref
 
-    require_server_role("Applications")
+    require_server_role("applications")
     store = get_store()
     app = require_app(store, validate_domain(domain))
     if branch is not None and _followed_pattern(app):
@@ -4009,7 +4009,7 @@ def set_follow_tags(domain: str, pattern: str | None) -> TagFollow:
     """
     from noust.core import audit
 
-    require_server_role("Applications")
+    require_server_role("applications")
     store = get_store()
     app = require_app(store, validate_domain(domain))
     if pattern is not None:
@@ -4082,7 +4082,7 @@ def set_release_retention(
         ValidationError: ``keep`` is out of range; nothing is pruned.
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Releases")
+    require_server_role("releases")
     log = logger if logger is not None else Logger()
     app = _release_app(validate_domain(domain))
     store = get_store()

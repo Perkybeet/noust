@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from contextlib import nullcontext
 from datetime import datetime
 from pathlib import Path
 from typing import Any, ClassVar
@@ -83,6 +84,26 @@ class FakeStore:
         Returns:
             No history: nothing here depends on a deployment's snapshot.
         """
+        return []
+
+    def _transaction(self) -> Any:
+        """
+        The question that tells a database an application's environment names from one the store
+        says it owns: which links it has.
+
+        Returns:
+            A cursor over a table with nothing in it: these applications have no link.
+        """
+        return nullcontext(_NoRows())
+
+
+class _NoRows:
+    """A cursor over a table with nothing in it."""
+
+    def execute(self, *_args: Any) -> None:
+        return None
+
+    def fetchall(self) -> list[Any]:
         return []
 
 

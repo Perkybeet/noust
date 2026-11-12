@@ -268,6 +268,9 @@ or stop being one: that is another application.
 - Its builds run in the Docker daemon, outside the `noust-build` sandbox, like a Compose stack's
   (`noust app sandbox` says so). The compose file Noust writes is the only one the daemon is
   given.
-- The data in its volumes is not part of `noust backup`: the application's directory is, the
-  named volumes are on the server. Volume backups are a separate feature.
+- The data in its volumes is copied like a Compose stack's: `noust backup volumes targets DOMAIN`
+  lists them, `noust backup volumes create DOMAIN` copies them (Backups > Volumes in the console,
+  with a schedule, a retention and the destinations of the other backups), and `noust backup
+  create DOMAIN --include-docker-volumes` carries them in the application's own backup. The copy
+  of a running container can pause it first (`--consistency pause` runs `docker pause`).
 - It does not update itself unless you ask it to: see [Following a tag](#following-a-tag).

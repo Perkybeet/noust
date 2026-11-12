@@ -585,7 +585,7 @@ class PublicAccess:
                 in a container.
             DatabaseExistsError: The database is already public.
         """
-        require_server_role("Public access to a database")
+        require_server_role("public_database_access")
         if not security_profile.database_remote_listen_allowed():
             raise ValidationError(
                 "The ENS profile does not let a database be reached from the network",

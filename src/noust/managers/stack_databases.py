@@ -636,7 +636,9 @@ _MONGO_TABLES = (
 )
 
 
-def client_command(database: StackDatabase, action: Action, *, tcp: bool = False) -> list[str]:
+def client_command(
+    database: StackDatabase, action: Action, *, tcp: bool = False, keep_grants: bool = True
+) -> list[str]:
     """
     Build the command that runs one client inside a database's container.
 
@@ -653,6 +655,13 @@ def client_command(database: StackDatabase, action: Action, *, tcp: bool = False
         tcp: Make ``ping`` ask over the network port. The first start of an image
             runs a server that answers on its socket only, then restarts: a ping
             on the socket is answered by the server that is about to go away.
+        keep_grants: Whether a ``restore`` puts back what a dump says of roles (who owns what,
+            who may read it). A restore on a server does, and always has. A drill loads into a
+            container that holds no role but the one its image made, and must not fail because
+            ``noust_ro_<app>``, which Noust made in the stack's database for the console's SQL,
+            is not there: it turns the roles off. PostgreSQL's dumps are the ones that carry
+            them; a mysqldump of one database names none, so for the other engines this
+            changes nothing.
 
     Returns:
         The argv to run after ``docker compose exec -T <service>``.
@@ -674,7 +683,13 @@ def client_command(database: StackDatabase, action: Action, *, tcp: bool = False
         arguments = {
             "dump": ["-Fc", "-Z", "0", *connection],
             # One transaction: a dump that does not fit leaves the database as it was.
-            "restore": ["--single-transaction", "--clean", "--if-exists", *connection],
+            "restore": [
+                "--single-transaction",
+                "--clean",
+                "--if-exists",
+                *([] if keep_grants else ["--no-acl", "--no-owner"]),
+                *connection,
+            ],
             "ping": [*(["-h", "127.0.0.1"] if tcp else []), *connection],
             "tables": ["-X", "-A", "-t", *connection, "-c", _POSTGRES_TABLES],
         }[action]
@@ -1112,7 +1127,7 @@ def set_backup_before_update(domain: str, enabled: bool) -> bool:
         ValidationError: The application is not a Docker Compose stack, which
             is the only kind whose update has databases to copy.
     """
-    require_server_role("Applications")
+    require_server_role("applications")
     store = get_store()
     app = store.get_app(domain)
     if app is None:

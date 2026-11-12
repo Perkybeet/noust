@@ -76,6 +76,14 @@ _FIRST_START_OVER = {
     "mongo": "init process complete",
 }
 
+#: What a drill says it did not try, for the engines whose dumps name roles. The data and the
+#: structure are what a drill proves; the roles belong to the server, and the container it loads
+#: into has none of the application's (item 193).
+_LEFT_OUT = {
+    "postgres": ", without its grants and owners (the roles they name belong to the server, "
+    "not to the dump)"
+}
+
 
 @dataclass(frozen=True)
 class StackRestoreTest:
@@ -214,7 +222,13 @@ def restore_test_stack_dump(
             return StackRestoreTest(False, problem, time.monotonic() - started)
         with tempfile.TemporaryDirectory(prefix="noust-drill-stack-") as workspace:
             loaded = runner.run(
-                ["docker", "exec", "-i", name, *client_command(database, "restore")],
+                [
+                    "docker",
+                    "exec",
+                    "-i",
+                    name,
+                    *client_command(database, "restore", keep_grants=False),
+                ],
                 stdin_path=inflated(dump, Path(workspace)),
                 timeout=RESTORE_TIMEOUT,
             )
@@ -236,7 +250,7 @@ def restore_test_stack_dump(
         return StackRestoreTest(
             True,
             f"{database.label} loaded into a clean {database.image} in {seconds:.1f} s "
-            f"({held}); the container was removed afterwards.",
+            f"({held}){_LEFT_OUT.get(database.engine, '')}; the container was removed afterwards.",
             seconds,
         )
     finally:

@@ -1452,7 +1452,7 @@ next_steps() {
     esac
     if [ "$ADMIN_STATE" = created ]; then
         say ""
-        say "Sign in as $ADMIN_USER at http://127.0.0.1:8080/login, through the same tunnel. The"
+        say "Sign in as $ADMIN_USER at http://localhost:8080/login, through the same tunnel. The"
         say "console offers to protect the account with an authenticator once it is in."
     fi
     if [ "$AUTO_UPDATE_STATE" = enabled ]; then
@@ -1482,7 +1482,8 @@ main() {
     require_root
     check_machine
     server_address
-    CONSOLE_URL="http://127.0.0.1:8080/login?with=token"
+    # localhost and not 127.0.0.1: a passkey (WebAuthn) is bound to a name and is refused on an address of numbers.
+    CONSOLE_URL="http://localhost:8080/login?with=token"
     ADDRESS_PLACEHOLDER="<your server's public address>"
     CONSOLE_TUNNEL="ssh -N -L 8080:127.0.0.1:8080 root@${SERVER_ADDRESS:-$ADDRESS_PLACEHOLDER}"
     if [ "$DRY_RUN" = 1 ]; then

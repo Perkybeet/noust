@@ -127,7 +127,7 @@ central that has been compromised, an application that has been compromised.
 
 **The failure it answers.** A confirmation that stays valid for hours is not a fresh proof. Coolify's password confirmation lasts three hours (`password_timeout` is 10800 in `config/auth.php:113`; 4.4.0, read on 2026-10-13); Noust's sudo mode closes fifteen minutes after the last elevated action, and a window it opened never outlives its ceiling.
 
-**The guarantee.** Five roles with least privilege. Actions that are destructive or root-equivalent need sudo mode, a fresh proof of who is asking with a password or a passkey, for every kind of identity (a single-sign-on user's provider never stands in for the second factor). Where approvals are on, a root-equivalent change waits for a second person, and the approver cannot be the requester. The master token is break-glass, not the normal way in, and is reduced to account recovery under the ENS profile. An API token never opens sudo mode, so one made for an account is refused wherever it is asked; the one way round is explicit (`noust token create --elevated`, `allow_elevated` in the API), issued only by whoever governs accounts, listed as such, refused wherever the `restricted_tokens` control is on, and every action it takes there is audited as `auth.token.elevated` with the token's name.
+**The guarantee.** Five roles with least privilege. Actions that are destructive or root-equivalent need sudo mode, a fresh proof of who is asking: a code from their authenticator (or a backup code), or a passkey, and the account's password as well where the policy asks for it (always under the ENS profile), for every kind of identity (a single-sign-on user's provider never stands in for the second factor). Where approvals are on, a root-equivalent change waits for a second person, and the approver cannot be the requester. The master token is break-glass, not the normal way in, and is reduced to account recovery under the ENS profile. An API token never opens sudo mode, so one made for an account is refused wherever it is asked; the one way round is explicit (`noust token create --elevated`, `allow_elevated` in the API), issued only by whoever governs accounts, listed as such, refused wherever the `restricted_tokens` control is on, and every action it takes there is audited as `auth.token.elevated` with the token's name.
 
 **How it is enforced.** `web/api/deps.py` (`require_elevated`, `ensure_elevated`), `web/auth/tokens.py` (`create_api_token`), `core/accounts/approvals.py`, `web/permissions/roles.py`.
 
@@ -363,8 +363,8 @@ only what recovering an account takes.
 ### The routes
 
 <!-- generated:routes -->
-- **1148** API operations. **1104** need a permission (`x-noust-permission`) and **44** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
-- **378** operations need sudo mode and **54** can need a second person.
+- **1152** API operations. **1108** need a permission (`x-noust-permission`) and **44** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
+- **379** operations need sudo mode and **54** can need a second person.
 - **6** WebSocket routes, each with its permission, checked at the handshake.
 
 | Permission | Operations |
@@ -374,7 +374,7 @@ only what recovering an account takes.
 | `apps.deploy` | 39 |
 | `apps.manage` | 147 |
 | `apps.operate` | 34 |
-| `apps.read` | 153 |
+| `apps.read` | 154 |
 | `apps.terminal` | 12 |
 | `audit.manage` | 1 |
 | `audit.read` | 10 |
@@ -391,10 +391,10 @@ only what recovering an account takes.
 | `root_equivalent` | 20 |
 | `secrets.reveal` | 16 |
 | `security.manage` | 10 |
-| `self` | 45 |
-| `server.host_access` | 27 |
+| `self` | 46 |
+| `server.host_access` | 28 |
 | `server.manage` | 68 |
-| `server.read` | 87 |
+| `server.read` | 88 |
 | `server.terminal` | 1 |
 | `settings.manage` | 35 |
 | `settings.read` | 27 |

@@ -3610,10 +3610,10 @@ READ_ONLY_PROBES: tuple[tuple[object, ...], ...] = (
     ("ip", "-4", "-o", "addr", "show", "scope", "global"),
 )
 
-#: Modules that declare read-only probes of their own, each in a module-level
-#: ``READ_ONLY_PROBES`` tuple written in the same language. Imported the first
-#: time a command is classified, so this module stays importable on its own.
+#: Modules that declare read-only probes of their own, each in a module-level ``READ_ONLY_PROBES``
+#: tuple written in the same language, imported when a command is first classified.
 PROBE_MODULES: tuple[str, ...] = (
+    "noust.core.docker.probes",
     "noust.managers.server.probes",
     "noust.managers.stack_databases",
     "noust.deployers.compose_adopt",

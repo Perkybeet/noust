@@ -841,7 +841,7 @@ class StreamExposures:
             PrerequisiteError: nginx cannot publish a port.
             SecurityError: The firewall refused a rule; the port is closed again.
         """
-        require_server_role("Published ports")
+        require_server_role("published_ports")
         plan = self.plan(
             name,
             protocol=protocol,
@@ -1015,7 +1015,7 @@ class StreamExposures:
             SecurityError: The firewall refused to remove a rule; the exposure stays
                 recorded as closing so the same command finishes it.
         """
-        require_server_role("Published ports")
+        require_server_role("published_ports")
         exposure = self.get(name)
         if is_rehearsal():
             return StreamResult(exposure, (), "", rehearsal=True)
@@ -1123,7 +1123,7 @@ class StreamExposures:
         Returns:
             The names that were put right.
         """
-        require_server_role("Published ports")
+        require_server_role("published_ports")
         done: list[str] = []
         for exposure in self.records.all():
             if exposure.state == OPEN:

@@ -1053,6 +1053,68 @@ class TestTheKeyOfADatabaseServer:
                 check_server_key(value)
 
 
+class TestTheFolderOfAnEnginesDumpsOnADestination:
+    """The folder is built from an engine's key, which a request can carry (item 191)."""
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_what_is_accepted_is_one_plain_folder_below_the_destinations_own(
+        self, value: str
+    ) -> None:
+        from noust.managers.backup_destination_files import DestinationFileManager
+        from noust.managers.database.backups import remote_folder
+
+        accepted, folder = verdict(remote_folder, value, "shop")
+
+        if accepted:
+            segments = folder.split("/")
+            assert segments[0] == "databases" and len(segments) == 3
+            assert segments[2] == "shop"
+            assert re.fullmatch(r"[a-z][a-z0-9]{1,23}(\.[A-Za-z0-9][A-Za-z0-9_.-]*)?", segments[1])
+            assert len(segments[1]) <= 255
+            assert not CONTROL.search(folder) and " " not in folder
+            manager = DestinationFileManager.__new__(DestinationFileManager)
+            manager.target = lambda name: "nas:noust-backups"  # type: ignore[method-assign]
+            target = manager._folder_target("nas", folder)
+            assert target == f"nas:noust-backups/{folder}"
+
+    @SETTINGS
+    @given(value=HOSTILE)
+    def test_the_destination_refuses_every_folder_that_is_not_plain_names(self, value: str) -> None:
+        from noust.core.exceptions import BackupError
+        from noust.managers.backup_destination_files import DestinationFileManager
+
+        manager = DestinationFileManager.__new__(DestinationFileManager)
+        manager.target = lambda name: "nas:noust-backups"  # type: ignore[method-assign]
+        try:
+            target = manager._folder_target("nas", f"databases/{value}/shop")
+        except BackupError:
+            return
+        remote = target.removeprefix("nas:noust-backups/")
+        for segment in remote.split("/"):
+            assert segment not in ("", ".", "..") and not segment.startswith(".")
+            assert not CONTROL.search(segment) and "\\" not in segment and ":" not in segment
+
+    @pytest.mark.parametrize(
+        "key",
+        [
+            "mysql@../etc",
+            "mysql@a/b",
+            "mysql@a\n",
+            "postgresql@.",
+            "postgresql@..",
+            "postgresql@a..b/../c",
+            "../postgresql",
+            "postgresql/../../x",
+        ],
+    )
+    def test_the_keys_that_have_beaten_other_parsers(self, key: str) -> None:
+        from noust.managers.database.backups import remote_folder
+
+        with pytest.raises(ValidationError):
+            remote_folder(key, "shop")
+
+
 class TestWhatAMoveOfADatabaseNames:
     @SETTINGS
     @given(value=HOSTILE)
@@ -2052,6 +2114,218 @@ class TestThePasswordOfAnAddressIsFoundInLinearTime:
         masked = redact_url_credentials(f"{scheme}://u:secret@h")
 
         assert masked == f"{scheme}://u:{REDACTED}@h"
+
+
+class TestWhatAComposeFileBringsInThatItDoesNotWrite:
+    """
+    A compose file is judged for what Compose resolves it to, not for the ``services`` it spells out.
+
+    Arcane's ``include`` directive (CVE-2026-47179), Portainer's ``volumes_from`` and its configs
+    and secrets (2026-10-22 and 2026-10-08) and the ``jobs`` the Compose specification took in on
+    2026-08-16 reach the host without a service that says ``privileged`` or mounts the socket.
+    The guard of ``deployers/helpers/compose_guard.py`` takes the file and the model
+    ``docker compose config`` prints for it through one judgement. What is attacked here is that
+    judgement: every shape of the notices is refused, none of them crashes it, and a path that is
+    not a path of the application is never read.
+    """
+
+    APP = Path("/var/www/apps/shop-example-com")
+
+    #: Each notice of 2026 as the document a repository would carry, and what it must be refused as.
+    NOTICES: dict[str, tuple[dict[str, Any], str]] = {
+        "an include that reaches the file of another application": (
+            {"include": ["../other-example-com/docker-compose.yml"], "services": {}},
+            "outside the application",
+        ),
+        "an include that names a file of Noust's": (
+            {"include": [{"path": "/etc/noust/config.yaml"}], "services": {}},
+            "outside the application",
+        ),
+        "an include with a list of paths, one of them out": (
+            {"include": [{"path": ["a.yml", "/etc/shadow"]}], "services": {}},
+            "outside the application",
+        ),
+        "an extends from the file of another application": (
+            {
+                "services": {
+                    "web": {
+                        "extends": {
+                            "file": "/var/www/apps/other-example-com/docker-compose.yml",
+                            "service": "web",
+                        }
+                    }
+                }
+            },
+            "extends a file outside the application",
+        ),
+        "the volumes of a container that is not the stack's": (
+            {"services": {"web": {"image": "x", "volumes_from": ["container:other-db"]}}},
+            "takes the volumes of the container other-db",
+        ),
+        "the process namespace of another container": (
+            {"services": {"web": {"image": "x", "pid": "container:other-app"}}},
+            "joins the pid of the container other-app",
+        ),
+        "a secret that is a file of Noust's": (
+            {
+                "services": {"web": {"image": "x", "secrets": ["t"]}},
+                "secrets": {"t": {"file": "/etc/noust/web-secret"}},
+            },
+            "configuration and secrets",
+        ),
+        "a config that is the environment file of another application": (
+            {
+                "services": {"web": {"image": "x", "configs": [{"source": "c"}]}},
+                "configs": {"c": {"file": "/var/www/apps/other-example-com/.env"}},
+            },
+            "other application",
+        ),
+        "a job that is privileged": (
+            {"services": {}, "jobs": {"j": {"image": "x", "privileged": True}}},
+            "job j is privileged",
+        ),
+        "a job that mounts the Docker socket": (
+            {
+                "services": {},
+                "jobs": {"j": {"image": "x", "volumes": ["/var/run/docker.sock:/s"]}},
+            },
+            "job j mounts the Docker socket",
+        ),
+        "a service under a profile that mounts the Docker socket": (
+            {
+                "services": {
+                    "debug": {
+                        "image": "x",
+                        "profiles": ["debug"],
+                        "volumes": [{"type": "bind", "source": "/run/docker.sock", "target": "/s"}],
+                    }
+                }
+            },
+            "service debug mounts the Docker socket",
+        ),
+    }
+
+    @pytest.mark.parametrize("name", sorted(NOTICES))
+    def test_every_shape_of_the_notices_is_refused(self, name: str) -> None:
+        from noust.deployers.helpers.compose_guard import inspect_compose
+
+        document, expected = self.NOTICES[name]
+
+        findings = inspect_compose(document, self.APP)
+
+        assert findings.refused, name
+        assert any(expected in sentence for sentence in findings.refused), findings.refused
+
+    def test_what_the_model_resolves_to_is_refused_whatever_brought_it_in(self) -> None:
+        """The model has no ``include`` left: a service of one is a service of the stack."""
+        from noust.deployers.helpers.compose_guard import inspect_compose
+
+        model = {
+            "name": "shop",
+            "services": {
+                "web": {"image": "x"},
+                "reporter": {
+                    "image": "x",
+                    "volumes": [{"type": "bind", "source": "/var/run/docker.sock", "target": "/s"}],
+                },
+            },
+        }
+
+        assert [s.split(" mounts")[0] for s in inspect_compose(model, self.APP).refused] == [
+            "service reporter"
+        ]
+
+    def test_a_link_inside_the_application_does_not_make_an_outside_file_inside(
+        self, tmp_path: Path
+    ) -> None:
+        from noust.deployers.helpers.compose_guard import inspect_compose
+
+        app = tmp_path / "app"
+        app.mkdir()
+        outside = tmp_path / "other.yaml"
+        outside.write_text("services: {}\n")
+        (app / "docs").mkdir()
+        (app / "docs" / "inc.yaml").symlink_to(outside)
+
+        findings = inspect_compose({"include": ["docs/inc.yaml"], "services": {}}, app)
+
+        assert len(findings.refused) == 1
+
+    @pytest.mark.parametrize("path", ["", " ", "\n", "\x00", "..", "../", "./..", "a/../../b"])
+    def test_a_path_that_is_not_one_is_answered_and_never_followed(self, path: str) -> None:
+        from noust.deployers.helpers.compose_guard import inspect_compose
+
+        findings = inspect_compose({"include": [path], "services": {}}, self.APP)
+
+        assert len(findings.refused) <= 1
+
+    LEAF = st.one_of(
+        st.none(),
+        st.booleans(),
+        st.integers(),
+        st.floats(allow_nan=False),
+        st.text(max_size=30),
+        st.sampled_from(PAYLOADS),
+    )
+    VALUES = st.recursive(
+        LEAF,
+        lambda inner: st.one_of(
+            st.lists(inner, max_size=3),
+            st.dictionaries(
+                st.sampled_from(
+                    [
+                        "privileged",
+                        "volumes",
+                        "volumes_from",
+                        "pid",
+                        "ipc",
+                        "network_mode",
+                        "extends",
+                        "file",
+                        "path",
+                        "source",
+                        "secrets",
+                        "configs",
+                        "include",
+                        "cap_add",
+                        "devices",
+                        "security_opt",
+                        "type",
+                        "target",
+                        "image",
+                    ]
+                ),
+                inner,
+                max_size=4,
+            ),
+        ),
+        max_leaves=12,
+    )
+
+    @SETTINGS
+    @given(
+        services=st.dictionaries(st.text(max_size=8), VALUES, max_size=3),
+        jobs=st.dictionaries(st.text(max_size=8), VALUES, max_size=2),
+        secrets=VALUES,
+        include=VALUES,
+    )
+    def test_a_document_of_any_shape_is_answered_and_never_crashes_the_guard(
+        self, services: dict[str, Any], jobs: dict[str, Any], secrets: Any, include: Any
+    ) -> None:
+        from noust.deployers.helpers.compose_guard import (
+            inspect_compose,
+            merge_findings,
+            uses_composition,
+        )
+
+        document = {"services": services, "jobs": jobs, "secrets": secrets, "include": include}
+
+        findings = inspect_compose(document, self.APP)
+        merge_findings(findings, inspect_compose(document, self.APP))
+        uses_composition(document)
+
+        # What it says is text (the log puts it on one line: core/logsafe), whatever came in.
+        assert all(isinstance(sentence, str) for sentence in findings.refused + findings.warned)
 
 
 class TestTheMomentAOneTimeTaskRunsAt:

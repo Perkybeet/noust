@@ -81,6 +81,7 @@ in, every route checks one permission (see [Permissions](#permissions)).
 ```bash
 noust token create ci-update --scope deploy --owner alice    # prints the token once
 noust token create dashboard --scope read --expires-hours 720
+noust token create ci-deploy --preset deploy_only --owner alice   # only the applications and their deploy
 curl -H "Authorization: Bearer $TOKEN" https://panel.example.com/api/apps
 ```
 
@@ -92,7 +93,9 @@ and `DELETE /api/auth/tokens/{id}`. An account issues and lists its own tokens t
 one from a browser session needs sudo mode.
 
 `POST /api/auth/tokens` takes `name`, `scope` (`read`, `deploy` or `admin`), `expires_hours`,
-`permissions` (a list to narrow it to, each held by the issuing account), `allowed_cidrs` (the
+`permissions` (a list to narrow it to, each held by the issuing account) or `preset` (a name for
+the sets a job usually needs, `deploy_only` among them; `GET /api/auth/roles` lists them as
+`token_presets`, and a token made by the master token is narrowed the same way), `allowed_cidrs` (the
 networks it is accepted from) and `allow_elevated` (whether it may call routes that need sudo
 mode; off by default, refused wherever the `restricted_tokens` control is on, as the ENS frameworks
 do). A token cannot confirm sudo mode, so one made for an account is refused on those routes unless
@@ -156,6 +159,17 @@ token without a second factor), `elevation_requires_password`, and the window it
 destructive actions are performed, up to that ceiling. Before sign-in it does not reveal the host
 name, the version or whether 2FA is on. A credential presented to it that is wrong counts toward the lockout like
 anywhere else; one the console signed that has merely expired does not.
+
+For a signed-in caller the session also carries `central`: the Noust's `role` (`server` or `hub`), whether its
+secrets are `sealed` and `locked`, and `features`, what this Noust can do. `features` has one property per function
+of the table in `src/noust/central/features.py` (`native_deploy`, `container_deploy`, `services`, `sites`,
+`system_logs`...; the schema names each one) and each is `{available, reason}`. `reason` is null when it works here
+and otherwise the sentence for why, with a code (`{code, params, text, hint}`, see "Sentences with a code"):
+`features.hub_role` when this Noust is a hub and the function needs one that deploys, `features.needs_systemd`,
+`features.needs_web_server`, `features.needs_root` or `features.needs_journal` for what the machine lacks, and the
+engine's own `docker.*` sentences for Docker. A function that is not available is refused by the same table where it
+is called (a hub answers `409 hub_role`), so a client that offers only what is available never meets the refusal. A
+server older than 4.3 has no `features`; read its absence as "what its role allows", as before.
 
 A session ends after 30 minutes without activity and 12 hours in total (`auth.session.*`). An
 account that has not enrolled a second factor gets `403 mfa_required` on everything but enrolling

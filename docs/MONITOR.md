@@ -67,6 +67,14 @@ sudo touch /var/lib/noust/monitor-declined    # before upgrading; noust monitor 
 
 ## What it watches
 
+The console says it in one place, the opening of Alerts: what Noust looks at without a rule of yours (a
+service or an application that stops, a deploy that fails, a certificate that is not renewed, a disk, the
+updates of the system, a backup that did not run, an API token about to expire, a newer Noust), whether
+each is on, and by which channels what it finds would reach you, or that it reaches nobody yet. What is
+off and worth turning on is offered there with a sentence on what it asks of whom (today, the registration
+date of your domains). `GET /api/alerts/watching` answers the same, and says first whether `noust-monitor`,
+which does the watching, is running.
+
 Every scan interval (60 seconds by default, never less than 10):
 
 | Watch | Recorded when | Severity |

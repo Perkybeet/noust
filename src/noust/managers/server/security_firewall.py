@@ -40,11 +40,12 @@ import hashlib
 import ipaddress
 import json
 import shlex
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from noust.core import paths
+from noust.core.access_changes import describe
 from noust.core.exceptions import SecurityError, ValidationError
 from noust.core.package_family import PackageFamily, install_hint
 from noust.core.runner import EXIT_NOT_FOUND, CommandResult
@@ -444,16 +445,62 @@ class FirewallPlan:
     A firewall change, worked out and guarded, not yet made.
 
     Attributes:
-        title: What it does, in a sentence.
+        title: What it does, in a sentence: the English of ``what`` and ``values``.
         apply: The commands that make it, in order.
         undo: The commands that undo it, in order.
         commit: The commands that make it permanent once confirmed (firewalld).
+        what: The code of the sentence that says what it does
+            (:mod:`noust.core.access_changes`), which the ledger keeps so that it can be said in
+            any language.
+        values: What that sentence puts in.
     """
 
     title: str
     apply: list[list[str]]
     undo: list[list[str]]
     commit: list[list[str]]
+    what: str = ""
+    values: dict[str, str] = field(default_factory=dict)
+
+
+def _plan(
+    what: str,
+    values: dict[str, str],
+    apply: list[list[str]],
+    undo: list[list[str]],
+    commit: list[list[str]],
+) -> FirewallPlan:
+    """
+    A plan whose title is the English of its sentence: the one place a firewall change is worded.
+
+    Args:
+        what: The code of the sentence.
+        values: What it puts in.
+        apply: The commands that make it.
+        undo: The commands that undo it.
+        commit: The commands that make it permanent.
+
+    Returns:
+        The plan.
+    """
+    return FirewallPlan(describe(what, values), apply, undo, commit, what, dict(values))
+
+
+def _rule_words(rule: RuleRequest) -> tuple[str, dict[str, str]]:
+    """
+    The sentence that says a rule is added, and what it puts in.
+
+    Args:
+        rule: The validated rule.
+
+    Returns:
+        The code (``firewall_allow``, ``firewall_deny_any``...) and its values: the port, as
+        ``5432/tcp`` or ``5432`` for both protocols, and the source unless it is anywhere.
+    """
+    anywhere = rule.source == "any"
+    port = str(rule.port) if rule.proto == "any" else f"{rule.port}/{rule.proto}"
+    values = {"port": port} if anywhere else {"port": port, "source": rule.source}
+    return f"firewall_{rule.action}{'_any' if anywhere else ''}", values
 
 
 @dataclass(frozen=True)
@@ -1337,14 +1384,14 @@ class Firewall:
             The commands that make it, undo it and make it permanent.
         """
         note = f"{NOUST_COMMENT} {rule.comment}".strip()
-        title = f"{rule.action.capitalize()} {rule.proto} port {rule.port} from {rule.source}"
+        what, values = _rule_words(rule)
         if state.backend == "ufw":
             spec = ["from", rule.source, "to", "any", "port", str(rule.port)]
             if rule.proto != "any":
                 spec += ["proto", rule.proto]
             apply = [["ufw", rule.action, *spec, "comment", note]]
             undo = [["ufw", "delete", rule.action, *spec]]
-            return FirewallPlan(title, apply, undo, [])
+            return _plan(what, values, apply, undo, [])
         zone = state.zone or "public"
         protos = ["tcp", "udp"] if rule.proto == "any" else [rule.proto]
         apply, undo, commit = [], [], []
@@ -1361,7 +1408,7 @@ class Firewall:
                 ["firewall-cmd", "--permanent", f"--zone={zone}", f"--add-rich-rule={text}"]
             )
             undo.append(["firewall-cmd", f"--zone={zone}", f"--remove-rich-rule={text}"])
-        return FirewallPlan(title, apply, undo, commit)
+        return _plan(what, values, apply, undo, commit)
 
     def plan_delete(self, rule_id: str) -> FirewallPlan:
         """
@@ -1398,19 +1445,20 @@ class Firewall:
         Returns:
             The commands that make it, undo it and make it permanent.
         """
-        title = f"Delete the firewall rule '{rule.spec}'"
+        what, values = "firewall_delete", {"rule": rule.spec}
         if rule.backend == "ufw":
             tokens = shlex.split(rule.spec)
             readd = [*tokens, "comment", rule.comment] if rule.comment else tokens
-            return FirewallPlan(title, [["ufw", "delete", *tokens]], [["ufw", *readd]], [])
+            return _plan(what, values, [["ufw", "delete", *tokens]], [["ufw", *readd]], [])
         zone = state.zone or "public"
         if rule.spec.startswith("rich rule "):
             option = "rich-rule=" + rule.spec.removeprefix("rich rule ")
         else:
             kind, _, value = rule.spec.partition(" ")
             option = f"{kind}={value}"
-        return FirewallPlan(
-            title,
+        return _plan(
+            what,
+            values,
             [["firewall-cmd", f"--zone={zone}", f"--remove-{option}"]],
             [["firewall-cmd", f"--zone={zone}", f"--add-{option}"]],
             [["firewall-cmd", "--permanent", f"--zone={zone}", f"--remove-{option}"]],
@@ -1467,12 +1515,10 @@ class Firewall:
         self._guard_change_source(rule, moved, state, protected)
         added = self._build_add(moved, state)
         removed = self._build_delete(rule, state)
-        title = (
-            f"Admit {moved.proto} port {moved.port} from {_origin_words(moved.source)} "
-            f"instead of {_origin_words(rule.source)}"
-        )
-        return FirewallPlan(
-            title,
+        what, values = _source_words(rule, moved)
+        return _plan(
+            what,
+            values,
             added.apply + removed.apply,
             # Put back before taken away: a revert that stops half-way still leaves the old rule.
             removed.undo + added.undo,
@@ -1583,7 +1629,7 @@ class Firewall:
             ["ufw", "--force", "enable"],
         ]
         undo.insert(1, ["ufw", "default", previous, "incoming"])
-        return FirewallPlan("Turn on ufw, denying incoming by default", apply, undo, [])
+        return _plan("firewall_enable", {}, apply, undo, [])
 
     def plan_disable(self) -> FirewallPlan:
         """
@@ -1599,27 +1645,94 @@ class Firewall:
         if not state.active:
             raise SecurityError(f"{state.backend} is not active")
         if state.backend == "ufw":
-            return FirewallPlan(
-                "Turn off ufw", [["ufw", "disable"]], [["ufw", "--force", "enable"]], []
+            return _plan(
+                "firewall_disable", {}, [["ufw", "disable"]], [["ufw", "--force", "enable"]], []
             )
-        return FirewallPlan(
-            "Stop firewalld",
+        return _plan(
+            "firewall_stop",
+            {},
             [["systemctl", "stop", "firewalld"]],
             [["systemctl", "start", "firewalld"]],
             [["systemctl", "disable", "firewalld"]],
         )
 
-    def add_rule(self, request: RuleRequest) -> PendingChange:
+    def add_rule(self, request: RuleRequest, replaces: Sequence[str] = ()) -> PendingChange:
         """
-        Add a rule, pending confirmation.
+        Add a rule, pending confirmation, and take away the wider rules it makes pointless.
 
         Args:
             request: The rule.
+            replaces: Ids of rules to delete in the same change (:meth:`plan_replace`).
 
         Returns:
             The change.
         """
+        if replaces:
+            return self._apply(self.plan_replace(request, replaces))
         return self._apply(self.plan_add(request))
+
+    def plan_replace(self, request: RuleRequest, replaces: Sequence[str]) -> FirewallPlan:
+        """
+        Work out adding a rule and deleting the rules it replaces, as one change.
+
+        Opening a port to some addresses only leaves it as open as before while a rule for everybody
+        stands, and doing the two as two changes means a confirmation window between them (one
+        change at a time can be undone safely). One plan holds both: the narrow rule goes in first,
+        so the port is never closed to the people it was opened for, and the undo puts the wide rule
+        back before it takes the narrow one away.
+
+        Each deletion keeps the guard of :meth:`plan_delete`: the last rule that opens SSH or the
+        console to everyone stays, replacement or not. A rule is replaced only when it allows what
+        this one allows (the same port and protocol), so this is never a way to delete something
+        else.
+
+        Args:
+            request: The rule to add.
+            replaces: Ids of the rules to delete, from :attr:`FirewallRule.id`.
+
+        Returns:
+            The commands that make the change, undo it and make it permanent.
+
+        Raises:
+            AccessGuardError: The added rule or a deletion would close SSH or the console.
+            SecurityError: A rule does not exist or is not an allow rule for this port.
+            ValidationError: A field is invalid.
+        """
+        added = self.plan_add(request)
+        rule = request.validated()
+        state = self._editable()
+        wanted = list(dict.fromkeys(replaces))
+        titles: list[str] = []
+        deletions: list[FirewallPlan] = []
+        for rule_id in wanted:
+            old = next((item for item in state.rules if item.id == rule_id), None)
+            if old is None:
+                raise SecurityError(
+                    f"There is no firewall rule {rule_id}",
+                    details="List the rules with 'noust server security firewall status'.",
+                )
+            protocols = ("tcp", "udp") if rule.proto == "any" else (rule.proto,)
+            if old.action != "allow" or not any(old.covers(rule.port, p) for p in protocols):
+                raise SecurityError(
+                    f"The rule '{old.spec}' is not about port {rule.port}",
+                    details="Only a rule that allows the port being opened is replaced with it.",
+                )
+            if old.ports != ((rule.port, rule.port),):
+                # It would close the other ports it names for everybody as well.
+                raise SecurityError(
+                    f"The rule '{old.spec}' covers more than port {rule.port}",
+                    details="Delete it on its own from the firewall's rules, and add the ones "
+                    "you want for each port.",
+                )
+            deletions.append(self.plan_delete(rule_id))
+            titles.append(f"'{old.spec}'")
+        return _plan(
+            f"{added.what}_replacing",
+            {**added.values, "rules": ", ".join(titles)},
+            [*added.apply, *(command for plan in deletions for command in plan.apply)],
+            [*(command for plan in reversed(deletions) for command in plan.undo), *added.undo],
+            [*added.commit, *(command for plan in deletions for command in plan.commit)],
+        )
 
     def delete_rule(self, rule_id: str) -> PendingChange:
         """
@@ -1843,6 +1956,8 @@ class Firewall:
                 id=new_change_id(),
                 kind="firewall",
                 title=plan.title,
+                what=plan.what,
+                values=dict(plan.values),
                 actor=self.actor,
                 applied_at=now,
                 expires_at=now + CONFIRM_WINDOW,
@@ -1901,6 +2016,31 @@ def _rich_text(rule: RuleRequest, proto: str) -> str:
     parts += [f'port port="{rule.port}" protocol="{proto}"']
     parts.append("accept" if rule.action == "allow" else "reject")
     return " ".join(parts)
+
+
+def _source_words(old: FirewallRule, moved: RuleRequest) -> tuple[str, dict[str, str]]:
+    """
+    The sentence that says a rule's origin is changed, and what it puts in.
+
+    The code and its values are kept with the change, so its notice is said in the language of
+    whoever reads it (item 138): the origin that is anywhere is a variant of the sentence and
+    never a word inside a value.
+
+    Args:
+        old: The rule as it is.
+        moved: The rule that replaces it, validated.
+
+    Returns:
+        The code (``firewall_source``, ``firewall_source_to_any``, ``firewall_source_from_any``)
+        and its values: the port, as ``5432/tcp`` or ``5432`` for both protocols, the origin it
+        had and the one it gets, each unless it is anywhere.
+    """
+    port = str(moved.port) if moved.proto == "any" else f"{moved.port}/{moved.proto}"
+    if moved.source == "any":
+        return "firewall_source_to_any", {"port": port, "old": old.source}
+    if old.source == "any":
+        return "firewall_source_from_any", {"port": port, "source": moved.source}
+    return "firewall_source", {"port": port, "old": old.source, "source": moved.source}
 
 
 def _same_origin(first: str, second: str) -> bool:

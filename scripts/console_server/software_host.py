@@ -18,6 +18,7 @@ not, so the page has something to install and the notices that say what is missi
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -106,9 +107,15 @@ http {{
 class Packages:
     """The modelled machine's dpkg database, which install and remove change."""
 
-    def __init__(self) -> None:
-        """Start from what the machine has set up."""
-        self.versions: dict[str, str] = dict(_INSTALLED)
+    def __init__(self, installed: Mapping[str, str] | None = None) -> None:
+        """
+        Start from what the machine has set up.
+
+        Args:
+            installed: What is installed, by package, for a machine that is not the VPS (the
+                central's container); the VPS's own when omitted.
+        """
+        self.versions: dict[str, str] = dict(_INSTALLED if installed is None else installed)
 
     def installed(self, package: str) -> bool:
         """

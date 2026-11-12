@@ -1,0 +1,1 @@
+import{n as e}from"./GatePage-q6SoSKSz.js";import{Q as t}from"./objectIcons-BSsKqrc9.js";var n=t();function r({session:t,onDone:r}){return(0,n.jsx)(e,{session:t,onDone:r})}export{r as default};

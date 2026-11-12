@@ -1,0 +1,69 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+"""
+What the gate to Docker refuses with, and how each refusal reaches a person.
+
+Each class is a base the API already maps, so that the gate needs no table of its own: a Docker that
+is not there or does not answer is a state of the server (409), an object a principal cannot see is
+answered as one that does not exist (404, the teams' rule, I-04), and what belongs to an application
+or to a database engine is a request that is well made and goes through another door (409, with the
+door in the sentence).
+"""
+
+from __future__ import annotations
+
+from noust.core.exceptions import DockerError, PrerequisiteError
+from noust.core.teams.model import ResourceNotFoundError
+
+__all__ = [
+    "DockerNotFoundError",
+    "DockerOwnedError",
+    "DockerUnavailableError",
+]
+
+
+class DockerUnavailableError(DockerError, PrerequisiteError):
+    """
+    Docker is not installed on this machine, or its daemon does not answer.
+
+    The failing tool's own words are in ``output``: a Docker error is never paraphrased.
+    """
+
+
+class DockerNotFoundError(DockerError, ResourceNotFoundError):
+    """
+    There is no such container, image, volume or network, or not one this principal may see.
+
+    One error for both on purpose, like :class:`~noust.core.teams.model.ResourceNotFoundError`: a
+    member of a team who names the container of another team's application is answered exactly as
+    if it did not exist.
+    """
+
+
+class DockerOwnedError(DockerError, PrerequisiteError):
+    """
+    The object belongs to an application, a database engine or Noust itself, which changes it.
+
+    Nothing was changed. ``details`` names the door to go through (a command that exists), because
+    a container is not stopped from under the application that keeps it running: its health gate,
+    its way back and its site would not know.
+
+    Attributes:
+        owner_kind: ``app``, ``database`` or ``noust``.
+        subject: The application's domain, the instance's name, or what part of Noust it is.
+    """
+
+    def __init__(
+        self, message: str, details: str = "", *, owner_kind: str = "", subject: str = ""
+    ) -> None:
+        """
+        Args:
+            message: What was refused.
+            details: Where to go instead.
+            owner_kind: The kind of owner (``app``, ``database`` or ``noust``).
+            subject: Which one.
+        """
+        super().__init__(message, details)
+        self.owner_kind = owner_kind
+        self.subject = subject

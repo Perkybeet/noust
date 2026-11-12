@@ -735,8 +735,9 @@ def test_mutations_are_audited(sandbox: Path) -> None:
 def test_every_audit_record_names_the_actor_the_same_way(sandbox: Path) -> None:
     """
     The login, the endpoint's own record and the middleware's record of one
-    session all carry the one label :func:`actor_label` gives it, and a master
-    token Bearer is ``master`` - never ``unknown``, never a raw session id.
+    session all carry the one label :func:`actor_label` gives it, and that is
+    ``master`` for the master token, in a browser or as a Bearer - never
+    ``unknown``, never a raw session id.
     """
     client = build_client(sandbox)
     token = get_token_manager().generate_master_token()
@@ -750,9 +751,9 @@ def test_every_audit_record_names_the_actor_the_same_way(sandbox: Path) -> None:
     tickets = [e["actor"] for e in entries if e["action"] == "auth.ws_ticket"]
     posts = [e["actor"] for e in entries if e["resource"] == "/api/auth/ws-ticket"]
 
-    assert len(login_actor) == 12
-    assert tickets == [login_actor, "master"]
-    assert set(posts) == {login_actor, "master"}
+    assert login_actor == "master"
+    assert tickets == ["master", "master"]
+    assert set(posts) == {"master"}
     assert all(e["actor"] != "unknown" for e in entries)
 
 

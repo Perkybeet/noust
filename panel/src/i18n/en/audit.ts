@@ -64,6 +64,7 @@ export const audit = {
     outcome: "Outcome",
     when: "When",
     actor: "Actor",
+    recordedAs: "Recorded as",
     role: "Role",
     via: "Through",
     source: "From",
@@ -71,6 +72,12 @@ export const audit = {
     category: "Category",
     correlation: "Correlation id",
     seq: "Position in the chain",
+  },
+  /** How the master token holds the console, said as what it means (what `who.role` carries for its events). */
+  grant: {
+    compat: "Whole console, no accounts yet",
+    break_glass: "Break-glass access",
+    recovery: "Account recovery only",
   },
   drawer: {
     recorded: "What the server recorded",

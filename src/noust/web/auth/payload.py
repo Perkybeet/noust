@@ -18,6 +18,7 @@ from noust.web.auth.config import get_global_token_manager
 from noust.web.auth.constants import API_TOKEN_SID_PREFIX, FLEET_SCOPE, MASTER_SID, SCOPE_RANK
 from noust.web.permissions import Permission
 from noust.web.permissions.enforce import has_permission
+from noust.web.permissions.principal import KIND_MASTER, principal_of
 from noust.web.permissions.roles import GRANT_COMPAT, GRANT_PERMISSIONS, legacy_scope
 
 
@@ -58,6 +59,28 @@ def is_elevated(payload: dict[str, Any]) -> bool:
     if elevated_until is None:
         return False
     return float(elevated_until) > _now()
+
+
+def signed_in_within(payload: Mapping[str, Any], seconds: float) -> bool:
+    """
+    Report whether a browser session's sign-in happened at most this long ago.
+
+    The login a session descends from, not its last renewal: a session rotates its id as it
+    ages and the cookie of an old one stays old (:attr:`TokenManager.verify_session_token`
+    keeps ``created_at`` across rotations).
+
+    Args:
+        payload: A verified payload, as :func:`require_auth` builds it.
+        seconds: How recent counts.
+
+    Returns:
+        True for a cookie session whose login was within that time; False for any other
+        credential, which has no sign-in to be recent, and for a payload that does not say when.
+    """
+    when = payload.get("signed_in_at")
+    if payload.get("type") != "session" or not isinstance(when, (int, float)):
+        return False
+    return _now() - float(when) <= seconds
 
 
 def scope_satisfies(granted: str, required: str) -> bool:
@@ -110,13 +133,13 @@ def actor_label(session: Mapping[str, Any]) -> str:
     payload by hand is how three routers came to log ``session=unknown`` for
     every call - they read a ``session_id`` key that payloads never had.
 
-    An API token's payload already carries a human name (``token:<name>``,
-    set by :meth:`TokenManager.verify_api_token`); the master token's is the
-    literal ``master``; a cookie session's id is an opaque, non-secret
-    identifier - the credential is the signed cookie value, not the id alone -
-    shortened here to keep a jobs list readable. Twelve characters still start
-    with the prefix ``GET /api/auth/sessions`` lists, so a line can be traced
-    to the session that wrote it.
+    A credential is named by what it is, as the audit trail names its principal
+    (:func:`noust.web.permissions.principal.principal_of`): an account by its username,
+    an API token by ``token:<name>``, the master token by ``master`` - in a browser as
+    well as a Bearer. The master token in a browser used to be twelve characters of its
+    session's id here and ``master`` in the audit trail, and the console drew the one
+    credential under two names (item 152). Which browser it was is in the sessions list
+    and in the audit trail's own ``source``; a name says who acted.
 
     Args:
         session: The authenticated session payload, as :func:`require_auth`
@@ -124,9 +147,9 @@ def actor_label(session: Mapping[str, Any]) -> str:
 
     Returns:
         The username of an account's session, ``"master"``,
-        ``"token:<name>"``, the first 12 characters of a master token
-        session's id, or ``"<fleet token name> on behalf of <actor>"`` for a
-        central acting for one of its operators.
+        ``"token:<name>"``, or ``"<fleet token name> on behalf of <actor>"`` for a
+        central acting for one of its operators; the first 12 characters of the id of
+        a session that is none of those.
     """
     on_behalf_of = session.get("on_behalf_of")
     if session.get("fleet") and on_behalf_of:
@@ -138,6 +161,9 @@ def actor_label(session: Mapping[str, Any]) -> str:
     sid = str(session.get("sid") or "unknown")
     if sid in (MASTER_SID, "unknown") or sid.startswith(API_TOKEN_SID_PREFIX):
         return sid
+    principal = principal_of(session)
+    if principal.kind == KIND_MASTER:
+        return principal.name
     return sid[:12]
 
 

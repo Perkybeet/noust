@@ -19,6 +19,7 @@ import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
 import { ServerText } from "../../../components/ui/ServerText";
 import { Skeleton } from "../../../components/ui/Skeleton";
+import { TextLink } from "../../../components/ui/TextLink";
 import { toast } from "../../../components/ui/toast";
 import { OBJECT_ICONS, VERB_ICONS } from "../../../components/ui/objectIcons";
 import { useT } from "../../../i18n";
@@ -55,6 +56,21 @@ export function invitationLink(code: string, origin: string = window.location.or
   return `${origin}/invite#${encodeURIComponent(code)}`;
 }
 
+/**
+ * Whether an address is one only this computer reaches. The console is opened through an SSH tunnel by default, so
+ * `window.location.origin` is `http://localhost:8080` or `http://127.0.0.1:8080`, which a link for somebody else
+ * cannot carry (item 149).
+ */
+export function isLocalAddress(url: string): boolean {
+  let host: string;
+  try {
+    host = new URL(url).hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  } catch {
+    return false;
+  }
+  return host === "localhost" || host.endsWith(".localhost") || host === "::1" || host === "0.0.0.0" || /^127\.\d+\.\d+\.\d+$/.test(host);
+}
+
 /** The icon of a role card: the object each shipped role is about, the key for one of your own. */
 const ROLE_ICONS = {
   viewer: VERB_ICONS.show,
@@ -76,10 +92,27 @@ function iconOfRole(name: string) {
  * language, and the link below it still works.
  */
 function Result({ t, issued, expiresAt }: { t: T; issued: InvitationIssued; expiresAt: number }) {
-  const link = invitationLink(issued.code);
+  // The address the server was given for its links; without one, the address this browser opened the console at.
+  const given = issued.public_url ?? "";
+  const base = given !== "" ? given : window.location.origin;
+  const link = invitationLink(issued.code, base);
+  const onlyHere = given === "" && isLocalAddress(base);
   const expires = formatMoment(new Date(expiresAt), t.locale);
   return (
     <div className="flex flex-col gap-4">
+      {onlyHere ? (
+        <Notice
+          tone="warning"
+          title={t("accounts.invite.localTitle")}
+          action={
+            <TextLink to="/settings/general" size="ui">
+              {t("accounts.invite.localAction")}
+            </TextLink>
+          }
+        >
+          {t.rich("accounts.invite.localBody", { address: <Mono key="address">{base}</Mono> })}
+        </Notice>
+      ) : null}
       {issued.emailed ? (
         <Notice tone="success" title={t("accounts.invite.sentTitle")}>
           {t("accounts.invite.sentBody", { address: issued.account.email ?? "" })}

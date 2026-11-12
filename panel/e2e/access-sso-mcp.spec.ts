@@ -126,26 +126,26 @@ serial("a role is defined from the permissions that exist, given on a project, t
   await expect(roles.getByText("Release manager")).toBeHidden();
 });
 
-serial("a token can be bound to a project, and the access token, which belongs to nobody, cannot issue one", async ({ page, consoleServer, problems }) => {
-  // A bound token belongs to an account; the break-glass token is no account's, and is refused.
-  problems.expect(/status of 400 .*\/api\/auth\/tokens$/);
+serial("the access token, which belongs to nobody, is told so before it makes a token, cannot tie it to a project, and can limit it to a job", async ({ page, consoleServer }) => {
+  // A token tied to a project belongs to an account; the break-glass token is no account's (item 133).
   await signIn(page, consoleServer, "/settings/tokens");
   await elevate(page, consoleServer);
   await page.getByRole("button", { name: "Create token" }).first().click();
   const dialog = page.getByRole("dialog", { name: "Create an API token" });
+  await expect(dialog.getByText("You signed in with the access token")).toBeVisible();
+  await expect(dialog.getByText(/needs a token that belongs to an account/)).toBeVisible();
+  await expect(dialog.getByRole("radio", { name: /One project/ })).toHaveCount(0);
   await dialog.getByLabel("Name", { exact: true }).fill("project-ci");
-  await dialog.getByRole("radio", { name: /One project/ }).check();
-  // Until it names a project, the token cannot be made: pressing says what is missing.
-  await dialog.getByRole("button", { name: "Create token" }).click();
-  await expect(dialog.getByText("Choose the team, project or environment the token reaches.")).toBeVisible();
-  await choose(page, dialog, "Team", "Default", true);
-  await choose(page, dialog, "Project", "Default", true);
-  await expect(dialog.getByText(/sees that and nothing else of the server/)).toBeVisible();
+  // The one limit it can have: what a job needs, from the list the server serves (item 163).
+  await dialog.getByRole("radio", { name: /Only what a job needs/ }).check();
+  await expect(dialog.getByRole("combobox", { name: "What it does" })).toContainText("Deploy only");
+  await expect(dialog.getByText("apps.deploy")).toBeVisible();
   await settle(page);
-  await expectNoA11yViolations(page, "the token dialog, bound to a project");
+  await expectNoA11yViolations(page, "the token dialog, signed in with the access token");
   await dialog.getByRole("button", { name: "Create token" }).click();
-  await expect(dialog.getByText(/belongs to an account/)).toBeVisible();
-  await dialog.getByRole("button", { name: "Cancel" }).click();
+  const once = page.getByRole("dialog", { name: "Copy your new token" });
+  await expect(once).toBeVisible();
+  await once.getByRole("button", { name: "Done" }).click();
 });
 
 serial("passwords are turned off for single sign-on, keeping the way back, and on again", async ({ page, consoleServer }) => {

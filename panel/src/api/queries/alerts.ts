@@ -3,6 +3,7 @@ import type { QueryClient } from "@tanstack/react-query";
 
 import { request } from "../client";
 import type { BodyOf, ResponseOf } from "../client";
+import { attentionKeys } from "./attention";
 import { overviewKeys } from "./overview";
 
 export type AlertRuleList = ResponseOf<"/api/alerts/rules", "get">;
@@ -19,7 +20,7 @@ export const alertKeys = {
  * alerts that fire among what needs attention (the server says so, `managers/overview.py`).
  */
 export function refreshAlerts(queryClient: QueryClient): Promise<unknown> {
-  return Promise.all([alertKeys.rules, overviewKeys.all].map((queryKey) => queryClient.invalidateQueries({ queryKey })));
+  return Promise.all([alertKeys.rules, overviewKeys.all, attentionKeys.all].map((queryKey) => queryClient.invalidateQueries({ queryKey })));
 }
 
 /** The rules, what each one watches, and where each stands. Read again while the page is open. */

@@ -66,6 +66,7 @@ export const audit: Catalog<typeof en> = {
     outcome: "Resultado",
     when: "Cuándo",
     actor: "Actor",
+    recordedAs: "Registrado como",
     role: "Rol",
     via: "A través de",
     source: "Desde",
@@ -73,6 +74,12 @@ export const audit: Catalog<typeof en> = {
     category: "Categoría",
     correlation: "Id de correlación",
     seq: "Posición en la cadena",
+  },
+  /** Cómo tiene el token maestro la consola, dicho como lo que significa (lo que lleva `who.role` en sus eventos). */
+  grant: {
+    compat: "Toda la consola, aún sin cuentas",
+    break_glass: "Acceso de emergencia",
+    recovery: "Solo para recuperar cuentas",
   },
   drawer: {
     recorded: "Lo que registró el servidor",

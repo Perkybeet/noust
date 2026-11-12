@@ -132,6 +132,41 @@ describe("Settings > Audit log", () => {
     });
   });
 
+  it("names the master token as Activity does, and says how it holds the console in words (item 152)", { timeout: 20_000 }, async () => {
+    const event = {
+      timestamp: "2026-09-30T09:20:00+00:00",
+      action: "app.delete",
+      result: "ok",
+      actor: "master",
+      client_ip: "203.0.113.9",
+      resource: "app:shop.example.com",
+      detail: "deleted",
+      id: "e5",
+      seq: 5,
+      category: "change",
+      correlation_id: "req-777",
+      who: { kind: "master", id: "master", name: "master", role: "break_glass", via: "session" },
+      sensitive: false,
+    };
+    auditBackend({ "GET /api/audit": () => json(200, { items: [event], next_before: null }) });
+    const { user } = renderConsole("/settings/audit");
+    const table = await findLoadedRegion("Audit events");
+    const row = within(within(table).getByText(/deleted|Application deleted|app\.delete/i).closest("tr") as HTMLElement);
+    // The same credential Activity calls "The master token", and its grant said as what it is.
+    expect(row.getByText("The master token")).toBeInTheDocument();
+    expect(row.getByText("Break-glass access")).toBeInTheDocument();
+    expect(row.queryByText("master")).not.toBeInTheDocument();
+    expect(row.queryByText("break_glass")).not.toBeInTheDocument();
+
+    // The drawer keeps the exact value the server recorded, for whoever has to quote it.
+    await user.click(row.getByText("The master token"));
+    const drawer = await screen.findByRole("dialog");
+    expect(within(drawer).getByText("The master token")).toBeInTheDocument();
+    expect(within(drawer).getByText("Break-glass access")).toBeInTheDocument();
+    expect(within(drawer).getByText("master")).toBeInTheDocument();
+    expect(within(drawer).queryByText("break_glass")).not.toBeInTheDocument();
+  });
+
   it("opens an event with every field, and follows its request", { timeout: 20_000 }, async () => {
     const backend = auditBackend();
     const { user, location } = renderConsole("/settings/audit");

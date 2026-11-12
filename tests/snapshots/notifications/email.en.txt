@@ -2430,6 +2430,60 @@ Sent by Noust · web-1 · 2026-09-29 10:45 UTC
 Change what you receive in Settings > Notifications
 
 ========================================================================
+### access.firewall_reverted
+Subject: [Noust] Firewall change undone: Allow 5432/tcp from 10.0.4.12 (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: access_change_reverted
+X-Noust-Code: access.firewall_reverted
+X-Noust-Server: web-1
+
+▲ Firewall change undone · Allow 5432/tcp from 10.0.4.12
+Nobody confirmed it within 5 minutes, so the firewall is as it was before the change. Make the change again and confirm it from a new session.
+
+Server: web-1
+Change: Allow 5432/tcp from 10.0.4.12
+Applied by: yago
+Applied: 2026-11-12 10:40 UTC
+
+What the undo printed:
+  $ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp
+  Rule deleted
+
+Open in the console: https://console.example.com/n/web-1/network/firewall
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### access.ssh_reverted
+Subject: [Noust] SSH change undone: Turn off SSH password logins (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: access_change_reverted
+X-Noust-Code: access.ssh_reverted
+X-Noust-Server: web-1
+
+▲ SSH change undone · Turn off SSH password logins
+Nobody confirmed it within 5 minutes, so sshd uses the configuration it had before the change. Apply the change again and confirm it from a new login.
+
+Server: web-1
+Change: Turn off SSH password logins
+Applied by: ana
+Applied: 2026-11-12 10:40 UTC
+
+What the undo printed:
+  Restored /etc/ssh/sshd_config.d/99-noust.conf
+  $ sshd -t
+
+Open in the console: https://console.example.com/n/web-1/security/ssh
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
 ### hostile.deploy_failed
 Subject: [Noust] Deploy failed: shop.example.com (wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww)
 Auto-Submitted: auto-generated

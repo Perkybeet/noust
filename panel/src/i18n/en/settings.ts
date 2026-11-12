@@ -209,6 +209,14 @@ export const settings = {
       read: { label: "Read", description: "Looks, never changes: applications, deployments, logs, metrics and the state of the machine." },
       deploy: { label: "Deploy" },
       admin: { label: "Admin" },
+      limited: { label: "Only what a job needs", description: "One thing, such as deploying, and nothing else of what its owner may do." },
+    },
+    presets: {
+      field: "What it does",
+      read_apps: { label: "Read applications", hint: "See applications, deployments and logs." },
+      deploy_only: { label: "Deploy only", hint: "See applications and deploy them. The one for CI." },
+      deploy_and_restart: { label: "Deploy and restart", hint: "Deploy, and start, stop or restart applications." },
+      backups: { label: "Back up", hint: "Run backups and see them." },
     },
     expiry: {
       "7": "7 days",
@@ -224,6 +232,10 @@ export const settings = {
       description: "For CI and scripts: sent as a Bearer token, it acts with its scope and nothing more.",
       errorTitle: "Could not create the token",
       reachRequired: "Choose the team, project or environment the token reaches.",
+      masterTitle: "You signed in with the access token",
+      masterBody:
+        "The token you make has no owner: it acts with what its scope allows and cannot be tied to a team or a project. For one that belongs to a person, sign in as that person.",
+      masterEns: "On this server every token belongs to an account, so one made with the access token will be refused. Sign in as an account to make it.",
       nameLabel: "Name",
       nameDescription: "After what will hold it, such as ci-deploy. Names are never reused.",
       scopeLegend: "Scope",
@@ -541,6 +553,7 @@ export const settings = {
         appOomKilled: { label: "Application killed for lack of memory", description: "The kernel killed an application for running out of memory: how many times, its limit and the most it used." },
         domainExpiring: { label: "Domain registration expiring", description: "The registry says a domain's registration expires within 30 or 7 days. Needs the check in Alerts > Checks, which is off until you turn it on." },
         domainExpired: { label: "Domain registration expired", description: "The registry says a domain's registration has expired. Needs the check in Alerts > Checks." },
+        accessChangeReverted: { label: "Firewall or SSH change undone", description: "A change to the firewall or to SSH that nobody confirmed in time was undone by its timer, with what the undo printed." },
       },
     },
     messages: {

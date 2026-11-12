@@ -91,6 +91,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_CONFIG: .gitleaks.toml
+          # The action's own default is 8.24.3, which does not read the top-level
+          # [[allowlists]] of .gitleaks.toml and says nothing about it: every
+          # allowance was ignored, and the console's committed build was reported
+          # for the example command of its tokens page. They are read from 8.25.0.
+          GITLEAKS_VERSION: 8.30.1
 
   trivy-repository:
     name: Trivy (lock files and Dockerfile)

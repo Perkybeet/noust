@@ -175,7 +175,7 @@ class ClientCertificates:
         Raises:
             DatabaseEngineError: openssl could not make it.
         """
-        require_server_role("Certificates")
+        require_server_role("certificates")
         existed = self.ca_path(app_domain).exists()
         if not existed:
             self.fs.make_dir(self.directory(app_domain), mode=0o755, parents=True)
@@ -236,7 +236,7 @@ class ClientCertificates:
                 that name is already valid for this application.
             DatabaseEngineError: openssl failed.
         """
-        require_server_role("Certificates")
+        require_server_role("certificates")
         check_client_request(name, days)
         taken = [c for c in self.records.list(app_domain) if c.name == name and not c.revoked]
         if taken:
@@ -294,7 +294,7 @@ class ClientCertificates:
         Raises:
             ValidationError: There is no such certificate for this application.
         """
-        require_server_role("Certificates")
+        require_server_role("certificates")
         if self.records.get(app_domain, serial) is None:
             raise ValidationError(
                 f"{app_domain} has no certificate with the serial {serial}",

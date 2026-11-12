@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { createContext } from "react";
 
 import { activeJobsQuery, useFollowedJob } from "../../api/queries/jobs";
 import type { Job } from "../../api/queries/jobs";
@@ -42,6 +43,12 @@ export function jobWords(type: string, domain: string, locale: Locale = getLocal
     failed: translate(locale, keys.failed, { domain }),
   };
 }
+
+/**
+ * The job whose failure the application page already shows under its header. A section that follows a job of its own (the
+ * history's rebuild) leaves its box out when it is that very job, so one failure is one box (item 161).
+ */
+export const ShownFailureContext = createContext<string | null>(null);
 
 const RUNNING = new Set(["pending", "running"]);
 

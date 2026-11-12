@@ -9,6 +9,7 @@ import { ToastProvider } from "../components/ui/Toast";
 import { TooltipProvider } from "../components/ui/Tooltip";
 import { ApprovalDialog } from "../features/approvals/ApprovalDialog";
 import { ElevateDialog } from "../features/auth/ElevateDialog";
+import { IdentityProofDialog } from "../features/auth/IdentityProofDialog";
 import { Announcer } from "./Announcer";
 import { ErrorBoundary } from "./ErrorBoundary";
 import type { AppRouter } from "./router";
@@ -54,6 +55,7 @@ export function App({ router, queryClient }: { router: AppRouter; queryClient: Q
               <RouterProvider router={router} />
             </ErrorBoundary>
             <ElevateDialog />
+            <IdentityProofDialog />
             <ApprovalDialog />
             <Announcer />
           </ToastProvider>

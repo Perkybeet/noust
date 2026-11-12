@@ -16,7 +16,8 @@ Usage:
         Print ``postgres:17@sha256:...``, ready to paste into the catalog.
     scripts/database_pins.py check [--evidence FILE] [FLAVOUR ...]
         Resolve every pin of the catalog (or the named flavours) and fail if
-        one differs from what the registry serves for its tag. With --evidence,
+        one differs from what the registry serves for its tag. Without names, the
+        image the copies of a Docker volume run in is read too. With --evidence,
         write what was read as JSON.
 """
 
@@ -34,6 +35,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
 from noust.managers.database.instance_catalog import SPECS  # noqa: E402
+from noust.managers.docker_volumes import HELPER_IMAGE  # noqa: E402
 
 
 def _recipe_pins() -> Any:
@@ -89,6 +91,10 @@ def check(flavours: list[str]) -> dict[str, Any]:
                     # (MySQL 5.7 has an amd64 image only).
                     pin.platforms or platforms,
                 )
+    if not flavours:
+        # The image the copies of a volume run in is pinned the same way and read the same way.
+        reference, _, digest = HELPER_IMAGE.partition("@")
+        _check_one(report, pins, "volume-helper", reference, digest, ("amd64", "arm64"))
     return report
 
 

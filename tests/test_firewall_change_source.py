@@ -20,6 +20,7 @@ from pathlib import Path
 
 import pytest
 
+from noust.core.access_changes import describe
 from noust.core.exceptions import SecurityError, ValidationError
 from noust.managers.server.security_access import AccessGuardError
 from noust.managers.server.security_firewall import Firewall, RuleRequest
@@ -149,6 +150,42 @@ class TestOneStepOnUfw:
         assert change.status == "pending"
         assert [pending.id for pending in ledger.pending()] == [change.id]
         assert "192.0.2.0/24" in change.title and "5432" in change.title
+
+    def test_the_change_keeps_its_code_and_values_so_its_notice_is_said_in_the_readers_language(
+        self, runner, host, ledger
+    ):
+        firewall = _firewall(runner, host, ledger)
+
+        change = firewall.change_source(_rule(firewall, OFFICE_DB).id, "192.0.2.0/24")
+
+        assert change.what == "firewall_source"
+        assert change.values == {"port": "5432/tcp", "old": "10.0.0.0/8", "source": "192.0.2.0/24"}
+        assert change.title == "Change the origin of 5432/tcp from 10.0.0.0/8 to 192.0.2.0/24"
+        assert describe(change.what, change.values, "es") == (
+            "Cambiar el origen de 5432/tcp de 10.0.0.0/8 a 192.0.2.0/24"
+        )
+
+    def test_an_origin_that_is_anywhere_is_a_variant_of_the_sentence_and_never_a_word_in_a_value(
+        self, runner, host, ledger
+    ):
+        firewall = _firewall(runner, host, ledger)
+        to_any = firewall.plan_change_source(_rule(firewall, OFFICE_DB).id, "any")
+        from_any = firewall.plan_change_source(
+            _rule(firewall, "allow 22/tcp").id, "198.51.100.0/24"
+        )
+
+        assert (to_any.what, to_any.values) == (
+            "firewall_source_to_any",
+            {"port": "5432/tcp", "old": "10.0.0.0/8"},
+        )
+        assert to_any.title == "Change the origin of 5432/tcp from 10.0.0.0/8 to anywhere"
+        assert (from_any.what, from_any.values) == (
+            "firewall_source_from_any",
+            {"port": "22/tcp", "source": "198.51.100.0/24"},
+        )
+        assert describe(from_any.what, from_any.values, "es") == (
+            "Cambiar el origen de 22/tcp de cualquier origen a 198.51.100.0/24"
+        )
 
     def test_the_revert_puts_the_old_rule_back_before_it_removes_the_new_one(
         self, runner, host, ledger

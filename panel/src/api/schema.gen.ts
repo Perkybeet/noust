@@ -358,6 +358,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/alerts/watching": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Watching
+         * @description Say what Noust watches without being asked and who hears what it finds.
+         *
+         *     Args:
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The watches, the channels, and whether the monitor that watches is running.
+         */
+        get: operations["watching_api_alerts_watching_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/approvals": {
         parameters: {
             query?: never;
@@ -7163,6 +7189,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/attention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Attention
+         * @description Answer what needs this person, worst first, with one count.
+         *
+         *     Args:
+         *         session: Authenticated session, injected.
+         *         only: ``own`` leaves out the server's own list.
+         *
+         *     Returns:
+         *         The list the bell, Home and the bar of the console show.
+         */
+        get: operations["attention_api_attention_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/audit": {
         parameters: {
             query?: never;
@@ -7527,7 +7580,10 @@ export interface paths {
          *
          *     An account enrols its first authenticator right after signing in with
          *     its password - it can do nothing else until it has - so this asks for no
-         *     sudo mode; replacing one takes a security officer (``reset-mfa``). The
+         *     sudo mode; replacing one takes a security officer (``reset-mfa``). It asks
+         *     for a recent proof of who is asking instead: a sign-in at most ten minutes
+         *     old, or the account's password in the body (:func:`ensure_first_factor_proof`),
+         *     so the cookie of an old session cannot bind an authenticator of its own. The
          *     console's own factor, for the master token, asks for sudo mode confirmed
          *     with the master token: the factor enrolled here is the one every later
          *     confirmation asks for, so a session nobody re-confirmed must not be able
@@ -7535,6 +7591,7 @@ export interface paths {
          *
          *     Args:
          *         request: The incoming request.
+         *         body: The account's password, when the sign-in is not recent.
          *         session: The authenticated session.
          *
          *     Returns:
@@ -7542,7 +7599,10 @@ export interface paths {
          *
          *     Raises:
          *         HTTPException: 403 with ``error: "elevation_required"`` for the master
-         *             token outside sudo mode.
+         *             token outside sudo mode; 403 ``identity_proof_required`` or
+         *             ``fresh_sign_in_required`` for an account whose sign-in is old
+         *             (see :mod:`noust.web.api.identity_proof`). 401
+         *             ``invalid_credentials`` for a wrong password.
          *         AccountError: When the account already has an authenticator.
          */
         post: operations["two_factor_enroll_api_auth_2fa_enroll_post"];
@@ -9112,8 +9172,13 @@ export interface paths {
          * Registration Options
          * @description Start registering a passkey for the signed-in owner.
          *
+         *     An account's first second factor asks for a recent proof of who is asking instead of sudo
+         *     mode (:func:`~noust.web.api.identity_proof.ensure_first_factor_proof`): the ceremony is
+         *     bound to this request, so the proof is asked here and not again when it finishes.
+         *
          *     Args:
          *         request: The request.
+         *         body: The account's password, when its sign-in is not recent.
          *         session: The authenticated payload.
          *
          *     Returns:
@@ -9121,8 +9186,9 @@ export interface paths {
          *
          *     Raises:
          *         HTTPException: 403 ``elevation_required`` outside sudo mode (except an
-         *             account's first second factor); ``passkeys_<reason>`` when
-         *             passkeys cannot work from this page.
+         *             account's first second factor); 403 ``identity_proof_required`` or
+         *             ``fresh_sign_in_required`` for that one when its sign-in is old;
+         *             ``passkeys_<reason>`` when passkeys cannot work from this page.
          */
         post: operations["registration_options_api_auth_passkeys_registration_options_post"];
         delete?: never;
@@ -33058,6 +33124,9 @@ export interface components {
          *             revocation (under the ENS profile, the longest allowed).
          *         permissions: Permissions to narrow it to instead of its scope's; all
          *             must be held by the issuing account.
+         *         preset: A named set of permissions to narrow it to instead (``GET /api/auth/roles``
+         *             lists them as ``token_presets``): "deploy only" for a pipeline. Not with
+         *             ``permissions``.
          *         allowed_cidrs: Networks it is accepted from; any when omitted.
          *         allow_elevated: Let it act where sudo mode is asked, with nobody confirming each
          *             time. Off by default; only whoever governs accounts (``accounts.manage``) may
@@ -33085,6 +33154,8 @@ export interface components {
             name: string;
             /** Permissions */
             permissions?: string[] | null;
+            /** Preset */
+            preset?: string | null;
             /** Project */
             project?: string | null;
             /** Scope */
@@ -34321,15 +34392,19 @@ export interface components {
          *         subject: What it is about: ``{"kind": "app", "domain": ...}``,
          *             ``{"kind": "certificate", "domain": ...}``, ``{"kind": "unit",
          *             "name": ...}``, ``{"kind": "monitor", "process": ..., "pid": ...}``,
-         *             ``{"kind": "alert", "rule": ..., "subject": ...}`` or
-         *             ``{"kind": "probe", "name": ...}``.
+         *             ``{"kind": "alert", "rule": ..., "subject": ...}``,
+         *             ``{"kind": "probe", "name": ...}``, ``{"kind": "machine", "fact": ...}`` or
+         *             ``{"kind": "finding", "check": ..., "group": ...}``.
          *         title: A domain, a unit, a process, a rule (and the application it fires for).
+         *         origin: Where the row comes from: that of the reason that made it serious.
          *         severity: The worst of its reasons.
          *         reasons: Each reason, with its own severity.
          */
         AttentionItem: {
             /** Id */
             id: string;
+            /** Origin */
+            origin?: string | null;
             /** Reasons */
             reasons: components["schemas"]["AttentionReason"][];
             /** Severity */
@@ -34346,15 +34421,21 @@ export interface components {
          * @description One reason an item needs attention.
          *
          *     Attributes:
-         *         kind: ``state``, ``deploy``, ``certificate``, ``unit``, ``monitor``, ``alert`` or
-         *             ``probe``.
+         *         kind: ``state``, ``deploy``, ``first_deploy``, ``certificate``, ``unit``, ``machine``,
+         *             ``monitor``, ``alert``, ``probe``, ``security``, ``approval``, ``noust`` or
+         *             ``recipe``.
+         *         origin: Where it comes from: ``state`` (what a thing is), ``alert`` (a rule, a probe or what
+         *             the monitor noted) or ``security`` (a finding of the hardening checks). A server
+         *             before 4.3 sends none, and it is a state.
          *         severity: ``fail`` or ``warn``.
          *         code: Machine-readable and stable; the console words it. ``service_failed``,
          *             ``service_restarting``, ``running_outside_unit``, ``deploy_failed``, ``deploy_rolled_back``,
          *             ``certificate_expired``, ``certificate_expires_today``,
          *             ``certificate_expires_in``, ``unit_failed``, ``unit_restarting``,
          *             ``monitor_finding``, ``probe_down``, ``alert_firing`` (nobody has taken it) and ``alert_taken``
-         *             (somebody has; it still fires).
+         *             (somebody has; it still fires); of the machine ``security_updates``, ``packages_broken``,
+         *             ``reboot_required``, ``os_unsupported``, ``os_ending``, ``disk_full``, ``clock_unsynced``,
+         *             ``no_swap`` and ``failed_units``; and ``security_finding`` for a check of the hardening.
          *         params: Values for the console's sentence (days, a signal).
          *         detail: The system's own words, verbatim.
          *         detail_coded: The detail as a sentence with a code and values, when it is one of Noust's
@@ -34365,7 +34446,9 @@ export interface components {
          *         actions: What can be done, as identifiers the console maps to buttons:
          *             ``view_log``, ``diagnose``, ``view_deployment``,
          *             ``renew_certificate``, ``open_service``, ``open_observation``,
-         *             ``acknowledge_alert``, ``reopen_alert``, ``open_probes``.
+         *             ``acknowledge_alert``, ``reopen_alert``, ``open_probes``, and for the machine
+         *             ``open_updates``, ``schedule_reboot``, ``free_space``, ``fix_clock``, ``add_swap``,
+         *             ``open_services``, and ``review_finding`` for a check.
          */
         AttentionReason: {
             /** Actions */
@@ -34379,6 +34462,8 @@ export interface components {
             detail_coded?: components["schemas"]["CodedText"] | null;
             /** Kind */
             kind: string;
+            /** Origin */
+            origin?: string | null;
             /** Params */
             params?: {
                 [key: string]: unknown;
@@ -34387,6 +34472,25 @@ export interface components {
             severity: string;
             /** When */
             when?: string | null;
+        };
+        /**
+         * AttentionResponse
+         * @description What needs this person.
+         *
+         *     Attributes:
+         *         items: The rows, the worst first (a state before an alert before a security finding within
+         *             a severity, then by name), each with the ``origin`` it comes from and every reason it
+         *             has; at most 100.
+         *         total: How many there are in all, which is the one number every screen shows.
+         */
+        AttentionResponse: {
+            /** Items */
+            items?: components["schemas"]["AttentionItem"][];
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
         };
         /**
          * AuditActor
@@ -37538,6 +37642,20 @@ export interface components {
             } | null;
             /** Team */
             team?: string | null;
+            /** Type */
+            type: string;
+        };
+        /**
+         * ChannelRef
+         * @description A channel that delivers, without any of its settings.
+         *
+         *     Attributes:
+         *         name: What it is called.
+         *         type: Its type (``slack``, ``telegram``...).
+         */
+        ChannelRef: {
+            /** Name */
+            name: string;
             /** Type */
             type: string;
         };
@@ -44729,6 +44847,87 @@ export interface components {
             enable: boolean;
         };
         /**
+         * FeatureReason
+         * @description Why a function is not available here, as a sentence with a code.
+         *
+         *     Attributes:
+         *         text: The sentence in English, always sent.
+         *         hint: How to fix it in English, when the sentence has a fix.
+         */
+        FeatureReason: {
+            /** Code */
+            code: string;
+            /** Hint */
+            hint?: string | null;
+            /** Params */
+            params?: {
+                [key: string]: boolean | number | string;
+            };
+            /** Text */
+            text: string;
+        };
+        /**
+         * FeatureState
+         * @description Whether one function of this Noust works here.
+         *
+         *     Attributes:
+         *         available: It would work here now.
+         *         reason: Why it would not: ``features.hub_role`` on a hub, ``features.needs_*`` for what
+         *             the machine lacks, and the engine's own sentences (``docker.*``) for Docker. None when
+         *             ``available``.
+         */
+        FeatureState: {
+            /** Available */
+            available: boolean;
+            reason?: components["schemas"]["FeatureReason"] | null;
+        };
+        /** FeatureStates */
+        FeatureStates: {
+            application_backups: components["schemas"]["FeatureState"];
+            application_diagnosis: components["schemas"]["FeatureState"];
+            application_environments: components["schemas"]["FeatureState"];
+            applications: components["schemas"]["FeatureState"];
+            certificates: components["schemas"]["FeatureState"];
+            checking_a_moved_server: components["schemas"]["FeatureState"];
+            console_exposure: components["schemas"]["FeatureState"];
+            container_deploy: components["schemas"]["FeatureState"];
+            database_backups: components["schemas"]["FeatureState"];
+            database_instances: components["schemas"]["FeatureState"];
+            databases: components["schemas"]["FeatureState"];
+            dns_accounts: components["schemas"]["FeatureState"];
+            dns_records: components["schemas"]["FeatureState"];
+            domains: components["schemas"]["FeatureState"];
+            firewall: components["schemas"]["FeatureState"];
+            importing_applications: components["schemas"]["FeatureState"];
+            log_destinations: components["schemas"]["FeatureState"];
+            moving_a_server: components["schemas"]["FeatureState"];
+            native_deploy: components["schemas"]["FeatureState"];
+            noust_dns: components["schemas"]["FeatureState"];
+            point_in_time_recovery: components["schemas"]["FeatureState"];
+            power: components["schemas"]["FeatureState"];
+            preview_environments: components["schemas"]["FeatureState"];
+            process_monitor: components["schemas"]["FeatureState"];
+            public_database_access: components["schemas"]["FeatureState"];
+            published_ports: components["schemas"]["FeatureState"];
+            recipes: components["schemas"]["FeatureState"];
+            releases: components["schemas"]["FeatureState"];
+            restoring_a_server: components["schemas"]["FeatureState"];
+            rollbacks: components["schemas"]["FeatureState"];
+            root_shell: components["schemas"]["FeatureState"];
+            scheduled_jobs: components["schemas"]["FeatureState"];
+            server_health: components["schemas"]["FeatureState"];
+            server_security: components["schemas"]["FeatureState"];
+            server_setup: components["schemas"]["FeatureState"];
+            services: components["schemas"]["FeatureState"];
+            sites: components["schemas"]["FeatureState"];
+            software: components["schemas"]["FeatureState"];
+            status_page: components["schemas"]["FeatureState"];
+            system_clock: components["schemas"]["FeatureState"];
+            system_logs: components["schemas"]["FeatureState"];
+            tunnels: components["schemas"]["FeatureState"];
+            volume_backups: components["schemas"]["FeatureState"];
+        };
+        /**
          * FileActionResponse
          * @description What a change to a file did.
          */
@@ -44973,6 +45172,18 @@ export interface components {
         FirstDeploysResponse: {
             /** Items */
             items: components["schemas"]["FirstDeployOut"][];
+        };
+        /**
+         * FirstFactorProof
+         * @description What a request that sets up an account's first second factor may carry to prove who is asking.
+         *
+         *     Attributes:
+         *         password: The account's password. Needed only when the session signed in more than ten
+         *             minutes ago (:mod:`noust.web.api.identity_proof`); ignored while it is recent.
+         */
+        FirstFactorProof: {
+            /** Password */
+            password?: string | null;
         };
         /**
          * FixOwnerRequest
@@ -47797,6 +48008,10 @@ export interface components {
          *         account: The account it is for.
          *         code: The code; only its digest is stored.
          *         expires_in: Seconds it is valid for.
+         *         public_url: The address the console's links are built from (``web.public_url``), or
+         *             None when the server was never told one. Without it the console can only build the
+         *             link from the address it was opened at, which through an SSH tunnel is a local one
+         *             that means nothing to the person invited, and says so.
          *         emailed: Whether the invitation was also mailed to the address given.
          *         email_error: Why it was not, when it was asked for and did not go: the invitation
          *             exists, and its code is handed over by hand.
@@ -47821,6 +48036,8 @@ export interface components {
             emailed: boolean;
             /** Expires In */
             expires_in: number;
+            /** Public Url */
+            public_url?: string | null;
         };
         /**
          * InvitationNotice
@@ -51110,6 +51327,23 @@ export interface components {
             ok: boolean;
         };
         /**
+         * NotificationsModel
+         * @description Whether what is found leaves the server at all.
+         *
+         *     Attributes:
+         *         enabled: The master switch (``notifications.enabled``).
+         *         paused_until: When a pause of every notification ends, or null for none.
+         *         channels: The server's channels that are on and have what their type needs.
+         */
+        NotificationsModel: {
+            /** Channels */
+            channels?: components["schemas"]["ChannelRef"][];
+            /** Enabled */
+            enabled: boolean;
+            /** Paused Until */
+            paused_until?: string | null;
+        };
+        /**
          * OAuthApplicationOut
          * @description An OAuth application registered in GitLab, without its secret.
          */
@@ -51236,6 +51470,20 @@ export interface components {
             stats?: {
                 [key: string]: number;
             } | null;
+        };
+        /**
+         * Offer
+         * @description What turning on a watch that ships off writes.
+         *
+         *     Attributes:
+         *         key: The setting, through ``PATCH /api/config``.
+         *         value: The value that turns it on.
+         */
+        Offer: {
+            /** Key */
+            key: string;
+            /** Value */
+            value: unknown;
         };
         /**
          * OperationOut
@@ -55073,6 +55321,27 @@ export interface components {
             key: string;
         };
         /**
+         * Reach
+         * @description A channel that would take what a watch says.
+         *
+         *     Attributes:
+         *         name: The channel.
+         *         type: Its type.
+         *         limited: It does not say everything at once: a route that narrows it, a floor of
+         *             severity, quiet hours or a summary.
+         */
+        Reach: {
+            /**
+             * Limited
+             * @default false
+             */
+            limited: boolean;
+            /** Name */
+            name: string;
+            /** Type */
+            type: string;
+        };
+        /**
          * ReasonModel
          * @description Why something is not being measured, and what to do about it.
          *
@@ -58257,6 +58526,16 @@ export interface components {
         /**
          * RuleRequestIn
          * @description A rule: ``allow`` or ``deny`` a port, from everyone (``any``) or an address or network.
+         *
+         *     Attributes:
+         *         action: ``allow`` or ``deny``.
+         *         port: The port.
+         *         proto: ``tcp``, ``udp`` or ``any``.
+         *         source: ``any``, or an address or network.
+         *         comment: A short note.
+         *         replaces: Ids of rules (``GET /firewall``) to delete in the same change: opening a port to
+         *             some addresses only, while a rule for everybody stands, takes that rule away with it
+         *             and is confirmed once. Each must allow this port; SSH and the console stay protected.
          */
         RuleRequestIn: {
             /** Action */
@@ -58273,6 +58552,8 @@ export interface components {
              * @default tcp
              */
             proto: string;
+            /** Replaces */
+            replaces?: string[];
             /**
              * Source
              * @default any
@@ -60232,6 +60513,24 @@ export interface components {
             tags: string[];
         };
         /**
+         * SessionCentral
+         * @description What the session says of the central: :class:`CentralInfo` and what it can do.
+         *
+         *     Attributes:
+         *         features: For each function of this Noust, whether it works here and why not. Absent from a
+         *             server older than 4.3, which the console reads as "what its role allows", as it always
+         *             did.
+         */
+        SessionCentral: {
+            features?: components["schemas"]["FeatureStates"] | null;
+            /** Locked */
+            locked: boolean;
+            /** Role */
+            role: string;
+            /** Sealed */
+            sealed: boolean;
+        };
+        /**
          * SessionEndedResponse
          * @description A terminal that was ended.
          */
@@ -60338,7 +60637,7 @@ export interface components {
             accounts_exist?: boolean | null;
             /** Authenticated */
             authenticated: boolean;
-            central?: components["schemas"]["CentralInfo"] | null;
+            central?: components["schemas"]["SessionCentral"] | null;
             /**
              * Csrf Cookie
              * @default noust_csrf
@@ -64418,6 +64717,20 @@ export interface components {
             valid: boolean;
         };
         /**
+         * TokenPresetInfo
+         * @description A named set of permissions an API token can be narrowed to (item 163).
+         *
+         *     Attributes:
+         *         id: Its stable name; what ``preset`` takes when a token is issued.
+         *         permissions: What a token made with it holds.
+         */
+        TokenPresetInfo: {
+            /** Id */
+            id: string;
+            /** Permissions */
+            permissions: string[];
+        };
+        /**
          * ToolInfo
          * @description One tool, as the console describes it.
          *
@@ -66738,6 +67051,87 @@ export interface components {
             items?: string[];
         };
         /**
+         * WatchEvent
+         * @description A message a watch can say.
+         *
+         *     Attributes:
+         *         kind: The notification kind, as ``/api/notifications/events`` lists it.
+         *         on: Whether the server-wide switch has it on.
+         */
+        WatchEvent: {
+            /** Kind */
+            kind: string;
+            /** On */
+            on: boolean;
+        };
+        /**
+         * WatchModel
+         * @description One thing Noust looks at without being asked.
+         *
+         *     Attributes:
+         *         id: Stable; the console words it.
+         *         group: ``applications``, ``domains``, ``server``, ``backups`` or ``noust``.
+         *         state: ``on``, ``off`` (its check is turned off) or ``muted`` (none of its messages is
+         *             switched on anywhere).
+         *         events: The messages it can say.
+         *         params: The numbers its sentence quotes (``percent``, ``days``, ``hours``).
+         *         reach: The channels that would take what it says, whether or not it is on now.
+         *         offer: What to write to turn it on, for a watch that ships off and is worth offering.
+         *         asks_outside: It sends a request to somebody else, which the offer says first.
+         */
+        WatchModel: {
+            /**
+             * Asks Outside
+             * @default false
+             */
+            asks_outside: boolean;
+            /** Events */
+            events?: components["schemas"]["WatchEvent"][];
+            /** Group */
+            group: string;
+            /** Id */
+            id: string;
+            offer?: components["schemas"]["Offer"] | null;
+            /** Params */
+            params?: {
+                [key: string]: unknown;
+            };
+            /** Reach */
+            reach?: components["schemas"]["Reach"][];
+            /** State */
+            state: string;
+        };
+        /**
+         * WatcherModel
+         * @description Whether the monitor, which does the watching, runs.
+         *
+         *     Attributes:
+         *         state: ``running``, ``not_running`` (enabled, and not running), ``disabled`` (installed and
+         *             not enabled), ``not_installed`` or ``unknown`` (systemd cannot be asked).
+         *         fix: The command that deals with it, or null when there is nothing to do.
+         */
+        WatcherModel: {
+            /** Fix */
+            fix?: string | null;
+            /** State */
+            state: string;
+        };
+        /**
+         * WatchingResponse
+         * @description What Noust watches by itself, and where what it finds goes.
+         *
+         *     Attributes:
+         *         watcher: Whether the monitor that does the watching runs.
+         *         notifications: Whether it can be heard, and by which channels.
+         *         watches: Each thing watched, in the order the console draws them.
+         */
+        WatchingResponse: {
+            notifications: components["schemas"]["NotificationsModel"];
+            watcher: components["schemas"]["WatcherModel"];
+            /** Watches */
+            watches?: components["schemas"]["WatchModel"][];
+        };
+        /**
          * WebConfig
          * @description Web interface configuration.
          */
@@ -67911,6 +68305,11 @@ export interface components {
          *     Attributes:
          *         roles: Role name to its permissions.
          *         permissions: Every permission, with what it allows.
+         *         token_presets: The sets of permissions a token can be narrowed to by name: the one
+         *             list the command line, the API and the console's dialog take.
+         *         tenant_permissions: What a token bound to a team, a project or an environment can ever
+         *             hold, whatever its owner does: the permissions about applications, databases and
+         *             backups, never the server's.
          */
         noust__web__api__auth__RolesResponse: {
             /** Permissions */
@@ -67921,6 +68320,10 @@ export interface components {
             roles: {
                 [key: string]: string[];
             };
+            /** Tenant Permissions */
+            tenant_permissions?: string[];
+            /** Token Presets */
+            token_presets?: components["schemas"]["TokenPresetInfo"][];
         };
         /**
          * ScheduleDestination
@@ -70194,6 +70597,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    watching_api_alerts_watching_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchingResponse"];
                 };
             };
         };
@@ -77889,6 +78312,38 @@ export interface operations {
             };
         };
     };
+    attention_api_attention_get: {
+        parameters: {
+            query?: {
+                /** @description `own`: only what is this person's own (requests to decide, a newer Noust, recipes behind), without the server's list: what a central adds to the lists of its servers. */
+                only?: "own" | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttentionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_audit_entries_api_audit_get: {
         parameters: {
             query?: {
@@ -78226,7 +78681,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["FirstFactorProof"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -78235,6 +78694,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TwoFactorEnrollment"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -79754,7 +80222,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["FirstFactorProof"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -79763,6 +80235,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CeremonyOptions"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

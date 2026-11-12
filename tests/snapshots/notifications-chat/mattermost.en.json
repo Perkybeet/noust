@@ -2977,6 +2977,76 @@
       }
     ]
   },
+  "access.firewall_reverted": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Firewall change undone · Allow 5432/tcp from 10.0.4.12",
+        "color": "#e3a73c",
+        "title": "▲ Firewall change undone · Allow 5432/tcp from 10.0.4.12",
+        "text": "Nobody confirmed it within 5 minutes, so the firewall is as it was before the change. Make the change again and confirm it from a new session.\n\n*What the undo printed*\n```\n$ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\nRule deleted\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Change",
+            "value": "Allow 5432/tcp from 10.0.4.12"
+          },
+          {
+            "short": true,
+            "title": "Applied by",
+            "value": "yago"
+          },
+          {
+            "short": true,
+            "title": "Applied",
+            "value": "2026-11-12 10:40 UTC"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/network/firewall"
+      }
+    ]
+  },
+  "access.ssh_reverted": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ SSH change undone · Turn off SSH password logins",
+        "color": "#e3a73c",
+        "title": "▲ SSH change undone · Turn off SSH password logins",
+        "text": "Nobody confirmed it within 5 minutes, so sshd uses the configuration it had before the change. Apply the change again and confirm it from a new login.\n\n*What the undo printed*\n```\nRestored /etc/ssh/sshd_config.d/99-noust.conf\n$ sshd -t\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Server",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Change",
+            "value": "Turn off SSH password logins"
+          },
+          {
+            "short": true,
+            "title": "Applied by",
+            "value": "ana"
+          },
+          {
+            "short": true,
+            "title": "Applied",
+            "value": "2026-11-12 10:40 UTC"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/security/ssh"
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "username": "Noust",
     "attachments": [

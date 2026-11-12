@@ -1267,7 +1267,7 @@ def discover(runner: CommandRunner | None = None) -> list[DatabaseInstance]:
         DatabaseQueryError: When Docker is installed and does not answer,
             with its own words: an empty list would read as "no databases".
     """
-    require_server_role("Databases")
+    require_server_role("databases")
     active = runner or get_runner()
     if not active.exists("docker"):
         return []

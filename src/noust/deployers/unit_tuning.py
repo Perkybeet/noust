@@ -185,7 +185,7 @@ def set_tuning(
         ServiceError: A unit could not be rewritten; the ones already rewritten are put back.
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Applications")
+    require_server_role("applications")
     log = logger or Logger()
     store = store or get_store()
     domain = validate_domain(domain)

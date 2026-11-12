@@ -110,6 +110,15 @@ src/noust/
                     deployers that both read it: releases.py (ReleaseManager: the only code that
                     knows releases/, current, shared/), layout.py (which layout, where .env
                     lives) and permissions.py (handing files to the app's account)
+    docker/         the one door from Noust to Docker, through the runner and the `docker` command and no
+                    SDK: `engine.py` (which Docker there is and what does not fit in it, as sentences with
+                    a code), `reading.py` (Docker's JSON for containers, images, volumes and networks;
+                    labels are asked by name, never split from a string), `owners.py` (whose each object is,
+                    from what the store registered and never from the object's own labels), `judge.py` (an
+                    action is (owner, action, object): what is an application's is changed through the
+                    application) and `gate.py` (`DockerGate`); `names.py` is what Noust calls things in
+                    Docker. New code asks Docker through it; `tests/test_docker_ratchet.py` lists the
+                    modules that still ask by themselves, and the list only gets shorter
     deploy_events.py  the deployment events every deployment publishes and its subscribers
     store.py        SQLite persistence (WAL) with versioned migrations
     schema_fragments.py  what a schema version written one fragment per area shares: apply it, and
@@ -203,6 +212,14 @@ src/noust/
                     guided enrollment from the central (a credential used once, never kept)
   central/          what a central is: role() (hub or server), setup.py (data directory, TLS,
                     the allow-list), unlock.py the socket a sealed central takes a passphrase on
+    features.py     what a Noust can do, in one closed table: each function a key that says what it needs
+                    (the server role, or a fact of the machine: systemd, a web server, Docker, root, the
+                    journal). `require_server_role(key)` takes its decision and its words from it, and the
+                    session publishes `features: {key: {available, reason}}`; a test fails on a call whose
+                    key is not in the table and on a guarded key nobody calls
+    machine.py      the facts the table reads, each asked of the code that already knows it (the platform
+                    detection, the web server managers, the door to Docker); the engine, the one slow fact,
+                    is cached and refreshed behind the request
   monitor/          what watches the server: the collector and its samples, alert rules and the
                     notifiers they reach, the process monitor and the reachability probe that
                     `noust-monitor` runs
@@ -672,7 +689,10 @@ cd panel && npm run dev                          # http://localhost:5173
 `tests/support/panel_factory.seed_console_state`, with every system path redirected into a temporary
 directory and a fake runner answering systemctl, journalctl, nginx and certbot, so nothing on
 the development machine is touched. `--totp` turns on the second sign-in factor; the E2E suite
-starts one per Playwright worker.
+starts one per Playwright worker. `--host-profile container` models the machine of the owner's hub, the
+Noust central's container on a NAS (no systemd, journal, nginx, Docker or sshd, and not root: the programs it
+lacks answer 127), with `--central-role hub`; what the session says of it is read from that model by the code
+that reads a real machine (`scripts/console_server/host_profile.py`).
 
 ---
 

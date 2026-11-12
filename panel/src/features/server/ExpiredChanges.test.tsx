@@ -59,7 +59,8 @@ describe("a change nobody confirmed, on the Server page", () => {
 
   it("says it in Spanish, and of SSH when it was SSH", async () => {
     await act(() => setLocale("es"));
-    serve([expired({ kind: "sshd", title: "Desactivar las contraseñas" })]);
+    // Told for a day: the change is as old as the clock says, not as old as the fixed moment the others are made at.
+    serve([expired({ kind: "sshd", title: "Desactivar las contraseñas", resolved_at: Date.now() / 1000 - 600 })]);
 
     expect(await screen.findByText("El cambio de SSH se deshizo porque nadie lo confirmó")).toBeInTheDocument();
   });

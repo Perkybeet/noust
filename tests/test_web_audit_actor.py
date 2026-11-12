@@ -12,10 +12,9 @@ session payload has ever carried, so every one of those lines printed
 :func:`noust.web.auth.actor_label` is the one place a session payload becomes
 a short, safe label, and this module drives one destructive action per area
 through the real ``noust.audit`` logger to prove the label is now correct -
-for a cookie session it is the first twelve characters of the session id,
-which ``GET /api/auth/sessions`` also reports unmasked as ``current_session``
-for the caller's own session; for the master token presented as a Bearer
-credential it is the literal ``master``.
+a credential is named by what it is: the master token, in a browser or as a
+Bearer, is the literal ``master`` (and an account its username), never twelve
+characters of the id of the session it used (item 152).
 """
 
 from __future__ import annotations
@@ -114,28 +113,6 @@ def elevate(client: TestClient, master_token: str) -> None:
     assert response.status_code == 200, response.text
 
 
-def current_sid(client: TestClient) -> str:
-    """
-    Read the caller's own session id, unmasked.
-
-    ``GET /api/auth/sessions`` is the one place a session's own id leaves the
-    server whole - every other session in the listing only ever gets a
-    prefix - which is what makes it useful here: the test can compute the
-    exact label :func:`~noust.web.auth.actor_label` should have logged.
-
-    Args:
-        client: A signed-in client.
-
-    Returns:
-        The session id.
-    """
-    response = client.get("/api/auth/sessions")
-    assert response.status_code == 200, response.text
-    sid = response.json()["current_session"]
-    assert sid
-    return sid
-
-
 def audit_line(caplog: pytest.LogCaptureFixture, marker: str) -> str:
     """
     Find the one ``noust.audit`` record carrying a marker, and return its text.
@@ -197,7 +174,6 @@ def test_a_sql_query_names_the_cookie_session_actor(
 ) -> None:
     """A statement run from a cookie session is audited under that session, not "unknown"."""
     wire(monkeypatch, [make_engine(tmp_path / "dumps")])
-    sid = current_sid(client)
 
     response = client.post(
         "/api/databases/query",
@@ -210,7 +186,7 @@ def test_a_sql_query_names_the_cookie_session_actor(
     [event] = get_log().read(action="db.query.read", limit=5)
     # The session's principal: signed in with the master token, it is the
     # master's; what must never appear is an unnamed actor.
-    assert event["actor"] in (sid[:12], "master")
+    assert event["actor"] == "master"
     assert event["actor"] not in ("unknown", "anonymous", "system")
 
 
@@ -244,7 +220,6 @@ def test_deleting_a_cron_job_names_the_cookie_session_actor(
 ) -> None:
     """Deleting a cron job is audited under the elevated cookie session, not "unknown"."""
     write_owned_cron_job(cron_dir)
-    sid = current_sid(client)
     elevate(client, master_token)
 
     with caplog.at_level(logging.INFO, logger="noust.audit"):
@@ -252,7 +227,7 @@ def test_deleting_a_cron_job_names_the_cookie_session_actor(
 
     assert response.status_code == 200, response.text
     line = audit_line(caplog, "delete_cron_job")
-    assert f"session={sid[:12]}" in line
+    assert "session=master" in line
     assert "session=unknown" not in line
 
 
@@ -265,7 +240,6 @@ def test_deleting_a_backup_schedule_names_the_cookie_session_actor(
 ) -> None:
     """Deleting a backup schedule is audited under the elevated cookie session, not "unknown"."""
     monkeypatch.setattr(BackupScheduler, "SYSTEMD_DIR", tmp_path / "backup-systemd")
-    sid = current_sid(client)
     elevate(client, master_token)
 
     with caplog.at_level(logging.INFO, logger="noust.audit"):
@@ -273,7 +247,7 @@ def test_deleting_a_backup_schedule_names_the_cookie_session_actor(
 
     assert response.status_code == 200, response.text
     line = audit_line(caplog, "delete_backup_schedule")
-    assert f"session={sid[:12]}" in line
+    assert "session=master" in line
     assert "session=unknown" not in line
 
 
@@ -291,3 +265,67 @@ def test_no_audit_call_site_under_web_reads_the_nonexistent_session_id_key() -> 
         if 'session.get("session_id"' in path.read_text(encoding="utf-8")
     ]
     assert offenders == [], f"still reading the nonexistent session_id key: {offenders}"
+
+
+class TestOneAnswerForWhoActed:
+    """
+    A credential is named by what it is, never by the id of the session it used (item 152).
+
+    The audit trail names the actor through ``principal_of`` and a job, a legacy audit line and a
+    ``created_by`` through ``actor_label``. They disagreed for the master token in a browser: the
+    trail said ``master`` and a job said twelve characters of a session id, which the console
+    drew as "Session 1a2b3c4d" beside the "master token" of the same credential.
+    """
+
+    PAYLOADS = {
+        "the master token in a browser": {
+            "type": "session",
+            "sid": "9f8e7d6c5b4a39281706f5e4d3c2b1a0",
+            "grant": "break_glass",
+        },
+        "the master token as a bearer": {"type": "master", "sid": "master"},
+        "an account": {
+            "type": "session",
+            "sid": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+            "account_id": 7,
+            "username": "lucia",
+            "role": "operator",
+        },
+        "an api token": {"type": "api_token", "sid": "token:ci", "token_name": "ci"},
+        "a central acting for an operator": {
+            "type": "api_token",
+            "sid": "token:fleet-fra-1",
+            "token_name": "fleet-fra-1",
+            "fleet": True,
+            "on_behalf_of": "marta",
+        },
+    }
+
+    @pytest.mark.parametrize("who", sorted(PAYLOADS))
+    def test_the_label_is_the_one_the_audit_trail_gives_the_principal(self, who: str) -> None:
+        from noust.web.auth import actor_label
+        from noust.web.permissions.principal import actor_of
+
+        payload = self.PAYLOADS[who]
+        actor = actor_of(payload)
+
+        assert actor is not None
+        assert actor_label(payload) == actor.label
+
+    def test_the_master_token_in_a_browser_is_master_whatever_its_session(self) -> None:
+        from noust.web.auth import actor_label
+
+        first = actor_label(self.PAYLOADS["the master token in a browser"])
+        other = actor_label({**self.PAYLOADS["the master token in a browser"], "sid": "ffeeddcc"})
+
+        assert first == other == "master"
+
+    def test_a_person_is_their_name_and_never_a_prefix_of_a_session(self) -> None:
+        from noust.web.auth import actor_label
+
+        assert actor_label(self.PAYLOADS["an account"]) == "lucia"
+
+    def test_a_payload_that_says_nothing_is_unknown(self) -> None:
+        from noust.web.auth import actor_label
+
+        assert actor_label({}) == "unknown"

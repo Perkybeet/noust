@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { KeyRound } from "lucide-react";
-import { useId, useRef, useState } from "react";
+import { Suspense, lazy, useId, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 
 import { isApiError } from "../../api/client";
@@ -11,19 +11,27 @@ import { Button } from "../../components/ui/Button";
 import { Dialog } from "../../components/ui/Dialog";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
+import { Notice } from "../../components/ui/Notice";
+import { Skeleton } from "../../components/ui/Skeleton";
 import { useT } from "../../i18n";
 import { spokenDuration } from "../settings/security";
 import { cancelElevation, resolveElevation, useElevationRequested } from "./elevation";
+import { usePasswordAsked } from "./identityProof";
 import { elevateWithPasskey, passkeysQuery } from "./passkeys";
 import { CeremonyError, browserLimit } from "./webauthn";
 
 export { elevate } from "./elevation";
+
+// The whole of the second factor's setup (QR code, passkey ceremony, backup codes) loads when an account without one meets this dialog.
+const ElevateEnrol = lazy(() => import("./ElevateEnrol"));
 
 /** What "Confirm it's you" asks of whoever is signed in. */
 export type ElevationFactor = "account" | "code" | "token";
 
 export interface ElevationNeeds {
   factor: ElevationFactor;
+  /** An account that has no second factor yet: there is nothing to confirm with, and it can set one up here. */
+  enrol: boolean;
   /** The password goes with the code: the server asks for it again (`auth.sudo.require_password`). */
   password: boolean;
   /** A code (authenticator or backup) is accepted; false for an account that can only use a passkey. */
@@ -41,11 +49,12 @@ export function elevationNeeds(session: SessionInfo | undefined): ElevationNeeds
     const factors = session.elevation_factors ?? [];
     return {
       factor: "account",
+      enrol: factors.length === 0 && !session.totp_enabled,
       password: session.elevation_requires_password,
       code: factors.length === 0 || factors.includes("totp") || factors.includes("backup_code"),
     };
   }
-  return { factor: session?.totp_enabled === true ? "code" : "token", password: false, code: true };
+  return { factor: session?.totp_enabled === true ? "code" : "token", enrol: false, password: false, code: true };
 }
 
 /**
@@ -61,7 +70,7 @@ export function ElevateDialog() {
   const queryClient = useQueryClient();
   const { data: session } = useQuery({ ...sessionQuery(), enabled: open });
   const passkeys = useQuery({ ...passkeysQuery(), enabled: open });
-  const { factor, password: askPassword, code: acceptsCode } = elevationNeeds(session);
+  const { factor, enrol: enrolling, password: askPassword, code: acceptsCode } = elevationNeeds(session);
   const hasPasskey = (passkeys.data?.passkeys.length ?? 0) > 0 && passkeys.data?.availability.supported === true && browserLimit() === null;
 
   const [password, setPassword] = useState("");
@@ -69,6 +78,8 @@ export function ElevateDialog() {
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [failure, setFailure] = useState<{ title: string; error: unknown } | null>(null);
   const [pending, setPending] = useState<"form" | "passkey" | null>(null);
+  // The factor was set up here a moment ago: the form that follows says so, and what is left to do.
+  const [justEnrolled, setJustEnrolled] = useState(false);
   const firstRef = useRef<HTMLInputElement>(null);
   const codeRef = useRef<HTMLInputElement>(null);
   const formId = useId();
@@ -78,6 +89,15 @@ export function ElevateDialog() {
     setValue("");
     setFieldError(null);
     setFailure(null);
+    setJustEnrolled(false);
+  };
+
+  // The factor is on: read the session again, and the dialog becomes the one an account with a factor has. The code
+  // that turned it on is spent for confirming, so the next one is asked for; the backup codes took the time to wait.
+  const enrolled = async (): Promise<void> => {
+    await queryClient.query({ ...sessionQuery(), staleTime: 0 });
+    void queryClient.invalidateQueries({ queryKey: authKeys.all });
+    setJustEnrolled(true);
   };
 
   const done = (elevatedUntil: string): void => {
@@ -88,8 +108,11 @@ export function ElevateDialog() {
     resolveElevation();
   };
 
+  // "Confirm your password" opens over this dialog while a factor is being set up; a press inside it is outside this one.
+  const passwordAsked = usePasswordAsked();
+
   const onOpenChange = (next: boolean): void => {
-    if (next || pending !== null) return;
+    if (next || pending !== null || passwordAsked) return;
     reset();
     cancelElevation();
   };
@@ -143,8 +166,9 @@ export function ElevateDialog() {
     }
   };
 
-  const description =
-    factor === "account"
+  const description = enrolling
+    ? t("auth.elevate.enrolDescription")
+    : factor === "account"
       ? askPassword
         ? hasPasskey
           ? t("auth.elevate.descriptionAccountPasskey")
@@ -167,13 +191,13 @@ export function ElevateDialog() {
     open && typeof idleMinutes === "number" && typeof maxMinutes === "number"
       ? t("auth.elevate.keepsOpen", { max: spokenDuration(maxMinutes * 60, t.locale), idle: spokenDuration(idleMinutes * 60, t.locale) })
       : null;
-  const showForm = factor !== "account" || acceptsCode;
+  const showForm = !enrolling && (factor !== "account" || acceptsCode);
 
   return (
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      size="sm"
+      size={enrolling ? "md" : "sm"}
       initialFocus={firstRef}
       title={t("auth.elevate.title")}
       description={description}
@@ -196,7 +220,14 @@ export function ElevateDialog() {
       }
     >
       <div className="flex flex-col gap-4">
-        {hasPasskey ? (
+        {enrolling && session !== undefined ? (
+          // Nothing to confirm with yet: the same way of setting a factor up as everywhere, then the dialog goes on.
+          <Suspense fallback={<Skeleton className="h-40 w-full rounded-card" />}>
+            <ElevateEnrol session={session} onDone={enrolled} />
+          </Suspense>
+        ) : null}
+        {justEnrolled && !enrolling ? <Notice tone="success">{t("auth.elevate.enrolDone")}</Notice> : null}
+        {hasPasskey && !enrolling ? (
           <>
             <Button className="w-full" icon={<KeyRound aria-hidden="true" />} loading={pending === "passkey"} disabled={pending === "form"} onClick={() => void withPasskey()}>
               {t("auth.elevate.withPasskey")}
@@ -244,7 +275,7 @@ export function ElevateDialog() {
         ) : failure !== null ? (
           <ErrorBlock live compact error={failure.error} title={failure.title} />
         ) : null}
-        {keepsOpen !== null ? <p className="text-12 text-fg-muted">{keepsOpen}</p> : null}
+        {keepsOpen !== null && !enrolling ? <p className="text-12 text-fg-muted">{keepsOpen}</p> : null}
       </div>
     </Dialog>
   );

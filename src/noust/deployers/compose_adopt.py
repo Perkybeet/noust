@@ -872,8 +872,10 @@ def guard_running_stack(
     """
     document = deployer._load_compose_document()
     proven = running and not changes and not _starting_lines(dry_run)
+    # What runs unchanged from this file is proven, and the file is on disk, so what Compose
+    # resolves it to is asked as well: an include's service is as proven as the file's own.
     deployer._check_host_privileges(
-        document, accepted=deployer._refusals_in(document) if proven else []
+        document, accepted=deployer._refusals_in(document, resolve=True) if proven else []
     )
 
 
@@ -965,7 +967,7 @@ def adopt(
             could not be created; nothing stays registered.
         AppBusyError: Another operation is running on the domain.
     """
-    require_server_role("Applications")
+    require_server_role("container_deploy")
     if is_rehearsal():
         return AdoptionResult(plan=plan, adopted=False, unit=plan.app_name, deployment_id=None)
     runner = runner if runner is not None else get_runner()

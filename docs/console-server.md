@@ -91,6 +91,14 @@ the same closed list as a manual cleanup: the journal, the package cache, the ol
 rollback and, only if the policy says it accepts that once, the Docker build cache older than a week and the
 images with no name and no container. Removing one named Docker image and Docker volumes (which hold
 databases) are never scheduled. **Run now** runs the policy at once, as a job, whatever the disks hold.
+
+What a cleanup would remove is a plan, not a prune: `noust server cleanup ACTION --plan` (and the plan
+the page asks for) lists each thing with whose it is (an application, a database engine, Noust, or
+nobody: Noust did not make it) and how much it holds. The images an application keeps to go back to
+(the versions of a container application, the image of each release of a Compose stack and the one an
+update keeps while it runs) are never offered as unused, whatever Docker says: no container runs them
+after an update, which is what makes them look unused. The page shows them apart, with what they
+take, and `noust releases keep` is how an application keeps fewer. No cleanup ever plans a volume.
 Every cleanup, by hand or by the timer, leaves one row in the history beside it: when, what started it, the
 fullest disk before and after, what each action freed or removed, and the tool's own words for one that
 failed, so a cleanup that took something you missed can be reconstructed. From a terminal:

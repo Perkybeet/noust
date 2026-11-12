@@ -784,7 +784,7 @@ def adopt(
             written; nothing stays registered.
         AppBusyError: Another operation is running on the domain.
     """
-    require_server_role("Applications")
+    require_server_role("native_deploy")
     if is_rehearsal():
         return AdoptionResult(plan=plan, adopted=False)
     store = store if store is not None else get_store()

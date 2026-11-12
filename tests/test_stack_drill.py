@@ -116,7 +116,7 @@ class TestAGoodDump:
         run_test(runner, POSTGRES, dump)
 
         loaded = next(call for call in runner.calls if call[:4] == ("docker", "exec", "-i", NAME))
-        assert list(loaded[4:]) == client_command(POSTGRES, "restore")
+        assert list(loaded[4:]) == client_command(POSTGRES, "restore", keep_grants=False)
         # The gzip is opened on the host: what the client reads is a plain copy of the dump.
         assert runner.stdin_paths[-1].name == "dump"
         assert runner.stdin_paths[-1] != dump
@@ -148,6 +148,77 @@ class TestAGoodDump:
             i for i, call in enumerate(runner.calls) if call[:4] == ("docker", "exec", "-i", NAME)
         ]
         assert loaded, "the dump was loaded"
+
+
+class TestAGrantToARoleThatIsNotInTheContainer:
+    """
+    The role of the console's SQL (``noust_ro_<app>``) is made by Noust in the stack's database,
+    and the dump names it in a GRANT. A throwaway container has no such role, and a drill that
+    stopped there said the dump could not be restored when it was the roles that were missing
+    (item 193): the test is of the data.
+    """
+
+    FAITHFUL = client_command(POSTGRES, "restore")
+    NO_GRANTS = client_command(POSTGRES, "restore", keep_grants=False)
+
+    def test_the_real_restore_keeps_its_grants_and_its_owners(self) -> None:
+        assert "--no-acl" not in self.FAITHFUL and "--no-owner" not in self.FAITHFUL
+        assert {"--single-transaction", "--clean", "--if-exists"} <= set(self.FAITHFUL)
+
+    def test_the_drill_loads_without_them_and_the_rest_of_the_command_is_the_same(self) -> None:
+        assert {"--no-acl", "--no-owner"} <= set(self.NO_GRANTS)
+        assert [part for part in self.NO_GRANTS if part not in ("--no-acl", "--no-owner")] == (
+            self.FAITHFUL
+        )
+
+    @pytest.mark.parametrize("database", [MYSQL, MARIADB_ALL, MONGO, MONGO_OPEN])
+    def test_an_engine_whose_dump_names_no_role_is_loaded_as_it_always_was(
+        self, database: StackDatabase
+    ) -> None:
+        assert client_command(database, "restore", keep_grants=False) == client_command(
+            database, "restore"
+        )
+
+    def test_a_dump_that_grants_to_a_role_noust_made_loads_and_the_result_says_how(
+        self, dump: Path
+    ) -> None:
+        runner = runner_for(POSTGRES, tables="7\n")
+        runner.script(
+            ["docker", "exec", "-i", NAME, *self.FAITHFUL],
+            stderr='pg_restore: error: could not execute query: ERROR:  role "noust_ro_shop" '
+            "does not exist\nCommand was: GRANT SELECT ON TABLE public.orders TO noust_ro_shop;",
+            exit_code=1,
+        )
+
+        result = run_test(runner, POSTGRES, dump)
+
+        assert result.ok and not result.skipped, result.detail
+        assert "7 tables" in result.detail
+        assert "without its grants and owners" in result.detail
+
+    def test_a_dump_that_does_not_load_is_still_a_failed_test_without_the_grants(
+        self, dump: Path
+    ) -> None:
+        runner = runner_for(POSTGRES)
+        runner.script(
+            ["docker", "exec", "-i", NAME, *self.NO_GRANTS],
+            stderr="pg_restore: error: could not execute query: ERROR:  relation already exists",
+            exit_code=1,
+        )
+
+        result = run_test(runner, POSTGRES, dump)
+
+        assert not result.ok
+        assert "relation already exists" in result.detail
+
+    def test_an_engine_that_has_no_grants_to_leave_out_does_not_say_it_did(
+        self, dump: Path
+    ) -> None:
+        runner = runner_for(MYSQL)
+
+        result = run_test(runner, MYSQL, dump)
+
+        assert result.ok and "grants" not in result.detail
 
 
 class TestEveryEngine:
@@ -200,7 +271,7 @@ class TestABadDump:
         self, dump: Path
     ) -> None:
         runner = runner_for(POSTGRES)
-        restore = client_command(POSTGRES, "restore")
+        restore = client_command(POSTGRES, "restore", keep_grants=False)
         runner.script(
             ["docker", "exec", "-i", NAME, *restore],
             stderr='pg_restore: error: role "ghost" does not exist',

@@ -4,7 +4,7 @@ import { KeyRound, LogOut, Smartphone } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 
-import { request } from "../../api/client";
+import { isApiError, request } from "../../api/client";
 import { authKeys, confirmTwoFactor, enrollTwoFactor, sessionQuery } from "../../api/queries/auth";
 import type { SessionInfo, TwoFactorEnrollment } from "../../api/queries/auth";
 import { useDocumentTitle } from "../../app/documentTitle";
@@ -55,9 +55,29 @@ export interface SecondFactorProps {
   optional?: { onSkip: () => void };
 }
 
+/** The server refused to set a first factor up from this session: it is too old and the account has no password to confirm with. */
+function mustSignInAgain(error: unknown): boolean {
+  return isApiError(error) && error.error === "fresh_sign_in_required";
+}
+
 /** Choosing and setting up a second factor: an authenticator app (QR and code) or a passkey, then the backup codes. */
 export function SecondFactor({ session, onDone, optional }: SecondFactorProps) {
   const t = useT();
+  const { signOut, pending: signingOut } = useSignOut();
+  // The one way out of a session too old to vouch for the first factor, for an account with no password: a new sign-in.
+  const signInAgain = (
+    <Notice
+      tone="warning"
+      title={t("auth.gate.oldSessionTitle")}
+      action={
+        <Button size="sm" loading={signingOut} onClick={() => void signOut()}>
+          {t("auth.gate.signInAgain")}
+        </Button>
+      }
+    >
+      {t("auth.gate.oldSession")}
+    </Notice>
+  );
   const [state, setState] = useState<FactorStage>({ stage: "choose" });
   const [code, setCode] = useState("");
   const [name, setName] = useState(() => suggestedName(t));
@@ -209,7 +229,8 @@ export function SecondFactor({ session, onDone, optional }: SecondFactorProps) {
             }}
           />
         </Field>
-        {passkey.isError && !(passkey.error instanceof CeremonyError && passkey.error.cancelled) ? (
+        {passkey.isError && mustSignInAgain(passkey.error) ? signInAgain : null}
+        {passkey.isError && !mustSignInAgain(passkey.error) && !(passkey.error instanceof CeremonyError && passkey.error.cancelled) ? (
           <ErrorBlock live compact error={passkey.error} title={t("auth.passkeys.addFailed")} />
         ) : null}
         <Button type="submit" variant="primary" size="lg" className="w-full" icon={<KeyRound aria-hidden="true" />} loading={passkey.isPending}>
@@ -237,7 +258,8 @@ export function SecondFactor({ session, onDone, optional }: SecondFactorProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      {start.isError ? <ErrorBlock live compact error={start.error} title={t("settings.security.twoFactor.startFailed")} /> : null}
+      {start.isError && mustSignInAgain(start.error) ? signInAgain : null}
+      {start.isError && !mustSignInAgain(start.error) ? <ErrorBlock live compact error={start.error} title={t("settings.security.twoFactor.startFailed")} /> : null}
       <Button variant="primary" size="lg" className="w-full" icon={<Smartphone aria-hidden="true" />} loading={start.isPending} onClick={() => start.mutate()}>
         {t("auth.gate.useApp")}
       </Button>

@@ -1,0 +1,1 @@
+import{C as e,a as t}from"./client-W0EhNCpu.js";var n={all:[`nodes`],list:[`nodes`,`list`],key:e=>[`nodes`,`key`,e]},r=()=>e({queryKey:n.list,queryFn:({signal:e})=>t(`get`,`/api/nodes`,{signal:e}),refetchInterval:15e3});export{r as n,n as t};

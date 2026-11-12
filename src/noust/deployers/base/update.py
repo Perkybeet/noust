@@ -56,7 +56,7 @@ class UpdateMixin(ReleaseMixin):
         Raises:
             NoustError: When a step fails.
         """
-        require_server_role("Applications")
+        require_server_role("native_deploy")
         report = on_step or (lambda _message: None)
         releases = self.resolve_layout() == RELEASES
         self._forget_hooks()
@@ -109,7 +109,7 @@ class UpdateMixin(ReleaseMixin):
             DeploymentError: The application is not on the release layout.
             NoustError: A step failed; the half-built release is removed.
         """
-        require_server_role("Applications")
+        require_server_role("native_deploy")
         report = on_step or (lambda _message: None)
         if self.resolve_layout() != RELEASES:
             raise DeploymentError(
@@ -180,7 +180,7 @@ class UpdateMixin(ReleaseMixin):
                 back by then).
             NoustError: A hook failed, or a reference does not resolve.
         """
-        require_server_role("Applications")
+        require_server_role("native_deploy")
         report = on_step or (lambda _message: None)
         if self.resolve_layout() != RELEASES:
             raise DeploymentError(

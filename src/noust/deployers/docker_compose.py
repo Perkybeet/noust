@@ -39,6 +39,7 @@ from noust.core.applock import app_lock
 from noust.core.compose_yaml import load_compose
 from noust.core.config import Config
 from noust.core.deploy_failures import stack_update_unhealthy, stack_went_back
+from noust.core.docker.names import project_of_directory
 from noust.core.exceptions import (
     DatabaseQueryError,
     DeploymentCancelled,
@@ -64,7 +65,12 @@ from noust.core.store import (
 from noust.core.utils import domain_to_app_name
 from noust.core.variables.model import BUILD
 from noust.core.variables.predefined import RESERVED, Deployment
-from noust.deployers.helpers import compose_preview, compose_retention, compose_variables
+from noust.deployers.helpers import (
+    compose_preview,
+    compose_privileges,
+    compose_retention,
+    compose_variables,
+)
 from noust.deployers.helpers.build_config import BuildConfig, refuse_unsupported, resolve_build
 from noust.deployers.helpers.compose_ports import (
     PortMapping,
@@ -180,12 +186,6 @@ COMPOSE_FILE_PRIORITY = [
     "compose.yaml",
 ]
 
-#: What Compose itself strips from a directory name before using it as a
-#: project name: everything outside [a-z0-9_-], then any leading run of
-#: characters that are not a letter or digit.
-_PROJECT_NAME_INVALID_CHARS = re.compile(r"[^a-z0-9_-]+")
-_PROJECT_NAME_LEADING_JUNK = re.compile(r"^[^a-z0-9]+")
-
 #: ``COMPOSE_PROJECT_NAME`` set in the project's ``.env``, which Compose reads.
 _ENV_PROJECT_NAME = re.compile(r"^\s*(?:export\s+)?COMPOSE_PROJECT_NAME\s*=", re.MULTILINE)
 
@@ -283,9 +283,7 @@ def compose_project_name(app_path: Path, compose_path: Path | None) -> str | Non
     if compose_path is not None and _names_its_own_project(compose_path):
         return None
     source_dir = compose_path.parent if compose_path is not None else app_path
-    name = _PROJECT_NAME_INVALID_CHARS.sub("", source_dir.name.lower())
-    name = _PROJECT_NAME_LEADING_JUNK.sub("", name)
-    return name or "default"
+    return project_of_directory(source_dir.name) or "default"
 
 
 def compose_file_option(raw: str) -> PurePosixPath:
@@ -927,7 +925,9 @@ class DockerComposeDeployer(AppDeployer):
         value = re.sub(r"\\(.)", r"\1", match.group(1).replace("%%", "%"))
         self.compose_profiles = [name for name in value.split(",") if name]
 
-    def _compose(self, *args: str, project: str | None = None) -> list[str]:
+    def _compose(
+        self, *args: str, project: str | None = None, all_profiles: bool = False
+    ) -> list[str]:
         """
         Build a ``docker compose`` argument vector for this stack.
 
@@ -943,6 +943,8 @@ class DockerComposeDeployer(AppDeployer):
             project: The project to address instead of the derived one: the
                 one the containers that served belonged to, when a failed
                 update puts them back.
+            all_profiles: Turn every profile on (``--profile "*"``) instead of the ones
+                the stack runs with, to look at everything the file can ever start.
 
         Returns:
             The full argument vector, including the project, file and
@@ -957,7 +959,7 @@ class DockerComposeDeployer(AppDeployer):
             if project is not None:
                 cmd.extend(["-p", project])
             cmd.extend(["-f", str(self.compose_path)])
-        for profile in self.compose_profiles:
+        for profile in ["*"] if all_profiles else self.compose_profiles:
             cmd.extend(["--profile", profile])
         cmd.extend(args)
         return cmd
@@ -1196,7 +1198,7 @@ class DockerComposeDeployer(AppDeployer):
                 asked for.
             AppBusyError: Another operation is running on the application.
         """
-        require_server_role("Applications")
+        require_server_role("container_deploy")
         # Held for the whole deploy, and the directory claimed before the
         # fetch, which empties it: a stack's bind-mounted data lives there.
         with app_lock(self.domain, "deploy"):
@@ -1638,13 +1640,6 @@ class DockerComposeDeployer(AppDeployer):
         """
         Refuse, or warn about, what in the compose file is root on this server.
 
-        ``privileged`` and a mount of the Docker socket are refused unless an
-        operator recorded an exception for the domain (see
-        :mod:`noust.deployers.helpers.compose_guard`), or the stack is proven
-        to run with that very finding already: the compose file that served
-        had it. Only then is it warned about, so the stack is never stopped;
-        whatever a push, a redeploy or an adopted directory adds is refused.
-
         Args:
             document: The parsed compose file.
             accepted: The findings the stack already ran with; None reads
@@ -1654,55 +1649,20 @@ class DockerComposeDeployer(AppDeployer):
             DeploymentError: The file asks for root the stack did not have,
                 without an exception.
         """
-        from noust.deployers.helpers import sandbox as build_sandbox
-        from noust.deployers.helpers.compose_guard import inspect_compose
+        compose_privileges.check_host_privileges(self, document, accepted=accepted)
 
-        findings = inspect_compose(document, self.app_path)
-        for warning in findings.warned:
-            self.logger.warning(f"Compose: {warning}")
-        if not findings.refused:
-            return
-        exception = build_sandbox.get_compose_exception(self.domain, store=self.store)
-        if exception is not None:
-            for problem in findings.refused:
-                self.logger.warning(
-                    f"Compose: {problem}; allowed for {self.domain} by "
-                    f"{exception.allowed_by} ({exception.reason})"
-                )
-            return
-        already = set(accepted if accepted is not None else self._accepted_refusals or ())
-        added = [problem for problem in findings.refused if problem not in already]
-        for problem in findings.refused:
-            if problem in already:
-                self.logger.warning(
-                    f"Compose: {problem}. A new stack is refused this without an exception; "
-                    f"record why this one needs it: noust app sandbox compose-exception "
-                    f"{self.domain} --reason '...'"
-                )
-        if not added:
-            return
-        raise DeploymentError(
-            f"{self.domain}'s compose file asks for root on this server",
-            details="\n".join(f"- {problem}" for problem in added)
-            + "\n\nA privileged container or the Docker socket is root on the host, and the "
-            "compose file comes from the repository; the stack did not run with this before. "
-            "Remove them, or record why this stack needs them and deploy again: noust app "
-            f"sandbox compose-exception {self.domain} --reason '...'",
-        )
-
-    def _refusals_in(self, document: Any) -> list[str]:
+    def _refusals_in(self, document: Any, *, resolve: bool = False) -> list[str]:
         """
         List what the guard refuses in a compose document.
 
         Args:
             document: The parsed compose file, or None.
+            resolve: Also ask Compose for what the file on disk resolves to.
 
         Returns:
             The refused findings; empty for no document.
         """
-        from noust.deployers.helpers.compose_guard import inspect_compose
-
-        return inspect_compose(document, self.app_path).refused if document is not None else []
+        return compose_privileges.refusals_in(self, document, resolve=resolve)
 
     def _remember_serving_privileges(self) -> None:
         """
@@ -1717,7 +1677,7 @@ class DockerComposeDeployer(AppDeployer):
             self.logger.debug(f"No compose file served before this deploy: {exc.message}")
             self._accepted_refusals = []
             return
-        self._accepted_refusals = self._refusals_in(self._load_compose_document())
+        self._accepted_refusals = self._refusals_in(self._load_compose_document(), resolve=True)
         self.compose_path = None
 
     def _require_variables(self, document: Any = None) -> None:

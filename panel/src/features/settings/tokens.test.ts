@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ApiToken } from "../../api/queries/auth";
 import { bindT, loadCatalog } from "../../i18n";
-import { expiryPhrase, sortTokens, tokenState } from "./tokens";
+import { expiryPhrase, heldPermissions, sortTokens, tokenState } from "./tokens";
 
 const en = bindT("en");
 const NOW = Date.UTC(2026, 8, 25, 12);
@@ -38,5 +38,26 @@ describe("tokens", () => {
     const es = bindT("es");
     expect(expiryPhrase(es, null)).toBe("no caduca");
     expect(expiryPhrase(es, seconds(Date.UTC(2026, 11, 24, 12)))).toBe("caduca el 24 dic 2026");
+  });
+});
+
+describe("what a token will hold (items 133 and 163)", () => {
+  const WANTED = ["self", "apps.read", "apps.deploy", "server.manage"];
+
+  it("is what was asked for, without self, cut to what its owner may do", () => {
+    expect(heldPermissions(WANTED, ["self", "apps.read", "apps.deploy", "server.manage"], null)).toEqual({ kept: ["apps.read", "apps.deploy", "server.manage"], droppedByOwner: [], droppedByReach: [] });
+    expect(heldPermissions(WANTED, ["self", "apps.read"], null)).toEqual({ kept: ["apps.read"], droppedByOwner: ["apps.deploy", "server.manage"], droppedByReach: [] });
+  });
+
+  it("is cut again to what a team can own when the token is tied to one, and says which of the two cut what", () => {
+    const tenant = ["self", "apps.read", "apps.deploy"];
+
+    expect(heldPermissions(WANTED, ["self", "apps.read", "apps.deploy", "server.manage"], tenant)).toEqual({ kept: ["apps.read", "apps.deploy"], droppedByOwner: [], droppedByReach: ["server.manage"] });
+    // What the owner may not do is the owner's cut, not the reach's: a permission is said to be dropped once.
+    expect(heldPermissions(WANTED, ["self", "apps.read"], tenant)).toEqual({ kept: ["apps.read"], droppedByOwner: ["apps.deploy", "server.manage"], droppedByReach: [] });
+  });
+
+  it("holds nothing of what it was not asked for", () => {
+    expect(heldPermissions(["self"], ["self", "apps.read"], null)).toEqual({ kept: [], droppedByOwner: [], droppedByReach: [] });
   });
 });

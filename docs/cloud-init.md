@@ -58,7 +58,7 @@ runcmd:
     "ports":{"80":{"state":"free","holders":null},"443":{"state":"free","holders":null}},
     "warnings":[]},
    "console":{"state":"new","address":"127.0.0.1:8080",
-    "url":"http://127.0.0.1:8080/login?with=token",
+    "url":"http://localhost:8080/login?with=token",
     "tunnel":"ssh -N -L 8080:127.0.0.1:8080 root@203.0.113.7"},
    "admin":{"username":"ops","state":"created","email":"ops@example.com","email_state":"set"},
    "auto_update":{"state":"enabled","channel":"security","window":"03:00-05:00","days":"daily"}}
@@ -81,7 +81,7 @@ runcmd:
 
 ```bash
 ssh -N -L 8080:127.0.0.1:8080 root@NEW-SERVER     # the console listens on loopback only
-# open http://127.0.0.1:8080, sign in as ops, enrol the authenticator, change the password
+# open http://localhost:8080, sign in as ops, enrol the authenticator, change the password
 ```
 
 The console's access token is printed by `noust web enable` once, into

@@ -6190,6 +6190,138 @@
       }
     ]
   },
+  "access.firewall_reverted": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Cambio del cortafuegos deshecho · Permitir 5432/tcp desde 10.0.4.12",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Cambio del cortafuegos deshecho · Permitir 5432/tcp desde 10.0.4.12",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Nadie lo confirmó en 5 minutos, así que el cortafuegos está como antes del cambio. Vuelve a hacerlo y confírmalo desde una sesión nueva."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Cambio*\nPermitir 5432/tcp desde 10.0.4.12"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Lo aplicó*\nyago"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Aplicado*\n2026-11-12 10:40 UTC"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Lo que imprimió al deshacerlo_\n```$ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\nRule deleted```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/network/firewall|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "access.ssh_reverted": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Cambio de SSH deshecho · Desactivar el acceso por contraseña en SSH",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Cambio de SSH deshecho · Desactivar el acceso por contraseña en SSH",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Nadie lo confirmó en 5 minutos, así que sshd usa la configuración que tenía antes del cambio. Aplícalo otra vez y confírmalo desde un inicio de sesión nuevo."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Cambio*\nDesactivar el acceso por contraseña en SSH"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Lo aplicó*\nana"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Aplicado*\n2026-11-12 10:40 UTC"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Lo que imprimió al deshacerlo_\n```Restored /etc/ssh/sshd_config.d/99-noust.conf\n$ sshd -t```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/security/ssh|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "attachments": [
       {

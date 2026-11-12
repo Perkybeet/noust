@@ -198,6 +198,17 @@ the bundle does not carry. A scheduled backup needs the passphrase unattended, s
 set` stores it in Noust's secret store on this server, which a bundle sent elsewhere does not
 share a disk with.
 
+The store in the bundle is the one Noust uses: the directory that holds it is the bundle's `state`, with
+its secrets and the key they are sealed under, which live beside the store and move with it (the
+user's directory, `~/.local/share/noust`, when the store never left it, and then `/var/lib/noust` is
+kept apart as `system-state`; an empty `noust.db` there is left out, because it is not a store). The
+bundle names which of its files is the store, and one that would hold none is not made. A store that is
+outside `/var/lib/noust` is what `noust setup doctor` names; `noust setup move-store` moves the whole
+folder there (`--dry-run` says what it would do): the services that write stop, a copy of both folders and
+both keys is kept in `/var/backups/noust/store-move/`, the secrets are sealed again under the key of
+`/etc/noust` (the file would be ciphertext nothing opens otherwise), the copy is checked before the store
+is switched and anything that fails is undone. The old store file is renamed, not deleted.
+
 `verify` proves a bundle restorable without restoring it: the envelope, every file's digest,
 the store's integrity check and that this Noust can migrate its schema. `restore` first checks
 every path in the bundle against this server's own directories (a bundle never decides where a
@@ -297,7 +308,10 @@ a restored database of its own and an environment rewritten per application type
 throwaway container of **the image the service ran** (the dump's manifest records it): no network, no
 published port, a memory and process limit, a name `noust-drill-<random>` and the label `noust.drill=1`,
 a password made for the occasion that reaches Docker through its environment and never an argument, and
-removed by its exact name, with its volume, whatever happened; what it holds is counted. A Redis or Valkey
+removed by its exact name, with its volume, whatever happened; what it holds is counted. A PostgreSQL dump
+is loaded without its grants and owners (`pg_restore --no-acl --no-owner`), because the roles they name
+belong to the server and the container has only the one its image made: the read-only role Noust creates
+for the console's SQL is not there, and its absence must not fail a proof about the data. The report says so. A Redis or Valkey
 snapshot, which replaces every key and so cannot be tried beside the real data, is loaded into a second
 server that listens on no port but a private socket and is stopped afterwards. It exits 1 when something
 fails. A scheduled backup runs

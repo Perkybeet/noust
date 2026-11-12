@@ -362,7 +362,7 @@ function AuthDemo() {
       description="With your Noust account."
       tagline="Your apps and servers, kept safe."
       legal={<p className="text-12 text-fg-faint">Free software under the AGPL-3.0-or-later.</p>}
-      footer={<CommandHint command="noust web token" label="Lost the token?" />}
+      footer={<CommandHint command="noust web token --new" label="Lost the token?" />}
     >
       <div className="flex flex-col gap-5">
         <Field label="Username or email">

@@ -157,7 +157,7 @@ def stage_build(
         SourceError: A commit was asked of a source that is not git.
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Applications")
+    require_server_role("applications")
     log = logger or Logger(verbose=verbose)
     domain = validate_domain(domain)
     app = _release_app(domain)
@@ -270,7 +270,7 @@ def promote_staged(
             served before is back by then).
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("Applications")
+    require_server_role("applications")
     log = logger or Logger(verbose=verbose)
     domain = validate_domain(domain)
     deploy_guard.require_open(domain, override=frozen_ok)

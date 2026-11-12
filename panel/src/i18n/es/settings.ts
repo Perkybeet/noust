@@ -202,6 +202,14 @@ export const settings: Catalog<typeof en> = {
       read: { label: "Lectura", description: "Solo consulta, nunca cambia nada: aplicaciones, despliegues, registros, métricas y el estado de la máquina." },
       deploy: { label: "Desplegar" },
       admin: { label: "Administración" },
+      limited: { label: "Solo lo que necesita una tarea", description: "Una cosa, como desplegar, y nada más de lo que puede hacer su propietario." },
+    },
+    presets: {
+      field: "Qué hace",
+      read_apps: { label: "Ver aplicaciones", hint: "Ver aplicaciones, despliegues y registros." },
+      deploy_only: { label: "Solo desplegar", hint: "Ver las aplicaciones y desplegarlas. El de CI." },
+      deploy_and_restart: { label: "Desplegar y reiniciar", hint: "Desplegar, e iniciar, detener o reiniciar aplicaciones." },
+      backups: { label: "Hacer copias", hint: "Lanzar copias y verlas." },
     },
     expiry: {
       "7": "7 días",
@@ -217,6 +225,10 @@ export const settings: Catalog<typeof en> = {
       description: "Para CI y scripts: enviado como token Bearer, actúa con su alcance y nada más.",
       errorTitle: "No se pudo crear el token",
       reachRequired: "Elige el equipo, el proyecto o el entorno al que llega el token.",
+      masterTitle: "Has entrado con el token de acceso",
+      masterBody:
+        "El token que crees no tendrá propietario: actúa con lo que permite su alcance y no se puede atar a un equipo ni a un proyecto. Para uno que sea de una persona, entra como esa persona.",
+      masterEns: "En este servidor cada token pertenece a una cuenta, así que uno hecho con el token de acceso será rechazado. Entra con una cuenta para crearlo.",
       nameLabel: "Nombre",
       nameDescription: "Según lo que lo vaya a usar, como ci-deploy. Los nombres nunca se reutilizan.",
       scopeLegend: "Alcance",
@@ -531,6 +543,7 @@ export const settings: Catalog<typeof en> = {
         appOomKilled: { label: "Aplicación cerrada por falta de memoria", description: "El núcleo ha cerrado una aplicación por quedarse sin memoria: cuántas veces, su límite y lo máximo que usó." },
         domainExpiring: { label: "Registro de dominio a punto de caducar", description: "El registro dice que el registro de un dominio caduca dentro de 30 o de 7 días. Necesita la comprobación de Avisos > Comprobaciones, apagada hasta que la enciendas." },
         domainExpired: { label: "Registro de dominio caducado", description: "El registro dice que el registro de un dominio ya ha caducado. Necesita la comprobación de Avisos > Comprobaciones." },
+        accessChangeReverted: { label: "Cambio de cortafuegos o de SSH deshecho", description: "Un cambio del cortafuegos o de SSH que nadie confirmó a tiempo se deshizo solo, con lo que imprimió al deshacerlo." },
       },
     },
     messages: {

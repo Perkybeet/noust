@@ -20,6 +20,7 @@ import { ErrorBlock } from "../../components/page/QueryState";
 import { SegmentedControl } from "../../components/page/SegmentedControl";
 import { Subsection } from "../../components/page/Subsection";
 import { ChoiceCards } from "../../components/ui/ChoiceCards";
+import { Checkbox } from "../../components/ui/Checkbox";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { Field } from "../../components/ui/Field";
 import { InlineMessage } from "../../components/ui/InlineMessage";
@@ -40,11 +41,13 @@ import { useServerConfirm } from "../server/errors";
 import { portRows } from "../server/network/data";
 import type { Holder } from "../server/network/data";
 import { firewallQuery, portsQuery, serverKeys } from "../server/queries";
+import type { FirewallRule } from "../server/queries";
 import { useServerJob } from "../server/serverJob";
 import { MissingSoftware } from "../server/software/MissingSoftware";
-import { MAX_RELAY_SOURCES, OPEN_PORT_DEFAULTS, factsOf, parsePort, planOf, ruleBody, streamBody } from "./openPort";
+import { MAX_RELAY_SOURCES, OPEN_PORT_DEFAULTS, factsOf, openToEveryone, parsePort, planOf, ruleBody, streamBody } from "./openPort";
 import type { OpenForm, OpenPlan, OpenProto, OpenProblems, PortFact } from "./openPort";
 import { PortsLack } from "./PortsLack";
+import { isProtected as isHeldOpen } from "./firewallRules";
 
 type Purpose = "service" | "database";
 
@@ -134,13 +137,18 @@ function Listener({ fact, port }: { fact: PortFact; port: number }) {
 }
 
 /** What the open dialog will do, in steps, from the plan it made. */
-function Steps({ plan, who, loader }: { plan: OpenPlan; who: string; loader: boolean }) {
+function Steps({ plan, who, loader, removing }: { plan: OpenPlan; who: string; loader: boolean; removing: readonly FirewallRule[] }) {
   const t = useT();
   return (
     <>
       <ol className="flex list-decimal flex-col gap-1.5 pl-5 text-fg">
         {plan.mode === "rule" ? (
-          <li>{t("network.openPort.stepRule", { protocol: protocolWords(t, plan.proto), port: plan.port, who })}</li>
+          <>
+            <li>{t("network.openPort.stepRule", { protocol: protocolWords(t, plan.proto), port: plan.port, who })}</li>
+            {removing.map((rule) => (
+              <li key={rule.id}>{t.rich("network.openPort.stepRemove", { rule: <Mono key="rule">{rule.spec}</Mono> })}</li>
+            ))}
+          </>
         ) : (
           <>
             <li>
@@ -234,6 +242,14 @@ export function OpenPortDialog({ onClose, preset = {} }: { onClose: () => void; 
   // What nginx answered is about what was asked, which is what is on the form now.
   const relayReady = plan?.mode === "relay" ? relayPlan.data !== undefined && JSON.stringify(asked) === JSON.stringify(relayBody) : true;
 
+  // A rule for everybody that opening the port "only to these" leaves standing (item 139). Taking it away is asked for and
+  // is about the rules on screen: a tick belongs to the rules it was given for, so another port is never removed by one.
+  const wide = asService && port !== null && form.who === "some" && !inside ? openToEveryone(firewall.data?.firewall.rules ?? [], port, form.proto, firewall.data?.protected_ports ?? []) : [];
+  const removable = wide.filter((entry) => entry.removable).map((entry) => entry.rule);
+  const signature = removable.map((rule) => rule.id).join(",");
+  const [ticked, setTicked] = useState<string | null>(null);
+  const removing = ticked !== null && ticked === signature ? removable : [];
+
   const who = form.who === "some" ? form.source.trim() || t("network.openPort.whoAnyone") : t("network.openPort.whoAnyone");
   const ready = asService ? plan !== null && relayReady && !reading : database !== null;
   const label = !asService ? t("network.openPort.databaseGo") : port === null ? t("network.openPort.openAny") : t("network.openPort.open", { port });
@@ -246,7 +262,7 @@ export function OpenPortDialog({ onClose, preset = {} }: { onClose: () => void; 
     }
     if (plan === null) return;
     if (plan.mode === "rule") {
-      const accepted = await request("post", "/api/server/security/firewall/rules", { body: ruleBody(form) });
+      const accepted = await request("post", "/api/server/security/firewall/rules", { body: ruleBody(form, removing.map((rule) => rule.id)) });
       jobs.track(accepted.job_id, "security");
       void queryClient.invalidateQueries({ queryKey: serverKeys.firewall });
       return;
@@ -367,6 +383,32 @@ export function OpenPortDialog({ onClose, preset = {} }: { onClose: () => void; 
                 </Field>
               ) : null}
             </div>
+            {wide.length > 0 ? (
+              <Notice tone="warning" title={t("network.openPort.wideTitle", { port: port ?? 0 })}>
+                <div className="flex flex-col gap-2">
+                  <p>{t("network.openPort.wideBody", { count: wide.length })}</p>
+                  <ul className="flex flex-col gap-1">
+                    {wide.map((entry) => (
+                      <li key={entry.rule.id}>
+                        <Mono>{entry.rule.spec}</Mono>
+                        {/* What its maker wrote about it ("temporary: migration from the old host") says more than the rule does. */}
+                        {entry.rule.comment.trim() !== "" ? <span className="block text-fg-muted">{entry.rule.comment.trim()}</span> : null}
+                        {entry.removable ? null : <span className="block text-fg-muted">{isHeldOpen(entry.rule, firewall.data?.protected_ports ?? []) !== null ? t("network.openPort.wideKept") : t("network.openPort.wideMore")}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                  {removable.length > 0 ? (
+                    <Checkbox
+                      label={t("network.openPort.wideRemove", { count: removable.length })}
+                      checked={removing.length > 0}
+                      onCheckedChange={(next) => {
+                        setTicked(next ? signature : null);
+                      }}
+                    />
+                  ) : null}
+                </div>
+              </Notice>
+            ) : null}
             {inside ? (
               <Field label={t("network.openPort.outside")} description={t("network.openPort.outsideHelp")} error={shown("outside")}>
                 <Input
@@ -408,7 +450,7 @@ export function OpenPortDialog({ onClose, preset = {} }: { onClose: () => void; 
                     {port !== null ? <Listener fact={fact} port={port} /> : null}
                     {plan !== null ? (
                       <>
-                        <Steps plan={plan} who={who} loader={relayPlan.data?.loader === "write"} />
+                        <Steps plan={plan} who={who} loader={relayPlan.data?.loader === "write"} removing={removing} />
                         {plan.mode === "rule" && plan.fact.openToAll && form.who === "any" ? <InlineMessage tone="info">{t("network.openPort.alreadyOpen", { port: plan.port })}</InlineMessage> : null}
                         {plan.mode === "relay" && relayPlan.isError ? <ErrorBlock compact error={relayPlan.error} title={t("network.openPort.relayFailed")} /> : null}
                         {plan.mode === "relay" && !relayReady && !relayPlan.isError && support?.available === true ? <p>{t("network.openPort.relayChecking")}</p> : null}

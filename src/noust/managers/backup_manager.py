@@ -106,7 +106,7 @@ from noust.core.sealing import SealError
 from noust.core.store import AppType, get_store
 from noust.core.utils import domain_to_app_name
 from noust.managers.app_identity import ensure_service_account
-from noust.managers.docker_volumes import docker_archive_argv
+from noust.managers.docker_volumes import docker_archive_argv, docker_merge_argv
 from noust.managers.retention import select_expired
 from noust.managers.service_manager import ServiceManager
 from noust.managers.source_manager import SourceError, extract_archive, git_tree_owner
@@ -148,7 +148,7 @@ __all__ = [
     "server_id",
 ]
 
-#: Docker has to pull alpine the first time a volume is backed up.
+#: Docker has to pull the helper image the first time a volume is backed up.
 _DOCKER_TIMEOUT = 600
 
 #: Deadline for a user-supplied hook.
@@ -1472,7 +1472,7 @@ class BackupManager:
             ValidationError: If the domain does not yield a usable app name.
             AppBusyError: Another operation holds the application's lock.
         """
-        require_server_role("Application backups")
+        require_server_role("application_backups")
         # Validated before the lock, whose file is named after the domain.
         validate_app_name(domain_to_app_name(domain))
         with app_lock(domain, "backup"):
@@ -1649,10 +1649,6 @@ class BackupManager:
                 if include_databases:
                     # The roles those dumps name, which belong to the server, not the database.
                     server_roles = self._dump_globals(payload_dir / DATABASES_DIR, database_backups)
-                if include_databases and not database_backups:
-                    self.logger.warning(
-                        f"No database was backed up for {domain}: the archive contains files only"
-                    )
 
                 volume_backups: list[dict[str, Any]] = []
                 if include_docker_volumes:
@@ -2059,7 +2055,7 @@ class BackupManager:
                 over the application the backup is of, past a schema change,
                 and that was not confirmed. Nothing was touched.
         """
-        require_server_role("Application backups")
+        require_server_role("application_backups")
         metadata = self.get_backup(backup_id)
         if not metadata:
             raise BackupError(
@@ -2205,7 +2201,7 @@ class BackupManager:
             SchemaChangedError: Only the files go back, past a schema change,
                 unconfirmed (see :meth:`require_restore_confirmed`).
         """
-        require_server_role("Application backups")
+        require_server_role("application_backups")
         archive = Path(archive)
         if not archive.is_file():
             raise BackupError(
@@ -2574,7 +2570,7 @@ class BackupManager:
                 refused one (the engine's words are in ``output``).
             AppBusyError: Another operation is running on the application.
         """
-        require_server_role("Application backups")
+        require_server_role("application_backups")
         metadata = self.get_backup(backup_id)
         if not metadata:
             raise BackupError(
@@ -3456,7 +3452,12 @@ class BackupManager:
             self.logger.debug(f"No app found in store for {domain}")
             return []
 
-        databases = get_store().list_databases(app_id=app.id)
+        # One service for every dump: a container's key (postgresql@project.db)
+        # resolves through it, and Docker is asked once, not once per database. It also
+        # says which databases the application uses: the rows the store says it owns and
+        # the links its environment names, wherever they live.
+        service = DatabaseService(store=get_store(), logger=self.logger)
+        databases = service.records.databases_of(app.id)
         if not databases:
             self.logger.debug(f"No databases associated with {domain}")
             return []
@@ -3465,47 +3466,44 @@ class BackupManager:
 
         self.logger.info(f"Backing up {len(databases)} database(s) for {domain}")
 
-        # One service for every dump: a container's key (postgresql@project.db)
-        # resolves through it, and Docker is asked once, not once per database.
-        service = DatabaseService(logger=self.logger)
         dumps: list[dict[str, Any]] = []
-        for db in databases:
-            if _held_by_own_stack(app, db.engine, db.name, covered):
+        for engine, name in databases:
+            if _held_by_own_stack(app, engine, name, covered):
                 self.logger.info(
-                    f"  {db.engine} database {db.name}: in the copy of the stack's databases"
+                    f"  {engine} database {name}: in the copy of the stack's databases"
                 )
                 continue
             try:
-                manager = service.manager(db.engine)
+                manager = service.manager(engine)
             except DatabaseError as exc:
                 raise BackupError(
-                    f"No manager available for database engine: {db.engine}",
+                    f"No manager available for database engine: {engine}",
                     details=(
-                        f"Database '{db.name}' is registered for {domain} but cannot be "
+                        f"Database '{name}' is registered for {domain} but cannot be "
                         f"dumped: {exc.message}. {exc.details or ''}"
                     ).strip(),
                 ) from exc
 
             if not manager.is_installed():
                 raise BackupError(
-                    f"{db.engine} is not installed, cannot back up '{db.name}'",
-                    details=f"Install {db.engine} or run the backup without --include-databases.",
+                    f"{engine} is not installed, cannot back up '{name}'",
+                    details=f"Install {engine} or run the backup without --include-databases.",
                 )
 
             suffix = getattr(manager, "BACKUP_SUFFIX", ".dump")
             # A container's key holds an @, which no file name may.
-            filename = validate_filename(f"{storage_name(db.engine)}-{db.name}{suffix}.gz")
+            filename = validate_filename(f"{storage_name(engine)}-{name}{suffix}.gz")
             target = destination / filename
 
             kwargs: dict[str, Any] = {}
-            if engine_of(db.engine) in {"redis", "valkey"}:
+            if engine_of(engine) in {"redis", "valkey"}:
                 kwargs["method"] = redis_method
 
             try:
-                info = manager.backup(database=db.name, output_path=target, compress=True, **kwargs)
+                info = manager.backup(database=name, output_path=target, compress=True, **kwargs)
             except (DatabaseError, OSError) as exc:
                 raise BackupError(
-                    f"Failed to back up {db.engine} database '{db.name}'",
+                    f"Failed to back up {engine} database '{name}'",
                     details=str(exc),
                 ) from exc
 
@@ -3517,21 +3515,21 @@ class BackupManager:
 
             if not target.is_file():
                 raise BackupError(
-                    f"Dump of '{db.name}' did not reach the backup archive",
-                    details=f"{db.engine} reported success but {target} does not exist.",
+                    f"Dump of '{name}' did not reach the backup archive",
+                    details=f"{engine} reported success but {target} does not exist.",
                 )
 
             dumps.append(
                 {
-                    "engine": db.engine,
-                    "name": db.name,
+                    "engine": engine,
+                    "name": name,
                     "archive_path": f"{PAYLOAD_DIR}/{DATABASES_DIR}/{filename}",
                     "size_bytes": target.stat().st_size,
                     "created": datetime.now().isoformat(),
                 }
             )
 
-            self.logger.info(f"  Backed up {db.engine} database: {db.name}")
+            self.logger.info(f"  Backed up {engine} database: {name}")
 
         return dumps
 
@@ -3999,22 +3997,7 @@ class BackupManager:
             archive = self._resolve_payload_file(extracted, entry, f"volume '{volume}'")
 
             result = self._exec(
-                [
-                    "docker",
-                    "run",
-                    "--rm",
-                    "-v",
-                    f"{volume}:/data",
-                    "-v",
-                    f"{archive.parent}:/backup:ro",
-                    "alpine",
-                    "tar",
-                    "xzf",
-                    f"/backup/{archive.name}",
-                    "-C",
-                    "/data",
-                ],
-                timeout=_DOCKER_TIMEOUT,
+                docker_merge_argv(volume, archive.parent, archive.name), timeout=_DOCKER_TIMEOUT
             )
 
             if not result.success:
@@ -4548,7 +4531,7 @@ class BackupManager:
             BackupError: When ``source`` is not a directory or is the backup
                 directory itself.
         """
-        require_server_role("Application backups")
+        require_server_role("application_backups")
         source = Path(source).absolute()
         if not source.is_dir():
             raise BackupError(

@@ -23,6 +23,7 @@ from noust.deployers import compose_relay
 from noust.managers import setup_doctor
 from noust.managers.server.requirements import DiskFree, Resources
 from noust.managers.setup_doctor import DoctorEnvironment
+from noust.managers.store_location import StoreLocation
 from noust.validators import ssh as ssh_module
 from noust.web.api import system as system_api
 from noust.web.api.auth import get_current_session
@@ -66,6 +67,10 @@ def sandbox(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
                 "listeners": lambda: [(80, ("nginx",)), (443, ("nginx",))],
                 # Which kinds of application the store holds is described too, for the same reason.
                 "app_types": lambda: {"nodejs"},
+                # And where the store is: in the state directory, as a server keeps it.
+                "store_location": lambda: StoreLocation(
+                    tmp_path / "state" / "noust.db", tmp_path / "state"
+                ),
                 **extra,
             },
         ),

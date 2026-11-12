@@ -262,7 +262,7 @@ def plan_change(
             is not acceptable, or a branch goes with something that is not git.
         SourceError: The remote cannot be read, or has no such branch.
     """
-    require_server_role("Applications")
+    require_server_role("applications")
     store = store or get_store()
     app = require_app(store, validate_domain(domain))
     _refuse_unsuitable(app)

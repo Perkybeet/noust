@@ -340,6 +340,7 @@ ApiTokenRequest = TypedDict("ApiTokenRequest", {
     "expires_hours": NotRequired[Union[int, None]],
     "name": Required[str],
     "permissions": NotRequired[Union[list[str], None]],
+    "preset": NotRequired[Union[str, None]],
     "project": NotRequired[Union[str, None]],
     "scope": Required[str],
     "team": NotRequired[Union[str, None]],
@@ -722,6 +723,7 @@ AppsFigure = TypedDict("AppsFigure", {
 
 AttentionItem = TypedDict("AttentionItem", {
     "id": Required[str],
+    "origin": NotRequired[Union[str, None]],
     "reasons": Required[list["AttentionReason"]],
     "severity": Required[str],
     "subject": Required[dict[str, Any]],
@@ -735,9 +737,15 @@ AttentionReason = TypedDict("AttentionReason", {
     "detail": NotRequired[Union[str, None]],
     "detail_coded": NotRequired[Union["CodedText", None]],
     "kind": Required[str],
+    "origin": NotRequired[Union[str, None]],
     "params": NotRequired[dict[str, Any]],
     "severity": Required[str],
     "when": NotRequired[Union[str, None]],
+})
+
+AttentionResponse = TypedDict("AttentionResponse", {
+    "items": NotRequired[list["AttentionItem"]],
+    "total": NotRequired[int],
 })
 
 AuditActor = TypedDict("AuditActor", {
@@ -1750,6 +1758,11 @@ ChannelModel = TypedDict("ChannelModel", {
     "type": Required[str],
 })
 
+ChannelRef = TypedDict("ChannelRef", {
+    "name": Required[str],
+    "type": Required[str],
+})
+
 ChannelTypeModel = TypedDict("ChannelTypeModel", {
     "keys": Required[list["ChannelFieldModel"]],
     "name": Required[str],
@@ -2410,6 +2423,7 @@ CreateCronJobRequest = TypedDict("CreateCronJobRequest", {
     "app_domain": NotRequired[Union[str, None]],
     "command": Required[str],
     "name": Required[str],
+    "once_at": NotRequired[Union[str, None]],
     "schedule": NotRequired[str],
     "service": NotRequired[Union[str, None]],
     "timeout": NotRequired[Union[int, None]],
@@ -2553,6 +2567,13 @@ CronActionResponse = TypedDict("CronActionResponse", {
     "success": Required[bool],
 })
 
+CronHistoryResponse = TypedDict("CronHistoryResponse", {
+    "days": Required[int],
+    "items": Required[list["CronOnceRunInfo"]],
+    "total": Required[int],
+    "zone": Required[str],
+})
+
 CronJobInfo = TypedDict("CronJobInfo", {
     "app_domain": Required[str],
     "command": Required[str],
@@ -2563,6 +2584,8 @@ CronJobInfo = TypedDict("CronJobInfo", {
     "name": Required[str],
     "next_run": Required[str],
     "on_calendar": Required[str],
+    "once": NotRequired[bool],
+    "once_at": NotRequired[str],
     "schedule": Required[str],
     "service": NotRequired[str],
     "timeout": NotRequired[Union[int, None]],
@@ -2594,7 +2617,28 @@ CronOccurrenceInfo = TypedDict("CronOccurrenceInfo", {
     "status": Required[str],
 })
 
+CronOnceRunInfo = TypedDict("CronOnceRunInfo", {
+    "app_domain": NotRequired[str],
+    "command": Required[str],
+    "exit_code": NotRequired[Union[int, None]],
+    "finished_at": NotRequired[Union[str, None]],
+    "id": Required[int],
+    "late": NotRequired[bool],
+    "name": Required[str],
+    "ok": Required[bool],
+    "output": NotRequired[str],
+    "result": Required[str],
+    "retired_at": NotRequired[str],
+    "run_as": NotRequired[str],
+    "run_at": Required[str],
+    "service": NotRequired[str],
+    "started_at": NotRequired[Union[str, None]],
+    "timeout": NotRequired[Union[int, None]],
+    "working_directory": NotRequired[str],
+})
+
 CronPreviewRequest = TypedDict("CronPreviewRequest", {
+    "once_at": NotRequired[Union[str, None]],
     "schedule": NotRequired[str],
 })
 
@@ -3966,6 +4010,64 @@ Fail2banWebRequest = TypedDict("Fail2banWebRequest", {
     "enable": NotRequired[bool],
 })
 
+FeatureReason = TypedDict("FeatureReason", {
+    "code": Required[str],
+    "hint": NotRequired[Union[str, None]],
+    "params": NotRequired[dict[str, Union[bool, int, float, str]]],
+    "text": Required[str],
+})
+
+FeatureState = TypedDict("FeatureState", {
+    "available": Required[bool],
+    "reason": NotRequired[Union["FeatureReason", None]],
+})
+
+FeatureStates = TypedDict("FeatureStates", {
+    "application_backups": Required["FeatureState"],
+    "application_diagnosis": Required["FeatureState"],
+    "application_environments": Required["FeatureState"],
+    "applications": Required["FeatureState"],
+    "certificates": Required["FeatureState"],
+    "checking_a_moved_server": Required["FeatureState"],
+    "console_exposure": Required["FeatureState"],
+    "container_deploy": Required["FeatureState"],
+    "database_backups": Required["FeatureState"],
+    "database_instances": Required["FeatureState"],
+    "databases": Required["FeatureState"],
+    "dns_accounts": Required["FeatureState"],
+    "dns_records": Required["FeatureState"],
+    "domains": Required["FeatureState"],
+    "firewall": Required["FeatureState"],
+    "importing_applications": Required["FeatureState"],
+    "log_destinations": Required["FeatureState"],
+    "moving_a_server": Required["FeatureState"],
+    "native_deploy": Required["FeatureState"],
+    "noust_dns": Required["FeatureState"],
+    "point_in_time_recovery": Required["FeatureState"],
+    "power": Required["FeatureState"],
+    "preview_environments": Required["FeatureState"],
+    "process_monitor": Required["FeatureState"],
+    "public_database_access": Required["FeatureState"],
+    "published_ports": Required["FeatureState"],
+    "recipes": Required["FeatureState"],
+    "releases": Required["FeatureState"],
+    "restoring_a_server": Required["FeatureState"],
+    "rollbacks": Required["FeatureState"],
+    "root_shell": Required["FeatureState"],
+    "scheduled_jobs": Required["FeatureState"],
+    "server_health": Required["FeatureState"],
+    "server_security": Required["FeatureState"],
+    "server_setup": Required["FeatureState"],
+    "services": Required["FeatureState"],
+    "sites": Required["FeatureState"],
+    "software": Required["FeatureState"],
+    "status_page": Required["FeatureState"],
+    "system_clock": Required["FeatureState"],
+    "system_logs": Required["FeatureState"],
+    "tunnels": Required["FeatureState"],
+    "volume_backups": Required["FeatureState"],
+})
+
 FileActionResponse = TypedDict("FileActionResponse", {
     "bytes": NotRequired[Union[int, None]],
     "domain": Required[str],
@@ -4051,6 +4153,10 @@ FirstDeployOut = TypedDict("FirstDeployOut", {
 
 FirstDeploysResponse = TypedDict("FirstDeploysResponse", {
     "items": Required[list["FirstDeployOut"]],
+})
+
+FirstFactorProof = TypedDict("FirstFactorProof", {
+    "password": NotRequired[Union[str, None]],
 })
 
 FixOwnerRequest = TypedDict("FixOwnerRequest", {
@@ -4967,6 +5073,7 @@ InvitationIssued = TypedDict("InvitationIssued", {
     "email_error_hint": NotRequired[Union[str, None]],
     "emailed": NotRequired[bool],
     "expires_in": Required[int],
+    "public_url": NotRequired[Union[str, None]],
 })
 
 InvitationNotice = TypedDict("InvitationNotice", {
@@ -6091,6 +6198,12 @@ NotificationTestResult = TypedDict("NotificationTestResult", {
     "ok": Required[bool],
 })
 
+NotificationsModel = TypedDict("NotificationsModel", {
+    "channels": NotRequired[list["ChannelRef"]],
+    "enabled": Required[bool],
+    "paused_until": NotRequired[Union[str, None]],
+})
+
 OAuthApplicationOut = TypedDict("OAuthApplicationOut", {
     "client_id": Required[str],
     "created_at": Required[str],
@@ -6139,6 +6252,11 @@ ObservationListResponse = TypedDict("ObservationListResponse", {
     "count": Required[int],
     "observations": Required[list["ObservationEntry"]],
     "stats": NotRequired[Union[dict[str, int], None]],
+})
+
+Offer = TypedDict("Offer", {
+    "key": Required[str],
+    "value": Required[Any],
 })
 
 OperationOut = TypedDict("OperationOut", {
@@ -7340,6 +7458,12 @@ RankedKeyModel = TypedDict("RankedKeyModel", {
     "key": Required[str],
 })
 
+Reach = TypedDict("Reach", {
+    "limited": NotRequired[bool],
+    "name": Required[str],
+    "type": Required[str],
+})
+
 ReasonModel = TypedDict("ReasonModel", {
     "code": Required[str],
     "evidence": NotRequired[Union[str, None]],
@@ -8334,6 +8458,7 @@ RuleOut = TypedDict("RuleOut", {
     "proto": Required[str],
     "service": NotRequired[Union[str, None]],
     "source": Required[str],
+    "source_changeable": NotRequired[bool],
     "spec": Required[str],
 })
 
@@ -8342,7 +8467,12 @@ RuleRequestIn = TypedDict("RuleRequestIn", {
     "comment": NotRequired[str],
     "port": Required[int],
     "proto": NotRequired[str],
+    "replaces": NotRequired[list[str]],
     "source": NotRequired[str],
+})
+
+RuleSourceIn = TypedDict("RuleSourceIn", {
+    "source": Required[str],
 })
 
 SMTPConfig = TypedDict("SMTPConfig", {
@@ -8963,6 +9093,13 @@ ServiceTagsResponse = TypedDict("ServiceTagsResponse", {
     "tags": Required[list[str]],
 })
 
+SessionCentral = TypedDict("SessionCentral", {
+    "features": NotRequired[Union["FeatureStates", None]],
+    "locked": Required[bool],
+    "role": Required[str],
+    "sealed": Required[bool],
+})
+
 SessionEndedResponse = TypedDict("SessionEndedResponse", {
     "ended": Required[bool],
     "id": Required[str],
@@ -8983,7 +9120,7 @@ SessionInfo = TypedDict("SessionInfo", {
     "account": NotRequired[Union["AccountInfo", None]],
     "accounts_exist": NotRequired[Union[bool, None]],
     "authenticated": Required[bool],
-    "central": NotRequired[Union["CentralInfo", None]],
+    "central": NotRequired[Union["SessionCentral", None]],
     "csrf_cookie": NotRequired[str],
     "csrf_header": NotRequired[str],
     "elevated_until": NotRequired[Union[str, None]],
@@ -10330,6 +10467,11 @@ TokenInfo = TypedDict("TokenInfo", {
     "valid": Required[bool],
 })
 
+TokenPresetInfo = TypedDict("TokenPresetInfo", {
+    "id": Required[str],
+    "permissions": Required[list[str]],
+})
+
 ToolInfo = TypedDict("ToolInfo", {
     "description": Required[str],
     "destructive": Required[bool],
@@ -11102,6 +11244,33 @@ WarningInfo = TypedDict("WarningInfo", {
     "items": NotRequired[list[str]],
 })
 
+WatchEvent = TypedDict("WatchEvent", {
+    "kind": Required[str],
+    "on": Required[bool],
+})
+
+WatchModel = TypedDict("WatchModel", {
+    "asks_outside": NotRequired[bool],
+    "events": NotRequired[list["WatchEvent"]],
+    "group": Required[str],
+    "id": Required[str],
+    "offer": NotRequired[Union["Offer", None]],
+    "params": NotRequired[dict[str, Any]],
+    "reach": NotRequired[list["Reach"]],
+    "state": Required[str],
+})
+
+WatcherModel = TypedDict("WatcherModel", {
+    "fix": NotRequired[Union[str, None]],
+    "state": Required[str],
+})
+
+WatchingResponse = TypedDict("WatchingResponse", {
+    "notifications": Required["NotificationsModel"],
+    "watcher": Required["WatcherModel"],
+    "watches": NotRequired[list["WatchModel"]],
+})
+
 WebConfig = TypedDict("WebConfig", {
     "host": NotRequired[str],
     "port": NotRequired[int],
@@ -11469,6 +11638,8 @@ NoustWebApiAuditCatalogResponse = TypedDict("NoustWebApiAuditCatalogResponse", {
 NoustWebApiAuthRolesResponse = TypedDict("NoustWebApiAuthRolesResponse", {
     "permissions": Required[dict[str, str]],
     "roles": Required[dict[str, list[str]]],
+    "tenant_permissions": NotRequired[list[str]],
+    "token_presets": NotRequired[list["TokenPresetInfo"]],
 })
 
 NoustWebApiBackupSchedulesScheduleDestination = TypedDict("NoustWebApiBackupSchedulesScheduleDestination", {

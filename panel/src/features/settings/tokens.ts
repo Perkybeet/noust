@@ -28,6 +28,31 @@ export function scopes(t: T): readonly ScopeOption[] {
   ];
 }
 
+/** What a token will hold, and what was left out of what it was asked to hold, and by whom. */
+export interface HeldPermissions {
+  kept: string[];
+  /** What its owner may not do, or the issuer when the token has no owner: never more than they hold. */
+  droppedByOwner: string[];
+  /** What a token tied to a team, a project or an environment never reaches: the server's own. */
+  droppedByReach: string[];
+}
+
+/**
+ * What a token will hold: what it is asked to (a scope's, a preset's), cut to what its owner may do today, and, when it
+ * is tied to a team, a project or an environment, to what a team can own (`tenant`: the server's list, `null` when it is
+ * not tied or the server does not say). `self`, which every credential keeps, is not listed.
+ */
+export function heldPermissions(wanted: readonly string[], own: readonly string[], tenant: readonly string[] | null): HeldPermissions {
+  const asked = wanted.filter((permission) => permission !== "self");
+  const byOwner = asked.filter((permission) => own.includes(permission));
+  const inReach = tenant === null ? byOwner : byOwner.filter((permission) => tenant.includes(permission));
+  return {
+    kept: inReach,
+    droppedByOwner: asked.filter((permission) => !own.includes(permission)),
+    droppedByReach: tenant === null ? [] : byOwner.filter((permission) => !tenant.includes(permission)),
+  };
+}
+
 export interface ExpiryOption {
   value: string;
   label: string;

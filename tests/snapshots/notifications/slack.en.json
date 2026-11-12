@@ -6190,6 +6190,138 @@
       }
     ]
   },
+  "access.firewall_reverted": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Firewall change undone · Allow 5432/tcp from 10.0.4.12",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Firewall change undone · Allow 5432/tcp from 10.0.4.12",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Nobody confirmed it within 5 minutes, so the firewall is as it was before the change. Make the change again and confirm it from a new session."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Change*\nAllow 5432/tcp from 10.0.4.12"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Applied by*\nyago"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Applied*\n2026-11-12 10:40 UTC"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_What the undo printed_\n```$ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\nRule deleted```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/network/firewall|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "access.ssh_reverted": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ SSH change undone · Turn off SSH password logins",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ SSH change undone · Turn off SSH password logins",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Nobody confirmed it within 5 minutes, so sshd uses the configuration it had before the change. Apply the change again and confirm it from a new login."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Change*\nTurn off SSH password logins"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Applied by*\nana"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Applied*\n2026-11-12 10:40 UTC"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_What the undo printed_\n```Restored /etc/ssh/sshd_config.d/99-noust.conf\n$ sshd -t```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/security/ssh|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "attachments": [
       {

@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import ipaddress
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -100,7 +100,7 @@ OPERATIONS: dict[str, tuple[tuple[str, ...], bool]] = {
     "ssh.fix": (("fix",), True),
     "ssh.key.add": (("user", "public_key"), False),
     "ssh.key.remove": (("user", "fingerprint", "force"), False),
-    "firewall.add": (("action", "port", "proto", "source", "comment"), True),
+    "firewall.add": (("action", "port", "proto", "source", "comment", "replaces"), True),
     "firewall.delete": (("rule_id",), True),
     "firewall.source": (("rule_id", "source"), True),
     "firewall.enable": ((), True),
@@ -535,18 +535,19 @@ class ServerSecurity:
             "session_sources": sorted(protected.sources),
         }
 
-    def firewall_add(self, request: RuleRequest) -> PendingChange:
+    def firewall_add(self, request: RuleRequest, replaces: Sequence[str] = ()) -> PendingChange:
         """
-        Add a rule, pending confirmation.
+        Add a rule, pending confirmation, and take away the wider rules it makes pointless.
 
         Args:
             request: The rule.
+            replaces: Ids of the rules to delete in the same change.
 
         Returns:
             The pending change.
         """
         try:
-            return self._firewall().add_rule(request)
+            return self._firewall().add_rule(request, replaces)
         finally:
             self._changed()
 
@@ -745,6 +746,18 @@ class ServerSecurity:
 
     # One door for every change ------------------------------------------------------------
 
+    @staticmethod
+    def _replaces(params: dict[str, Any]) -> list[str]:
+        """
+        Args:
+            params: The parameters of ``firewall.add``.
+
+        Returns:
+            The ids of the rules to delete with it; none for a request that names none.
+        """
+        named = params.get("replaces") or []
+        return [str(item) for item in named] if isinstance(named, list) else []
+
     def _rule(self, params: dict[str, Any]) -> RuleRequest:
         return RuleRequest(
             action=str(params.get("action", "")),
@@ -815,7 +828,11 @@ class ServerSecurity:
             return f"Remove SSH key {fingerprint} from {user}"
         firewall = self._firewall()
         if operation == "firewall.add":
-            return firewall.plan_add(self._rule(params)).title
+            replaces = self._replaces(params)
+            rule = self._rule(params)
+            return (
+                firewall.plan_replace(rule, replaces) if replaces else firewall.plan_add(rule)
+            ).title
         if operation == "firewall.delete":
             return firewall.plan_delete(str(params.get("rule_id", ""))).title
         if operation == "firewall.source":
@@ -911,7 +928,9 @@ class ServerSecurity:
                 force=bool(params.get("force")),
             )
         if operation == "firewall.add":
-            return {"change": self.firewall_add(self._rule(params)).to_dict()}
+            return {
+                "change": self.firewall_add(self._rule(params), self._replaces(params)).to_dict()
+            }
         if operation == "firewall.delete":
             return {"change": self.firewall_delete(str(params.get("rule_id", ""))).to_dict()}
         if operation == "firewall.source":

@@ -10,6 +10,7 @@ import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
+import { looksSecret } from "../../lib/looksSecret";
 import { generateSecret } from "./secrets";
 import { envField, envNameField } from "./wizard";
 import type { EnvRow, ReviewErrors } from "./wizard";
@@ -116,6 +117,11 @@ function AddedRow({
   onRemove: () => void;
 }) {
   const t = useT();
+  const [shown, setShown] = useState(false);
+  // A variable typed in is hidden by what it says it is or looks like (item 148), by the rules the server judges
+  // a variable by: STRIPE_SECRET_KEY is, and so is a token pasted under any name. The person can still see it.
+  const secret = looksSecret(row.name, row.value);
+  const named = row.name.trim() !== "";
   return (
     <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start">
       <Field label={t("common.words.name")} error={nameError} className="sm:w-56 sm:shrink-0">
@@ -133,6 +139,7 @@ function AddedRow({
         label={t("newApp.env.value")}
         error={valueError}
         className="min-w-0 flex-1"
+        {...(secret ? { description: t("newApp.env.looksSecret") } : {})}
         action={
           <IconButton
             label={row.name.trim() === "" ? t("newApp.env.removeUnnamed") : t("common.words.removeNamed", { name: row.name.trim() })}
@@ -141,7 +148,27 @@ function AddedRow({
           />
         }
       >
-        <Input mono value={row.value} onValueChange={(value: string) => onChange({ value })} autoComplete="off" spellCheck={false} />
+        <Input
+          mono
+          type={secret && !shown ? "password" : "text"}
+          value={row.value}
+          onValueChange={(value: string) => onChange({ value })}
+          autoComplete={secret ? "new-password" : "off"}
+          spellCheck={false}
+          {...(secret
+            ? {
+                suffix: (
+                  <IconButton
+                    label={shown ? (named ? t("newApp.env.hide", { name: row.name.trim() }) : t("newApp.env.hideValue")) : named ? t("newApp.env.show", { name: row.name.trim() }) : t("newApp.env.showValue")}
+                    icon={shown ? <EyeOff /> : <Eye />}
+                    size="sm"
+                    pressed={shown}
+                    onClick={() => setShown(!shown)}
+                  />
+                ),
+              }
+            : {})}
+        />
       </Field>
     </div>
   );

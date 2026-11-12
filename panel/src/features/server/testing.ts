@@ -400,9 +400,40 @@ export function pendingChangeFromOlderNode(now = Date.now(), overrides: Partial<
   return bare as PendingChange;
 }
 
+/** The rows the server joins into the one list of what needs attention for this VPS (`managers/attention.py`), worst first. */
+export function attentionFor(summary: ServerSummary, security: SecurityOverview): { items: unknown[]; total: number } {
+  const row = (id: string, subject: Record<string, unknown>, title: string, severity: "fail" | "warn", origin: "state" | "security", kind: string, code: string, params: Record<string, unknown>, extra: Record<string, unknown> = {}) => ({
+    id,
+    subject,
+    title,
+    severity,
+    origin,
+    reasons: [{ kind, origin, severity, code, params, detail: null, when: null, deployment_id: null, actions: [], ...extra }],
+  });
+  const items: ReturnType<typeof row>[] = [];
+  const updates = summary.updates;
+  if ((updates.security ?? 0) > 0) items.push(row("machine:security_updates", { kind: "machine", fact: "security_updates" }, "Security updates", "warn", "state", "machine", "security_updates", { count: updates.security }));
+  if (summary.reboot.required === true) {
+    items.push(row("machine:reboot_required", { kind: "machine", fact: "reboot_required" }, "Reboot", "warn", "state", "machine", "reboot_required", { packages: summary.reboot.packages ?? [], since: summary.reboot.since ?? null }));
+  }
+  if (summary.swap.recommended === true && (summary.swap.total_bytes ?? 0) === 0) items.push(row("machine:swap", { kind: "machine", fact: "swap" }, "Swap", "warn", "state", "machine", "no_swap", {}));
+  const covered = new Set(["upd.security_pending", "upd.pkg_broken", "upd.reboot_required", "os.eol", "time.unsynced", "mem.no_swap", "disk.full", "sys.degraded"]);
+  for (const check of security.attention) {
+    const severity = check.severity === "critical" ? "fail" : check.severity === "warning" ? "warn" : null;
+    if (severity === null || covered.has(check.id)) continue;
+    items.push(row(`security:${check.id}`, { kind: "finding", check: check.id, group: check.group }, check.title, severity, "security", "security", "security_finding", { check: check.id, group: check.group, severity: check.severity }, { detail: check.reason }));
+  }
+  const rank = { fail: 0, warn: 1 };
+  const order = { state: 0, alert: 1, security: 2 };
+  items.sort((a, b) => rank[a.severity] - rank[b.severity] || order[a.origin] - order[b.origin] || a.title.toLowerCase().localeCompare(b.title.toLowerCase()));
+  return { items, total: items.length };
+}
+
 /** Every `/api/server` read of the fake VPS, for `fakeBackend`. */
 export function serverRoutes(overrides: Partial<{ summary: ServerSummary; security: SecurityOverview; changes: PendingChange[] }> = {}): Record<string, RouteHandler> {
   return {
+    // The one list the bell and this page's slice read (`GET /api/attention`): what the server would say of these two answers.
+    "GET /api/attention": () => json(200, attentionFor(overrides.summary ?? SUMMARY, overrides.security ?? SECURITY)),
     "GET /api/server/summary": () => json(200, overrides.summary ?? SUMMARY),
     "GET /api/server/security": () => json(200, overrides.security ?? SECURITY),
     "GET /api/server/security/changes": () => json(200, overrides.changes ?? []),

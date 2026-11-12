@@ -16,6 +16,8 @@ from noust.web.permissions import Permission
 
 ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/alerts/rules"): Permission.SERVER_READ,
+    # What the monitor watches without a rule, and by which channels it says so: read like the rules.
+    ("GET", "/api/alerts/watching"): Permission.SERVER_READ,
     ("PUT", "/api/alerts/rules/{name}"): Permission.SERVER_MANAGE,
     ("DELETE", "/api/alerts/rules/{name}"): Permission.SERVER_MANAGE,
     ("POST", "/api/alerts/rules/{name}/enable"): Permission.SERVER_MANAGE,

@@ -498,7 +498,7 @@ class SoftwareManager:
             RoleError: This Noust is a hub.
             UnsupportedHostError: The system is not one whose packages Noust changes.
         """
-        require_server_role("Software")
+        require_server_role("software")
         if self.platform.transactional or self.platform.family is PackageFamily.NONE:
             raise UnsupportedHostError(
                 "Noust does not change this system's software",
@@ -601,7 +601,7 @@ class SoftwareManager:
             installed=installed,
             version=version,
             origin=origin,
-            installable=component.installable_on(family),
+            installable=component.installable_on(family, self.platform.os.id),
             removable=removable,
             dependents=dependents,
             packages=installed_packages,
@@ -959,7 +959,7 @@ class SoftwareManager:
         )
         if self._presence(component, packages, looked)[0]:
             return component, packages
-        if not component.installable_on(family):
+        if not component.installable_on(family, self.platform.os.id):
             error = SoftwareRefusedError(
                 f"Noust does not install {component.id} on this system",
                 "Install it with the system's package manager; Noust manages it from there.",

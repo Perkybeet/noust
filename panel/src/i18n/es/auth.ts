@@ -74,7 +74,8 @@ export const auth: Catalog<typeof en> = {
     description: "El instalador lo mostró una vez, en un recuadro. Pégalo aquí.",
     recoveryHelp:
       "El token de acceso es la llave de quien sea root en esta máquina. Con cuentas creadas, úsalo solo para recuperar el acceso: cada uso queda registrado como aviso.",
-    lostIt: "Muéstralo en el servidor",
+    lostIt: "¿Lo has perdido? Genera uno nuevo en el servidor",
+    lostItCost: "El token nuevo anula al anterior: el que usas ahora deja de valer.",
     passkeyRequiredTitle: "El token de acceso ya tiene una llave de acceso",
   },
   legal: {
@@ -132,6 +133,14 @@ export const auth: Catalog<typeof en> = {
     confirm: "Continuar",
     confirmFailed: "La confirmación falló",
     passkeyFailed: "La llave de acceso no confirmó que eres tú",
+    enrolDescription:
+      "Esta acción pide confirmar que eres tú, y tu cuenta todavía no tiene segundo factor con el que hacerlo. Actívalo ahora, lleva un minuto, y sigues con lo que estabas haciendo.",
+    enrolDone: "Tu segundo factor ya está activo. Escribe un código de tu app de autenticación para seguir con lo que estabas haciendo.",
+  },
+  identityProof: {
+    title: "Confirma tu contraseña",
+    description: "Iniciaste sesión hace un rato. Para configurar un segundo factor, confirma tu contraseña.",
+    required: "Introduce tu contraseña.",
   },
   gate: {
     factorTitle: "Configura un segundo factor",
@@ -141,6 +150,10 @@ export const auth: Catalog<typeof en> = {
     noticeDescription: "Léelas y acéptalas para continuar. Se vuelven a pedir cada vez que cambian.",
     stepFactor: "Segundo factor",
     stepNotice: "Condiciones de uso",
+    oldSessionTitle: "Esta sesión es demasiado antigua para seguir",
+    oldSession:
+      "Tu cuenta entra con un proveedor de identidad y no tiene contraseña con la que confirmarlo. Vuelve a entrar con tu proveedor de identidad y configura el factor en los diez minutos siguientes.",
+    signInAgain: "Volver a entrar",
     useApp: "Usar una app de autenticación",
     usePasskey: "Usar una llave de acceso",
     passkeyUnavailable: "Las llaves de acceso no están disponibles desde esta página; usa una app de autenticación.",
@@ -167,7 +180,8 @@ export const auth: Catalog<typeof en> = {
     securityTitle: "Añade un responsable de seguridad",
     securityDescription: "Tu marco de seguridad separa las funciones: una segunda cuenta gestiona las cuentas y lee el registro de auditoría.",
     protectTitle: "Protege tu cuenta",
-    protectDescription: "Añade una app de autenticación o una llave de acceso, para que una contraseña robada no baste. Lleva un minuto, y puedes hacerlo más tarde desde tu cuenta.",
+    protectDescription:
+      "Añade una app de autenticación o una llave de acceso, para que una contraseña robada no baste. Lleva un minuto y puedes dejarlo para más tarde, pero hasta que lo tengas no podrás confirmar acciones delicadas, como eliminar una aplicación.",
     later: "Configurar más tarde",
     moreAbout: "Nombre y correo (opcional)",
     whyTitle: "Por qué una cuenta aparte",

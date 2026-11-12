@@ -59,6 +59,7 @@ from noust.core.notifications.composers import (
     compose_unit_failure,
     compose_unit_recovered,
 )
+from noust.core.notifications.composers_access import compose_access_change_reverted
 from noust.core.notifications.composers_ops import (
     compose_alert_acknowledged,
     compose_alert_firing,
@@ -402,6 +403,7 @@ def catalog(locale: Locale) -> dict[str, Notification]:
     out.update(netobs_events(ctx))
     out.update(_central_events(ctx))
     out.update(_dates_events(ctx))
+    out.update(_access_events(ctx))
     return {
         code: _freeze(index, notification) for index, (code, notification) in enumerate(out.items())
     }
@@ -576,6 +578,44 @@ def _dates_events(ctx: NotificationContext) -> dict[str, Notification]:
             limit=512 * 1024 * 1024,
             peak=511 * 1024 * 1024,
             since="Tue 2026-11-10 03:00:00 UTC",
+        ),
+    }
+
+
+def _access_events(ctx: NotificationContext) -> dict[str, Notification]:
+    """
+    What 4.3 says of a change to how the server is reached that nobody confirmed and the timer undid.
+
+    Kept after every other so the fixed ids of the earlier events do not move.
+
+    Args:
+        ctx: The context.
+
+    Returns:
+        One notification per code.
+    """
+    applied = datetime(2026, 11, 12, 10, 40, tzinfo=timezone.utc).timestamp()
+    return {
+        "access.firewall_reverted": compose_access_change_reverted(
+            "firewall",
+            "Allow 5432/tcp from 10.0.4.12",
+            ctx,
+            actor="yago",
+            applied_at=applied,
+            window_s=300,
+            output="$ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\nRule deleted",
+            what="firewall_allow",
+            values={"port": "5432/tcp", "source": "10.0.4.12"},
+        ),
+        "access.ssh_reverted": compose_access_change_reverted(
+            "sshd",
+            "Turn off SSH password logins",
+            ctx,
+            actor="ana",
+            applied_at=applied,
+            window_s=300,
+            output="Restored /etc/ssh/sshd_config.d/99-noust.conf\n$ sshd -t",
+            what="ssh_disable_passwords",
         ),
     }
 

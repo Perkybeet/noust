@@ -519,6 +519,46 @@ export const serverText: Catalog<typeof en> = {
       },
     },
   },
+  docker: {
+    compose: {
+      missing: {
+        text: "Docker Compose v2 no está instalado",
+        hint: "Instala el complemento de Compose: {command}",
+      },
+      too_old: {
+        text: "Docker Compose {version} no puede ensayar la adopción de una pila que ya funciona; con {needed} o posterior sí se puede",
+        hint: "Basta con actualizar el complemento de Compose: desplegar y actualizar funcionan igual.",
+      },
+      v1: {
+        text: "Solo está instalado Docker Compose 1 (docker-compose), y Noust necesita Compose v2, que es 'docker compose'",
+        hint: "Instala Compose v2 como explica {url}.",
+      },
+      version: { text: "Docker Compose {version}" },
+    },
+    engine: {
+      image_store: { text: "Las imágenes se guardan en el almacén de imágenes {store} ({driver})" },
+      missing: {
+        text: "Docker no está instalado en este servidor",
+        hint: "Instálalo desde Servidor > Software, o ejecuta: {command}",
+      },
+      remote: { text: "Noust llega a Docker en {host}, no por un socket de esta máquina" },
+      rootless: {
+        text: "Este Docker funciona sin root: es de un solo usuario, y los contenedores que crea también",
+      },
+      socket: {
+        text: "Noust llega a Docker por {socket}, que es de {owner}:{group} ({mode})",
+      },
+      too_old: {
+        text: "Docker {version} habla la API {api}, y Noust necesita la API {minimum} o posterior",
+        hint: "Actualiza Docker. Noust pregunta al motor qué API habla y funciona con cualquier motor desde la API {minimum}, también con el de un NAS.",
+      },
+      unreachable: {
+        text: "Docker está instalado pero su demonio no responde: {reason}",
+        hint: "Arráncalo con {command} y comprueba que la cuenta con la que corre Noust puede usar {socket}.",
+      },
+      version: { text: "Docker {version}, con la API {api}" },
+    },
+  },
   doctor: {
     config: {
       apps_dir_missing: {
@@ -718,6 +758,14 @@ export const serverText: Catalog<typeof en> = {
         text: "{site} sigue pidiendo a nginx que grape respuestas OCSP, que Let's Encrypt dejó de dar en agosto de 2025: nginx avisa de ello en cada recarga. Noust vuelve a escribir el sitio sin eso la próxima vez que lo escribe (un despliegue, un cambio de sus dominios)",
       },
     },
+    store: {
+      orphan: {
+        text: "{path} es un fichero vacío que quedó donde iría el almacén: no es el almacén, y el traslado lo sustituye",
+      },
+      outside: {
+        text: "El almacén de Noust está en {store}, fuera de {state}, el directorio de estado de este servidor: lo que mira solo ahí (una copia de ese directorio, una actualización del paquete) no lo encuentra",
+      },
+    },
     web: {
       none: {
         text: "Servidor web: no instalado",
@@ -728,6 +776,28 @@ export const serverText: Catalog<typeof en> = {
       stopped: {
         text: "  Servicio {unit}: parado",
       },
+    },
+  },
+  features: {
+    hub_role: {
+      text: "{feature}: no disponible en esta central, que es un hub",
+      hint: "Un hub (central.role = hub) gestiona otros servidores y no despliega nada por sí mismo. Elige el servidor en la consola o ejecuta la orden contra un nodo. En una máquina que también deba desplegar, ejecuta '{command}'; un contenedor no puede, no tiene nginx ni systemd.",
+    },
+    needs_journal: {
+      text: "Esta máquina no tiene diario que leer",
+      hint: "Noust lee el registro del sistema en journald (journalctl), que aquí no está.",
+    },
+    needs_root: {
+      text: "Noust no se ejecuta como root en esta máquina",
+      hint: "Cambiar el sistema exige root, y Noust se ejecuta aquí con una cuenta que no puede.",
+    },
+    needs_systemd: {
+      text: "Esta máquina no usa systemd",
+      hint: "Noust mantiene los servicios y los temporizadores con systemd, que un contenedor, o un sistema que arranca de otra forma, no tiene.",
+    },
+    needs_web_server: {
+      text: "No hay ningún servidor web en esta máquina",
+      hint: "Noust escribe sus sitios para nginx o Apache: instala uno desde Servidor > Software.",
     },
   },
   fleet: {

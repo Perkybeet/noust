@@ -37,6 +37,7 @@ function alertItem(taken: boolean, by = "alice") {
     id: "alert:disk-high:",
     subject: { kind: "alert", rule: "disk-high", subject: "" },
     title: "disk-high",
+    origin: "alert",
     severity: "warn",
     reasons: [
       {
@@ -58,6 +59,7 @@ const PROBE_DOWN = {
   id: "probe:blog",
   subject: { kind: "probe", name: "blog" },
   title: "blog",
+  origin: "alert",
   severity: "fail",
   reasons: [
     {
@@ -78,10 +80,15 @@ function overviewWithAlert(taken: boolean, by = "alice") {
 }
 
 function inboxRoutes(over: Record<string, RouteHandler> = {}): Record<string, RouteHandler> {
+  const overview: RouteHandler = over["GET /api/overview"] ?? (() => json(200, overviewWithAlert(false)));
   return {
     ...signedInRoutes(),
-    "GET /api/overview": () => json(200, overviewWithAlert(false)),
-    "GET /api/approvals": () => json(200, { approvals: [], pending: 0 }),
+    "GET /api/overview": overview,
+    // The one list is the server's (`GET /api/attention`, joined and ranked by `managers/attention.py`): here it is the Overview's rows.
+    "GET /api/attention": async (call) => {
+      const body = (await (await overview(call)).json()) as { attention: unknown[]; attention_total: number };
+      return json(200, { items: body.attention, total: body.attention_total });
+    },
     ...over,
   };
 }
@@ -224,18 +231,95 @@ describe("the inbox", () => {
     expect(within(panel).getByText("Since you opened the console")).toBeInTheDocument();
   });
 
-  it("does not ask for what the account may not read, nor count it", async () => {
+  it("asks the server for one list and joins nothing: what the account may not read is the server's to leave out", async () => {
     const viewer = { ...SESSION, scope: "viewer", permissions: ["self", "apps.read"] };
     const backend = fakeBackend(inboxRoutes({ "GET /api/auth/session": () => json(200, viewer) }));
     renderConsole("/apps");
     await screen.findByRole("button", { name: /^Inbox/ });
     await waitFor(() => {
-      expect(backend.callsTo("GET /api/approvals").length).toBeGreaterThan(0);
+      expect(backend.callsTo("GET /api/attention").length).toBeGreaterThan(0);
     });
+    // The requests, the newer Noust and the recipes are joined into that list by the server: nobody asks for them one by one.
     expect(backend.callsTo("GET /api/overview")).toHaveLength(0);
+    expect(backend.callsTo("GET /api/approvals")).toHaveLength(0);
+    expect(backend.callsTo("GET /api/recipes/installed")).toHaveLength(0);
     expect(backend.callsTo("GET /api/alerts/rules")).toHaveLength(0);
     expect(backend.callsTo("GET /api/probes")).toHaveLength(0);
     expect(backend.callsTo("GET /api/system/version")).toHaveLength(0);
+  });
+
+  it("says where each row comes from, and opens the screen that deals with it from a press anywhere on the row", async () => {
+    fakeBackend(inboxRoutes());
+    const { user, location } = await openBell("Inbox, 4 things need you");
+    const panel = await screen.findByRole("dialog", { name: "Inbox" });
+    const rows = await within(panel).findAllByRole("listitem");
+    // A probe is an alert's, an application's service is a state.
+    expect(rows.map((row) => row.getAttribute("data-origin"))).toEqual(["alert", "state", "alert", "state"]);
+    expect(within(at(rows, 0)).getByText("Alert", { selector: "[data-slot='origin']" })).toBeInTheDocument();
+    expect(within(at(rows, 1)).getByText("State", { selector: "[data-slot='origin']" })).toBeInTheDocument();
+    // Where the button leads to that same screen it is the row's one link (two links to one place are one too many for a keyboard),
+    // and a press anywhere else on the row opens the screen too.
+    expect(within(at(rows, 1)).getAllByRole("link")).toHaveLength(1);
+    await user.click(within(at(rows, 1)).getByText("worker.example.dev"));
+    await waitFor(() => {
+      expect(location().pathname).toBe("/apps/worker.example.dev/diagnose");
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Inbox" })).not.toBeInTheDocument();
+    });
+  });
+
+  it("makes the name the link, over the whole row, where the button does something else than open the screen", async () => {
+    fakeBackend(inboxRoutes());
+    const { user } = await openBell("Inbox, 4 things need you");
+    const panel = await screen.findByRole("dialog", { name: "Inbox" });
+    const rows = await within(panel).findAllByRole("listitem");
+    // An alert's button takes it and goes nowhere: the name is how the row leads to the alerts, stretched over the row, with the button above it.
+    const name = within(at(rows, 2)).getByRole("link", { name: "disk-high" });
+    expect(name).toHaveAttribute("href", "/alerts");
+    expect(name.className).toContain("after:absolute");
+    expect(within(at(rows, 2)).getByRole("button", { name: "Acknowledge disk-high" }).closest("div")?.className).toContain("z-10");
+    await user.keyboard("{Escape}");
+  });
+
+  it("is one list with one count: the machine's facts and the findings of Security are rows of it, with their own words", async () => {
+    const MACHINE_DISK = {
+      id: "machine:disk",
+      subject: { kind: "machine", fact: "disk" },
+      title: "Disk",
+      severity: "fail",
+      origin: "state",
+      reasons: [{ kind: "machine", origin: "state", severity: "fail", code: "disk_full", params: { mount: "/var", percent: 96, free: 3_200_000_000 }, detail: null, when: null, deployment_id: null, actions: ["free_space"] }],
+    };
+    const FINDING = {
+      id: "security:fw.docker_bypass",
+      subject: { kind: "finding", check: "fw.docker_bypass", group: "firewall" },
+      title: "Docker publishes ports around the firewall",
+      severity: "fail",
+      origin: "security",
+      reasons: [{ kind: "security", origin: "security", severity: "fail", code: "security_finding", params: { check: "fw.docker_bypass", group: "firewall", severity: "critical" }, detail: "Port 5432 is published on 0.0.0.0 by Docker.", when: null, deployment_id: null, actions: ["review_finding"] }],
+    };
+    fakeBackend(inboxRoutes({ "GET /api/overview": () => json(200, overviewFixture({ attention_total: 2, attention: [MACHINE_DISK, FINDING] })) }));
+    const { user } = await openBell("Inbox, 2 things need you");
+    const panel = await screen.findByRole("dialog", { name: "Inbox" });
+    const rows = await within(panel).findAllByRole("listitem");
+    expect(within(at(rows, 0)).getByText("Disk")).toBeInTheDocument();
+    expect(within(at(rows, 0)).getByText("/var is 96% full, 3.0 GB left")).toBeInTheDocument();
+    expect(within(at(rows, 0)).getByRole("link", { name: "Free space on Disk" })).toHaveAttribute("href", "/server/files");
+    expect(within(at(rows, 1)).getByText("Security", { selector: "[data-slot='origin']" })).toBeInTheDocument();
+    expect(within(at(rows, 1)).getByText("A critical finding of the security checks")).toBeInTheDocument();
+    // What the check found stays in Noust's own words, under it.
+    expect(within(at(rows, 1)).getByText("Port 5432 is published on 0.0.0.0 by Docker.")).toBeInTheDocument();
+    expect(within(at(rows, 1)).getByRole("link", { name: "Review the finding: Docker publishes ports around the firewall" })).toHaveAttribute("href", "/network/firewall");
+    // A finding's title is a sentence and wraps; cut with an ellipsis it would say less than it meant. A name is one line.
+    expect(within(at(rows, 1)).getByText("Docker publishes ports around the firewall").closest("span.block")).not.toHaveClass("truncate");
+    await user.keyboard("{Escape}");
+  });
+
+  it("reads the Overview of a server that has no such list, which is a server before 4.3", async () => {
+    const backend = fakeBackend(inboxRoutes({ "GET /api/attention": () => new Response(JSON.stringify({ error: "not_found", detail: "Not Found" }), { status: 404, headers: { "Content-Type": "application/json" } }) }));
+    await openBell("Inbox, 4 things need you");
+    expect(backend.callsTo("GET /api/overview").length).toBeGreaterThan(0);
   });
 
   it("does not cut the list short in the phone's sheet, which has the room and scrolls: every line is drawn", async () => {

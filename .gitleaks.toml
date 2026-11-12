@@ -18,6 +18,9 @@ paths = [
   '''^panel/e2e/''',
   '''^panel/src/.*\.test\.tsx?$''',
   '''^src/noust/web/static/''',
+  # Written by scripts/generate_secret_shapes.py from the table of cases in tests/support:
+  # the made-up credentials the console's masking is held to, the same ones the server's is.
+  '''^panel/src/api/secretShapes\.gen\.ts$''',
   '''^scripts/console_server(\.py$|/)''',
   '''(^|/)package-lock\.json$''',
   '''^uv\.lock$''',

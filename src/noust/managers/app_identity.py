@@ -864,7 +864,7 @@ def migrate(
     from noust.central import require_server_role
     from noust.core.applock import app_lock
 
-    require_server_role("Applications")
+    require_server_role("applications")
     store = store or get_store()
     runner = runner or get_runner()
     log = logger or Logger()

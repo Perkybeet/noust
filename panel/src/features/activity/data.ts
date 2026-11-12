@@ -433,11 +433,18 @@ export function namedActor(t: T, label: string): string {
 const AUTOMATIC_ACTORS: ReadonlySet<string> = new Set(["noust", "noust-fleet-sync"]);
 
 /**
- * `actor_label()` in `noust.web.auth`: `"master"`, `"token:<name>"`, a browser session's id
- * (the full value, or the twelve characters that helper keeps), `"webhook"` for a deploy the
- * repository's own hook triggered, or `"anonymous"` for an unauthenticated attempt. Every case
- * keeps the raw value alongside the words - the exact string a filter or a support request
- * needs is never hidden behind the paraphrase.
+ * What jobs and the older audit lines recorded for the master token in a browser: the first twelve characters of its
+ * session's id. Since 4.3 that credential is `master` wherever it acted, so only rows from before still carry this.
+ */
+const LEGACY_SESSION_LABEL = /^[0-9a-f]{12}$/;
+
+/**
+ * `actor_label()` in `noust.web.auth`: `"master"`, `"token:<name>"`, an account's username, `"cli:<login>"` for a
+ * command at the terminal, `"webhook"` for a deploy the repository's own hook triggered, or `"anonymous"` for an
+ * unauthenticated attempt. A label that is none of these is a person by the name they sign in with, never "a
+ * session": only the twelve characters older rows kept of a session's id (LEGACY_SESSION_LABEL) are worded as one.
+ * Every case keeps the raw value alongside the words - the exact string a filter or a support request needs is never
+ * hidden behind the paraphrase.
  */
 export function describeActor(t: T, actor: string): ActorWords {
   const fleet = fleetActor(actor);
@@ -446,14 +453,19 @@ export function describeActor(t: T, actor: string): ActorWords {
   if (actor === "anonymous") return { label: t("activity.actor.anonymous"), raw: actor };
   if (actor === "webhook") return { label: t("activity.actor.webhookDelivery"), raw: actor };
   // What Noust does on its own: the label a job carries when nobody asked (the fleet's settings brought to a server that
-  // just joined, the sandbox trial of an update), which is not the first characters of a session.
+  // just joined, the sandbox trial of an update), which is not a person or a session.
   if (AUTOMATIC_ACTORS.has(actor) || actor === "system" || actor.startsWith("system:")) return { label: t("activity.actor.system"), raw: actor };
   if (actor.startsWith("token:")) {
     const name = actor.slice("token:".length);
     return { label: name === "" ? t("activity.actor.apiToken") : t("activity.actor.namedToken", { name }), raw: actor };
   }
-  const short = actor.slice(0, 8);
-  return { label: short === "" ? t("activity.actor.browserSession") : t("activity.actor.session", { short }), raw: actor };
+  if (actor.startsWith("cli:")) {
+    const login = actor.slice("cli:".length);
+    return { label: login === "" ? t("activity.actor.terminalUnknown") : t("activity.actor.terminal", { name: login }), raw: actor };
+  }
+  if (actor === "") return { label: t("activity.actor.browserSession"), raw: actor };
+  if (LEGACY_SESSION_LABEL.test(actor)) return { label: t("activity.actor.session", { short: actor.slice(0, 8) }), raw: actor };
+  return { label: actor, raw: actor };
 }
 
 type AuditActor = NonNullable<AuditEntry["who"]>;

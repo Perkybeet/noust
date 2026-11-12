@@ -488,6 +488,14 @@ CATALOG: dict[str, str] = {
     "doctor.limits.old": (
         "{unit} is limited to {limit} open files, and a unit written now gets {new}"
     ),
+    "doctor.store.outside": (
+        "Noust's store is in {store}, outside {state}, the state directory of this server: what "
+        "looks only there (a copy of that directory, a package upgrade) does not find it"
+    ),
+    "doctor.store.orphan": (
+        "{path} is an empty file left where the store would be: it is not the store, and the "
+        "move replaces it"
+    ),
     "doctor.stapling.site": (
         "{site} still asks nginx to staple OCSP responses, which Let's Encrypt stopped giving in "
         "August 2025: nginx logs a warning about it at every reload. Noust writes the site again "
@@ -1538,6 +1546,72 @@ CATALOG: dict[str, str] = {
         "Compose did not make it: it was made by hand or by another tool."
     ),
     "networks.finding.internal": "It is internal: containers on it cannot reach the outside.",
+    # -- The engine's doctor (noust.core.docker.engine): which Docker there is, and what does not ---
+    # fit in it. A fact says what is; a limit says what Noust cannot do with this Docker, and its fix.
+    "docker.engine.version": "Docker {version}, speaking API {api}",
+    "docker.compose.version": "Docker Compose {version}",
+    "docker.engine.image_store": "Images are kept in the {store} image store ({driver})",
+    "docker.engine.socket": (
+        "Noust reaches Docker through {socket}, which belongs to {owner}:{group} ({mode})"
+    ),
+    "docker.engine.remote": "Noust reaches Docker at {host}, not through a socket of this machine",
+    "docker.engine.rootless": (
+        "This Docker runs without root: it belongs to one user, and so do the containers it makes"
+    ),
+    "docker.engine.missing": "Docker is not installed on this server",
+    "docker.engine.missing.hint": "Install it from Server > Software, or run: {command}",
+    "docker.engine.unreachable": "Docker is installed but its daemon does not answer: {reason}",
+    "docker.engine.unreachable.hint": (
+        "Start it with {command}, and check that the account Noust runs as may use {socket}."
+    ),
+    "docker.engine.too_old": (
+        "Docker {version} speaks API {api}, and Noust needs API {minimum} or later"
+    ),
+    "docker.engine.too_old.hint": (
+        "Update Docker. Noust asks the engine which API it speaks and works with every engine "
+        "from API {minimum} on, the one of a NAS included."
+    ),
+    "docker.compose.missing": "Docker Compose v2 is not installed",
+    "docker.compose.missing.hint": "Install the Compose plugin: {command}",
+    "docker.compose.v1": (
+        "Only Docker Compose 1 (docker-compose) is installed, and Noust needs Compose v2, which "
+        "is 'docker compose'"
+    ),
+    "docker.compose.v1.hint": "Install Compose v2 as {url} explains.",
+    "docker.compose.too_old": (
+        "Docker Compose {version} cannot rehearse the adoption of a stack that already runs; "
+        "{needed} or later can"
+    ),
+    "docker.compose.too_old.hint": (
+        "Updating the Compose plugin is enough: deploying and updating work as they are."
+    ),
+    # -- What this Noust can do (noust.central.features): why a function is not offered here. The --
+    # refusal of a hub is the sentence its guard has always said; the others name the one thing
+    # of the machine that is missing. A missing Docker is said by the engine's doctor above.
+    "features.hub_role": "{feature}: not available on this central, which is a hub",
+    "features.hub_role.hint": (
+        "A hub (central.role = hub) manages other servers and deploys nothing itself. "
+        "Pick the server in the console, or run the command against a node. "
+        "On a machine that should also deploy, set '{command}'; a container cannot, "
+        "it has no nginx or systemd."
+    ),
+    "features.needs_systemd": "This machine does not run systemd",
+    "features.needs_systemd.hint": (
+        "Noust keeps services and timers with systemd, which a container, or a system that "
+        "boots another way, does not have."
+    ),
+    "features.needs_web_server": "There is no web server on this machine",
+    "features.needs_web_server.hint": (
+        "Noust writes its sites for nginx or Apache: install one from Server > Software."
+    ),
+    "features.needs_root": "Noust does not run as root on this machine",
+    "features.needs_root.hint": (
+        "Changing the system takes root, and Noust runs here as an account that cannot."
+    ),
+    "features.needs_journal": "This machine has no journal to read",
+    "features.needs_journal.hint": (
+        "Noust reads the system's log from journald (journalctl), which is not here."
+    ),
     # -- Files > Storage (noust.managers.server.storage): what a cleanup would do, one sentence ----
     # for each action, said before anything is deleted.
     "storage.effect.journal": (

@@ -28,6 +28,7 @@ from noust.core.console_exposure_store import console_published
 from noust.core.exceptions import SecurityError
 from noust.core.fs import SECRET_MODE, get_fs
 from noust.core.store import StoreError
+from noust.core.token_presets import preset_permissions
 from noust.web.auth.clock import _now, utcnow
 from noust.web.auth.config import SecurityConfig
 from noust.web.auth.connection import ip_matches
@@ -877,6 +878,7 @@ class TokenManager:
         created_by: str | None = None,
         bound: tuple[str, int] | None = None,
         issuer_permissions: frozenset[str] | None = None,
+        preset: str | None = None,
     ) -> dict[str, Any]:
         """
         Issue a named, scoped API token.
@@ -898,7 +900,11 @@ class TokenManager:
                 its ``token_max_days``, and defaulting to it.
             owner: The account the token acts for.
             permissions: Permissions to narrow it to, instead of its scope's;
-                every one must be held by the owner.
+                every one must be held by the owner (by whoever issues it, for a token
+                nobody owns).
+            preset: The name of a set of permissions (:mod:`noust.core.token_presets`) to
+                narrow it to, instead of ``permissions``: the common ones for a job, from one
+                list. Both at once is an error.
             allowed_cidrs: Networks it is accepted from; any when omitted.
             allow_elevated: Let it act where sudo mode is asked, which a
                 token cannot open by itself. Refused where the compliance control
@@ -945,6 +951,13 @@ class TokenManager:
                 f"Unknown API token scope: {scope!r}",
                 details=f"Use one of: {', '.join(API_TOKEN_SCOPES)}.",
             )
+        if preset is not None:
+            if permissions is not None:
+                raise SecurityError(
+                    "A token takes a preset or a list of permissions, not both",
+                    details="Give the preset alone, or name the permissions yourself.",
+                )
+            permissions = sorted(preset_permissions(preset))
         policy = self.policy()
         if owner is None and policy.requires("restricted_tokens"):
             raise SecurityError(
@@ -1029,6 +1042,26 @@ class TokenManager:
                         details=f"The {owner.role} role does not hold them; leave them out.",
                     )
                 granted = frozenset(permissions) | {Permission.SELF}
+            stored_permissions = sorted(granted)
+            scope = legacy_scope(granted)
+        elif permissions is not None:
+            # A token nobody owns (the master token's, or root's) is narrowed all the same, and
+            # to no more than whoever issues it holds: until 4.3 the request was dropped without
+            # a word, which made a "deploy only" token a token for everything its scope allowed.
+            unknown = sorted(set(permissions) - ALL_PERMISSIONS)
+            if unknown:
+                raise SecurityError(
+                    f"Unknown permissions: {', '.join(unknown)}",
+                    details="GET /api/auth/roles lists every permission there is.",
+                )
+            held_by_issuer = ALL_PERMISSIONS if issuer_permissions is None else issuer_permissions
+            missing = sorted(set(permissions) - held_by_issuer)
+            if missing:
+                raise SecurityError(
+                    f"A token cannot hold more than its owner: {', '.join(missing)}",
+                    details="Whoever issues it does not hold them; leave them out.",
+                )
+            granted = frozenset(permissions) | {Permission.SELF}
             stored_permissions = sorted(granted)
             scope = legacy_scope(granted)
         networks = _validated_networks(allowed_cidrs)
@@ -1680,6 +1713,9 @@ class TokenManager:
         payload["type"] = "session"
         payload["elevated_until"] = record.get("elevated_until")
         payload["auth_method"] = record.get("auth_method")
+        # When the login this session descends from happened, which a renewal keeps: what a recent
+        # proof of identity is measured from (noust.web.api.identity_proof).
+        payload["signed_in_at"] = float(record.get("created_at") or record["issued_at"])
         if not self._apply_principal(payload, record):
             self.sessions.revoke(session_id)
             return None

@@ -70,7 +70,7 @@ def serve(app_domain: str, *, days: int = LEAF_DAYS, verbose: bool = False) -> S
             for (the certificate is not made), or the web server refuses the new site (the
             choice is put back).
     """
-    require_server_role("Certificates")
+    require_server_role("certificates")
     domain = validate_domain(app_domain)
     app = domains.application(domain)
     names = certificate_names(get_store(), app.domain)

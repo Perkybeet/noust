@@ -680,7 +680,13 @@ export function LoginForm({ next, expired, initialWay, recoveryHelp = false, sso
         title={t("auth.token.title")}
         description={t("auth.token.description")}
         back={back}
-        footer={<CommandHint label={t("auth.token.lostIt")} command="noust web token" reason="solo-terminal" />}
+        footer={
+          <div className="flex flex-col gap-2">
+            {/* `noust web token` alone only reports: it is --new that gives a token, and it ends the one in use. */}
+            <CommandHint label={t("auth.token.lostIt")} command="noust web token --new" reason="solo-terminal" />
+            <p className="max-w-measure-help text-12 text-pretty text-fg-muted">{t("auth.token.lostItCost")}</p>
+          </div>
+        }
       >
         {tokenWay}
       </AuthFrame>

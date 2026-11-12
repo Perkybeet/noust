@@ -13,7 +13,7 @@ from typing import Any
 
 import pytest
 
-from noust.core.runner import CommandResult, FakeRunner, set_runner
+from noust.core.runner import CommandResult, FakeRunner, is_read_only, set_runner
 from noust.core.store import NoustStore, get_store
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.service_manager import ServiceManager
@@ -91,7 +91,13 @@ class Docker(FakeRunner):
         for call in self.calls:
             if call[:1] == ("git",) and changing & set(call):
                 found.append(call)
-            if call[:2] == ("docker", "compose") and "--dry-run" not in call:
+            # What only looks (the guard's ``config``, declared read-only to the runner) is not a
+            # change, and adopting is allowed to look.
+            if (
+                call[:2] == ("docker", "compose")
+                and "--dry-run" not in call
+                and not is_read_only(call)
+            ):
                 found.append(call)
             if call[:2] == ("systemctl", "start") or call[:2] == ("systemctl", "restart"):
                 found.append(call)

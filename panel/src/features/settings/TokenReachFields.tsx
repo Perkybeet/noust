@@ -13,6 +13,11 @@ export interface TokenReachFieldsProps {
   onChange: (reach: TokenReach) => void;
   /** The server's refusal of a field, beside it. */
   errors: { team?: string | undefined; project?: string | undefined; environment?: string | undefined };
+  /**
+   * The token has no owner (it is made with the access token), and a token with none cannot be tied to a team, a
+   * project or an environment: the choice is not drawn, and the reason is, where the teams are (item 133).
+   */
+  needsAccount?: boolean;
 }
 
 /**
@@ -21,12 +26,13 @@ export interface TokenReachFieldsProps {
  * nothing to bind to): the choice is a question of what the token may reach, not of its
  * permissions, which are the scope above.
  */
-export function TokenReachFields({ reach, onChange, errors }: TokenReachFieldsProps) {
+export function TokenReachFields({ reach, onChange, errors, needsAccount = false }: TokenReachFieldsProps) {
   const t = useT();
   const teams = useQuery(myTeamsQuery());
   const projects = useQuery(projectsQuery());
   const environments = useQuery(environmentsQuery());
   if (teams.data === undefined || teams.data.teams.length === 0) return null;
+  if (needsAccount) return <p className="text-13 text-pretty text-fg-muted">{t("access.tokenReach.needsAccount")}</p>;
 
   const projectsOfTeam = (projects.data?.projects ?? []).filter((item) => item.team === reach.team);
   const environmentsOfProject = (environments.data?.environments ?? []).filter((item) => item.team === reach.team && item.project === reach.project);

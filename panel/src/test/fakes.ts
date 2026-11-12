@@ -139,6 +139,17 @@ export function fakeBackend(routes: Record<string, RouteHandler> = {}): FakeBack
       };
       calls.push(call);
       const handler = table.get(`${call.method} ${call.path}`);
+      // The one list of what needs attention (`GET /api/attention`) is the Overview's rows, joined and ranked by the server:
+      // a fake that serves an Overview and not the list serves the Overview's rows as it, and what is a person's own (`only=own`) is none.
+      if (!handler && call.method === "GET" && call.path === "/api/attention") {
+        const overview = table.get("GET /api/overview");
+        if (overview === undefined) return problem(404, "not_found", `No fake for ${call.method} ${call.path}`);
+        if (call.search.get("only") === "own") return json(200, { items: [], total: 0 });
+        const answer = await overview(call);
+        if (!answer.ok) return answer;
+        const body = (await answer.json()) as { attention?: unknown[]; attention_total?: number };
+        return json(200, { items: body.attention ?? [], total: body.attention_total ?? body.attention?.length ?? 0 });
+      }
       if (!handler) return problem(404, "not_found", `No fake for ${call.method} ${call.path}`);
       return handler(call);
     }),

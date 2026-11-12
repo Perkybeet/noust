@@ -51,6 +51,7 @@ export const access: Catalog<typeof en> = {
     },
   },
   tokenReach: {
+    needsAccount: "Atar un token a un equipo, un proyecto o un entorno necesita un token que pertenezca a una cuenta.",
     legend: "Hasta dónde llega",
     all: "Todo lo que alcanza su propietario",
     allHelp: "El token ve lo que ve su propietario.",

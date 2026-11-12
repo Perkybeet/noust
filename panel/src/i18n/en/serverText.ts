@@ -530,6 +530,46 @@ export const serverText = {
       },
     },
   },
+  docker: {
+    compose: {
+      missing: {
+        text: "Docker Compose v2 is not installed",
+        hint: "Install the Compose plugin: {command}",
+      },
+      too_old: {
+        text: "Docker Compose {version} cannot rehearse the adoption of a stack that already runs; {needed} or later can",
+        hint: "Updating the Compose plugin is enough: deploying and updating work as they are.",
+      },
+      v1: {
+        text: "Only Docker Compose 1 (docker-compose) is installed, and Noust needs Compose v2, which is 'docker compose'",
+        hint: "Install Compose v2 as {url} explains.",
+      },
+      version: { text: "Docker Compose {version}" },
+    },
+    engine: {
+      image_store: { text: "Images are kept in the {store} image store ({driver})" },
+      missing: {
+        text: "Docker is not installed on this server",
+        hint: "Install it from Server > Software, or run: {command}",
+      },
+      remote: { text: "Noust reaches Docker at {host}, not through a socket of this machine" },
+      rootless: {
+        text: "This Docker runs without root: it belongs to one user, and so do the containers it makes",
+      },
+      socket: {
+        text: "Noust reaches Docker through {socket}, which belongs to {owner}:{group} ({mode})",
+      },
+      too_old: {
+        text: "Docker {version} speaks API {api}, and Noust needs API {minimum} or later",
+        hint: "Update Docker. Noust asks the engine which API it speaks and works with every engine from API {minimum} on, the one of a NAS included.",
+      },
+      unreachable: {
+        text: "Docker is installed but its daemon does not answer: {reason}",
+        hint: "Start it with {command}, and check that the account Noust runs as may use {socket}.",
+      },
+      version: { text: "Docker {version}, speaking API {api}" },
+    },
+  },
   doctor: {
     config: {
       apps_dir_missing: {
@@ -729,6 +769,14 @@ export const serverText = {
         text: "{site} still asks nginx to staple OCSP responses, which Let's Encrypt stopped giving in August 2025: nginx logs a warning about it at every reload. Noust writes the site again without it the next time it writes the site (a deployment, a change of its domains)",
       },
     },
+    store: {
+      orphan: {
+        text: "{path} is an empty file left where the store would be: it is not the store, and the move replaces it",
+      },
+      outside: {
+        text: "Noust's store is in {store}, outside {state}, the state directory of this server: what looks only there (a copy of that directory, a package upgrade) does not find it",
+      },
+    },
     web: {
       none: {
         text: "Web server: not installed",
@@ -739,6 +787,28 @@ export const serverText = {
       stopped: {
         text: "  {unit} service: not running",
       },
+    },
+  },
+  features: {
+    hub_role: {
+      text: "{feature}: not available on this central, which is a hub",
+      hint: "A hub (central.role = hub) manages other servers and deploys nothing itself. Pick the server in the console, or run the command against a node. On a machine that should also deploy, set '{command}'; a container cannot, it has no nginx or systemd.",
+    },
+    needs_journal: {
+      text: "This machine has no journal to read",
+      hint: "Noust reads the system's log from journald (journalctl), which is not here.",
+    },
+    needs_root: {
+      text: "Noust does not run as root on this machine",
+      hint: "Changing the system takes root, and Noust runs here as an account that cannot.",
+    },
+    needs_systemd: {
+      text: "This machine does not run systemd",
+      hint: "Noust keeps services and timers with systemd, which a container, or a system that boots another way, does not have.",
+    },
+    needs_web_server: {
+      text: "There is no web server on this machine",
+      hint: "Noust writes its sites for nginx or Apache: install one from Server > Software.",
     },
   },
   fleet: {

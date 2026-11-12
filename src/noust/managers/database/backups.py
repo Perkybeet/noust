@@ -87,7 +87,12 @@ from noust.managers.database.base import (
     backup_format,
     format_size,
 )
-from noust.managers.database.instances import engine_of
+from noust.managers.database.instances import (
+    engine_of,
+    is_instance_key,
+    parse_instance_key,
+    storage_name,
+)
 from noust.managers.database.scope import (
     ALL_DATABASES,
     SCOPE_ALL,
@@ -117,6 +122,12 @@ RUN_ORIGINS = (ORIGIN_SCHEDULED, ORIGIN_MANUAL)
 #: Folder a destination keeps database dumps under, then ``<engine>/<database>``.
 REMOTE_ROOT = "databases"
 
+#: What an engine is called, which is also the part of an instance's key before its ``@``.
+_ENGINE_NAME = re.compile(r"[a-z][a-z0-9]{1,23}")
+
+#: The longest name a folder of a destination can have: what a file system takes.
+_MAX_FOLDER_NAME = 255
+
 #: The folder a Redis instance's snapshots share: a snapshot covers every slot,
 #: so no slot names it.
 REDIS_FOLDER = "instance"
@@ -143,19 +154,62 @@ SUPERUSER_WARNING = (
 _POLICY_FORMATS = ("custom", "plain", "tar")
 
 
+def remote_engine_folder(engine: str) -> str:
+    """
+    Name the folder a destination keeps one engine's databases under.
+
+    The only place that spells it: the dumps a policy sends and the listing of what a
+    destination holds both ask here, so they cannot disagree. An instance's key
+    (``mysql@shop-example-com.mysql``) is spelled the way its dump's file name is
+    (:func:`~noust.managers.database.instances.storage_name`: the ``@`` becomes a ``.``), because
+    a destination's folder holds no ``@``. It stays unambiguous, since an engine's own name has no
+    dot: the first one is the ``@``. A host engine's name is what it always was, so what is
+    already on a destination does not move.
+
+    Args:
+        engine: Canonical engine name, or an instance's key.
+
+    Returns:
+        ``databases/<engine>``, with the key spelled for a folder.
+
+    Raises:
+        ValidationError: When the key is not an engine or an instance Noust can name.
+    """
+    if is_instance_key(engine):
+        parse_instance_key(engine)
+    if not _ENGINE_NAME.fullmatch(engine.partition("@")[0]):
+        raise ValidationError(
+            f"Not a database engine Noust keeps dumps of: {engine!r}",
+            details="An engine is lower-case letters and digits, as 'noust db engines' lists it.",
+            field="engine",
+        )
+    name = storage_name(engine)
+    if len(name) > _MAX_FOLDER_NAME:
+        raise ValidationError(
+            f"The key {engine!r} is too long to be the name of a folder on a destination",
+            details=f"A folder's name is at most {_MAX_FOLDER_NAME} characters; rename the "
+            "Compose project or the container.",
+            field="engine",
+        )
+    return f"{REMOTE_ROOT}/{name}"
+
+
 def remote_folder(engine: str, database: str) -> str:
     """
     Name the folder a database's dumps live in on a destination.
 
     Args:
-        engine: Canonical engine name.
+        engine: Canonical engine name, or an instance's key.
         database: The database.
 
     Returns:
         ``databases/<engine>/<database>``; a Redis instance has one folder.
+
+    Raises:
+        ValidationError: When the key is not an engine or an instance Noust can name.
     """
     folder = REDIS_FOLDER if engine_of(engine) == "redis" else database
-    return f"{REMOTE_ROOT}/{engine}/{folder}"
+    return f"{remote_engine_folder(engine)}/{folder}"
 
 
 class DumpFailedItsCheck(DatabaseBackupError):
@@ -1298,7 +1352,7 @@ class DatabaseBackups:
         """
         canonical = self.service.manager(engine).ENGINE_NAME
         self._require_destination(destination)
-        return self.destinations.list_folders(destination, f"{REMOTE_ROOT}/{canonical}")
+        return self.destinations.list_folders(destination, remote_engine_folder(canonical))
 
     def remote_dumps(self, engine: str, database: str, destination: str) -> list[dict[str, Any]]:
         """
