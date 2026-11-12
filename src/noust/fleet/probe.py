@@ -97,6 +97,19 @@ def _can_reach(store: NoustStore) -> bool:
     return not (sealing.is_sealed(root) and not sealing.is_unlocked(root))
 
 
+def can_reach(store: NoustStore) -> bool:
+    """
+    Tell whether this central could open a tunnel at all.
+
+    Args:
+        store: The central's store.
+
+    Returns:
+        True when at least one node is registered and this central's secrets can be read.
+    """
+    return _can_reach(store)
+
+
 def _gather_round(heartbeat: int | None = None) -> None:
     """
     Ask the nodes worth asking now the ``servers`` view, waiting for all of them.

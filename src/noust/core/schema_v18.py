@@ -121,7 +121,8 @@ SLEEP_COLUMNS: list[Column] = []
 # Item 195, on a central (``noust.fleet.collect``): ``collected_backups``, one row per copy it holds
 # of a server (``node``, ``kind`` and the server's own identifier of it), with the files it keeps
 # for it and what it checked of them (``state`` is ``held``, or ``retired`` once the central's own
-# retention or its operator let it go, so that a server that still has it is not asked for it again);
+# retention or its operator let it go, so that a server that still has it is not asked for it again;
+# ``meta`` is the small facts a restore needs, and what a retention groups by);
 # ``collect_nodes``, one row per server that has anything to say
 # about its collecting (whether it follows, how the last pass went, the catalogue's fingerprint
 # then); ``collect_settings``, the knobs of the whole fleet's collecting, one row each.
@@ -152,6 +153,7 @@ CREATE TABLE IF NOT EXISTS collected_backups (
     files TEXT NOT NULL,
     verified TEXT NOT NULL,
     state TEXT NOT NULL DEFAULT 'held',
+    meta TEXT NOT NULL DEFAULT '{}',
     PRIMARY KEY (node, kind, item_id)
 );
 CREATE INDEX IF NOT EXISTS idx_collected_backups_owner ON collected_backups(node, kind, owner);
