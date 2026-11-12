@@ -5,7 +5,7 @@
 export const alerts = {
   documentTitle: "Alerts settings",
   page: {
-    alerts: "Tell me when a measurement stays past a limit. Acknowledging stops the reminders, never the alert.",
+    alerts: "What Noust watches by itself, and the rules you add on top. A rule raises an alert when a measurement stays past a limit. Acknowledging stops the reminders, never the alert.",
     checks: "When the monitor speaks up by itself, with no rule of yours: a disk filling, a certificate ageing, a backup that does not come.",
     probes: "Addresses Noust asks every minute, from outside the application. One that stops answering goes through the channels.",
     status: "The probes you mark public, as one page any web server can serve. It shows names and bars, never addresses.",

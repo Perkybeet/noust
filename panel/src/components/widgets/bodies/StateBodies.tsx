@@ -78,7 +78,8 @@ export function AttentionRow({ t, entry, showServer }: { t: T; entry: HomeAttent
   const state = fail ? "failed" : "warning";
   // Every reason is a sentence of the line. What the system said is shown as it came, after the sentences that say what it
   // means (Principle 5): a sentence of Noust's own in the text's face and in this console's language, what a tool printed in mono.
-  const sentences = item.reasons.map((reason) => reasonText(t, reason)).join(", ");
+  // Each starts with a capital, so they are told one after the other and not as one run-on clause.
+  const sentences = item.reasons.map((reason) => reasonText(t, reason)).join(". ");
   const detail = item.reasons.map((reason) => reasonDetail(t, reason)).find((candidate) => candidate !== null) ?? null;
   const since = sinceOf(item);
   const node = server === null ? undefined : server.node;

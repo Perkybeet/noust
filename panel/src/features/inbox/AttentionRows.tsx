@@ -37,7 +37,9 @@ export function AttentionRow({ t, item, onNavigate }: { t: T; item: OverviewAtte
   const detail = said ?? (typeof reason?.params?.["valid_until"] === "string" ? { text: validUntilText(t, reason.params["valid_until"]), sentence: false } : null);
   const title = itemTitle(t, item);
   const name: ReactNode = title.mono ? <Mono tone="default">{title.text}</Mono> : title.translate ? title.text : <span translate="no">{title.text}</span>;
-  const heading = <span className="block min-w-0 truncate text-13 font-medium text-fg group-hover:underline">{name}</span>;
+  // A name (a domain, a unit) is one line and is cut where it does not fit; a title the console words (a finding is a sentence) wraps, because cut it says less than it meant.
+  const wraps = title.translate;
+  const heading = <span className={cx("block min-w-0 text-13 font-medium text-fg group-hover:underline", wraps ? "text-pretty break-words" : "truncate")}>{name}</span>;
   return (
     <li
       data-severity={severity}
@@ -60,7 +62,7 @@ export function AttentionRow({ t, item, onNavigate }: { t: T; item: OverviewAtte
                 {...(target.params ? { params: target.params as never } : {})}
                 {...(target.search ? { search: target.search as never } : {})}
                 {...(onNavigate ? { onClick: onNavigate } : {})}
-                className="block min-w-0 truncate rounded-chip after:absolute after:inset-0"
+                className={cx("block min-w-0 rounded-chip after:absolute after:inset-0", !wraps && "truncate")}
               >
                 {heading}
               </Link>

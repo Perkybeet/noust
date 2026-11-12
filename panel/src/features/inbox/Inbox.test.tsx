@@ -311,6 +311,8 @@ describe("the inbox", () => {
     // What the check found stays in Noust's own words, under it.
     expect(within(at(rows, 1)).getByText("Port 5432 is published on 0.0.0.0 by Docker.")).toBeInTheDocument();
     expect(within(at(rows, 1)).getByRole("link", { name: "Review the finding: Docker publishes ports around the firewall" })).toHaveAttribute("href", "/network/firewall");
+    // A finding's title is a sentence and wraps; cut with an ellipsis it would say less than it meant. A name is one line.
+    expect(within(at(rows, 1)).getByText("Docker publishes ports around the firewall").closest("span.block")).not.toHaveClass("truncate");
     await user.keyboard("{Escape}");
   });
 

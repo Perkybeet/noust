@@ -58,7 +58,7 @@ describe("the Alerts area", () => {
     fakeBackend(routes());
     const { user } = renderConsole("/alerts");
     expect(await screen.findByRole("heading", { level: 1, name: "Alerts" })).toBeInTheDocument();
-    expect(screen.getByText("Tell me when a measurement stays past a limit. Acknowledging stops the reminders, never the alert.")).toBeInTheDocument();
+    expect(screen.getByText("What Noust watches by itself, and the rules you add on top. A rule raises an alert when a measurement stays past a limit. Acknowledging stops the reminders, never the alert.")).toBeInTheDocument();
     // Alerts has no h2 of its own: the h1 is the name and the list follows it.
     expect(screen.queryByRole("heading", { level: 2, name: "Alert rules" })).not.toBeInTheDocument();
 

@@ -417,7 +417,7 @@ describe("Alerts", () => {
     const { container } = renderConsole("/alerts");
     expect(await screen.findByRole("list", { name: "Reglas de alerta" })).toBeInTheDocument();
     expect(screen.getByText("1 alerta está activa")).toBeInTheDocument();
-    expect(screen.getByText(/Avísame cuando una medida se mantiene más allá de un límite/)).toBeInTheDocument();
+    expect(screen.getByText(/hace saltar la alerta cuando una medida se mantiene más allá de un límite/)).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 });

@@ -4,7 +4,7 @@ import type { Catalog } from "../types";
 export const alerts: Catalog<typeof en> = {
   documentTitle: "Ajustes de alertas",
   page: {
-    alerts: "Avísame cuando una medida se mantiene más allá de un límite. Marcarla como vista detiene los recordatorios, no la alerta.",
+    alerts: "Lo que Noust vigila por su cuenta y las reglas que añades tú. Una regla hace saltar la alerta cuando una medida se mantiene más allá de un límite. Marcarla como vista detiene los recordatorios, no la alerta.",
     checks: "Cuándo avisa el monitor por sí solo, sin una regla tuya: un disco que se llena, un certificado que envejece, una copia que no llega.",
     probes: "Direcciones que Noust pregunta cada minuto, desde fuera de la aplicación. La que deja de responder se avisa por los canales.",
     status: "Las sondas que marques como públicas, en una página que sirve cualquier servidor web. Muestra nombres y barras, nunca direcciones.",
