@@ -24,6 +24,7 @@ from noust.core.runner import FakeRunner
 from noust.core.store import App, NoustStore
 from noust.managers import setup_doctor
 from noust.managers.cron_manager import CronJob, CronManager
+from tests.support.doctor_machine import store_in_its_place
 
 DOMAIN = "shop.example.com"
 
@@ -235,12 +236,13 @@ class TestWhatTheDoctorSays:
             resources=lambda: Resources(4096, 0, 2, (DiskFree(str(tmp_path), 51200, 102400),)),
             listeners=lambda: [(80, ("nginx",)), (443, ("nginx",))],
             app_types=lambda: {"python"},
+            store_location=store_in_its_place(tmp_path),
         )
 
         report = setup_doctor.collect(env)
 
         tasks = next(section for section in report.sections if section.key == "cron")
         assert [item.status for item in tasks.items] == ["warn"]
-        assert report.to_dict()["sections"][-1]["items"][0]["coded"]["code"] == (
-            "doctor.cron.without_environment"
-        )
+        # Found by its key, as the console finds it: where a section sits is not what it says.
+        said = next(s for s in report.to_dict()["sections"] if s["key"] == "cron")
+        assert said["items"][0]["coded"]["code"] == "doctor.cron.without_environment"
