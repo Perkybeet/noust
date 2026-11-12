@@ -28,6 +28,10 @@ FRAGMENT_PATH = f"/etc/systemd/system/{UNIT_FILE}"
 #: unless a test points NGINX_ERROR_LOG somewhere else.
 NONEXISTENT_LOG = Path("/nonexistent/wasm-test-nginx-error.log")
 
+#: Where cgroups are "mounted" unless a test builds one: nowhere, so the kernel's own count of
+#: what it killed is deterministically unreadable and never depends on the machine the suite runs on.
+NONEXISTENT_CGROUP = Path("/nonexistent/wasm-test-cgroup")
+
 _DiskUsage = namedtuple("_DiskUsage", "total used free")
 
 
@@ -174,7 +178,7 @@ def _diagnose(
         now=lambda: now,
         http_get=http_get or _http(),
         disk_usage=disk_usage or _disk(10.0),
-        cgroup_mount=cgroup_mount,
+        cgroup_mount=cgroup_mount or NONEXISTENT_CGROUP,
     )
 
 
