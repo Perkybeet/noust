@@ -4379,9 +4379,15 @@
             "type": "string"
           },
           "origin": {
-            "default": "state",
-            "title": "Origin",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin"
           },
           "reasons": {
             "items": {
@@ -4465,9 +4471,15 @@
             "type": "string"
           },
           "origin": {
-            "default": "state",
-            "title": "Origin",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin"
           },
           "params": {
             "additionalProperties": true,

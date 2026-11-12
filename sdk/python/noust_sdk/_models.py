@@ -722,7 +722,7 @@ AppsFigure = TypedDict("AppsFigure", {
 
 AttentionItem = TypedDict("AttentionItem", {
     "id": Required[str],
-    "origin": NotRequired[str],
+    "origin": NotRequired[Union[str, None]],
     "reasons": Required[list["AttentionReason"]],
     "severity": Required[str],
     "subject": Required[dict[str, Any]],
@@ -736,7 +736,7 @@ AttentionReason = TypedDict("AttentionReason", {
     "detail": NotRequired[Union[str, None]],
     "detail_coded": NotRequired[Union["CodedText", None]],
     "kind": Required[str],
-    "origin": NotRequired[str],
+    "origin": NotRequired[Union[str, None]],
     "params": NotRequired[dict[str, Any]],
     "severity": Required[str],
     "when": NotRequired[Union[str, None]],

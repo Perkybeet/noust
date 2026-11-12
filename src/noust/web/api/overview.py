@@ -306,7 +306,7 @@ class AttentionReason(BaseModel):
     """
 
     kind: str
-    origin: str = "state"
+    origin: str | None = None
     severity: str
     code: str
     params: dict[str, Any] = Field(default_factory=dict)
@@ -338,7 +338,7 @@ class AttentionItem(BaseModel):
     id: str
     subject: dict[str, Any]
     title: str
-    origin: str = "state"
+    origin: str | None = None
     severity: str
     reasons: list[AttentionReason]
 

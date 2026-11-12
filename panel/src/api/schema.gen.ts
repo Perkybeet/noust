@@ -34311,11 +34311,8 @@ export interface components {
         AttentionItem: {
             /** Id */
             id: string;
-            /**
-             * Origin
-             * @default state
-             */
-            origin: string;
+            /** Origin */
+            origin?: string | null;
             /** Reasons */
             reasons: components["schemas"]["AttentionReason"][];
             /** Severity */
@@ -34373,11 +34370,8 @@ export interface components {
             detail_coded?: components["schemas"]["CodedText"] | null;
             /** Kind */
             kind: string;
-            /**
-             * Origin
-             * @default state
-             */
-            origin: string;
+            /** Origin */
+            origin?: string | null;
             /** Params */
             params?: {
                 [key: string]: unknown;
