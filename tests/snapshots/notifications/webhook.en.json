@@ -4358,6 +4358,108 @@
     ],
     "excerpt": null
   },
+  "access.firewall_reverted": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000098",
+    "event": "access_change_reverted",
+    "code": "access.firewall_reverted",
+    "state": "warning",
+    "locale": "en",
+    "title": "Firewall change undone: Allow 5432/tcp from 10.0.4.12",
+    "summary": "The firewall change “Allow 5432/tcp from 10.0.4.12” was undone because nobody confirmed it within 5 minutes.",
+    "body": "The firewall change “Allow 5432/tcp from 10.0.4.12” was undone because nobody confirmed it within 5 minutes.\n\nServer: web-1\nChange: Allow 5432/tcp from 10.0.4.12\nApplied by: yago\nApplied: 2026-11-12 10:40 UTC\n\nWhat the undo printed:\n  $ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\n  Rule deleted\n\nOpen in the console: https://console.example.com/n/web-1/network/firewall",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "change",
+        "label": "Change",
+        "value": "Allow 5432/tcp from 10.0.4.12"
+      },
+      {
+        "key": "change_by",
+        "label": "Applied by",
+        "value": "yago"
+      },
+      {
+        "key": "change_at",
+        "label": "Applied",
+        "value": "2026-11-12 10:40 UTC"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/network/firewall"
+      }
+    ],
+    "excerpt": {
+      "label": "What the undo printed",
+      "lines": [
+        "$ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp",
+        "Rule deleted"
+      ],
+      "omitted": 0
+    }
+  },
+  "access.ssh_reverted": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000099",
+    "event": "access_change_reverted",
+    "code": "access.ssh_reverted",
+    "state": "warning",
+    "locale": "en",
+    "title": "SSH change undone: Turn password logins off",
+    "summary": "The SSH change “Turn password logins off” was undone because nobody confirmed it within 5 minutes.",
+    "body": "The SSH change “Turn password logins off” was undone because nobody confirmed it within 5 minutes.\n\nServer: web-1\nChange: Turn password logins off\nApplied by: ana\nApplied: 2026-11-12 10:40 UTC\n\nWhat the undo printed:\n  Restored /etc/ssh/sshd_config.d/99-noust.conf\n  $ sshd -t\n\nOpen in the console: https://console.example.com/n/web-1/security/ssh",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "change",
+        "label": "Change",
+        "value": "Turn password logins off"
+      },
+      {
+        "key": "change_by",
+        "label": "Applied by",
+        "value": "ana"
+      },
+      {
+        "key": "change_at",
+        "label": "Applied",
+        "value": "2026-11-12 10:40 UTC"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/security/ssh"
+      }
+    ],
+    "excerpt": {
+      "label": "What the undo printed",
+      "lines": [
+        "Restored /etc/ssh/sshd_config.d/99-noust.conf",
+        "$ sshd -t"
+      ],
+      "omitted": 0
+    }
+  },
   "hostile.deploy_failed": {
     "version": 1,
     "id": "00000000-0000-4000-8000-000000001000",

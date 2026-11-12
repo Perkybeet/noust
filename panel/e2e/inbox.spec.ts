@@ -51,13 +51,13 @@ function alertItem(taken: boolean) {
   };
 }
 
-/** Adds the alert to the real Overview, taken or not as `taken()` says when it is asked. */
+/** Adds the alert to the real list of what needs attention (`GET /api/attention`), taken or not as `taken()` says when it is asked. */
 async function withFiringAlert(page: Page, taken: () => boolean) {
-  await page.route("**/api/overview**", async (route) => {
+  await page.route("**/api/attention**", async (route) => {
     if (route.request().method() !== "GET") return route.continue();
     const response = await route.fetch();
-    const body = (await response.json()) as { attention: unknown[]; attention_total: number };
-    return route.fulfill({ response, json: { ...body, attention: [...body.attention, alertItem(taken())], attention_total: body.attention_total + 1 } });
+    const body = (await response.json()) as { items: unknown[]; total: number };
+    return route.fulfill({ response, json: { ...body, items: [...body.items, alertItem(taken())], total: body.total + 1 } });
   });
 }
 

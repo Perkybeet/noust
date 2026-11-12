@@ -16,4 +16,8 @@ from noust.web.permissions import Permission
 
 ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/overview"): Permission.SERVER_READ,
+    # What needs this person: the Overview's list for whoever reads the server, and the rest of it
+    # (requests to decide, a newer Noust, recipes behind) for whoever holds what each asks for. The
+    # handler narrows it, as it narrows the list of approvals, so everyone signed in may ask.
+    ("GET", "/api/attention"): Permission.SELF,
 }

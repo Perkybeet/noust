@@ -1,8 +1,6 @@
-import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
-import type { OverviewAttentionItem } from "../../api/queries/overview";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { SegmentedControl } from "../../components/page/SegmentedControl";
@@ -19,63 +17,13 @@ import { useHasFleet } from "../../nodes/servers";
 import { useNode } from "../../nodes/useNode";
 import { useRecentNotices } from "../../realtime/notices";
 import type { NoticeState, RecentNotice } from "../../realtime/notices";
-import { DetailLine, SeverityGlyph, reasonDetail, reasonText, validUntilText } from "../overview/attentionWords";
-import { attentionTarget } from "../overview/attentionTarget";
-import { AttentionActionButton } from "./AttentionActionButton";
-import { attentionIcon } from "./attentionIcons";
+import { AttentionRows } from "./AttentionRows";
 import { useAttention } from "./useAttention";
 
 type View = "needs" | "recent";
 
-/** One item that needs the operator: what it is about and what is wrong, a click on either opens the screen that deals with it, and one button does the first thing there. */
-function NeedsRow({ t, item, onNavigate }: { t: T; item: OverviewAttentionItem; onNavigate: () => void }) {
-  const target = attentionTarget(item);
-  const when = item.reasons.find((reason) => reason.when)?.when ?? null;
-  const severity = item.severity === "fail" ? "fail" : "warn";
-  // The system's own words come from whichever reason has them: a service that failed has none, the deploy that left it so does.
-  const reason = item.reasons.find((candidate) => typeof candidate.detail === "string" && candidate.detail !== "") ?? item.reasons[0];
-  const said = reason === undefined ? null : reasonDetail(t, reason);
-  const detail = said ?? (typeof reason?.params?.["valid_until"] === "string" ? { text: validUntilText(t, reason.params["valid_until"]), sentence: false } : null);
-  const kind = item.subject["kind"];
-  const body = (
-    <>
-      <span className="flex min-w-0 items-baseline gap-2">
-        <span className="min-w-0 truncate text-13 font-medium text-fg group-hover:underline">{kind === "alert" || kind === "probe" || kind === "recipe" || kind === "unit" ? <Mono tone="default">{item.title}</Mono> : <span translate="no">{item.title}</span>}</span>
-        {when ? <RelativeTime value={when} className="shrink-0 text-12 text-fg-faint" /> : null}
-      </span>
-      {item.reasons.slice(0, 2).map((each, index) => (
-        <span key={`${each.code}-${String(index)}`} className={cx("text-13 text-pretty", each.severity === "fail" ? "text-fg" : "text-fg-muted")}>
-          {reasonText(t, each)}
-        </span>
-      ))}
-      {/* The system's words, verbatim and wrapped, as everywhere. */}
-      {detail !== null ? <DetailLine detail={detail} /> : null}
-    </>
-  );
-  return (
-    <li data-severity={severity} className="flex min-w-0 gap-3 px-4 py-3">
-      <span className="flex h-5 shrink-0 items-center">
-        <SeverityGlyph severity={severity} />
-        <span className="sr-only">{severity === "fail" ? t("overview.attention.srFailure") : t("overview.attention.srWarning")}</span>
-      </span>
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
-        {target === null ? (
-          <div className="flex min-w-0 flex-col gap-0.5">{body}</div>
-        ) : (
-          <Link to={target.to as never} {...(target.params ? { params: target.params as never } : {})} {...(target.search ? { search: target.search as never } : {})} onClick={onNavigate} className="group flex min-w-0 flex-col gap-0.5 rounded-chip">
-            {body}
-          </Link>
-        )}
-        <div className="flex justify-end">
-          <AttentionActionButton item={item} onNavigate={onNavigate} iconFor={attentionIcon} />
-        </div>
-      </div>
-    </li>
-  );
-}
-
 function NeedsList({ t, onNavigate }: { t: T; onNavigate: () => void }) {
-  const { items, loading, failed } = useAttention(true);
+  const { items, loading, failed } = useAttention();
   if (loading) {
     return (
       <div className="px-4 py-3">
@@ -106,13 +54,7 @@ function NeedsList({ t, onNavigate }: { t: T; onNavigate: () => void }) {
       </div>
     );
   }
-  return (
-    <ul aria-label={t("inbox.needs.count", { count: items.length })} className="divide-y divide-border">
-      {items.map((item) => (
-        <NeedsRow key={item.id} t={t} item={item} onNavigate={onNavigate} />
-      ))}
-    </ul>
-  );
+  return <AttentionRows t={t} items={items} label={t("inbox.needs.count", { count: items.length })} onNavigate={onNavigate} />;
 }
 
 const NOTICE_STATE: Readonly<Record<NoticeState, { state: Status; word: "busy" | "active" | "failed" | "idle" }>> = {
@@ -178,7 +120,7 @@ export interface InboxPanelProps {
 export default function InboxPanel({ onNavigate, sheet = false }: InboxPanelProps): ReactNode {
   const t = useT();
   const [view, setView] = useState<View>("needs");
-  const { total } = useAttention(true);
+  const { total } = useAttention();
   const { node } = useNode();
   const hasFleet = useHasFleet();
   return (

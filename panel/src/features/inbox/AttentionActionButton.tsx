@@ -39,6 +39,22 @@ function wordsOf(t: T, action: OpenAction): { label: string; aria: string } {
       return { label: t("inbox.actions.openUpdates"), aria: t("inbox.actions.openUpdatesAria") };
     case "reviewRecipe":
       return { label: t("inbox.actions.reviewRecipe"), aria: t("inbox.actions.reviewRecipeAria", { domain: name }) };
+    case "installUpdates":
+      return { label: t("inbox.actions.installUpdates"), aria: t("inbox.actions.installUpdatesAria") };
+    case "repairPackages":
+      return { label: t("inbox.actions.repairPackages"), aria: t("inbox.actions.repairPackagesAria") };
+    case "scheduleReboot":
+      return { label: t("inbox.actions.scheduleReboot"), aria: t("inbox.actions.scheduleRebootAria") };
+    case "freeSpace":
+      return { label: t("inbox.actions.freeSpace"), aria: t("inbox.actions.freeSpaceAria", { name }) };
+    case "fixClock":
+      return { label: t("inbox.actions.fixClock"), aria: t("inbox.actions.fixClockAria") };
+    case "addSwap":
+      return { label: t("inbox.actions.addSwap"), aria: t("inbox.actions.addSwapAria") };
+    case "viewServices":
+      return { label: t("inbox.actions.viewServices"), aria: t("inbox.actions.viewServicesAria") };
+    case "reviewFinding":
+      return { label: t("inbox.actions.reviewFinding"), aria: t("inbox.actions.reviewFindingAria", { name }) };
   }
 }
 

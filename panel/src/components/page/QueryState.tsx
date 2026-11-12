@@ -12,6 +12,7 @@ import { useNode } from "../../nodes/useNode";
 import { Button } from "../ui/Button";
 import { Notice } from "../ui/Notice";
 import { LoadingRegion } from "./LoadingRegion";
+import { RelativeTime } from "./RelativeTime";
 import { SystemOutput } from "../ui/SystemOutput";
 
 export interface ErrorBlockProps {
@@ -22,6 +23,8 @@ export interface ErrorBlockProps {
   hint?: string;
   onRetry?: () => void;
   retrying?: boolean;
+  /** When it failed, as the server gave it: a failure of something that ran says when, so a box left on screen is never undated (item 161). */
+  when?: string | null | undefined;
   /**
    * One follow-up besides Try again, after the system's words: "View output", "Open the
    * log". A small button or a link; never a second retry.
@@ -42,7 +45,7 @@ export interface ErrorBlockProps {
  * not use is said as such ("web-2 is not answering"), whatever the page was loading: the
  * node, not the page, is what failed.
  */
-export function ErrorBlock({ error, title: pageTitle, hint, onRetry, retrying = false, action, live = false, compact = false, className }: ErrorBlockProps) {
+export function ErrorBlock({ error, title: pageTitle, hint, onRetry, retrying = false, when, action, live = false, compact = false, className }: ErrorBlockProps) {
   const t = useT();
   const { node } = useNode();
   const held = heldOf(error);
@@ -100,7 +103,10 @@ export function ErrorBlock({ error, title: pageTitle, hint, onRetry, retrying = 
       <div className="flex items-start gap-2">
         <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-fail" />
         <div className="flex min-w-0 flex-col gap-1">
-          <p className="text-13 font-medium text-fg">{title}</p>
+          <p className="flex flex-wrap items-baseline gap-x-2 text-13 font-medium text-fg">
+            <span>{title}</span>
+            {when ? <RelativeTime value={when} className="text-12 font-normal text-fg-faint" /> : null}
+          </p>
           {fix !== undefined ? <p className="text-13 text-pretty text-fg-muted">{fix}</p> : null}
         </div>
       </div>

@@ -60,6 +60,7 @@ from noust.core.exceptions import SecurityError
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem, get_fs, is_rehearsal
 from noust.core.runner import CommandRunner, get_runner
 from noust.managers.server.host import HostPaths
+from noust.managers.server.security_notifications import announce_expired
 from noust.managers.server.security_sshd import DROPIN, read_no_follow
 
 log = logging.getLogger(__name__)
@@ -692,7 +693,11 @@ class ChangeLedger:
                 title=change.title,
                 by=by,
             )
-            return change
+        if expired:
+            # Outside the lock: a channel that is slow must not keep the ledger shut, and the change is
+            # already back and on record whatever the channel does.
+            announce_expired(change)
+        return change
 
     def revert_overdue(self, on_output: Callable[[str], None] | None = None) -> list[PendingChange]:
         """

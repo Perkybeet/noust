@@ -1,7 +1,7 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { ChevronDown, Copy, GitCommitHorizontal, PackageCheck, RotateCw, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useContext, useMemo, useState } from "react";
 
 import { appQuery, releasesQuery } from "../../../api/queries/apps";
 import type { Release } from "../../../api/queries/apps";
@@ -10,6 +10,7 @@ import { rolloutQuery } from "../../../api/queries/rollout";
 import { useDocumentTitle } from "../../../app/documentTitle";
 import { DeployStatePill } from "../../../components/page/AppStatePill";
 import { useNow } from "../../../components/page/clock";
+import { ShownFailureContext } from "../useAppJob";
 import { FilterBar } from "../../../components/page/FilterBar";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
@@ -207,6 +208,7 @@ export function DeploymentsTab({ domain, search, onSearchChange }: DeploymentsTa
   const { openRollback } = useRollback();
   const { update } = useAppActions(domain);
   const action = useDeploymentAction(domain, t);
+  const shownFailure = useContext(ShownFailureContext);
   const retry = useRebuild(domain, (job) => action.follow("rebuild", job));
   const promote = usePromoteBuild(domain);
   const [rebuilding, setRebuilding] = useState<Deployment | null>(null);
@@ -341,8 +343,9 @@ export function DeploymentsTab({ domain, search, onSearchChange }: DeploymentsTa
       <DeployHold domain={domain} />
       {/* What builds or waits for this app, with its place in the line: nothing drawn when it is empty. */}
       <QueuePanel domain={domain} />
-      {action.failed !== null && action.kind === "rebuild" ? (
-        <ErrorBlock live compact error={{ detail: action.failed.error ?? t("appPages.job.noReason") }} title={t("appPages.deployments.actions.rebuildFailed")} />
+      {/* The page's own box under its header already says this failure when it is that job: one failure is one box. */}
+      {action.failed !== null && action.kind === "rebuild" && action.failed.id !== shownFailure ? (
+        <ErrorBlock live compact error={{ detail: action.failed.error ?? t("appPages.job.noReason") }} title={t("appPages.deployments.actions.rebuildFailed")} when={action.failed.completed_at ?? action.failed.created_at} />
       ) : null}
       {pages.isError && pages.data === undefined ? (
         <ErrorBlock error={pages.error} title={t("appPages.deployments.tab.loadError")} onRetry={() => void pages.refetch()} retrying={pages.isRefetching} />

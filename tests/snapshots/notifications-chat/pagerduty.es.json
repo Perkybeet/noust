@@ -1765,6 +1765,62 @@
       }
     ]
   },
+  "access.firewall_reverted": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/access_change_reverted/Allow 5432/tcp from 10.0.4.12",
+    "payload": {
+      "summary": "Cambio del cortafuegos deshecho · Allow 5432/tcp from 10.0.4.12: El cambio del cortafuegos «Allow 5432/tcp from 10.0.4.12» se deshizo porque nadie lo confirmó en 5 minutos.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "access_change_reverted",
+      "class": "access.firewall_reverted",
+      "custom_details": {
+        "server": "web-1",
+        "change": "Allow 5432/tcp from 10.0.4.12",
+        "change_by": "yago",
+        "change_at": "2026-11-12 10:40 UTC",
+        "excerpt": "$ ufw delete allow from 10.0.4.12 to any port 5432 proto tcp\nRule deleted"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/network/firewall",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/network/firewall",
+        "text": "Abrir en la consola"
+      }
+    ]
+  },
+  "access.ssh_reverted": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/access_change_reverted/Turn password logins off",
+    "payload": {
+      "summary": "Cambio de SSH deshecho · Turn password logins off: El cambio de SSH «Turn password logins off» se deshizo porque nadie lo confirmó en 5 minutos.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "access_change_reverted",
+      "class": "access.ssh_reverted",
+      "custom_details": {
+        "server": "web-1",
+        "change": "Turn password logins off",
+        "change_by": "ana",
+        "change_at": "2026-11-12 10:40 UTC",
+        "excerpt": "Restored /etc/ssh/sshd_config.d/99-noust.conf\n$ sshd -t"
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/security/ssh",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/security/ssh",
+        "text": "Abrir en la consola"
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
     "event_action": "trigger",

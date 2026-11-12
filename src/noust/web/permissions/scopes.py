@@ -419,6 +419,9 @@ RULES: tuple[Rule, ...] = (
     # the events of the repository. Only a central's, which sees every team.
     _rule("/api/sources/**", INSTANCE),
     _rule("/api/overview", INSTANCE),
+    # The Overview's list for whoever reads the server, joined with what is each person's own; the
+    # handler (web/api/attention.py) decides what each principal is told.
+    _rule("/api/attention", OPEN),
     _rule("/api/timeline", INSTANCE),
     _rule("/api/integrations/**", INSTANCE),
     # How the console itself is exposed: the server's.
