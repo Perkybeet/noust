@@ -1,0 +1,1 @@
+import{t as e}from"./ConfigPage-BK2m4p8g.js";import{t}from"./code-D4rUtBhh.js";import{Q as n}from"./objectIcons-BSsKqrc9.js";var r=n();function i(){let{domain:n}=t.useParams();return(0,r.jsx)(e,{page:`code`,domain:n})}export{i as component};

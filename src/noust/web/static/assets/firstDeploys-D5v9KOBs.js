@@ -1,0 +1,1 @@
+import{C as e,a as t}from"./client-W0EhNCpu.js";var n={all:[`first-deploys`],list:e=>[`first-deploys`,`list`,e]},r=(r=null)=>e({queryKey:n.list(r),queryFn:({signal:e})=>t(`get`,`/api/first-deploys`,{query:r===null?{}:{domain:r},signal:e}),retry:!1});function i(e){return t(`post`,`/api/first-deploys/{attempt}/dismiss`,{params:{attempt:e}})}export{n,r,i as t};

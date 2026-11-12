@@ -1,0 +1,1 @@
+import{n as e}from"./MachinePage-CoicZI6H.js";var t=e;export{t as component};

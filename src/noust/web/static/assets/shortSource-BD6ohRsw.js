@@ -1,0 +1,1 @@
+function e(e){let t=e.trim().replace(/\/+$/,``).replace(/\.git$/,``);return t.split(/[/:]/).filter(e=>e!==``).slice(-2).join(`/`)||t}export{e as t};
