@@ -439,6 +439,14 @@ something is refused with Compose's output until you accept it (`--accept-recrea
   Docker daemon, a new stack with `privileged` containers or the Docker socket mounted is
   refused unless the application has an exception, and an existing one is warned. See
   [releases.md](builds-and-accounts.md#builds-in-the-sandbox).
+- **The check judges what Compose resolves the file to**, not only the `services` the file spells
+  out: a service brought in by an `include` or an `extends`, a `jobs` entry, a service under any
+  profile, the file of a `secrets` or `configs` entry, the volumes (`volumes_from: container:x`) or
+  the namespace (`pid: container:x`) of a container that is not part of the stack. An `include` or
+  an `extends` whose file is outside the application (a link inside it that leads out counts) is
+  refused before Compose reads it, and a file that includes or extends and that Compose cannot
+  resolve is refused rather than guessed. Noust asks Compose with
+  `docker compose --profile "*" config --format json`, which changes nothing.
 - **Deleting an adopted application keeps its directory** (see [above](compose-adopt.md#deleting-an-adopted-stack)).
 - **Ignored webhook deliveries** carry the `ignored_tag` reason for applications that follow
   tags.

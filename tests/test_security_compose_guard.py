@@ -26,7 +26,7 @@ import pytest
 
 from noust.core.config import Config
 from noust.core.exceptions import DeploymentError
-from noust.core.runner import set_runner
+from noust.core.runner import FakeRunner, set_runner
 from noust.core.store import App, NoustStore, get_store
 from noust.deployers.docker_compose import DockerComposeDeployer
 from noust.managers.nginx_manager import NginxManager
@@ -134,7 +134,9 @@ def test_another_applications_directory_is_never_adopted(tmp_path: Path, store: 
 
 
 def _deployer(app_path: Path, store: NoustStore) -> DockerComposeDeployer:
-    compose = DockerComposeDeployer()
+    # The guard also asks Compose what the file resolves to; a Compose that prints nothing leaves
+    # it judged as written, which is what these tests are about.
+    compose = DockerComposeDeployer(runner=FakeRunner())
     compose.configure(DOMAIN, "src", app_path=app_path, compose_file="docker-compose.prod.yml")
     compose.store = store
     compose._is_new_deployment = False
