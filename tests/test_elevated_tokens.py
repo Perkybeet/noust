@@ -196,7 +196,13 @@ class TestOverHttp:
     def smtp(self, console: TestClient, headers: dict[str, str]) -> Any:
         return console.put(
             "/api/config/smtp",
-            json={"host": "", "port": 465, "use_ssl": True, "use_tls": False, "username": ""},
+            json={
+                "host": "smtp.example.com",
+                "port": 465,
+                "use_ssl": True,
+                "use_tls": False,
+                "username": "",
+            },
             headers=headers,
         )
 
@@ -246,7 +252,13 @@ class TestOverHttp:
 
         done = console.put(
             "/api/config/smtp",
-            json={"host": "", "port": 465, "use_ssl": True, "use_tls": False, "username": ""},
+            json={
+                "host": "smtp.example.com",
+                "port": 465,
+                "use_ssl": True,
+                "use_tls": False,
+                "username": "",
+            },
             headers=headers,
         )
 
