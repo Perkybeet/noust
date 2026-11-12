@@ -133,9 +133,9 @@ describe("an application's page", () => {
 
     expect(await within(header()).findByText("Deploying")).toBeInTheDocument();
     const side = column.closest("aside") ?? column.parentElement;
-    expect(side).not.toBeNull();
-    expect(within(side as HTMLElement).getByText("Deploying")).toBeInTheDocument();
-    expect(within(side as HTMLElement).queryByText("Stopped")).not.toBeInTheDocument();
+    if (side === null) throw new Error("the application's column has no parent to look in");
+    expect(within(side).getByText("Deploying")).toBeInTheDocument();
+    expect(within(side).queryByText("Stopped")).not.toBeInTheDocument();
   });
 
   it("does Update from the main part and its variations from the menu beside it", async () => {

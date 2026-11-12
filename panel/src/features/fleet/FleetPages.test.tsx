@@ -95,7 +95,7 @@ describe("the fleet's Home", () => {
   it("does not count the central as a server of the fleet when it is all there is: the strip and the page say the same", { timeout: 20_000 }, async () => {
     // A central that runs applications of its own is a row of the summary (`local`), but a fleet of nothing else is not a
     // fleet of one server: the page under the strip says "No servers in this fleet yet" (item 145).
-    const centralOnly = { ...SUMMARY_VIEW, nodes: SUMMARY_VIEW.nodes.filter((node) => node.local), items: SUMMARY_VIEW.items.filter((row) => row["local"] === true) };
+    const centralOnly = { ...SUMMARY_VIEW, nodes: SUMMARY_VIEW.nodes.filter((node) => node.local), items: SUMMARY_VIEW.items.filter((row) => row.local) };
     fakeBackend({ ...fleetRoutes(centralSession(), []), "GET /api/fleet/summary": () => json(200, centralOnly) });
     renderConsole("/fleet");
 

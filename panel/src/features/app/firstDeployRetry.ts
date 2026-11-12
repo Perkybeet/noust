@@ -37,5 +37,5 @@ export function retryOf(attempt: FirstDeploy): Retry {
  * has to type that part again, and the page says so.
  */
 export function sourceHidesASecret(attempt: FirstDeploy): boolean {
-  return attempt.source !== null && attempt.source !== undefined && attempt.source.includes("***");
+  return attempt.source?.includes("***") ?? false;
 }
