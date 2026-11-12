@@ -93,6 +93,19 @@ ACCESS_MESSAGES: dict[str, dict[Locale, str]] = {
         "en": "Deny {port} from anywhere, and delete {rules}",
         "es": "Denegar {port} desde cualquier origen y eliminar {rules}",
     },
+    # Where a rule admits from is changed: the origin it had and the one it gets (item 164).
+    "change.firewall_source": {
+        "en": "Change the origin of {port} from {old} to {source}",
+        "es": "Cambiar el origen de {port} de {old} a {source}",
+    },
+    "change.firewall_source_to_any": {
+        "en": "Change the origin of {port} from {old} to anywhere",
+        "es": "Cambiar el origen de {port} de {old} a cualquier origen",
+    },
+    "change.firewall_source_from_any": {
+        "en": "Change the origin of {port} from anywhere to {source}",
+        "es": "Cambiar el origen de {port} de cualquier origen a {source}",
+    },
     "change.firewall_delete": {
         "en": "Delete the firewall rule “{rule}”",
         "es": "Eliminar la regla «{rule}» del cortafuegos",

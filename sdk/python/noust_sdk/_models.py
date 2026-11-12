@@ -2423,6 +2423,7 @@ CreateCronJobRequest = TypedDict("CreateCronJobRequest", {
     "app_domain": NotRequired[Union[str, None]],
     "command": Required[str],
     "name": Required[str],
+    "once_at": NotRequired[Union[str, None]],
     "schedule": NotRequired[str],
     "service": NotRequired[Union[str, None]],
     "timeout": NotRequired[Union[int, None]],
@@ -2566,6 +2567,13 @@ CronActionResponse = TypedDict("CronActionResponse", {
     "success": Required[bool],
 })
 
+CronHistoryResponse = TypedDict("CronHistoryResponse", {
+    "days": Required[int],
+    "items": Required[list["CronOnceRunInfo"]],
+    "total": Required[int],
+    "zone": Required[str],
+})
+
 CronJobInfo = TypedDict("CronJobInfo", {
     "app_domain": Required[str],
     "command": Required[str],
@@ -2576,6 +2584,8 @@ CronJobInfo = TypedDict("CronJobInfo", {
     "name": Required[str],
     "next_run": Required[str],
     "on_calendar": Required[str],
+    "once": NotRequired[bool],
+    "once_at": NotRequired[str],
     "schedule": Required[str],
     "service": NotRequired[str],
     "timeout": NotRequired[Union[int, None]],
@@ -2607,7 +2617,28 @@ CronOccurrenceInfo = TypedDict("CronOccurrenceInfo", {
     "status": Required[str],
 })
 
+CronOnceRunInfo = TypedDict("CronOnceRunInfo", {
+    "app_domain": NotRequired[str],
+    "command": Required[str],
+    "exit_code": NotRequired[Union[int, None]],
+    "finished_at": NotRequired[Union[str, None]],
+    "id": Required[int],
+    "late": NotRequired[bool],
+    "name": Required[str],
+    "ok": Required[bool],
+    "output": NotRequired[str],
+    "result": Required[str],
+    "retired_at": NotRequired[str],
+    "run_as": NotRequired[str],
+    "run_at": Required[str],
+    "service": NotRequired[str],
+    "started_at": NotRequired[Union[str, None]],
+    "timeout": NotRequired[Union[int, None]],
+    "working_directory": NotRequired[str],
+})
+
 CronPreviewRequest = TypedDict("CronPreviewRequest", {
+    "once_at": NotRequired[Union[str, None]],
     "schedule": NotRequired[str],
 })
 
@@ -8427,6 +8458,7 @@ RuleOut = TypedDict("RuleOut", {
     "proto": Required[str],
     "service": NotRequired[Union[str, None]],
     "source": Required[str],
+    "source_changeable": NotRequired[bool],
     "spec": Required[str],
 })
 
@@ -8437,6 +8469,10 @@ RuleRequestIn = TypedDict("RuleRequestIn", {
     "proto": NotRequired[str],
     "replaces": NotRequired[list[str]],
     "source": NotRequired[str],
+})
+
+RuleSourceIn = TypedDict("RuleSourceIn", {
+    "source": Required[str],
 })
 
 SMTPConfig = TypedDict("SMTPConfig", {

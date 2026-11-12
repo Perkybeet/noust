@@ -199,7 +199,7 @@ describe("the one dialog that opens a port", () => {
   });
 
   describe("opening a port only to some addresses while a rule for everybody stands (item 139)", () => {
-    const WIDE: FirewallRule = { id: "w5432", backend: "ufw", action: "allow", ports: [[5432, 5432]], proto: "tcp", source: "any", spec: "5432/tcp ALLOW IN Anywhere", comment: "temporary: migration from the old host", noust: false, known: true };
+    const WIDE: FirewallRule = { id: "w5432", backend: "ufw", action: "allow", ports: [[5432, 5432]], proto: "tcp", source: "any", spec: "5432/tcp ALLOW IN Anywhere", comment: "temporary: migration from the old host", noust: false, known: true, source_changeable: false };
     const BOTH: FirewallRule = { ...WIDE, id: "w80", ports: [[80, 80], [5432, 5432]], spec: "80,5432/tcp ALLOW IN Anywhere" };
     const withRules = (...rules: Firewall["firewall"]["rules"]) => ({ "GET /api/server/security/firewall": () => json(200, firewallWith([], { rules: [...FIREWALL.firewall.rules, ...rules] })) });
 
@@ -381,10 +381,10 @@ describe("Published ports", () => {
 
 describe("the server's firewall, named apart from the other two", () => {
   const RULES: Firewall["firewall"]["rules"] = [
-    { id: "1", backend: "ufw", action: "allow", ports: [[22, 22]], proto: "tcp", source: "any", spec: "22/tcp ALLOW IN Anywhere", comment: "noust: ssh", noust: true, known: true, service: "OpenSSH" },
-    { id: "2", backend: "ufw", action: "allow", ports: [[5432, 5432]], proto: "tcp", source: "10.0.0.0/24", spec: "5432/tcp ALLOW IN 10.0.0.0/24", comment: "noust: db postgresql tienda_prod 5432", noust: true, known: true, service: null },
-    { id: "3", backend: "ufw", action: "allow", ports: [[2222, 2222]], proto: "tcp", source: "any", spec: "2222/tcp ALLOW IN Anywhere", comment: "noust: noust stream git", noust: true, known: true, service: null },
-    { id: "4", backend: "ufw", action: "allow", ports: [[9000, 9000]], proto: "tcp", source: "any", spec: "9000/tcp ALLOW IN Anywhere", comment: "office vpn", noust: false, known: true, service: null },
+    { id: "1", backend: "ufw", action: "allow", ports: [[22, 22]], proto: "tcp", source: "any", spec: "22/tcp ALLOW IN Anywhere", comment: "noust: ssh", noust: true, known: true, service: "OpenSSH", source_changeable: false },
+    { id: "2", backend: "ufw", action: "allow", ports: [[5432, 5432]], proto: "tcp", source: "10.0.0.0/24", spec: "5432/tcp ALLOW IN 10.0.0.0/24", comment: "noust: db postgresql tienda_prod 5432", noust: true, known: true, service: null, source_changeable: true },
+    { id: "3", backend: "ufw", action: "allow", ports: [[2222, 2222]], proto: "tcp", source: "any", spec: "2222/tcp ALLOW IN Anywhere", comment: "noust: noust stream git", noust: true, known: true, service: null, source_changeable: false },
+    { id: "4", backend: "ufw", action: "allow", ports: [[9000, 9000]], proto: "tcp", source: "any", spec: "9000/tcp ALLOW IN Anywhere", comment: "office vpn", noust: false, known: true, service: null, source_changeable: false },
   ];
 
   it("says what each rule is for and who made it, with a link to where it is changed", async () => {

@@ -84,3 +84,31 @@ export function choiceOf(job: { schedule: string; on_calendar: string }): Schedu
   }
   return { ...DEFAULT_CHOICE, frequency: "custom", calendar: job.on_calendar.trim() };
 }
+
+/** A task repeats, or runs once and retires itself. */
+export type Mode = "repeat" | "once";
+
+/** A date as the browser's date field writes it. */
+export function dateProblem(date: string): boolean {
+  return !/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`));
+}
+
+/** The `once_at` of `POST /api/cron`: the date and the time as the server reads them, in its own clock. */
+export function onceAtOf(date: string, time: string): string {
+  return `${date} ${time}`;
+}
+
+/**
+ * The date and the time a one-time task is on, read from the moment the server gave (ISO 8601 in its own zone, so
+ * the digits are its wall clock): `2026-12-01T14:30:00+01:00` is `2026-12-01` and `14:30`.
+ */
+export function onceFieldsOf(onceAt: string): { date: string; time: string } {
+  return { date: onceAt.slice(0, 10), time: onceAt.slice(11, 16) };
+}
+
+/** The date the browser's calendar says is tomorrow, for a form that has to start somewhere: the preview says what that is on the server. */
+export function tomorrow(now: Date = new Date()): string {
+  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const pad = (value: number): string => String(value).padStart(2, "0");
+  return `${String(next.getFullYear())}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}`;
+}

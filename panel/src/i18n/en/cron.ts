@@ -121,6 +121,31 @@ export const cron = {
     serviceDescription: "The service of the application's stack the command runs in. This server when left empty.",
   },
 
+  /** A task that runs once, at a date, and retires itself; and the record of the ones that ran. */
+  once: {
+    modeLabel: "When it runs",
+    repeats: "Repeats",
+    once: "Once",
+    date: "Date",
+    dateMissing: "Choose the date.",
+    zoneNote: "The time is the server's. The task retires itself once it has run.",
+    previewWords: "Runs once, then retires itself",
+    at: "Once, {when}",
+    historyTitle: "Ran once",
+    historyDescription: "One-time tasks that ran and retired themselves, kept for {days} days with how each one ended.",
+    historyCaption: "One-time tasks that ran",
+    historyWhat: "the one-time tasks that ran",
+    columns: { task: "Task", result: "Result", due: "Asked for", ran: "Ran" },
+    late: "Late",
+    lateHelp: "The server was off at that moment and ran it when it came back.",
+    again: "Schedule again",
+    viewOutput: "See what it printed",
+    outputTitle: "What {name} printed",
+    outputDescription: "The last lines of its output, with credentials masked.",
+    noOutput: "It printed nothing.",
+    notOnServer: "{node} runs a Noust older than this console and has no one-time tasks.",
+  },
+
   runsDrawer: {
     titleFor: "Runs of {name}",
     titleDefault: "Runs",

@@ -17,7 +17,10 @@ and announces each run it has not announced yet:
   nightly job did run;
 - a job whose timer is enabled but not running is ``cron_missed``: nothing
   failed, nothing will run, and no run can say so. Told once per stretch, and
-  once more when the timer runs again. A job somebody disabled is left alone.
+  once more when the timer runs again. A job somebody disabled is left alone;
+- a one-time task (item 164) removes itself when its command ends, from the stop hook of its own
+  service. This is the net under that hook: a task that ran and was not settled is settled and
+  announced here, and its timer, which ends by design, is never judged as one that stopped.
 
 What it remembers is systemd's id of the last run it saw, per job. The first
 time it sees a job it only remembers (it will not announce a failure from
@@ -34,6 +37,7 @@ from functools import partial
 from noust.core.exceptions import NoustError
 from noust.core.notifications.composers_ops import compose_cron
 from noust.core.notifications.composers_watch import compose_cron_timer
+from noust.managers import cron_once
 from noust.managers.cron_manager import CronManager, CronOutcome
 from noust.monitor.watches import Watch, WatchServices
 
@@ -102,6 +106,9 @@ class CronWatch(Watch):
         outcomes = manager.last_outcomes()
         state = services.state
         for outcome in outcomes:
+            if outcome.once:
+                self._settle_once(manager, outcome, services)
+                continue
             self._check_timer(outcome, services)
             if outcome.running:
                 continue
@@ -115,6 +122,28 @@ class CronWatch(Watch):
             self._announce(manager, outcome, services)
         state.keep_only(SCOPE, {outcome.name for outcome in outcomes})
         state.keep_only(TIMER_SCOPE, {outcome.name for outcome in outcomes})
+
+    def _settle_once(
+        self, manager: CronManager, outcome: CronOutcome, services: WatchServices
+    ) -> None:
+        """
+        Settle a one-time task that ran and has not been settled, and say how it ended.
+
+        A task that is running, or that has not run yet, is left alone; one its own hook
+        retired between the look and here is unknown by now and was announced by the hook.
+
+        Args:
+            manager: The cron manager.
+            outcome: The task.
+            services: What the monitor lends.
+        """
+        if outcome.running or not outcome.invocation:
+            return
+        try:
+            run = manager.settle_once(outcome.name)
+        except NoustError:
+            return
+        services.publish(cron_once.announcement(run))
 
     def _check_timer(self, outcome: CronOutcome, services: WatchServices) -> None:
         """

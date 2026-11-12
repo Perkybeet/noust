@@ -19,6 +19,8 @@ function job(name: string, command: string): CronJob {
     last_run: "never",
     last_exit_code: null,
     last_result: "never ran",
+    once: false,
+    once_at: "",
   };
 }
 

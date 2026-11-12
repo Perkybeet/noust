@@ -308,6 +308,7 @@ class RuleOut(BaseModel):
     noust: bool = False
     service: str | None = None
     known: bool = True
+    source_changeable: bool = False
 
 
 class FirewallStateOut(BaseModel):
@@ -447,6 +448,12 @@ class RuleRequestIn(BaseModel):
     source: str = "any"
     comment: str = ""
     replaces: list[str] = bounded_list(16)
+
+
+class RuleSourceIn(BaseModel):
+    """Where a rule should now admit from: ``any``, or an address or network."""
+
+    source: str
 
 
 class Fail2banInstallRequest(BaseModel):
@@ -958,6 +965,31 @@ def delete_firewall_rule(
         The queued job.
     """
     return _queue(request, session, "firewall.delete", {"rule_id": rule_id})
+
+
+@router.post(
+    "/firewall/rules/{rule_id}/source", status_code=202, response_model=JobAcceptedResponse
+)
+def change_firewall_rule_source(
+    rule_id: str,
+    body: RuleSourceIn,
+    request: Request,
+    session: Annotated[dict, Depends(require_elevated)],
+) -> JobAcceptedResponse:
+    """
+    Change where a rule admits from, in one step: the new rule is made, the old one removed, and
+    the whole waits ONCE to be confirmed, undoing itself unless it is. Never cuts off SSH.
+
+    Args:
+        rule_id: The rule's id, from ``GET /firewall`` (``source_changeable`` says which can move).
+        body: The new origin: ``any``, or an address or network.
+        request: The request.
+        session: The elevated session.
+
+    Returns:
+        The queued job.
+    """
+    return _queue(request, session, "firewall.source", {"rule_id": rule_id, "source": body.source})
 
 
 @router.post("/firewall/enable", status_code=202, response_model=JobAcceptedResponse)

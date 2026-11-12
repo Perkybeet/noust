@@ -281,6 +281,24 @@ Choose an **Application** and the task runs the way the application does: in its
 account, with its `.env` (so `python manage.py migrate` finds `DATABASE_URL`), with what its unit sets
 for the process (the port, the mode, the runtime it is pinned to) and with its own tools first on the
 `PATH`: the virtual environment's `python`, `node_modules/.bin`. The same from the command line with
-`noust cron create NAME COMMAND --app DOMAIN`. A task written before 4.3 changes only when it is written
+`noust cron create NAME COMMAND --app DOMAIN`.
+
+**A task that runs once.** Choose **Runs once** instead of **Repeats** and give a date and a time:
+the task runs then and retires itself, with the same environment as any other. The time is the
+**server's** (the dialog says its zone), and a moment that has passed is refused, with what time it is
+there. When it has run, its timer and service are removed and the result stays for 30 days under
+**Ran once**: how it ended, whether it came late, and what it printed. **Schedule again** opens the
+dialog with the same task. A server that was off at that moment runs it when it comes back and the
+history says it was late. From the command line:
+
+```bash
+noust cron create reindex "php artisan search:reindex" --app shop.example.com --once --at "2026-12-01 14:30"
+noust cron history              # what ran, how it ended, which were late
+noust cron history reindex      # and what that one printed
+```
+
+A failure is announced like the failure of any task (`cron_failed`), and points at `noust cron history`.
+**Run now** on a one-time task runs it and uses it up: it records its result and retires itself like
+the run it replaced. A task written before 4.3 changes only when it is written
 again, because a unit an operator may have edited is not rewritten behind their back: `noust setup doctor`
 names each one with the command that writes it again. A task with no application is as it was.

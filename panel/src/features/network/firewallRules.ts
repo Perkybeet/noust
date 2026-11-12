@@ -3,6 +3,7 @@
  * port open. Pure, so each reading is tested without drawing a table.
  */
 
+import { parseAddresses } from "../../lib/addresses";
 import type { Holder, PortRow } from "../server/network/data";
 import type { Firewall, FirewallRule } from "../server/queries";
 
@@ -57,4 +58,36 @@ export function ruleMaker(rule: FirewallRule): RuleMaker {
 /** The port the anti-lockout guard keeps open that this rule carries, with its reason; null for any other rule. */
 export function isProtected(rule: FirewallRule, guard: Firewall["protected_ports"]): Firewall["protected_ports"][number] | null {
   return guard.find((entry) => rule.ports.some(([from = 0, to = 0]) => entry.port >= from && entry.port <= to)) ?? null;
+}
+
+/** Where the rule should admit from: anyone, or one address or network. */
+export type SourceChoice = "any" | "some";
+
+/** Why an origin cannot be asked for, or null when it can: nothing typed, not an address, more than one, or the one it has. */
+export type SourceProblem = "needed" | "invalid" | "one" | "same";
+
+/**
+ * Reads the origin a person typed for a rule. A rule has one origin (an address or a network), so a list is "one";
+ * what is already the rule's own is "same", whatever the spelling of a host (`10.0.0.5` is `10.0.0.5/32`).
+ */
+export function sourceProblem(choice: SourceChoice, text: string, current: string): SourceProblem | null {
+  const everyone = current === "any" || current === "";
+  if (choice === "any") return everyone ? "same" : null;
+  if (text.trim() === "") return "needed";
+  const { entries, invalid } = parseAddresses(text);
+  if (invalid.length > 0) return "invalid";
+  if (entries.length !== 1) return "one";
+  const [entry = ""] = entries;
+  return !everyone && sameOrigin(entry, current) ? "same" : null;
+}
+
+/** An address with no length is a host: `10.0.0.5` and `10.0.0.5/32` admit the same. */
+function sameOrigin(first: string, second: string): boolean {
+  const whole = (value: string): string => (value.includes("/") ? value : `${value}/${value.includes(":") ? "128" : "32"}`);
+  return whole(first).toLowerCase() === whole(second).toLowerCase();
+}
+
+/** The `source` of `POST .../firewall/rules/{rule_id}/source`: `any`, or the one address or network typed. */
+export function sourceBody(choice: SourceChoice, text: string): string {
+  return choice === "any" ? "any" : (parseAddresses(text).entries[0] ?? "");
 }

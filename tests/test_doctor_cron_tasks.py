@@ -241,6 +241,6 @@ class TestWhatTheDoctorSays:
 
         tasks = next(section for section in report.sections if section.key == "cron")
         assert [item.status for item in tasks.items] == ["warn"]
-        assert report.to_dict()["sections"][-1]["items"][0]["coded"]["code"] == (
-            "doctor.cron.without_environment"
-        )
+        # The section by its key, not by its place: the report gains sections as areas add checks.
+        said = next(entry for entry in report.to_dict()["sections"] if entry["key"] == "cron")
+        assert said["items"][0]["coded"]["code"] == "doctor.cron.without_environment"

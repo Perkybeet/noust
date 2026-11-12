@@ -33,6 +33,7 @@ AREAS: dict[str, str] = {
     "server": "the server itself: packages, storage, jobs, power and the checks on it",
     "compose": "Docker Compose stacks: documents, ports, relays and releases",
     "notification": "notifications: events, channels, routing and what they say",
+    "audit": "the audit trail: its chain, its catalog, shipping, retention and its export",
     "delivery": "how a deployment is queued, cancelled and limited",
     "source": "where an application's code comes from",
     "security": "the guards over the product's own files and configuration",

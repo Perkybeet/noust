@@ -9,7 +9,7 @@
  */
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Power } from "lucide-react";
+import { ArrowRightLeft, Plus, Power } from "lucide-react";
 import { useState } from "react";
 
 import { request } from "../../api/client";
@@ -32,7 +32,7 @@ import { StatusPill } from "../../components/ui/StatusPill";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
-import { NodeCapabilityGate } from "../../nodes/capability";
+import { NodeCapabilityGate, useNodeCapability } from "../../nodes/capability";
 import { ServerErrorBlock, ServerQueryState, useServerConfirm } from "../server/errors";
 import { typedHost } from "../server/friction";
 import { MachinePage } from "../server/MachinePage";
@@ -42,13 +42,17 @@ import { SERVER_CAPABILITY, firewallQuery, identityQuery, portsQuery } from "../
 import type { Firewall, FirewallRule } from "../server/queries";
 import { useServerJob } from "../server/serverJob";
 import { MissingSoftware } from "../server/software/MissingSoftware";
+import { ChangeSourceDialog } from "./ChangeSourceDialog";
 import { isProtected, ruleMaker, rulePorts, ruleSubject } from "./firewallRules";
 import { HolderName } from "./HolderName";
 import { useOpenPort } from "./OpenPortDialog";
 import { portText } from "./reach";
 import { ThreeFirewalls } from "./ThreeFirewalls";
 
-type Opened = { kind: "enable" } | { kind: "disable" } | { kind: "delete"; rule: FirewallRule } | null;
+type Opened = { kind: "enable" } | { kind: "disable" } | { kind: "delete"; rule: FirewallRule } | { kind: "source"; rule: FirewallRule } | null;
+
+/** The route of the one-step change of origin: a node before 4.3 does not have it, and then it is not offered. */
+const CHANGE_SOURCE_ROUTE = "POST /api/server/security/firewall/rules/{rule_id}/source";
 
 function Subject({ rule, rows }: { rule: FirewallRule; rows: readonly PortRow[] }) {
   const subject = ruleSubject(rule, rows);
@@ -88,9 +92,20 @@ function Maker({ rule, guard }: { rule: FirewallRule; guard: Firewall["protected
   }
 }
 
-function Rules({ firewall, rows, onDelete }: { firewall: Firewall; rows: readonly PortRow[]; onDelete: (rule: FirewallRule) => void }) {
+function Rules({
+  firewall,
+  rows,
+  onDelete,
+  onMove,
+}: {
+  firewall: Firewall;
+  rows: readonly PortRow[];
+  onDelete: (rule: FirewallRule) => void;
+  onMove: (rule: FirewallRule) => void;
+}) {
   const t = useT();
   const mayChange = useCan("server.host_access");
+  const offered = useNodeCapability(CHANGE_SOURCE_ROUTE).status === "available";
   const columns: Column<FirewallRule>[] = [
     { id: "for", header: t("network.firewall.forColumn"), card: "title", cell: (rule) => <Subject rule={rule} rows={rows} /> },
     {
@@ -123,14 +138,29 @@ function Rules({ firewall, rows, onDelete }: { firewall: Firewall; rows: readonl
       empty={<EmptyState variant="inline" title={t("server.firewall.rules.none")} />}
       {...(mayChange
         ? {
-            rowActions: (rule: FirewallRule) =>
-              rule.known && isProtected(rule, firewall.protected_ports) === null ? (
+            rowActions: (rule: FirewallRule) => {
+              // The rule that keeps SSH open is never closed here, but where it admits from can be narrowed: the guard
+              // of the server says if that would leave somebody outside.
+              const closable = rule.known && isProtected(rule, firewall.protected_ports) === null;
+              // A server before 4.3 sends no `source_changeable` (the type says it always does, as this build's server
+              // does): nothing is offered that its API would not take.
+              const movable = offered && rule.source_changeable;
+              if (!closable && !movable) return null;
+              return (
                 <RowMenu name={`${rulePorts(rule)}/${rule.proto}`}>
-                  <MenuItem destructive icon={<ICONS.delete />} onClick={() => onDelete(rule)}>
-                    {t("network.firewall.closePort")}
-                  </MenuItem>
+                  {movable ? (
+                    <MenuItem icon={<ArrowRightLeft />} onClick={() => onMove(rule)}>
+                      {t("network.firewall.changeSource")}
+                    </MenuItem>
+                  ) : null}
+                  {closable ? (
+                    <MenuItem destructive icon={<ICONS.delete />} onClick={() => onDelete(rule)}>
+                      {t("network.firewall.closePort")}
+                    </MenuItem>
+                  ) : null}
                 </RowMenu>
-              ) : null,
+              );
+            },
           }
         : {})}
     />
@@ -240,7 +270,7 @@ export function FirewallPage() {
               ) : null}
               {firewall.firewall.backend !== "none" ? (
                 <SurfaceSection title={t("server.firewall.rules.title")} icon={OBJECT_ICONS.firewall} description={t("network.firewall.rulesLine")} flush>
-                  <Rules firewall={firewall} rows={rows} onDelete={(rule) => setOpened({ kind: "delete", rule })} />
+                  <Rules firewall={firewall} rows={rows} onDelete={(rule) => setOpened({ kind: "delete", rule })} onMove={(rule) => setOpened({ kind: "source", rule })} />
                 </SurfaceSection>
               ) : null}
               <ThreeFirewalls />
@@ -284,6 +314,9 @@ export function FirewallPage() {
         >
           <p className="text-13 text-fg-muted">{t("server.firewall.revertsDisable")}</p>
         </ConfirmDialog>
+      ) : null}
+      {opened?.kind === "source" ? (
+        <ChangeSourceDialog rule={opened.rule} guarded={isProtected(opened.rule, data?.protected_ports ?? []) !== null} onClose={() => setOpened(null)} />
       ) : null}
       {opened?.kind === "delete" ? (
         <ConfirmDialog

@@ -7,12 +7,15 @@ export type CronJobList = ResponseOf<"/api/cron", "get">;
 export type CronRuns = ResponseOf<"/api/cron/{name}/runs", "get">;
 export type CronPreview = ResponseOf<"/api/cron/preview", "post">;
 export type CronLedger = ResponseOf<"/api/cron/{name}/ledger", "get">;
+export type CronHistory = ResponseOf<"/api/cron/history", "get">;
+export type CronOnceRun = CronHistory["items"][number];
 
 export const cronKeys = {
   all: ["cron"] as const,
   // The limit is in the key (item 55): a longer list is another request, not the cached one.
   runs: (name: string, limit?: number) => ["cron", name, "runs", ...(limit === undefined ? [] : [{ limit }])] as const,
-  preview: (schedule: string) => ["cron", "preview", schedule] as const,
+  preview: (schedule: string, onceAt: string | null = null) => ["cron", "preview", schedule, ...(onceAt === null ? [] : [{ once: onceAt }])] as const,
+  history: ["cron", "history"] as const,
   ledger: (name: string, days: number) => ["cron", name, "ledger", { days }] as const,
 };
 
@@ -41,8 +44,19 @@ export const cronRunsQuery = (name: string, limit = 20) =>
  * value, so an in-flight request for a schedule the operator has since changed cannot resolve
  * after a newer one and overwrite it - TanStack Query keeps each key's result separate.
  */
-export const cronPreviewQuery = (schedule: string) =>
+export const cronPreviewQuery = (schedule: string, onceAt: string | null = null) =>
   queryOptions({
-    queryKey: cronKeys.preview(schedule),
-    queryFn: ({ signal }) => request("post", "/api/cron/preview", { body: { schedule }, signal }),
+    queryKey: cronKeys.preview(schedule, onceAt),
+    // The body type asks for a schedule; with a moment the server ignores it.
+    queryFn: ({ signal }) => request("post", "/api/cron/preview", { body: onceAt === null ? { schedule } : { schedule: "daily", once_at: onceAt }, signal }),
+  });
+
+/**
+ * The one-time tasks that ran and retired themselves in the last thirty days, with how each ended. A server before
+ * 4.3 does not have the route: its 404 is what the section says, not a failure of the page.
+ */
+export const cronHistoryQuery = () =>
+  queryOptions({
+    queryKey: cronKeys.history,
+    queryFn: ({ signal }) => request("get", "/api/cron/history", { signal }),
   });

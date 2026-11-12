@@ -12,14 +12,16 @@ const DEBOUNCE_MS = 350;
  * query key's result apart, so a keystroke made obsolete by a later one can never land after
  * it and show a stale calendar - see `cronPreviewQuery`.
  */
-export function useCronPreview(schedule: string) {
-  const [debounced, setDebounced] = useState(schedule);
+export function useCronPreview(schedule: string, onceAt: string | null = null) {
+  // A one-time task previews its moment instead: the schedule is not what is being asked.
+  const asked = onceAt ?? schedule;
+  const [debounced, setDebounced] = useState(asked);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setDebounced(schedule), DEBOUNCE_MS);
+    const timer = window.setTimeout(() => setDebounced(asked), DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
-  }, [schedule]);
+  }, [asked]);
 
   const trimmed = debounced.trim();
-  return useQuery({ ...cronPreviewQuery(trimmed), enabled: trimmed !== "" });
+  return useQuery({ ...cronPreviewQuery(onceAt === null ? trimmed : "", onceAt === null ? null : trimmed), enabled: trimmed !== "" });
 }

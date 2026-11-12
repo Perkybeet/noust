@@ -57,6 +57,17 @@ def local_now_iso() -> str:
     return datetime.now().isoformat(timespec="seconds")
 
 
+def local_now() -> datetime:
+    """
+    Read the clock as an aware datetime in this machine's zone.
+
+    Returns:
+        The current time with the machine's UTC offset: the zone a systemd calendar expression
+        is read in, so what a person is asked for and shown is this one.
+    """
+    return datetime.now().astimezone()
+
+
 def utc_now() -> datetime:
     """
     Read the clock as an aware datetime in UTC.

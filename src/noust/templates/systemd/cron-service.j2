@@ -11,6 +11,9 @@
 {% if service | default("") %}
 # Service: {{ esc.line(service) }}
 {% endif %}
+{% if once | default("") %}
+# Once: {{ esc.line(once) }}
+{% endif %}
 
 [Unit]
 Description=Noust cron job {{ esc.line(name) }}
@@ -38,6 +41,13 @@ ExecStart={{ esc.line(exec_start) }}
 {# A oneshot unit is "activating" while its command runs, which is the state
    TimeoutStartSec bounds; RuntimeMaxSec does not apply to this type. #}
 TimeoutStartSec={{ esc.line(timeout) }}
+{% endif %}
+{% if once | default("") %}
+{# A one-time task records how it ended and removes its own units. "+" runs it as root, since
+   the task itself runs as its application's account; "-" keeps a hook that failed from failing
+   the task, whose result is what matters. systemd gives it SERVICE_RESULT, EXIT_CODE and
+   EXIT_STATUS. #}
+ExecStopPost=-+{{ esc.path(noust) }} cron settle {{ esc.line(name) }}
 {% endif %}
 
 StandardOutput=journal
