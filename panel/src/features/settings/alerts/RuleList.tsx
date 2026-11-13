@@ -12,6 +12,7 @@ import type { AlertMetric, AlertRule, AlertRuleList } from "../../../api/queries
 import { QueryState } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { RowMenu } from "../../../components/page/RowMenu";
+import { ExplainMenuItem } from "../../assistant/ExplainThis";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
@@ -125,6 +126,8 @@ function RuleRow({ rule, metrics }: { rule: AlertRule; metrics: readonly AlertMe
       }
       actions={
         <RowMenu name={rule.name}>
+          {/* What a rule that is firing says is something to ask the assistant about; a rule that is well has nothing to explain. */}
+          {firing.length > 0 ? <ExplainMenuItem page={{ kind: "alert", rule: rule.name }} /> : null}
           <MenuItem
             icon={<Pencil />}
             onClick={() => {

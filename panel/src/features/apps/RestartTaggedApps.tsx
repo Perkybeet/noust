@@ -39,6 +39,7 @@ export function RestartTaggedApps({ tag, count }: RestartTaggedAppsProps) {
         open={open}
         onOpenChange={setOpen}
         friction="simple"
+        destructive={false}
         server={node}
         title={t("appTags.restart.title", { tag })}
         description={t("appTags.restart.description", { count, tag })}

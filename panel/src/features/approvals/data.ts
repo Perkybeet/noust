@@ -43,11 +43,14 @@ export type ApprovalsView = "waiting" | "decided" | "all";
 export interface ApprovalsSearch {
   view?: ApprovalsView;
   mine?: true;
+  /** Only the requests a token or the assistant made. */
+  caller?: "token" | "assistant";
 }
 
 export function validateApprovalsSearch(search: Record<string, unknown>): ApprovalsSearch {
   const view = search["view"] === "decided" || search["view"] === "all" || search["view"] === "waiting" ? search["view"] : undefined;
-  return { ...(view !== undefined ? { view } : {}), ...(search["mine"] === true || search["mine"] === "true" ? { mine: true as const } : {}) };
+  const caller = search["caller"] === "token" || search["caller"] === "assistant" ? search["caller"] : undefined;
+  return { ...(view !== undefined ? { view } : {}), ...(search["mine"] === true || search["mine"] === "true" ? { mine: true as const } : {}), ...(caller !== undefined ? { caller } : {}) };
 }
 
 /** Which requests a view shows: waiting ones by default, the ones already decided, or all. */

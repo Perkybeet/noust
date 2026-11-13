@@ -20,10 +20,12 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { ICONS } from "../../components/ui/icons";
 import { Mono } from "../../components/ui/Mono";
 import { StatusPill } from "../../components/ui/StatusPill";
+import { TextLink } from "../../components/ui/TextLink";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { accountsQuery } from "./accounts/api";
+import { AssistantCredentials } from "./credentials/AssistantCredentials";
 import { CreateTokenDialog } from "./CreateTokenDialog";
 import { TokenNetworksDialog } from "./TokenNetworksDialog";
 import { RowAction } from "./RowAction";
@@ -50,9 +52,12 @@ function columnsFor(t: T, ownerName: (token: ApiToken) => string | null): Column
       card: "title",
       cell: (token) => (
         <span className="flex min-w-0 flex-col items-start gap-1">
-          <Mono tone="default" truncate>
-            {token.name}
-          </Mono>
+          {/* The name opens what the token did: its interventions, read from the audit trail (item 185). */}
+          <TextLink to="/settings/tokens/$id" params={{ id: String(token.id) }} variant="row" size="ui">
+            <Mono tone="default" truncate>
+              {token.name}
+            </Mono>
+          </TextLink>
           <Badge mono>{token.scope}</Badge>
         </span>
       ),
@@ -199,6 +204,7 @@ export function TokensSettings() {
           )}
         </QueryState>
       </Section>
+      <AssistantCredentials />
       {/* Under a list of unknown length: drawn with it, never pushed down the page by it. */}
       {query.data !== undefined || query.isError ? (
         <Section title={t("settings.tokens.usingTitle")} description={t("settings.tokens.usingDescription")}>

@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from .arguments import parse_args
+from .assistant_seed import seed_assistant
 from .backup_destinations import seed_showcase_backup_destination, use_showcase_diagnose_paths
 from .code_hosts import model_code_host
 from .constants import (
@@ -261,6 +262,7 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
     token = get_token_manager().generate_master_token()
     totp_secret, backup_codes = enable_totp(args.backup_codes) if args.totp else (None, [])
     seed_settings_api_tokens()
+    assistant_line = seed_assistant(args.assistant)
     pin_settings_update_check(up_to_date=args.shown_version is not None)
     warm_recipe_library()
     warm_api_schema(app)
@@ -301,6 +303,7 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
                 "token": token,
                 "totp_secret": totp_secret,
             }
+            line.update(assistant_line)
             if args.backup_codes is not None:
                 line["backup_codes"] = backup_codes
             if args.keep:

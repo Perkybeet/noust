@@ -79,11 +79,16 @@ export interface ServerEventMap {
   operation: Record<string, unknown>;
   notice: NoticeEvent;
   state: StateEvent;
+  /**
+   * What the built-in assistant does while it answers (text, a step read, a proposal, usage, the end of the turn): sent only to the
+   * streams of the account that asked. Nothing is cached from it; the panel that is open follows it (`features/assistant`).
+   */
+  assistant: Record<string, unknown>;
 }
 
 export type ServerEventName = keyof ServerEventMap;
 
-export const SERVER_EVENTS: readonly ServerEventName[] = ["machine", "metrics", "app", "job", "operation", "notice", "state"];
+export const SERVER_EVENTS: readonly ServerEventName[] = ["machine", "metrics", "app", "job", "operation", "notice", "state", "assistant"];
 
 export type StreamStatus = "connecting" | "live" | "reconnecting";
 
@@ -281,6 +286,9 @@ export function applyServerEvent(queryClient: QueryClient, name: ServerEventName
       }
       return;
     }
+    case "assistant":
+      // Followed by the panel through `useServerEvent`; there is no cache entry to keep.
+      return;
     case "operation":
       // The task centre's store is what holds it (features/tasks/feeds.ts): nothing in the cache is about one.
       return;

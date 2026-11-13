@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
-import { isValidElement, useId, useMemo, useRef, useState } from "react";
+import { isValidElement, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 
 import { useT } from "../../i18n";
@@ -129,6 +129,42 @@ const HIDE: Record<NonNullable<Column<unknown>["hideBelow"]>, string> = {
   "2xl": "hidden 2xl:table-cell",
 };
 
+/**
+ * What a table's own room decides, which the window cannot say: the assistant's panel docked beside the page, or any column that
+ * takes width from the page, leaves less than the window suggests. A table keeps its columns while its parent is at least this
+ * wide, and becomes cards below it; the numbers are below every layout the console draws without such a column, so a page
+ * without one looks as it always did. `hideBelow` columns ask for more room than their breakpoint says only from `xl`.
+ */
+const TABLE_FROM = 576;
+const COLUMN_ROOM: Record<NonNullable<Column<unknown>["hideBelow"]>, number> = { sm: 0, md: 0, lg: 0, xl: 800, "2xl": 960 };
+
+/** The width the parent of a table gives it (null until it is known: a first render, or a test that has no layout). */
+function useRoom(): [(element: HTMLElement | null) => void, number | null] {
+  const [width, setWidth] = useState<number | null>(null);
+  const observer = useRef<ResizeObserver | null>(null);
+  const ref = useCallback((element: HTMLElement | null) => {
+    observer.current?.disconnect();
+    observer.current = null;
+    const parent = element?.parentElement;
+    if (parent === null || parent === undefined) return;
+    const read = (): void => {
+      const style = getComputedStyle(parent);
+      const room = parent.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      setWidth(room > 0 ? room : null);
+    };
+    read();
+    observer.current = new ResizeObserver(read);
+    observer.current.observe(parent);
+  }, []);
+  useEffect(
+    () => () => {
+      observer.current?.disconnect();
+    },
+    [],
+  );
+  return [ref, width];
+}
+
 const INTERACTIVE = "a, button, input, select, textarea, [role='menuitem'], [role='checkbox'], [role='switch']";
 
 function compare(a: string | number | null, b: string | number | null): number {
@@ -167,7 +203,11 @@ export function DataTable<T>({
   // Rows that have not arrived are a wait, not an empty list: the skeleton, never "none".
   const loading = loadingGiven || given === undefined;
   const rows = given ?? NO_ROWS;
-  const wide = useMediaQuery(SM_UP);
+  const mediaWide = useMediaQuery(SM_UP);
+  const [roomRef, room] = useRoom();
+  // A phone is cards whatever the room; a window that is wide but whose page is not (a panel docked beside it) is cards too.
+  const wide = mediaWide && (room === null || room >= TABLE_FROM);
+  const hide = (column: Column<T>): string | false => column.hideBelow !== undefined && (room !== null && room < COLUMN_ROOM[column.hideBelow] ? "hidden" : HIDE[column.hideBelow]);
   const captionId = useId();
   const [internalSort, setInternalSort] = useState<SortState | null>(defaultSort);
   const activeSort = sort !== undefined ? sort : internalSort;
@@ -258,6 +298,7 @@ export function DataTable<T>({
         skeletonRows={skeletonRows}
         empty={empty}
         embedded={embedded}
+        rootRef={roomRef}
         {...(className !== undefined ? { className } : {})}
       />
     );
@@ -276,6 +317,7 @@ export function DataTable<T>({
 
   const table = (
     <div
+      ref={roomRef}
       role="region"
       aria-labelledby={captionId}
       {...(hasInteractive ? {} : { tabIndex: 0 })}
@@ -305,7 +347,7 @@ export function DataTable<T>({
                     "h-10 px-3 text-12 font-semibold whitespace-nowrap text-fg-faint first:pl-4",
                     column.align === "end" && "text-right",
                     column.width,
-                    column.hideBelow && HIDE[column.hideBelow],
+                    hide(column),
                   )}
                 >
                   {column.sortValue ? (
@@ -350,7 +392,7 @@ export function DataTable<T>({
                   {columns.map((column) => (
                     <td
                       key={column.id}
-                      className={cx(cellHeight, "px-3 first:pl-4", column.hideBelow && HIDE[column.hideBelow])}
+                      className={cx(cellHeight, "px-3 first:pl-4", hide(column))}
                     >
                       <Skeleton className={cx("h-3", column.align === "end" ? "ml-auto w-12" : "w-3/4 max-w-40")} />
                     </td>
@@ -393,7 +435,7 @@ export function DataTable<T>({
                             layout === "fixed" && "truncate",
                             column.align === "end" && "text-right",
                             column.mono && "mono text-12",
-                            column.hideBelow && HIDE[column.hideBelow],
+                            hide(column),
                           )}
                         >
                           {index === 0 && onRowActivate ? (
@@ -460,6 +502,7 @@ function CardRows<T>({
   skeletonRows,
   empty,
   embedded,
+  rootRef,
   className,
 }: {
   columns: readonly Column<T>[];
@@ -472,6 +515,7 @@ function CardRows<T>({
   skeletonRows: number;
   empty: ReactNode;
   embedded: boolean;
+  rootRef: (element: HTMLElement | null) => void;
   className?: string;
 }) {
   const placed = columns.map((column, index) => ({ column, place: cardPlace(column, index) }));
@@ -484,7 +528,7 @@ function CardRows<T>({
   if (!loading && rows.length === 0 && empty !== undefined) return <div className={className}>{empty}</div>;
 
   return (
-    <ul aria-label={caption} aria-busy={loading || undefined} className={cx("flex min-w-0 flex-col", embedded ? "divide-y divide-border" : "gap-2", className)}>
+    <ul ref={rootRef} aria-label={caption} aria-busy={loading || undefined} className={cx("flex min-w-0 flex-col", embedded ? "divide-y divide-border" : "gap-2", className)}>
       {loading
         ? Array.from({ length: Math.max(1, Math.round(skeletonRows)) }, (_, i) => (
             <li key={`skeleton-${String(i)}`} aria-hidden="true" className={cx("flex flex-col gap-2", embedded ? "px-5 py-3" : "elev-seated rounded-card border border-border bg-surface px-4 py-3")}>

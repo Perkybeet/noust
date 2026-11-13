@@ -6,7 +6,10 @@ commands in the order they would run, the files they would write and what change
 plan found out by looking, what it does **not** know, and what applying the operation will ask of you.
 Nothing is executed to make it, and it leaves nothing behind: no file, no database row, no job.
 
-In the console it is the **See what it will do** button in the dialog of the operation. On the terminal it
+In the console it is the **See what it will do** fold in the dialog of the operation (the question before an
+application is stopped, before it goes back to a deployment, before the approval policy is saved). It is drawn only
+where the API says the operation has a plan (`x-noust-plan`), and not at all, rather than empty, on a server whose
+Noust does not have it; what the plan does not know is shown whether the fold is open or not. On the terminal it
 is `--plan`. In the API it is a `POST` that changes nothing. The built-in assistant shows you the same
 plan when it proposes something: the plan is Noust's, never the assistant's.
 

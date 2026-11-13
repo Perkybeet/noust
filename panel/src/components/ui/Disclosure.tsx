@@ -49,11 +49,12 @@ export function Disclosure({ label, defaultOpen = false, variant = "plain", summ
           >
             <span className="flex min-w-0 flex-1 items-baseline gap-2 text-left">
               {/* A long label (the names of what a fold holds) is cut where the row ends, never past the page's edge. */}
-              <span className="min-w-0 truncate">{label}</span>
+              <span className="max-w-full min-w-0 shrink-0 truncate">{label}</span>
               {summary !== undefined ? (
                 <>
                   {/* A space for the name the button is given: the layout's gap is not text. */}{" "}
-                  <span className="min-w-0 truncate text-12 font-normal text-fg-muted">{summary}</span>
+                  {/* In a narrow column (the assistant's panel) it is the summary that gives way, and the label is read whole. */}
+                  <span className="min-w-0 shrink-[8] truncate text-12 font-normal text-fg-muted">{summary}</span>
                 </>
               ) : null}
             </span>

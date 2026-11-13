@@ -13,20 +13,22 @@ export type ApprovalList = ResponseOf<"/api/approvals", "get">;
 export type Approval = ApprovalList["approvals"][number];
 export type ApprovalPolicy = ResponseOf<"/api/approvals/policy", "get">;
 export type ApprovalState = "requested" | "approved" | "rejected" | "expired" | "executed";
+/** Who made the call a request holds, when it was not a person: a token, or the built-in assistant. */
+export type CallerFilter = "token" | "assistant";
 
 export const approvalKeys = {
   all: ["approvals"] as const,
-  list: (state: ApprovalState | null, mine: boolean) => ["approvals", "list", state, mine] as const,
+  list: (state: ApprovalState | null, mine: boolean, caller: CallerFilter | null = null) => ["approvals", "list", state, mine, caller] as const,
   one: (id: string) => ["approvals", "one", id] as const,
   policy: ["approvals", "policy"] as const,
 };
 
 /** The requests the caller may see, newest first: every one for a decider, their own otherwise. */
-export const approvalsQuery = (state: ApprovalState | null = null, mine = false) =>
+export const approvalsQuery = (state: ApprovalState | null = null, mine = false, caller: CallerFilter | null = null) =>
   queryOptions({
-    queryKey: approvalKeys.list(state, mine),
+    queryKey: approvalKeys.list(state, mine, caller),
     queryFn: ({ signal }) =>
-      request("get", "/api/approvals", { query: { ...(state !== null ? { state } : {}), ...(mine ? { mine } : {}) }, signal }),
+      request("get", "/api/approvals", { query: { ...(state !== null ? { state } : {}), ...(mine ? { mine } : {}), ...(caller !== null ? { caller } : {}) }, signal }),
   });
 
 /** One request, watched while its requester waits. */

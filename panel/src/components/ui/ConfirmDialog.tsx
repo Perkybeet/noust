@@ -43,6 +43,11 @@ interface ConfirmDialogBase {
   actionLabel: string;
   /** What the other button says: "Cancel" unless the question is about leaving ("Keep editing"). */
   cancelLabel?: string;
+  /**
+   * Whether the action destroys or interrupts something, which is what paints its button red (the danger colour is for the last
+   * step of a destructive flow and for nothing else). True unless said otherwise, because a confirmation is asked for what is
+   * lost; an action that only applies a change, installs, renews or approves is `destructive={false}` and is a primary button.
+   */
   destructive?: boolean;
   /** Runs the action. The dialog stays open, busy, until it settles; a rejection is shown verbatim. */
   onConfirm: () => Promise<void>;

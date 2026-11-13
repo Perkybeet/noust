@@ -43,6 +43,16 @@ function who(t: T, actor: Approval["requester"] | null | undefined): string {
   return actor.role ? t("approvals.fields.actorWithRole", { name: actor.name, role: roleLabel(t, actor.role) }) : actor.name;
 }
 
+/** Who made the call when it was not a person: a token with its owner, or the built-in assistant for the person it acts for. */
+function callerLine(t: T, item: Approval): string | null {
+  if (item.caller === "assistant") return t("callerPolicy.queue.byAssistant", { owner: item.requester.name });
+  if (item.caller === "token") {
+    const name = item.credential?.name ?? "";
+    return item.credential?.owner ? t("callerPolicy.queue.byTokenOf", { name, owner: item.credential.owner }) : t("callerPolicy.queue.byToken", { name });
+  }
+  return null;
+}
+
 function columnsFor(t: T): Column<Approval>[] {
   return [
     {
@@ -60,7 +70,22 @@ function columnsFor(t: T): Column<Approval>[] {
       ),
     },
     { id: "state", header: t("approvals.table.state"), card: "status", width: "w-44", cell: (item) => <ApprovalStateLabel t={t} state={item.state} /> },
-    { id: "requester", header: t("approvals.table.requester"), hideBelow: "sm", cell: (item) => <span className="text-13">{who(t, item.requester)}</span> },
+    {
+      id: "requester",
+      header: t("approvals.table.requester"),
+      hideBelow: "sm",
+      stacked: (item) => item.client !== null && item.client !== undefined && callerLine(t, item) !== null,
+      cell: (item) => {
+        const line = callerLine(t, item);
+        return (
+          <span className="flex min-w-0 flex-col">
+            <span className="text-13">{line ?? who(t, item.requester)}</span>
+            {/* What a client says of itself is said as such: it is the client's word, never a fact of the server. */}
+            {line !== null && item.client !== null && item.client !== undefined ? <span className="text-12 text-fg-muted">{t("callerPolicy.queue.clientSays", { client: item.client.label })}</span> : null}
+          </span>
+        );
+      },
+    },
     {
       id: "reason",
       header: t("approvals.table.reason"),
@@ -114,6 +139,25 @@ function ApprovalDrawer({ approval, onClose }: { approval: Approval; onClose: ()
     { label: t("approvals.fields.action"), value: approval.action },
     { label: t("approvals.fields.call"), value: `${approval.method} ${approval.path}` },
     { label: t("approvals.fields.requester"), value: who(t, approval.requester), mono: false, copy: false },
+    ...(callerLine(t, approval) !== null
+      ? [
+          { label: t("callerPolicy.queue.calledBy"), value: callerLine(t, approval) ?? "", mono: false, copy: false as const },
+          ...(approval.client !== null && approval.client !== undefined
+            ? [{ label: t("callerPolicy.queue.clientSays", { client: approval.client.label }), value: t("callerPolicy.queue.clientHelp"), mono: false, copy: false as const }]
+            : []),
+          ...(approval.domain ? [{ label: t("callerPolicy.queue.application"), value: approval.domain, copy: false as const }] : []),
+          ...(approval.environment === "production" || approval.environment === "other"
+            ? [{ label: t("callerPolicy.queue.environment"), value: t(`callerPolicy.queue.environmentValue.${approval.environment}`), mono: false, copy: false as const }]
+            : []),
+          {
+            label: t("callerPolicy.queue.why"),
+            value: approval.origin === "policy" ? t("callerPolicy.queue.originPolicy") : approval.origin === "both" ? t("callerPolicy.queue.originBoth") : t("callerPolicy.queue.originRule"),
+            mono: false,
+            copy: false as const,
+          },
+          ...((approval.needs ?? []).length > 0 ? [{ label: t("callerPolicy.queue.needs"), value: (approval.needs ?? []).join(", "), copy: false as const }] : []),
+        ]
+      : []),
     { label: t("approvals.fields.reason"), value: approval.reason ?? t("approvals.table.noReason"), mono: false, copy: false },
     { label: t("approvals.fields.asked"), value: <RelativeTime value={approval.created_at} />, mono: false, copy: false },
     ...(approval.state === "requested"
@@ -203,7 +247,7 @@ export function ApprovalsPage({ search, onSearchChange }: ApprovalsPageProps) {
   const policy = useQuery(approvalPolicyQuery());
   const view: ApprovalsView = search.view ?? "waiting";
   const mine = search.mine === true;
-  const query = useQuery({ ...approvalsQuery(null, mine), refetchInterval: 15_000 });
+  const query = useQuery({ ...approvalsQuery(null, mine, search.caller ?? null), refetchInterval: 15_000 });
   const [open, setOpen] = useState<number | null>(null);
   const all = useMemo(() => query.data?.approvals ?? [], [query.data]);
   const shown = useMemo(() => all.filter((item) => inView(item, view)), [all, view]);
@@ -211,7 +255,7 @@ export function ApprovalsPage({ search, onSearchChange }: ApprovalsPageProps) {
   const columns = columnsFor(t);
   const set = (patch: { [K in keyof ApprovalsSearch]?: ApprovalsSearch[K] | undefined }): void => {
     const next = { ...search, ...patch };
-    onSearchChange({ ...(next.view !== undefined && next.view !== "waiting" ? { view: next.view } : {}), ...(next.mine === true ? { mine: true } : {}) }, { replace: true });
+    onSearchChange({ ...(next.view !== undefined && next.view !== "waiting" ? { view: next.view } : {}), ...(next.mine === true ? { mine: true } : {}), ...(next.caller !== undefined ? { caller: next.caller } : {}) }, { replace: true });
   };
   const deciders = (policy.data?.approvers ?? []).map((role) => roleLabel(t, role)).join(", ");
   const decider = session?.role !== null && session?.role !== undefined && (policy.data?.approvers ?? []).includes(session.role);
@@ -245,6 +289,16 @@ export function ApprovalsPage({ search, onSearchChange }: ApprovalsPageProps) {
                   ]}
                   value={view}
                   onValueChange={(value) => set({ view: value })}
+                />
+                <SegmentedControl<"all" | "token" | "assistant">
+                  label={t("callerPolicy.queue.callerFilter")}
+                  options={[
+                    { value: "all", label: t("callerPolicy.queue.all") },
+                    { value: "token", label: t("callerPolicy.queue.tokens") },
+                    { value: "assistant", label: t("callerPolicy.queue.assistant") },
+                  ]}
+                  value={search.caller ?? "all"}
+                  onValueChange={(value) => set({ caller: value === "all" ? undefined : value })}
                 />
                 {decider ? (
                   <Checkbox

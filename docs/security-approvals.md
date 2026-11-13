@@ -150,7 +150,10 @@ called: the class, the token, the environment, the application and the client th
 **Who changes it.** `security.manage` and sudo mode (`PUT /api/config/approval-policy`; `noust approvals
 policy set PERMISSION CALLER ENVIRONMENT VALUE` as root). Giving a token or the assistant more freedom than it
 has waits for a second person where the server asks for one; taking it away does not. Before saving, the
-console shows what it would change and to which credentials (`POST /api/config/approval-policy/preview`).
+console shows what it would change and to which credentials (`POST /api/config/approval-policy/preview`). In the console it is
+**Settings > Approval policy**: one table for each area, a padlock where the assistant never does it, a key where the row asks you to confirm it is you
+(and "Does it" is not offered), the factory's value said only where a cell differs from it, and the **Approvals** list says who called, with what a token
+said it was ("Says it is ...") labelled as its own word.
 
 **The MCP.** A tool of MCP is a call of the API with the caller's token, so it comes through the same
 place. A tool that changes something takes an `approval` argument: when a call waited for a person, the
@@ -177,4 +180,6 @@ database). Where there is none it says why: somebody else deployed after it, it 
 version before cannot be gone back to, the application is gone. What the token did that has no way back
 here (a deleted application, a restored backup, a database, a variable, a service stopped) is listed with
 its reason, never silently left out. Doing it is a job in sudo mode (`POST .../activity/{n}/undo`, `noust
-token activity NAME N --apply`) that says what went back and what did not.
+token activity NAME N --apply`) that says what went back and what did not. In the console the name of a token in **Settings > API tokens** opens
+its activity, an intervention is a page of its own (what it did in order, the deployments it started) and "Leave it as it was" shows the plan first;
+the assistant's credentials are listed under the tokens, one for each person.

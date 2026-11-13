@@ -3,7 +3,9 @@ import { Search } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode, RefObject } from "react";
 
+import { Button } from "../components/ui/Button";
 import { BACKDROP, MODAL_POPUP } from "../components/ui/Dialog";
+import { OBJECT_ICONS } from "../components/ui/objectIcons";
 import { Kbd } from "../components/ui/Kbd";
 import { Mono } from "../components/ui/Mono";
 import { StatusPill } from "../components/ui/StatusPill";
@@ -256,12 +258,14 @@ function PaletteBody({
   inputRef,
   scope,
   onQueryChange,
+  askAssistant,
 }: {
   commands: readonly Command[];
   onRun: (command: Command) => void;
   inputRef: RefObject<HTMLInputElement | null>;
   scope?: PaletteScope | undefined;
   onQueryChange?: ((text: string) => void) | undefined;
+  askAssistant?: ((question: string) => void) | undefined;
 }) {
   const t = useT();
   const [query, setQuery] = useState("");
@@ -422,6 +426,21 @@ function PaletteBody({
           <p className="text-13 text-fg-muted">{t("shell.search.noMatches", { query: query.trim() })}</p>
           <p className="text-12 text-pretty text-fg-faint">{t("shell.search.noMatchesHint")}</p>
           <p className="text-12 text-fg-faint">{t.rich("shell.search.noMatchesCli", { command: <Mono key="cli">noust --help</Mono> })}</p>
+          {/* What nothing here answers can be asked of the assistant, for who has one: with it off there is no such line. */}
+          {askAssistant !== undefined ? (
+            <div className="pt-3">
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<OBJECT_ICONS.assistant aria-hidden="true" />}
+                onClick={() =>
+                  onRun({ id: "assistant.ask", group: "Operations", kind: "action", label: t("assistant.palette.ask"), run: () => askAssistant(query.trim()) })
+                }
+              >
+                {t("assistant.palette.ask")}
+              </Button>
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -440,6 +459,8 @@ export interface CommandPaletteProps {
   returnFocus?: () => HTMLElement | null;
   /** Told the words typed (nothing once a mode's prefix is used or the palette closes): what asks the servers beyond this one reads it. */
   onQueryChange?: ((text: string) => void) | undefined;
+  /** Asks the built-in assistant what nothing here answers: given only where there is an assistant to ask, so that off, the palette has no such line. */
+  onAskAssistant?: ((question: string) => void) | undefined;
 }
 
 /**
@@ -447,7 +468,7 @@ export interface CommandPaletteProps {
  * combobox: focus stays in the input while the arrow keys move a highlighted option, which
  * is announced through aria-activedescendant.
  */
-export function CommandPalette({ open, onOpenChange, commands, scope, returnFocus, onQueryChange }: CommandPaletteProps) {
+export function CommandPalette({ open, onOpenChange, commands, scope, returnFocus, onQueryChange, onAskAssistant }: CommandPaletteProps) {
   const t = useT();
   const inputRef = useRef<HTMLInputElement>(null);
   const lastRun = useRef<Command["kind"] | null>(null);
@@ -493,7 +514,7 @@ export function CommandPalette({ open, onOpenChange, commands, scope, returnFocu
             className={cx(MODAL_POPUP, "sm:max-w-[640px]")}
           >
             <BaseDialog.Title className="sr-only">{t("shell.search.dialogTitle")}</BaseDialog.Title>
-            <PaletteBody commands={offered} onRun={run} inputRef={inputRef} scope={scope} onQueryChange={onQueryChange} />
+            <PaletteBody commands={offered} onRun={run} inputRef={inputRef} scope={scope} onQueryChange={onQueryChange} askAssistant={onAskAssistant} />
           </BaseDialog.Popup>
         </BaseDialog.Viewport>
       </BaseDialog.Portal>

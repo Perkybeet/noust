@@ -22,6 +22,7 @@ import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { TextLink } from "../../../components/ui/TextLink";
 import { useServerSentence } from "../../../components/ui/ServerText";
 import { useT } from "../../../i18n";
+import { ExplainThis } from "../../assistant/ExplainThis";
 import type { T } from "../../../i18n";
 import { cx } from "../../../lib/cx";
 import { hasUnit } from "../../apps/AppRowActions";
@@ -248,6 +249,7 @@ function Verdict({
           >
             {t("appPages.diagnose.runAgain")}
           </Button>
+          <ExplainThis page={{ kind: "diagnosis", domain }} />
         </>
       }
     >

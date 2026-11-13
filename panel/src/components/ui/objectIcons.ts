@@ -2,6 +2,7 @@ import {
   Archive,
   ArrowRight,
   BadgeInfo,
+  Ban,
   BellRing,
   Blocks,
   BookCheck,
@@ -30,8 +31,8 @@ import {
   FileCode,
   FileDown,
   FileJson,
-  FileTerminal,
   FileOutput,
+  FileTerminal,
   FileText,
   Fingerprint,
   Flame,
@@ -53,16 +54,19 @@ import {
   KeySquare,
   Layers,
   LayoutDashboard,
+  ListChecks,
   ListTodo,
   LogIn,
   Megaphone,
   MemoryStick,
+  MessageSquareText,
   MonitorCog,
   MonitorSmartphone,
   Network,
   Package,
   PanelTop,
   Pencil,
+  Play,
   PlugZap,
   Power,
   PowerOff,
@@ -94,6 +98,7 @@ import {
   Trash2,
   Undo2,
   Upload,
+  UserCheck,
   UserLock,
   UserRound,
   Users,
@@ -178,6 +183,8 @@ export const OBJECT_ICONS = {
   /** The picture an operator puts on the screens before the console. */
   signInImage: ImagePlus,
   approval: Stamp,
+  /** The policy of what a token and the assistant do with a call that changes something. */
+  approvalPolicy: ListChecks,
   // What the instance is, and how it is governed.
   noust: BadgeInfo,
   console: MonitorCog,
@@ -187,6 +194,8 @@ export const OBJECT_ICONS = {
   api: CodeXml,
   manifest: FileJson,
   mcp: Bot,
+  /** The built-in assistant: a conversation, never a spark, a wand or a robot. */
+  assistant: MessageSquareText,
   cloud: CloudCog,
   central: RadioTower,
   fleetSettings: Share2,
@@ -267,3 +276,16 @@ export const VERB_ICONS = {
 } as const satisfies Record<string, LucideIcon>;
 
 export type VerbName = keyof typeof VERB_ICONS;
+
+/**
+ * What a call that changes something does when a token or the assistant makes it (the policy of
+ * approval): it is done on its own, it waits for a person's approval, or it is refused. A shape
+ * for each, so the value reads without its colour.
+ */
+export const POLICY_ICONS = {
+  alone: Play,
+  propose: UserCheck,
+  never: Ban,
+} as const satisfies Record<string, LucideIcon>;
+
+export type PolicyValueName = keyof typeof POLICY_ICONS;

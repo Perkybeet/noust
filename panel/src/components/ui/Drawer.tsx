@@ -25,6 +25,12 @@ export interface DrawerProps {
    */
   placement?: "right" | "bottom";
   /**
+   * The content fills the body edge to edge and keeps its own scroll and its own foot, for a panel that is a place and not a
+   * detail (the assistant's: a conversation that scrolls over a box that stays). On a sheet it is a tall one, so the content has
+   * a height to fill. Without it the content is padded and scrolls as a whole.
+   */
+  flush?: boolean;
+  /**
    * Where focus goes on close; defaults to the trigger. Return false from a function to leave
    * it alone, for a drawer whose action moved the operator to another page.
    */
@@ -47,6 +53,7 @@ export function Drawer({
   onOpenChange,
   size = "md",
   placement = "right",
+  flush = false,
   finalFocus,
 }: DrawerProps) {
   const t = useT();
@@ -69,7 +76,10 @@ export function Drawer({
               "transition-transform duration-(--duration-enter) ease-(--ease-enter) data-swiping:duration-0",
               "data-ending-style:duration-(--duration-fast) data-ending-style:ease-(--ease-exit)",
               sheet
-                ? "max-h-sheet rounded-t-wall border-t bg-bg-column [transform:translateY(var(--drawer-swipe-movement-y))] data-starting-style:[transform:translateY(100%)] data-ending-style:[transform:translateY(100%)]"
+                ? cx(
+                    "max-h-sheet rounded-t-wall border-t bg-bg-column [transform:translateY(var(--drawer-swipe-movement-y))] data-starting-style:[transform:translateY(100%)] data-ending-style:[transform:translateY(100%)]",
+                    flush && "h-sheet",
+                  )
                 : cx(
                     "h-dvh border-l bg-surface [transform:translateX(var(--drawer-swipe-movement-x))] data-starting-style:[transform:translateX(100%)] data-ending-style:[transform:translateX(100%)]",
                     size === "md" ? "sm:max-w-drawer-md" : "sm:max-w-drawer-lg",
@@ -89,7 +99,11 @@ export function Drawer({
                   render={<IconButton label={t("common.dialog.close")} icon={<X />} size="sm" tooltip={false} className="-mr-2" />}
                 />
               </header>
-              <BaseDrawer.Content className={cx("min-h-0 flex-1 overflow-y-auto scroll-thin scroll-stable", sheet ? "pb-4" : "px-5 py-4")}>{children}</BaseDrawer.Content>
+              <BaseDrawer.Content
+                className={cx("min-h-0 flex-1", flush ? "flex flex-col overflow-hidden" : cx("overflow-y-auto scroll-thin scroll-stable", sheet ? "pb-4" : "px-5 py-4"))}
+              >
+                {children}
+              </BaseDrawer.Content>
               {footer !== undefined ? (
                 <footer className="flex items-center justify-end gap-2 border-t border-border bg-bg-sunken px-5 py-3">
                   {footer}

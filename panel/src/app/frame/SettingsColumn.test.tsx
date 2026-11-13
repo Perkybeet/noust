@@ -63,7 +63,7 @@ describe("Settings, on a fleet", () => {
   it("leaves out of Settings what is the machine's: the manifest is in Server", async () => {
     const { list } = await settingsAt("/settings/accounts", FLEET);
     expect(within(list).queryByRole("link", { name: /^Manifest/ })).toBeNull();
-    expect(within(group(list, "API")).getAllByRole("link").map((link) => link.textContent)).toEqual(["API tokens", "API reference", "MCP"]);
+    expect(within(group(list, "API")).getAllByRole("link").map((link) => link.textContent)).toEqual(["API tokens", "API reference", "MCP", "AI assistant"]);
   });
 
   it("opens the table of servers from the sections that are each server's own, never a server's page", async () => {
@@ -78,7 +78,7 @@ describe("Settings, on a fleet", () => {
   it("puts the line under a name that does not say what it is for, and the people's group under it in order", async () => {
     const { list } = await settingsAt("/settings/accounts", FLEET);
     const people = within(group(list, "People and access")).getAllByRole("link");
-    expect(people.map((link) => link.textContent)).toEqual(["Accounts", "Roles", "Single sign-onWith the company account", "Access security", "Approvals"]);
+    expect(people.map((link) => link.textContent)).toEqual(["Accounts", "Roles", "Single sign-onWith the company account", "Access security", "Approvals", "Approval policy"]);
   });
 });
 

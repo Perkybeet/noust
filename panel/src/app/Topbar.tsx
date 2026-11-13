@@ -9,6 +9,7 @@ import { Kbd } from "../components/ui/Kbd";
 import { OBJECT_ICONS } from "../components/ui/objectIcons";
 import { Popover } from "../components/ui/Popover";
 import { useMediaQuery } from "../components/ui/useMediaQuery";
+import { AssistantButton } from "../features/assistant/AssistantButton";
 import { InboxButton } from "../features/inbox/InboxButton";
 import { HelpMenu } from "../features/report/HelpMenu";
 import { TaskCentreButton } from "../features/tasks/TaskCentreButton";
@@ -136,6 +137,7 @@ export function Topbar({ onOpenPalette, onOpenShortcuts, searchTriggerRef }: Top
           </span>
         </button>
         <IconButton label={t("shell.search.label")} icon={<Search />} onClick={onOpenPalette} tooltip={false} className="@min-[66rem]:hidden" />
+        <AssistantButton />
         <TaskCentreButton />
         {/* On a phone the way to report a problem is in "More", where the rest of what is not a place lives. */}
         {phone ? null : <HelpMenu onOpenShortcuts={onOpenShortcuts} />}

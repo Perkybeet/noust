@@ -37,6 +37,15 @@ describe("DiffLines", () => {
     expect(container.querySelectorAll("[role='group'] > div")[3]?.textContent).toBe(" ");
   });
 
+  it("says the words of a plan's file when the page gives none, and its own words when it does", () => {
+    const { rerender } = render(<DiffLines lines={LINES} label="Changes" />);
+    expect(screen.getAllByText("Added line")).toHaveLength(1);
+    expect(screen.getAllByText("Removed line")).toHaveLength(1);
+    rerender(<DiffLines lines={LINES} label="Changes" labels={{ added: "Now in the stack", removed: "No longer in the stack" }} />);
+    expect(screen.getAllByText("Now in the stack")).toHaveLength(1);
+    expect(screen.queryByText("Added line")).toBeNull();
+  });
+
   it("has no accessibility violations", async () => {
     const { container } = render(<DiffLines lines={LINES} label="Changes" labels={LABELS} />);
     await expectNoAxeViolations(container);

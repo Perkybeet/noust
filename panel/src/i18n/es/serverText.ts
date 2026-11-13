@@ -1670,10 +1670,10 @@ export const serverText: Catalog<typeof en> = {
       },
       domains: {
         deleted: {
-          text: "El certificado está borrado",
+          text: "El certificado está eliminado",
         },
         deleting: {
-          text: "Borrando el certificado de {name}",
+          text: "Eliminando el certificado de {name}",
         },
         extended: {
           text: "El certificado cubre todos los dominios",
@@ -2075,13 +2075,13 @@ export const serverText: Catalog<typeof en> = {
         text: "Ahora sirve la versión {release}",
       },
       delete_files_kept: {
-        text: "El directorio de {domain} se queda en disco: los ficheros solo se borran si lo pides",
+        text: "El directorio de {domain} se queda en disco: los ficheros solo se eliminan si lo pides",
       },
       delete_certificate_kept: {
-        text: "El certificado de {domain} se queda: solo se borra si lo pides",
+        text: "El certificado de {domain} se queda: solo se elimina si lo pides",
       },
       delete_volumes_kept: {
-        text: "Los volúmenes de Docker de {domain} se quedan, con sus datos: solo se borran si lo pides",
+        text: "Los volúmenes de Docker de {domain} se quedan, con sus datos: solo se eliminan si lo pides",
       },
       delete_database_kept: {
         text: "La base de datos {database} se queda: una base de datos solo se elimina si lo pides, y nunca si la usa otra aplicación",

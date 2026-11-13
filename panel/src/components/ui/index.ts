@@ -62,6 +62,8 @@ export type { NoticeProps, NoticeTone } from "./Notice";
 export { ICON_SIZE, ICONS } from "./icons";
 export type { IconName, IconSize } from "./icons";
 export type { MonoProps } from "./Mono";
+export { PlanPreview, planFrom } from "./PlanPreview";
+export type { Plan, PlanCommand, PlanFile, PlanPreviewProps, PlanSentence, PlanStep } from "./PlanPreview";
 export { Popover } from "./Popover";
 export type { PopoverProps } from "./Popover";
 export { Meter, Progress } from "./Progress";

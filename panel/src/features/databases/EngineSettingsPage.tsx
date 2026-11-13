@@ -267,6 +267,7 @@ function SettingsForm({ engine, data }: { engine: string; data: EngineSettings }
         <ConfirmDialog
           open
           friction="simple"
+        destructive={false}
           onOpenChange={(open) => (open ? undefined : setExposure(null))}
           title={t("databases.engineSettings.confirmTitle", { engine: display })}
           description={

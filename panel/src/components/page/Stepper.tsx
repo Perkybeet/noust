@@ -63,7 +63,9 @@ export function Stepper({ steps, current, orientation = "vertical", onSelect, cl
             <span
               aria-hidden="true"
               className={cx(
-                "truncate text-13",
+                // On a phone the step in hand is the only label drawn and it is read whole, over two lines if it needs them: cut, a
+                // person would not know which step this is. The others are a marker each.
+                vertical || state !== "current" ? "truncate text-13" : "max-w-48 text-13 text-balance sm:max-w-none sm:truncate",
                 state === "current" ? "font-medium text-fg" : "text-fg-muted",
                 !vertical && state !== "current" && "max-sm:sr-only",
               )}
@@ -78,7 +80,7 @@ export function Stepper({ steps, current, orientation = "vertical", onSelect, cl
           <li
             key={step.id}
             {...(state === "current" ? { "aria-current": "step" as const } : {})}
-            className={cx(vertical ? "relative flex min-h-10 items-center" : "flex min-w-0 items-center gap-2", !vertical && index < steps.length - 1 && "flex-1")}
+            className={cx(vertical ? "relative flex min-h-10 items-center" : "flex min-w-0 items-center gap-2", !vertical && index < steps.length - 1 && "flex-1", !vertical && state === "current" && "max-sm:shrink-0")}
           >
             {state === "done" && onSelect !== undefined ? (
               <button

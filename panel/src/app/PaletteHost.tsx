@@ -8,6 +8,8 @@ import type { SearchHit } from "../api/queries/views";
 import { useT } from "../i18n";
 import { useHasFleet, useServerList } from "../nodes/servers";
 import { useSelection } from "../nodes/useNode";
+import { openPanel } from "../features/assistant/store";
+import { useAssistantSession } from "../features/assistant/useAssistantSession";
 import { CommandPalette } from "./CommandPalette";
 import type { PaletteScope } from "./CommandPalette";
 import { FLEET_SEARCH_LIMIT, fleetSearchCommands } from "./fleetSearchCommands";
@@ -54,6 +56,7 @@ export default function PaletteHost({ open, onOpenChange, onOpenShortcuts, onVer
   const own = useConsoleCommands(open, onOpenShortcuts, onVerb);
   const scope = usePaletteScope();
   const navigate = useNavigate();
+  const assistant = useAssistantSession();
   const [typed, setTyped] = useState("");
   const { hits, words } = useFleetHits(typed, open);
   // What is on the other servers of the fleet, found by the central, beside what is on this one.
@@ -61,7 +64,17 @@ export default function PaletteHost({ open, onOpenChange, onOpenShortcuts, onVer
     () => [...own, ...fleetSearchCommands(hits, words, (target) => void navigate({ to: target.to, search: target.search as never }))],
     [own, hits, words, navigate],
   );
-  return <CommandPalette open={open} onOpenChange={onOpenChange} commands={commands} scope={scope} returnFocus={returnFocus} onQueryChange={setTyped} />;
+  return (
+    <CommandPalette
+      open={open}
+      onOpenChange={onOpenChange}
+      commands={commands}
+      scope={scope}
+      returnFocus={returnFocus}
+      onQueryChange={setTyped}
+      {...(assistant !== null ? { onAskAssistant: (question: string) => openPanel({ page: null, label: null, question }) } : {})}
+    />
+  );
 }
 
 const NO_HITS: readonly SearchHit[] = [];

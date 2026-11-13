@@ -3,6 +3,7 @@ import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } fro
 import type { MouseEvent } from "react";
 
 import { Drawer } from "../components/ui/Drawer";
+import { AssistantMount } from "../features/assistant/AssistantMount";
 import type { AppInfo } from "../features/apps/data";
 import { useT } from "../i18n";
 import { openReport } from "../features/report/store";
@@ -224,6 +225,8 @@ export function Shell() {
             </div>
           </main>
         </div>
+        {/* Beside the page and pushing it from 1792 px, over it below; loaded only when it is opened. */}
+        <AssistantMount />
         {layout.phone ? (
           <BottomBar
             onOpenMore={() => {

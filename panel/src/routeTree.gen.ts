@@ -106,7 +106,9 @@ import { Route as ConsoleSettingsAccessSecurityRouteImport } from "./routes/_con
 import { Route as ConsoleSettingsAccountsRouteImport } from "./routes/_console/settings/accounts"
 import { Route as ConsoleSettingsAlertsRouteImport } from "./routes/_console/settings/alerts"
 import { Route as ConsoleSettingsApiRouteImport } from "./routes/_console/settings/api"
+import { Route as ConsoleSettingsApprovalPolicyRouteImport } from "./routes/_console/settings/approval-policy"
 import { Route as ConsoleSettingsApprovalsRouteImport } from "./routes/_console/settings/approvals"
+import { Route as ConsoleSettingsAssistantRouteImport } from "./routes/_console/settings/assistant"
 import { Route as ConsoleSettingsAuditRouteImport } from "./routes/_console/settings/audit"
 import { Route as ConsoleSettingsCentralRouteImport } from "./routes/_console/settings/central"
 import { Route as ConsoleSettingsCloudRouteImport } from "./routes/_console/settings/cloud"
@@ -174,6 +176,7 @@ import { Route as ConsoleServerDockerNetworksRouteImport } from "./routes/_conso
 import { Route as ConsoleServerDockerStacksRouteImport } from "./routes/_console/server_/docker/stacks"
 import { Route as ConsoleServerDockerVolumesRouteImport } from "./routes/_console/server_/docker/volumes"
 import { Route as ConsoleServerServicesNameRouteImport } from "./routes/_console/server_/services/$name"
+import { Route as ConsoleSettingsAssistantDataRouteImport } from "./routes/_console/settings/assistant_/data"
 import { Route as ConsoleTeamsTeamIndexRouteImport } from "./routes/_console/teams/$team/index"
 import { Route as ConsoleTeamsTeamMembersRouteImport } from "./routes/_console/teams/$team/members"
 import { Route as ConsoleTeamsTeamNotificationsRouteImport } from "./routes/_console/teams/$team/notifications"
@@ -219,6 +222,8 @@ import { Route as ConsoleServerDockerStacksNameRouteImport } from "./routes/_con
 import { Route as ConsoleServerServicesNameIndexRouteImport } from "./routes/_console/server_/services/$name/index"
 import { Route as ConsoleServerServicesNameLogsRouteImport } from "./routes/_console/server_/services/$name/logs"
 import { Route as ConsoleServerServicesNameUnitRouteImport } from "./routes/_console/server_/services/$name_/unit"
+import { Route as ConsoleSettingsTokensIdIndexRouteImport } from "./routes/_console/settings/tokens_/$id/index"
+import { Route as ConsoleSettingsTokensIdNRouteImport } from "./routes/_console/settings/tokens_/$id/$n"
 
 const ConsoleRoute = ConsoleRouteImport.update({
   id: "/_console",
@@ -710,10 +715,22 @@ const ConsoleSettingsApiRoute = ConsoleSettingsApiRouteImport.update({
   path: "/api",
   getParentRoute: () => ConsoleSettingsRoute,
 } as any)
+const ConsoleSettingsApprovalPolicyRoute =
+  ConsoleSettingsApprovalPolicyRouteImport.update({
+    id: "/approval-policy",
+    path: "/approval-policy",
+    getParentRoute: () => ConsoleSettingsRoute,
+  } as any)
 const ConsoleSettingsApprovalsRoute =
   ConsoleSettingsApprovalsRouteImport.update({
     id: "/approvals",
     path: "/approvals",
+    getParentRoute: () => ConsoleSettingsRoute,
+  } as any)
+const ConsoleSettingsAssistantRoute =
+  ConsoleSettingsAssistantRouteImport.update({
+    id: "/assistant",
+    path: "/assistant",
     getParentRoute: () => ConsoleSettingsRoute,
   } as any)
 const ConsoleSettingsAuditRoute = ConsoleSettingsAuditRouteImport.update({
@@ -1089,6 +1106,12 @@ const ConsoleServerServicesNameRoute =
     path: "/server/services/$name",
     getParentRoute: () => ConsoleRoute,
   } as any)
+const ConsoleSettingsAssistantDataRoute =
+  ConsoleSettingsAssistantDataRouteImport.update({
+    id: "/assistant_/data",
+    path: "/assistant/data",
+    getParentRoute: () => ConsoleSettingsRoute,
+  } as any)
 const ConsoleTeamsTeamIndexRoute = ConsoleTeamsTeamIndexRouteImport.update({
   id: "/",
   path: "/",
@@ -1357,6 +1380,18 @@ const ConsoleServerServicesNameUnitRoute =
     path: "/server/services/$name/unit",
     getParentRoute: () => ConsoleRoute,
   } as any)
+const ConsoleSettingsTokensIdIndexRoute =
+  ConsoleSettingsTokensIdIndexRouteImport.update({
+    id: "/tokens_/$id/",
+    path: "/tokens/$id/",
+    getParentRoute: () => ConsoleSettingsRoute,
+  } as any)
+const ConsoleSettingsTokensIdNRoute =
+  ConsoleSettingsTokensIdNRouteImport.update({
+    id: "/tokens_/$id/$n",
+    path: "/tokens/$id/$n",
+    getParentRoute: () => ConsoleSettingsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   "/": typeof ConsoleIndexRoute
@@ -1441,7 +1476,9 @@ export interface FileRoutesByFullPath {
   "/settings/accounts": typeof ConsoleSettingsAccountsRoute
   "/settings/alerts": typeof ConsoleSettingsAlertsRoute
   "/settings/api": typeof ConsoleSettingsApiRoute
+  "/settings/approval-policy": typeof ConsoleSettingsApprovalPolicyRoute
   "/settings/approvals": typeof ConsoleSettingsApprovalsRoute
+  "/settings/assistant": typeof ConsoleSettingsAssistantRoute
   "/settings/audit": typeof ConsoleSettingsAuditRoute
   "/settings/central": typeof ConsoleSettingsCentralRoute
   "/settings/cloud": typeof ConsoleSettingsCloudRoute
@@ -1517,6 +1554,7 @@ export interface FileRoutesByFullPath {
   "/server/docker/stacks": typeof ConsoleServerDockerStacksRoute
   "/server/docker/volumes": typeof ConsoleServerDockerVolumesRoute
   "/server/services/$name": typeof ConsoleServerServicesNameRouteWithChildren
+  "/settings/assistant/data": typeof ConsoleSettingsAssistantDataRoute
   "/teams/$team/members": typeof ConsoleTeamsTeamMembersRoute
   "/teams/$team/notifications": typeof ConsoleTeamsTeamNotificationsRoute
   "/teams/$team/settings": typeof ConsoleTeamsTeamSettingsRoute
@@ -1564,10 +1602,12 @@ export interface FileRoutesByFullPath {
   "/server/docker/stacks/$name": typeof ConsoleServerDockerStacksNameRoute
   "/server/services/$name/logs": typeof ConsoleServerServicesNameLogsRoute
   "/server/services/$name/unit": typeof ConsoleServerServicesNameUnitRoute
+  "/settings/tokens/$id/$n": typeof ConsoleSettingsTokensIdNRoute
   "/apps/$domain/deployments/": typeof ConsoleAppsDomainDeploymentsIndexRoute
   "/apps/$domain/settings/": typeof ConsoleAppsDomainSettingsIndexRoute
   "/databases/$engine/$name/": typeof ConsoleDatabasesEngineNameIndexRoute
   "/server/services/$name/": typeof ConsoleServerServicesNameIndexRoute
+  "/settings/tokens/$id/": typeof ConsoleSettingsTokensIdIndexRoute
 }
 export interface FileRoutesByTo {
   "/invite": typeof InviteRoute
@@ -1644,7 +1684,9 @@ export interface FileRoutesByTo {
   "/settings/accounts": typeof ConsoleSettingsAccountsRoute
   "/settings/alerts": typeof ConsoleSettingsAlertsRoute
   "/settings/api": typeof ConsoleSettingsApiRoute
+  "/settings/approval-policy": typeof ConsoleSettingsApprovalPolicyRoute
   "/settings/approvals": typeof ConsoleSettingsApprovalsRoute
+  "/settings/assistant": typeof ConsoleSettingsAssistantRoute
   "/settings/audit": typeof ConsoleSettingsAuditRoute
   "/settings/central": typeof ConsoleSettingsCentralRoute
   "/settings/cloud": typeof ConsoleSettingsCloudRoute
@@ -1717,6 +1759,7 @@ export interface FileRoutesByTo {
   "/server/docker/networks": typeof ConsoleServerDockerNetworksRoute
   "/server/docker/stacks": typeof ConsoleServerDockerStacksRoute
   "/server/docker/volumes": typeof ConsoleServerDockerVolumesRoute
+  "/settings/assistant/data": typeof ConsoleSettingsAssistantDataRoute
   "/teams/$team/members": typeof ConsoleTeamsTeamMembersRoute
   "/teams/$team/notifications": typeof ConsoleTeamsTeamNotificationsRoute
   "/teams/$team/settings": typeof ConsoleTeamsTeamSettingsRoute
@@ -1764,10 +1807,12 @@ export interface FileRoutesByTo {
   "/server/docker/stacks/$name": typeof ConsoleServerDockerStacksNameRoute
   "/server/services/$name/logs": typeof ConsoleServerServicesNameLogsRoute
   "/server/services/$name/unit": typeof ConsoleServerServicesNameUnitRoute
+  "/settings/tokens/$id/$n": typeof ConsoleSettingsTokensIdNRoute
   "/apps/$domain/deployments": typeof ConsoleAppsDomainDeploymentsIndexRoute
   "/apps/$domain/settings": typeof ConsoleAppsDomainSettingsIndexRoute
   "/databases/$engine/$name": typeof ConsoleDatabasesEngineNameIndexRoute
   "/server/services/$name": typeof ConsoleServerServicesNameIndexRoute
+  "/settings/tokens/$id": typeof ConsoleSettingsTokensIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -1854,7 +1899,9 @@ export interface FileRoutesById {
   "/_console/settings/accounts": typeof ConsoleSettingsAccountsRoute
   "/_console/settings/alerts": typeof ConsoleSettingsAlertsRoute
   "/_console/settings/api": typeof ConsoleSettingsApiRoute
+  "/_console/settings/approval-policy": typeof ConsoleSettingsApprovalPolicyRoute
   "/_console/settings/approvals": typeof ConsoleSettingsApprovalsRoute
+  "/_console/settings/assistant": typeof ConsoleSettingsAssistantRoute
   "/_console/settings/audit": typeof ConsoleSettingsAuditRoute
   "/_console/settings/central": typeof ConsoleSettingsCentralRoute
   "/_console/settings/cloud": typeof ConsoleSettingsCloudRoute
@@ -1930,6 +1977,7 @@ export interface FileRoutesById {
   "/_console/server_/docker/stacks": typeof ConsoleServerDockerStacksRoute
   "/_console/server_/docker/volumes": typeof ConsoleServerDockerVolumesRoute
   "/_console/server_/services/$name": typeof ConsoleServerServicesNameRouteWithChildren
+  "/_console/settings/assistant_/data": typeof ConsoleSettingsAssistantDataRoute
   "/_console/teams/$team/members": typeof ConsoleTeamsTeamMembersRoute
   "/_console/teams/$team/notifications": typeof ConsoleTeamsTeamNotificationsRoute
   "/_console/teams/$team/settings": typeof ConsoleTeamsTeamSettingsRoute
@@ -1977,10 +2025,12 @@ export interface FileRoutesById {
   "/_console/server_/docker/stacks_/$name": typeof ConsoleServerDockerStacksNameRoute
   "/_console/server_/services/$name/logs": typeof ConsoleServerServicesNameLogsRoute
   "/_console/server_/services/$name_/unit": typeof ConsoleServerServicesNameUnitRoute
+  "/_console/settings/tokens_/$id/$n": typeof ConsoleSettingsTokensIdNRoute
   "/_console/apps/$domain/deployments/": typeof ConsoleAppsDomainDeploymentsIndexRoute
   "/_console/apps/$domain/settings/": typeof ConsoleAppsDomainSettingsIndexRoute
   "/_console/databases/$engine/$name/": typeof ConsoleDatabasesEngineNameIndexRoute
   "/_console/server_/services/$name/": typeof ConsoleServerServicesNameIndexRoute
+  "/_console/settings/tokens_/$id/": typeof ConsoleSettingsTokensIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -2067,7 +2117,9 @@ export interface FileRouteTypes {
     | "/settings/accounts"
     | "/settings/alerts"
     | "/settings/api"
+    | "/settings/approval-policy"
     | "/settings/approvals"
+    | "/settings/assistant"
     | "/settings/audit"
     | "/settings/central"
     | "/settings/cloud"
@@ -2143,6 +2195,7 @@ export interface FileRouteTypes {
     | "/server/docker/stacks"
     | "/server/docker/volumes"
     | "/server/services/$name"
+    | "/settings/assistant/data"
     | "/teams/$team/members"
     | "/teams/$team/notifications"
     | "/teams/$team/settings"
@@ -2190,10 +2243,12 @@ export interface FileRouteTypes {
     | "/server/docker/stacks/$name"
     | "/server/services/$name/logs"
     | "/server/services/$name/unit"
+    | "/settings/tokens/$id/$n"
     | "/apps/$domain/deployments/"
     | "/apps/$domain/settings/"
     | "/databases/$engine/$name/"
     | "/server/services/$name/"
+    | "/settings/tokens/$id/"
   fileRoutesByTo: FileRoutesByTo
   to:
     | "/invite"
@@ -2270,7 +2325,9 @@ export interface FileRouteTypes {
     | "/settings/accounts"
     | "/settings/alerts"
     | "/settings/api"
+    | "/settings/approval-policy"
     | "/settings/approvals"
+    | "/settings/assistant"
     | "/settings/audit"
     | "/settings/central"
     | "/settings/cloud"
@@ -2343,6 +2400,7 @@ export interface FileRouteTypes {
     | "/server/docker/networks"
     | "/server/docker/stacks"
     | "/server/docker/volumes"
+    | "/settings/assistant/data"
     | "/teams/$team/members"
     | "/teams/$team/notifications"
     | "/teams/$team/settings"
@@ -2390,10 +2448,12 @@ export interface FileRouteTypes {
     | "/server/docker/stacks/$name"
     | "/server/services/$name/logs"
     | "/server/services/$name/unit"
+    | "/settings/tokens/$id/$n"
     | "/apps/$domain/deployments"
     | "/apps/$domain/settings"
     | "/databases/$engine/$name"
     | "/server/services/$name"
+    | "/settings/tokens/$id"
   id:
     | "__root__"
     | "/_console"
@@ -2479,7 +2539,9 @@ export interface FileRouteTypes {
     | "/_console/settings/accounts"
     | "/_console/settings/alerts"
     | "/_console/settings/api"
+    | "/_console/settings/approval-policy"
     | "/_console/settings/approvals"
+    | "/_console/settings/assistant"
     | "/_console/settings/audit"
     | "/_console/settings/central"
     | "/_console/settings/cloud"
@@ -2555,6 +2617,7 @@ export interface FileRouteTypes {
     | "/_console/server_/docker/stacks"
     | "/_console/server_/docker/volumes"
     | "/_console/server_/services/$name"
+    | "/_console/settings/assistant_/data"
     | "/_console/teams/$team/members"
     | "/_console/teams/$team/notifications"
     | "/_console/teams/$team/settings"
@@ -2602,10 +2665,12 @@ export interface FileRouteTypes {
     | "/_console/server_/docker/stacks_/$name"
     | "/_console/server_/services/$name/logs"
     | "/_console/server_/services/$name_/unit"
+    | "/_console/settings/tokens_/$id/$n"
     | "/_console/apps/$domain/deployments/"
     | "/_console/apps/$domain/settings/"
     | "/_console/databases/$engine/$name/"
     | "/_console/server_/services/$name/"
+    | "/_console/settings/tokens_/$id/"
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -3298,11 +3363,25 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleSettingsApiRouteImport
       parentRoute: typeof ConsoleSettingsRoute
     }
+    "/_console/settings/approval-policy": {
+      id: "/_console/settings/approval-policy"
+      path: "/approval-policy"
+      fullPath: "/settings/approval-policy"
+      preLoaderRoute: typeof ConsoleSettingsApprovalPolicyRouteImport
+      parentRoute: typeof ConsoleSettingsRoute
+    }
     "/_console/settings/approvals": {
       id: "/_console/settings/approvals"
       path: "/approvals"
       fullPath: "/settings/approvals"
       preLoaderRoute: typeof ConsoleSettingsApprovalsRouteImport
+      parentRoute: typeof ConsoleSettingsRoute
+    }
+    "/_console/settings/assistant": {
+      id: "/_console/settings/assistant"
+      path: "/assistant"
+      fullPath: "/settings/assistant"
+      preLoaderRoute: typeof ConsoleSettingsAssistantRouteImport
       parentRoute: typeof ConsoleSettingsRoute
     }
     "/_console/settings/audit": {
@@ -3774,6 +3853,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleServerServicesNameRouteImport
       parentRoute: typeof ConsoleRoute
     }
+    "/_console/settings/assistant_/data": {
+      id: "/_console/settings/assistant_/data"
+      path: "/assistant/data"
+      fullPath: "/settings/assistant/data"
+      preLoaderRoute: typeof ConsoleSettingsAssistantDataRouteImport
+      parentRoute: typeof ConsoleSettingsRoute
+    }
     "/_console/teams/$team/": {
       id: "/_console/teams/$team/"
       path: "/"
@@ -4089,6 +4175,20 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleServerServicesNameUnitRouteImport
       parentRoute: typeof ConsoleRoute
     }
+    "/_console/settings/tokens_/$id/": {
+      id: "/_console/settings/tokens_/$id/"
+      path: "/tokens/$id"
+      fullPath: "/settings/tokens/$id/"
+      preLoaderRoute: typeof ConsoleSettingsTokensIdIndexRouteImport
+      parentRoute: typeof ConsoleSettingsRoute
+    }
+    "/_console/settings/tokens_/$id/$n": {
+      id: "/_console/settings/tokens_/$id/$n"
+      path: "/tokens/$id/$n"
+      fullPath: "/settings/tokens/$id/$n"
+      preLoaderRoute: typeof ConsoleSettingsTokensIdNRouteImport
+      parentRoute: typeof ConsoleSettingsRoute
+    }
   }
 }
 
@@ -4273,7 +4373,9 @@ interface ConsoleSettingsRouteChildren {
   ConsoleSettingsAccountsRoute: typeof ConsoleSettingsAccountsRoute
   ConsoleSettingsAlertsRoute: typeof ConsoleSettingsAlertsRoute
   ConsoleSettingsApiRoute: typeof ConsoleSettingsApiRoute
+  ConsoleSettingsApprovalPolicyRoute: typeof ConsoleSettingsApprovalPolicyRoute
   ConsoleSettingsApprovalsRoute: typeof ConsoleSettingsApprovalsRoute
+  ConsoleSettingsAssistantRoute: typeof ConsoleSettingsAssistantRoute
   ConsoleSettingsAuditRoute: typeof ConsoleSettingsAuditRoute
   ConsoleSettingsCentralRoute: typeof ConsoleSettingsCentralRoute
   ConsoleSettingsCloudRoute: typeof ConsoleSettingsCloudRoute
@@ -4298,6 +4400,9 @@ interface ConsoleSettingsRouteChildren {
   ConsoleSettingsTokensRoute: typeof ConsoleSettingsTokensRoute
   ConsoleSettingsVariablesRoute: typeof ConsoleSettingsVariablesRoute
   ConsoleSettingsIndexRoute: typeof ConsoleSettingsIndexRoute
+  ConsoleSettingsAssistantDataRoute: typeof ConsoleSettingsAssistantDataRoute
+  ConsoleSettingsTokensIdNRoute: typeof ConsoleSettingsTokensIdNRoute
+  ConsoleSettingsTokensIdIndexRoute: typeof ConsoleSettingsTokensIdIndexRoute
 }
 
 const ConsoleSettingsRouteChildren: ConsoleSettingsRouteChildren = {
@@ -4307,7 +4412,9 @@ const ConsoleSettingsRouteChildren: ConsoleSettingsRouteChildren = {
   ConsoleSettingsAccountsRoute: ConsoleSettingsAccountsRoute,
   ConsoleSettingsAlertsRoute: ConsoleSettingsAlertsRoute,
   ConsoleSettingsApiRoute: ConsoleSettingsApiRoute,
+  ConsoleSettingsApprovalPolicyRoute: ConsoleSettingsApprovalPolicyRoute,
   ConsoleSettingsApprovalsRoute: ConsoleSettingsApprovalsRoute,
+  ConsoleSettingsAssistantRoute: ConsoleSettingsAssistantRoute,
   ConsoleSettingsAuditRoute: ConsoleSettingsAuditRoute,
   ConsoleSettingsCentralRoute: ConsoleSettingsCentralRoute,
   ConsoleSettingsCloudRoute: ConsoleSettingsCloudRoute,
@@ -4332,6 +4439,9 @@ const ConsoleSettingsRouteChildren: ConsoleSettingsRouteChildren = {
   ConsoleSettingsTokensRoute: ConsoleSettingsTokensRoute,
   ConsoleSettingsVariablesRoute: ConsoleSettingsVariablesRoute,
   ConsoleSettingsIndexRoute: ConsoleSettingsIndexRoute,
+  ConsoleSettingsAssistantDataRoute: ConsoleSettingsAssistantDataRoute,
+  ConsoleSettingsTokensIdNRoute: ConsoleSettingsTokensIdNRoute,
+  ConsoleSettingsTokensIdIndexRoute: ConsoleSettingsTokensIdIndexRoute,
 }
 
 const ConsoleSettingsRouteWithChildren = ConsoleSettingsRoute._addFileChildren(

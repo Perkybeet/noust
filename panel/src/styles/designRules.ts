@@ -349,6 +349,11 @@ export const KIT_HEIGHTS: Readonly<Record<string, readonly Height[]>> = {
   "components/ui/Switch.tsx": ["carved", "raised"],
   "components/ui/Progress.tsx": ["carved"],
   "components/ui/CopyValue.tsx": ["carved"],
+  // the system's words, a plan's orders and a model's code are carved in: they are typed, pasted or read as they are
+  "components/ui/DiffLines.tsx": ["carved"],
+  "components/ui/PlanPreview.tsx": ["carved"],
+  "components/assistant/MessageText.tsx": ["carved"],
+  "components/assistant/ProposalCard.tsx": ["carved"],
   "components/ui/FirstUse.tsx": ["carved"],
   "components/ui/LogoTile.tsx": ["carved"],
   "components/page/SegmentedControl.tsx": ["carved", "raised"],
@@ -357,6 +362,7 @@ export const KIT_HEIGHTS: Readonly<Record<string, readonly Height[]>> = {
   "app/LinkTabs.tsx": ["carved", "raised"],
   // seated: what is read
   "components/ui/Card.tsx": ["seated"],
+  "components/page/PolicyMatrix.tsx": ["seated"],
   "components/ui/DataTable.tsx": ["seated"],
   "components/ui/Dialog.tsx": ["seated"],
   "components/ui/Drawer.tsx": ["seated"],

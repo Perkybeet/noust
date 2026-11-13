@@ -11,6 +11,7 @@ import re
 from collections.abc import Sequence
 from pathlib import Path
 
+from .assistant_seed import MODES as ASSISTANT_MODES
 from .host_profile import PROFILES
 
 # ---------------------------------------------------------------------------
@@ -172,6 +173,18 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help=(
             "register, on this central, a node console already serving at HOST:PORT "
             "under NAME, without ssh - see join_fleet_node() (the fleet's E2E suite only)"
+        ),
+    )
+    parser.add_argument(
+        "--assistant",
+        choices=ASSISTANT_MODES,
+        default="off",
+        help=(
+            "the built-in assistant of this console, over a model that answers what a test dictates "
+            "(tests/support/scripted_model.py; no provider is ever asked): 'off' is a fresh server; "
+            "'ready' starts the model and leaves the assistant unconfigured; 'on' turns it on over a "
+            "model that calls tools; 'no-tools' over one that only talks. The address to script the model "
+            "with is printed as assistant_model"
         ),
     )
     parser.add_argument(

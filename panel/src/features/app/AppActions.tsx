@@ -21,6 +21,8 @@ import { NothingNewDialog } from "../apps/NothingNewDialog";
 import { useAppActions } from "../apps/useAppActions";
 import { useRollback } from "./RollbackHost";
 import { StopAppDialog } from "./StopAppDialog";
+import { UpdatePlanDialog } from "./UpdatePlanDialog";
+import { useNode } from "../../nodes/useNode";
 import { useHasPermission } from "../terminal/queries";
 import { useStageRelease } from "./useStagedRelease";
 import { OBJECT_ICONS, VERB_ICONS } from "../../components/ui/objectIcons";
@@ -81,6 +83,10 @@ export function useAppHeaderActions(
   const stage = useStageRelease(domain, onJobQueued);
   const navigate = useNavigate();
   const [confirmStop, setConfirmStop] = useState(false);
+  const [seeingUpdate, setSeeingUpdate] = useState(false);
+  // The header's Update and the one that follows looking at what it would do are the same call.
+  const runUpdate = (): void => update.mutate();
+  const { node } = useNode();
   const { openRollback } = useRollback();
   // The terminal is offered to whoever may open it; the server decides again when it is asked.
   const canOpenTerminal = useHasPermission("apps.terminal") === true;
@@ -154,6 +160,7 @@ export function useAppHeaderActions(
   const dialogs = (
     <>
       <StopAppDialog domain={domain} open={confirmStop} onOpenChange={setConfirmStop} stop={stop} />
+      <UpdatePlanDialog domain={domain} open={seeingUpdate} onOpenChange={setSeeingUpdate} onUpdate={runUpdate} />
       <NothingNewDialog
         domain={domain}
         refusal={nothingNew}
@@ -186,9 +193,15 @@ export function useAppHeaderActions(
               variant="primary"
               icon={<CircleArrowUp aria-hidden="true" />}
               loading={update.isPending || busy}
-              onClick={() => update.mutate()}
+              onClick={runUpdate}
               menu={
                 <>
+                  {/* Noust's simulation of the update, on the server this console is on: a node may run a Noust that has none, and then it is not offered. */}
+                  {node === null ? (
+                    <MenuItem icon={<OBJECT_ICONS.log />} onClick={() => setSeeingUpdate(true)}>
+                      {t("plans.update.menu")}
+                    </MenuItem>
+                  ) : null}
                   <MenuItem icon={<VERB_ICONS.rebuild />} onClick={() => rebuildFresh.mutate()}>
                     {t("appPages.actions.updateFresh")}
                   </MenuItem>

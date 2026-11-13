@@ -21,6 +21,7 @@ import { appStatus } from "../../../components/page/status";
 import { useNow } from "../../../components/page/clock";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../../components/page/QueryState";
+import { ExplainThis } from "../../assistant/ExplainThis";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Section } from "../../../components/page/Section";
 import { useAnnounceChange } from "../../../components/page/useAnnounceChange";
@@ -601,6 +602,7 @@ function FailureBlock({
         hint={words.hint}
         action={
           <>
+            <ExplainThis page={{ kind: "deployment", id: deployment.id, domain }} />
             <a
               href={`#${LOG_ANCHOR}`}
               className={buttonClassName("secondary", "sm")}

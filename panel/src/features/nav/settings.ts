@@ -62,6 +62,13 @@ export const SETTINGS_SCREENS: Strip = [
     keywords: "approvals.nav.keywords",
     command: "approvals.nav.command",
   }),
+  // Beside the requests that wait for a second person: what a token and the assistant may do alone is decided here.
+  setting("approval-policy", "callerPolicy.nav.label", "instance", "people", {
+    central: true,
+    keywords: "callerPolicy.nav.keywords",
+    command: "callerPolicy.nav.command",
+    permission: "settings.read",
+  }),
   // Where the messages go. What warns (the rules, the probes) is Alerts, an area of the bar; what is copied out is a connection.
   // The channels are the central's and every server it manages follows them (item 166): the selector does not count here.
   setting("notifications", "nav.settingsTabs.notifications.label", "fleet", "notices", {
@@ -131,6 +138,14 @@ export const SETTINGS_SCREENS: Strip = [
     central: true,
     keywords: "mcpSettings.nav.keywords",
     command: "mcpSettings.nav.command",
+    permission: "settings.read",
+  }),
+  // The built-in assistant is optional and off until somebody turns it on: this is the one page that exists for it while it is off,
+  // and only for who may read the settings (nothing of it is drawn anywhere else, 4.3, item 171).
+  setting("assistant", "assistantSettings.nav.label", "instance", "api", {
+    central: true,
+    keywords: "assistantSettings.nav.keywords",
+    command: "assistantSettings.nav.command",
     permission: "settings.read",
   }),
   // Noust as the central keeps it: what it decides for every server, the address its notices open, what it shows before

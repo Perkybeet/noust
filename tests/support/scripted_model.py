@@ -119,6 +119,28 @@ class Reply:
     repeat_name: bool = False
 
     @classmethod
+    def from_dict(cls, document: dict[str, Any]) -> Reply:
+        """
+        Args:
+            document: A reply as JSON, the way a browser test sends it to ``/__script``: any field of
+                the class, with ``calls`` as a list of ``{"name", "arguments", "id"?}`` and ``usage`` as
+                a list of two numbers or ``null``.
+
+        Returns:
+            The reply.
+        """
+        known = {name for name in cls.__dataclass_fields__ if name not in {"calls", "usage"}}
+        options: dict[str, Any] = {k: v for k, v in document.items() if k in known}
+        options["calls"] = tuple(
+            ScriptedCall(str(c["name"]), c.get("arguments", {}), str(c.get("id", "")))
+            for c in document.get("calls", ())
+        )
+        if "usage" in document:
+            usage = document["usage"]
+            options["usage"] = None if usage is None else (int(usage[0]), int(usage[1]))
+        return cls(**options)
+
+    @classmethod
     def say(cls, text: str, **options: Any) -> Reply:
         """
         Args:
@@ -337,6 +359,9 @@ class ScriptedModel:
         with self._lock:
             self.requests.append(Recorded(handler.command, handler.path, headers, raw, body))
         path = handler.path.split("?", 1)[0]
+        if path == "/__script" and handler.command == "POST":
+            self._control(handler, body)
+            return
         if self.api_key and headers.get("authorization") != f"Bearer {self.api_key}":
             self._json(handler, 401, {"error": {"message": "Incorrect API key provided"}})
             return
@@ -369,6 +394,24 @@ class ScriptedModel:
                 handler.close_connection = True
             return
         self._json(handler, 404, {"error": {"message": f"nothing at {path}"}})
+
+    def _control(self, handler: BaseHTTPRequestHandler, body: Any) -> None:
+        """
+        The script by HTTP, for a browser test that drives a console whose assistant talks to this
+        model in another process: ``{"replies": [...]}`` queues replies (see :meth:`Reply.from_dict`),
+        ``{"reset": true}`` forgets the ones nobody asked for. It answers how many are waiting.
+
+        Args:
+            handler: The request being served.
+            body: The decoded body.
+        """
+        document = body if isinstance(body, dict) else {}
+        with self._lock:
+            if document.get("reset"):
+                self._replies.clear()
+            self._replies.extend(Reply.from_dict(item) for item in document.get("replies", ()))
+            waiting = len(self._replies)
+        self._json(handler, 200, {"waiting": waiting})
 
     @staticmethod
     def _json(handler: BaseHTTPRequestHandler, status: int, document: Any) -> None:

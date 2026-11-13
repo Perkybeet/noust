@@ -9,6 +9,7 @@ import { rolloutQuery } from "../../api/queries/rollout";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
+import { PlanDisclosure } from "../plans/PlanDisclosure";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Field } from "../../components/ui/Field";
 import { InlineMessage } from "../../components/ui/InlineMessage";
@@ -196,6 +197,8 @@ export function RollbackDialog({ domain, layout, open, onOpenChange, onJobQueued
         {schemaAhead.length > 0 ? (
           <InlineMessage>{t("appPages.rollback.schemaAhead", { count: schemaAhead.length, ids: schemaAhead.map((id) => `#${String(id)}`).join(", ") })}</InlineMessage>
         ) : null}
+        {/* Noust's own simulation of going back to this deployment; a backup restore has none, and a server without it is not offered one. */}
+        {chosen.kind === "deployment" ? <PlanDisclosure operation="rollback" params={{ domain, deployment_id: chosen.id }} /> : null}
         {history.isError ? <InlineMessage tone="info">{t("appPages.rollback.listError")}</InlineMessage> : null}
         {backupsFailed ? <InlineMessage tone="info">{t("appPages.deployments.releases.backupsLoadError")}</InlineMessage> : null}
       </>

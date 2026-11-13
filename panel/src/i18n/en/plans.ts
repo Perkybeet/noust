@@ -1,0 +1,65 @@
+/**
+ * Strings of "See what it will do" (item 183): the orders, the files and what is not known that Noust's own simulation gives
+ * for an operation before anything is applied. The simulation is Noust's, so the same words serve a person's dialog and the
+ * assistant's proposal. What the plan says of itself (its effect, what it found, what it does not know) arrives from the
+ * server as sentences with a code (`serverText.plans.*`); these are the words around them.
+ */
+export const plans = {
+  update: {
+    menu: "See what it will do…",
+    title: "Update {domain}",
+    description: "This is what Noust would do. Looking changes nothing: the update starts when you press Update.",
+  },
+  preview: {
+    title: "See what it will do",
+    from: "Noust works this out with a simulation and runs nothing.",
+    commandsCount: { one: "{count} command", other: "{count} commands" },
+    filesCount: { one: "{count} file", other: "{count} files" },
+    unknownCount: { one: "{count} thing it does not know", other: "{count} things it does not know" },
+    loading: "Working out what it will do",
+    failed: "Could not work out what it will do",
+    effect: "What changes",
+    commands: "Commands, in this order",
+    commandsList: "Commands",
+    probe: "Only reads",
+    check: "Noust asks it itself",
+    runsAs: "As {account}",
+    writesTo: "Writes to {path}",
+    seconds: "Up to {seconds} s",
+    files: "Files it changes",
+    filesList: "Files changed",
+    fileChange: {
+      create: "Creates",
+      modify: "Changes",
+      delete: "Deletes",
+      move: "Moves",
+      copy: "Copies",
+      link: "Links",
+      mkdir: "Creates the folder",
+      meta: "Changes the permissions of",
+    },
+    destination: "to {path}",
+    namesOnly: "Only the names are shown, never the values.",
+    notShown: {
+      secret: "Its content is not shown: it holds secrets.",
+      binary: "Its content is not shown: it is not text.",
+      large: "Its content is not shown: it is too large.",
+      unreadable: "Its content is not shown: Noust cannot read it as the user it runs as.",
+      none: "Its content is not shown.",
+    },
+    truncated: "Shown in part.",
+    diffOf: "Changes to {path}",
+    added: "Added line",
+    removed: "Removed line",
+    found: "What it found",
+    unknown: "What it does not know",
+    unknownHelp: "A simulation cannot see what depends on code it does not run or on a service that answers later. It says so here instead of leaving it out.",
+    needs: "When you apply it",
+    needsElevation: "It asks you to confirm it is you.",
+    needsApproval: "It waits for a second person to approve it.",
+    needsConfirmation: "It asks you to confirm:",
+    blocked: "It would be refused now",
+    askedRemote: "To work this out it asked the repository or the registry over the network.",
+    omitted: { one: "{count} more command or file does not fit and is not shown.", other: "{count} more commands and files do not fit and are not shown." },
+  },
+} as const;

@@ -82,3 +82,5 @@ export { WhichServerDialog } from "./WhichServerDialog";
 export type { WhichServerDialogProps, WhichServerOption } from "./WhichServerDialog";
 export { Wizard, WizardActions } from "./Wizard";
 export type { WizardActionsProps, WizardProps } from "./Wizard";
+export { PolicyCell, PolicyMatrix, PolicyValueMark } from "./PolicyMatrix";
+export type { PolicyCaller, PolicyCellModel, PolicyEnvironment, PolicyReason, PolicyRowModel, PolicyValue } from "./PolicyMatrix";

@@ -47,6 +47,8 @@ export const CENTRAL_PATHS: readonly string[] = [
   "/settings/security",
   "/settings/tokens",
   "/settings/approvals",
+  // What a token and the built-in assistant do alone is each credential's policy and lives where the accounts do: the central's.
+  "/settings/approval-policy",
   "/settings/audit",
   "/settings/compliance",
   "/settings/controls",
@@ -61,6 +63,7 @@ export const CENTRAL_PATHS: readonly string[] = [
   "/settings/general",
   "/settings/api",
   "/settings/mcp",
+  "/settings/assistant",
   "/settings/about",
   // The signed-in account is the central's: a node refuses a central's sign-in on purpose.
   "/account",

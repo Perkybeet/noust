@@ -169,7 +169,13 @@ can be misled by them: nothing here says otherwise. What is done about it does n
 
 ## Asking it
 
-In the console, from the panel and from "explain this". From the terminal:
+In the console, from the panel and from "explain this". The panel is the **AI assistant** button of the top bar, beside the page from 1280 px,
+over it from 1024 and a sheet on a phone; its title, the mark of every answer (with the model and where it runs) and the line under the box where a question
+is typed all say it is an AI. It says which page it reads (a failed deployment, a diagnosis) and a cross takes it away. "Explain this" is in the block
+of the page that holds the error, and in the menu of an alert that is firing. What the model writes is drawn as text and never as markup (a tag, an image
+or a link that lies shows what it is, and a link shows its host), a proposal is a card the console draws from the exact call with its simulation folded
+under it, and what the policy forbids is a line, never a disabled button. **With the assistant off, or for a person who may not use it, nothing of
+it is drawn**: only its page in Settings, for whoever may turn it on. From the terminal:
 
 ```
 noust assistant ask --as marta "Why does shop.example.com keep restarting?"

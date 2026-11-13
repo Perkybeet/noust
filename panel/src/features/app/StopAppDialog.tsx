@@ -1,4 +1,5 @@
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
+import { PlanDisclosure } from "../plans/PlanDisclosure";
 import { useT } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
 
@@ -23,10 +24,13 @@ export function StopAppDialog({ domain, open, onOpenChange, stop }: StopAppDialo
       open={open}
       onOpenChange={onOpenChange}
       friction="simple"
+      size="md"
       server={node}
       title={t("appPages.actions.stopTitle", { domain })}
       description={t("appPages.actions.stopDescription")}
       actionLabel={t("appPages.actions.stopApplication")}
+      // Noust's own simulation of stopping it, drawn only where the server has one.
+      {...(open ? { children: <PlanDisclosure operation="stop" params={{ domain }} /> } : {})}
       // The outcome, success or failure, is the toast's: the dialog waits for it, then closes.
       onConfirm={() =>
         new Promise<void>((resolve) => {

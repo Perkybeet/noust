@@ -267,6 +267,7 @@ export function useServerActions(): ServerActions {
         <ConfirmDialog
           open
           friction="simple"
+        destructive={false}
           onOpenChange={(open) => (open ? undefined : setRefreshing(null))}
           server={node}
           title={t("databases.instances.upgradeTitle", { name: refreshing.name ?? refreshing.key })}

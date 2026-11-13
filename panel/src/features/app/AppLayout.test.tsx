@@ -146,7 +146,7 @@ describe("an application's page", () => {
     const top = header();
     await user.click(await within(top).findByRole("button", { name: "More options for Update" }));
     const menu = await screen.findByRole("menu");
-    expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Update without cache", expect.stringMatching(/^Build without serving/)]);
+    expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual([expect.stringMatching(/^See what it will do/), "Update without cache", expect.stringMatching(/^Build without serving/)]);
     await user.click(within(menu).getByRole("menuitem", { name: "Update without cache" }));
     await waitFor(() => {
       expect(backend.callsTo("POST /api/jobs/update")[0]?.body).toEqual({ domain: DOMAIN, force: true, no_cache: true });
@@ -157,7 +157,7 @@ describe("an application's page", () => {
     const { user } = await appAt();
     await user.click(await within(header()).findByRole("button", { name: "More options for Update" }));
     const menu = await screen.findByRole("menu");
-    expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Update without cache"]);
+    expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["See what it will do…", "Update without cache"]);
   });
 
   it("keeps only what is rare behind More actions", async () => {

@@ -1066,8 +1066,10 @@ database): a new place by default where that touches nothing, with one question;
 knows neither word: the caller's `words` name the choices, and its own options are the children (a function of
 where the restore goes). Not for anything that is not a restore.
 
-**`Drawer`** (`size` `md | lg`). Detail with the page still behind it: a log, a unit file, a
-certificate, a channel's form.
+**`Drawer`** (`size` `md | lg`, `flush`). Detail with the page still behind it: a log, a unit file, a
+certificate, a channel's form. `flush` is for a panel that is a place and not a detail (the assistant's):
+the content has no padding and fills the body, keeping its own scroll and its own foot, and on a sheet the
+sheet is tall so the content has a height to fill.
 
 **`Menu`**, **`MenuItem`** (`description`), **`MenuSeparator`**. A row's actions and a header's
 "More actions": seven items at most, the destructive ones last after a separator. The highlight of the
@@ -1457,6 +1459,56 @@ server does to the selector: the page gives the destination (`ServerTarget`).
 
 *Enforced by:* `components/page/{ScopeLine,FleetList,ServersTable,WhichServerDialog}.test.tsx` (with axe) and `components/ui/ChoiceCards.test.tsx`.
 
+**The assistant and who calls (4.3, items 171, 183 and 184).** The built-in assistant is a tool of the console like any other, drawn from
+pieces of the kit and shown in the gallery (`/__design`, "The assistant and who calls"). It is an AI and says so: in the title of its panel, in
+the mark on every answer and in the line at the foot of the box where a question is typed. No spark, no gradient, no robot: its icon is a
+conversation (`OBJECT_ICONS.assistant`). **Off, it is absent**: with the assistant off, or for a person who may not use it
+(`session.assistant.can_use`), the console draws nothing of it outside its own page in Settings, which is for who may turn it on: no button in
+the bar, no "Explain this", no entry in the palette. And **what the model cannot do is not offered**: a model that does not call tools only
+explains, and the console says it once, with a padlock, where it matters; a line the policy forbids is a line, never a disabled button.
+
+- **`AiMark`** (`model`, `where`, `at`): the pebble "AI" with the model and where it runs (`locationWord`: this machine, your network, the
+  European Union, outside it, or "not stated" for a place nobody can stand behind). Achromatic: it is a fact, not a state. For a screen
+  reader it is one sentence.
+- **`MessageText`** (`text`) and **`LiteralLines`** (`caption`, `lines`). A model's text is text from outside: `readReply` reads it into
+  paragraphs, lists, fenced code, bold and links, and everything else (a tag, a script, a table) stays as the characters it is. There is no
+  image (a `![x](y)` is the sentence "image not shown"), nothing goes through `innerHTML` (the content security policy and Trusted Types
+  forbid it), only `http:` and `https:` are links, an address with credentials is not a link, and a link **always shows its host beside it**
+  and opens only when pressed. The system's own words an answer leans on are `LiteralLines`: Noust draws them from its copy of the text, with
+  their numbers, never from the model.
+- **`ReadSteps`** (`steps`, `running`): one line for each thing it read, in Noust's sentence and not the model's, with how much it read and how many
+  values that looked like secrets were hidden before they left. Open and polite while it works; folded as "Read 5 things" when it ends. A
+  failed or refused step has the failed glyph and a word, never the colour alone.
+- **`ProposalCard`** (`proposal`, `primary`, `links`, `onApprove`, `onReject`) and **`NotOffered`**. A proposal is a card the console draws from
+  the exact call: what it will do in one line, on what, which of four classes it is (done on its own, which is a record with no buttons;
+  asks your approval; also asks you to confirm it is you; asks a second person, which you never satisfy alone), "See what it will do" where
+  Noust can simulate it, and the two buttons that decide it. One primary, in the first card that waits; **never "approve all"**. A value that is
+  neither the person's nor Noust's (`ForeignValue`) is drawn with a shape, a ground and a word, with where it was found, and forces the question.
+  What is not offered is `NotOffered`: what it would have been, why, and who changes that, with no button.
+- **`UsageLine`** (`readings`, `details`, `notes`, `change`): one slim `Meter` for the limit nearest to being reached, its figure in words and a
+  sentence only at 80 %; the rest behind the "?". The steps of a turn appear only when they are near.
+- **`ExplainButton`** (`onExplain`): "Explain this" in the head of the block that holds the system's own words (a failed deployment's output, a
+  diagnosis, an alert's detail), never in the header of the page, where it would compete with Retry and Roll back and would not say what "this"
+  is. Whoever draws it asked the session first.
+- **`PlanPreview`** (`plan`, `defaultOpen`, `from`) and **`DiffLines`**: "See what it will do" (item 183). The orders in the order they would run (under
+  the phases an operation announces, when it announces any), the files they would change (a diff, only the names of a file of variables,
+  nothing of one that holds secrets) and, **never folded away**, what the simulation does not know. It is Noust's simulation and never the
+  assistant's words, so a person's dialog and a proposal draw the same thing. It exists only where the operation declares a plan
+  (`x-noust-plan` in the API's description): where it does not, it is not drawn at all, instead of drawn empty. A plan that would be refused
+  now says why and still shows what it would have done.
+- **`PolicyMatrix`**, **`PolicyCell`** (`rows`, `onChange`, `caption`): the policy of who calls as one table per area (the permission, then a token
+  and the assistant, each in production and in the other environments), from 640 px; below it a list with who calls and where chosen once. The
+  padlock is the floor and opens nothing; the key marks a row that asks you to confirm it is you, where "Does it" is not offered; "Factory:" is
+  said only where the value differs from the factory's. It draws what the server offers and decides nothing.
+
+*Enforced by:* `components/assistant/{replyText,MessageText,ProposalCard}.test.ts(x)` (a reply that tries to slip in HTML, a disguised link and an
+image; one primary; no approve-all; the foreign value), `components/ui/PlanPreview.test.tsx` and `components/page/PolicyMatrix.test.tsx` (with axe).
+
+**Three fixes the assistant's panel brought to the kit.** `DataTable` answers to the room its parent gives it and not to the window's: with the
+assistant docked beside the page (from 1792 px) a table that no longer fits becomes cards, and a column that asks for a wide window (`xl`, `2xl`)
+waits for the room it needs; a page without a docked panel looks as it always did. The label of the step in hand in `Stepper` is read whole on a
+phone, over two lines if it needs them. And `ConfirmDialog` paints its button in the danger colour only for what destroys or interrupts: an
+action that applies a change, installs, renews or approves says `destructive={false}` and is a primary button.
 **The Docker zone (4.3, item 189).** Four pieces for the pages of Server > Docker, drawn in the gallery under "Components (4.3)", and two
 object icons (`OBJECT_ICONS.image`, `OBJECT_ICONS.engine`: the zone's other objects already had theirs). Docker is Noust's own now, so every
 list says whose each thing is, in the same place and in the same way, and offers only what the server says can be done to it.
@@ -1473,8 +1525,9 @@ list says whose each thing is, in the same place and in the same way, and offers
   else (the caller has already left out what the server's `can` refuses): a verb the owner takes is not made available and then refused. What the owner does
   is **one line** that leads to the owner and says which verbs it stands for, never a disabled copy of each verb on every row (PM-1); what removes is last,
   after a separator; an object that nothing can be done to draws no menu.
-- **`DiffLines`** (`lines`, `label`, `labels`). The lines a change adds and removes, one drawing for a declaration's review and a Compose document's: a plus
-  or a minus as well as a ground, and a word for a screen reader, so a change reads without its colour; the lines are system text in mono, never cut.
+- **`DiffLines`** (`lines`, `label`, `labels?`). The lines a change adds and removes, one drawing for a declaration's review, a Compose document's and the file a plan
+  would change: a plus or a minus as well as a ground, and a word for a screen reader, so a change reads without its colour; `labels` is absent where the
+  lines are a plan's (its own words) and given by a page that has others; the lines are system text in mono, carved in and never cut.
 
 *Enforced by:* `components/page/{OwnerMark,VersionMark,ObjectMenu}.test.tsx` and `components/ui/DiffLines.test.tsx` (with axe).
 

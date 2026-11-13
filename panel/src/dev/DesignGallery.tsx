@@ -10,6 +10,7 @@ import { Kit32 } from "./Kit32";
 import { Kit40 } from "./Kit40";
 import { Kit42 } from "./Kit42";
 import { Kit43 } from "./Kit43";
+import { KitAssistant } from "./KitAssistant";
 import { KitDocker } from "./KitDocker";
 import { PageKit } from "./PageKit";
 import { Stone } from "./Stone";
@@ -122,6 +123,19 @@ const NAV: { title: string; links: [string, string][] }[] = [
       ["kd-version", "Version mark"],
       ["kd-menu", "Object menu"],
       ["kd-diff", "Diff lines"],
+    ],
+  },
+  {
+    title: "The assistant and who calls (4.3)",
+    links: [
+      ["ka-mark", "The mark of an AI"],
+      ["ka-text", "The text of an answer"],
+      ["ka-steps", "What it read"],
+      ["ka-proposal", "A proposal"],
+      ["ka-plan", "See what it will do"],
+      ["ka-usage", "Usage of the limits"],
+      ["ka-explain", "Explain this"],
+      ["ka-policy", "The policy of who calls"],
     ],
   },
   {
@@ -243,6 +257,7 @@ export function DesignGallery() {
           <Kit40 />
           <Kit42 />
           <Kit43 />
+          <KitAssistant />
           <KitDocker />
           <Components />
           <PageKit />

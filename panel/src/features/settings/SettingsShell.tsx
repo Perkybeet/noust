@@ -37,7 +37,8 @@ export function SettingsShell({ children }: { children: ReactNode }) {
   const current = items.find((item) => item.to === leaf);
   // A section the list does not offer here (one this person may not read, reached by its address) is still called what it
   // is, not "Settings".
-  const named = SETTINGS_SCREENS.find((screen) => screen.to === leaf);
+  // A page opened from a section (what leaves the server and its limits, what a token did) is titled by the section it belongs to.
+  const named = SETTINGS_SCREENS.find((screen) => screen.to === leaf) ?? SETTINGS_SCREENS.find((screen) => leaf !== undefined && screen.to !== "/settings" && leaf.startsWith(`${screen.to}/`));
 
   return (
     // T3 under the title of the section (the T2 header, with no tabs): the header is the layout's, the

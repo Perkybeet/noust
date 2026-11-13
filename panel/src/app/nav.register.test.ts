@@ -570,11 +570,11 @@ describe("whose a screen is", () => {
   it("holds the groups a person looks for a setting by, in the order of the second column", () => {
     const names = settingsGroups(EVERYTHING).map((group) => [group.id, group.sections.map((entry) => entry.id.replace(/^settings\./, ""))]);
     expect(names).toEqual([
-      ["people", ["accounts", "access", "sso", "access-security", "approvals"]],
+      ["people", ["accounts", "access", "sso", "access-security", "approvals", "approval-policy"]],
       ["notices", ["notifications"]],
       ["connections", ["integrations", "log-shipping", "registries", "deploy-keys", "cloud", "secret-managers"]],
       ["security", ["compliance", "audit"]],
-      ["api", ["tokens", "api", "mcp"]],
+      ["api", ["tokens", "api", "mcp", "assistant"]],
       ["noust", ["general", "console", "sign-in-image", "variables", "central", "about"]],
     ]);
   });

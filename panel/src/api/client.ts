@@ -158,6 +158,11 @@ export interface ApiAnswer {
 export interface ApiInit {
   signal?: AbortSignal | undefined;
   /**
+   * Headers this call carries besides the ones every call does. The assistant's proposals carry the identifier of the proposal
+   * (`X-Noust-Request-Id`), which is how the server proves from the audit trail that the call it proposed was the one made.
+   */
+  headers?: Readonly<Record<string, string>> | undefined;
+  /**
    * Told the final answer's status and headers, success or refusal. Called once per call that
    * reaches an answer: after an approval, a "Confirm it's you" or a rate limit made the call go
    * again, it is the last one that is reported.
@@ -231,6 +236,7 @@ async function send(
   if (body !== undefined) headers["Content-Type"] = raw ? "application/octet-stream" : "application/json";
   const token = readCookie(csrf.cookie);
   if (token !== null) headers[csrf.header] = token;
+  for (const [name, value] of Object.entries(init.headers ?? {})) headers[name] = value;
   if (approval.approval !== undefined) headers[APPROVAL_HEADER] = approval.approval;
   if (approval.reason !== undefined) headers[REASON_HEADER] = encodeURIComponent(approval.reason);
 

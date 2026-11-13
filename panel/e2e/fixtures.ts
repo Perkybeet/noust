@@ -31,6 +31,11 @@ export interface ConsoleServer {
   /** Set when the server was started with two-factor sign-in enabled. */
   totpSecret: string | null;
   /**
+   * Whatever else the server said on its first line: the address a scripted model of the assistant is dictated through
+   * (`assistant_model`, with `--assistant`), and the like.
+   */
+  extras: Readonly<Record<string, unknown>>;
+  /**
    * A second factor nothing has spent yet: one of the server's backup codes. A TOTP code is
    * good once per 30-second step and purpose (RFC 6238, 5.2, which the server enforces), and a
    * suite that signs in every few seconds cannot wait for the next step, so every sign-in and
@@ -118,7 +123,7 @@ export async function startConsoleServer(
     });
   });
 
-  let parsed: { url: string; token: string; totp_secret: string | null; backup_codes?: string[] };
+  let parsed: { url: string; token: string; totp_secret: string | null; backup_codes?: string[]; [extra: string]: unknown };
   try {
     parsed = JSON.parse(await first) as typeof parsed;
   } catch (error: unknown) {
@@ -134,6 +139,7 @@ export async function startConsoleServer(
     url: parsed.url,
     token: parsed.token,
     totpSecret: parsed.totp_secret,
+    extras: parsed,
     secondFactor: () => {
       const code = unspent.shift();
       if (code !== undefined) return code;
