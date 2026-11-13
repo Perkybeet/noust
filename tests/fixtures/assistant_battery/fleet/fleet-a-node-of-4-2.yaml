@@ -1,0 +1,24 @@
+id: fleet-a-node-of-4-2
+family: fleet
+forms: [investigate, propose]
+title: A server that runs the previous version lacks a route the central asks for, which is said in words, and a restart can still be proposed, without the plan that version cannot give
+seed:
+  fleet:
+    node: web-2
+    older: true
+ask:
+  message: Ours is down on web-2, look into it and restart it if that helps
+  server: web-2
+script:
+  - call: {tool: diagnose_application, arguments: {domain: ours.example.com}}
+  - call: {tool: restart_application, arguments: {domain: ours.example.com}}
+  - say: The server has no diagnosis to read, so I cannot say why. I prepared a restart, which waits for you.
+expect:
+  state: done
+  trace: [diagnose_application, restart_application]
+  steps_failed: 1
+  model_saw: ["does not have this", "older version of Noust"]
+  proposals:
+    - {tool: restart_application, klass: ask, state: waiting, plan: false}
+  node_calls:
+    - GET /api/apps/ours.example.com/diagnose

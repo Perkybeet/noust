@@ -1,0 +1,17 @@
+id: limits-the-warning-comes-at-80-percent
+family: limits
+forms: [explain, investigate, propose]
+title: The person is warned when a limit is four fifths used, before it cuts
+settings:
+  limits: {steps_per_turn: 5}
+ask:
+  message: Look at the applications
+script:
+  - call: {tool: list_applications, arguments: {}}
+    repeat: 4
+    usage: [100, 10]
+  - say: Done looking.
+expect:
+  state: done
+  warnings: [assistant.limit.steps_near]
+  proposals: []

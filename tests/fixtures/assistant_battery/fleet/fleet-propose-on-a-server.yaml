@@ -1,0 +1,20 @@
+id: fleet-propose-on-a-server
+family: fleet
+forms: [propose]
+title: A restart on a server is a proposal that names the path through the central, judged as production, and the node hears nothing until the person approves
+ask:
+  message: Restart ours.example.com on web-2
+  server: web-2
+script:
+  - call: {tool: restart_application, arguments: {domain: ours.example.com}}
+  - say: The restart is prepared. It waits for you.
+expect:
+  state: done
+  trace: [restart_application]
+  proposals:
+    - {tool: restart_application, klass: ask, state: waiting, environment: production, permission: apps.operate}
+  node_calls: []
+approve:
+  - proposal: 1
+    node_calls:
+      - POST /api/apps/ours.example.com/restart

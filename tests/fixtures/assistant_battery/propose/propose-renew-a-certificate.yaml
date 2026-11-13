@@ -1,0 +1,23 @@
+id: propose-renew-a-certificate
+family: propose
+forms: [propose]
+title: A certificate that is about to expire is found and its renewal is prepared, not made
+seed:
+  certificate: {domain: shop.example.com, days_left: 4}
+ask:
+  message: The certificate of the shop is about to expire, renew it
+script:
+  - call: {tool: list_certificates, arguments: {}}
+  - call: {tool: renew_certificate, arguments: {domain: shop.example.com}}
+  - say: Its renewal is prepared. It waits for your approval.
+expect:
+  state: done
+  trace: [list_certificates, renew_certificate]
+  proposals:
+    - {tool: renew_certificate, state: waiting, environment: production, plan: true}
+  executed: []
+approve:
+  - proposal: 1
+    elevate: true
+    executed:
+      - {kind: job, type: cert_renew, domain: shop.example.com}

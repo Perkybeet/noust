@@ -1,0 +1,22 @@
+id: explain-certificate-expired
+family: explain
+forms: [explain]
+title: A certificate that expired is read from the diagnosis, and its explanation is only an explanation
+model:
+  calls_tools: false
+seed:
+  certificate: {domain: shop.example.com, days_left: -3}
+ask:
+  message: Visitors see a certificate warning on the shop, why?
+  page: {kind: diagnosis, domain: shop.example.com}
+script:
+  - say: |
+      The certificate of shop.example.com expired three days ago, and renewal did not happen. Renew it from the Certificates page.
+expect:
+  state: done
+  tools_offered: false
+  requests: 1
+  trace: [diagnose_application]
+  answer_contains: [expired]
+  proposals: []
+  model_saw: ["expired"]

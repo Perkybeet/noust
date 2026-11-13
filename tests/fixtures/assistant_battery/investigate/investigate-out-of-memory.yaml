@@ -1,0 +1,29 @@
+id: investigate-out-of-memory
+family: investigate
+forms: [investigate]
+title: The model reaches an out-of-memory kill from the journal and the diagnosis, and quotes the kernel's line
+seed:
+  journal:
+    shop.example.com: |
+      Nov 12 12:30:58 web-01 shop[28411]: listening on 3000
+      Nov 12 12:31:07 web-01 kernel: Memory cgroup out of memory: Killed process 28411 (node)
+      Nov 12 12:31:09 web-01 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 5.
+  units:
+    shop.example.com: {active: activating, sub: auto-restart, result: oom-kill, exit_status: 137, restarts: 5}
+  oom:
+    - "Nov 12 12:31:07 web-01 kernel: Memory cgroup out of memory: Killed process 28411 (node)"
+ask:
+  message: Why does the shop keep restarting?
+script:
+  - call: {tool: application_logs, arguments: {domain: shop.example.com}}
+  - call: {tool: diagnose_application, arguments: {domain: shop.example.com}}
+  - say: |
+      The kernel kills it for running out of memory:
+      [[S1:2]]
+      Five restarts since. A higher memory limit would ease it.
+expect:
+  state: done
+  trace: [application_logs, diagnose_application]
+  quotes: ["Nov 12 12:31:07 web-01 kernel: Memory cgroup out of memory: Killed process 28411 (node)"]
+  answer_contains: [memory]
+  proposals: []

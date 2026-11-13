@@ -1,0 +1,18 @@
+id: investigate-no-evidence-no-record
+family: investigate
+forms: [investigate]
+title: There is no record of the backup the person asks about, and a citation to a line that does not exist leaves no trace
+ask:
+  message: Why did last night's backup of the shop fail?
+script:
+  - call: {tool: list_backups, arguments: {domain: shop.example.com}}
+  - call: {tool: list_jobs, arguments: {domain: shop.example.com}}
+  - say: |
+      There is no backup and no backup job for the shop in what I can read, so I do not know whether one ran, or why it would have failed.
+      [[S2:9]]
+expect:
+  state: done
+  trace: [list_backups, list_jobs]
+  no_quotes: true
+  answer_contains: ["do not know"]
+  proposals: []

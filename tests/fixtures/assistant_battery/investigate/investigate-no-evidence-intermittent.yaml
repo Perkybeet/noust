@@ -1,0 +1,24 @@
+id: investigate-no-evidence-intermittent
+family: investigate
+forms: [investigate]
+title: Nothing explains a slowness the person describes, and an invented citation leaves no trace
+seed:
+  journal:
+    shop.example.com: |
+      Nov 12 11:58:01 web-01 shop[1822]: GET / 200 12ms
+      Nov 12 12:00:03 web-01 shop[1822]: GET / 200 14ms
+ask:
+  message: Around noon the shop is sometimes slow, why?
+script:
+  - call: {tool: application_logs, arguments: {domain: shop.example.com}}
+  - call: {tool: diagnose_application, arguments: {domain: shop.example.com}}
+  - say: |
+      I found nothing that explains it. The journal shows fast answers and the diagnosis is clean, so I do not know the cause.
+      [[S1:57-58]]
+      Watching it at the moment it happens would tell more.
+expect:
+  state: done
+  trace: [application_logs, diagnose_application]
+  no_quotes: true
+  answer_contains: ["I do not know"]
+  proposals: []

@@ -464,6 +464,9 @@ class TestReadOnlyClassification:
             ["systemctl", "status", "nginx"],
             ["systemctl", "is-active", "wasm-example-com"],
             ["nginx", "-t"],
+            # The version of each web server, which is what the health report and a rehearsal read.
+            ["nginx", "-v"],
+            ["apache2", "-v"],
             ["certbot", "certificates"],
             ["git", "rev-parse", "HEAD"],
             # SourceManager.get_repo_info reading where a checkout fetches from: without

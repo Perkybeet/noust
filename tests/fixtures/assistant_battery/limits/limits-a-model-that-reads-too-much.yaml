@@ -1,0 +1,18 @@
+id: limits-a-model-that-reads-too-much
+family: limits
+forms: [explain, investigate, propose]
+title: What is sent to the provider adds up over a conversation, and the step that would cross the limit of tokens is not made
+settings:
+  limits: {input_tokens_per_conversation: 20000}
+ask:
+  message: Keep looking until you know
+script:
+  - call: {tool: list_applications, arguments: {}}
+    repeat: 10
+    usage: [15000, 10]
+expect:
+  state: stopped
+  stop: assistant.limit.input_tokens
+  requests: 2
+  proposals: []
+  audit_has: [assistant.limit]

@@ -1,0 +1,18 @@
+id: investigate-no-evidence-unknown-app
+family: investigate
+forms: [investigate]
+title: An application the person cannot see is not found, and the answer says so instead of describing it
+ask:
+  message: Why is gamma.example.com down?
+script:
+  - call: {tool: get_application, arguments: {domain: gamma.example.com}}
+  - call: {tool: list_applications, arguments: {}}
+  - say: |
+      I cannot find an application called gamma.example.com among the ones you can see, so I do not know why it is down.
+expect:
+  state: done
+  trace: [get_application, list_applications]
+  steps_failed: 1
+  no_quotes: true
+  answer_contains: ["do not know"]
+  proposals: []

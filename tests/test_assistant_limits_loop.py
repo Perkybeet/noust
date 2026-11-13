@@ -2,12 +2,13 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The loop under its limits, and what turning the assistant off does to a turn that runs (item 171).
+How long a turn may take, and what turning the assistant off does to a turn that runs (item 171).
 
-A limit is asked before every step and cuts between two steps: the step that crossed it is whole and written
-down, and the next one is not made. The warning comes at 80 %. The hour's limit on changes turns a change the
-policy would let the assistant make into a proposal. Turning the assistant off ends the turn that runs, with
-the sentence that says so, and nothing it tries afterwards works.
+The limits themselves (the steps, the tokens, the spending of a conversation and of the month, the hour's
+changes and the warning at 80 %) are scenarios of the battery, in ``tests/fixtures/assistant_battery/limits``.
+What stays here is what is not a number the operator changes: a turn is cut after fifteen minutes whatever its
+steps, and turning the assistant off ends the turn that runs, with the sentence that says so, and nothing it
+tries afterwards works.
 """
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ import pytest
 
 from noust.core.accounts import passwords
 from noust.web.assistant.turns import registry
-from tests.support.assistant_lab import KEY, SHOP, Lab, build_lab
+from tests.support.assistant_lab import KEY, Lab, build_lab
 from tests.support.scripted_model import Reply, ScriptedModel
 
 pytestmark = pytest.mark.allow_sockets
@@ -46,82 +47,6 @@ def model() -> Iterator[ScriptedModel]:
 @pytest.fixture
 def lab(sandbox: Path, monkeypatch: pytest.MonkeyPatch, model: ScriptedModel) -> Iterator[Lab]:
     yield from build_lab(sandbox, monkeypatch, model)
-
-
-def loop_of(count: int, **options: Any) -> list[Reply]:
-    return [Reply.call("list_applications", {}, **options) for _ in range(count)]
-
-
-class TestTheLimits:
-    def test_the_21st_step_is_not_made(self, lab: Lab) -> None:
-        lab.configure()
-        lab.model.script(*loop_of(30, usage=(100, 10)))
-        turn = lab.ask(lab.conversation(), "keep looking")
-
-        assert turn["state"] == "stopped"
-        assert turn["stop"]["code"] == "assistant.limit.steps"
-        assert turn["stop"]["params"] == {"limit": 20}
-        assert turn["stop"]["hint"]
-        assert len(lab.requests()) == 20
-        assert turn["usage"]["steps"] == 20
-        # The 20 steps that were made are whole: each read happened.
-        assert len([s for s in turn["steps"] if s["state"] == "done"]) == 20
-        events = [e for e in lab.audit_events() if e.get("action") == "assistant.limit"]
-        assert len(events) == 1 and events[0]["result"] != "ok"
-
-    def test_the_warning_comes_at_80_percent(self, lab: Lab) -> None:
-        lab.configure(limits={"steps_per_turn": 5})
-        lab.model.script(*loop_of(4, usage=(100, 10)), Reply.say("done"))
-        turn = lab.ask(lab.conversation(), "look")
-
-        assert turn["state"] == "done"
-        assert [w["code"] for w in turn["warnings"]] == ["assistant.limit.steps_near"]
-        assert any(e["type"] == "warning" for e in lab.events())
-
-    def test_the_tokens_of_a_conversation_stop_it_between_steps(self, lab: Lab) -> None:
-        lab.configure(limits={"input_tokens_per_conversation": 20000})
-        lab.model.script(*loop_of(10, usage=(15000, 10)))
-        turn = lab.ask(lab.conversation(), "keep looking")
-
-        assert turn["state"] == "stopped"
-        assert turn["stop"]["code"] == "assistant.limit.input_tokens"
-        assert len(lab.requests()) == 2
-
-    def test_the_spending_of_a_conversation_stops_it_and_a_model_with_no_price_is_said_to_have_none(
-        self, lab: Lab
-    ) -> None:
-        lab.configure(
-            prices={"tiny": {"input_per_million": 1_000_000.0, "output_per_million": 0.0}},
-            limits={"spend_per_conversation": 1.0},
-        )
-        lab.model.script(*loop_of(10, usage=(2000, 10)))
-        turn = lab.ask(lab.conversation(), "keep looking")
-        assert turn["stop"]["code"] == "assistant.limit.conversation_spend"
-        assert len(lab.requests()) == 1
-
-    def test_without_a_price_the_person_is_told_there_is_no_spending_limit(self, lab: Lab) -> None:
-        lab.configure()
-        lab.model.script(Reply.say("hello"))
-        turn = lab.ask(lab.conversation(), "hello")
-        assert [n["code"] for n in turn["usage"]["notes"]] == ["assistant.limit.no_price"]
-
-    def test_the_hours_limit_on_changes_turns_a_change_into_a_proposal(self, lab: Lab) -> None:
-        lab.configure(limits={"actions_per_hour": 1})
-        lab.policy(("assistant", "production", "apps.operate", "alone"))
-        lab.model.script(
-            Reply.call("restart_application", {"domain": SHOP}),
-            Reply.call("restart_application", {"domain": SHOP}),
-            Reply.say("one made, one proposed"),
-        )
-        turn = lab.ask(lab.conversation(), f"restart {SHOP} twice")
-
-        assert lab.restarts == [f"restart {SHOP}"]
-        assert [(p["klass"], p["state"]) for p in turn["proposals"]] == [
-            ("alone", "done"),
-            ("ask", "waiting"),
-        ]
-        assert turn["proposals"][1]["why"]["code"] == "assistant.proposal.why.actions_limit"
-        assert any(e.get("action") == "assistant.limit" for e in lab.audit_events())
 
 
 class TestHowLongATurnMayTake:

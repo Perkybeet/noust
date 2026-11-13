@@ -1,0 +1,26 @@
+id: limits-changes-per-hour
+family: limits
+forms: [propose]
+title: A change the policy lets the assistant make alone is made until the hour's limit is reached, and the next is a proposal that says why
+policy:
+  - [assistant, production, apps.operate, alone]
+settings:
+  limits: {actions_per_hour: 1}
+ask:
+  message: Restart the shop twice, please
+script:
+  - call: {tool: restart_application, arguments: {domain: shop.example.com}}
+  - call: {tool: restart_application, arguments: {domain: shop.example.com}}
+  - say: One restart was made and the other waits for you.
+expect:
+  state: done
+  proposals:
+    - {tool: restart_application, klass: alone, state: done, why: assistant.proposal.why.policy_alone}
+    - {tool: restart_application, klass: ask, state: waiting, why: assistant.proposal.why.actions_limit}
+  executed:
+    - {kind: service, verb: restart, domain: shop.example.com}
+  audit_has: [assistant.limit]
+approve:
+  - proposal: 2
+    executed:
+      - {kind: service, verb: restart, domain: shop.example.com}

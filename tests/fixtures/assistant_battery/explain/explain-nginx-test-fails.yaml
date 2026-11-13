@@ -1,0 +1,35 @@
+id: explain-nginx-test-fails
+family: explain
+forms: [explain]
+title: A deployment fails because nginx rejects the site's configuration, and its own words are shown as it said them
+model:
+  calls_tools: false
+seed:
+  deployments:
+    - app: shop.example.com
+      status: failed
+      error: "nginx -t failed: unknown directive \"proxy_passs\""
+      commit: 3b8d5e1
+      branch: main
+      message: Proxy the API to the backend
+      log: |
+        Writing the site for shop.example.com
+        nginx: [emerg] unknown directive "proxy_passs" in /etc/nginx/sites-enabled/shop.example.com:14
+        nginx: configuration file /etc/nginx/nginx.conf test failed
+        The previous version keeps serving.
+ask:
+  message: Why did nginx refuse the site?
+  page: {kind: deployment, id: "<<deployment:1>>"}
+script:
+  - say: |
+      nginx does not know the directive `proxy_passs` (it has one `s` too many):
+      [[S2:2]]
+      The version that served before keeps serving.
+expect:
+  state: done
+  tools_offered: false
+  requests: 1
+  trace: [get_deployment, deployment_log]
+  answer_contains: [proxy_passs]
+  quotes: ['nginx: [emerg] unknown directive "proxy_passs" in /etc/nginx/sites-enabled/shop.example.com:14']
+  proposals: []

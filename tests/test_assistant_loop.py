@@ -419,6 +419,28 @@ class TestProposing:
         assert turn["proposals"] == []
         assert turn["not_offered"][0]["why"]["code"] == "assistant.refused.secret_value"
 
+    @pytest.mark.parametrize("hidden", ["***", "[REDACTED]", "<secret-1>", "hunter2"])
+    def test_a_secret_field_is_never_carried_whatever_the_model_puts_in_it(
+        self, on: Lab, hidden: str
+    ) -> None:
+        # The model never sees the value a person typed: it sees the mark that replaced it, and it is
+        # the mark that it writes into the call. The field's name is what makes it a secret.
+        on.model.script(
+            Reply.call(
+                "call_operation",
+                {
+                    "method": "PUT",
+                    "path": "/api/apps/{domain}/env",
+                    "parameters": {"domain": SHOP},
+                    "body": {"variables": {"STRIPE_SECRET_KEY": hidden}},
+                },
+            ),
+            Reply.say("I cannot set a secret."),
+        )
+        turn = on.ask(on.conversation(), "set the stripe key")
+        assert turn["proposals"] == []
+        assert turn["not_offered"][0]["why"]["code"] == "assistant.refused.secret_value"
+
 
 class TestTheTurnThatIsStillRunning:
     def test_one_question_at_a_time_in_a_conversation(self, on: Lab) -> None:
@@ -470,6 +492,47 @@ class TestABugInTheLoop:
         assert reported == [TypeError]
         assert "failed unexpectedly" in caplog.text
         assert registry().running_in(conversation) is None
+
+
+class TestWhatTheModelWritesIsMaskedAsAWhole:
+    """A credential whose shape needs its context is not cut in two between two announcements."""
+
+    # Put together here: nothing of the repository holds a value with the whole shape of a credential.
+    BEARER = "q8w7e6r5t4y3u2i1" + "o0p9a8s7d6f5g4h3"
+    PEM_BODY = "MIIBVgIBADANBgkqhkiG9w0BAQEFAASCAUAwggE8AgEAAkEA" + "7Zq0c1canarykey"
+
+    def streamed(self, on: Lab) -> str:
+        return "\n".join(e["delta"] for e in on.events("text"))
+
+    def test_a_bearer_header_the_model_writes_is_not_announced_in_two_pieces(self, on: Lab) -> None:
+        said = f"Send the header Authorization: Bearer {self.BEARER} with every call, and it works."
+        on.model.script(Reply.say(said, piece=3))
+        turn = on.ask(on.conversation(), "how do I call it?")
+
+        assert self.BEARER not in self.streamed(on)
+        assert self.BEARER not in turn["text"]
+        assert "with every call, and it works." in self.streamed(on)
+
+    def test_a_private_key_the_model_writes_is_not_announced_a_line_at_a_time(
+        self, on: Lab
+    ) -> None:
+        said = (
+            "The key is:\n-----BEGIN " + "PRIVATE KEY-----\n" + self.PEM_BODY + "\n-----END "
+            "PRIVATE KEY-----\nKeep it safe."
+        )
+        on.model.script(Reply.say(said, piece=7))
+        turn = on.ask(on.conversation(), "show me a key")
+
+        assert self.PEM_BODY not in self.streamed(on)
+        assert self.PEM_BODY not in turn["text"]
+        assert "Keep it safe." in self.streamed(on)
+
+    def test_what_is_said_still_arrives_whole_and_in_order(self, on: Lab) -> None:
+        said = "First, look at the journal. Then, restart the service. Last, check the site again."
+        on.model.script(Reply.say(said, piece=5))
+        on.ask(on.conversation(), "what do I do?")
+
+        assert "".join(e["delta"] for e in on.events("text") if e["step"] == 0) == said
 
 
 def test_the_events_are_the_authors_and_say_what_the_turn_does(on: Lab) -> None:

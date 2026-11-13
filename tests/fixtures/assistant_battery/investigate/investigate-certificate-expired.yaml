@@ -1,0 +1,19 @@
+id: investigate-certificate-expired
+family: investigate
+forms: [investigate]
+title: The model finds an expired certificate by listing the certificates and diagnosing the application
+seed:
+  certificate: {domain: shop.example.com, days_left: -3}
+ask:
+  message: The browser warns about the shop's certificate, is it expired?
+script:
+  - call: {tool: list_certificates, arguments: {}}
+  - call: {tool: diagnose_application, arguments: {domain: shop.example.com}}
+  - say: |
+      Yes: the certificate of shop.example.com expired three days ago. Renewing it brings the site back to valid HTTPS.
+expect:
+  state: done
+  trace: [list_certificates, diagnose_application]
+  answer_contains: [expired]
+  proposals: []
+  model_saw: ["EXPIRED"]

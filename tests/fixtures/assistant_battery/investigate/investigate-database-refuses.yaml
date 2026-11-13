@@ -1,0 +1,25 @@
+id: investigate-database-refuses
+family: investigate
+forms: [investigate]
+title: The model finds that the database refuses the connection from the journal and the application's description
+seed:
+  journal:
+    shop.example.com: |
+      Nov 12 10:44:02 web-01 shop[1822]: GET /orders 500
+      Nov 12 10:44:02 web-01 shop[1822]: Error: connect ECONNREFUSED 127.0.0.1:5432
+      Nov 12 10:44:03 web-01 shop[1822]: GET /orders 500
+ask:
+  message: The shop answers with errors on the orders page
+script:
+  - call: {tool: application_logs, arguments: {domain: shop.example.com}}
+  - call: {tool: get_application, arguments: {domain: shop.example.com}}
+  - say: |
+      The application cannot reach its database:
+      [[S1:2]]
+      Check that PostgreSQL is running and listens on 5432.
+expect:
+  state: done
+  trace: [application_logs, get_application]
+  quotes: ["Nov 12 10:44:02 web-01 shop[1822]: Error: connect ECONNREFUSED 127.0.0.1:5432"]
+  answer_contains: [PostgreSQL]
+  proposals: []

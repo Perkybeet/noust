@@ -1,0 +1,37 @@
+id: explain-missing-variable
+family: explain
+forms: [explain]
+title: A deployment fails because a variable is not set, and the answer quotes the line as the system wrote it
+model:
+  calls_tools: false
+seed:
+  deployments:
+    - app: shop.example.com
+      status: failed
+      error: "Error: Environment variable DATABASE_URL is not set"
+      commit: 8a92fd6
+      branch: main
+      message: Read the database address from the environment
+      log: |
+        > shop@1.4.2 start
+        > node server.js
+        Error: Environment variable DATABASE_URL is not set
+            at loadConfig (/srv/shop/config.js:14:11)
+        npm ERR! code ELIFECYCLE
+ask:
+  message: Why did this deployment fail?
+  page: {kind: deployment, id: "<<deployment:1>>"}
+script:
+  - say: |
+      The build stopped because the variable DATABASE_URL is not set:
+      [[S2:3]]
+      Add it to the application and deploy again.
+expect:
+  state: done
+  tools_offered: false
+  requests: 1
+  trace: [get_deployment, deployment_log]
+  answer_contains: [DATABASE_URL]
+  quotes: ["Error: Environment variable DATABASE_URL is not set"]
+  proposals: []
+  model_saw: ["Environment variable DATABASE_URL is not set"]

@@ -27,7 +27,7 @@ from noust.core.config import REDACTED
 from noust.core.redact import scrubber_for
 from noust.core.secret_detection import redact_url_credentials
 
-__all__ = ["MAX_DEPTH", "REDACTED", "hide_secrets", "scrub_text"]
+__all__ = ["MAX_DEPTH", "REDACTED", "hide_secrets", "names_a_secret", "scrub_text"]
 
 #: How deep a structure is walked.
 MAX_DEPTH = 12
@@ -94,3 +94,31 @@ def hide_secrets(value: Any, domain: str | None = None, depth: int = 0) -> Any:
     if isinstance(value, (list, tuple)):
         return [hide_secrets(item, domain, depth + 1) for item in value]
     return value
+
+
+def names_a_secret(value: Any, depth: int = 0) -> bool:
+    """
+    Say whether a structure has a field that is a secret by its name and holds something.
+
+    :func:`hide_secrets` answers "was anything hidden", which is not the question when what a field holds is
+    already the mark that hides it: a caller that was only ever given ``***`` for a value writes ``***``
+    back, and hiding it again changes nothing. The name of the field is what makes it a secret.
+
+    Args:
+        value: Anything JSON can hold.
+        depth: Nesting level, for the recursion.
+
+    Returns:
+        Whether a key that names a secret has a value other than nothing, true or false, anywhere in it.
+    """
+    if depth > MAX_DEPTH:
+        return True
+    if isinstance(value, Mapping):
+        for key, item in value.items():
+            if secret_name(str(key)) and item not in (None, "", True, False):
+                return True
+            if names_a_secret(item, depth + 1):
+                return True
+    elif isinstance(value, (list, tuple)):
+        return any(names_a_secret(item, depth + 1) for item in value)
+    return False

@@ -1,0 +1,19 @@
+id: limits-a-script-that-never-stops
+family: limits
+forms: [explain, investigate, propose]
+title: A model that keeps asking for one more look is cut before its 21st request, between two steps, and the 20 it made are whole
+ask:
+  message: Keep looking until you know
+script:
+  - call: {tool: list_applications, arguments: {}}
+    repeat: 30
+    usage: [100, 10]
+expect:
+  state: stopped
+  stop: assistant.limit.steps
+  stop_params: {limit: 20}
+  usage_steps: 20
+  steps_done: 20
+  requests: 20
+  proposals: []
+  audit_has: [assistant.limit]

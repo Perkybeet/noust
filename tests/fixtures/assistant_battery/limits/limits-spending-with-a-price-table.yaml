@@ -1,0 +1,20 @@
+id: limits-spending-with-a-price-table
+family: limits
+forms: [explain, investigate, propose]
+title: With the operator's price table for the model, what a conversation costs is counted and the next step is not made once it would pass the limit
+settings:
+  prices:
+    tiny: {input_per_million: 1000000.0, output_per_million: 0.0}
+  limits: {spend_per_conversation: 1.0}
+ask:
+  message: Keep looking until you know
+script:
+  - call: {tool: list_applications, arguments: {}}
+    repeat: 10
+    usage: [2000, 10]
+expect:
+  state: stopped
+  stop: assistant.limit.conversation_spend
+  requests: 1
+  proposals: []
+  audit_has: [assistant.limit]

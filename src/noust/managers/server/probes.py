@@ -32,6 +32,9 @@ from noust.core.docker import probes as docker_probes
 READ_ONLY_PROBES: tuple[tuple[object, ...], ...] = (
     # What machine this is.
     ("systemd-detect-virt", "-c"),
+    # The version Apache's backend reads (``apache2``, not ``apache2ctl``): without it a rehearsal and the
+    # health report took the reading of the version for a change. nginx's is declared with the runner's own.
+    ("apache2", "-v"),
     ("dnf", "--version"),
     # Whether python3 can seed a virtual environment with pip, which is what the pre-flight of a
     # Python deployment asks: two imports, exactly this text and no other code.

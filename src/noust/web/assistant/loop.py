@@ -86,7 +86,7 @@ from noust.core.caller_policy import Verdict
 from noust.core.config import REDACTED
 from noust.core.exceptions import NoustError
 from noust.core.paths import docs_directories
-from noust.core.scrubbing import hide_secrets
+from noust.core.scrubbing import hide_secrets, names_a_secret
 from noust.core.server_text import ServerText, say
 from noust.core.store import NoustStore
 from noust.core.teams.scope import Scope, bind
@@ -126,6 +126,9 @@ TURN_SECONDS = 15 * 60
 #: How much the live text is gathered before it is announced, so that a screen reader is not read a word at a time.
 FLUSH_CHARS = 48
 FLUSH_SECONDS = 0.2
+#: How much of the end of what the model says is held back until more arrives, so that a credential and the
+#: words that make it one (``Bearer`` and its token) are masked together.
+HOLD_CHARS = 96
 
 #: Why a call is a proposal, by the word the decision gives. Written out: a code is a literal wherever it is said.
 WHY_CODES: dict[str, str] = {
@@ -309,7 +312,9 @@ class TurnRunner:
         self.book = SourceBook()
         self._began = time.monotonic()
         self._seq = 0
-        self._text_buffer = ""
+        self._text_raw = ""
+        self._text_sent = 0
+        self._text_seen = 0
         self._text_at = time.monotonic()
         self._text_step = 0
         self._answer = ""
@@ -491,39 +496,42 @@ class TurnRunner:
         Gather what the model says, and announce it in pieces large enough to be read.
 
         Args:
-            piece: What it just said, safe to show.
+            piece: What it just said.
             step: Which request to the provider it belongs to.
         """
         if not piece:
             return
-        self._text_buffer += piece
+        self._text_raw += piece
         self._text_step = step
         self._flush_text()
 
     def _flush_text(self, *, force: bool = False) -> None:
         """
-        Announce what is gathered, up to the last word that is whole: a secret that the model wrote is
-        never cut in two between announcements, where no removal could know it.
+        Announce what the model has said so far, masked **as a whole** and without its last words.
+
+        A credential whose shape needs its context (``Bearer`` before its token, the lines of a private
+        key between its two markers) is not recognised in a piece that begins after the context, so the
+        text is masked from its start every time, and what could still change when more arrives (its end,
+        and a private key that has not been closed) is held back until it can no longer.
 
         Args:
-            force: Announce what is gathered whatever its size.
+            force: The model has finished this request: announce everything.
         """
-        if not self._text_buffer:
+        if not self._text_raw:
             return
         now = time.monotonic()
-        if not (
-            force or len(self._text_buffer) >= FLUSH_CHARS or now - self._text_at >= FLUSH_SECONDS
-        ):
+        gathered = len(self._text_raw) - self._text_seen
+        if not (force or gathered >= FLUSH_CHARS or now - self._text_at >= FLUSH_SECONDS):
             return
-        if force:
-            cut = len(self._text_buffer)
-        else:
-            cut = max(self._text_buffer.rfind(" "), self._text_buffer.rfind("\n")) + 1
-        if cut <= 0:
-            return
-        delta, self._text_buffer = self._text_buffer[:cut], self._text_buffer[cut:]
         self._text_at = now
-        self._emit("text", delta=self.masker.scrub_secrets(delta), step=self._text_step)
+        self._text_seen = len(self._text_raw)
+        masked = self.masker.scrub_secrets(self._text_raw)
+        end = len(masked) if force else _settled(masked)
+        if end > self._text_sent:
+            self._emit("text", delta=masked[self._text_sent : end], step=self._text_step)
+            self._text_sent = end
+        if force:
+            self._text_raw, self._text_sent, self._text_seen = "", 0, 0
 
     def _audit(
         self, event: str, *, outcome: str = "ok", details: Mapping[str, Any] | None = None
@@ -1197,7 +1205,9 @@ class TurnRunner:
             What the model is told.
         """
         step = self._step(prepared)
-        if hide_secrets(prepared.arguments) != prepared.arguments:
+        if hide_secrets(prepared.arguments) != prepared.arguments or names_a_secret(
+            prepared.arguments
+        ):
             return self._refused_for(
                 prepared, step, "assistant.refused.secret_value", {}, floor=True
             )
@@ -1549,6 +1559,24 @@ class TurnRunner:
 
 
 # -- helpers -------------------------------------------------------------------------------------
+
+
+def _settled(masked: str) -> int:
+    """
+    Args:
+        masked: What the model has said so far, masked.
+
+    Returns:
+        How much of it can be announced now: not the last :data:`HOLD_CHARS` characters, not the word they cut
+        and not a private key that is still open.
+    """
+    limit = len(masked) - HOLD_CHARS
+    opened = masked.rfind("-----BEGIN ")
+    if opened >= 0 and "-----END" not in masked[opened:]:
+        limit = min(limit, opened)
+    if limit <= 0:
+        return 0
+    return max(masked.rfind(" ", 0, limit), masked.rfind("\n", 0, limit)) + 1
 
 
 def _provider_error(exc: ProviderError) -> dict[str, Any]:

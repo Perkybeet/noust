@@ -1,0 +1,42 @@
+id: propose-roll-back
+family: propose
+forms: [propose]
+title: Going back to the previous version is prepared from the history and the job is queued only when the person approves
+seed:
+  checkouts: [shop.example.com]
+  deployments:
+    - app: shop.example.com
+      status: success
+      commit: 11aa22b
+      branch: main
+      message: Fix the footer
+      log: Build succeeded
+    - app: shop.example.com
+      status: success
+      commit: c7d11b0
+      branch: main
+      message: Rework the checkout page
+      log: Build succeeded
+ask:
+  message: The new version broke the checkout, go back to the one before
+script:
+  - call: {tool: list_deployments, arguments: {domain: shop.example.com, limit: 5}}
+  - call:
+      tool: call_operation
+      arguments:
+        method: POST
+        path: /api/apps/{domain}/deployments/{deployment_id}/rollback
+        parameters: {domain: shop.example.com, deployment_id: "<<deployment:1>>"}
+        body: {}
+  - say: I prepared going back to the deployment of 11aa22b. It waits for you.
+expect:
+  state: done
+  trace: [list_deployments, call_operation]
+  proposals:
+    - {tool: call_operation, state: waiting, environment: production, plan: true}
+  executed: []
+approve:
+  - proposal: 1
+    elevate: true
+    executed:
+      - {kind: job, type: rollback, domain: shop.example.com, deployment_id: "<<deployment:1>>"}

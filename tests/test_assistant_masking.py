@@ -196,3 +196,33 @@ class TestOutsideTextIsMarkedAsData:
     def test_the_source_cannot_break_the_tag_either(self) -> None:
         out = mark_as_data("x", 'logs" onclick="evil')
         assert out.count('"') == 2
+
+
+class TestAFieldThatIsASecretByItsName:
+    """What a model writes back is the mark it was given, so the mark is not a way round the name."""
+
+    @pytest.mark.parametrize("held", ["***", "[REDACTED]", "<secret-1>", "hunter2", 4412])
+    def test_whatever_it_holds_it_is_a_secret(self, held: object) -> None:
+        from noust.core.scrubbing import names_a_secret
+
+        assert names_a_secret({"variables": {"STRIPE_SECRET_KEY": held}})
+        assert names_a_secret([{"db": {"password": held}}])
+
+    @pytest.mark.parametrize("held", [None, "", True, False])
+    def test_a_field_that_holds_nothing_is_not(self, held: object) -> None:
+        from noust.core.scrubbing import names_a_secret
+
+        assert not names_a_secret({"variables": {"STRIPE_SECRET_KEY": held}})
+
+    def test_an_ordinary_call_is_not_one(self) -> None:
+        from noust.core.scrubbing import names_a_secret
+
+        assert not names_a_secret({"domain": DOMAIN, "memory_max_mb": 512, "tags": ["a", "b"]})
+
+    def test_a_structure_nested_too_deep_to_read_is_taken_for_one(self) -> None:
+        from noust.core.scrubbing import names_a_secret
+
+        deep: dict = {"a": 1}
+        for _ in range(30):
+            deep = {"a": deep}
+        assert names_a_secret(deep)

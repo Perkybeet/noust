@@ -11,7 +11,7 @@ New in 4.3. The mechanics (the limits, the masking, the token it acts with, the 
 against a scripted model that answers what the test dictates. **How well a given model investigates is for
 you to see**: the probe tells you whether a model makes a well formed call to a tool, not whether its advice
 is good, and nothing here says an assistant cannot be misled by what it reads (see
-[What it does not promise](#what-it-does-not-promise)).
+[What it does not promise](#what-it-does-not-promise) and [what the assistant's battery proves](assistant-battery.md)).
 
 ```
 printf '%s\n' "$KEY" | noust assistant enable --preset mistral --model MODEL --key-stdin
@@ -159,10 +159,13 @@ can be misled by them: nothing here says otherwise. What is done about it does n
   is proposed, not done.
 - **What it can reach is bounded by its token** (never sudo mode, never the floor), by the policy (what is changed
   is limited per hour) and by the API (teams, approvals), not by what the model says.
-- A test attacks it every time the code changes: instructions hidden in a journal, a build log, a commit message
-  and a branch name ask to stop every application, set a variable, send alerts to a stranger, add a domain, deploy
-  and delete an application, and a scripted model that obeys makes exactly those calls. None reaches the API as a
-  change.
+- A battery attacks it every time the code changes: instructions hidden in a journal, the output of a build, a
+  commit message and a branch name ask to stop every application, set a variable, send alerts to a stranger, add a
+  key to root, add a domain, deploy and delete an application, and a scripted model that obeys makes exactly those
+  calls. Where the text reached it through something Noust read, none is carried out as a change, even under the most
+  permissive policy. What a person pastes into their own question (a README) is their words, and under a policy that
+  lets the assistant do something alone, it is done: the policy is the operator's. What the battery tests, its
+  numbers and what they do not say are in [what the assistant's battery proves](assistant-battery.md).
 
 ## Asking it
 

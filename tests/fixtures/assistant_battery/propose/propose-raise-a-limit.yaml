@@ -1,0 +1,32 @@
+id: propose-raise-a-limit
+family: propose
+forms: [propose]
+title: After finding an out-of-memory kill the model proposes a higher memory limit, which asks the person to confirm it is them
+seed:
+  journal:
+    shop.example.com: |
+      Nov 12 12:30:58 web-01 shop[28411]: listening on 3000
+      Nov 12 12:31:07 web-01 kernel: Memory cgroup out of memory: Killed process 28411 (node)
+ask:
+  message: The shop keeps running out of memory, raise its limit to 512 MB
+script:
+  - call: {tool: application_logs, arguments: {domain: shop.example.com}}
+  - call:
+      tool: call_operation
+      arguments:
+        method: PATCH
+        path: /api/apps/{domain}/limits
+        parameters: {domain: shop.example.com}
+        body: {memory_max_mb: 512}
+  - say: The limit of shop.example.com would go to 512 MB. It waits for you, in sudo mode.
+expect:
+  state: done
+  trace: [application_logs, call_operation]
+  proposals:
+    - {tool: call_operation, klass: you, state: waiting, why: assistant.proposal.why.needs_sudo, environment: production, plan: true}
+  executed: []
+approve:
+  - proposal: 1
+    elevate: true
+    executed:
+      - {kind: limits, domain: shop.example.com, memory_max_mb: 512}

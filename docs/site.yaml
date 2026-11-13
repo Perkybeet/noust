@@ -473,6 +473,10 @@ tabs:
             slug: guides/assistant
             type: guide
             summary: "The built-in assistant: an optional AI with the model you choose, what leaves your server, the token it acts with, its limits and how to turn it off."
+          - source: docs/assistant-battery.md
+            slug: guides/assistant-battery
+            type: explanation
+            summary: "What the assistant's battery tests before each of its forms is published, its numbers, and what they do not say."
       - title: Operate the server
         pages:
           - source: docs/MONITOR.md

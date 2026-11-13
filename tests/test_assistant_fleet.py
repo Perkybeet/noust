@@ -24,15 +24,13 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, Response
 
 from noust.core.accounts import passwords
 from noust.core.assistant_floor import ASSISTANT_FLOOR
 from noust.web.api import node_proxy
 from noust.web.api import nodes as nodes_api
-from noust.web.api.openapi import ELEVATION_EXTENSION
 from noust.web.assistant.identity import AssistantIdentity
+from tests.support.assistant_fleet_node import FleetNode as Node
 from tests.support.assistant_lab import KEY, SHOP, Lab, build_lab
 from tests.support.node_proxy import FakeManager, FakeTunnels, ServedNode
 from tests.support.policy_people import Person
@@ -42,61 +40,6 @@ pytestmark = pytest.mark.allow_sockets
 
 NODE = "web-2"
 OUR_APP = "ours.example.com"
-
-
-class Node:
-    """A server of the fleet: a small console of its own that records what it is asked."""
-
-    def __init__(self) -> None:
-        self.seen: list[dict[str, Any]] = []
-        self.app = FastAPI()
-        node = self
-
-        def note(request: Request) -> None:
-            node.seen.append(
-                {
-                    "method": request.method,
-                    "path": request.url.path,
-                    "headers": {k.lower(): v for k, v in request.headers.items()},
-                }
-            )
-
-        @self.app.get("/api/openapi.json")
-        def schema() -> Response:
-            return JSONResponse(
-                {
-                    "openapi": "3.1.0",
-                    "info": {"title": "node", "version": "4.3.0"},
-                    "paths": {
-                        "/api/apps/{domain}/logs": {"get": {}},
-                        "/api/apps/{domain}/restart": {"post": {}},
-                        "/api/apps/{domain}/limits": {"patch": {ELEVATION_EXTENSION: True}},
-                    },
-                }
-            )
-
-        @self.app.get("/api/apps/{domain}/logs")
-        def logs(domain: str, request: Request) -> Response:
-            note(request)
-            return JSONResponse(
-                {
-                    "domain": domain,
-                    "logs": "node says: out of memory\nrestart counter 5\n",
-                    "lines": 100,
-                }
-            )
-
-        @self.app.post("/api/apps/{domain}/restart")
-        def restart(domain: str, request: Request) -> Response:
-            note(request)
-            return JSONResponse(
-                {"success": True, "message": f"Application restarted: {domain}", "domain": domain}
-            )
-
-        @self.app.patch("/api/apps/{domain}/limits")
-        def limits(domain: str, request: Request) -> Response:
-            note(request)
-            return JSONResponse({"domain": domain, "memory_max_mb": 512})
 
 
 @pytest.fixture(autouse=True)

@@ -1,0 +1,28 @@
+id: explain-disk-full
+family: explain
+forms: [explain]
+title: A full disk is read from the diagnosis of an application that stopped writing
+model:
+  calls_tools: false
+seed:
+  disk: {percent_used: 99}
+  journal:
+    shop.example.com: |
+      Nov 12 03:10:11 web-01 shop[2201]: Error: ENOSPC: no space left on device, write
+      Nov 12 03:10:12 web-01 shop[2201]: Error: ENOSPC: no space left on device, write
+  units:
+    shop.example.com: {active: failed, restarts: 2}
+ask:
+  message: The shop cannot save uploads any more
+  page: {kind: diagnosis, domain: shop.example.com}
+script:
+  - say: |
+      The disk is at 99 %, and the application cannot write. Free space, for example by pruning old releases and logs.
+expect:
+  state: done
+  tools_offered: false
+  requests: 1
+  trace: [diagnose_application]
+  answer_contains: ["99"]
+  proposals: []
+  model_saw: ["no space left on device"]

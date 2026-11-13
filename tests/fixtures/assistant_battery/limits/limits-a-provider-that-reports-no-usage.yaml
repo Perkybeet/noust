@@ -1,0 +1,23 @@
+id: limits-a-provider-that-reports-no-usage
+family: limits
+forms: [explain, investigate, propose]
+title: A provider that says nothing of what it used is estimated from the characters, the person is told so, and the limit of tokens still cuts
+settings:
+  limits: {input_tokens_per_conversation: 12000}
+seed:
+  journal:
+    shop.example.com: |
+      Nov 12 12:30:58 web-01 shop[28411]: a long line of a journal that is read again and again, with a path /srv/shop/releases/2026 and a request id 0123456789abcdef0123456789abcdef
+      Nov 12 12:30:59 web-01 shop[28411]: a second long line of a journal that is read again and again, with a path /srv/shop/releases/2026 and a request id fedcba9876543210fedcba9876543210
+ask:
+  message: Read the journal again and again
+script:
+  - call: {tool: application_logs, arguments: {domain: shop.example.com}}
+    repeat: 12
+    usage: null
+expect:
+  state: stopped
+  stop: assistant.limit.input_tokens
+  proposals: []
+  notes: [assistant.limit.no_price, assistant.limit.estimated]
+  audit_has: [assistant.limit]

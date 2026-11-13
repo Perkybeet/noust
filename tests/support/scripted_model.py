@@ -240,6 +240,11 @@ class ScriptedModel:
             self._replies.extend(replies)
         return self
 
+    def unscript(self) -> None:
+        """Forget the answers nobody asked for (what a scenario that ended early left unsaid)."""
+        with self._lock:
+            self._replies.clear()
+
     def pending(self) -> int:
         """Returns how many replies nobody asked for yet."""
         with self._lock:

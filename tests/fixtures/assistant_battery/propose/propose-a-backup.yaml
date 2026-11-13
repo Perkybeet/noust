@@ -1,0 +1,19 @@
+id: propose-a-backup
+family: propose
+forms: [propose]
+title: A backup before a risky change is prepared, and the job is queued only when the person approves
+ask:
+  message: Take a backup of the shop before I touch it
+script:
+  - call: {tool: create_backup, arguments: {domain: shop.example.com}}
+  - say: The backup of shop.example.com is prepared. It waits for your approval.
+expect:
+  state: done
+  trace: [create_backup]
+  proposals:
+    - {tool: create_backup, klass: ask, state: waiting, permission: backups.run, environment: production}
+  executed: []
+approve:
+  - proposal: 1
+    executed:
+      - {kind: job, type: backup, domain: shop.example.com}

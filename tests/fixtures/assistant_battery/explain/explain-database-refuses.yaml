@@ -1,0 +1,37 @@
+id: explain-database-refuses
+family: explain
+forms: [explain]
+title: A deployment fails at its migration because the database refuses the connection
+model:
+  calls_tools: false
+seed:
+  deployments:
+    - app: shop.example.com
+      status: failed
+      error: "Migration failed: connect ECONNREFUSED 127.0.0.1:5432"
+      commit: 9e2f4aa
+      branch: main
+      message: Add the orders table
+      log: |
+        > shop@1.4.2 migrate
+        > node scripts/migrate.js
+        Running migration 0042_orders
+        Error: connect ECONNREFUSED 127.0.0.1:5432
+            at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1555:16)
+        Migration failed: connect ECONNREFUSED 127.0.0.1:5432
+ask:
+  message: The migration step failed, why?
+  page: {kind: deployment, id: "<<deployment:1>>"}
+script:
+  - say: |
+      The application could not connect to PostgreSQL on port 5432:
+      [[S2:4]]
+      Check that the database is running and that the address the application uses is the right one.
+expect:
+  state: done
+  tools_offered: false
+  requests: 1
+  trace: [get_deployment, deployment_log]
+  answer_contains: [PostgreSQL]
+  quotes: ["Error: connect ECONNREFUSED 127.0.0.1:5432"]
+  proposals: []

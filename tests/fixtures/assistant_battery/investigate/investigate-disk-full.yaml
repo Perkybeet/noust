@@ -1,0 +1,29 @@
+id: investigate-disk-full
+family: investigate
+forms: [investigate]
+title: The model finds a full disk from the server's health, the diagnosis and the journal
+seed:
+  disk: {percent_used: 99}
+  journal:
+    shop.example.com: |
+      Nov 12 03:10:11 web-01 shop[2201]: Error: ENOSPC: no space left on device, write
+      Nov 12 03:10:12 web-01 shop[2201]: Error: ENOSPC: no space left on device, write
+  units:
+    shop.example.com: {active: failed, restarts: 2}
+ask:
+  message: Uploads to the shop fail since last night
+script:
+  - call: {tool: server_health, arguments: {}}
+  - call: {tool: diagnose_application, arguments: {domain: shop.example.com}}
+  - call: {tool: application_logs, arguments: {domain: shop.example.com}}
+  - say: |
+      The disk is almost full and the application cannot write:
+      [[S2:1]]
+      Free space (old releases, logs) before anything else.
+expect:
+  state: done
+  trace: [server_health, diagnose_application, application_logs]
+  quotes: ["Nov 12 03:10:11 web-01 shop[2201]: Error: ENOSPC: no space left on device, write"]
+  answer_contains: [disk]
+  proposals: []
+  model_saw: ["no space left on device"]

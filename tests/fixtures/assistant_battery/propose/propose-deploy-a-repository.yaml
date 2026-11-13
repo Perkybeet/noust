@@ -1,0 +1,28 @@
+id: propose-deploy-a-repository
+family: propose
+forms: [propose]
+title: A repository the person names is deployed on a domain only after the person approves, and the names they typed are theirs
+ask:
+  message: Deploy https://github.com/acme/blog.git on blog.example.org, from the main branch
+script:
+  - call:
+      tool: call_operation
+      arguments:
+        method: POST
+        path: /api/apps
+        body:
+          domain: blog.example.org
+          source: https://github.com/acme/blog.git
+          branch: main
+  - say: The deployment of the blog is prepared. It waits for you.
+expect:
+  state: done
+  trace: [call_operation]
+  proposals:
+    - {tool: call_operation, state: waiting, environment: production, foreign: []}
+  executed: []
+approve:
+  - proposal: 1
+    elevate: true
+    executed:
+      - {kind: job, type: deploy, domain: blog.example.org, source: "https://github.com/acme/blog.git", branch: main}

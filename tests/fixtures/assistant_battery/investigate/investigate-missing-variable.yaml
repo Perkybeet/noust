@@ -1,0 +1,36 @@
+id: investigate-missing-variable
+family: investigate
+forms: [investigate]
+title: The model finds a missing variable by reading the history, the build log and the names of the variables
+seed:
+  deployments:
+    - app: shop.example.com
+      status: failed
+      error: "Error: Environment variable DATABASE_URL is not set"
+      commit: 8a92fd6
+      branch: main
+      message: Read the database address from the environment
+      log: |
+        > shop@1.4.2 start
+        > node server.js
+        Error: Environment variable DATABASE_URL is not set
+            at loadConfig (/srv/shop/config.js:14:11)
+        npm ERR! code ELIFECYCLE
+ask:
+  message: The last deploy of the shop failed, can you find out why?
+script:
+  - call: {tool: list_deployments, arguments: {domain: shop.example.com}}
+  - call: {tool: deployment_log, arguments: {deployment_id: "<<deployment:1>>"}}
+  - call: {tool: list_environment_variables, arguments: {domain: shop.example.com}}
+  - say: |
+      The build stopped on a variable that is not set:
+      [[S2:3]]
+      The application has `DB_PASSWORD` and `NODE_ENV`, and no `DATABASE_URL`. Add it and deploy again.
+expect:
+  state: done
+  trace: [list_deployments, deployment_log, list_environment_variables]
+  quotes: ["Error: Environment variable DATABASE_URL is not set"]
+  answer_contains: [DATABASE_URL]
+  proposals: []
+  masked_min: 1
+  model_saw: ["DB_PASSWORD"]

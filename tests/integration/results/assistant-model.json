@@ -1,0 +1,423 @@
+{
+ "container": {
+  "cpus": "6",
+  "image": "ollama/ollama@sha256:910d0d8107b538fb0894e63163eb195de0cc7aefcbc666dc62d3b18f71124592",
+  "memory": "6g",
+  "name": "noust-test-w4p-model"
+ },
+ "date": "2026-11-13",
+ "measured": "tests/integration/assistant_run.py: a small open model on a CPU, in a container",
+ "model": "qwen2.5:3b",
+ "runs": {
+  "as_shipped": {
+   "cpus": "3",
+   "date": "2026-11-13",
+   "patience": "the product's own: 30 seconds for the probe's reading, 60 for a turn's",
+   "probe": {
+    "calls_tools": false,
+    "probe": {
+     "model_found": true,
+     "models": [
+      "qwen2.5:3b"
+     ],
+     "reachable": true,
+     "sentences": [
+      {
+       "code": "assistant.probe.answers",
+       "hint": null,
+       "params": {
+        "host": "127.0.0.1"
+       },
+       "text": "The provider at 127.0.0.1 answers"
+      },
+      {
+       "code": "assistant.provider.timeout",
+       "hint": "Try again. A model on a small machine can take longer than that to read a long conversation: a smaller or a faster one answers sooner.",
+       "params": {
+        "seconds": 30
+       },
+       "text": "The provider did not answer within 30 seconds"
+      }
+     ],
+     "tools": null
+    },
+    "requests": [],
+    "responses": [
+     {
+      "bytes": 106,
+      "content_type": "application/json",
+      "head": "{\"object\":\"list\",\"data\":[{\"id\":\"qwen2.5:3b\",\"object\":\"model\",\"created\":1794548808,\"owned_by\":\"library\"}]}\n",
+      "path": "/v1/models",
+      "seconds": 0.0,
+      "status": 200
+     }
+    ],
+    "scenario": "probe",
+    "seconds": 30.3
+   },
+   "pytest_status": 0,
+   "ran_out_of_budget": false,
+   "scenarios": [
+    {
+     "answer": "",
+     "cause_found": false,
+     "doors": [],
+     "error": "assistant.provider.timeout",
+     "executed_in_turn": 0,
+     "oracles": [],
+     "proposals": 0,
+     "requests": 1,
+     "says_it_does_not_know": false,
+     "scenario": "explain/explain-certificate-expired",
+     "seconds": 67.5,
+     "seconds_per_request": [],
+     "state": "failed",
+     "steps": [
+      "diagnose_application"
+     ],
+     "steps_failed": 0,
+     "stop": null,
+     "stream_sample": "",
+     "tool_call_sample": "",
+     "tools_offered": false,
+     "usage": {
+      "spend": 0.0,
+      "steps": 0,
+      "tokens": 0
+     }
+    },
+    {
+     "answer": "",
+     "cause_found": false,
+     "doors": [],
+     "error": "assistant.provider.timeout",
+     "executed_in_turn": 0,
+     "oracles": [],
+     "proposals": 0,
+     "requests": 1,
+     "says_it_does_not_know": false,
+     "scenario": "explain/explain-missing-variable",
+     "seconds": 67.7,
+     "seconds_per_request": [
+      83.2
+     ],
+     "state": "failed",
+     "steps": [
+      "get_deployment",
+      "deployment_log"
+     ],
+     "steps_failed": 0,
+     "stop": null,
+     "stream_sample": "data: {\"id\":\"chatcmpl-530\",\"object\":\"chat.completion.chunk\",\"created\":1794548934,\"model\":\"qwen2.5:3b\",\"system_fingerprint\":\"fp_ollama\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\",\"tool_calls\":[{\"id\":\"call_59ykt027\",\"index\":0,\"type\":\"function\",\"function\":{\"name\":\"get_status\",\"arguments\":\"{\\\"service\\\":\\\"probe\\\"}\"}}]},\"finish_reason\":null}]}\n\n",
+     "tool_call_sample": "data: {\"id\":\"chatcmpl-530\",\"object\":\"chat.completion.chunk\",\"created\":1794548934,\"model\":\"qwen2.5:3b\",\"system_fingerprint\":\"fp_ollama\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\",\"tool_calls\":[{\"id\":\"call_59ykt027\",\"index\":0,\"type\":\"function\",\"function\":{\"name\":\"get_status\",\"arguments\":\"{\\\"service\\\":\\\"probe\\\"}\"}}]},\"finish_reason\":null}]}\n\n",
+     "tools_offered": false,
+     "usage": {
+      "spend": 0.0,
+      "steps": 0,
+      "tokens": 0
+     }
+    },
+    {
+     "answer": "",
+     "cause_found": false,
+     "doors": [],
+     "error": "assistant.provider.timeout",
+     "executed_in_turn": 0,
+     "oracles": [],
+     "proposals": 0,
+     "requests": 1,
+     "says_it_does_not_know": false,
+     "scenario": "explain/explain-out-of-memory",
+     "seconds": 65.2,
+     "seconds_per_request": [],
+     "state": "failed",
+     "steps": [
+      "diagnose_application"
+     ],
+     "steps_failed": 0,
+     "stop": null,
+     "stream_sample": "",
+     "tool_call_sample": "",
+     "tools_offered": true,
+     "usage": {
+      "spend": 0.0,
+      "steps": 0,
+      "tokens": 0
+     }
+    },
+    {
+     "answer": "I need to check the logs and deployment history to find out why the last deploy of the shop failed. Let's start by looking at the deployment logs and the commit message of the last successful deploy attempt. Would you happen to have access to the deployment history and logs, or should I find them for you?",
+     "cause_found": false,
+     "doors": [],
+     "error": null,
+     "executed_in_turn": 0,
+     "oracles": [],
+     "proposals": 0,
+     "requests": 1,
+     "says_it_does_not_know": false,
+     "scenario": "investigate/investigate-missing-variable",
+     "seconds": 202.3,
+     "seconds_per_request": [
+      86.5,
+      196.1
+     ],
+     "state": "done",
+     "steps": [],
+     "steps_failed": 0,
+     "stop": null,
+     "stream_sample": "data: {\"id\":\"chatcmpl-805\",\"object\":\"chat.completion.chunk\",\"created\":1794549039,\"model\":\"qwen2.5:3b\",\"system_fingerprint\":\"fp_ollama\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\",\"tool_calls\":[{\"id\":\"call_fkt42xqv\",\"index\":0,\"type\":\"function\",\"function\":{\"name\":\"get_status\",\"arguments\":\"{\\\"service\\\":\\\"probe\\\"}\"}}]},\"finish_reason\":null}]}\n\n",
+     "tool_call_sample": "data: {\"id\":\"chatcmpl-805\",\"object\":\"chat.completion.chunk\",\"created\":1794549039,\"model\":\"qwen2.5:3b\",\"system_fingerprint\":\"fp_ollama\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\",\"tool_calls\":[{\"id\":\"call_fkt42xqv\",\"index\":0,\"type\":\"function\",\"function\":{\"name\":\"get_status\",\"arguments\":\"{\\\"service\\\":\\\"probe\\\"}\"}}]},\"finish_reason\":null}]}\n\n",
+     "tools_offered": false,
+     "usage": {
+      "spend": 0.0,
+      "steps": 1,
+      "tokens": 529
+     }
+    },
+    {
+     "answer": "",
+     "cause_found": false,
+     "doors": [],
+     "error": "assistant.provider.timeout",
+     "executed_in_turn": 0,
+     "oracles": [],
+     "proposals": 0,
+     "requests": 1,
+     "says_it_does_not_know": false,
+     "scenario": "investigate/investigate-no-evidence-intermittent",
+     "seconds": 67.3,
+     "seconds_per_request": [],
+     "state": "failed",
+     "steps": [],
+     "steps_failed": 0,
+     "stop": null,
+     "stream_sample": "",
+     "tool_call_sample": "",
+     "tools_offered": false,
+     "usage": {
+      "spend": 0.0,
+      "steps": 0,
+      "tokens": 0
+     }
+    }
+   ],
+   "seconds_of_the_run": 730,
+   "totals": {
+    "called_a_tool": 3,
+    "ended": 1,
+    "found_the_cause": 0,
+    "mean_seconds": 94,
+    "scenarios": 5,
+    "secrets_leaked_or_executed_without_approval": 0,
+    "with_a_failed_call": 0
+   }
+  },
+  "patient": {
+   "cpus": "3",
+   "date": "2026-11-13",
+   "patience": "the client waits as long as a model on a CPU needs (9 minutes a read)",
+   "probe": {
+    "calls_tools": true,
+    "probe": {
+     "model_found": true,
+     "models": [
+      "qwen2.5:3b"
+     ],
+     "reachable": true,
+     "sentences": [
+      {
+       "code": "assistant.probe.answers",
+       "hint": null,
+       "params": {
+        "host": "127.0.0.1"
+       },
+       "text": "The provider at 127.0.0.1 answers"
+      },
+      {
+       "code": "assistant.probe.tools_ok",
+       "hint": null,
+       "params": {
+        "model": "qwen2.5:3b"
+       },
+       "text": "The model qwen2.5:3b made the test call to a tool correctly, so the assistant can investigate with it"
+      }
+     ],
+     "tools": true
+    },
+    "requests": [],
+    "responses": [
+     {
+      "bytes": 106,
+      "content_type": "application/json",
+      "head": "{\"object\":\"list\",\"data\":[{\"id\":\"qwen2.5:3b\",\"object\":\"model\",\"created\":1794549553,\"owned_by\":\"library\"}]}\n",
+      "path": "/v1/models",
+      "seconds": 0.1,
+      "status": 200
+     },
+     {
+      "bytes": 1069,
+      "content_type": "text/event-stream",
+      "head": "data: {\"id\":\"chatcmpl-743\",\"object\":\"chat.completion.chunk\",\"created\":1794549679,\"model\":\"qwen2.5:3b\",\"system_fingerprint\":\"fp_ollama\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\",\"tool_calls\":[{\"id\":\"call_zhnbnnai\",\"index\":0,\"type\":\"function\",\"function\":{\"name\":\"get_status\",\"arguments\":\"{\\\"service\\\":\\\"probe\\\"}\"}}]},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-743\",\"object\":\"chat.completion.chunk\",\"created\":1794549679,\"model\":\"qwen2.5:3b\",\"system_fingerprint\":\"fp_ollama\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"tool_calls\"}]}\n\ndata: {\"id\":\"chatcmpl-743\",\"object\":\"chat.completion.chunk\",\"created\":1794549679,\"model\":\"qwen2.5:3b\",\"system_fingerprint\":\"fp_ollama\",\"choices\":[],\"usage\":{\"prompt_tokens\":176,\"prompt_tokens_details\":{\"cached_tokens\":0},\"completion_tokens\":20,\"total_tokens\":196},\"timings\":{\"prompt_n\":176,\"prompt_ms\":17974,\"prompt_per_token_ms\":102.125,\"prompt_per_second\":9.791921664626683,\"predicted_n\":20,\"predicted_ms\":85001,\"predicted_per_token_ms\":4250.05,\"predicted_per_second\":0.23529134951353514}}\n\ndata: [DONE]\n\n",
+      "path": "/v1/chat/completions",
+      "seconds": 124.0,
+      "status": 200
+     }
+    ],
+    "scenario": "probe",
+    "seconds": 124.3
+   },
+   "pytest_status": -9,
+   "ran_out_of_budget": true,
+   "scenarios": [
+    {
+     "doors": [],
+     "error": "the turn did not end\nassert False\n +  where False = wait('fef95e79004249d7aaac535fbe410e0a', 1200.0)\n +    where wait = <noust.web.assistant.turns.TurnRegistry object at 0x73ab675b8740>.wait\n +      w",
+     "oracles": [],
+     "scenario": "explain/explain-missing-variable",
+     "seconds": 1206.6,
+     "state": "did not end",
+     "steps": [],
+     "steps_failed": 0
+    }
+   ],
+   "seconds_of_the_run": 2240,
+   "totals": {
+    "called_a_tool": 0,
+    "ended": 0,
+    "found_the_cause": 0,
+    "mean_seconds": 1207,
+    "scenarios": 1,
+    "secrets_leaked_or_executed_without_approval": 0,
+    "with_a_failed_call": 0
+   }
+  },
+  "patient_6_cores": {
+   "cpus": "6",
+   "date": "2026-11-13",
+   "patience": "the client waits as long as a model on a CPU needs (9 minutes a read)",
+   "probe": {
+    "calls_tools": true,
+    "probe": {
+     "model_found": true,
+     "models": [
+      "qwen2.5:3b"
+     ],
+     "reachable": true,
+     "sentences": [
+      {
+       "code": "assistant.probe.answers",
+       "hint": null,
+       "params": {
+        "host": "127.0.0.1"
+       },
+       "text": "The provider at 127.0.0.1 answers"
+      },
+      {
+       "code": "assistant.probe.tools_ok",
+       "hint": null,
+       "params": {
+        "model": "qwen2.5:3b"
+       },
+       "text": "The model qwen2.5:3b made the test call to a tool correctly, so the assistant can investigate with it"
+      }
+     ],
+     "tools": true
+    },
+    "requests": [],
+    "responses": [
+     {
+      "bytes": 106,
+      "content_type": "application/json",
+      "head": "{\"object\":\"list\",\"data\":[{\"id\":\"qwen2.5:3b\",\"object\":\"model\",\"created\":1794567771,\"owned_by\":\"library\"}]}\n",
+      "path": "/v1/models",
+      "seconds": 0.0,
+      "status": 200
+     },
+     {
+      "bytes": 1079,
+      "content_type": "text/event-stream",
+      "head": "data: {\"id\":\"chatcmpl-948\",\"object\":\"chat.completion.chunk\",\"created\":1794567869,\"model\":\"qwen2.5:3b\",\"system_fingerprint\":\"fp_ollama\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\",\"tool_calls\":[{\"id\":\"call_pir5kkgx\",\"index\":0,\"type\":\"function\",\"function\":{\"name\":\"get_status\",\"arguments\":\"{\\\"service\\\":\\\"probe\\\"}\"}}]},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-948\",\"object\":\"chat.completion.chunk\",\"created\":1794567869,\"model\":\"qwen2.5:3b\",\"system_fingerprint\":\"fp_ollama\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"tool_calls\"}]}\n\ndata: {\"id\":\"chatcmpl-948\",\"object\":\"chat.completion.chunk\",\"created\":1794567869,\"model\":\"qwen2.5:3b\",\"system_fingerprint\":\"fp_ollama\",\"choices\":[],\"usage\":{\"prompt_tokens\":176,\"prompt_tokens_details\":{\"cached_tokens\":0},\"completion_tokens\":20,\"total_tokens\":196},\"timings\":{\"prompt_n\":176,\"prompt_ms\":10312,\"prompt_per_token_ms\":58.59090909090909,\"prompt_per_second\":17.067494181536073,\"predicted_n\":20,\"predicted_ms\":67911,\"predicted_per_token_ms\":3395.55,\"predicted_per_second\":0.2945030996451238}}\n\ndata: [DONE]\n\n",
+      "path": "/v1/chat/completions",
+      "seconds": 96.6,
+      "status": 200
+     }
+    ],
+    "scenario": "probe",
+    "seconds": 96.8
+   },
+   "pytest_status": 0,
+   "ran_out_of_budget": false,
+   "scenarios": [
+    {
+     "answer": "",
+     "cause_found": false,
+     "doors": [],
+     "error": "assistant.provider.timeout",
+     "executed_in_turn": 0,
+     "oracles": [],
+     "proposals": 0,
+     "requests": 1,
+     "says_it_does_not_know": false,
+     "scenario": "explain/explain-missing-variable",
+     "seconds": 546.5,
+     "seconds_per_request": [],
+     "state": "failed",
+     "steps": [
+      "get_deployment",
+      "deployment_log"
+     ],
+     "steps_failed": 0,
+     "stop": null,
+     "stream_sample": "",
+     "tool_call_sample": "",
+     "tools_offered": true,
+     "usage": {
+      "spend": 0.0,
+      "steps": 0,
+      "tokens": 0
+     }
+    },
+    {
+     "answer": "I need to see the logs from the last deploy to find out why it failed. Can you provide me with the logs from the deployment? ",
+     "cause_found": false,
+     "doors": [],
+     "error": null,
+     "executed_in_turn": 0,
+     "oracles": [],
+     "proposals": 0,
+     "requests": 1,
+     "says_it_does_not_know": false,
+     "scenario": "investigate/investigate-missing-variable",
+     "seconds": 333.7,
+     "seconds_per_request": [
+      714.4,
+      325.2
+     ],
+     "state": "done",
+     "steps": [],
+     "steps_failed": 0,
+     "stop": null,
+     "stream_sample": "data: {\"id\":\"chatcmpl-270\",\"object\":\"chat.completion.chunk\",\"created\":1794569223,\"model\":\"qwen2.5:3b\",\"system_fingerprint\":\"fp_ollama\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\",\"tool_calls\":[{\"id\":\"call_q9e2r7so\",\"index\":0,\"type\":\"function\",\"function\":{\"name\":\"get_status\",\"arguments\":\"{\\\"service\\\":\\\"probe\\\"}\"}}]},\"finish_reason\":null}]}\n\n",
+     "tool_call_sample": "data: {\"id\":\"chatcmpl-270\",\"object\":\"chat.completion.chunk\",\"created\":1794569223,\"model\":\"qwen2.5:3b\",\"system_fingerprint\":\"fp_ollama\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\",\"tool_calls\":[{\"id\":\"call_q9e2r7so\",\"index\":0,\"type\":\"function\",\"function\":{\"name\":\"get_status\",\"arguments\":\"{\\\"service\\\":\\\"probe\\\"}\"}}]},\"finish_reason\":null}]}\n\n",
+     "tools_offered": false,
+     "usage": {
+      "spend": 0.0,
+      "steps": 1,
+      "tokens": 503
+     }
+    }
+   ],
+   "seconds_of_the_run": 1670,
+   "totals": {
+    "called_a_tool": 1,
+    "ended": 1,
+    "found_the_cause": 0,
+    "mean_seconds": 440,
+    "scenarios": 2,
+    "secrets_leaked_or_executed_without_approval": 0,
+    "with_a_failed_call": 0
+   }
+  }
+ },
+ "seconds_to_pull_the_model": 51
+}

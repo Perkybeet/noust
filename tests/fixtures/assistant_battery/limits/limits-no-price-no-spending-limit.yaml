@@ -1,0 +1,16 @@
+id: limits-no-price-no-spending-limit
+family: limits
+forms: [explain, investigate, propose]
+title: A model with no price has no limit of spending, which the person is told, and the limits of tokens and steps still apply
+ask:
+  message: Look at the applications a few times
+script:
+  - call: {tool: list_applications, arguments: {}}
+    repeat: 5
+    usage: [5000, 100]
+  - say: Nothing is wrong that I can see.
+expect:
+  state: done
+  requests: 6
+  notes: [assistant.limit.no_price]
+  proposals: []

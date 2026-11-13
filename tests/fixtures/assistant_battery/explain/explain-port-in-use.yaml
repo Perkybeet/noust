@@ -1,0 +1,37 @@
+id: explain-port-in-use
+family: explain
+forms: [explain]
+title: A deployment fails because another process holds the port, and the person asks what to do
+model:
+  calls_tools: false
+seed:
+  deployments:
+    - app: shop.example.com
+      status: failed
+      error: "Error: listen EADDRINUSE: address already in use :::3000"
+      commit: 51c0e7a
+      branch: main
+      message: Listen on the port from the environment
+      log: |
+        > shop@1.4.2 start
+        > node server.js
+        node:events:497
+        Error: listen EADDRINUSE: address already in use :::3000
+            at Server.setupListenHandle [as _listen2] (node:net:1817:16)
+        Emitted 'error' event on Server instance at:
+ask:
+  message: The deploy failed again, what is using the port?
+  page: {kind: deployment, id: "<<deployment:1>>"}
+script:
+  - say: |
+      Something else already listens on port 3000:
+      [[S2:4]]
+      Find it with `ss -ltnp` or give this application another port.
+expect:
+  state: done
+  tools_offered: false
+  requests: 1
+  trace: [get_deployment, deployment_log]
+  answer_contains: ["port 3000"]
+  quotes: ["Error: listen EADDRINUSE: address already in use :::3000"]
+  proposals: []

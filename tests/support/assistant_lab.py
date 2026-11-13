@@ -211,12 +211,28 @@ class Lab:
         branch: str | None = None,
     ) -> int:
         """Record a deployment that failed, with its captured log. Returns its number."""
+        return self.deployment(
+            domain, log, status="failed", error=error, message=message, branch=branch
+        )
+
+    def deployment(
+        self,
+        domain: str,
+        log: str,
+        *,
+        status: str,
+        error: str | None = None,
+        message: str | None = None,
+        branch: str | None = None,
+        commit: str = "a3f9c21",
+    ) -> int:
+        """Record a deployment that ended, with its captured log. Returns its number."""
         deployment = self.store.record_deployment_start(
-            domain, "panel", git_commit="a3f9c21", git_branch=branch
+            domain, "panel", git_commit=commit, git_branch=branch
         )
         if message is not None:
             self.store.annotate_deployment(deployment, commit_message=message)
-        self.store.finish_deployment(deployment, "failed", error)
+        self.store.finish_deployment(deployment, status, error)
         directory = self.store.db_path.parent / "deploy-logs" / domain
         get_fs().make_dir(directory, mode=0o700, parents=True)
         path = directory / f"{deployment}.log"
@@ -241,14 +257,20 @@ class Lab:
         )
 
     def ask(
-        self, conversation: str, message: str, person: Person | None = None, **body: Any
+        self,
+        conversation: str,
+        message: str,
+        person: Person | None = None,
+        *,
+        wait: float = 60,
+        **body: Any,
     ) -> dict[str, Any]:
-        """Ask a question, wait for the turn to end and give it as the console reads it."""
+        """Ask a question, wait (``wait`` seconds at most) for the turn to end and give it as the console reads it."""
         who = person or self.marta
         response = self.begin(conversation, message, who, **body)
         assert response.status_code == 202, response.text
         turn_id = response.json()["turn"]
-        assert registry().wait(turn_id, 60), "the turn did not end"
+        assert registry().wait(turn_id, wait), "the turn did not end"
         return self.turn(conversation, turn_id, who)
 
     def turn(self, conversation: str, turn_id: str, person: Person | None = None) -> dict[str, Any]:

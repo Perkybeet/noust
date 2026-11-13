@@ -98,6 +98,38 @@ def _dump(value: Any) -> str | None:
     return json.dumps(hide_secrets(value), ensure_ascii=False, default=str)
 
 
+def _scrub_words(value: Any) -> Any:
+    """
+    Args:
+        value: Anything JSON can hold.
+
+    Returns:
+        A copy in which every string is masked and nothing else is touched: a number is never hidden for
+        the name of the key it is under.
+    """
+    if isinstance(value, str):
+        return scrub_text(value)
+    if isinstance(value, Mapping):
+        return {key: _scrub_words(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_scrub_words(item) for item in value]
+    return value
+
+
+def _dump_counts(value: Any) -> str | None:
+    """
+    Args:
+        value: What a turn used: counts, spending and sentences with codes.
+
+    Returns:
+        It as JSON with the strings masked. :func:`_dump` would hide ``tokens``, which is how many
+        tokens were used and not a credential, because the name of the key sounds like one.
+    """
+    if value is None:
+        return None
+    return json.dumps(_scrub_words(value), ensure_ascii=False, default=str)
+
+
 def _load(text: str | None, default: Any) -> Any:
     """
     Args:
@@ -368,7 +400,7 @@ class Turns(_Records):
                     _dump(turn.warnings),
                     _dump(turn.stop),
                     _dump(turn.error),
-                    _dump(turn.usage),
+                    _dump_counts(turn.usage),
                     turn.ended_at,
                     turn.id,
                     turn.account_id,

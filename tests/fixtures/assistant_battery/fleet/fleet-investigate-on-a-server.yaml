@@ -1,0 +1,32 @@
+id: fleet-investigate-on-a-server
+family: fleet
+forms: [investigate]
+title: The model reads the journal and the diagnosis of an application on a server, the node's own words, and the node's audit sees the assistant for a person
+seed:
+  fleet:
+    node: web-2
+    logs:
+      ours.example.com: |
+        Nov 12 12:30:58 web-2 ours[900]: listening on 3000
+        Nov 12 12:31:07 web-2 kernel: Memory cgroup out of memory: Killed process 900 (node)
+    diagnosis:
+      verdict: down
+      probable_cause: "The unit was killed for running out of memory."
+ask:
+  message: Why does ours.example.com keep restarting?
+  server: web-2
+script:
+  - call: {tool: application_logs, arguments: {domain: ours.example.com}}
+  - call: {tool: diagnose_application, arguments: {domain: ours.example.com}}
+  - say: |
+      The kernel kills it for running out of memory:
+      [[S1:2]]
+expect:
+  state: done
+  trace: [application_logs, diagnose_application]
+  quotes: ["Nov 12 12:31:07 web-2 kernel: Memory cgroup out of memory: Killed process 900 (node)"]
+  proposals: []
+  node_calls:
+    - GET /api/apps/ours.example.com/logs
+    - GET /api/apps/ours.example.com/diagnose
+  node_actor: ["assistant:", "marta"]

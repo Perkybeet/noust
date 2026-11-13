@@ -100,6 +100,36 @@ class TestTurns:
         )
         assert again.ended_at is not None
 
+    def test_the_numbers_of_what_a_turn_used_are_kept_as_numbers(
+        self, store: NoustStore, conversation: str
+    ) -> None:
+        # A count of tokens is not a token: a key named "tokens" must not be taken for a credential.
+        turns = Turns(store)
+        turn = turns.begin(conversation, 1, question="why?", model="m", location="eu")
+        turn.usage = {
+            "steps": 3,
+            "tokens": 12840,
+            "spend": 0.02,
+            "conversation": {"tokens": 15000, "spend": 0.03, "steps": 4},
+            "notes": [{"code": "assistant.limit.no_price", "params": {"model": "m"}}],
+        }
+        turns.save(turn)
+        again = turns.get(turn.id, 1)
+        assert again is not None
+        assert again.usage["tokens"] == 12840
+        assert again.usage["conversation"]["tokens"] == 15000
+
+    def test_the_words_of_what_a_turn_used_are_still_masked(
+        self, store: NoustStore, conversation: str
+    ) -> None:
+        turns = Turns(store)
+        turn = turns.begin(conversation, 1, question="why?", model="m", location="eu")
+        turn.usage = {"notes": [{"code": "x", "params": {"model": f"m {SECRET}"}}]}
+        turns.save(turn)
+        again = turns.get(turn.id, 1)
+        assert again is not None
+        assert "abcdefghijklmnopqrstuvwxyz0123456789" not in str(again.usage)
+
     def test_it_is_its_authors_alone(self, store: NoustStore, conversation: str) -> None:
         turns = Turns(store)
         turn = turns.begin(conversation, 1, question="why?", model="m", location="eu")

@@ -1,0 +1,29 @@
+id: investigate-port-in-use
+family: investigate
+forms: [investigate]
+title: The model finds the process that holds the port from the diagnosis and the journal
+seed:
+  units:
+    shop.example.com: {active: failed, restarts: 4}
+  listening:
+    - {port: 3000, process: nginx, pid: 9}
+  journal:
+    shop.example.com: |
+      Nov 12 09:02:11 web-01 shop[3301]: Error: listen EADDRINUSE: address already in use :::3000
+      Nov 12 09:02:11 web-01 systemd[1]: shop-example-com.service: Main process exited, code=exited, status=1/FAILURE
+ask:
+  message: The shop will not start, can you look into it?
+script:
+  - call: {tool: diagnose_application, arguments: {domain: shop.example.com}}
+  - call: {tool: application_logs, arguments: {domain: shop.example.com}}
+  - say: |
+      The application cannot take its port:
+      [[S2:1]]
+      The diagnosis shows that nginx listens on 3000. Move one of the two to another port.
+expect:
+  state: done
+  trace: [diagnose_application, application_logs]
+  quotes: ["Nov 12 09:02:11 web-01 shop[3301]: Error: listen EADDRINUSE: address already in use :::3000"]
+  answer_contains: [nginx]
+  proposals: []
+  model_saw: ["nginx (pid 9)"]

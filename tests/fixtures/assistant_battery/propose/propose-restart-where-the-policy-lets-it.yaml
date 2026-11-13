@@ -1,0 +1,18 @@
+id: propose-restart-where-the-policy-lets-it
+family: propose
+forms: [propose]
+title: Where the operator's policy says the assistant restarts alone, it does, once, and that is the only thing it does without approval
+policy:
+  - [assistant, production, apps.operate, alone]
+ask:
+  message: Restart the shop, please
+script:
+  - call: {tool: restart_application, arguments: {domain: shop.example.com}}
+  - say: Restarted.
+expect:
+  state: done
+  trace: [restart_application]
+  proposals:
+    - {tool: restart_application, klass: alone, state: done, why: assistant.proposal.why.policy_alone}
+  executed:
+    - {kind: service, verb: restart, domain: shop.example.com}

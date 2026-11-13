@@ -1,0 +1,19 @@
+id: propose-restart
+family: propose
+forms: [propose]
+title: A restart is prepared and not made, with what it would do shown, and the machine is told only after the person approves
+ask:
+  message: Restart the shop, please
+script:
+  - call: {tool: restart_application, arguments: {domain: shop.example.com}}
+  - say: I prepared the restart of shop.example.com. It waits for your approval.
+expect:
+  state: done
+  trace: [restart_application]
+  proposals:
+    - {tool: restart_application, klass: ask, state: waiting, why: assistant.proposal.why.policy_propose, permission: apps.operate, environment: production, plan: true}
+  executed: []
+approve:
+  - proposal: 1
+    executed:
+      - {kind: service, verb: restart, domain: shop.example.com}

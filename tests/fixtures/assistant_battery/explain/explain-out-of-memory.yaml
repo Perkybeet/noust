@@ -1,0 +1,31 @@
+id: explain-out-of-memory
+family: explain
+forms: [explain]
+title: An application that keeps restarting is explained from its diagnosis, which the kernel's own lines complete
+model:
+  calls_tools: false
+seed:
+  journal:
+    shop.example.com: |
+      Nov 12 12:30:58 web-01 shop[28411]: listening on 3000
+      Nov 12 12:31:07 web-01 kernel: Memory cgroup out of memory: Killed process 28411 (node)
+      Nov 12 12:31:07 web-01 systemd[1]: shop-example-com.service: A process of this unit has been killed by the OOM killer.
+      Nov 12 12:31:09 web-01 systemd[1]: shop-example-com.service: Scheduled restart job, restart counter is at 5.
+  units:
+    shop.example.com: {active: activating, sub: auto-restart, result: oom-kill, exit_status: 137, restarts: 5}
+  oom:
+    - "Nov 12 12:31:07 web-01 kernel: Memory cgroup out of memory: Killed process 28411 (node)"
+ask:
+  message: Why does the shop keep restarting?
+  page: {kind: diagnosis, domain: shop.example.com}
+script:
+  - say: |
+      The kernel is killing the process for running out of memory, so systemd restarts it over and over. Raise the memory limit or find what grows.
+expect:
+  state: done
+  tools_offered: false
+  requests: 1
+  trace: [diagnose_application]
+  answer_contains: [memory]
+  proposals: []
+  model_saw: ["out of memory", "restart counter is at 5"]

@@ -1,0 +1,32 @@
+id: investigate-nginx-test-fails
+family: investigate
+forms: [investigate]
+title: The model finds that nginx rejected the site by reading the failed deployment's log
+seed:
+  deployments:
+    - app: shop.example.com
+      status: failed
+      error: "nginx -t failed: unknown directive \"proxy_passs\""
+      commit: 3b8d5e1
+      branch: main
+      message: Proxy the API to the backend
+      log: |
+        Writing the site for shop.example.com
+        nginx: [emerg] unknown directive "proxy_passs" in /etc/nginx/sites-enabled/shop.example.com:14
+        nginx: configuration file /etc/nginx/nginx.conf test failed
+        The previous version keeps serving.
+ask:
+  message: The site did not change after the last deploy, why?
+script:
+  - call: {tool: list_deployments, arguments: {domain: shop.example.com, limit: 3}}
+  - call: {tool: deployment_log, arguments: {deployment_id: "<<deployment:1>>"}}
+  - say: |
+      nginx refused the new site:
+      [[S2:2]]
+      The previous version keeps serving, which is why nothing changed.
+expect:
+  state: done
+  trace: [list_deployments, deployment_log]
+  quotes: ['nginx: [emerg] unknown directive "proxy_passs" in /etc/nginx/sites-enabled/shop.example.com:14']
+  answer_contains: [nginx]
+  proposals: []

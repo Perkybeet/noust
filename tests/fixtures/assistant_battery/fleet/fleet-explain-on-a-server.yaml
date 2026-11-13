@@ -1,0 +1,28 @@
+id: fleet-explain-on-a-server
+family: fleet
+forms: [explain]
+title: From the central, the diagnosis page of an application on a server is read through the central like everything the console shows of it, and explained
+model:
+  calls_tools: false
+seed:
+  fleet:
+    node: web-2
+    diagnosis:
+      verdict: down
+      probable_cause: "The unit was killed for running out of memory five times."
+ask:
+  message: Why is this application down?
+  server: web-2
+  page: {kind: diagnosis, domain: ours.example.com, server: web-2}
+script:
+  - say: The unit ran out of memory five times, so the application keeps being killed. A higher limit would ease it.
+expect:
+  state: done
+  tools_offered: false
+  trace: [diagnose_application]
+  answer_contains: [memory]
+  proposals: []
+  node_calls:
+    - GET /api/apps/ours.example.com/diagnose
+  node_actor: ["assistant:", "marta"]
+  model_saw: ["killed for running out of memory"]
