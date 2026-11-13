@@ -37,6 +37,12 @@ The cause is fixed in one place, not in the call that happened to be reported (r
   of `tests/test_adversarial_inputs.py` holds the time.
 - A name that becomes a directory of a certificate or a database instance is judged by the function
   that builds the directory, so a route that forgets to is still safe.
+- A block that must be found whole (a private key in a log) ends at its footer, at the header of
+  the next block or at the end of the text, and there is one pattern for it
+  (`secret_detection.TEXT_SHAPES`, which `mask_private_keys` and the assistant's and the MCP server's
+  `scrub_text` use): a second pattern with an open `.*?` between a header and a footer reads to the end
+  of the text from every header, and a text of nothing but headers takes the square of its length.
+  `TestAPrivateKeyInALogIsHiddenInLinearTime` holds the time.
 
 ## Teaching CodeQL what Noust already does
 
@@ -83,9 +89,11 @@ GitHub's three and the comment says why in a sentence:
 | Used in tests | The code is a fixture, an example or the harness | what it is for |
 | Won't fix | The finding is true and accepted | what is accepted, why, and who has to be trusted for it to matter |
 
-Three kinds of alert are accepted as they are:
+Five kinds of alert are accepted as they are:
 a route that takes a directory of the server (adopting a stack, a bind mount, a dump to import)
-needs a permission that is root-equivalent and, for the ones that change something, sudo mode; the
+needs a permission that is root-equivalent and, for the ones that change something, sudo mode (what is
+flagged in adopting a stack is the check that the directory is there, `checked_directory`, and the
+readability test of a central in a container, on a path the operator chose); the
 file system seam (`core/fs.py`) takes the path its caller already judged; and a value that reaches
 the browser's console (`js/log-injection` on a `console.error` of the console's code, and on the
 wrapper in `lib/errorBuffer.ts` that hands its arguments to the real one). The browser's console is
@@ -93,6 +101,16 @@ not a line-oriented log: an argument with a line break is inside one entry, neve
 the buffer's own copy stays in memory and reaches a report as JSON, where a line break is written
 out. `errorBuffer.test.ts` holds that the real console gets exactly what was logged and
 `browserBlock.test.ts` that a line break cannot start an entry of the report.
+
+The other two are a hash that keeps no password and the words of a failed probe.
+`py/weak-sensitive-data-hashing` reads HMAC-SHA256 under a random key of 256 bits (`core/at_rest.py`, a key
+in a file of its own; `core/sealing.py`, a key made by scrypt; the token manager's hash of a random token, salted with
+the signing key) as a fast hash of a password when the value that flows in came from a column named `api_key` or
+`password`. What is hashed there is the value already sealed or a random token, never a password somebody
+chose, and the query has no place for a barrier in a model pack (its sanitizers are written in QL).
+`py/stack-trace-exposure` on the Overview: a section whose probe fails carries `str(exc)`, one line of the
+system's own words for an authenticated operator, on purpose (a system error is never paraphrased); no
+stack trace is sent.
 
 ## What a pull request sees
 

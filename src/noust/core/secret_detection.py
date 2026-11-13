@@ -543,11 +543,14 @@ def classify_all(
 
 # -- masking secrets in text ---------------------------------------------------------
 
-#: A whole PEM private key, however long a line it is read in, or to the end of the
-#: text when a log was cut before its footer. Bounded, so a header with no end cannot
-#: make the search quadratic.
+#: A whole PEM private key, however long a line it is read in, or up to where a log was
+#: cut before its footer: the header of the next key, or the end of the text. A block that
+#: ends at the next header is what keeps the time linear: a text of nothing but headers
+#: (a log can be a megabyte of whatever an application printed) made every header read to
+#: the end of the text, and the bound alone left it sixteen thousand characters from each.
 _PRIVATE_KEY_BLOCK = re.compile(
-    r"-----BEGIN (?:[A-Z]+ )*PRIVATE KEY-----[\s\S]{0,16384}?(?:-----END (?:[A-Z]+ )*PRIVATE KEY-----|(?![\s\S]))"
+    r"-----BEGIN (?:[A-Z]+ )*PRIVATE KEY-----[\s\S]{0,16384}?"
+    r"(?:-----END (?:[A-Z]+ )*PRIVATE KEY-----|(?=-----BEGIN)|(?![\s\S]))"
 )
 
 #: A JSON Web Token as it appears in a log: three base64url segments, the
@@ -613,20 +616,51 @@ class TextShape:
         return self.pattern.sub(lambda _match: placeholder, text)
 
 
+#: The two shapes of a private key, a whole block before its bare header: what
+#: :func:`mask_private_keys` applies on its own and what :data:`TEXT_SHAPES` starts with.
+_PRIVATE_KEY_SHAPES: tuple[TextShape, ...] = (
+    TextShape("private key block", _PRIVATE_KEY_BLOCK),
+    TextShape("private key", _PRIVATE_KEY_PEM),
+)
+
 #: Every shape :func:`mask_secret_shapes` hides, in the order it applies them: the one list, in
 #: Python and in the console. A PEM private key block before its bare header; a vendor's token by
 #: its prefix; a JWT; then the value of an assignment (``password=``, ``Authorization:``) before the
 #: bare ``Bearer`` rule, because an Authorization header keeps its scheme word and the bare rule
 #: would otherwise find "Bearer" itself a value to mask; and last the password of a URL.
 TEXT_SHAPES: tuple[TextShape, ...] = (
-    TextShape("private key block", _PRIVATE_KEY_BLOCK),
-    TextShape("private key", _PRIVATE_KEY_PEM),
+    *_PRIVATE_KEY_SHAPES,
     *(TextShape(kind, pattern) for kind, pattern in _VALUE_PATTERNS),
     TextShape("jwt", _JWT_TEXT),
     TextShape("assigned secret", _ASSIGNED_SECRET, keep_head=True, of_value=False),
     TextShape("bearer", _BEARER, keep_head=True, of_value=False),
     TextShape("url credentials", URL_CREDENTIALS, keep_head=True),
 )
+
+
+def mask_private_keys(text: str, placeholder: str = REDACTED) -> str:
+    """
+    Mask the private keys in a piece of text, and nothing else.
+
+    A reader that hides a line by the name in front of it (``PRIVATE_KEY=...``) hides one line, and a
+    key is many: the key has to be found first, whole, or its body is left behind its header. That
+    is the one reason to ask for the key shapes alone; :func:`mask_secret_shapes` applies them too,
+    before anything else, so a caller that runs it needs nothing more.
+
+    Args:
+        text: Text about to be stored or shown.
+        placeholder: What to put where a key was.
+
+    Returns:
+        The text with each private key (a whole block, a block cut before its footer, a lone
+        header) replaced.
+    """
+    if not text:
+        return text
+    masked = text
+    for shape in _PRIVATE_KEY_SHAPES:
+        masked = shape.mask(masked, placeholder)
+    return masked
 
 
 def mask_secret_shapes(text: str, placeholder: str = REDACTED) -> str:

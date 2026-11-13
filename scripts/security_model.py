@@ -727,6 +727,7 @@ def block_headers() -> str:
     """The headers every response carries, as the middleware sends them."""
     from noust.web.server import (
         _DISABLED_FEATURES,
+        _SELF_ONLY_FEATURES,
         CONTENT_SECURITY_POLICY,
         HARDENING_HEADERS,
         HSTS_VALUE,
@@ -753,7 +754,9 @@ def block_headers() -> str:
         + directives.rstrip(";")
         + "\n```\n\nBrowser features switched off for the console: "
         + ", ".join(f"`{feature}`" for feature in _DISABLED_FEATURES)
-        + "."
+        + ". Left to the console itself and to nothing it embeds: "
+        + ", ".join(f"`{feature}`" for feature in _SELF_ONLY_FEATURES)
+        + " (the report of a problem shares the tab for its picture)."
     )
 
 

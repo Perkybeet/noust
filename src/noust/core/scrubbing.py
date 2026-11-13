@@ -25,7 +25,7 @@ from typing import Any
 from noust.core.audit.sanitize import secret_name
 from noust.core.config import REDACTED
 from noust.core.redact import scrubber_for
-from noust.core.secret_detection import redact_url_credentials
+from noust.core.secret_detection import mask_private_keys, redact_url_credentials
 
 __all__ = ["MAX_DEPTH", "REDACTED", "hide_secrets", "names_a_secret", "scrub_text"]
 
@@ -38,11 +38,8 @@ _ASSIGNMENT = re.compile(
     r"(?:secret|token|passw(?:or)?d|passwd|api[_\-]?key|private[_\-]?key|credential|auth)"
     r"[A-Za-z0-9_.\-]*[ \t]*[=:][ \t]*)(?P<value>\S[^\r\n]*)$"
 )
-#: A bearer token or a private key block, wherever it appears.
+#: A bearer token, wherever it appears.
 _BEARER = re.compile(r"(?i)(bearer[ \t]+)[A-Za-z0-9._~+/=\-]{12,}")
-_PRIVATE_KEY = re.compile(
-    r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----", re.DOTALL
-)
 
 
 def scrub_text(text: str, domain: str | None = None) -> str:
@@ -59,7 +56,8 @@ def scrub_text(text: str, domain: str | None = None) -> str:
         assignments, bearer tokens and private keys replaced.
     """
     cleaned = redact_url_credentials(text)
-    cleaned = _PRIVATE_KEY.sub(REDACTED, cleaned)
+    # Before the assignments, which hide one line and would leave the body of a key behind its header.
+    cleaned = mask_private_keys(cleaned)
     cleaned = _BEARER.sub(lambda match: f"{match.group(1)}{REDACTED}", cleaned)
     cleaned = _ASSIGNMENT.sub(lambda match: f"{match.group('head')}{REDACTED}", cleaned)
     return scrubber_for(domain).scrub(cleaned)

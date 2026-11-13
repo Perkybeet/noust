@@ -166,11 +166,21 @@ class TestThePolicyItself:
         assert directives["form-action"] == "'self' https://github.com"
 
     def test_the_features_the_console_never_uses_are_off(self) -> None:
-        disabled = {entry.split("=")[0] for entry in PERMISSIONS_POLICY.split(", ")}
+        allowed = dict(entry.split("=", 1) for entry in PERMISSIONS_POLICY.split(", "))
+        closed = {feature for feature, origins in allowed.items() if origins == "()"}
 
-        assert {"camera", "microphone", "geolocation", "payment", "usb", "serial"} <= disabled
-        # What the console does use is not switched off.
-        assert "clipboard-write" not in disabled and "fullscreen" not in disabled
+        assert {"camera", "microphone", "geolocation", "payment", "usb", "serial"} <= closed
+        # What the console does use is not switched off: the copy buttons and the log's full
+        # screen are left to the document's default.
+        assert "clipboard-write" not in allowed and "fullscreen" not in allowed
+
+    def test_the_picture_of_the_tab_a_report_takes_is_allowed_to_the_console_alone(self) -> None:
+        # The report of a problem asks the browser to share this tab (getDisplayMedia), which the
+        # browser decides by the display-capture feature: closed for everyone, the console's
+        # own button would answer "the browser did not allow it" whatever the person chose.
+        allowed = dict(entry.split("=", 1) for entry in PERMISSIONS_POLICY.split(", "))
+
+        assert allowed["display-capture"] == "(self)"
 
     def test_isolation_between_origins(self) -> None:
         assert HARDENING_HEADERS["X-Frame-Options"] == "DENY"

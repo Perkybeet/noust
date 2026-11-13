@@ -221,13 +221,12 @@ HSTS_VALUE = "max-age=31536000; includeSubDomains"
 
 #: Browser features the console never uses, switched off for it and for anything
 #: it could be made to embed. Not clipboard-write (the copy buttons) or
-#: fullscreen, which it does use.
+#: fullscreen, which it does use and which a document has by default.
 _DISABLED_FEATURES = (
     "accelerometer",
     "bluetooth",
     "browsing-topics",
     "camera",
-    "display-capture",
     "geolocation",
     "gyroscope",
     "hid",
@@ -240,7 +239,18 @@ _DISABLED_FEATURES = (
     "usb",
 )
 
-PERMISSIONS_POLICY = ", ".join(f"{feature}=()" for feature in _DISABLED_FEATURES)
+#: What the console uses and keeps to itself: the report of a problem asks the browser to
+#: share this tab for its picture (``getDisplayMedia``), which the browser decides by
+#: ``display-capture``. Closed to everyone, the report's button fails whatever the person
+#: chooses; open to the origin alone, no page embedded in the console could ask for it.
+_SELF_ONLY_FEATURES = ("display-capture",)
+
+PERMISSIONS_POLICY = ", ".join(
+    sorted(
+        [f"{feature}=()" for feature in _DISABLED_FEATURES]
+        + [f"{feature}=(self)" for feature in _SELF_ONLY_FEATURES]
+    )
+)
 
 #: The headers every response of the console carries, whatever it answers: a
 #: page, the API, an asset, a 404, and a refusal made before routing (a host

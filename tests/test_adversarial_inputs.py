@@ -40,7 +40,14 @@ from hypothesis import strategies as st
 
 from noust.core import domain_certificates, outbound
 from noust.core.exceptions import NoustError, SecurityError, ValidationError
-from noust.core.secret_detection import REDACTED, URL_CREDENTIALS, redact_url_credentials
+from noust.core.scrubbing import scrub_text
+from noust.core.secret_detection import (
+    REDACTED,
+    URL_CREDENTIALS,
+    mask_private_keys,
+    mask_secret_shapes,
+    redact_url_credentials,
+)
 from noust.managers import site_routes
 from noust.recipes import logo_paint, logo_png, logo_sanitize, logos
 from noust.validators import (
@@ -2115,6 +2122,87 @@ class TestThePasswordOfAnAddressIsFoundInLinearTime:
         masked = redact_url_credentials(f"{scheme}://u:secret@h")
 
         assert masked == f"{scheme}://u:{REDACTED}@h"
+
+
+class TestAPrivateKeyInALogIsHiddenInLinearTime:
+    """
+    A job's log and an application's output reach the assistant and an MCP client through
+    ``scrub_text``, and a log can be megabytes of whatever an application printed (item 87).
+
+    A key's header with no footer after it used to make the search read to the end of the text from
+    every header: a file of nothing but headers took the square of its length, and a megabyte of them
+    kept the process busy for minutes. A block now ends at its footer, at the header of the next key
+    (a log cut before a footer and then another key) or at the end of the text, so no header reads
+    past the next one and the time is the length's.
+    """
+
+    LENGTH = 240_000
+
+    HEADER = "-----BEGIN PRIVATE KEY-----"
+
+    #: Name of the text and how to make it at a length.
+    HOSTILE_TEXTS: dict[str, Callable[[int], str]] = {
+        "headers one after the other": lambda n: "-----BEGIN PRIVATE KEY-----" * (n // 27),
+        "headers with a line of a body each": lambda n: (
+            "-----BEGIN PRIVATE KEY-----\n" + "A" * 60 + "\n"
+        )
+        * (n // 88),
+        "a header and an endless body": lambda n: "-----BEGIN PRIVATE KEY-----" + "A" * n,
+        "headers whose label never ends": lambda n: "-----BEGIN " + "A " * (n // 2),
+        "labels one after the other": lambda n: "-----BEGIN A " * (n // 13),
+        "footers alone": lambda n: "-----END PRIVATE KEY-----" * (n // 25),
+        "dashes alone": lambda n: "-" * n,
+    }
+
+    @pytest.mark.parametrize("name", sorted(HOSTILE_TEXTS))
+    def test_a_long_hostile_text_is_read_in_a_blink(self, name: str) -> None:
+        text = self.HOSTILE_TEXTS[name](self.LENGTH)
+
+        started = time.perf_counter()
+        scrub_text(text)
+        mask_secret_shapes(text)
+        mask_private_keys(text)
+
+        assert time.perf_counter() - started < 3.0
+
+    def test_a_key_is_hidden_whole(self) -> None:
+        text = f"before\n{self.HEADER}\nMIIEvAIBADANBgkq\n-----END PRIVATE KEY-----\nafter"
+
+        assert scrub_text(text) == f"before\n{REDACTED}\nafter"
+
+    def test_a_key_cut_before_its_footer_is_hidden_to_the_end(self) -> None:
+        text = f"before\n{self.HEADER}\nMIIEvAIBADANBgkq\nMIIEvAIBADANBgkq"
+
+        assert scrub_text(text) == f"before\n{REDACTED}"
+
+    def test_a_key_cut_before_its_footer_is_hidden_up_to_the_next_key(self) -> None:
+        text = (
+            f"{self.HEADER}\nMIIEcut\nlog line\n"
+            f"-----BEGIN RSA PRIVATE KEY-----\nMIIEwhole\n-----END RSA PRIVATE KEY-----\ntail"
+        )
+
+        masked = scrub_text(text)
+
+        assert "MIIEcut" not in masked and "MIIEwhole" not in masked
+        assert masked.endswith("tail")
+
+    def test_a_key_in_an_assignment_goes_whole_and_not_only_its_first_line(self) -> None:
+        # The line of an assignment is hidden to its end, and the key is several lines: it has
+        # to be the key that is found first, or its body is left behind the header.
+        text = (
+            "PRIVATE_KEY=-----BEGIN RSA PRIVATE KEY-----\nMIIEassigned\n-----END RSA PRIVATE KEY-----\n"
+            "next line"
+        )
+
+        masked = scrub_text(text)
+
+        assert "MIIEassigned" not in masked
+        assert masked.endswith("next line")
+
+    def test_a_public_key_and_a_certificate_stay(self) -> None:
+        text = "-----BEGIN PUBLIC KEY-----\nMFkw\n-----END PUBLIC KEY-----\n"
+
+        assert scrub_text(text) == text
 
 
 class TestWhatAComposeFileBringsInThatItDoesNotWrite:

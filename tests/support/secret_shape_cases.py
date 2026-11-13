@@ -197,7 +197,18 @@ CASES: tuple[ShapeCase, ...] = (
         "key follows\n-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA1234567890",
         f"key follows\n{MASK}",
     ),
+    _hides(
+        "a private key cut off before the header of the next one",
+        "-----BEGIN RSA PRIVATE KEY-----\nMIIEow\nlog line\n"
+        "-----BEGIN PRIVATE KEY-----\nMIIEvA\n-----END PRIVATE KEY-----\ntail",
+        f"{MASK}{MASK}\ntail",
+    ),
     _hides("a private key header alone", "-----BEGIN RSA PRIVATE KEY-----", MASK),
+    _hides(
+        "headers one after the other",
+        "-----BEGIN PRIVATE KEY-----" * 3,
+        f"{MASK}{MASK}{MASK}",
+    ),
     # What is random-looking or secret-sounding and is not one stays as it is.
     _keeps("a git commit", "commit 3f2a9c1e8b7d6a5f4e3d2c1b0a9f8e7d6c5b4a39 on main"),
     _keeps("a uuid", "request id 550e8400-e29b-41d4-a716-446655440000 took 12ms"),

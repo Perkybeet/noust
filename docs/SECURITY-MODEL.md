@@ -420,7 +420,7 @@ only what recovering an account takes.
 | `Referrer-Policy` | `no-referrer` |
 | `Cross-Origin-Opener-Policy` | `same-origin` |
 | `Cross-Origin-Resource-Policy` | `same-origin` |
-| `Permissions-Policy` | `accelerometer=(), bluetooth=(), browsing-topics=(), camera=(), display-capture=(), geolocation=(), gyroscope=(), hid=(), interest-cohort=(), magnetometer=(), microphone=(), midi=(), payment=(), serial=(), usb=()` |
+| `Permissions-Policy` | `accelerometer=(), bluetooth=(), browsing-topics=(), camera=(), display-capture=(self), geolocation=(), gyroscope=(), hid=(), interest-cohort=(), magnetometer=(), microphone=(), midi=(), payment=(), serial=(), usb=()` |
 | `X-Permitted-Cross-Domain-Policies` | `none` |
 | `Strict-Transport-Security` (over TLS, direct or through a declared proxy) | `max-age=31536000; includeSubDomains` |
 | `Cache-Control` | `no-store`, except hashed files under `/assets/` and the sign-in picture asked for by its own digest: `public, max-age=31536000, immutable` |
@@ -442,7 +442,7 @@ Content-Security-Policy:
   require-trusted-types-for 'script'
 ```
 
-Browser features switched off for the console: `accelerometer`, `bluetooth`, `browsing-topics`, `camera`, `display-capture`, `geolocation`, `gyroscope`, `hid`, `interest-cohort`, `magnetometer`, `microphone`, `midi`, `payment`, `serial`, `usb`.
+Browser features switched off for the console: `accelerometer`, `bluetooth`, `browsing-topics`, `camera`, `geolocation`, `gyroscope`, `hid`, `interest-cohort`, `magnetometer`, `microphone`, `midi`, `payment`, `serial`, `usb`. Left to the console itself and to nothing it embeds: `display-capture` (the report of a problem shares the tab for its picture).
 <!-- /generated:headers -->
 
 ### Limits

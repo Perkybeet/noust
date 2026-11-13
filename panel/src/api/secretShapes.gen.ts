@@ -28,7 +28,7 @@ export const SECRET_MASK = "***";
 
 /** Every shape of a secret, in the order it is applied. */
 export const SECRET_SHAPES: readonly SecretShape[] = [
-  { name: "private key block", source: "-----BEGIN (?:[A-Z]+ )*PRIVATE KEY-----[\\s\\S]{0,16384}?(?:-----END (?:[A-Z]+ )*PRIVATE KEY-----|(?![\\s\\S]))", flags: "g", keepHead: false, ofValue: true },
+  { name: "private key block", source: "-----BEGIN (?:[A-Z]+ )*PRIVATE KEY-----[\\s\\S]{0,16384}?(?:-----END (?:[A-Z]+ )*PRIVATE KEY-----|(?=-----BEGIN)|(?![\\s\\S]))", flags: "g", keepHead: false, ofValue: true },
   { name: "private key", source: "-----BEGIN (?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-----", flags: "g", keepHead: false, ofValue: true },
   { name: "stripe", source: "\\b(?:sk_live_|sk_test_|rk_live_|whsec_)[A-Za-z0-9]+", flags: "g", keepHead: false, ofValue: true },
   { name: "github token", source: "\\b(?:ghp_|gho_|ghu_|ghs_|ghr_|github_pat_)[A-Za-z0-9_]+", flags: "g", keepHead: false, ofValue: true },
@@ -91,7 +91,9 @@ export const SECRET_SHAPE_CASES: readonly SecretShapeCase[] = [
   { name: "a scheme with the characters a scheme may have", text: "git+ssh://deploy:hunter22@git.example.test/app.git", masked: "git+ssh://deploy:***@git.example.test/app.git" },
   { name: "a private key block", text: "before\n-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW\n-----END OPENSSH PRIVATE KEY-----\nafter", masked: "before\n***\nafter" },
   { name: "a private key cut off before its footer", text: "key follows\n-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA1234567890", masked: "key follows\n***" },
+  { name: "a private key cut off before the header of the next one", text: "-----BEGIN RSA PRIVATE KEY-----\nMIIEow\nlog line\n-----BEGIN PRIVATE KEY-----\nMIIEvA\n-----END PRIVATE KEY-----\ntail", masked: "******\ntail" },
   { name: "a private key header alone", text: "-----BEGIN RSA PRIVATE KEY-----", masked: "***" },
+  { name: "headers one after the other", text: "-----BEGIN PRIVATE KEY----------BEGIN PRIVATE KEY----------BEGIN PRIVATE KEY-----", masked: "*********" },
   { name: "a git commit", text: "commit 3f2a9c1e8b7d6a5f4e3d2c1b0a9f8e7d6c5b4a39 on main", masked: "commit 3f2a9c1e8b7d6a5f4e3d2c1b0a9f8e7d6c5b4a39 on main" },
   { name: "a uuid", text: "request id 550e8400-e29b-41d4-a716-446655440000 took 12ms", masked: "request id 550e8400-e29b-41d4-a716-446655440000 took 12ms" },
   { name: "a path", text: "serving /var/www/apps/shop-example-com/current/public", masked: "serving /var/www/apps/shop-example-com/current/public" },
