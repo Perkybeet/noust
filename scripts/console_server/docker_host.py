@@ -17,8 +17,10 @@ and never from what the container says of itself. Nothing is executed.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING
 
-from tests.support.docker_machine import DockerMachine
+if TYPE_CHECKING:
+    from tests.support.docker_machine import DockerMachine
 
 #: The machine the runner consults for every ``docker`` command, once :func:`model_docker_host` has built it.
 _DOCKER: DockerMachine | None = None
@@ -57,6 +59,10 @@ def model_docker_host(apps: Mapping[str, str]) -> DockerMachine:
     Returns:
         The machine, which :func:`answer` consults for every ``docker`` command.
     """
+    # Here and not at the top: the repository reaches the path when the sandbox is prepared, after this module
+    # has loaded, and `python scripts/console_server.py` has to start from anywhere.
+    from tests.support.docker_machine import DockerMachine
+
     global _DOCKER
     machine = DockerMachine()
     machine.engine["version"] = "29.1.3"
