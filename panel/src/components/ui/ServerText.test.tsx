@@ -45,7 +45,7 @@ describe("ServerText", () => {
 
   it("says the fix of a sentence apart from the sentence", () => {
     render(<ServerText coded={{ code: "tunnels.store_sealed", params: {} }} text="The secret store is sealed" part="hint" />);
-    expect(screen.getByText(/A tunnel's connector reads its token at boot/)).toBeInTheDocument();
+    expect(screen.getByText(/A tunnel's connector reads its token when it starts/)).toBeInTheDocument();
     expect(screen.queryByText("The secret store is sealed")).not.toBeInTheDocument();
   });
 

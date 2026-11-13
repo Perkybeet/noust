@@ -198,7 +198,8 @@ describe("Confirm it's you, for an account that has no second factor yet (item 1
     expect(within(dialog).queryByText(/won't be asked again/)).toBeNull();
     await expectNoAxeViolations(dialog);
 
-    await user.click(within(dialog).getByRole("button", { name: "Use an authenticator app" }));
+    // The ways to set a factor up are drawn once the dialog knows which this browser has: wait for the button.
+    await user.click(await within(dialog).findByRole("button", { name: "Use an authenticator app" }));
     await user.type(await within(dialog).findByLabelText("Authentication code"), "123456");
     await user.click(within(dialog).getByRole("button", { name: "Turn on" }));
     // The codes are shown once, and the action waits behind them.
@@ -229,7 +230,7 @@ describe("Confirm it's you, for an account that has no second factor yet (item 1
     const dialog = await screen.findByRole("dialog", { name: "Confirm it's you" });
     await within(dialog).findByText(/no second factor yet/);
 
-    await user.click(within(dialog).getByRole("button", { name: "Use an authenticator app" }));
+    await user.click(await within(dialog).findByRole("button", { name: "Use an authenticator app" }));
     const proof = await screen.findByRole("dialog", { name: "Confirm your password" });
     await user.type(within(proof).getByLabelText("Password"), "correct horse");
     await user.click(within(proof).getByRole("button", { name: "Continue" }));

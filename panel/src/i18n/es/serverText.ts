@@ -52,7 +52,7 @@ export const serverText: Catalog<typeof en> = {
         text: "Activar la versión {release_id} de {domain}",
       },
       cancel_job: {
-        text: "Cancelar el trabajo {job_id}",
+        text: "Cancelar la tarea {job_id}",
       },
       create_backup: {
         text: "Hacer una copia de {domain}",
@@ -285,10 +285,10 @@ export const serverText: Catalog<typeof en> = {
         text: "Leyó el despliegue {deployment_id}",
       },
       get_job: {
-        text: "Leyó el trabajo {job_id}",
+        text: "Leyó la tarea {job_id}",
       },
       job_log: {
-        text: "Leyó el registro del trabajo {job_id}",
+        text: "Leyó el registro de la tarea {job_id}",
       },
       list_application_domains: {
         text: "Leyó los dominios de {domain}",
@@ -309,7 +309,7 @@ export const serverText: Catalog<typeof en> = {
         text: "Leyó los nombres de las variables de {domain}, sin sus valores",
       },
       list_jobs: {
-        text: "Leyó los trabajos recientes",
+        text: "Leyó las tareas recientes",
       },
       list_projects: {
         text: "Leyó los proyectos",
