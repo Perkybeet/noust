@@ -32,6 +32,7 @@ from noust.core.dependencies import check_deployment_ready
 from noust.core.exceptions import NoustError
 from noust.core.logger import Logger
 from noust.core.versions import RuntimeRequest, parse_runtime
+from noust.deployers.helpers.edge import readiness_options
 from noust.recipes.model import ENGINE_OF, SQL_REQUIREMENTS, Recipe, RecipeError
 
 #: The requirement kinds.
@@ -144,7 +145,7 @@ def _tools(recipe: Recipe) -> list[Requirement]:
     Returns:
         A requirement per missing tool, or one met entry naming the check.
     """
-    ready, missing, _warnings = check_deployment_ready(recipe.app_type)
+    ready, missing, _warnings = check_deployment_ready(recipe.app_type, **readiness_options())
     if ready:
         label = "Docker with the Compose plugin" if recipe.kind == "compose" else "build tools"
         return [Requirement(TOOL, label, True, "found")]

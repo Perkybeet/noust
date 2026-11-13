@@ -299,13 +299,13 @@ def _schedule_out() -> CleanupScheduleOut:
     Returns:
         Its API shape.
     """
-    from noust.managers.server.storage_policy import DOCKER_ACTIONS, SCHEDULABLE
+    from noust.managers.server.storage_policy import DOCKER_ACTIONS, schedulable_actions
 
     schedule = get_server_context().storage_schedule
     return CleanupScheduleOut(
         policy=CleanupPolicyBody(**schedule.policy().to_dict()),
         timer=CleanupTimerOut(**schedule.timer_state()),
-        schedulable=list(SCHEDULABLE),
+        schedulable=list(schedulable_actions()),
         docker_actions=sorted(DOCKER_ACTIONS),
     )
 

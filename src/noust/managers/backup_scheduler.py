@@ -38,6 +38,7 @@ from noust.central import require_server_role
 from noust.core import paths
 from noust.core.applock import AppBusyError
 from noust.core.audit import record as audit_record
+from noust.core.calendar_expr import SCHEDULE_ALIASES
 from noust.core.config import SYSTEMD_DIR as _SYSTEMD_DIR
 from noust.core.config import Config
 from noust.core.exceptions import BackupError, NoustError, ValidationError
@@ -91,14 +92,6 @@ _MAX_CALENDAR_LENGTH = 128
 #: Characters a systemd calendar expression is built from. Anything else -
 #: newlines above all - would let a schedule append a directive to the unit.
 _CALENDAR_ALPHABET = set("0123456789*-/,:. ")
-
-# Schedule aliases
-SCHEDULE_ALIASES = {
-    "hourly": "*-*-* *:00:00",
-    "daily": "*-*-* 02:00:00",
-    "weekly": "Mon *-*-* 02:00:00",
-    "monthly": "*-*-01 02:00:00",
-}
 
 #: How a timer unit's description names the application it backs up. The
 #: description is rendered by this module's own template, so reading the

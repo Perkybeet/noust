@@ -49,6 +49,7 @@ from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import NoustStore, get_store
 
 __all__ = [
+    "CLEANUP_ARGV",
     "LATE_AFTER",
     "PROGRAM",
     "SOURCES",
@@ -219,11 +220,78 @@ def _sweep(store: NoustStore) -> list[Task]:
     ]
 
 
+#: What the cleanup's timer runs on a server, minus the program (``templates/systemd/storage-clean-service.j2``,
+#: which a test holds this to).
+CLEANUP_ARGV = (
+    "server",
+    "cleanup-schedule",
+    "run",
+    "--scheduled",
+    "--reason",
+    "Scheduled storage cleanup",
+)
+
+
+def _cleanup(store: NoustStore) -> list[Task]:
+    """
+    Args:
+        store: The store.
+
+    Returns:
+        The cleanup of the disk, when its policy is switched on: the same policy a server's timer runs
+        (``noust server cleanup-schedule``), which on a machine without systemd is only a row.
+    """
+    from noust.managers.server.storage_policy import read_policy
+
+    policy = read_policy(store)
+    if not policy.enabled:
+        return []
+    return [
+        Task(
+            key="cleanup",
+            kind="cleanup",
+            subject="",
+            unit=paths.STORAGE_CLEAN_UNIT,
+            calendar=policy.schedule,
+            argv=CLEANUP_ARGV,
+        )
+    ]
+
+
+def _image_check(store: NoustStore) -> list[Task]:
+    """
+    Args:
+        store: The store (unused: this schedule is a setting, not a row).
+
+    Returns:
+        The look at the registries for new versions of the images in use, when ``central.image_check`` says
+        when. It is a request to somebody else's server, so while the setting is empty, which it is until a
+        person sets it, there is no task and nothing is ever asked.
+    """
+    from noust.core.config import Config
+
+    calendar = str(Config().get("central.image_check", "") or "").strip()
+    if not calendar:
+        return []
+    return [
+        Task(
+            key="image_check",
+            kind="image_check",
+            subject="",
+            unit=f"{paths.UNIT_PREFIX}image-check",
+            calendar=calendar,
+            argv=("docker", "images", "check"),
+        )
+    ]
+
+
 SOURCES.update(
     {
         "application_backups": _application_backups,
         "volume_backups": _volume_policies,
         "sweep": _sweep,
+        "cleanup": _cleanup,
+        "image_check": _image_check,
     }
 )
 

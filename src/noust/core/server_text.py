@@ -95,8 +95,14 @@ CATALOG: dict[str, str] = {
     ),
     "tunnels.store_sealed": "The secret store is sealed",
     "tunnels.store_sealed.hint": (
-        "A tunnel's connector reads its token at boot, with nobody to type a passphrase. "
-        "Run tunnels on a server, not on a sealed central."
+        "A tunnel's connector reads its token when it starts, by itself after the machine restarts, with "
+        "nobody to type a passphrase. Run tunnels on a server, or on a central whose secrets are not sealed."
+    ),
+    "tunnels.nothing_to_install": (
+        "There is nothing to install here: the connector of a tunnel runs as a container Noust starts itself"
+    ),
+    "tunnels.nothing_to_install.hint": (
+        "Create the tunnel: Docker pulls the connector's image the first time it starts."
     ),
     "tunnels.no_account": "There is no Cloudflare account to manage a tunnel with",
     "tunnels.no_account.hint": (
@@ -1832,6 +1838,14 @@ CATALOG: dict[str, str] = {
     "how_it_runs.why.none": (
         "Neither way is possible on this machine now; what is in the way is said below."
     ),
+    "how_it_runs.why.nothing_runs_here": (
+        "Nothing in this repository runs on this machine: it deploys containers and nothing else, and "
+        "the repository has no Dockerfile or Compose file to make one."
+    ),
+    "how_it_runs.why.nothing_runs_here.hint": (
+        "Add a Dockerfile or a Compose file to the repository and deploy it again, or deploy an image "
+        "from a registry."
+    ),
     "how_it_runs.container.no_build": (
         "It cannot run in a container yet: the repository has no Dockerfile and Railpack is not "
         "installed on this server."
@@ -1839,6 +1853,13 @@ CATALOG: dict[str, str] = {
     "how_it_runs.container.no_build.hint": (
         "Add a Dockerfile to the repository, or install Railpack on this server ({command}), "
         "which builds without one."
+    ),
+    "how_it_runs.container.no_build_here": (
+        "It cannot run as a container here: the repository has no Dockerfile, and what builds a "
+        "container without one is not available on this machine."
+    ),
+    "how_it_runs.container.no_build_here.hint": (
+        "Add a Dockerfile to the repository, or deploy an image from a registry or a Compose file."
     ),
     "how_it_runs.server.nothing_recognised": (
         "Nothing in it runs directly on the server: Noust does not recognise a program of its own "

@@ -55,6 +55,8 @@ class TunnelSupportModel(BaseModel):
         problem: What is missing, when something is.
         hint: How to fix it.
         coded: The same problem and fix as a code and its values, for the console to translate.
+        engine: What keeps the connector running: ``systemd`` (a unit, with ``cloudflared`` installed) or
+            ``docker`` (a container of the image ``cloudflared`` names, where there is no systemd).
     """
 
     available: bool
@@ -64,6 +66,7 @@ class TunnelSupportModel(BaseModel):
     problem: str | None = None
     hint: str | None = None
     coded: CodedText | None = None
+    engine: str = "systemd"
 
 
 class TunnelRouteModel(BaseModel):

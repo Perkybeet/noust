@@ -2288,7 +2288,7 @@
         "type": "object"
       },
       "AppAddress": {
-        "description": "Where an application is reached from outside.\n\nAttributes:\n    domain: The application.\n    kind: ``site`` (by its domain, behind the web server), ``port`` (on a port of the machine, where\n        there is no web server of Noust's) or ``none`` (it serves no web).\n    url: The address; null for ``none``.\n    port: The port of the machine it is published on, when it has one.",
+        "description": "Where an application is reached from outside.\n\nAttributes:\n    domain: The application.\n    kind: ``site`` (by its domain, behind the web server), ``port`` (on a port of the machine, where\n        there is no web server of Noust's) or ``none`` (it serves no web).\n    url: The address; null for ``none``.\n    port: The port of the machine it is published on, when it has one.\n    proxy_hint: What to put in the NAS's own reverse proxy to reach it by a name and over HTTPS; null\n        where a site of Noust's serves it and for what serves no web.",
         "properties": {
           "domain": {
             "title": "Domain",
@@ -2309,6 +2309,16 @@
               }
             ],
             "title": "Port"
+          },
+          "proxy_hint": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProxyHintOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "url": {
             "anyOf": [
@@ -21024,8 +21034,19 @@
         "type": "object"
       },
       "DockerBringOut": {
-        "description": "What bringing a stack to Noust registers, or did.\n\nAttributes:\n    stack: The Compose project.\n    name: What the application is called in Noust's list.\n    folder: The directory the stack runs from, where it stays.\n    compose_file: Its compose file, relative to the folder.\n    project: The Compose project every command passes with ``-p`` from then on.\n    containers: The containers of the stack.\n    running: Whether any of them runs.\n    headless: The stack publishes no port.\n    port: The port registered for it; null for a worker.\n    site: The operator's site file that serves it, never rewritten.\n    source: Where updates fetch from; empty for a stack that is not a checkout.\n    unit: The unit created for it, enabled and not started.\n    counts: ``containers``, ``jobs`` (of them, the ones that already ended), ``volumes`` and ``networks``.\n    rehearsal: What ``docker compose up --dry-run`` said, verbatim.\n    recreates: What starting it the way Noust would changes, in Compose's own words; empty when nothing.\n    warnings: What adopting found worth saying.\n    restart_loss: What a restart of the machine would not bring back.\n    adopted: It was registered; false for a preview.\n    deployment_id: The adoption's history row.",
+        "description": "What bringing a stack to Noust registers, or did.\n\nAttributes:\n    stack: The Compose project.\n    name: What the application is called in Noust's list.\n    folder: The directory the stack runs from, where it stays.\n    compose_file: Its compose file, relative to the folder.\n    project: The Compose project every command passes with ``-p`` from then on.\n    containers: The containers of the stack.\n    running: Whether any of them runs.\n    headless: The stack publishes no port.\n    port: The port registered for it; null for a worker.\n    site: The operator's site file that serves it, never rewritten.\n    source: Where updates fetch from; empty for a stack that is not a checkout.\n    unit: The unit created for it, enabled and not started; empty where Docker keeps it alive.\n    kept_by: ``unit`` (a unit of systemd) or ``docker`` (the central deploys with the machine's Docker:\n        the restart policy of the containers keeps the stack alive, and no unit is written).\n    address: Where it is reached when no site serves it, ``http://<machine>:<port>``.\n    counts: ``containers``, ``jobs`` (of them, the ones that already ended), ``volumes`` and ``networks``.\n    rehearsal: What ``docker compose up --dry-run`` said, verbatim.\n    recreates: What starting it the way Noust would changes, in Compose's own words; empty when nothing.\n    warnings: What adopting found worth saying.\n    restart_loss: What a restart of the machine would not bring back.\n    adopted: It was registered; false for a preview.\n    deployment_id: The adoption's history row.",
         "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
           "adopted": {
             "default": false,
             "title": "Adopted",
@@ -21068,6 +21089,11 @@
             "default": false,
             "title": "Headless",
             "type": "boolean"
+          },
+          "kept_by": {
+            "default": "unit",
+            "title": "Kept By",
+            "type": "string"
           },
           "name": {
             "title": "Name",
@@ -47574,6 +47600,77 @@
         "title": "ProvisioningPlanResponse",
         "type": "object"
       },
+      "ProxyHeaderOut": {
+        "description": "A header the NAS's reverse proxy sets on the request it passes to the application.\n\nAttributes:\n    name: The header.\n    meaning: What goes in it: ``public_host``, ``client_address``, ``client_chain``, ``public_scheme``,\n        ``public_port``, ``upgrade_request`` or ``upgrade``.\n    nginx: How nginx writes it, as a site of Noust's does.",
+        "properties": {
+          "meaning": {
+            "title": "Meaning",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "nginx": {
+            "title": "Nginx",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "meaning",
+          "nginx"
+        ],
+        "title": "ProxyHeaderOut",
+        "type": "object"
+      },
+      "ProxyHintOut": {
+        "description": "What the reverse proxy of the NAS itself needs to reach an application. Noust does not touch the\nNAS: it says what to paste.\n\nAttributes:\n    target: Where the proxy sends the request.\n    scheme: ``http``.\n    host: The address of ``target``.\n    port: The port of the machine the application is published on.\n    headers: What the proxy sets on the request.\n    websocket: Whether it must let a WebSocket through.\n    read_timeout_seconds: How long it waits for the application's answer.",
+        "properties": {
+          "headers": {
+            "items": {
+              "$ref": "#/components/schemas/ProxyHeaderOut"
+            },
+            "title": "Headers",
+            "type": "array"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "port": {
+            "title": "Port",
+            "type": "integer"
+          },
+          "read_timeout_seconds": {
+            "title": "Read Timeout Seconds",
+            "type": "integer"
+          },
+          "scheme": {
+            "title": "Scheme",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "websocket": {
+            "title": "Websocket",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "target",
+          "scheme",
+          "host",
+          "port",
+          "headers",
+          "websocket",
+          "read_timeout_seconds"
+        ],
+        "title": "ProxyHintOut",
+        "type": "object"
+      },
       "PublicClosedResponse": {
         "description": "A database made private again.\n\nAttributes:\n    removed: What was taken away, in order.\n    already_private: The database was not public.",
         "properties": {
@@ -67658,7 +67755,7 @@
         "type": "object"
       },
       "TunnelSupportModel": {
-        "description": "Whether this server can run a tunnel, and what is missing.\n\nAttributes:\n    available: Everything needed is in place.\n    cloudflared: Where the connector is, when it is installed.\n    sealed: The secret store is sealed, so a connector could not read its token at boot.\n    accounts: The Cloudflare accounts that can manage a tunnel.\n    problem: What is missing, when something is.\n    hint: How to fix it.\n    coded: The same problem and fix as a code and its values, for the console to translate.",
+        "description": "Whether this server can run a tunnel, and what is missing.\n\nAttributes:\n    available: Everything needed is in place.\n    cloudflared: Where the connector is, when it is installed.\n    sealed: The secret store is sealed, so a connector could not read its token at boot.\n    accounts: The Cloudflare accounts that can manage a tunnel.\n    problem: What is missing, when something is.\n    hint: How to fix it.\n    coded: The same problem and fix as a code and its values, for the console to translate.\n    engine: What keeps the connector running: ``systemd`` (a unit, with ``cloudflared`` installed) or\n        ``docker`` (a container of the image ``cloudflared`` names, where there is no systemd).",
         "properties": {
           "accounts": {
             "items": {
@@ -67691,6 +67788,11 @@
                 "type": "null"
               }
             ]
+          },
+          "engine": {
+            "default": "systemd",
+            "title": "Engine",
+            "type": "string"
           },
           "hint": {
             "anyOf": [
@@ -73651,6 +73753,18 @@
       "noust__web__api__app_adopt__AdoptResponse": {
         "description": "What an adoption found, and whether it was recorded.",
         "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where it is reached when no site serves it: http://<machine>:<port>",
+            "title": "Address"
+          },
           "adopted": {
             "description": "False for a preview or a rehearsal",
             "title": "Adopted",
@@ -73730,6 +73844,12 @@
             "title": "Headless",
             "type": "boolean"
           },
+          "kept_by": {
+            "default": "unit",
+            "description": "unit: a unit of systemd is created; docker: the central deploys with the machine's Docker and the restart policy of the containers keeps the stack alive",
+            "title": "Kept By",
+            "type": "string"
+          },
           "port": {
             "anyOf": [
               {
@@ -73757,6 +73877,14 @@
             "description": "containers: their labels; compose: the name Compose derives; stack: the stack names it itself",
             "title": "Project From",
             "type": "string"
+          },
+          "restart_loss": {
+            "description": "What a restart of the machine would not bring back, said where nothing but Docker brings it back",
+            "items": {
+              "$ref": "#/components/schemas/DockerBringRestartOut"
+            },
+            "title": "Restart Loss",
+            "type": "array"
           },
           "running": {
             "title": "Running",
@@ -73795,6 +73923,7 @@
             "type": "boolean"
           },
           "unit": {
+            "description": "The unit created for it; empty where Docker keeps it alive",
             "title": "Unit",
             "type": "string"
           },

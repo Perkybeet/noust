@@ -35746,6 +35746,8 @@ export interface components {
          *             there is no web server of Noust's) or ``none`` (it serves no web).
          *         url: The address; null for ``none``.
          *         port: The port of the machine it is published on, when it has one.
+         *         proxy_hint: What to put in the NAS's own reverse proxy to reach it by a name and over HTTPS; null
+         *             where a site of Noust's serves it and for what serves no web.
          */
         AppAddress: {
             /** Domain */
@@ -35757,6 +35759,7 @@ export interface components {
             kind: string;
             /** Port */
             port?: number | null;
+            proxy_hint?: components["schemas"]["ProxyHintOut"] | null;
             /** Url */
             url?: string | null;
         };
@@ -45998,7 +46001,10 @@ export interface components {
          *         port: The port registered for it; null for a worker.
          *         site: The operator's site file that serves it, never rewritten.
          *         source: Where updates fetch from; empty for a stack that is not a checkout.
-         *         unit: The unit created for it, enabled and not started.
+         *         unit: The unit created for it, enabled and not started; empty where Docker keeps it alive.
+         *         kept_by: ``unit`` (a unit of systemd) or ``docker`` (the central deploys with the machine's Docker:
+         *             the restart policy of the containers keeps the stack alive, and no unit is written).
+         *         address: Where it is reached when no site serves it, ``http://<machine>:<port>``.
          *         counts: ``containers``, ``jobs`` (of them, the ones that already ended), ``volumes`` and ``networks``.
          *         rehearsal: What ``docker compose up --dry-run`` said, verbatim.
          *         recreates: What starting it the way Noust would changes, in Compose's own words; empty when nothing.
@@ -46008,6 +46014,8 @@ export interface components {
          *         deployment_id: The adoption's history row.
          */
         DockerBringOut: {
+            /** Address */
+            address?: string | null;
             /**
              * Adopted
              * @default false
@@ -46030,6 +46038,11 @@ export interface components {
              * @default false
              */
             headless: boolean;
+            /**
+             * Kept By
+             * @default unit
+             */
+            kept_by: string;
             /** Name */
             name: string;
             /** Port */
@@ -60705,6 +60718,54 @@ export interface components {
             will_install: boolean;
         };
         /**
+         * ProxyHeaderOut
+         * @description A header the NAS's reverse proxy sets on the request it passes to the application.
+         *
+         *     Attributes:
+         *         name: The header.
+         *         meaning: What goes in it: ``public_host``, ``client_address``, ``client_chain``, ``public_scheme``,
+         *             ``public_port``, ``upgrade_request`` or ``upgrade``.
+         *         nginx: How nginx writes it, as a site of Noust's does.
+         */
+        ProxyHeaderOut: {
+            /** Meaning */
+            meaning: string;
+            /** Name */
+            name: string;
+            /** Nginx */
+            nginx: string;
+        };
+        /**
+         * ProxyHintOut
+         * @description What the reverse proxy of the NAS itself needs to reach an application. Noust does not touch the
+         *     NAS: it says what to paste.
+         *
+         *     Attributes:
+         *         target: Where the proxy sends the request.
+         *         scheme: ``http``.
+         *         host: The address of ``target``.
+         *         port: The port of the machine the application is published on.
+         *         headers: What the proxy sets on the request.
+         *         websocket: Whether it must let a WebSocket through.
+         *         read_timeout_seconds: How long it waits for the application's answer.
+         */
+        ProxyHintOut: {
+            /** Headers */
+            headers: components["schemas"]["ProxyHeaderOut"][];
+            /** Host */
+            host: string;
+            /** Port */
+            port: number;
+            /** Read Timeout Seconds */
+            read_timeout_seconds: number;
+            /** Scheme */
+            scheme: string;
+            /** Target */
+            target: string;
+            /** Websocket */
+            websocket: boolean;
+        };
+        /**
          * PublicClosedResponse
          * @description A database made private again.
          *
@@ -71417,6 +71478,8 @@ export interface components {
          *         problem: What is missing, when something is.
          *         hint: How to fix it.
          *         coded: The same problem and fix as a code and its values, for the console to translate.
+         *         engine: What keeps the connector running: ``systemd`` (a unit, with ``cloudflared`` installed) or
+         *             ``docker`` (a container of the image ``cloudflared`` names, where there is no systemd).
          */
         TunnelSupportModel: {
             /** Accounts */
@@ -71426,6 +71489,11 @@ export interface components {
             /** Cloudflared */
             cloudflared?: string | null;
             coded?: components["schemas"]["CodedText"] | null;
+            /**
+             * Engine
+             * @default systemd
+             */
+            engine: string;
             /** Hint */
             hint?: string | null;
             /** Problem */
@@ -74554,6 +74622,11 @@ export interface components {
          */
         noust__web__api__app_adopt__AdoptResponse: {
             /**
+             * Address
+             * @description Where it is reached when no site serves it: http://<machine>:<port>
+             */
+            address?: string | null;
+            /**
              * Adopted
              * @description False for a preview or a rehearsal
              */
@@ -74589,6 +74662,12 @@ export interface components {
             dry_run: string;
             /** Headless */
             headless: boolean;
+            /**
+             * Kept By
+             * @description unit: a unit of systemd is created; docker: the central deploys with the machine's Docker and the restart policy of the containers keeps the stack alive
+             * @default unit
+             */
+            kept_by: string;
             /** Port */
             port: number | null;
             /**
@@ -74601,6 +74680,11 @@ export interface components {
              * @description containers: their labels; compose: the name Compose derives; stack: the stack names it itself
              */
             project_from: string;
+            /**
+             * Restart Loss
+             * @description What a restart of the machine would not bring back, said where nothing but Docker brings it back
+             */
+            restart_loss?: components["schemas"]["DockerBringRestartOut"][];
             /** Running */
             running: boolean;
             /**
@@ -74617,7 +74701,10 @@ export interface components {
             source: string;
             /** Ssl */
             ssl: boolean;
-            /** Unit */
+            /**
+             * Unit
+             * @description The unit created for it; empty where Docker keeps it alive
+             */
             unit: string;
             /** Warnings */
             warnings: string[];

@@ -139,6 +139,8 @@ class DockerMachine(FakeRunner):
             "root_dir": "/var/lib/docker",
         }
         self.installed = True
+        #: The programs there are besides Docker, when a test says it is a machine that lacks the rest.
+        self.programs: set[str] | None = None
         self.down = False
         self.removed: list[str] = []
         self.listings = 0
@@ -246,9 +248,25 @@ class DockerMachine(FakeRunner):
 
     # -- what the machine answers -----------------------------------------------------------
 
+    def only_has(self, *programs: str) -> DockerMachine:
+        """
+        Make this a machine that has these programs and no others, as the image of a NAS's central is: the
+        Docker client, git and curl, and no nginx, no certbot, no systemctl.
+
+        Args:
+            *programs: What is installed.
+
+        Returns:
+            The machine.
+        """
+        self.programs = set(programs)
+        return self
+
     def exists(self, program: str) -> bool:
         if program == "docker":
             return self.installed
+        if self.programs is not None:
+            return program in self.programs
         if program == "docker-compose":
             # Compose 1 is a program of its own, which a machine of this age does not have.
             return False
@@ -298,6 +316,7 @@ class DockerMachine(FakeRunner):
             ("volume", "ls"): self._volume_ls,
             ("network", "ls"): self._network_ls,
             ("system", "df"): self._system_df,
+            ("run",): self._run,
             ("start",): self._start,
             ("stop",): self._stop,
             ("restart",): self._restart,
@@ -608,7 +627,70 @@ class DockerMachine(FakeRunner):
         return 0, "\n".join(json.dumps(row) for row in self.df), ""
 
     def _find(self, ident: str) -> Box | None:
-        return next((b for b in self.boxes.values() if b.id == ident), None)
+        # Docker takes an id or a name, and what Noust starts itself (a tunnel's connector) is named.
+        return next((b for b in self.boxes.values() if ident in (b.id, b.name)), None)
+
+    #: What ``docker run`` takes a value after, and the flags it takes none after: what is left of the
+    #: arguments is the image, then the command.
+    _RUN_WITH_VALUE = frozenset(
+        {
+            "--name",
+            "--restart",
+            "--label",
+            "--user",
+            "--cap-drop",
+            "--security-opt",
+            "--add-host",
+            "--mount",
+            "--env",
+            "--network",
+            "--memory",
+            "--volume",
+            "--publish",
+        }
+    )
+
+    def _run(self, argv: tuple[str, ...]) -> tuple[int, str, str]:
+        """
+        ``docker run``: a container is made from the image and runs, under the name asked for.
+
+        Only what Noust starts itself is modelled: the name, the restart policy and the image. A name that
+        is taken is refused with Docker's words.
+        """
+        words = list(argv[2:])
+        name = ""
+        policy = "no"
+        image = ""
+        index = 0
+        while index < len(words):
+            word = words[index]
+            if word in self._RUN_WITH_VALUE:
+                if word == "--name":
+                    name = words[index + 1]
+                if word == "--restart":
+                    policy = words[index + 1]
+                index += 2
+            elif word.startswith("--"):
+                index += 1
+            else:
+                image = word
+                break
+        if not image:
+            return 125, "", "docker: 'docker run' requires at least 1 argument"
+        if name and self._find(name) is not None:
+            return (
+                125,
+                "",
+                f'docker: Error response from daemon: Conflict. The container name "/{name}" is already in use',
+            )
+        made = self.box(
+            name or f"anonymous-{len(self.boxes)}",
+            image=image,
+            state="running",
+            status="Up Less than a second",
+            policy=policy,
+        )
+        return 0, made.id, ""
 
     def _start(self, argv: tuple[str, ...]) -> tuple[int, str, str]:
         box = self._find(argv[-1])

@@ -34,6 +34,7 @@ __all__ = [
     "ServicePorts",
     "host_port_variables",
     "is_headless_stack",
+    "loopback_only",
     "parse_ports",
     "published_port",
     "web_root_service",
@@ -53,6 +54,9 @@ _PORT_RANGE = re.compile(r"^(\d+)(?:-(\d+))?$")
 
 #: The highest TCP or UDP port.
 _MAX_PORT = 65535
+
+#: What a port bound to "this machine only" is bound to.
+_LOOPBACK = frozenset({"127.0.0.1", "::1", "localhost"})
 
 
 @dataclass(frozen=True)
@@ -182,6 +186,31 @@ def published_port(service: ServicePorts) -> int | None:
         if mapping.protocol == "tcp" and mapping.host_port is not None:
             return mapping.host_port
     return None
+
+
+def loopback_only(services: Sequence[ServicePorts]) -> bool:
+    """
+    Tell whether everything a stack publishes over TCP is reachable from the machine itself and from
+    nowhere else.
+
+    The way a careful stack publishes behind a reverse proxy on the same machine
+    (``127.0.0.1:3000:3000``), and what leaves it unreachable from a NAS's network when there is no
+    proxy of Noust's in front of it.
+
+    Args:
+        services: The stack's services.
+
+    Returns:
+        True when the stack publishes at least one TCP port and every one is bound to loopback; False
+        when one is bound to every address or to another one, and for a stack that publishes none.
+    """
+    mappings = [
+        mapping
+        for service in services
+        for mapping in parse_ports(list(service.ports))
+        if mapping.protocol == "tcp" and mapping.host_port is not None
+    ]
+    return bool(mappings) and all(mapping.host_ip in _LOOPBACK for mapping in mappings)
 
 
 def web_root_service(services: Sequence[DockerComposeService]) -> str | None:

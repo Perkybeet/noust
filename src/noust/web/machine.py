@@ -35,7 +35,11 @@ from collections.abc import Collection, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from noust.core.docker.gate import DockerGate
+from noust.core.docker.models import OwnerKind
 from noust.core.exceptions import NoustError
+from noust.core.teams.scope import Scope
+from noust.managers.supervision import keeps_alive_with_docker
 from noust.monitor import sampler
 
 log = logging.getLogger(__name__)
@@ -176,9 +180,140 @@ def classify_unit(service: Mapping[str, Any]) -> str:
     return "stopped"
 
 
+#: What a container of an application is, in the words of a unit's state: the pair ``(active, sub)`` that
+#: :func:`classify_unit` reads, by the word :mod:`noust.core.docker.states` has for the container. A job
+#: that ended well is not a service that stopped and is not counted at all.
+_CONTAINER_AS_UNIT: dict[str, tuple[str, str]] = {
+    "running": ("active", "running"),
+    "loop": ("activating", "auto-restart"),
+    "unhealthy": ("failed", "failed"),
+    "oom": ("failed", "failed"),
+    "killed": ("failed", "failed"),
+    "error": ("failed", "failed"),
+    "dead": ("failed", "failed"),
+    "terminated": ("inactive", "dead"),
+    "stopped": ("inactive", "dead"),
+    "paused": ("inactive", "dead"),
+    "created": ("inactive", "dead"),
+}
+
+#: Seconds the containers are reused. The header is read every few seconds by every open console, and one
+#: ``docker ps`` is enough for all of them.
+CONTAINER_UNITS_TTL = 4.0
+
+#: Seconds an answer of "Docker did not say" is reused: each try costs a deadline, and the snapshot waits.
+CONTAINER_UNITS_FAILURE_TTL = 30.0
+
+
+@dataclass(frozen=True)
+class _ContainerUnits:
+    """
+    One reading of the containers Docker keeps alive, as unit rows.
+
+    Attributes:
+        key: The runner it was asked through: an answer is about the host it asked.
+        stamp: When it arrived (monotonic seconds).
+        rows: The rows.
+        failed: Docker could not be asked.
+    """
+
+    key: int
+    stamp: float
+    rows: list[dict[str, Any]]
+    failed: bool
+
+    def fresh(self, key: int, now: float) -> bool:
+        """
+        Args:
+            key: The runner asked through now.
+            now: The monotonic clock.
+
+        Returns:
+            True when it is about the same host and young enough.
+        """
+        ttl = CONTAINER_UNITS_FAILURE_TTL if self.failed else CONTAINER_UNITS_TTL
+        return self.key == key and now - self.stamp < ttl
+
+
+_container_units_cache: dict[str, _ContainerUnits] = {}
+_container_units_lock = threading.Lock()
+
+
+def _read_container_units() -> list[dict[str, Any]]:
+    """
+    Ask Docker, through its gate, for the containers of Noust's applications.
+
+    Returns:
+        One row per container, shaped as a row of ``systemctl list-units`` is, so that what counts and
+        classifies units does not know which engine they came from.
+
+    Raises:
+        DockerUnavailableError: Docker cannot be asked.
+    """
+    # The machine's header is the instance's, whoever's request reads it: the same as the units of systemd.
+    page = DockerGate(scope=Scope.everything()).containers()
+    rows: list[dict[str, Any]] = []
+    for found in page.items:
+        # What nobody of Noust made is not a service it manages, and what Compose ran for a hook is a
+        # moment of one.
+        if found.owner.kind is not OwnerKind.APP or found.oneoff:
+            continue
+        state = _CONTAINER_AS_UNIT.get(found.state_kind)
+        if state is None:
+            continue
+        rows.append(
+            {
+                "name": found.name,
+                "load": "loaded",
+                "active": state[0],
+                "sub": state[1],
+                "app": found.owner.subject,
+            }
+        )
+    return rows
+
+
+def _container_units() -> list[dict[str, Any]]:
+    """
+    Read the containers Docker keeps alive as unit rows, reusing a recent answer.
+
+    Returns:
+        The rows; the last good ones (none at first) when Docker cannot be asked, or is being asked by
+        another reader, so a hung Docker never makes the header wait twice.
+    """
+    from noust.core.runner import get_runner
+
+    key = id(get_runner())
+    cached = _container_units_cache.get("entry")
+    if cached is not None and cached.fresh(key, time.monotonic()):
+        return list(cached.rows)
+    if not _container_units_lock.acquire(blocking=False):
+        return list(cached.rows) if cached is not None and cached.key == key else []
+    try:
+        cached = _container_units_cache.get("entry")
+        if cached is not None and cached.fresh(key, time.monotonic()):
+            return list(cached.rows)
+        try:
+            rows = _read_container_units()
+            failed = False
+        except NoustError as exc:
+            log.warning(
+                "Could not ask Docker which containers run for the machine snapshot: %s", exc
+            )
+            rows = list(cached.rows) if cached is not None and cached.key == key else []
+            failed = True
+        _container_units_cache["entry"] = _ContainerUnits(key, time.monotonic(), rows, failed)
+        return list(rows)
+    finally:
+        _container_units_lock.release()
+
+
 def fetch_service_states() -> list[dict[str, Any]]:
     """
-    Ask systemd for the units Noust owns.
+    Ask systemd for the units Noust owns, or Docker for the containers that stand in for them.
+
+    Where Docker keeps what is deployed alive (the central of a NAS: no systemd) the units are the
+    containers of Noust's applications, read through the Docker gate and shaped as units are.
 
     :meth:`~noust.managers.service_manager.ServiceManager.list_services`, which
     is :meth:`~noust.managers.service_manager.ServiceManager.managed_units`:
@@ -201,6 +336,8 @@ def fetch_service_states() -> list[dict[str, Any]]:
     from noust.managers.service_manager import ServiceManager
 
     try:
+        if keeps_alive_with_docker():
+            return _container_units()
         return ServiceManager(verbose=False).list_services()
     except NoustError as exc:
         log.warning("Could not read service states for the machine snapshot: %s", exc)
@@ -441,6 +578,11 @@ def classify_apps(services: list[dict[str, Any]]) -> dict[str, str]:
     manager: ServiceManager | None = None
     states: dict[str, str] = {}
     stopped_stacks: list[Any] = []
+    try:
+        docker_keeps_alive = keeps_alive_with_docker()
+    except NoustError as exc:
+        log.warning("Could not tell what keeps the applications alive: %s", exc)
+        docker_keeps_alive = False
     for app in apps:
         if is_php_fpm(app):
             # Stored as static, but its pool runs it: classified by the pool.
@@ -474,7 +616,9 @@ def classify_apps(services: list[dict[str, Any]]) -> dict[str, str]:
             states[app.domain] = APP_RESTARTING
         else:
             states[app.domain] = APP_STOPPED
-            if buckets and app.app_type == "docker-compose":
+            # Where Docker keeps a stack alive there is no unit to be stopped while the containers run:
+            # the containers are what was counted.
+            if buckets and app.app_type == "docker-compose" and not docker_keeps_alive:
                 stopped_stacks.append(app)
     # A stack whose unit is stopped may still run, brought up by hand: one
     # docker call for all of them, and none when there is no such stack.

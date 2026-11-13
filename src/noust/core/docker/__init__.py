@@ -19,6 +19,8 @@ resolved to **whose it is** before anything is allowed to be done to it, in one 
 - :mod:`~noust.core.docker.gate`: :class:`DockerGate`, which the console, the command line and the
   jobs ask.
 - :mod:`~noust.core.docker.names`: what Noust calls the things it makes.
+- :mod:`~noust.core.docker.connector` and :mod:`~noust.core.docker.project`: what Noust runs for itself
+  in Docker where there is no systemd to keep it (a tunnel's connector, a database instance's project).
 - :mod:`~noust.core.docker.states`, :mod:`~noust.core.docker.inspect`, :mod:`~noust.core.docker.stats`
   and :mod:`~noust.core.docker.events`: a container from the inside (its state as one word, how it ended,
   what it uses, how often it restarted lately).

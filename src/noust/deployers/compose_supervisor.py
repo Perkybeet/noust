@@ -70,14 +70,24 @@ class ComposeSupervisor:
         verbose: Verbosity of the deployer each call is made through.
     """
 
-    def __init__(self, *, verbose: bool = False, runner: CommandRunner | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        verbose: bool = False,
+        runner: CommandRunner | None = None,
+        stack: DockerComposeDeployer | None = None,
+    ) -> None:
         """
         Args:
             verbose: Verbosity of the deployer each call is made through.
             runner: Runs Docker; the process-wide one by default.
+            stack: The deployer of a stack that is being deployed for the first time: it is not in the
+                store yet (a deployment registers the application once it has started), so what it
+                starts is the deployer's own project, not one found by name.
         """
         self.verbose = verbose
         self._runner = runner
+        self._building = stack
 
     @property
     def runner(self) -> CommandRunner:
@@ -113,43 +123,64 @@ class ComposeSupervisor:
 
         return stack_deployer(app, runner=self.runner, verbose=self.verbose)
 
-    def _compose(self, app: App, *args: str, timeout: int | None = None) -> CommandResult:
+    def _resolve(self, name: str) -> tuple[DockerComposeDeployer, int | None] | None:
         """
-        Run one ``docker compose`` command against the application's stack.
+        Find the stack a unit's name stands for, and the port it publishes.
 
         Args:
-            app: The application.
+            name: The application's name.
+
+        Returns:
+            The deployer that addresses it and its port, or None when there is no such stack: the one
+            being deployed for the first time answers to its own name, and any other is the
+            application of that name in the store.
+        """
+        building = self._building
+        if building is not None and domain_to_app_name(building.domain) == name:
+            return building, building._get_primary_port() if building.services else building.port
+        app = self._app(name)
+        if app is None:
+            return None
+        return self._stack(app), app.port
+
+    def _compose(
+        self, stack: DockerComposeDeployer, *args: str, timeout: int | None = None
+    ) -> CommandResult:
+        """
+        Run one ``docker compose`` command against a stack.
+
+        Args:
+            stack: The deployer that addresses it.
             *args: The subcommand and its arguments.
             timeout: Deadline in seconds; the stack's own compose timeout by default.
 
         Returns:
             The outcome.
         """
-        stack = self._stack(app)
         stack._locate_compose_file()
         if timeout is None:
             return stack._run(stack._compose(*args))
         return stack._run(stack._compose(*args), timeout=timeout)
 
-    def _require(self, name: str, operation: str) -> App:
+    def _require(self, name: str, operation: str) -> tuple[DockerComposeDeployer, int | None]:
         """
         Args:
             name: The application's name.
             operation: What is being asked, for the message.
 
         Returns:
-            The application.
+            The stack and its port.
 
         Raises:
             ServiceError: When there is no such application here.
         """
-        app = self._app(name)
-        if app is None:
+        found = self._resolve(name)
+        if found is None:
             raise ServiceError(
                 f"Cannot {operation} {name}: no application of that name runs in Docker here",
                 details="Run 'noust list' to see what is deployed.",
             )
-        return app
+        return found
 
     # -- What a unit's manager does for a stack -------------------------------
 
@@ -163,10 +194,9 @@ class ComposeSupervisor:
         Raises:
             ServiceError: There is no such application, or Compose refused, with its own words.
         """
-        app = self._require(name, "start")
-        stack = self._stack(app)
+        stack, _port = self._require(name, "start")
         result = self._compose(
-            app,
+            stack,
             "up",
             "-d",
             "--remove-orphans",
@@ -217,10 +247,10 @@ class ComposeSupervisor:
             True when they are stopped afterwards, including when there was nothing to stop: the
             teardown paths call this before knowing whether the stack was ever there.
         """
-        app = self._app(name)
-        if app is None:
+        found = self._resolve(name)
+        if found is None:
             return True
-        return self._compose(app, "stop").success
+        return self._compose(found[0], "stop").success
 
     def restart(self, name: str) -> None:
         """
@@ -232,10 +262,9 @@ class ComposeSupervisor:
         Raises:
             ServiceError: There is no such application, or Compose refused, with its own words.
         """
-        app = self._require(name, "restart")
-        stack = self._stack(app)
+        stack, _port = self._require(name, "restart")
         result = self._compose(
-            app,
+            stack,
             "up",
             "-d",
             "--force-recreate",
@@ -255,9 +284,9 @@ class ComposeSupervisor:
             name: The application's name; one that is not there is nothing to remove.
             keep_record: Ignored: there is no record of a unit to keep.
         """
-        app = self._app(name)
-        if app is not None:
-            self._compose(app, "down", "--remove-orphans")
+        found = self._resolve(name)
+        if found is not None:
+            self._compose(found[0], "down", "--remove-orphans")
 
     def create_service(self, **_: Any) -> None:
         """
@@ -305,10 +334,10 @@ class ComposeSupervisor:
         Returns:
             The status; an application that is not here does not exist and is not active.
         """
-        app = self._app(name)
-        if app is None:
+        found = self._resolve(name)
+        if found is None:
             return self._status(name, exists=False, state=_STOPPED, managed=False)
-        result = self._compose(app, "ps", "-a", "--format", "json")
+        result = self._compose(found[0], "ps", "-a", "--format", "json")
         containers = parse_compose_ps(result.stdout) if result.success else []
         states = {str(item.get("State") or "").lower() for item in containers}
         if any(container_problem(item) is not None for item in containers):
@@ -364,11 +393,11 @@ class ComposeSupervisor:
         Returns:
             The text, or the reason it cannot be shown.
         """
-        app = self._app(name)
-        if app is None:
+        found = self._resolve(name)
+        if found is None:
             return f"No application named {name} runs in Docker here."
         try:
-            return self._stack(app).container_logs(lines)[1]
+            return found[0].container_logs(lines)[1]
         except NoustError as exc:
             return f"(the output could not be read: {exc})"
 
@@ -393,8 +422,7 @@ class ComposeSupervisor:
                 container to ask.
             DockerError: The address or the port cannot be found, with what Docker said.
         """
-        app = self._require(name, "reach")
-        stack = self._stack(app)
+        stack, port = self._require(name, "reach")
         stack._locate_compose_file()
         root = web_root_service(parse_services(stack._load_compose_document()))
         if root is None:
@@ -409,7 +437,7 @@ class ComposeSupervisor:
         host = reach.service_address(self.runner, containers[0], me=reach.own_container_id())
         if host is None:
             return None
-        return f"{host}:{reach.container_port(self.runner, containers[0], app.port)}"
+        return f"{host}:{reach.container_port(self.runner, containers[0], port)}"
 
     def service_exists(self, name: str) -> bool:
         """
@@ -419,7 +447,7 @@ class ComposeSupervisor:
         Returns:
             Whether an application of that name runs in Docker here.
         """
-        return self._app(name) is not None
+        return self._resolve(name) is not None
 
     unit_exists = service_exists
     is_managed = service_exists

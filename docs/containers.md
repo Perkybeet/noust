@@ -52,7 +52,11 @@ noust create -d shop.example.com -s https://github.com/owner/shop --run-as conta
 
 A container needs Docker on the machine and a Dockerfile in the repository, or Railpack on the server
 (`noust setup railpack`), which builds without one; running directly needs systemd, a web server and root. A
-machine that only has Docker (a central in a container, a NAS) is offered containers alone.
+machine that only has Docker (a central in a container, a NAS) is offered containers alone, and **not Railpack**:
+installing it writes `/usr/local/bin` as root, and its BuildKit frontend needs Docker's containerd image store,
+which a NAS's engine (Synology's 24.0) does not have by default. There a repository with no Dockerfile and no
+Compose file runs nowhere, which the decision says once (`how_it_runs.why.nothing_runs_here`) with the one fix:
+add a Dockerfile or a Compose file, or deploy an image from a registry. The console does not offer to go on.
 
 **Changing the form of an application that runs is not offered.** It is deployed again as the other form, under
 another name or after deleting it, and the domain is moved to it (**Domains**, or `noust domain`). It is not

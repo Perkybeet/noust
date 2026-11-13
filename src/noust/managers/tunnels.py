@@ -37,6 +37,14 @@ name. A route can instead name a service directly.
 ``cloudflared`` is installed by the operator from Cloudflare's own package repository: a
 tunnel's connector is the one program Noust never fetches itself, and never as
 ``latest``.
+
+**Where there is no systemd** (the central of a NAS that deploys containers on its machine's Docker) the
+connector is a container instead of a unit, and that is the only thing that differs: the same tunnel at
+Cloudflare, the same routes, the same records. It is started and kept alive by Docker's restart policy
+(:mod:`noust.core.docker.connector`), runs from an image pinned by digest, and reads its token from a
+private file it is given read-only, which is never an environment variable (``docker inspect`` prints
+those). A route for an application goes to the port Docker published it on, through the machine's gateway,
+because there is no web server of Noust's whose site it could reach.
 """
 
 from __future__ import annotations
@@ -56,6 +64,7 @@ from jinja2 import TemplateError
 from noust.central import require_server_role
 from noust.core import audit, paths, sealing
 from noust.core.config import SYSTEMD_DIR as _SYSTEMD_DIR
+from noust.core.docker import connector
 from noust.core.exceptions import (
     DomainConflictError,
     NoustError,
@@ -82,6 +91,7 @@ from noust.managers.dns.accounts import DnsAccounts
 from noust.managers.dns.catalog import kind_of
 from noust.managers.dns.provider import DnsProvider, DnsProviderError
 from noust.managers.dns.records import DnsRecordConflict, ManagedDns, checked_hostname
+from noust.managers.supervision import keeps_alive_with_docker
 
 logger = logging.getLogger(__name__)
 
@@ -141,6 +151,8 @@ class TunnelSupport:
         problem: What is missing, when something is.
         hint: How to fix it.
         coded: The same problem and fix as a sentence with a code, for the console to translate.
+        engine: What keeps the connector running: ``systemd`` (a unit, with ``cloudflared`` installed) or
+            ``docker`` (a container of the image ``cloudflared`` names, where there is no systemd).
     """
 
     available: bool
@@ -150,6 +162,7 @@ class TunnelSupport:
     problem: str | None = None
     hint: str | None = None
     coded: ServerText | None = None
+    engine: str = "systemd"
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -164,6 +177,7 @@ class TunnelSupport:
             "problem": self.problem,
             "hint": self.hint,
             "coded": self.coded.to_dict() if self.coded else None,
+            "engine": self.engine,
         }
 
 
@@ -242,6 +256,18 @@ def secret_name(tunnel: str) -> str:
         The secret that holds its connector's environment.
     """
     return f"tunnels/{tunnel}"
+
+
+def token_secret_name(tunnel: str) -> str:
+    """
+    Args:
+        tunnel: A tunnel's name.
+
+    Returns:
+        The secret that holds its token alone, as a file a container is given: where Docker runs the
+        connector there is no ``EnvironmentFile`` to read ``TUNNEL_TOKEN=...`` from.
+    """
+    return f"tunnels/{tunnel}.token"
 
 
 def unit_name(tunnel: str) -> str:
@@ -454,14 +480,18 @@ class TunnelManager:
 
     def active(self, tunnel: Tunnel) -> str:
         """
-        Ask systemd whether a tunnel's connector runs.
+        Ask systemd, or Docker where there is no systemd, whether a tunnel's connector runs.
 
         Args:
             tunnel: The tunnel.
 
         Returns:
-            ``active``, ``activating``, ``failed``, ``inactive``... as systemd says.
+            ``active``, ``activating``, ``failed``, ``inactive``... as systemd says; for a container,
+            what its state is in those words (``active`` when it runs, ``activating`` while Docker starts or
+            restarts it, ``inactive`` otherwise).
         """
+        if keeps_alive_with_docker():
+            return connector.unit_state(connector.state(self.runner, tunnel.name))
         result = self.runner.run(
             ["systemctl", "is-active", f"{tunnel.unit}.service"], timeout=_SYSTEMCTL_TIMEOUT
         )
@@ -474,23 +504,46 @@ class TunnelManager:
         Returns:
             The answer; never raises for a missing piece.
         """
-        found = self._which("cloudflared")
+        in_a_container = keeps_alive_with_docker()
+        coded: ServerText | None = None
+        found: str | None
+        if in_a_container:
+            # Nothing is installed: the connector is Cloudflare's image, which Docker pulls when it is
+            # first started. What can be missing is Docker, and the doctor says what is wrong with it.
+            from noust.central import machine
+
+            facts = machine.read_machine_facts(self.runner)
+            found = connector.CONNECTOR_IMAGE if facts.docker else None
+            if found is None:
+                coded = facts.docker_problem or say(
+                    "docker.engine.missing", command="noust setup init"
+                )
+        else:
+            found = self._which("cloudflared")
+            if found is None:
+                coded = say("tunnels.cloudflared_missing", url=PACKAGE_REPOSITORY)
         sealed = sealing.is_sealed(self.secrets.root)
         names = tuple(
             account.name
             for account in self.accounts.accounts()
             if (spec := kind_of(account.kind)) is not None and spec.tunnels
         )
-        coded: ServerText | None = None
-        if found is None:
-            coded = say("tunnels.cloudflared_missing", url=PACKAGE_REPOSITORY)
-        elif sealed:
+        if coded is None and sealed:
             coded = say("tunnels.store_sealed")
-        elif not names:
+        elif coded is None and not names:
             coded = say("tunnels.no_account")
         problem = coded.text if coded else None
         hint = coded.hint if coded else None
-        return TunnelSupport(coded is None, found, sealed, names, problem, hint, coded)
+        return TunnelSupport(
+            coded is None,
+            found,
+            sealed,
+            names,
+            problem,
+            hint,
+            coded,
+            "docker" if in_a_container else "systemd",
+        )
 
     # ------------------------------------------------------------------ creating
 
@@ -563,7 +616,12 @@ class TunnelManager:
             token = provider.tunnel_token(cloudflare_id, tunnel_id)
             if not _TOKEN.fullmatch(token):
                 raise DnsProviderError("Cloudflare returned a connector token that is not one")
-            self.secrets.write(secret_name(name), f"TUNNEL_TOKEN={token}\n")
+            if support.engine == "docker":
+                # A file with the token alone, which the container is given read-only: an environment
+                # variable would be part of its configuration, and `docker inspect` prints those.
+                self.secrets.write(token_secret_name(name), f"{token}\n")
+            else:
+                self.secrets.write(secret_name(name), f"TUNNEL_TOKEN={token}\n")
             provider.configure_tunnel(cloudflare_id, tunnel_id, ingress_for(()))
             self._start_connector(tunnel, support.cloudflared)
         except (NoustError, OSError):
@@ -658,15 +716,20 @@ class TunnelManager:
 
     def _start_connector(self, tunnel: Tunnel, cloudflared: str) -> None:
         """
-        Write the connector's unit and start it.
+        Write the connector's unit and start it, or start its container where there is no systemd.
 
         Args:
             tunnel: The tunnel.
-            cloudflared: The program's absolute path.
+            cloudflared: The program's absolute path, or the image of the container.
 
         Raises:
             ServiceError: The unit cannot be written or the connector does not run.
         """
+        if keeps_alive_with_docker():
+            connector.start(
+                self.runner, tunnel.name, self.secrets.path(token_secret_name(tunnel.name))
+            )
+            return
         try:
             text = (
                 text_environment("templates/systemd")
@@ -743,6 +806,12 @@ class TunnelManager:
             DnsProviderError: Cloudflare refused to delete it (a connector still counts as
                 connected for a moment after it stops).
         """
+        if keeps_alive_with_docker():
+            connector.remove(self.runner, tunnel.name)
+            if tunnel.tunnel_id:
+                provider.delete_tunnel(tunnel.account_id, tunnel.tunnel_id)
+            self.secrets.delete(token_secret_name(tunnel.name))
+            return
         unit_file = self._unit_path(tunnel)
         if unit_file.exists():
             self._systemctl("disable", "--now", f"{tunnel.unit}.service")
@@ -885,6 +954,16 @@ class TunnelManager:
                 details="Name the application it is for (APP) or the service (http://localhost:3000).",
                 field="service",
             )
+        if keeps_alive_with_docker():
+            # No site of Noust's to reach: the connector is a container, and the application is published
+            # on a port of the machine that it reaches through the machine's gateway.
+            if not app.port:
+                raise ValidationError(
+                    f"{app.domain} serves no web, so there is nothing for a name to reach",
+                    details="A tunnel carries HTTP: give the service by hand (--service) for anything else.",
+                    field="app",
+                )
+            return app, f"http://{connector.HOST_ALIAS}:{app.port}"
         return app, "https://localhost:443" if self._tls(app) else "http://localhost:80"
 
     def _tls(self, app: App) -> bool:

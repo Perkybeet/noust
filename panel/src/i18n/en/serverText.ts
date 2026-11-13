@@ -1262,6 +1262,10 @@ export const serverText = {
         text: "It cannot run in a container yet: the repository has no Dockerfile and Railpack is not installed on this server.",
         hint: "Add a Dockerfile to the repository, or install Railpack on this server ({command}), which builds without one.",
       },
+      no_build_here: {
+        text: "It cannot run as a container here: the repository has no Dockerfile, and what builds a container without one is not available on this machine.",
+        hint: "Add a Dockerfile to the repository, or deploy an image from a registry or a Compose file.",
+      },
     },
     server: {
       nothing_recognised: {
@@ -1289,6 +1293,10 @@ export const serverText = {
       },
       none: {
         text: "Neither way is possible on this machine now; what is in the way is said below.",
+      },
+      nothing_runs_here: {
+        text: "Nothing in this repository runs on this machine: it deploys containers and nothing else, and the repository has no Dockerfile or Compose file to make one.",
+        hint: "Add a Dockerfile or a Compose file to the repository and deploy it again, or deploy an image from a registry.",
       },
       server_dockerfile: {
         text: "Noust proposes running it directly on the server: it is a {type} project and starts with its own command. It has a Dockerfile, so it can also run in a container.",
@@ -2458,9 +2466,13 @@ export const serverText = {
       text: "There is no Cloudflare account to manage a tunnel with",
       hint: "Add one with Account > Cloudflare Tunnel:Edit: noust dns provider add NAME --kind cloudflare --token-stdin",
     },
+    nothing_to_install: {
+      text: "There is nothing to install here: the connector of a tunnel runs as a container Noust starts itself",
+      hint: "Create the tunnel: Docker pulls the connector's image the first time it starts.",
+    },
     store_sealed: {
       text: "The secret store is sealed",
-      hint: "A tunnel's connector reads its token at boot, with nobody to type a passphrase. Run tunnels on a server, not on a sealed central.",
+      hint: "A tunnel's connector reads its token when it starts, by itself after the machine restarts, with nobody to type a passphrase. Run tunnels on a server, or on a central whose secrets are not sealed.",
     },
   },
   webserver_move: {

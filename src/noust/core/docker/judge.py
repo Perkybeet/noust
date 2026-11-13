@@ -183,6 +183,15 @@ def refusal(
                 owner_kind=owner.kind.value,
                 subject=owner.subject,
             )
+        if owner.subject.startswith("tunnel:"):
+            tunnel = owner.subject.partition(":")[2]
+            return DockerOwnedError(
+                f"{name} is the connector of the tunnel {tunnel}: it carries your names to the outside",
+                f"Manage it as a tunnel (noust tunnel list, noust tunnel remove {tunnel}): stopping or "
+                "removing it here cuts the names it carries and Noust would not know why.",
+                owner_kind=owner.kind.value,
+                subject=owner.subject,
+            )
         return DockerOwnedError(
             f"{name} is something Noust started for a copy, and it ends with the copy",
             "Leave it: it is removed when the copy finishes. If a copy was interrupted, "

@@ -40,7 +40,10 @@ def _show(logger: Logger, plan: AdoptionPlan) -> None:
         logger: Where it is printed.
         plan: The plan.
     """
-    logger.key_value("Application", f"{plan.domain} (unit {plan.app_name})")
+    if plan.kept_by == compose_adopt.KEPT_BY_UNIT:
+        logger.key_value("Application", f"{plan.domain} (unit {plan.app_name})")
+    else:
+        logger.key_value("Application", plan.domain)
     logger.key_value("Directory", f"{plan.app_path} (kept as it is, nothing fetched)")
     logger.key_value("Compose file", plan.compose_file)
     logger.key_value(
@@ -56,6 +59,8 @@ def _show(logger: Logger, plan: AdoptionPlan) -> None:
     logger.key_value("Commit", plan.commit or "unknown")
     if plan.headless:
         logger.key_value("Site", "none: the stack publishes no port")
+    elif plan.kept_by == compose_adopt.KEPT_BY_DOCKER:
+        logger.key_value("Address", plan.address or "none")
     elif plan.site is None:
         logger.key_value("Site", "none found")
     else:
@@ -65,7 +70,12 @@ def _show(logger: Logger, plan: AdoptionPlan) -> None:
     logger.key_value("Rehearsed up", "changes nothing" if not plan.changes else "changes:")
     for change in plan.changes:
         logger.substep(change)
-    logger.key_value("Unit", f"{plan.app_name}.service, created and enabled, not started")
+    if plan.kept_by == compose_adopt.KEPT_BY_UNIT:
+        logger.key_value("Unit", f"{plan.app_name}.service, created and enabled, not started")
+    else:
+        logger.key_value(
+            "Kept alive by", "Docker's restart policy: no unit is written, nothing is started"
+        )
     for warning in plan.warnings:
         logger.warning(warning)
 
@@ -144,6 +154,12 @@ def adopt_command(
         return
     if not result.adopted:
         ctx.logger.info("Rehearsal: nothing was adopted.")
+        return
+    if plan.kept_by == compose_adopt.KEPT_BY_DOCKER:
+        ctx.logger.success(
+            f"{plan.domain} adopted. Update it with: noust update {plan.domain}. Docker keeps it "
+            "running, by the restart policy of its containers."
+        )
         return
     ctx.logger.success(
         f"{plan.domain} adopted. Update it with: noust update {plan.domain}; its unit "

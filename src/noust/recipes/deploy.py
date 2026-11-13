@@ -45,6 +45,7 @@ from noust.deployers.helpers.databases import (
     database_identifiers,
     provision_database,
 )
+from noust.deployers.helpers.edge import publish_web_port
 from noust.recipes import Recipe, RecipeError, get_recipe, read_asset
 from noust.recipes.model import (
     ENGINE_OF,
@@ -846,7 +847,8 @@ def _write_compose_source(
         The directory.
     """
     directory = recipe_source_dir(app_name, store)
-    document = recipe.compose or ""
+    # Said as this machine reaches it: on a server's loopback behind its web server, on a NAS on a port.
+    document = publish_web_port(recipe.compose or "")
     files = {COMPOSE_FILE: document if document.endswith("\n") else document + "\n"}
     files.update(_recipe_files(recipe, values))
     _write_tree(directory, files, recipe.file_modes)

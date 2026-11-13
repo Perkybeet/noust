@@ -1251,6 +1251,10 @@ export const serverText: Catalog<typeof en> = {
         text: "Todavía no puede ir en un contenedor: el repositorio no tiene Dockerfile y Railpack no está instalado en este servidor.",
         hint: "Añade un Dockerfile al repositorio o instala Railpack en este servidor ({command}), que construye sin él.",
       },
+      no_build_here: {
+        text: "Aquí no puede ir en un contenedor: el repositorio no tiene Dockerfile y lo que construye un contenedor sin él no está disponible en esta máquina.",
+        hint: "Añade un Dockerfile al repositorio, o despliega una imagen de un registro o un archivo Compose.",
+      },
     },
     server: {
       nothing_recognised: {
@@ -1278,6 +1282,10 @@ export const serverText: Catalog<typeof en> = {
       },
       none: {
         text: "Ahora mismo no es posible ninguna de las dos formas en esta máquina; abajo se dice qué lo impide.",
+      },
+      nothing_runs_here: {
+        text: "Nada de lo que hay en este repositorio se ejecuta en esta máquina: solo despliega contenedores, y el repositorio no tiene un Dockerfile ni un archivo Compose con que hacer uno.",
+        hint: "Añade un Dockerfile o un archivo Compose al repositorio y vuelve a desplegarlo, o despliega una imagen de un registro.",
       },
       server_dockerfile: {
         text: "Noust propone ejecutarla directamente en el servidor: es un proyecto {type} y arranca con su propio comando. Tiene un Dockerfile, así que también puede ir en un contenedor.",
@@ -2447,9 +2455,13 @@ export const serverText: Catalog<typeof en> = {
       text: "No hay ninguna cuenta de Cloudflare con la que gestionar un túnel",
       hint: "Añade una con Account > Cloudflare Tunnel:Edit: noust dns provider add NAME --kind cloudflare --token-stdin",
     },
+    nothing_to_install: {
+      text: "Aquí no hay nada que instalar: el conector de un túnel corre como un contenedor que Noust arranca él mismo",
+      hint: "Crea el túnel: Docker descarga la imagen del conector la primera vez que arranca.",
+    },
     store_sealed: {
       text: "El almacén de secretos está sellado",
-      hint: "El conector de un túnel lee su token al arrancar, sin nadie que escriba una frase de paso. Usa los túneles en un servidor, no en una central sellada.",
+      hint: "El conector de un túnel lee su token cuando arranca, solo, tras reiniciar la máquina, sin nadie que escriba una frase de paso. Usa los túneles en un servidor, o en una central cuyos secretos no estén sellados.",
     },
   },
   webserver_move: {

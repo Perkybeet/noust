@@ -85,17 +85,32 @@ def guard_calls() -> tuple[tuple[str, int, ast.expr], ...]:
     return tuple(found)
 
 
+def literal_keys(arg: ast.expr) -> set[str]:
+    """
+    Args:
+        arg: The first argument of a call of the guard.
+
+    Returns:
+        The keys it can be, when they are all written out: a string, or a choice between two (a
+        manager that drives a container's database asks for another function than one that drives
+        an installed engine); empty when the key is computed.
+    """
+    if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+        return {arg.value}
+    if isinstance(arg, ast.IfExp):
+        branches = literal_keys(arg.body) | literal_keys(arg.orelse)
+        both = isinstance(arg.body, ast.Constant) and isinstance(arg.orelse, ast.Constant)
+        return branches if both else set()
+    return set()
+
+
 def keys_in_use() -> set[str]:
     """
     Returns:
         The keys a guard is called with: the literals at the call sites and the ones the command
         line refuses a hub by.
     """
-    used = {
-        arg.value
-        for _, _, arg in guard_calls()
-        if isinstance(arg, ast.Constant) and isinstance(arg.value, str)
-    }
+    used = {key for _, _, arg in guard_calls() for key in literal_keys(arg)}
     return used | set(central.HUB_REFUSED_COMMANDS.values())
 
 
@@ -139,7 +154,7 @@ class TestEveryGuardAsksTheTable:
         computed = [
             (path, line)
             for path, line, arg in guard_calls()
-            if not (isinstance(arg, ast.Constant) and isinstance(arg.value, str))
+            if not literal_keys(arg)
             # The command line's own door: it passes the key its table of commands names.
             and path != "central/__init__.py"
         ]

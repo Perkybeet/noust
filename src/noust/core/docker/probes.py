@@ -25,6 +25,8 @@ READ_ONLY_PROBES: tuple[tuple[object, ...], ...] = (
     ("docker", "system", "df", "-v", "--format", "*"),
     ("docker", "system", "df", "--format", "*"),
     ("docker", "inspect", "--type", "*", "*"),
+    # What state a container is in, for the connector of a tunnel (:mod:`noust.core.docker.connector`).
+    ("docker", "inspect", "--type", "container", "--format", "*", "*"),
     # Asking a registry for the manifest of a tag and the config behind it downloads no layer and moves
     # no local tag (:mod:`noust.core.docker.registry`); a pull does both, and is not here.
     ("docker", "buildx", "imagetools", "inspect", "*"),

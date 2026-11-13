@@ -98,7 +98,10 @@ def create_command(
 
     The token goes to a file only root reads and the unit hands it to the connector;
     nothing is put in an argument, in /tmp or in the unit. Needs cloudflared: install it
-    with 'noust tunnel install-cloudflared'.
+    with 'noust tunnel install-cloudflared'. On a central that deploys containers on its
+    machine's Docker there is no unit: the connector is a container Docker keeps alive,
+    from an image pinned by digest, with the token in a file it is given read-only (never
+    an environment variable, which 'docker inspect' would print), and nothing to install.
     """
     from noust.core.audit.actor import cli_actor
 
@@ -232,8 +235,10 @@ def route_add_command(
 
     For an application the connector reaches its site on this machine, so the site's own
     headers and policy apply: plain HTTP when the site serves none (a redirect to HTTPS
-    would loop through Cloudflare), TLS when it does. The name's CNAME is made in the DNS
-    account that holds its zone; one somebody else made is a conflict that names it.
+    would loop through Cloudflare), TLS when it does. Where there is no site (the central
+    of a NAS) it reaches the port the application is published on. The name's CNAME is
+    made in the DNS account that holds its zone; one somebody else made is a conflict
+    that names it.
     """
     from noust.core.audit.actor import cli_actor
 

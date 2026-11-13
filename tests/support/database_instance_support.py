@@ -209,6 +209,7 @@ class DockerHost(FakeRunner):
         """
         verb = command[1] if len(command) > 1 else ""
         if verb == "compose":
+            self._compose(command)
             return self._ok(result, "Docker Compose version v2.40.0\n")
         if verb == "ps":
             return self._ok(
@@ -356,6 +357,27 @@ class DockerHost(FakeRunner):
             self.enabled.add(unit)
         elif verb == "disable":
             self.enabled.discard(unit)
+
+    def _compose(self, command: tuple[str, ...]) -> None:
+        """
+        Do what ``docker compose -p PROJECT -f FILE up|down`` does to an instance's project: what the unit
+        of a server does, on a machine that keeps it alive with Docker.
+
+        Args:
+            command: The argv.
+        """
+        if "-p" not in command or "-f" not in command:
+            return
+        unit = command[command.index("-p") + 1]
+        if not unit.startswith("noust-db-"):
+            return
+        if "up" in command:
+            if "--force-recreate" in command:
+                self._drop(unit)
+            self._create_container(unit)
+            self.started.append(unit)
+        elif "down" in command:
+            self._drop(unit)
 
     def _drop(self, unit: str) -> None:
         """

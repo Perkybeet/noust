@@ -122,7 +122,9 @@ src/noust/
                     `stats.py` (one reading, or the reason there is none) and `events.py` (restarts in the
                     last minutes); the machine in short is `summary.py` (what asks for attention, worst
                     first) and `restart_loss.py`; a cleanup is a plan applied as it was shown
-                    (`cleanup.py`). New code asks Docker through it; `tests/test_docker_ratchet.py` lists the
+                    (`cleanup.py`); what Noust runs for itself where no systemd keeps it is the connector
+                    of a tunnel (`connector.py`, its image pinned by digest) and a project of its own
+                    (`project.py`). New code asks Docker through it; `tests/test_docker_ratchet.py` lists the
                     modules that still ask by themselves, and the list only gets shorter
     deploy_events.py  the deployment events every deployment publishes and its subscribers
     store.py        SQLite persistence (WAL) with versioned migrations
@@ -175,7 +177,8 @@ src/noust/
     database/managed.py  the engines Noust runs itself in containers beside the host's (another
                     version, or an engine the host lacks): make, start, stop, upgrade, remove, from
                     the catalog of official images pinned by digest (instance_catalog.py); once
-                    made, an instance is one more key (`postgresql@pg16`) to every database manager
+                    made, an instance is one more key (`postgresql@pg16`) to every database manager; where
+                    there is no systemd, Docker's restart policy keeps it (`instance_supervisor.py`)
     port_claims.py  who holds a port: applications, the ports a Compose stack publishes, streams,
                     databases, engines, SSH, the console and the kernel; every caller asks it
     app_identity.py the one answer to "which account does this app run as"

@@ -54,6 +54,7 @@ from noust.core import audit, paths
 from noust.core.applock import app_lock
 from noust.core.config import Config
 from noust.core.deploy_events import operation
+from noust.core.docker.gate import DockerGate
 from noust.core.exceptions import DeploymentError, NoustError, ServiceError
 from noust.core.fs import is_rehearsal
 from noust.core.logger import Logger
@@ -69,12 +70,15 @@ from noust.core.store import (
 )
 from noust.core.utils import domain_to_app_name
 from noust.deployers.docker_compose import DockerComposeDeployer, compose_project_name
+from noust.deployers.helpers import edge as edges
+from noust.deployers.helpers.compose_ports import loopback_only
 from noust.deployers.helpers.registration import StoreRegistrar
 from noust.deployers.helpers.target import claim_deploy_target
 from noust.deployers.recorder import checkout_git_info, recorder_for, recording
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.service_manager import ServiceManager
 from noust.managers.source_manager import SourceManager
+from noust.managers.supervision import keeps_alive_with_docker, remember_stack, service_control
 from noust.managers.webserver import WebServerManager, config_serves_tls
 from noust.validators.domain import validate_domain
 from noust.validators.names import resolve_within, validate_filename
@@ -172,6 +176,29 @@ class StackContainer:
     working_dir: str
 
 
+#: The two things that can keep an adopted stack alive: a unit of systemd on a server, and Docker's own
+#: restart policy on the central of a NAS (``central.deploy_here: containers``), which has no systemd.
+KEPT_BY_UNIT = "unit"
+KEPT_BY_DOCKER = "docker"
+
+
+@dataclass(frozen=True)
+class LostOnRestart:
+    """
+    A container of the stack that the machine restarting would leave down.
+
+    Attributes:
+        container: Its name.
+        policy: Its restart policy.
+        why: ``policy`` (it runs and its policy does not bring it back) or ``stopped`` (it was stopped
+            under ``unless-stopped``).
+    """
+
+    container: str
+    policy: str
+    why: str
+
+
 @dataclass(frozen=True)
 class AdoptionPlan:
     """
@@ -179,7 +206,7 @@ class AdoptionPlan:
 
     Attributes:
         domain: The application's domain.
-        app_name: Its unit's name.
+        app_name: Its unit's name on a server; what the application is called to Docker, on a NAS.
         app_path: The directory the stack runs from, as it is.
         compose_file: The compose file, relative to ``app_path``.
         project: The Compose project pinned for it; None when the stack names
@@ -200,6 +227,12 @@ class AdoptionPlan:
         dry_run: Compose's output for the rehearsed ``up``, verbatim.
         changes: The lines of it that would change something (accepted).
         warnings: What the operator should know, one sentence each.
+        kept_by: ``unit`` (a unit is created, enabled and not started) or ``docker`` (no systemd here:
+            the restart policy of the containers keeps the stack alive and nothing is written for it).
+        address: Where the stack is reached when there is no site for it, ``http://<machine>:<port>``;
+            None where a site serves it, and for a stack that serves no web.
+        restart_loss: What a restart of the machine would not bring back, said where nothing but Docker
+            brings it back; empty on a server, whose unit starts the whole stack at boot.
     """
 
     domain: str
@@ -221,6 +254,14 @@ class AdoptionPlan:
     dry_run: str
     changes: tuple[str, ...] = ()
     warnings: tuple[str, ...] = ()
+    kept_by: str = KEPT_BY_UNIT
+    address: str | None = None
+    restart_loss: tuple[LostOnRestart, ...] = ()
+
+    @property
+    def unit(self) -> str:
+        """The unit created for the stack; empty where Docker keeps it alive and there is none."""
+        return self.app_name if self.kept_by == KEPT_BY_UNIT else ""
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -232,6 +273,7 @@ class AdoptionPlan:
         data["containers"] = list(self.containers)
         data["changes"] = list(self.changes)
         data["warnings"] = list(self.warnings)
+        data["restart_loss"] = [dataclasses.asdict(item) for item in self.restart_loss]
         return data
 
 
@@ -243,7 +285,7 @@ class AdoptionResult:
     Attributes:
         plan: What was adopted.
         adopted: False for a rehearsal, which records nothing.
-        unit: The unit created for the stack.
+        unit: The unit created for the stack; empty where Docker keeps it alive.
         deployment_id: The adoption's history row, when one was recorded.
     """
 
@@ -265,11 +307,14 @@ class AdoptionResult:
         }
 
 
-def _default_web() -> NginxManager:
+def _default_web() -> NginxManager | None:
     """
     Returns:
-        The nginx manager sites are looked for with; a seam for tests.
+        The nginx manager sites are looked for with, a seam for tests; None where there is no site
+        to find, because the central of a NAS has no web server to put one in.
     """
+    if not edges.edge().has_site:
+        return None
     return NginxManager()
 
 
@@ -560,6 +605,16 @@ def checked_directory(path: Path) -> Path:
             "/opt/shop.",
         )
     if not path.exists():
+        if keeps_alive_with_docker():
+            raise DeploymentError(
+                f"The central does not see {path}: it does not exist where this central runs",
+                details=(
+                    "The central runs in a container and sees only the folders mounted into it, at "
+                    "the same path as on the NAS. Add this line under volumes: in its compose.yaml "
+                    f"(or mount the folder that holds all your stacks, once), recreate the central "
+                    f"and adopt again:\n  - {path}:{path}"
+                ),
+            )
         raise DeploymentError(
             f"{path} does not exist", details="Name the directory the stack runs from."
         )
@@ -745,13 +800,17 @@ def plan_adoption(
     compose_path = deployer._compose_file_path()
     claim_deploy_target(path, domain=domain, existing=None, replace=False, adopt=True)
 
-    unit = ServiceManager(runner=runner).inspect_unit(deployer.app_name, serving=False)
-    if unit.exists:
-        raise DeploymentError(
-            f"A unit called {unit.unit} already exists",
-            details=f"Adopting creates {unit.unit} for the stack. Remove the one at "
-            f"{unit.path} if it is left over, or adopt under the domain it belongs to.",
-        )
+    docker_keeps_it = keeps_alive_with_docker()
+    if docker_keeps_it:
+        _require_readable(path, compose_path)
+    else:
+        unit = ServiceManager(runner=runner).inspect_unit(deployer.app_name, serving=False)
+        if unit.exists:
+            raise DeploymentError(
+                f"A unit called {unit.unit} already exists",
+                details=f"Adopting creates {unit.unit} for the stack. Remove the one at "
+                f"{unit.path} if it is left over, or adopt under the domain it belongs to.",
+            )
 
     repo = SourceManager(runner=runner).get_repo_info(path)
     if not repo["is_git"] and source:
@@ -809,8 +868,15 @@ def plan_adoption(
     headless = deployer._is_headless()
     site_file: str | None = None
     site_text = ""
-    if not headless:
-        site_file, site_text, enabled = find_site(domain, web or _default_web(), requested=site)
+    has_site = edges.edge().has_site
+    if not headless and has_site:
+        found_web = web or _default_web()
+        if found_web is None:
+            raise DeploymentError(
+                "There is no web server to look for the stack's site in",
+                details="Install nginx or Apache with: noust setup init",
+            )
+        site_file, site_text, enabled = find_site(domain, found_web, requested=site)
         if site_file is None:
             warnings.append(
                 f"No site in sites-available answers on {domain}; nothing serves it through "
@@ -818,6 +884,21 @@ def plan_adoption(
             )
         elif not enabled:
             warnings.append(f"The site {site_file} is not enabled.")
+
+    port = None if headless else deployer._get_primary_port()
+    address: str | None = None
+    lost: tuple[LostOnRestart, ...] = ()
+    if docker_keeps_it:
+        if port is not None:
+            address = edges.address(port, runner=runner)
+            if loopback_only(deployer.services):
+                warnings.append(
+                    "It publishes its port on 127.0.0.1 only: it is reachable from the NAS itself "
+                    "and not from your network. Publish it on the network in your compose file, or "
+                    "reach it through a reverse proxy on the NAS."
+                )
+        lost = _lost_on_restart(project, runner=runner, store=store)
+        warnings.extend(_restart_warnings(lost))
 
     relative = str(compose_path.relative_to(path))
     return AdoptionPlan(
@@ -835,12 +916,104 @@ def plan_adoption(
         site=site_file,
         site_name=site_file if site_file is not None and site_file != domain else None,
         ssl=config_serves_tls(site_text) if site_text else False,
-        port=None if headless else deployer._get_primary_port(),
+        port=port,
         headless=headless,
         dry_run=dry_run,
         changes=changes,
         warnings=tuple(warnings),
+        kept_by=KEPT_BY_DOCKER if docker_keeps_it else KEPT_BY_UNIT,
+        address=address,
+        restart_loss=lost,
     )
+
+
+def _require_readable(folder: Path, compose_path: Path) -> None:
+    """
+    Refuse a stack whose files the central's own user cannot read, before Compose is asked.
+
+    The central runs as an unprivileged user inside its container, and ``docker compose`` runs there: it
+    reads the compose file and the ``.env`` beside it as that user. A NAS's shared folders belong to
+    whoever created them, so this is the first thing that goes wrong, and Compose's own message for it
+    (a bare permission error from a rehearsal) does not say whose permission.
+
+    Args:
+        folder: The directory the stack runs from.
+        compose_path: Its compose file.
+
+    Raises:
+        DeploymentError: The folder, the compose file or the ``.env`` cannot be read by this user.
+    """
+    uid, gid = os.getuid(), os.getgid()
+    for target in (folder, compose_path, folder / ".env"):
+        if not target.exists():
+            continue
+        needed = os.R_OK | os.X_OK if target.is_dir() else os.R_OK
+        if os.access(target, needed):
+            continue
+        name = str(target.relative_to(folder)) if target != folder else str(folder)
+        raise DeploymentError(
+            f"The central cannot read {name}: it runs as user {uid}",
+            details=(
+                f"Give the central's user ({uid}:{gid}) read access to {target}: a group it is in, an "
+                "ACL for it, or the owner. The central only reads it, so that Compose can read the "
+                "project; it never writes to a stack it adopts."
+            ),
+        )
+
+
+def _lost_on_restart(
+    project: str | None, *, runner: CommandRunner, store: NoustStore
+) -> tuple[LostOnRestart, ...]:
+    """
+    Find what the NAS restarting would not bring back of a stack, as Docker's zone says it.
+
+    Args:
+        project: The Compose project the stack runs under.
+        runner: The runner Docker is asked through.
+        store: The store the owners are read from.
+
+    Returns:
+        The containers of the project whose policy would leave them down; empty when the stack does not
+        run yet (nothing is down to lose) or Docker cannot say.
+    """
+    if not project:
+        return ()
+    try:
+        found = DockerGate(runner, store=store).restart_loss()
+    except NoustError:
+        # Said as nothing rather than as a refusal: the adoption proved the stack with Docker a moment
+        # ago, and what a restart would lose is a warning, never a reason not to register it.
+        return ()
+    return tuple(
+        LostOnRestart(item.name, item.policy, item.why) for item in found if item.project == project
+    )
+
+
+def _restart_warnings(lost: Sequence[LostOnRestart]) -> list[str]:
+    """
+    Say, once each, what a restart of the machine would leave down.
+
+    Args:
+        lost: What would not come back.
+
+    Returns:
+        One sentence per container, with the line that fixes it; Noust does not write it, because the
+        compose file is the operator's.
+    """
+    said = []
+    for item in lost:
+        if item.why == "stopped":
+            said.append(
+                f"{item.container} is stopped under the policy '{item.policy}': after the NAS restarts "
+                "nothing starts it again, and without a unit of Noust's nothing else does."
+            )
+        else:
+            said.append(
+                f"{item.container} has the restart policy '{item.policy}': after the NAS restarts "
+                "nothing starts it again, and without a unit of Noust's nothing else does. Noust does "
+                "not change your compose file; add restart: unless-stopped to the service."
+            )
+    return said
 
 
 def guard_running_stack(
@@ -969,7 +1142,7 @@ def adopt(
     """
     require_server_role("container_deploy")
     if is_rehearsal():
-        return AdoptionResult(plan=plan, adopted=False, unit=plan.app_name, deployment_id=None)
+        return AdoptionResult(plan=plan, adopted=False, unit=plan.unit, deployment_id=None)
     runner = runner if runner is not None else get_runner()
     store = store if store is not None else get_store()
 
@@ -984,8 +1157,9 @@ def adopt(
         job_id=job_id,
     )
     deployer._discover_compose_file()
+    deployer.store = store
     log = deployer.logger
-    services = ServiceManager(verbose=deployer.verbose, runner=runner)
+    services = service_control(ServiceManager, verbose=deployer.verbose, runner=runner)
     source = SourceManager(runner=runner)
 
     with app_lock(plan.domain, "adopt"), operation("adopt"):
@@ -1004,7 +1178,8 @@ def adopt(
                 branch=plan.branch,
                 port=plan.port,
                 app_path=plan.app_path,
-                webserver="" if plan.headless else "nginx",
+                # A machine that keeps stacks alive with Docker has no web server of Noust's to record.
+                webserver="" if plan.headless or plan.kept_by == KEPT_BY_DOCKER else "nginx",
                 ssl_enabled=plan.ssl,
                 status=(AppStatus.RUNNING if plan.running else AppStatus.STOPPED).value,
                 is_static=False,
@@ -1015,9 +1190,13 @@ def adopt(
             try:
                 store.set_app_compose_project(plan.domain, plan.project)
                 store.set_app_site_name(plan.domain, plan.site_name)
-                log.step(2, 2, "Creating its unit, enabled and not started")
+                if plan.kept_by == KEPT_BY_UNIT:
+                    log.step(2, 2, "Creating its unit, enabled and not started")
+                else:
+                    log.step(2, 2, "Recording its file and project: Docker keeps it running")
                 deployer._create_systemd_service(project=plan.project)
-                created = True
+                remember_stack(deployer)
+                created = plan.kept_by == KEPT_BY_UNIT
                 services.enable(plan.app_name)
                 _link_unit(store, plan.app_name, app.id)
             except (NoustError, sqlite3.Error):
@@ -1044,7 +1223,7 @@ def adopt(
         },
     )
     return AdoptionResult(
-        plan=plan, adopted=True, unit=plan.app_name, deployment_id=recorder.deployment_id
+        plan=plan, adopted=True, unit=plan.unit, deployment_id=recorder.deployment_id
     )
 
 

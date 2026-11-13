@@ -53,7 +53,8 @@ def service_control(systemd: Callable[..., T], *args: Any, **kwargs: Any) -> T:
             caller's module holds it).
         *args: What it is built with.
         **kwargs: The same, by name. ``verbose`` and ``runner`` are what a container host's engine
-            reads of them.
+            reads of them, and ``stack`` (the deployer of a stack that is being deployed and is not
+            in the store yet) is for it alone and is never passed on to ``systemd``.
 
     Returns:
         ``systemd(*args, **kwargs)`` on a server. On a container host, the engine that does the same
@@ -61,13 +62,18 @@ def service_control(systemd: Callable[..., T], *args: Any, **kwargs: Any) -> T:
         container application and refuses, in a sentence, what only systemd can do. It is typed as
         what the caller asked for, because it is used as that: the refusal is what keeps it honest.
     """
+    # The deployer of a stack that is being deployed for the first time: only Docker's engine needs it, so a
+    # server's manager never sees the argument.
+    stack = kwargs.pop("stack", None)
     if not keeps_alive_with_docker():
         return systemd(*args, **kwargs)
     from noust.deployers.compose_supervisor import ComposeSupervisor
 
     return cast(
         T,
-        ComposeSupervisor(verbose=bool(kwargs.get("verbose", False)), runner=kwargs.get("runner")),
+        ComposeSupervisor(
+            verbose=bool(kwargs.get("verbose", False)), runner=kwargs.get("runner"), stack=stack
+        ),
     )
 
 

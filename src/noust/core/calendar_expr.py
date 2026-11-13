@@ -33,7 +33,17 @@ from datetime import date, datetime, timedelta
 
 from noust.core.exceptions import NoustError
 
-__all__ = ["Calendar", "CalendarError"]
+__all__ = ["SCHEDULE_ALIASES", "Calendar", "CalendarError"]
+
+#: The names Noust gives a schedule, which mean what Noust writes for them: its own, not systemd's (a backup
+#: at midnight is the hour everything else runs at, so these say 02:00). Wherever a schedule is read, from
+#: the row of a backup to a setting of the central, these are the words it may be given.
+SCHEDULE_ALIASES: dict[str, str] = {
+    "hourly": "*-*-* *:00:00",
+    "daily": "*-*-* 02:00:00",
+    "weekly": "Mon *-*-* 02:00:00",
+    "monthly": "*-*-01 02:00:00",
+}
 
 #: What systemd calls a calendar.
 SYSTEMD_NAMES: dict[str, str] = {

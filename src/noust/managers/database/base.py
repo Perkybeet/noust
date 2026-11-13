@@ -1014,13 +1014,13 @@ class BaseDatabaseManager(BaseManager):
 
         Every command an engine manager runs - a query, a dump, a restore, the
         package manager, even the check for the client binary - asks for the
-        runner here, so this is where a hub refuses local databases: a
-        central on a NAS has none, and a subclass cannot add a path around it.
+        runner here, so this is where a hub refuses local databases: a central on a NAS
+        has none (it drives a container's database through Docker, which it may have).
 
         Raises:
-            RoleError: When this Noust is a hub.
+            RoleError: When this Noust is a hub that does not run what the manager drives.
         """
-        require_server_role("databases")
+        require_server_role("database_instances" if self.instance is not None else "databases")
         return get_runner()
 
     def _exec(

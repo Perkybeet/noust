@@ -141,13 +141,19 @@ class Machine:
         container: Whether it runs a container application, and why not.
         docker_only: Docker is what it has and nothing keeps a service (no systemd): the form that
             needs one is never offered, whatever is installed later.
-        railpack: Railpack is installed, so a repository without a Dockerfile can be built.
+        railpack: Railpack is installed, so a repository without a Dockerfile can be built. Never on a
+            container host, whatever is installed there: see ``container_host``.
+        container_host: This is the central of a NAS that was told to deploy containers on its
+            machine's Docker. What builds without a Dockerfile (Railpack) is not offered there: its
+            installation writes ``/usr/local/bin`` as root, and its BuildKit frontend needs the
+            containerd image store of Docker, which a NAS's engine (Synology's 24.0) has not by default.
     """
 
     server: Availability
     container: Availability
     docker_only: bool = False
     railpack: bool = False
+    container_host: bool = False
 
 
 @dataclass(frozen=True)
@@ -276,16 +282,25 @@ def machine_here(runner: CommandRunner | None = None, config: Config | None = No
         What :mod:`noust.central.features` says of a native and of a container application, which is
         the one place a machine's abilities are decided, and whether Railpack is there.
     """
-    from noust.central import features, machine, role
+    from noust import central
+    from noust.central import features, machine
 
     active = runner or get_runner()
     facts = machine.read_machine_facts(active)
-    this_role = role(config)
+    this_role = central.role(config)
+    # What a hub that was told to deploy containers here can run is the table's to say, with that told.
+    told = central.deploy_here(config)
+    container_host = central.is_container_host(config)
     return Machine(
-        server=features.availability("native_deploy", role=this_role, facts=facts),
-        container=features.availability("container_deploy", role=this_role, facts=facts),
+        server=features.availability(
+            "native_deploy", role=this_role, facts=facts, deploy_here=told
+        ),
+        container=features.availability(
+            "container_deploy", role=this_role, facts=facts, deploy_here=told
+        ),
         docker_only=facts.docker and not facts.systemd,
-        railpack=active.exists(railpack.BINARY_NAME),
+        railpack=active.exists(railpack.BINARY_NAME) and not container_host,
+        container_host=container_host,
     )
 
 
@@ -328,6 +343,10 @@ def _container_way(reading: TreeReading, stack: bool, machine: Machine) -> Way:
         return Way(FORM_CONTAINER, STATUS_YES, app_type=_CONTAINER, via=VIA_DOCKERFILE, port=port)
     if machine.railpack:
         return Way(FORM_CONTAINER, STATUS_YES, app_type=_CONTAINER, via=VIA_RAILPACK)
+    if machine.container_host:
+        # Not "install Railpack": it cannot be installed here, and saying so would send a person to a
+        # command that fails.
+        return Way(FORM_CONTAINER, STATUS_NO, reason=say("how_it_runs.container.no_build_here"))
     return Way(
         FORM_CONTAINER,
         STATUS_NO,
@@ -368,6 +387,14 @@ def _why(
         The sentence for the proposal.
     """
     if STATUS_YES not in (server.status, container.status):
+        if (
+            machine.container_host
+            and container.reason is not None
+            and container.reason.code == "how_it_runs.container.no_build_here"
+        ):
+            # The one thing in the way is the repository's, and it has one fix: say that, not "what is in
+            # the way is said below".
+            return say("how_it_runs.why.nothing_runs_here")
         return say("how_it_runs.why.none")
     name = _display_name(native) if native is not None else ""
     if proposed == FORM_SERVER:

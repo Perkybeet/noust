@@ -1263,11 +1263,12 @@ def discover(runner: CommandRunner | None = None) -> list[DatabaseInstance]:
         has several (a scaled service, a leftover). Empty without Docker.
 
     Raises:
-        RoleError: On a hub, which runs no databases.
+        RoleError: On a hub, which runs no databases (one told to deploy containers runs them in
+            Docker, which is all this asks of the machine).
         DatabaseQueryError: When Docker is installed and does not answer,
             with its own words: an empty list would read as "no databases".
     """
-    require_server_role("databases")
+    require_server_role("database_instances")
     active = runner or get_runner()
     if not active.exists("docker"):
         return []

@@ -2,31 +2,40 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-The two settings that decide what a central deploys: its role and what it is told to deploy here.
+The settings that decide what a central deploys and what it does by itself: its role, what it is told to
+deploy here, and when it looks for new versions of the images in use.
 
 They are judged here, below the configuration, because :mod:`noust.central` reads its settings from
-:mod:`noust.core.config` and so cannot be imported by it. The central package mirrors the two lists
+:mod:`noust.core.config` and so cannot be imported by it. The central package mirrors the first two lists
 (``noust.central.ROLES`` and ``noust.central.DEPLOY_HERE_MODES``), and a test holds the copies equal.
 
 - ``central.role``: ``server`` deploys applications here, ``hub`` only manages other servers.
 - ``central.deploy_here``: whether a hub also deploys on the Docker its machine gave it. Empty is no,
   ``containers`` is yes. It is the second of two things asked on purpose, outside the console, for
   the container of a NAS to deploy (the first is the Docker socket mounted into it).
+- ``central.image_check``: when the central's own scheduler asks the registries whether the images in
+  use have a new version. Empty (the default) is never: it is a request to somebody else's server, so
+  nothing makes it until a person says when.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from noust.core import paths
+from noust.core.calendar_expr import SCHEDULE_ALIASES, Calendar, CalendarError
 from noust.core.exceptions import ConfigError
 
 __all__ = [
+    "CENTRAL_DEFAULTS",
     "CENTRAL_DEPLOY_HERE",
     "CENTRAL_ROLES",
+    "CENTRAL_VALIDATORS",
     "consent_from_the_console",
     "validate_central_role",
     "validate_deploy_here",
+    "validate_image_check",
     "without_borrowed_consent",
 ]
 
@@ -91,6 +100,39 @@ def validate_deploy_here(value: Any) -> str:
     return mode
 
 
+def validate_image_check(value: Any) -> str:
+    """
+    Accept when the central looks for new versions of the images in use.
+
+    Args:
+        value: A schedule: one of Noust's names (``daily``, ``weekly``...) or a calendar expression
+            (``Mon *-*-* 04:00:00``); ``off`` and nothing mean never.
+
+    Returns:
+        The schedule as written, or the empty string for never.
+
+    Raises:
+        ConfigError: When it is not a schedule the central can read.
+    """
+    text = str(value or "").strip()
+    if text.lower() == "off":
+        text = ""
+    if not text:
+        return ""
+    try:
+        Calendar.parse(text, aliases=SCHEDULE_ALIASES)
+    except CalendarError as exc:
+        raise ConfigError(
+            f"central.image_check must be a schedule or empty, not {value!r}",
+            details=(
+                f"{exc.message}. Use daily, weekly, monthly, hourly or a calendar expression such "
+                "as 'Mon *-*-* 04:00:00'; empty (or 'off') never looks. It is a request to the "
+                "registries of your images, so it is never made until you say when."
+            ),
+        ) from exc
+    return text
+
+
 def without_borrowed_consent(config: dict[str, Any]) -> dict[str, Any]:
     """
     Leave out of what is written a consent that only the environment gave.
@@ -142,3 +184,19 @@ def consent_from_the_console(before: Any, after: Any) -> bool:
         # A value nobody can set is refused by the setting itself, with its own words.
         return False
     return bool(wanted) and wanted != now
+
+
+#: What each setting is before anybody sets it, under ``central`` in the configuration. ``role`` is what
+#: every release has been: ``server`` deploys and serves applications and may also manage other servers,
+#: and ``hub`` is a central with no local deployments, where what needs a web server is refused with a
+#: message instead of failing on a missing nginx (``NOUST_CENTRAL_ROLE`` overrides it, which is how the
+#: container image is a hub). ``deploy_here`` is empty (no) until ``NOUST_DEPLOY_HERE`` says
+#: ``containers``; the console cannot turn it on. ``image_check`` is empty (never) until a person says when.
+CENTRAL_DEFAULTS: dict[str, str] = {"role": "server", "deploy_here": "", "image_check": ""}
+
+#: How each is judged, by its dotted key, as the configuration's table of validators takes them.
+CENTRAL_VALIDATORS: dict[str, Callable[[Any], Any]] = {
+    "central.role": validate_central_role,
+    "central.deploy_here": validate_deploy_here,
+    "central.image_check": validate_image_check,
+}

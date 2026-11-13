@@ -107,7 +107,10 @@ class DockerBringOut(BaseModel):
         port: The port registered for it; null for a worker.
         site: The operator's site file that serves it, never rewritten.
         source: Where updates fetch from; empty for a stack that is not a checkout.
-        unit: The unit created for it, enabled and not started.
+        unit: The unit created for it, enabled and not started; empty where Docker keeps it alive.
+        kept_by: ``unit`` (a unit of systemd) or ``docker`` (the central deploys with the machine's Docker:
+            the restart policy of the containers keeps the stack alive, and no unit is written).
+        address: Where it is reached when no site serves it, ``http://<machine>:<port>``.
         counts: ``containers``, ``jobs`` (of them, the ones that already ended), ``volumes`` and ``networks``.
         rehearsal: What ``docker compose up --dry-run`` said, verbatim.
         recreates: What starting it the way Noust would changes, in Compose's own words; empty when nothing.
@@ -129,6 +132,8 @@ class DockerBringOut(BaseModel):
     site: str | None = None
     source: str = ""
     unit: str = ""
+    kept_by: str = "unit"
+    address: str | None = None
     counts: dict[str, int] = Field(default_factory=dict)
     rehearsal: str = ""
     recreates: list[str] = Field(default_factory=list)

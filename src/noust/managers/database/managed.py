@@ -42,7 +42,7 @@ import platform
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from noust.central import require_server_role
 from noust.core.database_exposures import ExposureStore
@@ -93,11 +93,13 @@ from noust.managers.database.instance_compose import (
 )
 from noust.managers.database.instance_images import PULL_TIMEOUT, pull_and_read_digest
 from noust.managers.database.instance_records import key_of, stub_instance
+from noust.managers.database.instance_supervisor import InstanceSupervisor
 from noust.managers.database.instances import instance_key, storage_name
 from noust.managers.database.service import DatabaseService
 from noust.managers.database.settings import Resources, server_resources
 from noust.managers.port_claims import PortClaims
 from noust.managers.service_manager import ServiceManager
+from noust.managers.supervision import keeps_alive_with_docker
 from noust.validators.db_instance import (
     check_host_port,
     check_init_scripts,
@@ -448,10 +450,15 @@ class ManagedInstances:
         """
         Returns:
             The one door to systemd, so ownership is checked the way it is for
-            every other unit.
+            every other unit; on a machine without systemd (the central of a NAS)
+            what keeps the instance alive is Docker's restart policy, and the same
+            calls are a few ``docker compose`` commands
+            (:class:`~noust.managers.database.instance_supervisor.InstanceSupervisor`).
         """
         if self._services is not None:
             return self._services()
+        if keeps_alive_with_docker():
+            return cast(ServiceManager, InstanceSupervisor(self._runner))
         return ServiceManager(runner=self._runner, fs=self._fs)
 
     def _docker(self, *argv: str, timeout: int = DOCKER_TIMEOUT) -> Any:

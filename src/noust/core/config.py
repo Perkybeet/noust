@@ -55,8 +55,8 @@ import yaml  # type: ignore[import-untyped]
 
 from noust.core import paths, update_policy
 from noust.core.central_settings import (
-    validate_central_role,
-    validate_deploy_here,
+    CENTRAL_DEFAULTS,
+    CENTRAL_VALIDATORS,
     without_borrowed_consent,
 )
 from noust.core.compliance import controls as _compliance_controls
@@ -618,19 +618,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # One-off commands (noust app exec, POST /api/apps/{domain}/exec).
         "exec": {"max_seconds": 1800},
     },
-    "central": {
-        # What this Noust is for. "server" is the Noust every release has
-        # been: it deploys and serves applications, and it may also manage
-        # other servers. "hub" is a central with no local deployments - a
-        # container on a NAS, say - where applications, sites, certificates
-        # and the web server are refused with a message instead of failing
-        # on a missing nginx. See noust.central.role. NOUST_CENTRAL_ROLE
-        # overrides it, which is how the container image is a hub.
-        "role": "server",
-        # Whether a hub also deploys on its machine's own Docker: empty is no,
-        # "containers" is yes. NOUST_DEPLOY_HERE sets it; the console cannot.
-        "deploy_here": "",
-    },
+    # What this Noust is for and what it does by itself: what each is, and why, is said where
+    # they are judged (noust.core.central_settings).
+    "central": dict(CENTRAL_DEFAULTS),
     "databases": {
         "credentials": {
             "mysql": {
@@ -2149,8 +2139,7 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "terminal.exec.max_seconds": _int_range_validator("terminal.exec.max_seconds", 1, 86400),
     "retention.terminal_days": _int_range_validator("retention.terminal_days", 1, 3650),
     "retention.assistant_days": _int_range_validator("retention.assistant_days", 1, 3650),
-    "central.role": validate_central_role,
-    "central.deploy_here": validate_deploy_here,
+    **CENTRAL_VALIDATORS,
     "dns.resolvers": _validate_address_list("dns.resolvers"),
     "dns.public_addresses": _validate_address_list("dns.public_addresses"),
     "ssl.ca": _validate_acme_ca,

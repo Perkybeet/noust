@@ -60,7 +60,13 @@ DEPLOYS_CONTAINERS = {
     "application_backups",
     "database_instances",
     "volume_backups",
+    # The connector of a tunnel is one more container Docker keeps alive.
+    "tunnels",
 }
+
+#: What a NAS that deploys containers does and asks nothing of the machine for: a record and an account
+#: at a DNS provider are calls to its API (a tunnel's names are made through them).
+ASKS_NOTHING = {"dns_records", "dns_accounts"}
 
 #: What stays on the server's side of the line, with the sentence the console says for each.
 NEEDS_SYSTEMD_OR_A_WEB_SERVER = {
@@ -76,10 +82,7 @@ NEEDS_SYSTEMD_OR_A_WEB_SERVER = {
     "console_exposure",
     "status_page",
     "published_ports",
-    "tunnels",
     "noust_dns",
-    "dns_records",
-    "dns_accounts",
     "databases",
     "public_database_access",
     "database_backups",
@@ -241,8 +244,13 @@ class TestWhatAContainerHostDoes:
         said = self.published(NAS_WITH_DOCKER)
         rolled = {key for key, feature in FEATURES.items() if Need.ROLE in feature.needs}
 
-        assert rolled == DEPLOYS_CONTAINERS | NEEDS_SYSTEMD_OR_A_WEB_SERVER
-        assert {key for key in rolled if said[key]["available"]} == DEPLOYS_CONTAINERS
+        assert rolled == DEPLOYS_CONTAINERS | ASKS_NOTHING | NEEDS_SYSTEMD_OR_A_WEB_SERVER
+        assert {
+            key for key in rolled if said[key]["available"]
+        } == DEPLOYS_CONTAINERS | ASKS_NOTHING
+        # What asks nothing is there without the socket too.
+        without = self.published(NAS_WITHOUT_DOCKER)
+        assert {key for key in rolled if without[key]["available"]} == ASKS_NOTHING
 
     def test_the_machines_own_pages_are_what_they_were(self) -> None:
         said = self.published(NAS_WITH_DOCKER)
@@ -276,7 +284,7 @@ class TestWhatAContainerHostDoes:
             assert Need.ROLE in feature.needs, (
                 f"{key} lists what a container host asks and needs no role"
             )
-            assert feature.on_containers == (Need.DOCKER,), key
+            assert feature.on_containers == (() if key in ASKS_NOTHING else (Need.DOCKER,)), key
 
     def test_a_server_keeps_asking_for_what_it_asked(self) -> None:
         assert FEATURES["container_deploy"].needs == (

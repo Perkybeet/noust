@@ -26,9 +26,10 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 from noust.core.docker.reach import machine_name
+from noust.core.exceptions import NoustError
 from noust.core.runner import CommandRunner, get_runner
 from noust.managers.supervision import keeps_alive_with_docker
 
@@ -37,15 +38,23 @@ if TYPE_CHECKING:
 
 __all__ = [
     "PORT",
+    "PROXY_HEADERS",
     "SITE",
+    "WEBSOCKET_HEADERS",
     "Edge",
+    "ProxyHeader",
+    "ProxyHint",
     "Reached",
+    "ReadinessOptions",
     "Skipped",
     "address",
     "edge",
     "port_taken",
     "propose_port",
+    "proxy_hint",
+    "publish_web_port",
     "reached",
+    "readiness_options",
     "skipped",
 ]
 
@@ -89,6 +98,58 @@ SITE = Edge(has_site=True, bind="127.0.0.1", first_port=None)
 
 #: A container host: no site, the container on a port of the machine.
 PORT = Edge(has_site=False, bind="", first_port=FIRST_PORT)
+
+
+#: The web port of a recipe's Compose document as it is written for a server: bound to loopback, because the
+#: web server is the only way in. ``${PORT}`` or ``${PORT:-8080}`` is the variable Noust owns in the stack's
+#: ``.env``; any other port the document binds to loopback (a database, an extra service) stays as it is.
+_LOOPBACK_WEB_PORT = re.compile(
+    r"""(?P<lead>["'\s-])127\.0\.0\.1:(?P<port>\$\{PORT(?::?-[^}]*)?\}):"""
+)
+
+
+def publish_web_port(document: str) -> str:
+    """
+    Say a recipe's Compose document the way this machine reaches it.
+
+    A recipe's document publishes its web port on loopback, which is how a server's web server reaches it.
+    Where there is no web server of Noust's (the central of a NAS) nothing in front of the application would
+    ever reach loopback, and the address it is told to open, ``http://<the NAS>:<port>``, would answer only
+    from the NAS itself and not from the network it is on. The document is Noust's own (rendered from the
+    recipe, never an operator's file), so on such a machine its web port is published on every address of
+    it, which is what the edge says (:data:`PORT`); only that port, and nothing else the document binds to
+    loopback.
+
+    Args:
+        document: The recipe's Compose document.
+
+    Returns:
+        The document, with the web port's loopback address taken out on a container host; the same text on a
+        server.
+    """
+    if edge().has_site:
+        return document
+    return _LOOPBACK_WEB_PORT.sub(r"\g<lead>\g<port>:", document)
+
+
+class ReadinessOptions(TypedDict, total=False):
+    """The keyword arguments of the readiness check that a machine that is not a server changes."""
+
+    server_tools: bool
+
+
+def readiness_options() -> ReadinessOptions:
+    """
+    Say what the readiness check is to be told about this machine.
+
+    A server is asked everything a server needs (a web server, certbot, curl), as it always was, so it is
+    told nothing; the central of a NAS has none of them, its image has no use for them, and it is told so.
+
+    Returns:
+        The keyword arguments of :func:`noust.core.dependencies.check_deployment_ready` that differ from
+        a server's: none on a server.
+    """
+    return {} if edge().has_site else ReadinessOptions(server_tools=False)
 
 
 def edge() -> Edge:
@@ -240,3 +301,137 @@ def reached(app: App, *, runner: CommandRunner | None = None) -> Reached:
     if edge().has_site:
         return Reached("site", f"{'https' if app.ssl_enabled else 'http'}://{app.domain}", app.port)
     return Reached("port", address(app.port, runner=runner), app.port)
+
+
+@dataclass(frozen=True)
+class ProxyHeader:
+    """
+    A header a reverse proxy sets on the request it passes to an application.
+
+    Attributes:
+        name: The header.
+        meaning: What goes in it, in a closed list of words a person (or a console) can map onto the
+            settings of any proxy: ``public_host`` (the name the visitor typed), ``client_address``,
+            ``client_chain`` (the addresses of the proxies the request already went through, then the
+            client's), ``public_scheme`` (``http`` or ``https``), ``public_port``, ``upgrade_request``
+            (what the client asked to upgrade to) and ``upgrade`` (the word itself).
+        nginx: How nginx writes it, which is what a site of Noust's does and what Nginx Proxy Manager
+            and the proxy of Synology's DSM take as written.
+    """
+
+    name: str
+    meaning: str
+    nginx: str
+
+
+#: What a site of Noust's passes to an application, in the order its template writes it
+#: (``templates/nginx/proxy.conf.j2``, which a test holds this table to).
+PROXY_HEADERS: tuple[ProxyHeader, ...] = (
+    ProxyHeader("Host", "public_host", "$host"),
+    ProxyHeader("X-Real-IP", "client_address", "$remote_addr"),
+    ProxyHeader("X-Forwarded-For", "client_chain", "$proxy_add_x_forwarded_for"),
+    ProxyHeader("X-Forwarded-Proto", "public_scheme", "$scheme"),
+    ProxyHeader("X-Forwarded-Host", "public_host", "$host"),
+    ProxyHeader("X-Forwarded-Port", "public_port", "$server_port"),
+)
+
+#: What lets a WebSocket through. A site of Noust's always does, because nothing says which application
+#: uses one.
+WEBSOCKET_HEADERS: tuple[ProxyHeader, ...] = (
+    ProxyHeader("Upgrade", "upgrade_request", "$http_upgrade"),
+    ProxyHeader("Connection", "upgrade", '"upgrade"'),
+)
+
+#: How long a site of Noust's waits for an application's answer. Many proxies wait less by default.
+READ_TIMEOUT_SECONDS = 60
+
+#: Where a published port is reached from the machine itself: loopback.
+_LOCAL = "127.0.0.1"
+
+#: What a mapping bound to "every address" or to loopback says, both reached on loopback.
+_REACHED_ON_LOOPBACK = frozenset(
+    {None, "", "0.0.0.0", "::", "127.0.0.1", "::1", "localhost"}  # noqa: S104 - read, never bound
+)
+
+
+@dataclass(frozen=True)
+class ProxyHint:
+    """
+    What the reverse proxy of the NAS itself needs to reach an application, as data.
+
+    Noust does not touch the NAS's proxy: it says what to put in it.
+
+    Attributes:
+        target: Where the proxy sends the request: ``http://127.0.0.1:<port>``, or the address of the
+            machine the stack's file binds the port to.
+        scheme: ``http``.
+        host: The address part of ``target``.
+        port: The port of the machine the application is published on.
+        headers: What the proxy sets on the request, WebSocket included when ``websocket``.
+        websocket: Whether the proxy must let a WebSocket through. Always, as a site of Noust's does.
+        read_timeout_seconds: How long to wait for the application's answer.
+    """
+
+    target: str
+    scheme: str
+    host: str
+    port: int
+    headers: tuple[ProxyHeader, ...]
+    websocket: bool
+    read_timeout_seconds: int
+
+
+def _proxy_host(app: App, runner: CommandRunner | None) -> str:
+    """
+    Find the address of the machine an application's port is reached at from the NAS's own proxy.
+
+    A proxy on the NAS reaches a port Docker publishes on loopback or on every address through
+    ``127.0.0.1``; a stack whose file binds it to one address of the machine is reached only there.
+
+    Args:
+        app: The application.
+        runner: Reads its stack's file; the process-wide one by default.
+
+    Returns:
+        The address, bracketed when it is IPv6.
+    """
+    from noust.deployers.docker_compose import stack_published_ports
+
+    try:
+        mappings = stack_published_ports(app, runner=runner)
+    except NoustError:
+        # A file that cannot be read says nothing of a binding; the port is then the machine's.
+        return _LOCAL
+    for mapping in mappings:
+        if mapping.protocol != "tcp" or mapping.host_port != app.port:
+            continue
+        if mapping.host_ip in _REACHED_ON_LOOPBACK:
+            return _LOCAL
+        return f"[{mapping.host_ip}]" if ":" in str(mapping.host_ip) else str(mapping.host_ip)
+    return _LOCAL
+
+
+def proxy_hint(app: App, *, runner: CommandRunner | None = None) -> ProxyHint | None:
+    """
+    Say what the NAS's own reverse proxy needs to reach an application.
+
+    Args:
+        app: The application.
+        runner: Reads its stack's file; the process-wide one by default.
+
+    Returns:
+        The hint; None where a site of Noust's serves the application (nothing to paste) and for one
+        that serves no web.
+    """
+    if reached(app, runner=runner).kind != "port" or app.port is None:
+        return None
+    host = _proxy_host(app, runner)
+    return ProxyHint(
+        target=f"http://{host}:{app.port}",
+        scheme="http",
+        host=host,
+        port=app.port,
+        headers=(*PROXY_HEADERS, *WEBSOCKET_HEADERS),
+        websocket=True,
+        read_timeout_seconds=READ_TIMEOUT_SECONDS,
+    )

@@ -126,6 +126,7 @@ from noust.managers.stack_databases import (
     restore_stack_database,
     stack_host_for,
 )
+from noust.managers.supervision import service_control
 from noust.validators.names import resolve_within, validate_app_name, validate_filename
 
 _log = logging.getLogger("noust.managers.backup_manager")
@@ -821,8 +822,7 @@ class BackupManager:
         self.config = Config()
         self._runner = runner
         self._fs = fs
-        self.service_manager = ServiceManager(verbose=verbose, runner=runner)
-
+        self.service_manager = service_control(ServiceManager, verbose=verbose, runner=runner)
         # The one interpretation of the setting: empty is the default, relative
         # is refused. Never Path(value), which is the working directory for ''.
         self.backup_dir = resolve_backup_directory(

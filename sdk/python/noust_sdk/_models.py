@@ -382,6 +382,7 @@ AppAddress = TypedDict("AppAddress", {
     "domain": Required[str],
     "kind": Required[str],
     "port": NotRequired[Union[int, None]],
+    "proxy_hint": NotRequired[Union["ProxyHintOut", None]],
     "url": NotRequired[Union[str, None]],
 })
 
@@ -3542,6 +3543,7 @@ DockerAttentionOut = TypedDict("DockerAttentionOut", {
 })
 
 DockerBringOut = TypedDict("DockerBringOut", {
+    "address": NotRequired[Union[str, None]],
     "adopted": NotRequired[bool],
     "compose_file": Required[str],
     "containers": NotRequired[list[str]],
@@ -3549,6 +3551,7 @@ DockerBringOut = TypedDict("DockerBringOut", {
     "deployment_id": NotRequired[Union[int, None]],
     "folder": Required[str],
     "headless": NotRequired[bool],
+    "kept_by": NotRequired[str],
     "name": Required[str],
     "port": NotRequired[Union[int, None]],
     "project": NotRequired[Union[str, None]],
@@ -8276,6 +8279,22 @@ ProvisioningPlanResponse = TypedDict("ProvisioningPlanResponse", {
     "will_install": NotRequired[bool],
 })
 
+ProxyHeaderOut = TypedDict("ProxyHeaderOut", {
+    "meaning": Required[str],
+    "name": Required[str],
+    "nginx": Required[str],
+})
+
+ProxyHintOut = TypedDict("ProxyHintOut", {
+    "headers": Required[list["ProxyHeaderOut"]],
+    "host": Required[str],
+    "port": Required[int],
+    "read_timeout_seconds": Required[int],
+    "scheme": Required[str],
+    "target": Required[str],
+    "websocket": Required[bool],
+})
+
 PublicClosedResponse = TypedDict("PublicClosedResponse", {
     "already_private": Required[bool],
     "database": Required[str],
@@ -11703,6 +11722,7 @@ TunnelSupportModel = TypedDict("TunnelSupportModel", {
     "available": Required[bool],
     "cloudflared": NotRequired[Union[str, None]],
     "coded": NotRequired[Union["CodedText", None]],
+    "engine": NotRequired[str],
     "hint": NotRequired[Union[str, None]],
     "problem": NotRequired[Union[str, None]],
     "sealed": NotRequired[bool],
@@ -12715,6 +12735,7 @@ NoustWebApiAppAdoptAdoptRequest = TypedDict("NoustWebApiAppAdoptAdoptRequest", {
 })
 
 NoustWebApiAppAdoptAdoptResponse = TypedDict("NoustWebApiAppAdoptAdoptResponse", {
+    "address": NotRequired[Union[str, None]],
     "adopted": Required[bool],
     "app_name": Required[str],
     "app_path": Required[str],
@@ -12727,9 +12748,11 @@ NoustWebApiAppAdoptAdoptResponse = TypedDict("NoustWebApiAppAdoptAdoptResponse",
     "domain": Required[str],
     "dry_run": Required[str],
     "headless": Required[bool],
+    "kept_by": NotRequired[str],
     "port": Required[Union[int, None]],
     "project": Required[Union[str, None]],
     "project_from": Required[str],
+    "restart_loss": NotRequired[list["DockerBringRestartOut"]],
     "running": Required[bool],
     "site": Required[Union[str, None]],
     "site_name": Required[Union[str, None]],

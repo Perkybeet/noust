@@ -416,6 +416,8 @@ class DependencyChecker:
         app_type: str,
         package_manager: str = "auto",
         app_path: Path | None = None,
+        *,
+        server_tools: bool = True,
     ) -> tuple[bool, list[str], list[str]]:
         """
         Verify all requirements for a deployment are met.
@@ -424,6 +426,10 @@ class DependencyChecker:
             app_type: Type of application (nextjs, nodejs, python, static).
             package_manager: Requested package manager.
             app_path: Path to application (for detection).
+            server_tools: The machine is a server: a site is made for the application, so a web
+                server (and certbot, for its certificate) is required, and curl, which the installers
+                of the tools a server adds use. False on the central of a NAS, whose image has neither
+                and publishes on a port of the machine instead.
 
         Returns:
             Tuple of (can_deploy, missing_deps, warnings).
@@ -433,6 +439,8 @@ class DependencyChecker:
 
         # Check basic system deps
         for dep in SYSTEM_DEPENDENCIES:
+            if dep.command == "curl" and not server_tools:
+                continue
             if dep.required and not self.check_command(dep.command):
                 missing.append(f"{dep.name}: {dep.description}")
 
@@ -499,26 +507,27 @@ class DependencyChecker:
             if not self.check_command("pip3"):
                 warnings.append("pip3: Python package manager is recommended")
 
-        # Check webserver
-        has_nginx = self.check_command("nginx")
-        has_apache = self.check_command("apache2")
+        if server_tools:
+            # Check webserver
+            has_nginx = self.check_command("nginx")
+            has_apache = self.check_command("apache2")
 
-        if not has_nginx and not has_apache:
-            missing.append("nginx/apache2: A web server is required")
+            if not has_nginx and not has_apache:
+                missing.append("nginx/apache2: A web server is required")
 
-        # Check certbot for SSL
-        if not self.check_command("certbot"):
-            warnings.append("certbot: SSL certificate tool not found. SSL will be unavailable.")
-        else:
-            # Check if certbot nginx plugin is available when using nginx
-            if has_nginx:
-                result = self.runner.run(["certbot", "plugins"], timeout=PROBE_TIMEOUT)
-                if result.success and "* nginx" not in result.stdout:
-                    warnings.append(
-                        "certbot nginx plugin not installed. "
-                        "Webroot method will be used for SSL. "
-                        "For faster SSL setup, install: apt install python3-certbot-nginx"
-                    )
+            # Check certbot for SSL
+            if not self.check_command("certbot"):
+                warnings.append("certbot: SSL certificate tool not found. SSL will be unavailable.")
+            else:
+                # Check if certbot nginx plugin is available when using nginx
+                if has_nginx:
+                    result = self.runner.run(["certbot", "plugins"], timeout=PROBE_TIMEOUT)
+                    if result.success and "* nginx" not in result.stdout:
+                        warnings.append(
+                            "certbot nginx plugin not installed. "
+                            "Webroot method will be used for SSL. "
+                            "For faster SSL setup, install: apt install python3-certbot-nginx"
+                        )
 
         can_deploy = len(missing) == 0
         return can_deploy, missing, warnings
@@ -677,6 +686,7 @@ def check_deployment_ready(
     app_path: Path | None = None,
     verbose: bool = False,
     runner: CommandRunner | None = None,
+    server_tools: bool = True,
 ) -> tuple[bool, list[str], list[str]]:
     """
     Quick check if system is ready for deployment.
@@ -688,12 +698,17 @@ def check_deployment_ready(
         verbose: Enable verbose output.
         runner: Command runner used to probe the system. Defaults to the
             process-wide runner.
+        server_tools: Whether the machine is a server, with a web server to put a site in and the
+            tools a server's installers use (see
+            :meth:`DependencyChecker.verify_deployment_requirements`).
 
     Returns:
         Tuple of (ready, missing, warnings).
     """
     checker = DependencyChecker(verbose=verbose, runner=runner)
-    return checker.verify_deployment_requirements(app_type, package_manager, app_path)
+    return checker.verify_deployment_requirements(
+        app_type, package_manager, app_path, server_tools=server_tools
+    )
 
 
 def get_package_manager_install_hint(pm: str) -> str:

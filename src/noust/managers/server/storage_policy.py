@@ -43,6 +43,7 @@ from noust.core.store import NoustStore, get_store
 from noust.core.timeutil import utc_now_iso
 from noust.managers.server.errors import ServerError
 from noust.managers.server.storage import CLEANUP_ACTIONS, StorageManager
+from noust.managers.supervision import keeps_alive_with_docker
 
 #: The actions a policy may run: the closed list without the one that needs a target.
 SCHEDULABLE = tuple(action for action in CLEANUP_ACTIONS if action != "docker-image")
@@ -52,6 +53,32 @@ DOCKER_ACTIONS = frozenset({"docker-build-cache", "docker-dangling-images"})
 
 #: What a new policy cleans: the three that give space back and take nothing wanted.
 DEFAULT_ACTIONS = ("journal", "pkg-cache", "releases")
+
+#: What can be cleaned where Docker keeps the deployments alive and there is no systemd (the central of a
+#: NAS): no journal to vacuum and no package cache to clean, so they are not offered, rather than offered
+#: and failing on every run.
+CONTAINER_HOST_ACTIONS = tuple(
+    action for action in SCHEDULABLE if action == "releases" or action in DOCKER_ACTIONS
+)
+
+
+def schedulable_actions() -> tuple[str, ...]:
+    """
+    Returns:
+        What a policy may run on this machine: the whole closed list on a server, and what exists on a
+        machine that has only Docker (:data:`CONTAINER_HOST_ACTIONS`) on the central of a NAS.
+    """
+    return CONTAINER_HOST_ACTIONS if keeps_alive_with_docker() else SCHEDULABLE
+
+
+def default_actions() -> tuple[str, ...]:
+    """
+    Returns:
+        What a new policy cleans on this machine: the three that give space back and take nothing
+        wanted, or on a machine that has only Docker the one of them that exists there.
+    """
+    return ("releases",) if keeps_alive_with_docker() else DEFAULT_ACTIONS
+
 
 #: A run starts when the fullest writable filesystem is this full.
 DEFAULT_THRESHOLD = 80
@@ -147,18 +174,19 @@ class CleanupPolicy:
                 details="0 runs the policy every time; 80 runs it when the fullest disk is 80% full.",
                 field="threshold_percent",
             )
-        actions = data.get("actions", DEFAULT_ACTIONS)
+        actions = data.get("actions", default_actions())
         if (
             not isinstance(actions, (list, tuple))
             or not actions
             or not all(isinstance(action, str) for action in actions)
         ):
             raise ValidationError("Choose at least one action", field="actions")
-        bad = [action for action in actions if action not in SCHEDULABLE]
+        offered = schedulable_actions()
+        bad = [action for action in actions if action not in offered]
         if bad:
             raise ValidationError(
                 f"These cannot be scheduled: {', '.join(bad)}",
-                details=f"A policy runs some of: {', '.join(SCHEDULABLE)}. Removing one Docker "
+                details=f"A policy runs some of: {', '.join(offered)}. Removing one Docker "
                 "image needs a target and is done by hand.",
                 field="actions",
             )
@@ -419,6 +447,33 @@ def _run(row: Any) -> CleanupRun:
     )
 
 
+def read_policy(store: NoustStore) -> CleanupPolicy:
+    """
+    Read the cleanup policy in force.
+
+    The one reader (rule 3): the policy's own manager and the central's scheduler, which runs it where there
+    is no timer, both ask here.
+
+    Args:
+        store: The store the policy lives in.
+
+    Returns:
+        The policy: the default (disabled) when none was ever set, and when the one that was cannot be read
+        by this version or asks for what this machine cannot clean (it never runs half of one).
+    """
+    row = (
+        store._get_connection()
+        .execute("SELECT document FROM storage_cleanup_policy WHERE id = 1")
+        .fetchone()
+    )
+    if row is None:
+        return CleanupPolicy(actions=default_actions())
+    try:
+        return CleanupPolicy.from_dict(json.loads(row["document"]))
+    except (ValueError, ValidationError):
+        return CleanupPolicy(actions=default_actions())
+
+
 class CleanupSchedule:
     """
     The policy, its timer, and running it.
@@ -463,18 +518,7 @@ class CleanupSchedule:
         Returns:
             The policy in force: the default (disabled) when none was ever set.
         """
-        row = (
-            self.store._get_connection()
-            .execute("SELECT document FROM storage_cleanup_policy WHERE id = 1")
-            .fetchone()
-        )
-        if row is None:
-            return CleanupPolicy()
-        try:
-            return CleanupPolicy.from_dict(json.loads(row["document"]))
-        except (ValueError, ValidationError):
-            # A document this version cannot read is no policy: it never runs half of one.
-            return CleanupPolicy()
+        return read_policy(self.store)
 
     def set_policy(self, policy: CleanupPolicy, *, actor: str | None = None) -> CleanupPolicy:
         """

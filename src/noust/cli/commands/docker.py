@@ -348,7 +348,8 @@ def _show_bringing(logger: Logger, found: Bringing) -> None:
         found: What it registers.
     """
     logger.key_value("Stack", found.stack)
-    logger.key_value("Application", f"{found.name} (unit {found.plan.app_name})")
+    unit = f" (unit {found.plan.unit})" if found.plan.unit else " (Docker keeps it running)"
+    logger.key_value("Application", f"{found.name}{unit}")
     logger.key_value("Folder", f"{found.folder} (stays where it is)")
     logger.key_value("Compose file", found.compose_file)
     counts = found.counts

@@ -90,11 +90,14 @@ class Registry:
         apps: Every application.
         engines: The name of every database instance Noust runs in a container.
         own_ids: The ids (full or the first twelve digits) of the container Noust runs in.
+        tunnels: The name of every tunnel whose connector Noust runs in a container (a machine
+            without systemd keeps it alive with Docker).
     """
 
     apps: tuple[AppRecord, ...] = ()
     engines: tuple[str, ...] = ()
     own_ids: frozenset[str] = field(default_factory=frozenset)
+    tunnels: tuple[str, ...] = ()
 
 
 def own_container_ids(mountinfo: Path = Path("/proc/self/mountinfo")) -> frozenset[str]:
@@ -137,16 +140,19 @@ def registry_from_store(store: NoustStore, own_ids: Iterable[str] | None = None)
     """
     from noust.core.appdir.layout import app_root
     from noust.core.db_instance_store import DbInstanceStore
+    from noust.core.tunnel_store import TunnelStore
 
     apps = tuple(
         AppRecord(app.domain, str(app_root(app)), app.compose_project or "")
         for app in store.list_apps()
     )
     engines = tuple(record.name for record in DbInstanceStore(store).all())
+    tunnels = tuple(record.name for record in TunnelStore(store).all())
     return Registry(
         apps=apps,
         engines=engines,
         own_ids=frozenset(own_ids) if own_ids is not None else own_container_ids(),
+        tunnels=tunnels,
     )
 
 
@@ -235,6 +241,9 @@ class OwnerIndex:
         for engine in self.registry.engines:
             if container.name == names.instance_container(engine):
                 return Owner(OwnerKind.DATABASE, engine, names.instance_project(engine))
+        for tunnel in self.registry.tunnels:
+            if container.name == names.tunnel_container(tunnel):
+                return Owner(OwnerKind.NOUST, f"tunnel:{tunnel}")
         if container.helper:
             return Owner(OwnerKind.NOUST, "helper")
         if container.project:

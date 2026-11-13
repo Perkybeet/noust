@@ -26,6 +26,7 @@ from noust.core.store import DeploymentTrigger
 from noust.deployers import compose_adopt
 from noust.deployers.compose_adopt import AdoptionRefusedError
 from noust.web.api.deps import ErrorResponse, NoustErrorRoute, error_response, require_elevated
+from noust.web.api.docker_change_models import DockerBringRestartOut
 
 router = APIRouter(route_class=NoustErrorRoute)
 
@@ -86,8 +87,22 @@ class AdoptResponse(BaseModel):
     changes: list[str] = Field(description="What starting the stack would change (accepted)")
     warnings: list[str]
     adopted: bool = Field(description="False for a preview or a rehearsal")
-    unit: str
+    unit: str = Field(description="The unit created for it; empty where Docker keeps it alive")
     deployment_id: int | None = Field(description="The adoption's history row")
+    kept_by: str = Field(
+        default="unit",
+        description="unit: a unit of systemd is created; docker: the central deploys with the "
+        "machine's Docker and the restart policy of the containers keeps the stack alive",
+    )
+    address: str | None = Field(
+        default=None,
+        description="Where it is reached when no site serves it: http://<machine>:<port>",
+    )
+    restart_loss: list[DockerBringRestartOut] = Field(
+        default_factory=list,
+        description="What a restart of the machine would not bring back, said where nothing but "
+        "Docker brings it back",
+    )
 
 
 @router.post(
@@ -130,8 +145,6 @@ def adopt_app(body: AdoptRequest, session: Annotated[dict, Depends(require_eleva
         refused.status_code = 409
         return refused
     if body.preview:
-        return AdoptResponse(
-            **plan.to_dict(), adopted=False, unit=plan.app_name, deployment_id=None
-        )
+        return AdoptResponse(**plan.to_dict(), adopted=False, unit=plan.unit, deployment_id=None)
     result = compose_adopt.adopt(plan, trigger=DeploymentTrigger.PANEL.value)
     return AdoptResponse(**result.to_dict())

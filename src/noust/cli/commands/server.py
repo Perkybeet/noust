@@ -51,6 +51,7 @@ from noust.managers.server.storage import CLEANUP_ACTIONS
 from noust.managers.server.summary import build_summary
 from noust.managers.server.updates import RecordStore, UpdateRecord, new_update_id
 from noust.managers.server.updates_unit import start_and_follow
+from noust.managers.supervision import keeps_alive_with_docker
 
 _SIZE = re.compile(r"^(\d+)\s*([KMGT]?)i?B?$", re.IGNORECASE)
 _MINUTES = re.compile(r"^(\d+)\s*(m|min|h)?$", re.IGNORECASE)
@@ -77,18 +78,21 @@ def _actor() -> str:
     return f"cli:{os.environ.get('SUDO_USER') or getpass.getuser()}"
 
 
-def _require_root(ctx: Context, action: str) -> None:
+def _require_root(ctx: Context, action: str, *, docker_is_enough: bool = False) -> None:
     """
     Refuse an action that cannot work without root, except in a rehearsal.
 
     Args:
         ctx: The command's context.
         action: What was asked, for the message.
+        docker_is_enough: What is done goes through Docker and nothing else of the machine, so where
+            Docker keeps what is deployed alive (the central of a NAS, which runs as an unprivileged
+            user with Docker's socket) it does not need root.
 
     Raises:
         NoustError: The process is not root and this is not a dry run.
     """
-    if ctx.dry_run or check_root():
+    if ctx.dry_run or check_root() or (docker_is_enough and keeps_alive_with_docker()):
         return
     raise NoustError(f"'{action}' needs root", details="Run it with sudo.")
 
@@ -997,7 +1001,7 @@ def cleanup_schedule_group(click_ctx: click.Context) -> None:
 @pass_context
 def cleanup_schedule_show(ctx: Context) -> None:
     """Show the cleanup policy and its timer."""
-    from noust.managers.server.storage_policy import DOCKER_ACTIONS, SCHEDULABLE
+    from noust.managers.server.storage_policy import DOCKER_ACTIONS, schedulable_actions
 
     schedule = build_context().storage_schedule
     policy = schedule.policy()
@@ -1007,7 +1011,7 @@ def cleanup_schedule_show(ctx: Context) -> None:
             {
                 "policy": policy.to_dict(),
                 "timer": timer,
-                "schedulable": list(SCHEDULABLE),
+                "schedulable": list(schedulable_actions()),
                 "docker_actions": sorted(DOCKER_ACTIONS),
             }
         )
@@ -1086,7 +1090,7 @@ def cleanup_schedule_set(
     }
     current.update({key: value for key, value in changes.items() if value is not None})
     policy = CleanupPolicy.from_dict(current)
-    _require_root(ctx, "server cleanup-schedule set")
+    _require_root(ctx, "server cleanup-schedule set", docker_is_enough=True)
     manager.set_policy(policy, actor=_actor())
     if ctx.json_output:
         _json(policy.to_dict())
@@ -1108,7 +1112,7 @@ def cleanup_schedule_set(
 @pass_context
 def cleanup_schedule_run(ctx: Context, scheduled: bool) -> None:
     """Run the cleanup policy now (the timer's own command is --scheduled)."""
-    _require_root(ctx, "server cleanup-schedule run")
+    _require_root(ctx, "server cleanup-schedule run", docker_is_enough=True)
     run = build_context().storage_schedule.run(
         trigger="schedule" if scheduled else "policy",
         force=not scheduled,

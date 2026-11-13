@@ -38,6 +38,7 @@ __all__ = [
     "release_of_tag",
     "release_tag",
     "repository_name",
+    "tunnel_container",
 ]
 
 # -- The images an application keeps to go back to -------------------------------------------------
@@ -218,6 +219,21 @@ def instance_config_volume(name: str) -> str:
         named so Docker never leaves an anonymous one behind each time the container is recreated.
     """
     return f"{instance_unit(name)}-config"
+
+
+# -- The connector of a tunnel ----------------------------------------------------------------------
+
+
+def tunnel_container(name: str) -> str:
+    """
+    Args:
+        name: The tunnel's name.
+
+    Returns:
+        The container that runs its connector where there is no systemd (the central of a NAS), fixed so
+        ``docker rm`` and ``docker inspect`` always find it: what the unit of a server is called.
+    """
+    return f"{paths.TUNNEL_UNIT_PREFIX}{name}"
 
 
 # -- A Compose project ------------------------------------------------------------------------------

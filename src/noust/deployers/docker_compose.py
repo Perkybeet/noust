@@ -2261,7 +2261,9 @@ class DockerComposeDeployer(AppDeployer):
 
     def _units(self, runner: CommandRunner | None = None) -> ServiceManager:
         """What keeps the stack alive: a unit's manager on a server, Docker on a container host."""
-        return service_control(ServiceManager, verbose=self.verbose, runner=runner or self._runner)
+        return service_control(
+            ServiceManager, verbose=self.verbose, runner=runner or self._runner, stack=self
+        )
 
     def _locate_compose_file(self) -> None:
         """Find the compose file the stack's unit names, as an update reads it."""
@@ -2358,8 +2360,7 @@ class DockerComposeDeployer(AppDeployer):
     def _start_and_verify(self) -> None:
         """Start containers and verify they're healthy."""
         self._units().start(self.app_name)
-        healthy = self._health_check()
-        if healthy:
+        if self._health_check():
             self.logger.substep("All services running and healthy")
         else:
             self.logger.warning("Some services may not be fully healthy yet")
@@ -2383,7 +2384,6 @@ class DockerComposeDeployer(AppDeployer):
             if not result.success:
                 time.sleep(delay)
                 continue
-
             all_running = True
             for svc_info in parse_compose_ps(result.stdout):
                 state = str(svc_info.get("State") or "").lower()

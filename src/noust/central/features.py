@@ -224,11 +224,14 @@ FEATURES: dict[str, Feature] = _table(
     Feature("console_exposure", "Console exposure", (_SERVER, *_WEB)),
     Feature("status_page", "The status page", (_SERVER, *_WEB)),
     Feature("published_ports", "Published ports", (_SERVER, *_WEB)),
-    Feature("tunnels", "Tunnels", (_SERVER, *_UNIT)),
+    # A tunnel's connector is a unit on a server and a container on a container host, which keeps it alive
+    # with Docker's restart policy (noust.core.docker.connector): all it asks of that machine is Docker.
+    Feature("tunnels", "Tunnels", (_SERVER, *_UNIT), on_containers=_DOCKER_ONLY),
     Feature("noust_dns", "Noust DNS", (_SERVER, *_UNIT)),
-    # Records and accounts at a DNS provider are calls to its API: the machine has nothing to give.
-    Feature("dns_records", "DNS records", (_SERVER,)),
-    Feature("dns_accounts", "DNS accounts", (_SERVER,)),
+    # Records and accounts at a DNS provider are calls to its API: the machine has nothing to give, so a
+    # container host does them too (a tunnel's names are made through them) and asks nothing of it.
+    Feature("dns_records", "DNS records", (_SERVER,), on_containers=()),
+    Feature("dns_accounts", "DNS accounts", (_SERVER,), on_containers=()),
     # -- Databases and what is copied of them.
     Feature("databases", "Databases", (_SERVER, *_UNIT)),
     Feature(

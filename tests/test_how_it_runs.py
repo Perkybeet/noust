@@ -535,3 +535,117 @@ class TestAFormAskedForAndATypeAskedFor:
 
         assert said is not None
         assert "runs in containers" in said
+
+
+class TestOnTheCentralOfANas:
+    """
+    A machine that has only Docker and was told to deploy containers on it: what runs there is said true.
+
+    Railpack is not offered here: installing it writes /usr/local/bin as root and its BuildKit frontend
+    needs Docker's containerd image store, which a NAS's engine (Synology's 24.0) does not have by default.
+    A repository with no Dockerfile and no Compose file therefore runs nowhere on this machine, and it is
+    said once, with the one thing that fixes it.
+    """
+
+    @staticmethod
+    def host(**changes: object) -> Machine:
+        nothing = Availability(False, say("features.containers_only", feature="Applications"))
+        return machine(server=nothing, docker_only=True, container_host=True, **changes)
+
+    def test_the_machine_says_it_is_one_and_runs_only_the_container_form(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        facts = MachineFacts(
+            systemd=False, web_server=False, docker=True, root=False, journal=False
+        )
+        monkeypatch.setattr("noust.central.machine.read_machine_facts", lambda *a, **k: facts)
+        monkeypatch.setenv("NOUST_CENTRAL_ROLE", "hub")
+        monkeypatch.setenv("NOUST_DEPLOY_HERE", "containers")
+        Config.reset_instance()
+
+        try:
+            here = machine_here(FakeRunner().only_knows("railpack"))
+        finally:
+            Config.reset_instance()
+
+        assert here.container_host is True
+        assert here.container.available is True
+        assert here.server.available is False
+        assert here.server.reason is not None
+        assert here.server.reason.code == "features.containers_only"
+        # Even a Railpack somebody put on the machine is not offered: it cannot build here.
+        assert here.railpack is False
+
+    def test_a_hub_that_was_not_told_to_deploy_here_is_not_one(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        facts = MachineFacts(
+            systemd=False, web_server=False, docker=True, root=False, journal=False
+        )
+        monkeypatch.setattr("noust.central.machine.read_machine_facts", lambda *a, **k: facts)
+        monkeypatch.setenv("NOUST_CENTRAL_ROLE", "hub")
+        monkeypatch.delenv("NOUST_DEPLOY_HERE", raising=False)
+        Config.reset_instance()
+
+        try:
+            here = machine_here(FakeRunner())
+        finally:
+            Config.reset_instance()
+
+        assert here.container_host is False and here.container.available is False
+
+    def test_a_dockerfile_runs_as_a_container_and_nothing_else_is_offered(self) -> None:
+        reading = TreeReading(("nodejs", "container"), ("nodejs",), dockerfile=True)
+
+        decision = decide(reading, self.host())
+
+        assert decision.choice is False
+        assert (decision.proposed, decision.why.code) == (
+            FORM_CONTAINER,
+            "how_it_runs.why.docker_only",
+        )
+        assert decision.container.status == STATUS_YES and decision.server.status == STATUS_HIDDEN
+
+    def test_a_compose_file_runs(self) -> None:
+        decision = decide(TreeReading(("docker-compose",), (), dockerfile=False), self.host())
+
+        assert decision.container.status == STATUS_YES
+        assert decision.container.via == VIA_COMPOSE
+
+    def test_a_repository_with_no_dockerfile_does_not_propose_railpack_because_it_cannot_build(
+        self,
+    ) -> None:
+        decision = decide(TreeReading(("python",), ("python",), dockerfile=False), self.host())
+
+        reason = decision.container.reason
+        assert decision.container.status == STATUS_NO and reason is not None
+        assert reason.code == "how_it_runs.container.no_build_here"
+        said = f"{reason.text} {reason.hint}"
+        assert "Dockerfile" in said and "Railpack" not in said and "railpack" not in said
+        assert decision.container.via is None and decision.container.app_type is None
+
+    def test_when_no_way_is_possible_it_is_said_with_a_code_of_its_own_and_one_fix(self) -> None:
+        decision = decide(TreeReading(("python",), ("python",), dockerfile=False), self.host())
+
+        assert decision.choice is False
+        assert STATUS_YES not in (decision.server.status, decision.container.status)
+        assert decision.why.code == "how_it_runs.why.nothing_runs_here"
+        assert decision.why.hint is not None and "Dockerfile" in decision.why.hint
+        assert "Railpack" not in decision.why.text + decision.why.hint
+
+    def test_what_a_source_with_nothing_recognised_runs_as_is_said_the_same(self) -> None:
+        decision = decide(TreeReading((), (), dockerfile=False), self.host())
+
+        assert decision.why.code == "how_it_runs.why.nothing_runs_here"
+
+    def test_a_server_keeps_proposing_railpack_where_it_is_installed_and_its_old_sentence(
+        self,
+    ) -> None:
+        reading = TreeReading(("python",), ("python",), dockerfile=False)
+        nothing = Availability(False, say("features.needs_systemd"))
+
+        decision = decide(reading, machine(server=nothing, docker_only=True))
+
+        assert decision.container.reason is not None
+        assert decision.container.reason.code == "how_it_runs.container.no_build"
+        assert decision.why.code == "how_it_runs.why.none"

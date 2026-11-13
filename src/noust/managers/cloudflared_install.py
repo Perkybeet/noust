@@ -33,6 +33,7 @@ from noust.core.exceptions import DatabaseEngineError, DependencyError, Prerequi
 from noust.core.fs import FileSystem, get_fs, is_rehearsal
 from noust.core.package_family import PackageFamily
 from noust.core.runner import CommandRunner, get_runner
+from noust.core.server_text import say
 from noust.managers.database import flavours
 from noust.managers.database.flavours import (
     Repository,
@@ -50,6 +51,7 @@ from noust.managers.database.rpm_flavours import (
 from noust.managers.server.host import HostPaths, Platform, detect_platform
 from noust.managers.server.pkg import backend_for
 from noust.managers.server.software_record import record_install
+from noust.managers.supervision import keeps_alive_with_docker
 
 #: Where Cloudflare keeps its packages, for the messages.
 PACKAGE_REPOSITORY = "https://pkg.cloudflare.com/"
@@ -184,6 +186,8 @@ class CloudflaredInstaller:
                 repository or cannot install the package, or the install left no connector on
                 the path. The error carries the tool's own words.
         """
+        if keeps_alive_with_docker():
+            raise PrerequisiteError.from_text(say("tunnels.nothing_to_install"))
         found = self._which(PACKAGE)
         if found:
             return CloudflaredInstall(found, False, self._version(found))

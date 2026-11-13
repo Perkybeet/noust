@@ -364,6 +364,7 @@ def _create_app(
         app_type=readiness_type,
         package_manager=package_manager,
         verbose=logger.verbose,
+        **edges.readiness_options(),
     )
 
     for warning in warnings:
@@ -784,7 +785,10 @@ def _create_from_recipe(
             )
 
     can_deploy, missing, warnings = check_deployment_ready(
-        app_type=chosen.app_type, package_manager=package_manager, verbose=logger.verbose
+        app_type=chosen.app_type,
+        package_manager=package_manager,
+        verbose=logger.verbose,
+        **edges.readiness_options(),
     )
     for warning in warnings:
         logger.warning(warning)

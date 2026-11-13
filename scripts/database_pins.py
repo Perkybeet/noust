@@ -17,8 +17,8 @@ Usage:
     scripts/database_pins.py check [--evidence FILE] [FLAVOUR ...]
         Resolve every pin of the catalog (or the named flavours) and fail if
         one differs from what the registry serves for its tag. Without names, the
-        image the copies of a Docker volume run in is read too. With --evidence,
-        write what was read as JSON.
+        image the copies of a Docker volume run in and the connector of a tunnel are
+        read too. With --evidence, write what was read as JSON.
 """
 
 from __future__ import annotations
@@ -34,6 +34,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
+from noust.core.docker.connector import CONNECTOR_IMAGE  # noqa: E402
 from noust.managers.database.instance_catalog import SPECS  # noqa: E402
 from noust.managers.docker_volumes import HELPER_IMAGE  # noqa: E402
 
@@ -95,6 +96,9 @@ def check(flavours: list[str]) -> dict[str, Any]:
         # The image the copies of a volume run in is pinned the same way and read the same way.
         reference, _, digest = HELPER_IMAGE.partition("@")
         _check_one(report, pins, "volume-helper", reference, digest, ("amd64", "arm64"))
+        # So is the connector of a tunnel on a machine that keeps its deployments alive with Docker.
+        reference, _, digest = CONNECTOR_IMAGE.partition("@")
+        _check_one(report, pins, "tunnel-connector", reference, digest, ("amd64", "arm64"))
     return report
 
 

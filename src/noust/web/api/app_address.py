@@ -18,11 +18,51 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from noust.deployers.helpers.edge import reached
+from noust.deployers.helpers.edge import proxy_hint, reached
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute, known_app_row
 
 router = APIRouter(route_class=NoustErrorRoute)
+
+
+class ProxyHeaderOut(BaseModel):
+    """
+    A header the NAS's reverse proxy sets on the request it passes to the application.
+
+    Attributes:
+        name: The header.
+        meaning: What goes in it: ``public_host``, ``client_address``, ``client_chain``, ``public_scheme``,
+            ``public_port``, ``upgrade_request`` or ``upgrade``.
+        nginx: How nginx writes it, as a site of Noust's does.
+    """
+
+    name: str
+    meaning: str
+    nginx: str
+
+
+class ProxyHintOut(BaseModel):
+    """
+    What the reverse proxy of the NAS itself needs to reach an application. Noust does not touch the
+    NAS: it says what to paste.
+
+    Attributes:
+        target: Where the proxy sends the request.
+        scheme: ``http``.
+        host: The address of ``target``.
+        port: The port of the machine the application is published on.
+        headers: What the proxy sets on the request.
+        websocket: Whether it must let a WebSocket through.
+        read_timeout_seconds: How long it waits for the application's answer.
+    """
+
+    target: str
+    scheme: str
+    host: str
+    port: int
+    headers: list[ProxyHeaderOut]
+    websocket: bool
+    read_timeout_seconds: int
 
 
 class AppAddress(BaseModel):
@@ -35,12 +75,15 @@ class AppAddress(BaseModel):
             there is no web server of Noust's) or ``none`` (it serves no web).
         url: The address; null for ``none``.
         port: The port of the machine it is published on, when it has one.
+        proxy_hint: What to put in the NAS's own reverse proxy to reach it by a name and over HTTPS; null
+            where a site of Noust's serves it and for what serves no web.
     """
 
     domain: str
     kind: str = Field(description="site, port or none")
     url: str | None = None
     port: int | None = None
+    proxy_hint: ProxyHintOut | None = None
 
 
 @router.get("/{domain}/address", response_model=AppAddress)
@@ -62,4 +105,21 @@ def get_app_address(
     """
     app = known_app_row(domain)
     found = reached(app)
-    return AppAddress(domain=app.domain, kind=found.kind, url=found.url, port=found.port)
+    hint = proxy_hint(app)
+    return AppAddress(
+        domain=app.domain,
+        kind=found.kind,
+        url=found.url,
+        port=found.port,
+        proxy_hint=None
+        if hint is None
+        else ProxyHintOut(
+            target=hint.target,
+            scheme=hint.scheme,
+            host=hint.host,
+            port=hint.port,
+            headers=[ProxyHeaderOut(**vars(header)) for header in hint.headers],
+            websocket=hint.websocket,
+            read_timeout_seconds=hint.read_timeout_seconds,
+        ),
+    )
