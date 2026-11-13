@@ -6,18 +6,18 @@ import { FramedRoutePending } from "../app/RoutePending";
 import { Shell } from "../app/Shell";
 import { SessionGate } from "../features/auth/SessionGate";
 import { requireSession } from "../features/auth/requireSession";
-import { hubRedirect } from "../features/central/central";
+import { startsOnFleet } from "../features/central/central";
 import { CentralGate } from "../features/central/CentralGate";
+import { lastServer } from "../nodes/lastServer";
 import { NodeScope } from "../nodes/useNode";
 
 /** Everything behind sign-in: the shell around every page of the console. */
 export const Route = createFileRoute("/_console")({
   beforeLoad: async ({ context, location }) => {
     const session = await requireSession(context.queryClient, location.href);
-    // A hub deploys nothing: its overview and its own deployment pages open the fleet instead.
-    const hub = hubRedirect(session, location.pathname, nodeFromSearch(location.search));
+    // A hub has no server of its own to begin on: with nothing chosen yet it starts on All servers.
     // eslint-disable-next-line @typescript-eslint/only-throw-error -- the router's redirect protocol
-    if (hub !== null) throw redirect({ to: "/fleet", search: hub, replace: true });
+    if (startsOnFleet(session, location.pathname, nodeFromSearch(location.search), lastServer() !== null)) throw redirect({ to: "/fleet", replace: true });
     return session;
   },
   component: ConsoleLayout,

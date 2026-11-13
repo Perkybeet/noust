@@ -8,6 +8,7 @@
  */
 
 import { isOffered, sizesOf, widgetOf } from "../../components/widgets/catalog";
+import type { Offers } from "../../components/widgets/catalog";
 import { fromDocument } from "../../components/widgets/model";
 import type { LayoutDocument, Placed, SizeKey } from "../../components/widgets/model";
 import type { PanelScope } from "../../components/widgets/types";
@@ -78,10 +79,10 @@ const FLEET_START: Start = [
 const STARTS: Readonly<Record<PanelScope, Start>> = { server: SERVER_START, fleet: FLEET_START };
 
 /** The layout a panel of this scope comes with, without the widgets a credential that does not hold what they read may not have. */
-export function defaultLayout(scope: PanelScope, can: (permission: string) => boolean): Placed[] {
+export function defaultLayout(scope: PanelScope, can: (permission: string) => boolean, features?: Offers): Placed[] {
   return STARTS[scope].flatMap(([type, size]) => {
     const widget = widgetOf(type);
-    return widget !== undefined && isOffered(widget, scope, can) ? [{ id: type, type, size, settings: { ...widget.settings } }] : [];
+    return widget !== undefined && isOffered(widget, scope, can, features) ? [{ id: type, type, size, settings: { ...widget.settings } }] : [];
   });
 }
 
@@ -90,23 +91,23 @@ export function defaultLayout(scope: PanelScope, can: (permission: string) => bo
  * then the ones they made, in the order they were made. A saved layout that is damaged, or that is of no widget this
  * console draws for this role, does not replace what comes with the console.
  */
-export function panelsOf(saved: readonly SavedPanel[], can: (permission: string) => boolean, t: T, offerFleet: boolean): Panel[] {
+export function panelsOf(saved: readonly SavedPanel[], can: (permission: string) => boolean, t: T, offerFleet: boolean, features?: Offers): Panel[] {
   const builtin = (scope: PanelScope): Panel => {
     const id = BUILTIN_IDS[scope];
     const mine = saved.find((panel) => panel.id === id && panel.scope === scope);
-    const read = mine === undefined ? null : fromDocument(mine.layout, sizesOf(scope, can));
+    const read = mine === undefined ? null : fromDocument(mine.layout, sizesOf(scope, can, features));
     return {
       id,
       name: t(scope === "server" ? "overview.panels.server" : "overview.panels.fleet"),
       scope,
-      layout: read ?? defaultLayout(scope, can),
+      layout: read ?? defaultLayout(scope, can, features),
       builtin: true,
       customised: read !== null,
     };
   };
   const own = saved
     .filter((panel) => !Object.values(BUILTIN_IDS).includes(panel.id))
-    .map((panel): Panel => ({ id: panel.id, name: panel.name, scope: panel.scope, layout: fromDocument(panel.layout, sizesOf(panel.scope, can)) ?? [], builtin: false, customised: false }));
+    .map((panel): Panel => ({ id: panel.id, name: panel.name, scope: panel.scope, layout: fromDocument(panel.layout, sizesOf(panel.scope, can, features)) ?? [], builtin: false, customised: false }));
   return [builtin("server"), ...(offerFleet ? [builtin("fleet")] : []), ...own.filter((panel) => offerFleet || panel.scope === "server")];
 }
 
@@ -130,6 +131,6 @@ export function slugOf(name: string, taken: Iterable<string>): string {
 }
 
 /** What a new panel is made of: a copy of the one that comes with the console for its scope, or nothing. */
-export function startingLayout(scope: PanelScope, start: "copy" | "empty", can: (permission: string) => boolean): Placed[] {
-  return start === "copy" ? defaultLayout(scope, can) : [];
+export function startingLayout(scope: PanelScope, start: "copy" | "empty", can: (permission: string) => boolean, features?: Offers): Placed[] {
+  return start === "copy" ? defaultLayout(scope, can, features) : [];
 }

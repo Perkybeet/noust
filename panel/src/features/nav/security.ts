@@ -17,12 +17,13 @@ export const SECURITY_SCREENS = strip(
     goTo: "nav.security.goTo",
     keywords: "nav.security.keywords",
     permission: "server.read",
+    feature: "server_security",
     rootLabel: "server.security.views.checks",
   }),
   (security) => [
-    tab(security, "ssh", "server.security.views.ssh", { exact: true, permission: "server.read", keywords: "nav.screens.ssh.keywords" }),
-    tab(security, "blocks", "server.security.views.bans", { exact: true, permission: "server.read", keywords: "nav.screens.blocks.keywords" }),
-    tab(security, "waf", "server.security.views.waf", { exact: true, permission: "server.read", keywords: "nav.screens.waf.keywords" }),
-    tab(security, "access", "server.security.views.access", { exact: true, permission: "server.read", keywords: "nav.screens.access.keywords" }),
+    tab(security, "ssh", "server.security.views.ssh", { exact: true, permission: "server.read", feature: "server_security", keywords: "nav.screens.ssh.keywords" }),
+    tab(security, "blocks", "server.security.views.bans", { exact: true, permission: "server.read", feature: "server_security", keywords: "nav.screens.blocks.keywords" }),
+    tab(security, "waf", "server.security.views.waf", { exact: true, permission: "server.read", feature: "server_security", keywords: "nav.screens.waf.keywords" }),
+    tab(security, "access", "server.security.views.access", { exact: true, permission: "server.read", feature: "server_security", keywords: "nav.screens.access.keywords" }),
   ],
 );

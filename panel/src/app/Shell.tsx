@@ -11,12 +11,15 @@ import { PinnedTasks } from "../features/tasks/PinnedTasks";
 import { NodeNotice } from "../nodes/NodeNotice";
 import { PageServerContext } from "../nodes/pageServer";
 import { useHasFleet } from "../nodes/servers";
+import { useScopeOffers } from "../nodes/useNode";
 import { useServerEvents } from "../realtime/events";
 import { cx } from "../lib/cx";
-import { columnKindOf } from "./columns";
+import { columnKindOf, hasSections } from "./columns";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { FeatureGate } from "./FeatureGate";
 import { focusPageTitle } from "./focus";
 import { BottomBar } from "./frame/BottomBar";
+import { useNavContext } from "./frame/columnBodies";
 import { NavColumn } from "./frame/NavColumn";
 import { SectionSelector } from "./frame/SectionSelector";
 import { AreasSheet } from "./frame/AreasSheet";
@@ -95,12 +98,16 @@ export function Shell() {
   const pageServer = usePageServerName();
   const hasFleet = useHasFleet();
   const scope = useNavScope();
+  const features = useScopeOffers();
   const layout = useNavLayout();
   const { width } = usePreferences();
   const [accountOpen, setAccountOpen] = useState(false);
   const sessionDescription = useSessionDescription();
   // Every area has a column. From 1024 px it is the frame's, beside the main bar; on a phone it is the section selector at the top of the page.
-  const columnKind = columnKindOf(pathname);
+  const kind = columnKindOf(pathname);
+  const columnContext = useNavContext();
+  // An area the server can do nothing of has no column to draw, on a phone as at the side.
+  const columnKind = kind !== null && hasSections(kind, columnContext, scope) ? kind : null;
 
   useEffect(
     () =>
@@ -146,7 +153,7 @@ export function Shell() {
       void navigate({ to });
     };
     // The letters of the scope on screen: `g a` is the server's Applications on a server and the fleet's on the fleet.
-    const navShortcuts = registeredShortcuts(scope).map((entry) => ({ keys: entry.keys, description: t(entry.description), run: go(entry.to) }));
+    const navShortcuts = registeredShortcuts(scope, { features }).map((entry) => ({ keys: entry.keys, description: t(entry.description), run: go(entry.to) }));
     return [
       ...navShortcuts,
       // The fleet is a scope, not a destination of a server's bar: one key leads to it from a server.
@@ -175,7 +182,7 @@ export function Shell() {
       },
       { keys: ["?"], description: t("shell.shortcuts.showShortcuts"), run: openShortcuts },
     ];
-  }, [navigate, router, openPalette, openShortcuts, t, scope, hasFleet]);
+  }, [navigate, router, openPalette, openShortcuts, t, scope, hasFleet, features]);
 
   useKeyboardShortcuts(bindings);
 
@@ -209,7 +216,9 @@ export function Shell() {
               <PageServerContext value={pageServer}>
                 <NodeNotice />
                 <ErrorBoundary resetKey={pathname}>
-                  <Outlet />
+                  <FeatureGate>
+                    <Outlet />
+                  </FeatureGate>
                 </ErrorBoundary>
               </PageServerContext>
             </div>

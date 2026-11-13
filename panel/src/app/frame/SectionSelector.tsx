@@ -9,7 +9,9 @@ import { useT } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
 import { RESOURCE_PARENT } from "../columns";
 import type { ColumnKind } from "../columns";
-import { DESTS, areaLabelKey, dest } from "../nav";
+import { DESTS, areaLabelKey, dest, fleetTarget, isFleetFace } from "../nav";
+import { serverPathOfFleet } from "../nodeRoute";
+import { leafRoute } from "../renderedPath";
 import { useNavScope } from "../useNavScope";
 import { columnLabel } from "./columnBodies";
 import { ColumnContent } from "./NavColumn";
@@ -61,11 +63,13 @@ function HomeSection() {
  */
 function useSection(kind: ColumnKind): string | null {
   const t = useT();
-  const route = useRouterState({ select: (state) => state.matches.at(-1)?.fullPath ?? "" });
+  const route = useRouterState({ select: leafRoute });
   const search = useRouterState({ select: (state) => state.location.search as Record<string, unknown> });
-  const path = route.length > 1 ? route.replace(/\/+$/, "") : route;
+  const bare = route.length > 1 ? route.replace(/\/+$/, "") : route;
+  // A section of All servers that is the table of servers (no page of its own) is the section of the server's address under /fleet.
+  const path = bare.startsWith("/fleet/") && !isFleetFace(bare) ? (serverPathOfFleet(bare) ?? bare) : bare;
   const views = VIEWS[kind];
-  if (views !== undefined && path === dest(kind).to) {
+  if (views !== undefined && (path === dest(kind).to || path === fleetTarget(dest(kind)))) {
     const chosen = views.find((view) => view.search !== undefined && Object.entries(view.search).every(([key, value]) => search[key] === value)) ?? views[0];
     return chosen === undefined ? null : t(chosen.label);
   }

@@ -8,7 +8,7 @@ import { StatusPill } from "../../components/ui/StatusPill";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { useT } from "../../i18n";
 import { NODE_STATE, nodeStatus, useServerList } from "../../nodes/servers";
-import { useCentral } from "../central/central";
+import { useOffers } from "../central/features";
 
 /**
  * The machine's areas (Network, Security) from "All servers": the servers, to choose one. What these areas hold
@@ -19,11 +19,11 @@ import { useCentral } from "../central/central";
 export function MachineAreaServers({ area }: { area: "network" | "security" }) {
   const t = useT();
   const servers = useServerList();
-  const { role } = useCentral();
+  const offered = useOffers();
   const label = t(area === "network" ? "nav.network.label" : "nav.security.label");
   const path = area === "network" ? "/network" : "/security";
-  // A hub deploys nothing of its own, so it has no machine's pages to open here; every other central is a server of the list.
-  const central = role === "hub" ? [] : [{ name: null, label: servers.hostname ?? t("fleet.selector.thisServer") }];
+  // The central is a row where it has something of the area (its table says): a hub has a network and no security checks to open here.
+  const central = offered(area === "security" ? "server_security" : undefined) ? [{ name: null, label: servers.hostname ?? t("fleet.selector.thisServer") }] : [];
   const rows = [...central, ...servers.nodes.map((node) => ({ name: node.name, label: node.name }))];
   return (
     <DetailPage header={{ title: label, description: t("fleet.machineArea.description", { area: label }) }}>

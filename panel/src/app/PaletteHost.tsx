@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import { sessionQuery } from "../api/queries/auth";
 import { searchViewQuery } from "../api/queries/views";
 import type { SearchHit } from "../api/queries/views";
-import { useCentral } from "../features/central/central";
 import { useT } from "../i18n";
 import { useHasFleet, useServerList } from "../nodes/servers";
 import { useSelection } from "../nodes/useNode";
@@ -23,10 +22,9 @@ import type { AppInfo } from "../features/apps/data";
 export function usePaletteScope(): PaletteScope | undefined {
   const t = useT();
   const hasFleet = useHasFleet();
-  const { role } = useCentral();
   const { hostname } = useServerList();
   // The selector's place, which a page of the instance (no server's) leaves where it was.
-  const selection = useSelection(role === "hub");
+  const selection = useSelection();
   const params = useParams({ strict: false });
   const domain = typeof params.domain === "string" ? params.domain : null;
   if (selection.kind === "all" && hasFleet) return { label: t("shell.search.scope.all") };

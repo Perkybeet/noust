@@ -125,9 +125,10 @@ export function ErrorBlock({ error, title: pageTitle, hint, onRetry, retrying = 
           {output}
         </SystemOutput>
       ) : null}
-      {onRetry !== undefined || (action !== undefined && action !== null) ? (
+      {(onRetry !== undefined && central !== "hub") || (action !== undefined && action !== null) ? (
         <div className="flex flex-wrap items-center gap-2">
-          {onRetry !== undefined ? (
+          {/* A hub that does not do it will not do it the next time either: no "Try again" for a refusal that cannot change (item 187). */}
+          {onRetry !== undefined && central !== "hub" ? (
             <Button size="sm" icon={<RotateCw aria-hidden="true" />} loading={retrying} onClick={onRetry}>
               {t("common.errorBlock.tryAgain")}
             </Button>

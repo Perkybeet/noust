@@ -14,7 +14,7 @@ export const servers: Catalog<typeof en> = {
     hub: {
       title: "Esta central no despliega nada por sí misma",
       description:
-        "Es un hub: las aplicaciones, los sitios, los certificados, las bases de datos y las copias están en los servidores que gestiona. Abre uno desde su fila, o elígelo arriba.",
+        "Es un hub: las aplicaciones, los sitios, los certificados, las bases de datos y las copias están en los servidores que gestiona. Abre uno desde su fila.",
       noServers: "Añade primero un servidor: todas las aplicaciones de un hub están en sus servidores.",
     },
   },
@@ -257,6 +257,15 @@ export const servers: Catalog<typeof en> = {
   },
 
   // -------------------------------------------------------------------------------------
+  // Lo que un servidor no puede hacer, al llegar con una dirección escrita o guardada (`FeatureUnavailable`)
+
+  unavailable: {
+    title: "No disponible en {server}",
+    hint: "Elige otro servidor en el selector para abrir {section} allí.",
+    seeAll: "Verlo en todos los servidores",
+    open: "Abrir {section}",
+  },
+
   // Un hub
 
   hub: {

@@ -154,7 +154,9 @@ describe("the main bar", () => {
     expect(within(nav).getAllByRole("link")).toHaveLength(AREAS.length);
     expect(within(nav).getByRole("link", { name: "Applications" })).toHaveAttribute("aria-current", "page");
     expect(within(nav).getByRole("link", { name: "Applications" })).toHaveAttribute("href", "/fleet/apps");
-    expect(within(nav).getByRole("link", { name: "Domains" })).toHaveAttribute("href", "/fleet/certificates");
+    // An area with no page of the fleet of its own is its address under /fleet, not a server's page.
+    expect(within(nav).getByRole("link", { name: "Domains" })).toHaveAttribute("href", "/fleet/domains");
+    expect(within(nav).getByRole("link", { name: "Databases" })).toHaveAttribute("href", "/fleet/databases");
     expect(within(nav).getByRole("link", { name: "Home" })).not.toHaveAttribute("aria-current");
     expect(within(nav).getByRole("link", { name: "Home" })).toHaveAttribute("href", "/fleet");
   });

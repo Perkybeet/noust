@@ -13,6 +13,7 @@ import { Mono } from "../components/ui/Mono";
 import { StatusGlyph, stateTextClass } from "../components/ui/StatusPill";
 import { POPUP_MOTION } from "../components/ui/Tooltip";
 import { useCentral } from "../features/central/central";
+import { useFeature } from "../features/central/features";
 import { useT } from "../i18n";
 import { cx } from "../lib/cx";
 import { NODE_STATE, nodeStatus, useHasFleet, useServerList } from "./servers";
@@ -109,11 +110,12 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
   const context = useConsoleContext();
   const hasFleet = useHasFleet();
   const { role } = useCentral();
+  const deploysHere = useFeature("applications");
   const switchNode = useSwitchNode();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const servers = useServerList();
-  const selection = useSelection(role === "hub");
+  const selection = useSelection();
   const { data: permissions } = useQuery({ ...sessionQuery(), select: (session) => session.permissions });
 
   const node = selection.kind === "server" ? selection.node : null;
@@ -132,9 +134,10 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
   const serverName = node ?? hostname;
   const value = selection.kind === "all" ? ALL_SERVERS : (node ?? THIS_SERVER);
   // The machine this console runs on is a server of the list like any other, and marked as the central where it manages others.
-  const centralMark = hasFleet && role !== "hub";
+  // The central is one more server of the count, and marked as the central, where it can run applications of its own (a hub cannot; its table says).
+  const centralMark = hasFleet && deploysHere;
   const mayAdd = permissions?.includes("fleet.manage") ?? false;
-  const total = servers.nodes.length + (role === "hub" ? 0 : 1);
+  const total = servers.nodes.length + (deploysHere ? 1 : 0);
   const needing = servers.nodes.filter((candidate) => NODE_STATE[nodeStatus(candidate)].state !== "running" && NODE_STATE[nodeStatus(candidate)].state !== "unknown").length;
 
   const label =
@@ -144,12 +147,14 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
         ? t("fleet.selector.triggerWithStatus", { name: serverName, status: t(trouble.label) })
         : node === null && centralMark
           ? t("fleet.selector.triggerCentral", { name: serverName })
-          : t("fleet.selector.trigger", { name: serverName });
+          : node === null && role === "hub"
+            ? t("fleet.selector.triggerHub", { name: serverName })
+            : t("fleet.selector.trigger", { name: serverName });
 
   const choose = (chosen: unknown): void => {
     if (typeof chosen !== "string" || chosen === value) return;
     if (chosen === ALL_SERVERS) {
-      void navigate({ to: allServersTarget(pathname), search: { node: undefined } }).then(() => {
+      void navigate({ to: allServersTarget(pathname), search: { node: undefined } } as never).then(() => {
         announce(t("fleet.selector.switchedAll"));
       });
       return;
@@ -188,7 +193,7 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
         <Mono truncate className="min-w-0 font-medium">
           {serverName}
         </Mono>{" "}
-        {node === null && centralMark && !trouble ? <Badge className="max-sm:hidden">{t("fleet.selector.centralMark")}</Badge> : null}
+        {node === null && (centralMark || role === "hub") && !trouble ? <Badge className="max-sm:hidden">{role === "hub" ? t("fleet.selector.hub") : t("fleet.selector.centralMark")}</Badge> : null}
         {trouble && !side ? <span className={cx("shrink-0 text-12 font-medium max-sm:hidden", stateTextClass(trouble.state))}>{t(trouble.label)}</span> : null}
       </>
     );
@@ -251,7 +256,7 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
                     <OBJECT_ICONS.node aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />
                     <span className="flex min-w-0 flex-1 flex-col">
                       <span className="truncate font-medium">{t("fleet.selector.all")}</span>{" "}
-                      <span className="text-12 text-fg-muted">{t("fleet.selector.allDescription", { count: servers.nodes.length + (role === "hub" ? 0 : 1) })}</span>
+                      <span className="text-12 text-fg-muted">{t("fleet.selector.allDescription", { count: total })}</span>
                     </span>
                   </BaseMenu.RadioItem>
                 </BaseMenu.Group>

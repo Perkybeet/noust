@@ -335,19 +335,19 @@ describe("the two contexts", () => {
     await waitFor(() => {
       expect(screen.getByTestId("announcer-polite")).toHaveTextContent("Viewing all servers");
     });
-    // The bar is the same areas (NV-10), each at its fleet face where it has one and, where it has none,
-    // back at the server the operator came from: never the last server's page under the fleet's name.
+    // The bar is the same areas (NV-10), each at its page of All servers: its own face where it has one and, where it has none, the table
+    // of servers under /fleet. Never the last server's page under the fleet's name, and no area that opens a page of one server.
     const nav = screen.getAllByRole("navigation", { name: "Main" })[0];
     if (nav === undefined) throw new Error("no main navigation");
     expect(within(nav).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
       "/fleet",
       "/fleet/apps",
-      "/n/web-2/catalog",
-      "/n/web-2/databases",
-      "/n/web-2/cron",
-      "/fleet/certificates",
+      "/fleet/catalog",
+      "/fleet/databases",
+      "/fleet/cron",
+      "/fleet/domains",
       "/fleet/network",
-      "/n/web-2/logs",
+      "/fleet/logs",
       "/fleet/alerts",
       "/fleet/activity",
       "/fleet/backups",
@@ -439,8 +439,9 @@ describe("the two contexts", () => {
     const input = await screen.findByRole("combobox");
     await user.type(input, "view all servers");
     await user.click(await screen.findByRole("option", { name: "View all servers" }));
+    // The same section, with every server: the scope changes and the page does not.
     await waitFor(() => {
-      expect(history.location.pathname).toBe("/fleet");
+      expect(history.location.pathname).toBe("/fleet/apps");
     });
   });
 });

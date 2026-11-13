@@ -29,7 +29,7 @@ import { textLinkClassName } from "../../components/ui/TextLink";
 import { translate, useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { cx } from "../../lib/cx";
-import { useHasFleet } from "../../nodes/servers";
+import { useHasFleet, useServerList } from "../../nodes/servers";
 import { useNode } from "../../nodes/useNode";
 import { normalizeDomain } from "../domains/names";
 import { imageProblem } from "../container/model";
@@ -474,11 +474,23 @@ export function NewAppWizard() {
   // again for another one over the wizard opens that one.
   const openedFromLink = useRef<string | null>(null);
   const openLinkedRecipe = openRecipe.mutate;
+  // The server step has been on screen and the person left it: the question was answered here (choosing another server remounts the wizard on it).
+  const sawServerStep = useRef(false);
+  useEffect(() => {
+    if (step === "server") sawServerStep.current = true;
+  }, [step]);
+  const servers = useServerList();
+  const fleetKnown = servers.loaded || servers.failed;
   useEffect(() => {
     if (linkedRecipe === undefined || openedFromLink.current === linkedRecipe) return;
+    // On a fleet the wizard asks which server first: the recipe opens once that is answered, never on whichever server happens to be
+    // on screen (a hub deploys nothing, and "Use" from the catalog found that out at the last step). Whether there is a fleet to ask is
+    // not known until its list is read.
+    if (!fleetKnown) return;
+    if (serverStep.startHere && !(sawServerStep.current && step !== "server")) return;
     openedFromLink.current = linkedRecipe;
     openLinkedRecipe({ name: linkedRecipe, title: linkedRecipe });
-  }, [linkedRecipe, openLinkedRecipe]);
+  }, [linkedRecipe, openLinkedRecipe, step, fleetKnown, serverStep.startHere]);
 
   const queued = (accepted: { job?: unknown; job_id: string }, domain: string, message: string): void => {
     followedJob.follow(accepted.job === undefined ? accepted.job_id : (accepted.job as Job));

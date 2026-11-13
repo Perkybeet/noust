@@ -7,7 +7,7 @@ import type { Strip, TabItem } from "../../app/navCore";
 
 // Each section says what it is for (`intent`), which is how the second column groups them: use it,
 // configure it, fix it, take it somewhere else, or what is dangerous.
-const app = hidden("app", "/apps/$domain", "nav.appTabs.overview.label", "apps", { parent: "apps", exact: true, intent: "use" });
+const app = hidden("app", "/apps/$domain", "nav.appTabs.overview.label", "apps", { parent: "apps", exact: true, intent: "use", feature: "applications" });
 
 export const APP_SCREENS: Strip = [
   app,
@@ -24,14 +24,15 @@ export const APP_SCREENS: Strip = [
   tab(app, "resources", "nav.appTabs.resources.label", { keywords: "nav.appTabs.resources.keywords", intent: "configure" }),
   tab(app, "access", "nav.appTabs.access.label", { keywords: "nav.appTabs.access.keywords", intent: "configure" }),
   // Off the strip: reached from what is wrong (Diagnose) or from "More actions" (Terminal, Files).
-  hidden("app.diagnose", "/apps/$domain/diagnose", "appPages.actions.diagnose", "app", { parent: "app", intent: "fix", keywords: "nav.screens.diagnose.keywords" }),
+  hidden("app.diagnose", "/apps/$domain/diagnose", "appPages.actions.diagnose", "app", { parent: "app", intent: "fix", feature: "applications", keywords: "nav.screens.diagnose.keywords" }),
   hidden("app.terminal", "/apps/$domain/terminal", "appPages.actions.terminal", "app", {
     parent: "app",
     intent: "fix",
+    feature: "applications",
     permission: "apps.terminal",
     keywords: "nav.screens.terminal.keywords",
   }),
-  hidden("app.files", "/apps/$domain/files", "runtime.files.title", "app", { parent: "app", intent: "fix", permission: "apps.terminal", keywords: "nav.screens.files.keywords" }),
+  hidden("app.files", "/apps/$domain/files", "runtime.files.title", "app", { parent: "app", intent: "fix", feature: "applications", permission: "apps.terminal", keywords: "nav.screens.files.keywords" }),
   // Taking an application to another server is not dangerous (3.4): it has its own group of the column, "Move elsewhere".
   tab(app, "export", "nav.appTabs.export.label", { keywords: "nav.appTabs.export.keywords", intent: "move" }),
   tab(app, "servers", "nav.appTabs.servers.label", { keywords: "nav.appTabs.servers.keywords", intent: "move" }),

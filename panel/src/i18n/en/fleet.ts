@@ -13,6 +13,7 @@ export const fleet = {
     triggerWithStatus: "Server: {name}, {status}",
     triggerAll: "Server: all servers",
     triggerCentral: "Server: {name} central",
+    triggerHub: "Server: {name} hub",
     /** In Settings and the pages that keep what the central carries, the selector is a label: the page is the central's. */
     labelCentral: "Server: {name}, the central. Not chosen here",
     whyLabel: "Why it is not chosen here",
@@ -96,6 +97,11 @@ export const fleet = {
       activity: "fleet audit log history events",
       alerts: "fleet alert rules firing thresholds monitor",
     },
+  },
+  /** A section of the console seen from "All servers" that has no fleet page of its own yet (`FleetSectionPage`). */
+  section: {
+    explain: "Each server has its own: open one to see it.",
+    caption: "{section}, by server",
   },
   /** The machine's areas (Network, Security) from "All servers": the servers, to choose one. */
   machineArea: {

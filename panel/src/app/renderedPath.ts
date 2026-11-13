@@ -12,3 +12,13 @@ import { useRouterState } from "@tanstack/react-router";
 export function useRenderedPathname(): string {
   return useRouterState({ select: (state) => (state.resolvedLocation ?? state.location).pathname });
 }
+
+/**
+ * The route the page on screen is, as the register knows it: the matched route's own path (`/apps/$domain/logs`), except for the one
+ * route that stands for many sections of All servers (`/fleet/$`), which is the address itself (`/fleet/databases/engines`): a section of the
+ * column or a step of the breadcrumbs is found by it.
+ */
+export function leafRoute(state: { matches: readonly { fullPath: string }[]; location: { pathname: string } }): string {
+  const leaf = state.matches.at(-1)?.fullPath ?? "";
+  return leaf === "/fleet/$" ? state.location.pathname : leaf;
+}

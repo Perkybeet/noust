@@ -4,7 +4,7 @@ import { Suspense, lazy } from "react";
 import { useHomeAddress } from "../../features/overview/search";
 import { useT } from "../../i18n";
 import { useHasFleet, useServerList } from "../../nodes/servers";
-import { useConsoleContext, useNode } from "../../nodes/useNode";
+import { useConsoleContext, useNode, useScopeOffers } from "../../nodes/useNode";
 import { depthOf } from "../columns";
 import type { ColumnKind } from "../columns";
 import { AccountColumn, AreaColumn, SectionsSkeleton, columnLabel } from "./columnBodies";
@@ -44,6 +44,7 @@ function ColumnBody(where: Where) {
 
 function ColumnBodyOf({ kind, params, customising, fleet, hasFleet }: Where) {
   const t = useT();
+  const features = useScopeOffers();
   switch (kind) {
     case "overview":
       return <HomeColumn customising={customising} />;
@@ -60,7 +61,10 @@ function ColumnBodyOf({ kind, params, customising, fleet, hasFleet }: Where) {
     case "account":
       return <AccountColumn />;
     case "databases":
-      return (
+      // The engines and the databases it draws are one server's: from All servers, or on a server that has no databases, it is the register's list.
+      return fleet || !features("databases") ? (
+        <AreaColumn kind="databases" />
+      ) : (
         <Suspense fallback={<ColumnHead title={t("dbServers.column.label")} />}>
           <DatabasesColumn />
         </Suspense>

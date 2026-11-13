@@ -19,6 +19,7 @@ import { appsViewQuery } from "../../api/queries/views";
 import { fleetViewQuery, objectOf, textOf } from "../fleet/data";
 import type { FleetRow, FleetView } from "../fleet/data";
 import { useAttention, useOwnAttention } from "../inbox/useAttention";
+import { useScopeOffers } from "../../nodes/useNode";
 import { ACTIVITY_SHOWN, attentionEntries, fleetServerHome, serverHome, timelineOf } from "./homeData";
 import type { ActivityLine, HomeApp, HomeAttention, HomeServer } from "./homeData";
 import { isEmptyServer } from "./overviewData";
@@ -54,13 +55,17 @@ const NONE: readonly OverviewAttentionItem[] = [];
  */
 export function useServerHome(enabled = true): HomeData {
   const overview = useQuery({ ...overviewQuery(), enabled });
-  const apps = useQuery({ ...appsQuery(), enabled });
+  // A server that cannot deploy (a hub) has no applications to ask for, and its Home is never "empty, deploy something": what it is for is
+  // the fleet, and its panel shows its machine (item 187).
+  const deploys = useScopeOffers()("applications");
+  const apps = useQuery({ ...appsQuery(), enabled: enabled && deploys });
   const attention = useAttention(enabled);
   const servers = useMemo(() => {
-    if (overview.data === undefined || apps.data === undefined) return undefined;
-    const homeApps: HomeApp[] = apps.data.apps.map((app) => ({ domain: app.domain, status: app.status }));
+    const list = deploys ? apps.data?.apps : [];
+    if (overview.data === undefined || list === undefined) return undefined;
+    const homeApps: HomeApp[] = list.map((app) => ({ domain: app.domain, status: app.status }));
     return [serverHome(overview.data, homeApps, NONE)];
-  }, [overview.data, apps.data]);
+  }, [overview.data, apps.data, deploys]);
   const entries = useMemo(
     () => (attention.loading || overview.data === undefined ? undefined : attention.items.map((item): HomeAttention => ({ key: item.id, item, server: null }))),
     [attention.items, attention.loading, overview.data],
@@ -71,7 +76,7 @@ export function useServerHome(enabled = true): HomeData {
     entries,
     total: attention.total,
     lines,
-    empty: overview.data !== undefined && isEmptyServer(overview.data),
+    empty: overview.data !== undefined && deploys && isEmptyServer(overview.data),
     backupsScheduled: (overview.data?.backups.scheduled ?? 0) > 0,
     several: false,
     view: undefined,

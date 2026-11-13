@@ -22,7 +22,7 @@ import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { describeError } from "../../lib/errors";
-import { useCentral } from "../central/central";
+import { useFeature } from "../central/features";
 import { FleetBlock } from "../settings/fleet/FleetBlock";
 import { FleetStrip } from "../settings/fleet/FollowLine";
 import { backendLabel } from "./backendCatalog";
@@ -358,8 +358,8 @@ function LocalDestinations() {
  * keeps no backups), so for it this is the one page of Backups that holds something: what it carries to the servers it manages.
  */
 export function DestinationsPage() {
-  const { role } = useCentral();
-  if (role === "hub") {
+  const backsUpHere = useFeature("application_backups");
+  if (!backsUpHere) {
     return (
       <BackupsListPage>
         <FleetStrip />

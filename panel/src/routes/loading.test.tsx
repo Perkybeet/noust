@@ -98,6 +98,7 @@ const PAGES: readonly (readonly [route: string, address: string])[] = [
   ["/fleet/servers", "/fleet/servers"],
   ["/fleet/software", "/fleet/software"],
   ["/fleet/updates", "/fleet/updates"],
+  ["/fleet/$", "/fleet/databases"],
   ["/integrations/github/callback", "/integrations/github/callback"],
   ["/integrations/gitlab/callback", "/integrations/gitlab/callback"],
   ["/logs", "/logs"],
@@ -212,6 +213,7 @@ const BEFORE_SIGN_IN = ["/invite", "/login", "/reset-password", "/setup", "/welc
 const NOTHING_TO_WAIT_FOR: Readonly<Record<string, string>> = {
   "/account": "who is signed in is the session, which is read before any page is drawn; the password is a dialog",
   "/apps/new": "a form: its fields are there from the first frame, and what it reads only feeds later steps",
+  "/fleet/$": "a section of All servers whose page is not built yet: the table of servers the fleet's own list has already read, drawn whole from the first frame",
   "/integrations/github/callback": "reads the address GitHub sent the browser back to, not the server",
   "/integrations/gitlab/callback": "reads the address GitLab sent the browser back to, not the server",
   "/server/central": "on the central itself it is one sentence that points to each server's own page; on a server it manages, the gate and the permissions read show their skeleton",

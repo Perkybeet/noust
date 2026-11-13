@@ -12,7 +12,8 @@ export const fleet: Catalog<typeof en> = {
     whyLabel: "Por qué no se elige aquí",
     whyTitle: "Lo de aquí es de la central",
     whyBody: "Lo que cambias aquí vale para la central y, donde lo dice, para los servidores que gestiona. Cada ajuste dice cuántos lo siguen y deja cambiar el de uno solo. El servidor elegido arriba no cuenta.",
-    triggerCentral:"Servidor: {name} central",
+    triggerHub: "Servidor: {name} hub",
+    triggerCentral: "Servidor: {name} central",
     all: "Todos los servidores",
     allDescription: { one: "Toda la flota a la vez: {count} servidor", other: "Toda la flota a la vez: {count} servidores" },
     centralMark: "central",
@@ -87,6 +88,10 @@ export const fleet: Catalog<typeof en> = {
       activity: "flota auditoría registro historial eventos activity",
       alerts: "flota alertas reglas disparadas umbrales monitor alerts",
     },
+  },
+  section: {
+    explain: "Cada servidor tiene lo suyo: abre uno para verlo.",
+    caption: "{section}, por servidor",
   },
   machineArea: {
     description: "{area} es de cada máquina. Elige un servidor para ver el suyo.",

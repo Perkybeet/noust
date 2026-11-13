@@ -10,7 +10,7 @@ import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import { useHasFleet, useServerList } from "../../../nodes/servers";
 import { useNode } from "../../../nodes/useNode";
-import { useCentral } from "../../central/central";
+import { useFeature } from "../../central/features";
 import { FaceMark } from "../fleet/FaceMark";
 import type { Face } from "../fleet/faces";
 import { ServersTable } from "../fleet/ServersTable";
@@ -90,7 +90,7 @@ export function OwnByServer({ section, label, valueHeader, children }: { section
   const t = useT();
   const hasFleet = useHasFleet();
   const { node } = useNode();
-  const { role } = useCentral();
+  const deploysHere = useFeature("applications");
   if (!hasFleet) return <>{children}</>;
   if (node !== null) {
     return (
@@ -104,7 +104,7 @@ export function OwnByServer({ section, label, valueHeader, children }: { section
   }
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      {role === "hub" ? null : children}
+      {deploysHere ? children : null}
       <OtherServers section={section} label={label} valueHeader={valueHeader} />
     </div>
   );

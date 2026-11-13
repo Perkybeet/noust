@@ -15,7 +15,7 @@ export const servers = {
     hub: {
       title: "This central deploys nothing itself",
       description:
-        "It is a hub: applications, sites, certificates, databases and backups live on the servers it manages. Open one from its row, or choose it above.",
+        "It is a hub: applications, sites, certificates, databases and backups live on the servers it manages. Open one from its row.",
       noServers: "Add a server first: a hub's applications all live on its servers.",
     },
   },
@@ -259,6 +259,15 @@ export const servers = {
   },
 
   // -------------------------------------------------------------------------------------
+  // What a server cannot do, reached by an address that was typed or kept (`FeatureUnavailable`)
+
+  unavailable: {
+    title: "Not available on {server}",
+    hint: "Choose another server in the selector to open {section} there.",
+    seeAll: "See it on every server",
+    open: "Open {section}",
+  },
+
   // A hub
 
   hub: {

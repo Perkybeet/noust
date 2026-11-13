@@ -5,6 +5,7 @@ import type { Strip } from "../../app/navCore";
 export const APPS_AREA = area("apps", "/apps", "nav.apps.label", {
   scope: "both",
   group: "runs",
+  feature: "applications",
   fleetTo: "/fleet/apps",
   shortcut: ["g", "a"],
   goTo: "nav.apps.goTo",
@@ -23,6 +24,7 @@ export const PROJECTS_TAB = tab(APPS_AREA, "projects", "nav.projects.label", {
   goTo: "nav.projects.goTo",
   keywords: "nav.projects.keywords",
   when: "organised",
+  feature: "applications",
 });
 
 /**

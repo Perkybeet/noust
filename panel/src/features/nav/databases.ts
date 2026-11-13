@@ -9,12 +9,13 @@ export const DATABASES_SCREENS = strip(
   area("databases", "/databases", "nav.databases.label", {
     scope: "both",
     group: "runs",
+    feature: "databases",
     shortcut: ["g", "b"],
     goTo: "nav.databases.goTo",
     keywords: "nav.databases.keywords",
     rootLabel: "dbServers.column.databases",
   }),
-  (databases) => [tab(databases, "engines", "dbServers.title", { exact: true, keywords: "dbServers.keywords" })],
+  (databases) => [tab(databases, "engines", "dbServers.title", { exact: true, feature: "databases", keywords: "dbServers.keywords" })],
 );
 
 /**
@@ -23,7 +24,7 @@ export const DATABASES_SCREENS = strip(
  * what is dangerous (`danger`, Delete alone). Redis has Keys where a SQL engine has Data and no Query: its
  * engine does not say `tables` or `sql`.
  */
-export const DATABASE_SCREENS = strip(hidden("database", "/databases/$engine/$name", "databases.detailTabs.overview", "databases", { parent: "databases", exact: true, intent: "use" }), (database) => [
+export const DATABASE_SCREENS = strip(hidden("database", "/databases/$engine/$name", "databases.detailTabs.overview", "databases", { parent: "databases", exact: true, intent: "use", feature: "databases" }), (database) => [
   tab(database, "data", "databases.detailTabs.data", { needs: ["tables"], intent: "use" }),
   tab(database, "keys", "databases.detailTabs.keys", { to: "/databases/$engine/$name/data", needs: ["keys"], intent: "use" }),
   tab(database, "query", "databases.detailTabs.query", { needs: ["sql"], intent: "use" }),

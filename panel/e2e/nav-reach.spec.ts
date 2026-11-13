@@ -23,6 +23,7 @@ import type { Page, Response } from "@playwright/test";
 
 import { DESTS, REDIRECTS, isStaged, paletteEntries } from "../src/app/nav";
 import type { Dest } from "../src/app/nav";
+import type { FeatureKey } from "../src/features/central/features";
 import type { PlainKey } from "../src/i18n";
 import { english } from "./catalog";
 import { depthOf } from "./clicks";
@@ -210,6 +211,18 @@ const NOT_ON_THIS_MACHINE: Readonly<Record<string, string>> = {
   "app.settings.container": "the section of a container application, and the seeded machine has none",
 };
 
+/**
+ * What the seeded machine can do, as its own session says it: a screen that needs what it lacks (the volumes' copies want Docker) is not
+ * offered by any list, so it is not looked for either (item 187).
+ */
+async function offersOf(page: Page): Promise<(key: FeatureKey | undefined) => boolean> {
+  const states = await page.evaluate(async () => {
+    const session = (await (await fetch("/api/auth/session")).json()) as { central?: { features?: Record<string, { available: boolean }> | null } };
+    return session.central?.features ?? null;
+  });
+  return (key) => key === undefined || states === null || states[key]?.available !== false;
+}
+
 /** The most clicks a screen may take from the Overview: three, and four when a resource is opened first. */
 const budgetOf = (entry: Dest): number => (entry.to.includes("$") ? 4 : 3);
 
@@ -228,7 +241,8 @@ test.describe("a server on its own", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await signIn(page, consoleServer, "/");
     // A screen of the fleet is not on a server on its own; the others are the register's.
-    const expected = DESTS.filter((entry) => entry.scope !== "fleet" && entry.kind !== "hidden" && everywhere(entry) && entry.id !== "overview" && !(entry.id in NOT_ON_THIS_MACHINE));
+    const features = await offersOf(page);
+    const expected = DESTS.filter((entry) => entry.scope !== "fleet" && entry.kind !== "hidden" && everywhere(entry) && features(entry.feature) && entry.id !== "overview" && !(entry.id in NOT_ON_THIS_MACHINE));
     const depths = await crawl(page, "/", (path) => !path.startsWith("/n/") && !path.startsWith("/fleet") && !path.startsWith("/login"));
 
     const slow: string[] = [];
@@ -253,7 +267,7 @@ test.describe("a server on its own", () => {
     test.skip(testInfo.project.name !== "light", "the palette is the same in both themes");
     await page.setViewportSize({ width: 1440, height: 900 });
     await signIn(page, consoleServer, "/databases");
-    const entries = paletteEntries({ t: (key: PlainKey) => textOf(key), can: () => true, when: {} }).filter((entry) => entry.scope !== "fleet");
+    const entries = paletteEntries({ t: (key: PlainKey) => textOf(key), can: () => true, when: {}, features: await offersOf(page) }).filter((entry) => entry.scope !== "fleet");
     expect(entries.length).toBeGreaterThan(40);
     const search = page.getByRole("combobox", { name: "Search apps, databases, domains, servers, settings and actions" });
 

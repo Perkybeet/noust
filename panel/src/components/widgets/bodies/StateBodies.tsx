@@ -12,6 +12,7 @@ import { activeJobsQuery } from "../../../api/queries/jobs";
 import { fleetActiveQuery, operationsActiveQuery } from "../../../api/queries/operations";
 import type { Job } from "../../../api/queries/jobs";
 import type { Operation } from "../../../api/queries/operations";
+import type { FeatureKey } from "../../../features/central/features";
 import { openBell } from "../../../features/inbox/bell";
 import { describeActor, jobActionLabel } from "../../../features/activity/data";
 import { objectOf, textOf } from "../../../features/fleet/data";
@@ -28,6 +29,7 @@ import type { Work, WorkLine } from "../../../features/overview/widgetData";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { cx } from "../../../lib/cx";
+import { useScopeOffers } from "../../../nodes/useNode";
 import { RelativeTime } from "../../page/RelativeTime";
 import { deployStatus } from "../../page/status";
 import { Mono } from "../../ui/Mono";
@@ -177,11 +179,16 @@ export function AttentionLink({ scope }: Pick<WidgetBodyProps, "scope">) {
 // The six figures
 
 /** The six figures of the server: each is a link to where the whole of it is. */
+/** The function of the server's table each figure of the panel reads; a figure that reads none is about the machine. */
+const FIGURE_FEATURE: Readonly<Record<string, FeatureKey | undefined>> = { apps: "applications", deploys: "applications", certificates: "certificates", backups: "application_backups" };
+
 export function FiguresBody() {
   const t = useT();
+  const features = useScopeOffers();
   const overview = useQuery(overviewQuery());
   if (overview.data === undefined) return <WidgetPending title={t("widgets.figures.title")} failed={overview.isError} onRetry={() => void overview.refetch()} />;
-  const figures = figuresOf(overview.data, t);
+  // A hub has no applications, certificates or copies of them: its panel of figures is its machine's (item 187).
+  const figures = figuresOf(overview.data, t).filter((figure) => features(FIGURE_FEATURE[figure.id]));
   return (
     <ul className="grid h-full grid-cols-3 content-start gap-x-4 gap-y-2.5 w-tall:gap-y-4 w-xwide:grid-cols-6 w-xwide:content-center">
       {figures.map((figure) => (

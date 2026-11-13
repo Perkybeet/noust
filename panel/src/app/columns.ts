@@ -17,7 +17,7 @@ import { ADOPTED_TABS } from "../features/app/tabs";
 import { columnIconOf } from "../features/nav/icons";
 import { VIEWS } from "../features/nav/views";
 import type { PlainKey } from "../i18n";
-import { DESTS, areaOf, dest, isUnder, rootOf } from "./nav";
+import { DESTS, areaOf, dest, fleetTarget, isUnder, rootOf, rootOffered } from "./nav";
 import { shown } from "./navCore";
 import type { ConsolePath, Dest, Intent, NavContext, Scope } from "./navCore";
 
@@ -113,11 +113,21 @@ export const COLUMN_GROUP_TITLES: Readonly<Record<string, PlainKey>> = {
   dns: "nav.columnGroups.dns",
 };
 
-function itemOf(entry: Dest, first: boolean): ColumnItem {
+/**
+ * What a section is called from All servers: the register says it where the fleet's page of a section is not the section of one server (`fleetLabel`:
+ * "Servers" for the list of them, which with a server is "Status"; "With an update" for the servers that wait for one). Everywhere else the name is the section's.
+ */
+function nameOf(entry: Dest, first: boolean, scope: Scope): PlainKey {
+  const own = first ? (entry.rootLabel ?? entry.label) : entry.label;
+  return scope === "fleet" ? (entry.fleetLabel ?? own) : own;
+}
+
+function itemOf(entry: Dest, first: boolean, scope: Scope = "server"): ColumnItem {
   return {
     id: entry.id,
-    label: first ? (entry.rootLabel ?? entry.label) : entry.label,
-    to: entry.to,
+    label: nameOf(entry, first, scope),
+    // All servers gives each section the address it has under /fleet, so a click stays in the scope (item 196).
+    to: scope === "fleet" && entry.scope !== "fleet" ? fleetTarget(entry) : entry.to,
     exact: first || entry.exact === true,
     icon: columnIconOf(entry),
   };
@@ -175,19 +185,25 @@ export function accountColumn(ctx: NavContext): ColumnGroup[] {
 }
 
 /**
- * The entries of an area's column. In a server's pages they are the area's own page and its tabs, and
- * what a hidden screen asks to be in (`column`: Terminal); in the fleet's they are the area's faces, the
- * screens the fleet draws for it.
+ * The entries of an area's column: its own page and its tabs, and what a hidden screen asks to be in (`column`: Terminal).
+ * They are the same with a server chosen and with All servers (item 196): a person who changes the selector finds the same
+ * sections, each with its fleet page or, meanwhile, the table of servers that opens each. The sections only the fleet has
+ * (the applications that run on several servers, the copies the central holds) are added after them in the fleet's.
+ * What a server cannot do (`ctx.features`) is absent; the fleet is not judged by the central's own machine.
  */
 function areaEntries(area: Dest, ctx: NavContext, scope: Scope): Dest[] {
   const inArea = (entry: Dest): boolean => entry !== area && rootOf(entry) === area && !entry.to.includes("$") && shown(entry, ctx);
-  if (scope === "fleet") return DESTS.filter((entry) => entry.scope === "fleet" && inArea(entry));
-  return [area, ...DESTS.filter((entry) => entry.scope !== "fleet" && (entry.kind === "tab" || entry.column !== undefined) && inArea(entry))];
+  const own = [...(rootOffered(area, ctx) ? [area] : []), ...DESTS.filter((entry) => entry.scope !== "fleet" && (entry.kind === "tab" || entry.column !== undefined) && inArea(entry))];
+  if (scope !== "fleet") return own;
+  // A fleet-only section that is the face of a section already listed (Updates, Software) is that section.
+  const faces = new Set(own.map((entry) => fleetTarget(entry)));
+  return [...own, ...DESTS.filter((entry) => entry.scope === "fleet" && entry.kind === "tab" && inArea(entry) && !faces.has(entry.to))];
 }
 
 /**
- * The column of an area: its sections in the groups the register gives them, then the fixed views of
- * an area that is a single page. A group is its `column`; entries that name none are the list's head.
+ * The column of an area: its sections in the groups the register gives them, then the fixed views of an area that is
+ * a single page. A group is its `column`; entries that name none are the list's head. The sections are the same with
+ * both scopes (item 196), so the second column never shows fewer with All servers than with a server.
  */
 export function areaColumn(kind: ColumnKind, ctx: NavContext, scope: Scope = "server"): ColumnGroup[] {
   const area = dest(kind);
@@ -201,17 +217,29 @@ export function areaColumn(kind: ColumnKind, ctx: NavContext, scope: Scope = "se
       group = { id, ...(heading !== undefined ? { heading } : {}), items: [] };
       groups.push(group);
     }
-    group.items.push(itemOf(entry, entry === area));
+    group.items.push(itemOf(entry, entry === area, scope));
   }
-  const views = scope === "fleet" ? [] : (VIEWS[kind] ?? []);
+  const views = (VIEWS[kind] ?? []).filter((view) => view.feature === undefined || ctx.features === undefined || ctx.features(view.feature));
   if (views.length > 0) {
     const head = groups.find((group) => group.id === "");
-    const items = views.map((view): ColumnItem => ({ id: `${kind}.view.${view.id}`, label: view.label, to: area.to, ...(view.search !== undefined ? { search: view.search } : {}), exact: true, icon: columnIconOf({ id: `${kind}.view.${view.id}` }) }));
+    const to = scope === "fleet" ? fleetTarget(area) : area.to;
+    const items = views.map((view): ColumnItem => ({ id: `${kind}.view.${view.id}`, label: view.label, to, ...(view.search !== undefined ? { search: view.search } : {}), exact: true, icon: columnIconOf({ id: `${kind}.view.${view.id}` }) }));
     // The area's own page is the first view, "All": the views come in its place, not after it.
-    if (head !== undefined) head.items.splice(0, head.items.length, ...items, ...head.items.filter((item) => item.to !== area.to));
+    if (head !== undefined) head.items.splice(0, head.items.length, ...items, ...head.items.filter((item) => item.to !== to));
     else groups.unshift({ id: "", items });
   }
   return groups;
+}
+
+/** The areas whose column is the register's list of their sections (the others draw a body of their own: Home's panels, Settings, a resource's). */
+const LISTED: ReadonlySet<ColumnKind> = new Set(["apps", "catalog", "databases", "cron", "domains", "network", "logs", "alerts", "activity", "backups", "security"]);
+
+/**
+ * Whether a column has anything to list. An area none of whose sections the server can do has no column at all: it is not drawn as a head over
+ * an empty list (the page itself says why it is not there, `FeatureGate`).
+ */
+export function hasSections(kind: ColumnKind, ctx: NavContext, scope: Scope): boolean {
+  return !LISTED.has(kind) || areaColumn(kind, ctx, scope).length > 0;
 }
 
 /**

@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { SlidingIndicator } from "../../components/ui/SlidingIndicator";
 import { cx } from "../../lib/cx";
 import { currentItem } from "../columns";
+import { leafRoute } from "../renderedPath";
 import { useCentralReturn } from "../useCentralReturn";
 
 /** One link of the column, whatever resource it is the sections of. */
@@ -50,7 +51,7 @@ const ITEM =
  * start of the page's route (`currentItem`), so a section beneath another is the only one marked.
  */
 export function ColumnList({ label, groups, currentKey }: { label: string; groups: readonly ListGroup[]; currentKey?: string }) {
-  const route = useRouterState({ select: (state) => state.matches.at(-1)?.fullPath ?? "" });
+  const route = useRouterState({ select: leafRoute });
   const search = useRouterState({ select: (state) => state.location.search as Record<string, unknown> });
   const ids = useId();
   const withServer = useCentralReturn();

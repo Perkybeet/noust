@@ -26,6 +26,7 @@ import { isHttpUrl } from "../../lib/url";
 import { useNode } from "../../nodes/useNode";
 import { reportActionError } from "../apps/useAppActions";
 import { installMethodWords, readServerIdentity, selfUpdateQuery } from "./GeneralSettings.model";
+import { useFeature } from "../central/features";
 import { InstallCheck } from "./InstallCheck";
 import { SupportReport } from "./SupportReport";
 import { UpdateNotes, WhatsNew } from "./WhatsNew";
@@ -363,6 +364,8 @@ export function AboutSettings() {
   const t = useT();
   useDocumentTitle(t("settings.about.documentTitle"), 1);
   const read = useAboutRead();
+  // The installation check judges what a deployment needs (nginx, certbot): a hub deploys nothing and is not told to install them (item 187).
+  const installable = useFeature("server_setup");
   if (!read) return <AboutSkeleton />;
   return (
     <Sections>
@@ -374,7 +377,7 @@ export function AboutSettings() {
       <Section title={t("settings.about.groups.support.title")} description={t("settings.about.groups.support.description")}>
         <div className="flex min-w-0 flex-col gap-6">
           <InstallationSection />
-          <InstallCheck />
+          {installable ? <InstallCheck /> : null}
           <SupportReport />
           <ProjectSection />
         </div>

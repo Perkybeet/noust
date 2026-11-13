@@ -6,10 +6,14 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { sessionQuery } from "../api/queries/auth";
+import type { FleetServer } from "../components/page/fleetServers";
 import type { Status } from "../components/ui/StatusPill";
 import { centralOf } from "../features/central/central";
+import { useOffers } from "../features/central/features";
+import type { FeatureKey } from "../features/central/features";
 import { nodeStatus, nodesQuery } from "../features/fleet/nodes";
 import type { NodeRecord, NodeStatus } from "../features/fleet/nodes";
+import { useT } from "../i18n";
 import type { PlainKey } from "../i18n";
 import { useLastServer } from "./lastServer";
 
@@ -109,4 +113,33 @@ export function useReturnServer(): ReturnServer | null {
   // A server the central forgot (removed, renamed) is not somewhere to go back to.
   if (servers.loaded && !servers.nodes.some((candidate) => candidate.name === node)) return here;
   return { node, name: node };
+}
+
+/** One server of "All servers": what the kit's pieces know of it, and the node the console opens it with (null: this central). */
+export interface ServerOfFleet {
+  server: FleetServer;
+  node: string | null;
+}
+
+/**
+ * The servers a page of "All servers" speaks of, in the order of the selector: this central first, when it can do what the
+ * page is about (a hub has no applications, a container no systemd: its own table says, `feature`) and then every node, each
+ * with how it answered. The central is never left out by its role, only by what it cannot do, so one rule decides it
+ * for every page (item 187).
+ */
+export function useFleetServers(feature?: FeatureKey): ServerOfFleet[] {
+  const t = useT();
+  const list = useServerList();
+  const offered = useOffers();
+  const central: ServerOfFleet[] = offered(feature)
+    ? [{ server: { name: list.hostname ?? t("fleet.selector.thisServer"), central: true }, node: null }]
+    : [];
+  return [
+    ...central,
+    ...list.nodes.map((node): ServerOfFleet => {
+      const status = nodeStatus(node);
+      // A server the central has not reached yet is asked as if it answered: its page says what it finds.
+      return { server: { name: node.name, ...(status === "unreachable" || status === "refused" ? { answer: { kind: "unreachable" as const } } : {}) }, node: node.name };
+    }),
+  ];
 }

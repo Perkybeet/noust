@@ -1,4 +1,5 @@
 import type { PlainKey } from "../../i18n";
+import type { FeatureKey } from "../central/features";
 
 /**
  * The fixed views of an area that is a single page: what its second column lists where the area has no
@@ -16,6 +17,8 @@ export interface AreaView {
   label: PlainKey;
   /** What the view sets in the address beside the page's own path; none for the page as it opens. */
   search?: Readonly<Record<string, string>>;
+  /** The function of the server's table it needs: a server that cannot do it does not list the view (item 187). */
+  feature?: FeatureKey;
 }
 
 export const VIEWS: Readonly<Record<string, readonly AreaView[]>> = {
@@ -28,8 +31,8 @@ export const VIEWS: Readonly<Record<string, readonly AreaView[]>> = {
   ],
   // Where the lines come from (features/logs/search.ts): the applications', or the system's journal.
   logs: [
-    { id: "apps", label: "nav.views.logsApps" },
-    { id: "system", label: "nav.views.logsSystem", search: { source: "system" } },
+    { id: "apps", label: "nav.views.logsApps", feature: "applications" },
+    { id: "system", label: "nav.views.logsSystem", search: { source: "system" }, feature: "system_logs" },
   ],
   // What happened (features/activity/search.ts): every change, the deployments, or who signed in.
   activity: [

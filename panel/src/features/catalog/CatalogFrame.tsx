@@ -4,13 +4,20 @@ import type { ReactNode } from "react";
 
 import { recipesQuery } from "../../api/queries/recipes";
 import { ListPage } from "../../components/page/ListPage";
+import { ScopeLine } from "../../components/page/ScopeLine";
 import { Button } from "../../components/ui/Button";
 import { useT } from "../../i18n";
+import { useHasFleet } from "../../nodes/servers";
 import { CatalogPackageDialog } from "./CatalogPackage";
 import { CatalogProblems } from "./CatalogProblems";
 import { OwnRecipesDialog } from "./OwnRecipes";
 
 export interface CatalogFrameProps {
+  /**
+   * The recipes are the same on every server, so on a fleet the page says so in the first line of its body and that the server is
+   * chosen when one is used (`ScopeLine` library), and the catalog is the same page with a server chosen, with All servers and on a hub.
+   */
+  library?: boolean;
   /** The tab's own filters, when it has them. */
   filters?: ReactNode;
   /** The tab's own notice (a job in hand, a failure). */
@@ -23,15 +30,18 @@ export interface CatalogFrameProps {
  * then the view. The title and the strip are the same on both, so switching moves nothing but the
  * content under them.
  */
-export function CatalogFrame({ filters, notice, children }: CatalogFrameProps) {
+export function CatalogFrame({ library = false, filters, notice, children }: CatalogFrameProps) {
   const t = useT();
+  const hasFleet = useHasFleet();
   const everything = useQuery(recipesQuery());
   const [adding, setAdding] = useState(false);
   const [packageOpen, setPackageOpen] = useState(false);
   const problems = everything.data?.problems ?? [];
+  const said = library && hasFleet;
   const shownNotice =
-    notice !== undefined || problems.length > 0 ? (
+    notice !== undefined || problems.length > 0 || said ? (
       <div className="flex flex-col gap-3">
+        {said ? <ScopeLine scope={{ kind: "library" }} /> : null}
         {notice}
         <CatalogProblems problems={problems} />
       </div>

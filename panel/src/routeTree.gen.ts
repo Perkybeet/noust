@@ -53,6 +53,7 @@ import { Route as ConsoleDomainsCertificatesRouteImport } from "./routes/_consol
 import { Route as ConsoleDomainsPortsRouteImport } from "./routes/_console/domains/ports"
 import { Route as ConsoleDomainsTunnelsRouteImport } from "./routes/_console/domains/tunnels"
 import { Route as ConsoleFleetIndexRouteImport } from "./routes/_console/fleet/index"
+import { Route as ConsoleFleetSplatRouteImport } from "./routes/_console/fleet/$"
 import { Route as ConsoleFleetActivityRouteImport } from "./routes/_console/fleet/activity"
 import { Route as ConsoleFleetAlertsRouteImport } from "./routes/_console/fleet/alerts"
 import { Route as ConsoleFleetAppsRouteImport } from "./routes/_console/fleet/apps"
@@ -421,6 +422,11 @@ const ConsoleDomainsTunnelsRoute = ConsoleDomainsTunnelsRouteImport.update({
 const ConsoleFleetIndexRoute = ConsoleFleetIndexRouteImport.update({
   id: "/",
   path: "/",
+  getParentRoute: () => ConsoleFleetRoute,
+} as any)
+const ConsoleFleetSplatRoute = ConsoleFleetSplatRouteImport.update({
+  id: "/$",
+  path: "/$",
   getParentRoute: () => ConsoleFleetRoute,
 } as any)
 const ConsoleFleetActivityRoute = ConsoleFleetActivityRouteImport.update({
@@ -1270,6 +1276,7 @@ export interface FileRoutesByFullPath {
   "/domains/certificates": typeof ConsoleDomainsCertificatesRoute
   "/domains/ports": typeof ConsoleDomainsPortsRoute
   "/domains/tunnels": typeof ConsoleDomainsTunnelsRoute
+  "/fleet/$": typeof ConsoleFleetSplatRoute
   "/fleet/activity": typeof ConsoleFleetActivityRoute
   "/fleet/alerts": typeof ConsoleFleetAlertsRoute
   "/fleet/apps": typeof ConsoleFleetAppsRoute
@@ -1455,6 +1462,7 @@ export interface FileRoutesByTo {
   "/domains/certificates": typeof ConsoleDomainsCertificatesRoute
   "/domains/ports": typeof ConsoleDomainsPortsRoute
   "/domains/tunnels": typeof ConsoleDomainsTunnelsRoute
+  "/fleet/$": typeof ConsoleFleetSplatRoute
   "/fleet/activity": typeof ConsoleFleetActivityRoute
   "/fleet/alerts": typeof ConsoleFleetAlertsRoute
   "/fleet/apps": typeof ConsoleFleetAppsRoute
@@ -1647,6 +1655,7 @@ export interface FileRoutesById {
   "/_console/domains/certificates": typeof ConsoleDomainsCertificatesRoute
   "/_console/domains/ports": typeof ConsoleDomainsPortsRoute
   "/_console/domains/tunnels": typeof ConsoleDomainsTunnelsRoute
+  "/_console/fleet/$": typeof ConsoleFleetSplatRoute
   "/_console/fleet/activity": typeof ConsoleFleetActivityRoute
   "/_console/fleet/alerts": typeof ConsoleFleetAlertsRoute
   "/_console/fleet/apps": typeof ConsoleFleetAppsRoute
@@ -1842,6 +1851,7 @@ export interface FileRouteTypes {
     | "/domains/certificates"
     | "/domains/ports"
     | "/domains/tunnels"
+    | "/fleet/$"
     | "/fleet/activity"
     | "/fleet/alerts"
     | "/fleet/apps"
@@ -2027,6 +2037,7 @@ export interface FileRouteTypes {
     | "/domains/certificates"
     | "/domains/ports"
     | "/domains/tunnels"
+    | "/fleet/$"
     | "/fleet/activity"
     | "/fleet/alerts"
     | "/fleet/apps"
@@ -2218,6 +2229,7 @@ export interface FileRouteTypes {
     | "/_console/domains/certificates"
     | "/_console/domains/ports"
     | "/_console/domains/tunnels"
+    | "/_console/fleet/$"
     | "/_console/fleet/activity"
     | "/_console/fleet/alerts"
     | "/_console/fleet/apps"
@@ -2693,6 +2705,13 @@ declare module "@tanstack/react-router" {
       path: "/"
       fullPath: "/fleet/"
       preLoaderRoute: typeof ConsoleFleetIndexRouteImport
+      parentRoute: typeof ConsoleFleetRoute
+    }
+    "/_console/fleet/$": {
+      id: "/_console/fleet/$"
+      path: "/$"
+      fullPath: "/fleet/$"
+      preLoaderRoute: typeof ConsoleFleetSplatRouteImport
       parentRoute: typeof ConsoleFleetRoute
     }
     "/_console/fleet/activity": {
@@ -3769,6 +3788,7 @@ const ConsoleAlertsRouteWithChildren = ConsoleAlertsRoute._addFileChildren(
 )
 
 interface ConsoleFleetRouteChildren {
+  ConsoleFleetSplatRoute: typeof ConsoleFleetSplatRoute
   ConsoleFleetActivityRoute: typeof ConsoleFleetActivityRoute
   ConsoleFleetAlertsRoute: typeof ConsoleFleetAlertsRoute
   ConsoleFleetAppsRoute: typeof ConsoleFleetAppsRoute
@@ -3785,6 +3805,7 @@ interface ConsoleFleetRouteChildren {
 }
 
 const ConsoleFleetRouteChildren: ConsoleFleetRouteChildren = {
+  ConsoleFleetSplatRoute: ConsoleFleetSplatRoute,
   ConsoleFleetActivityRoute: ConsoleFleetActivityRoute,
   ConsoleFleetAlertsRoute: ConsoleFleetAlertsRoute,
   ConsoleFleetAppsRoute: ConsoleFleetAppsRoute,

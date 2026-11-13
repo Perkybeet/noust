@@ -169,18 +169,23 @@ describe("entering a resource", () => {
 });
 
 describe("the fleet's pages", () => {
-  it("have their area's column, with the faces of that area", async () => {
+  it("have their area's column, with the same sections as a server's and the ones only the fleet has", async () => {
     await shellAt("/fleet/apps", 1440, { "GET /api/nodes": () => json(200, { items: NODES }) });
     const sections = await screen.findByRole("navigation", { name: "Applications sections" });
-    expect(links(sections)).toEqual(["Applications", "On several servers"]);
-    expect(within(sections).getByRole("link", { name: "Applications" })).toHaveAttribute("href", "/fleet/apps");
+    // The views of the list a server has, and the applications that run on several servers, which only the fleet has.
+    expect(links(sections)).toEqual(expect.arrayContaining(["All", "By project", "By state", "Deployments of all", "On several servers"]));
+    expect(within(sections).getByRole("link", { name: "All" })).toHaveAttribute("href", "/fleet/apps");
+    for (const link of within(sections).getAllByRole("link")) expect(link.getAttribute("href"), `${link.textContent} leaves All servers`).toMatch(/^\/fleet/);
   });
 
-  it("list the servers beside the faces of Server, to choose one", async () => {
+  it("list the sections of Server as the server's column does, each under /fleet, and no servers to choose among them", async () => {
     await shellAt("/fleet/servers", 1440, { "GET /api/nodes": () => json(200, { items: NODES }) });
     const sections = await screen.findByRole("navigation", { name: "Server sections" });
-    expect(within(sections).getByRole("link", { name: "Servers" })).toHaveAttribute("href", "/fleet/servers");
-    expect(within(sections).getByRole("link", { name: "web-2" })).toHaveAttribute("href", "/n/web-2/server");
+    expect(within(sections).getByRole("link", { name: "With an update" })).toHaveAttribute("href", "/fleet/updates");
+    expect(within(sections).getByRole("link", { name: "Machine" })).toHaveAttribute("href", "/fleet/server/machine");
+    expect(within(sections).getByRole("link", { name: "Services" })).toHaveAttribute("href", "/fleet/server/services");
+    // Choosing a server is the selector's: the column lists no server.
+    expect(within(sections).queryByRole("link", { name: "web-2" })).toBeNull();
   });
 });
 

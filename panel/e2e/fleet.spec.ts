@@ -148,15 +148,22 @@ withFleet("the Fleet's views show this server and the node, each row naming its 
 
   for (const [tab, caption] of [
     ["Servers", "Servers of this fleet"],
-    ["Domains", "Certificates on every server"],
     ["Backups", "Backups of every application"],
     ["Activity", "Activity"],
   ] as const) {
-    await views.getByRole("link", { name: tab, exact: true }).click();
+    // The bar counts with All servers too ("Servers 1 failed"): the name starts with the area's.
+    await views.getByRole("link", { name: new RegExp(`^${tab}\\b`) }).click();
     await expect(page.getByRole("region", { name: caption })).toBeVisible();
     await settle(page);
     await expectNoA11yViolations(page, `the Fleet's ${tab.toLowerCase()}`);
   }
+  // Domains has no page of the fleet of its own yet: the table of servers stands in for it, and its Certificates are the fleet's page.
+  await views.getByRole("link", { name: /^Domains\b/ }).click();
+  await expect(page).toHaveURL(/\/fleet\/domains$/);
+  await page.getByRole("complementary").getByRole("link", { name: "Certificates" }).click();
+  await expect(page.getByRole("region", { name: "Certificates on every server" })).toBeVisible();
+  await settle(page);
+  await expectNoA11yViolations(page, "the Fleet's certificates");
 });
 
 withFleet("the selector has two places, a server and All servers, keeps the area on the way, and the bar follows it", async ({ page, consoleServer }) => {
@@ -174,10 +181,10 @@ withFleet("the selector has two places, a server and All servers, keeps the area
   const main = page.getByRole("navigation", { name: "Main" });
   await expect(main.getByRole("link")).toHaveCount(14);
   await expect(main.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/fleet");
-  await expect(main.getByRole("link", { name: "Domains" })).toHaveAttribute("href", "/fleet/certificates");
+  await expect(main.getByRole("link", { name: "Domains" })).toHaveAttribute("href", "/fleet/domains");
   await expect(main.getByRole("link", { name: "Network" })).toHaveAttribute("href", "/fleet/network");
-  // An area with no fleet face leads back to the server the operator came from.
-  await expect(main.getByRole("link", { name: "Databases" })).toHaveAttribute("href", `/n/${NODE_NAME}/databases`);
+  // An area with no page of the fleet of its own is its address under /fleet (the table of servers), never the last server's page.
+  await expect(main.getByRole("link", { name: "Databases" })).toHaveAttribute("href", "/fleet/databases");
   await expect(page.getByRole("link", { name: /^Back to / })).toHaveCount(0);
   // Settings are the central's, whatever server the operator came from.
   await expect(page.getByRole("link", { name: "Settings", exact: true })).toHaveAttribute("href", "/settings");
@@ -570,18 +577,24 @@ test("a sealed central shows the lock screen, and opens with the right passphras
   }
 });
 
-test("a hub sends its own pages to the Fleet instead", async ({ page }) => {
+test("a hub starts on All servers, and says once what it does not have instead of sending the page away", async ({ page }) => {
   const central = await startConsoleServer(["--central-role", "hub"]);
   try {
-    await signInAt(page, central, "/apps");
+    // The start of the console is the fleet: a hub has no server of its own to begin on.
+    await signInAt(page, central, "/");
     await expect(page).toHaveURL(/\/fleet(\?|$)/);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Fleet");
     await expect(page.getByText("This central deploys nothing itself")).toBeVisible();
-
-    await page.goto(`${central.url}/`);
-    await expect(page).toHaveURL(/\/fleet(\?|$)/);
     await settle(page);
     await expectNoA11yViolations(page, "the Fleet page, opened for a hub");
+
+    // An address for what a hub does not do is not redirected: its page says why, once, and offers the way to a server that can.
+    await page.goto(`${central.url}/apps`);
+    await expect(page).toHaveURL(/\/apps$/);
+    await expect(page.getByRole("heading", { level: 2, name: /Not available on/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Try again" })).toHaveCount(0);
+    await page.getByRole("link", { name: "See it on every server" }).click();
+    await expect(page).toHaveURL(/\/fleet\/apps$/);
   } finally {
     await page.close();
     await central.stop();

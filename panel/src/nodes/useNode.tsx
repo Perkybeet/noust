@@ -13,9 +13,12 @@ import type { ReactNode } from "react";
 import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef } from "react";
 
 import { focusPageTitle } from "../app/focus";
-import { areaOf } from "../app/nav";
+import { allServersTargetOf, entryAt, serverTargetOf } from "../app/nav";
 import { contextOf, nodeFromSearch, serverPath, switchTarget } from "../app/nodeRoute";
 import type { ConsoleContext } from "../app/nodeRoute";
+import { useCentral } from "../features/central/central";
+import { useOffers } from "../features/central/features";
+import type { FeatureKey } from "../features/central/features";
 import { rememberAll, rememberServer, useLastServer } from "./lastServer";
 
 export interface SelectedNode {
@@ -106,13 +109,27 @@ export type Selection = { kind: "all" } | { kind: "server"; node: string | null 
  * page of the instance, which has none, it stays where the operator had put it: the server they were on, or the
  * whole fleet. A hub has no server of its own, so it starts on the fleet.
  */
-export function useSelection(hub = false): Selection {
+export function useSelection(): Selection {
   const context = useConsoleContext();
   const last = useLastServer();
+  const hub = useCentral().role === "hub";
   if (context.kind === "fleet") return { kind: "all" };
   if (context.kind === "server") return { kind: "server", node: context.node };
   if (last?.all === true || (last === null && hub)) return { kind: "all" };
   return { kind: "server", node: last?.node ?? null };
+}
+
+/**
+ * What the server the console is on can do, as one filter for every list of destinations and actions: the central's own table
+ * (`session.central.features`) when the selector is on the central itself, and everything when it is on a node or on All
+ * servers, whose own machines and faces are not the central's to judge. A hub is one more server of the selector, and chosen
+ * it offers what a hub can do, no more.
+ */
+export function useScopeOffers(): (key: FeatureKey | undefined) => boolean {
+  const selection = useSelection();
+  const offered = useOffers();
+  const own = selection.kind === "server" && selection.node === null;
+  return useCallback((key) => !own || offered(key), [own, offered]);
 }
 
 /**
@@ -143,32 +160,24 @@ export function useNodeLink(): NodeLinks {
 }
 
 /**
- * Where "All servers" opens from a page: the fleet's face of the area the page is in, where the area has one, and the
- * fleet's summary otherwise. The area is kept, as a server's is.
+ * Where "All servers" opens from a page: the same section's page of the fleet, a face of its own or the table of servers that stands in for
+ * it until its area builds one. The scope changes and the section does not (item 196).
  */
-export function allServersTarget(pathname: string): "/fleet" | "/fleet/apps" | "/fleet/certificates" | "/fleet/backups" | "/fleet/servers" | "/fleet/activity" | "/fleet/alerts" | "/fleet/network" | "/fleet/security" {
-  const face = areaOf(pathname)?.fleetTo;
-  return (face ?? "/fleet") as ReturnType<typeof allServersTarget>;
-}
-
-/**
- * Where a server opens from the fleet's pages: the area the fleet's page is the face of, on that server. The summary
- * of the fleet is the server's own home.
- */
-function serverTargetFromFleet(pathname: string): string {
-  const area = areaOf(pathname);
-  return area === undefined ? "/" : area.to;
+export function allServersTarget(pathname: string): string {
+  return allServersTargetOf(pathname);
 }
 
 /**
  * Switches the console to another server (null: this one), staying on the same page when every server has it and
- * going to the list of its area otherwise (see `switchTarget`). From the fleet's pages it opens the area the page
- * is the face of, on the server chosen. On a page of the instance, which is no server's, nothing is opened: only
- * the selector moves, and the next page the person opens is the chosen server's.
+ * going to the list of its area otherwise (see `switchTarget`). From the fleet's pages it opens the same section on the server
+ * chosen. A page the central itself cannot do (a hub has no databases) opens its home instead: a server is chosen to see what it
+ * has, and never to find a page that says it has not. On a page of the instance, which is no server's, nothing is opened: only the
+ * selector moves, and the next page the person opens is the chosen server's.
  */
 export function useSwitchNode(): (target: string | null) => Promise<void> {
   const router = useRouter();
   const navigate = useNavigate();
+  const offered = useOffers();
   return useCallback(
     async (target: string | null) => {
       const { location, matches } = router.state;
@@ -180,10 +189,12 @@ export function useSwitchNode(): (target: string | null) => Promise<void> {
       if (kind === "server" && nodeFromSearch(location.search) === target) return;
       // A resource the other server may not have (an application) leaves the person in its area, not at the server's home.
       const same = switchTarget(location.pathname, matches.at(-1)?.routeId);
-      const to = kind === "fleet" ? serverTargetFromFleet(location.pathname) : same === "/" && location.pathname !== "/" ? serverTargetFromFleet(location.pathname) : same;
+      const candidate: string = kind === "fleet" ? serverTargetOf(location.pathname) : same === "/" && location.pathname !== "/" ? serverTargetOf(location.pathname) : same;
+      // Only the central's own table is known here: a node is a server, and answers for itself.
+      const to = target === null && !offered(entryAt(candidate)?.feature) ? "/" : candidate;
       await navigate({ to, search: { node: target ?? undefined } });
     },
-    [router, navigate],
+    [router, navigate, offered],
   );
 }
 

@@ -33,7 +33,6 @@ export const nav = {
     tools: "Tools",
     fleet: "Fleet",
     dns: "DNS",
-    servers: "Servers",
   },
   /** The fixed views of an area that is one page: what its column lists (features/nav/views.ts). */
   views: {

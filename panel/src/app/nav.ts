@@ -43,7 +43,10 @@ import { SECURITY_SCREENS } from "../features/nav/security";
 import { SERVER_SCREENS, SERVICE_SCREENS } from "../features/nav/server";
 import { RENAMED, SETTINGS_SCREENS, groupSettings } from "../features/nav/settings";
 import { TEAM_SCREENS } from "../features/nav/team";
+import { VIEWS } from "../features/nav/views";
+import type { AreaView } from "../features/nav/views";
 import type { PlainKey } from "../i18n";
+import { fleetPathOf, isCentralOnlyPath, serverPathOfFleet } from "./nodeRoute";
 import { REDIRECT_ROWS } from "./redirects";
 import { shown, tabsOf } from "./navCore";
 import type { ConsolePath, Dest, NavContext, Scope, TabItem } from "./navCore";
@@ -122,6 +125,7 @@ export const EXCEPTIONS: Readonly<Record<string, string>> = {
   "/fleet/jobs/$id": "one fleet job, opened from the notice that started it",
   "/projects/$team/$project": "one project, opened from the Projects list",
   "/server/services/$name/unit": "a service's unit file, opened from the service's page",
+  "/fleet/$": "any section of the console seen from All servers that has no page of the fleet of its own yet: the table of servers stands in for it (item 196)",
 };
 
 /**
@@ -175,27 +179,89 @@ export interface Redirect {
 export const REDIRECTS: readonly Redirect[] = REDIRECT_ROWS;
 
 /**
- * The main bar: the areas, grouped and in order, the same whether the console holds a fleet or not
- * (Settings is pinned under them and is not here). Where an area goes from the fleet's pages is
- * `areaTarget`'s.
+ * The main bar: the areas, grouped and in order, the same whether the console holds a fleet or not (Settings is pinned
+ * under them and is not here). An area is offered when something in it is: its own page, one of its tabs, one of its
+ * views (`areaOffered`); what the server cannot do is not given as an option (item 187). Where an area opens from the
+ * fleet's pages is `areaTarget`'s, and which of its sections it opens at on a server that lacks the first, `areaLanding`'s.
  */
 export function sidebarFor(ctx: NavContext = {}): Dest[][] {
   const groups = new Map<string, Dest[]>();
   for (const entry of REGISTERED) {
-    if (entry.kind !== "area" || entry.group === "pinned" || !shown(entry, ctx)) continue;
+    if (entry.kind !== "area" || entry.group === "pinned" || !areaOffered(entry, ctx)) continue;
     const key = entry.group ?? entry.id;
     groups.set(key, [...(groups.get(key) ?? []), entry]);
   }
   return [...groups.values()];
 }
 
+/** The sections a list draws for an area on a server's pages: its own page, then its tabs, in the register's order. */
+function sectionsOfArea(area: Dest): Dest[] {
+  return REGISTERED.filter((entry) => (entry === area || (entry.kind === "tab" && rootOf(entry) === area)) && entry.scope !== "fleet" && !entry.to.includes("$"));
+}
+
+/** Whether a view of an area's page is offered: its own function, when it needs one. */
+function viewOffered(view: AreaView, ctx: NavContext): boolean {
+  return view.feature === undefined || ctx.features === undefined || ctx.features(view.feature);
+}
+
+/** The views of an area that are offered; none when the area has none declared (its page is one thing). */
+export function offeredViews(area: Dest, ctx: NavContext): readonly AreaView[] {
+  return (VIEWS[area.id] ?? []).filter((view) => viewOffered(view, ctx));
+}
+
+/** Whether the area's own page (its first section) is offered: it asks for its function, and it has a view to show. */
+export function rootOffered(area: Dest, ctx: NavContext): boolean {
+  const views = VIEWS[area.id];
+  return shown(area, ctx) && (views === undefined || offeredViews(area, ctx).length > 0);
+}
+
 /**
- * Where an area opens: its fleet face from the fleet's pages, where it has one, and its own page otherwise.
- * Server is no exception since 4.2: with a server chosen it opens that server's page, and from "All servers" the
- * list of them; the central is one more server of the list, so choosing it is choosing it in the selector.
+ * Whether an area has anything to offer on a server: its own page, or one of its tabs. An area none of whose sections the
+ * server can do is absent from the bar, as a section it cannot do is absent from the column.
+ */
+export function areaOffered(area: Dest, ctx: NavContext): boolean {
+  return rootOffered(area, ctx) || sectionsOfArea(area).some((entry) => entry !== area && shown(entry, ctx));
+}
+
+/** Where an area opens: an address and, for an area whose page is made of views, the search that names the first one offered. */
+export interface Landing {
+  to: ConsolePath;
+  search?: Readonly<Record<string, string>>;
+}
+
+/**
+ * Where an area opens on a server: its own page when the server can do it and, when it cannot (the first section of Network
+ * is the published ports, which a hub does not have), the first of its sections it can. A view is the page with a search, so an
+ * area whose first view is not offered opens at the first that is (Logs on a machine with no applications opens at the system's).
+ */
+export function areaLanding(area: Dest, ctx: NavContext = {}): Landing {
+  if (rootOffered(area, ctx)) {
+    const first = offeredViews(area, ctx)[0];
+    return first?.search !== undefined && VIEWS[area.id]?.[0] !== first ? { to: area.to, search: first.search } : { to: area.to };
+  }
+  const other = sectionsOfArea(area).find((entry) => entry !== area && shown(entry, ctx));
+  return { to: (other ?? area).to };
+}
+
+/**
+ * Where an area opens: its page on a server, and from "All servers" its address under /fleet (`fleetTarget`), where its
+ * section has a face of its own or the table of servers every other section shows meanwhile. A section never has no place
+ * to open: the fleet draws what a server draws, section for section.
  */
 export function areaTarget(entry: Dest, scope: Scope): ConsolePath {
-  return scope === "fleet" ? (entry.fleetTo ?? entry.to) : entry.to;
+  return scope === "fleet" ? fleetTarget(entry) : entry.to;
+}
+
+/**
+ * The address "All servers" gives a section: its face where the register names one (`fleetTo`), and otherwise the same
+ * address under /fleet (`/databases` is `/fleet/databases`, `nodeRoute.fleetPathOf`), which draws what the section says
+ * of every server. The scope is in the address, so every link built from here stays in it.
+ */
+export function fleetTarget(entry: Dest): ConsolePath {
+  if (entry.fleetTo !== undefined) return entry.fleetTo;
+  // The fleet's own pages are already under /fleet, and the central's (Settings, the account) are no server's: neither has a scope to move to.
+  if (entry.scope === "fleet" || entry.to.includes("$") || isCentralOnlyPath(entry.to)) return entry.to;
+  return fleetPathOf(entry.to) as ConsolePath;
 }
 
 /** The same tabs for an id the caller has as text: tests and the palette, which draw nothing on a route. */
@@ -259,24 +325,84 @@ export function areaOf(pathname: string): Dest | undefined {
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
   let best: { entry: Dest; length: number } | undefined;
   const consider = (entry: Dest, prefix: string): void => {
-    const under = prefix === "/" ? path === "/" : isUnder(path, prefix);
+    // The home of a scope owns its own address and nothing beneath it: every other address starts with it.
+    const under = prefix === "/" || prefix === "/fleet" ? path === prefix : isUnder(path, prefix);
     if (under && (best === undefined || prefix.length > best.length)) best = { entry, length: prefix.length };
   };
   for (const entry of REGISTERED) consider(entry, staticPrefix(entry.to));
   for (const [prefix, id] of Object.entries(OWNED_BY)) consider(dest(id), prefix);
-  return best === undefined ? undefined : rootOf(best.entry);
+  if (best !== undefined) return rootOf(best.entry);
+  // A section of All servers that has no face of its own is the server's address under /fleet: it is under the same area.
+  const server = serverPathOfFleet(path);
+  return server === null || server === path ? undefined : areaOf(server);
+}
+
+/**
+ * Where "All servers" opens from a page of a server: the same section's page under /fleet (its face, or the table of servers that
+ * stands in for it), and for a page of one thing (an application) or one that is under no section, its area's. The summary of the
+ * fleet when the page is under no area.
+ */
+export function allServersTargetOf(pathname: string): ConsolePath {
+  const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+  const entry = entryAt(path);
+  if (entry?.to === path) return fleetTarget(entry);
+  const area = areaOf(path);
+  return area === undefined ? "/fleet" : fleetTarget(area);
+}
+
+/**
+ * Where a server opens from a page of All servers: the section the page is the fleet's page of, on that server (`/fleet/databases` is
+ * `/databases`; the fleet's certificates are the server's Certificates), and for a page that is only the fleet's (the applications that
+ * run on several servers) its area's page. The server's home when the page is under no area.
+ */
+export function serverTargetOf(pathname: string): ConsolePath {
+  const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+  const section = REGISTERED.find((entry) => entry.scope !== "fleet" && !entry.to.includes("$") && fleetTarget(entry) === path);
+  if (section !== undefined) return section.to;
+  const plain = serverPathOfFleet(path);
+  if (plain !== null && entryAt(plain)?.to === plain) return plain;
+  return areaOf(path)?.to ?? "/";
+}
+
+/**
+ * Whether an address under /fleet is a page of the fleet of its own (the applications of every server, the servers, the
+ * certificates...), as opposed to a section the table of servers stands in for until its area builds one (`/fleet/$`).
+ */
+export function isFleetFace(pathname: string): boolean {
+  const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+  return REGISTERED.some((entry) => entry.scope === "fleet" && entry.to === path) || isUnder(path, "/fleet/jobs");
+}
+
+/**
+ * The register's entry for an address on a server: the one whose path is the longest start of it. What a server must be
+ * able to do for the page is the entry's `feature`, and that is what `FeatureGate` asks. Undefined for a page that is under
+ * nothing.
+ */
+export function entryAt(pathname: string): Dest | undefined {
+  const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+  let best: { entry: Dest; length: number } | undefined;
+  for (const entry of REGISTERED) {
+    if (entry.scope === "fleet") continue;
+    const prefix = staticPrefix(entry.to);
+    const under = prefix === "/" ? path === "/" : isUnder(path, prefix);
+    if (under && (best === undefined || prefix.length > best.length)) best = { entry, length: prefix.length };
+  }
+  return best?.entry;
 }
 
 /**
  * The `g` shortcuts, in the order the shortcut list shows them, of one scope (or of all). The areas
  * are in both: the same two keys open each from a server and from the fleet.
  */
-export function shortcuts(scope?: Scope): { id: string; keys: readonly string[]; description: PlainKey; to: ConsolePath }[] {
+export function shortcuts(scope?: Scope, ctx: NavContext = {}): { id: string; keys: readonly string[]; description: PlainKey; to: ConsolePath }[] {
   return REGISTERED.flatMap((entry) => {
     if (entry.shortcut === undefined || entry.goTo === undefined) return [];
     if (scope !== undefined && entry.scope !== "both" && entry.scope !== scope) return [];
+    // What the server cannot do has no key: a shortcut is an option like any other. All servers has every section.
+    if (scope !== "fleet" && (entry.kind === "area" ? !areaOffered(entry, ctx) : !shown(entry, ctx))) return [];
     // The fleet's pages open an area at its fleet face, where it has one.
-    return [{ id: entry.id, keys: entry.shortcut, description: entry.goTo, to: scope === undefined ? entry.to : areaTarget(entry, scope) }];
+    const to = scope === undefined ? entry.to : scope === "fleet" ? areaTarget(entry, scope) : entry.kind === "area" ? areaLanding(entry, ctx).to : entry.to;
+    return [{ id: entry.id, keys: entry.shortcut, description: entry.goTo, to }];
   });
 }
 
@@ -304,6 +430,8 @@ export interface PaletteEntry {
 
 export interface PaletteContext extends NavContext {
   t: (key: PlainKey) => string;
+  /** The scope the person is in: from All servers every section opens at its page under /fleet, so choosing one never moves the selector. */
+  scope?: Scope;
 }
 
 /**
@@ -313,14 +441,18 @@ export interface PaletteContext extends NavContext {
  */
 export function paletteEntries(ctx: PaletteContext): PaletteEntry[] {
   const { t } = ctx;
-  return REGISTERED.filter((entry) => !entry.to.includes("$") && shown(entry, ctx)).map((entry) => {
+  // What the fleet already has a page for under its own name ("Certificates on every server") is that page; the section it stands for is not listed twice.
+  const faces = new Set(REGISTERED.filter((entry) => entry.scope === "fleet").map((entry) => entry.to as string));
+  const fleet = ctx.scope === "fleet";
+  const inFleet = (entry: Dest): boolean => entry.scope !== "fleet" && (entry.kind !== "hidden" || entry.column !== undefined) && !isCentralOnlyPath(entry.to);
+  return REGISTERED.filter((entry) => !entry.to.includes("$") && shown(entry, ctx) && !(fleet && inFleet(entry) && faces.has(fleetTarget(entry)))).map((entry) => {
     const place = [...crumbsOf(entry.id), entry].filter((step) => step.kind !== "hidden" || step === entry).map((step) => t(step.label));
     const old = (RENAMED[entry.id] ?? []).map((key) => t(key));
     // The fleet's faces are named by their phrase ("Certificates on every server"): their bare name is the area's.
     const bare = entry.kind === "area";
     return {
       id: entry.id,
-      to: entry.to,
+      to: fleet && inFleet(entry) ? fleetTarget(entry) : entry.to,
       scope: entry.scope,
       text: bare ? t(entry.label) : entry.command !== undefined ? t(entry.command) : place.join(" › "),
       path: place.join(" › "),

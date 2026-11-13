@@ -24,6 +24,7 @@ import type { PanelScope } from "../../components/widgets/types";
 import { useCan } from "../../components/page/permissions";
 import { useT } from "../../i18n";
 import { useHasFleet } from "../../nodes/servers";
+import { useScopeOffers } from "../../nodes/useNode";
 import { reportActionError } from "../apps/useAppActions";
 import { dropPanel, keepPanel, markClean, readPanelCache, settleHere, takeServerPanels, usePanelCache } from "./panelStore";
 import { defaultLayout, panelsOf, slugOf, startingLayout } from "./panels";
@@ -74,6 +75,7 @@ function inCache(queryClient: QueryClient, change: (list: Dashboards["dashboards
 export function usePanels(): Panels {
   const t = useT();
   const can = useCan();
+  const features = useScopeOffers();
   const hasFleet = useHasFleet();
   const queryClient = useQueryClient();
   // Only an account keeps panels on the server. The access token is not asked what it would refuse: the browser would
@@ -132,7 +134,7 @@ export function usePanels(): Panels {
     );
   };
 
-  const panels = useMemo(() => panelsOf(cache.panels, can, t, offerFleet), [cache.panels, can, t, offerFleet]);
+  const panels = useMemo(() => panelsOf(cache.panels, can, t, offerFleet, features), [cache.panels, can, t, offerFleet, features]);
   const limits = remote.data?.limits ?? LIMITS;
 
   const forget = (id: string): void => {
@@ -167,7 +169,7 @@ export function usePanels(): Panels {
     create: ({ name, scope, start }) => {
       if (cache.panels.length >= limits.dashboards) return null;
       const id = slugOf(name, cache.panels.map((panel) => panel.id));
-      const layout = startingLayout(scope, start, can);
+      const layout = startingLayout(scope, start, can, features);
       keepPanel({ id, name, scope, layout: toDocument(layout) });
       later(id, 0);
       return { id, name, scope, layout, builtin: false, customised: false };
@@ -181,7 +183,7 @@ export function usePanels(): Panels {
     },
     reset: (panel) => {
       if (panel.builtin) forget(panel.id);
-      else save(panel, defaultLayout(panel.scope, can));
+      else save(panel, defaultLayout(panel.scope, can, features));
     },
   };
 }

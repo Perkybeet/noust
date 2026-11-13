@@ -12,16 +12,16 @@ import { sessionQuery } from "../../api/queries/auth";
 import { activeJobsQuery } from "../../api/queries/jobs";
 import { StatusGlyph } from "../../components/ui/StatusPill";
 import { Tooltip } from "../../components/ui/Tooltip";
-import { isLocalOnlyPath, useCentral } from "../../features/central/central";
+import { countsOf, fleetViewQuery } from "../../features/fleet/data";
 import { useAttention } from "../../features/inbox/useAttention";
 import { iconOf } from "../../features/nav/icons";
 import { useT } from "../../i18n";
 import type { PlainKey } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { useReturnServer } from "../../nodes/servers";
-import { useConsoleContext, useSelection } from "../../nodes/useNode";
-import { areaLabelKey, areaOf, areaTarget, dest, sidebarFor } from "../nav";
-import type { ConsolePath, Dest, Scope } from "../nav";
+import { useConsoleContext, useScopeOffers, useSelection } from "../../nodes/useNode";
+import { areaLabelKey, areaLanding, areaOf, areaTarget, dest, sidebarFor } from "../nav";
+import type { ConsolePath, Dest, Landing, Scope } from "../nav";
 import type { NavContext } from "../navCore";
 import { useNavScope } from "../useNavScope";
 
@@ -35,7 +35,9 @@ export interface AreaCounts {
 export interface AreaItem {
   entry: Dest;
   to: ConsolePath;
-  /** The server the link opens, when the page on screen is the fleet's or the central's and the area has no face there. */
+  /** What the address carries beside the path: the page of an area made of views that opens at the first the server offers. */
+  search?: Readonly<Record<string, string>>;
+  /** The server the link opens, when the page on screen is the central's (no server's): the one the selector is on, or the one to go back to. */
   node?: string | null;
   /** The name when it is not the register's: the machine is "Server" on one and "Servers" over all of them. */
   labelKey?: PlainKey;
@@ -76,44 +78,61 @@ function useCounts(enabled: boolean): Readonly<Record<string, AreaCounts>> {
 }
 
 /**
- * The bar's areas for the page on screen. On a hub, which deploys nothing of its own, the areas about a
- * machine's deployments are left out of a server's pages (they only redirect to the fleet), and from the
- * fleet's pages the ones with no fleet face lead back to the server the person came from (what Settings has always done).
- * An area the principal may not read (the machine's, for a role of a team) is not offered. On a page of the instance, which
- * is no server's, the bar follows the selector, which such a page leaves where it was.
+ * What the bar counts with All servers: the sum over the servers, from the fleet's one summary (the applications that failed and
+ * the services that failed, whichever server they are on). Before this the bar lost its numbers the moment it left a server; what the
+ * fleet's summary does not carry (the certificates, the findings) is counted where the area opens, by server.
+ */
+function useFleetCounts(enabled: boolean): Readonly<Record<string, AreaCounts>> {
+  const { data } = useQuery({ ...fleetViewQuery("summary"), enabled });
+  if (!enabled || data === undefined) return {};
+  let apps = 0;
+  let units = 0;
+  for (const row of data.items) {
+    apps += countsOf(row, "apps")?.failed ?? 0;
+    units += countsOf(row, "units")?.failed ?? 0;
+  }
+  return { apps: { ...NONE, failed: apps }, server: { ...NONE, failed: units } };
+}
+
+/**
+ * The bar's areas for the page on screen: the same areas whichever scope the person is in (item 196), and what the server
+ * chosen cannot do is not among them (item 187: a hub, chosen, has the areas a hub has; All servers has every area, each
+ * with the fleet's page of it). An area opens at its first section the server offers. On a page of the instance, which is
+ * no server's, the bar follows the selector, which such a page leaves where it was.
  */
 export function useAreas(): Areas {
   const context = useConsoleContext();
-  const { role } = useCentral();
   const back = useReturnServer();
   const scope = useNavScope();
-  const selection = useSelection(role === "hub");
+  const selection = useSelection();
+  const features = useScopeOffers();
   const { data: permissions } = useQuery({ ...sessionQuery(), select: (session) => session.permissions });
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const counts = useCounts(scope === "server");
-  const onHub = role === "hub" && context.kind === "server" && context.node === null;
+  const own = useCounts(scope === "server");
+  const fleetCounts = useFleetCounts(scope === "fleet");
+  const counts = scope === "fleet" ? fleetCounts : own;
   const current = areaOf(pathname);
   // The server the area opens, when it opens one from a page that is no server's: the one the selector is on, or the one to go back to.
   const node = context.kind === "server" ? undefined : scope === "server" && selection.kind === "server" ? selection.node : (back?.node ?? null);
-  const can: NavContext = permissions === undefined ? {} : { can: (permission) => permissions.includes(permission) };
+  const ctx: NavContext = { ...(permissions === undefined ? {} : { can: (permission: string) => permissions.includes(permission) }), features };
 
   const item = (entry: Dest): AreaItem => {
-    const face = scope === "fleet" && entry.fleetTo !== undefined;
+    const fleet = scope === "fleet";
+    const landing: Landing = fleet ? { to: areaTarget(entry, scope) } : areaLanding(entry, ctx);
     return {
       entry,
-      to: areaTarget(entry, scope),
-      ...(!face && node !== undefined ? { node } : {}),
+      to: landing.to,
+      ...(landing.search !== undefined ? { search: landing.search } : {}),
+      // The fleet's pages are addresses of their own and carry no server; a server's page from a page of the instance does.
+      ...(!fleet && node !== undefined ? { node } : {}),
       ...(entry.id === "server" ? { labelKey: areaLabelKey(entry, scope) } : {}),
       Icon: iconOf(entry),
       current: current?.id === entry.id,
       counts: counts[entry.id] ?? NONE,
     };
   };
-  const offered = (entry: Dest): boolean => !onHub || (entry.to !== "/" && !isLocalOnlyPath(entry.to));
   return {
-    groups: sidebarFor(can)
-      .map((group) => group.filter(offered).map(item))
-      .filter((group) => group.length > 0),
+    groups: sidebarFor(ctx).map((group) => group.map(item)),
     settings: item(dest("settings")),
     scope,
   };
@@ -199,7 +218,7 @@ export function AreaLink({
   const link = (
     <Link
       to={item.to}
-      {...(item.node !== undefined ? { search: { node: item.node ?? undefined } } : {})}
+      {...(item.node !== undefined || item.search !== undefined ? { search: { ...item.search, ...(item.node !== undefined ? { node: item.node ?? undefined } : {}) } as never } : {})}
       activeOptions={{ exact: true, includeSearch: false }}
       {...(onNavigate !== undefined ? { onClick: onNavigate } : {})}
       {...(item.current ? { "aria-current": "page" as const } : {})}

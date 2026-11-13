@@ -8,6 +8,7 @@
 import type { ComponentType } from "react";
 import type { LucideIcon } from "lucide-react";
 
+import type { FeatureKey } from "../../features/central/features";
 import type { PlainKey, T } from "../../i18n";
 import { OBJECT_ICONS } from "../ui/objectIcons";
 import { TextLink } from "../ui/TextLink";
@@ -62,6 +63,8 @@ export interface WidgetDef {
   scopes: readonly PanelScope[];
   /** What a person must hold, all of it, to see it in a panel of one server. A panel of the fleet needs `fleet.read` instead, whatever the widget reads. */
   needs: readonly string[];
+  /** The function of the server's table it reads: a panel of a server that cannot do it has no such widget (item 187). A panel of the fleet reads every server's, not this one's. */
+  feature?: FeatureKey;
   /** The link in its head, to where the whole of it is. */
   link?: { to: string; label: PlainKey };
   /** A head that is drawn from what the widget knows (the count of what needs attention). */
@@ -74,22 +77,22 @@ export interface WidgetDef {
 export const WIDGETS: readonly WidgetDef[] = [
   { type: "attention", icon: OBJECT_ICONS.alert, category: "state", sizes: ["medium", "large", "wide", "xlarge"], scopes: ["server", "fleet"], needs: ["server.read"], Head: AttentionLink, Body: AttentionBody },
   { type: "figures", icon: OBJECT_ICONS.overview, category: "state", sizes: ["medium", "large", "wide"], scopes: ["server"], needs: ["server.read"], Body: FiguresBody },
-  { type: "work", icon: OBJECT_ICONS.work, category: "state", sizes: ["small", "medium", "large"], scopes: ["server", "fleet"], needs: ["apps.read"], Body: WorkBody },
+  { type: "work", icon: OBJECT_ICONS.work, category: "state", sizes: ["small", "medium", "large"], scopes: ["server", "fleet"], needs: ["apps.read"], feature: "applications", Body: WorkBody },
   { type: "activity", icon: OBJECT_ICONS.activity, category: "state", sizes: ["medium", "large", "tall"], scopes: ["server", "fleet"], needs: ["server.read"], link: { to: "/activity", label: "widgets.activity.all" }, Body: ActivityBody },
   { type: "alerts", icon: OBJECT_ICONS.firing, category: "state", sizes: ["small", "medium"], scopes: ["server", "fleet"], needs: ["server.read"], link: { to: "/alerts", label: "widgets.alerts.all" }, Body: AlertsBody },
-  { type: "apps", icon: OBJECT_ICONS.app, category: "apps", sizes: ["small", "medium", "large", "wide"], scopes: ["server", "fleet"], needs: ["apps.read"], link: { to: "/apps", label: "widgets.apps.all" }, Body: AppsBody },
-  { type: "deployments", icon: OBJECT_ICONS.deployment, category: "apps", sizes: ["small", "medium", "large", "wide"], scopes: ["server"], needs: ["apps.read"], link: { to: "/activity", label: "widgets.deployments.all" }, Body: DeploymentsBody },
-  { type: "tasks", icon: OBJECT_ICONS.schedule, category: "apps", sizes: ["small", "medium"], scopes: ["server"], needs: ["apps.read"], link: { to: "/cron", label: "widgets.tasks.all" }, Body: TasksBody },
-  { type: "databases", icon: OBJECT_ICONS.database, category: "apps", sizes: ["medium", "large", "tall"], scopes: ["server"], needs: ["databases.read"], link: { to: "/databases", label: "widgets.databases.all" }, Body: DatabasesBody },
+  { type: "apps", icon: OBJECT_ICONS.app, category: "apps", sizes: ["small", "medium", "large", "wide"], scopes: ["server", "fleet"], needs: ["apps.read"], feature: "applications", link: { to: "/apps", label: "widgets.apps.all" }, Body: AppsBody },
+  { type: "deployments", icon: OBJECT_ICONS.deployment, category: "apps", sizes: ["small", "medium", "large", "wide"], scopes: ["server"], needs: ["apps.read"], feature: "applications", link: { to: "/activity", label: "widgets.deployments.all" }, Body: DeploymentsBody },
+  { type: "tasks", icon: OBJECT_ICONS.schedule, category: "apps", sizes: ["small", "medium"], scopes: ["server"], needs: ["apps.read"], feature: "scheduled_jobs", link: { to: "/cron", label: "widgets.tasks.all" }, Body: TasksBody },
+  { type: "databases", icon: OBJECT_ICONS.database, category: "apps", sizes: ["medium", "large", "tall"], scopes: ["server"], needs: ["databases.read"], feature: "databases", link: { to: "/databases", label: "widgets.databases.all" }, Body: DatabasesBody },
   { type: "resources", icon: OBJECT_ICONS.resources, category: "machine", sizes: ["small", "medium", "tall"], scopes: ["server"], needs: ["server.read"], Body: ResourcesBody },
   { type: "disk", icon: OBJECT_ICONS.disk, category: "machine", sizes: ["small", "medium", "tall"], scopes: ["server"], needs: ["server.read"], Body: DiskBody },
   { type: "processes", icon: OBJECT_ICONS.processes, category: "machine", sizes: ["medium", "large"], scopes: ["server"], needs: ["server.read"], Body: ProcessesBody },
-  { type: "services", icon: OBJECT_ICONS.service, category: "machine", sizes: ["small", "medium"], scopes: ["server"], needs: ["server.read"], link: { to: "/server/services", label: "widgets.services.all" }, Body: ServicesBody },
+  { type: "services", icon: OBJECT_ICONS.service, category: "machine", sizes: ["small", "medium"], scopes: ["server"], needs: ["server.read"], feature: "services", link: { to: "/server/services", label: "widgets.services.all" }, Body: ServicesBody },
   { type: "updates", icon: OBJECT_ICONS.update, category: "machine", sizes: ["small", "medium", "large"], scopes: ["server", "fleet"], needs: ["server.read"], link: { to: "/server/system", label: "widgets.updates.all" }, Body: UpdatesBody },
-  { type: "certificates", icon: OBJECT_ICONS.certificate, category: "protection", sizes: ["small", "medium", "large"], scopes: ["server", "fleet"], needs: ["apps.read"], Body: CertificatesBody },
-  { type: "backups", icon: OBJECT_ICONS.backup, category: "protection", sizes: ["small", "medium", "tall"], scopes: ["server", "fleet"], needs: ["backups.read"], link: { to: "/backups", label: "widgets.backups.all" }, Body: BackupsBody },
-  { type: "probes", icon: OBJECT_ICONS.probe, category: "protection", sizes: ["small", "medium", "wide"], scopes: ["server"], needs: ["server.read"], link: { to: "/alerts/probes", label: "widgets.probes.all" }, Body: ProbesBody },
-  { type: "security", icon: OBJECT_ICONS.security, category: "protection", sizes: ["small", "medium"], scopes: ["server"], needs: ["server.read"], link: { to: "/server/security", label: "widgets.security.all" }, Body: SecurityBody },
+  { type: "certificates", icon: OBJECT_ICONS.certificate, category: "protection", sizes: ["small", "medium", "large"], scopes: ["server", "fleet"], needs: ["apps.read"], feature: "certificates", Body: CertificatesBody },
+  { type: "backups", icon: OBJECT_ICONS.backup, category: "protection", sizes: ["small", "medium", "tall"], scopes: ["server", "fleet"], needs: ["backups.read"], feature: "application_backups", link: { to: "/backups", label: "widgets.backups.all" }, Body: BackupsBody },
+  { type: "probes", icon: OBJECT_ICONS.probe, category: "protection", sizes: ["small", "medium", "wide"], scopes: ["server"], needs: ["server.read"], feature: "process_monitor", link: { to: "/alerts/probes", label: "widgets.probes.all" }, Body: ProbesBody },
+  { type: "security", icon: OBJECT_ICONS.security, category: "protection", sizes: ["small", "medium"], scopes: ["server"], needs: ["server.read"], feature: "server_security", link: { to: "/server/security", label: "widgets.security.all" }, Body: SecurityBody },
   { type: "fleet", icon: OBJECT_ICONS.server, category: "fleet", sizes: ["medium", "large", "wide", "xlarge"], scopes: ["fleet"], needs: ["fleet.read"], link: { to: "/fleet/servers", label: "widgets.fleet.all" }, Body: FleetBody },
   { type: "actions", icon: OBJECT_ICONS.shortcuts, category: "shortcuts", sizes: ["small", "medium", "wide"], scopes: ["server", "fleet"], needs: [], Body: ActionsBody },
 ];
@@ -104,14 +107,20 @@ function needsFor(widget: WidgetDef, scope: PanelScope): readonly string[] {
   return scope === "fleet" ? ["fleet.read"] : widget.needs;
 }
 
-/** Whether a widget can be in a panel of this scope for a credential that holds these permissions. */
-export function isOffered(widget: WidgetDef, scope: PanelScope, can: (permission: string) => boolean): boolean {
-  return widget.scopes.includes(scope) && needsFor(widget, scope).every(can);
+/** What a server offers, as `useScopeOffers` says it; absent: every widget is offered whatever it reads. */
+export type Offers = (key: FeatureKey | undefined) => boolean;
+
+/**
+ * Whether a widget can be in a panel of this scope for a credential that holds these permissions, on a server that can do what the
+ * widget reads. A panel of the fleet reads every server's, so the chosen server's table does not judge it.
+ */
+export function isOffered(widget: WidgetDef, scope: PanelScope, can: (permission: string) => boolean, features?: Offers): boolean {
+  return widget.scopes.includes(scope) && needsFor(widget, scope).every(can) && (scope === "fleet" || features === undefined || features(widget.feature));
 }
 
 /** The widgets a panel of this scope may hold for what the credential holds, in the order the gallery lists them. */
-export function offeredWidgets(scope: PanelScope, can: (permission: string) => boolean): WidgetDef[] {
-  return WIDGETS.filter((widget) => isOffered(widget, scope, can));
+export function offeredWidgets(scope: PanelScope, can: (permission: string) => boolean, features?: Offers): WidgetDef[] {
+  return WIDGETS.filter((widget) => isOffered(widget, scope, can, features));
 }
 
 /** A widget as it is first put in a panel: its first size and what it keeps by default, with an id that is free. */
@@ -120,10 +129,10 @@ export function newPlaced(widget: WidgetDef, layout: readonly Placed[]): Placed 
 }
 
 /** The sizes of a widget type for `fromDocument`, or null for one that is not here (or that this credential may not see). */
-export function sizesOf(scope: PanelScope, can: (permission: string) => boolean): (type: string) => readonly SizeKey[] | null {
+export function sizesOf(scope: PanelScope, can: (permission: string) => boolean, features?: Offers): (type: string) => readonly SizeKey[] | null {
   return (type) => {
     const widget = widgetOf(type);
-    return widget !== undefined && isOffered(widget, scope, can) ? widget.sizes : null;
+    return widget !== undefined && isOffered(widget, scope, can, features) ? widget.sizes : null;
   };
 }
 

@@ -1,4 +1,3 @@
-import { useCentral } from "../features/central/central";
 import { useHasFleet } from "../nodes/servers";
 import { useConsoleContext, useSelection } from "../nodes/useNode";
 import type { Scope } from "./nav";
@@ -13,8 +12,7 @@ import type { Scope } from "./nav";
 export function useNavScope(): Scope {
   const context = useConsoleContext();
   const hasFleet = useHasFleet();
-  const { role } = useCentral();
-  const selection = useSelection(role === "hub");
+  const selection = useSelection();
   if (context.kind === "server") return "server";
   if (context.kind === "fleet") return "fleet";
   return hasFleet && selection.kind === "all" ? "fleet" : "server";

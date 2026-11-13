@@ -76,48 +76,18 @@ export function isCentralLockedError(error: unknown): boolean {
 }
 
 /**
- * The console's pages about this machine's own deployments: what a hub does not have. A path
- * under `/n/<server>/` is a server's own page and always has them.
+ * Where a hub opens when the address is the console's start (`/`): the fleet. A hub has no server of its own to begin on, so
+ * with nothing chosen yet in this tab it starts on All servers; once the operator has chosen anything (the hub itself
+ * included) `/` is that server's home and nothing is redirected. It is the only thing the console decides by the role: what
+ * a hub can do is `session.central.features`, asked by `offers` (features.ts), never by the role.
+ *
+ * @param session The signed-in session.
+ * @param pathname The address being opened, without `/n/...`.
+ * @param node The server the address names, or null.
+ * @param chosen Whether this tab has already chosen a server or All servers in the selector.
  */
-const LOCAL_ONLY = /^\/(?:apps|databases|services|cron|domains|backups|projects|teams)(?:\/|$)/;
-
-/** Whether a path of the console shows something a hub does not do. */
-export function isLocalOnlyPath(pathname: string): boolean {
-  return LOCAL_ONLY.test(pathname);
-}
-
-/** The part of the console a hub was asked for, so the fleet can say what to pick a server for. */
-export type HubArea = "apps" | "databases" | "services" | "cron" | "domains" | "backups" | "projects" | "teams";
-
-const HUB_AREAS: readonly HubArea[] = ["apps", "databases", "services", "cron", "domains", "backups", "projects", "teams"];
-
-/** Which area a local-only path belongs to; null for any other path. */
-export function hubAreaOf(pathname: string): HubArea | null {
-  if (!isLocalOnlyPath(pathname)) return null;
-  return HUB_AREAS.find((area) => pathname.split("/")[1] === area) ?? null;
-}
-
-/** Reads a `hub` search value back into an area, ignoring anything else. */
-export function parseHubArea(value: unknown): HubArea | "overview" | undefined {
-  if (value === "overview") return "overview";
-  return HUB_AREAS.find((area) => area === value);
-}
-
-/**
- * Where a hub sends a page it does not have: its overview and every page about this machine's
- * own deployments open the Fleet instead, which says why and lists the servers that do have
- * them. Null when the page stays (not a hub, or a page a hub has).
- */
-export function hubRedirect(session: SessionInfo, pathname: string, node: string | null): { hub: HubArea | "overview" } | null {
-  // A server's own pages (`/n/web-2/apps`) are that server's: a hub only lacks its own.
-  if (node !== null || centralOf(session).role !== "hub") return null;
-  // A new application starts by asking which of the fleet's servers deploys it.
-  if (pathname === "/apps/new") return null;
-  if (pathname === "/") return { hub: "overview" };
-  // The destinations the central carries to every server are written here: a hub has no destinations of its own, and this is the one page of Backups it keeps.
-  if (pathname === "/backups/destinations") return null;
-  const area = hubAreaOf(pathname);
-  return area === null ? null : { hub: area };
+export function startsOnFleet(session: SessionInfo, pathname: string, node: string | null, chosen: boolean): boolean {
+  return pathname === "/" && node === null && !chosen && centralOf(session).role === "hub";
 }
 
 /** Where a tab that chose "continue locked" remembers it, until the tab is closed. */

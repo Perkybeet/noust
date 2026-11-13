@@ -32,7 +32,6 @@ export const nav: Catalog<typeof en> = {
     tools: "Herramientas",
     fleet: "Flota",
     dns: "DNS",
-    servers: "Servidores",
   },
   views: {
     appsAll: "Todas",

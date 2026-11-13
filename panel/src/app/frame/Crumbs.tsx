@@ -12,6 +12,8 @@ import { columnIconOf } from "../../features/nav/icons";
 import { hasMessage, useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { crumbsFor } from "../crumbs";
+import { serverPathOfFleet } from "../nodeRoute";
+import { leafRoute } from "../renderedPath";
 import type { CrumbName, CrumbStep } from "../crumbs";
 import { DESTS } from "../nav";
 import type { ConsolePath } from "../nav";
@@ -126,7 +128,8 @@ export function Crumbs({ className }: { className?: string }) {
   const t = useT();
   const scope = useNavScope();
   const params: Params = useParams({ strict: false });
-  const route = useRouterState({ select: (state) => state.matches.at(-1)?.fullPath ?? "" });
+  // A section of All servers that has no page of its own is drawn by the one route of /fleet/$: its trail is the one of its address.
+  const route = useRouterState({ select: (state) => serverPathOfFleet(leafRoute(state)) ?? leafRoute(state) });
   const nameOf = useName(params);
   const capabilities = useDatabaseCapabilities(route, params);
   // Two entries can be one address (a database's Data and Keys): the one its engine has names the page.

@@ -7,6 +7,8 @@ import { servicesQuery } from "../api/queries/services";
 import { sitesQuery } from "../api/queries/sites";
 import { sessionQuery } from "../api/queries/auth";
 import { recentDeploysQuery } from "../features/apps/data";
+import type { FeatureKey } from "../features/central/features";
+import { useScopeOffers } from "../nodes/useNode";
 import type { ResourceIndex } from "./resourceCommands";
 
 /**
@@ -31,15 +33,17 @@ const INDEX_STALE_MS = 60_000;
  */
 export function useResourceIndex(open: boolean, enabled: boolean): ResourceIndex {
   const { data: permissions } = useQuery({ ...sessionQuery(), select: (session) => session.permissions });
-  const may = (permission: string): boolean => open && enabled && (permissions?.includes(permission) ?? false);
+  const offered = useScopeOffers();
+  // What the server cannot do is never asked of it: a list the palette would have to hide an error for is not read (item 187).
+  const may = (permission: string, feature: FeatureKey): boolean => open && enabled && offered(feature) && (permissions?.includes(permission) ?? false);
   const options = { staleTime: INDEX_STALE_MS, retry: false } as const;
 
   // `apps.read` covers the sites, certificates and deployments; the services are the server's.
-  const databases = useQuery({ ...databasesQuery(), ...options, enabled: may("databases.read") });
-  const sites = useQuery({ ...sitesQuery(), ...options, enabled: may("apps.read") });
-  const certificates = useQuery({ ...certsQuery(), ...options, enabled: may("apps.read") });
-  const deployments = useQuery({ ...recentDeploysQuery(), ...options, enabled: may("apps.read") });
-  const services = useQuery({ ...servicesQuery(), ...options, enabled: may("server.read") });
+  const databases = useQuery({ ...databasesQuery(), ...options, enabled: may("databases.read", "databases") });
+  const sites = useQuery({ ...sitesQuery(), ...options, enabled: may("apps.read", "sites") });
+  const certificates = useQuery({ ...certsQuery(), ...options, enabled: may("apps.read", "certificates") });
+  const deployments = useQuery({ ...recentDeploysQuery(), ...options, enabled: may("apps.read", "applications") });
+  const services = useQuery({ ...servicesQuery(), ...options, enabled: may("server.read", "services") });
 
   // One object while nothing arrived: the palette's commands are rebuilt when this changes.
   return useMemo(

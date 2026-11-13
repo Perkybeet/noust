@@ -66,6 +66,8 @@ const OBJECT_OF: Readonly<Record<string, ObjectName>> = {
  * every section, and nothing else) stays about the areas.
  */
 const COLUMN_OBJECT: Readonly<Record<string, ObjectName>> = {
+  // Databases drew its own list of engines with their logos; from All servers, and on a server with no databases, it is the register's list.
+  "databases.engines": "service",
   // An application.
   app: "app",
   "app.deployments": "deployment",

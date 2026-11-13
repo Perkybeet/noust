@@ -108,6 +108,26 @@ export function isCentralOnlyPath(pathname: string): boolean {
   return CENTRAL_ONLY_PATHS.some((prefix) => under(pathname, prefix)) || CENTRAL_EXACT_PATHS.includes(bare);
 }
 
+/**
+ * The address "All servers" gives a page of the console: the same address under `/fleet` (`/databases` is
+ * `/fleet/databases`, the home is `/fleet`). The scope is the address, so every link a list builds in it stays in it and
+ * the selector never moves by itself (4.3, item 196). The inverse is `serverPathOfFleet`.
+ */
+export function fleetPathOf(pathname: string): string {
+  const bare = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+  return bare === "/" ? "/fleet" : `/fleet${bare}`;
+}
+
+/**
+ * The server's address of a page of All servers: `/fleet/databases` is `/databases`, `/fleet` is the home. Null for an address
+ * that is not under `/fleet`.
+ */
+export function serverPathOfFleet(pathname: string): string | null {
+  const bare = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+  if (bare === "/fleet") return "/";
+  return bare.startsWith("/fleet/") ? bare.slice("/fleet".length) : null;
+}
+
 /** Which of the three contexts a page is in. */
 export type ConsoleContext = { kind: "server"; node: string | null } | { kind: "fleet" } | { kind: "central" };
 

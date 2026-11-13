@@ -4,6 +4,7 @@ import { VIEWS } from "../features/nav/views";
 import { INTENT_ORDER, RESOURCE_PARENT, accountColumn, appColumn, areaColumn, columnKindOf, currentItem, depthOf, resourceColumn } from "./columns";
 import type { ColumnGroup, ColumnKind } from "./columns";
 import { DESTS, settingsGroups } from "./nav";
+import { isCentralOnlyPath } from "./nodeRoute";
 
 const everything = { staged: true } as const;
 
@@ -235,12 +236,21 @@ describe("the column of an area", () => {
     expect(paths(false)).toEqual(["/apps", "/apps", "/apps", "/apps"]);
   });
 
-  it("draws the fleet's faces of an area from All servers, and none of the server's own pages", () => {
-    const paths = (kind: ColumnKind) => areaColumn(kind, everything, "fleet").flatMap((group) => group.items.map((item) => item.to));
-    expect(paths("apps")).toEqual(["/fleet/apps", "/fleet/placements"]);
-    expect(paths("domains")).toEqual(["/fleet/certificates"]);
-    expect(paths("server")).toEqual(["/fleet/servers", "/fleet/updates", "/fleet/software"]);
-    expect(paths("backups")).toEqual(["/fleet/backups", "/fleet/central-backups"]);
+  it("draws the same sections of an area from All servers as from a server, each at its address under /fleet", () => {
+    // The views of an area are one page with another search: each address is listed once here.
+    const paths = (kind: ColumnKind) => [...new Set(areaColumn(kind, everything, "fleet").flatMap((group) => group.items.map((item) => item.to)))];
+    expect(paths("apps")).toEqual(["/fleet/apps", "/fleet/projects", "/fleet/projects/teams", "/fleet/placements"]);
+    expect(paths("domains")).toEqual(["/fleet/domains", "/fleet/domains/sites", "/fleet/certificates", "/fleet/domains/dns", "/fleet/domains/dns/noust"]);
+    expect(paths("server")).toEqual(
+      expect.arrayContaining(["/fleet/servers", "/fleet/server/machine", "/fleet/updates", "/fleet/server/services", "/fleet/software", "/fleet/server/files", "/fleet/server/terminal"]),
+    );
+    // The same five sections as with a server, and the copies the central holds of its servers, which only All servers has (the owner's third case).
+    // Destinations is the central's own page (what it carries to every server): it is in the column, and the scope is kept through it.
+    expect(paths("backups")).toEqual(["/fleet/backups", "/fleet/backups/schedules", "/fleet/backups/volumes", "/fleet/backups/noust", "/backups/destinations", "/fleet/central-backups"]);
+    // Nothing of an area's column leaves All servers, but for the central's own pages, which belong to no server and leave the selector where it was.
+    for (const kind of ["apps", "catalog", "databases", "cron", "domains", "network", "logs", "alerts", "activity", "backups", "security", "server"] as const) {
+      for (const path of paths(kind)) expect(path.startsWith("/fleet") || isCentralOnlyPath(path), `${kind} lists ${path}`).toBe(true);
+    }
   });
 });
 

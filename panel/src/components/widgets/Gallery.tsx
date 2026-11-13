@@ -13,6 +13,7 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import { useT } from "../../i18n";
 import { Input } from "../ui/Input";
 import { CATEGORY_ORDER, offeredWidgets } from "./catalog";
+import type { Offers } from "./catalog";
 import type { WidgetDef } from "./catalog";
 import { GalleryCard } from "./GalleryCard";
 import type { Placed } from "./model";
@@ -22,6 +23,8 @@ export interface GalleryProps {
   scope: PanelScope;
   /** What the credential holds: a widget it may not see is not listed. */
   can: (permission: string) => boolean;
+  /** What the server offers (`useScopeOffers`): a widget that reads what it cannot do is not listed. Absent: every widget is. */
+  features?: Offers;
   /** What is in the panel now, for the check beside what is already there. */
   layout: readonly Placed[];
   /** The panel holds as many as it may: a widget is not added, and the gallery says why. */
@@ -38,11 +41,11 @@ function answers(t: ReturnType<typeof useT>, widget: WidgetDef, query: string): 
   return words.every((word) => haystack.includes(word));
 }
 
-export function Gallery({ scope, can, layout, full, onAdd, onStartDrag }: GalleryProps) {
+export function Gallery({ scope, can, features, layout, full, onAdd, onStartDrag }: GalleryProps) {
   const t = useT();
   const [query, setQuery] = useState("");
   const present = new Set(layout.map((placed) => placed.type));
-  const offered = offeredWidgets(scope, can).filter((widget) => query.trim() === "" || answers(t, widget, query));
+  const offered = offeredWidgets(scope, can, features).filter((widget) => query.trim() === "" || answers(t, widget, query));
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="shrink-0 px-3 pb-3">

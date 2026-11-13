@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { SESSION } from "../../test/fakes";
 import type { SessionInfo } from "../../api/queries/auth";
 import { ApiError, ElevationCancelledError } from "../../api/client";
-import { PLAIN_SERVER, centralOf, hubAreaOf, hubRedirect, isHubRoleError, isLocalOnlyPath, isWrongPassphrase, parseHubArea } from "./central";
+import { PLAIN_SERVER, centralOf, isHubRoleError, isWrongPassphrase, startsOnFleet } from "./central";
 
 function withCentral(central: NonNullable<SessionInfo["central"]> | null): SessionInfo {
   return { ...SESSION, central };
@@ -22,35 +22,22 @@ describe("centralOf", () => {
   });
 });
 
-describe("a hub's pages", () => {
-  it("knows which pages are about this machine's own deployments", () => {
-    for (const path of ["/apps", "/apps/new", "/apps/shop.example.com/logs", "/databases", "/services/x", "/cron", "/domains", "/backups"]) {
-      expect(isLocalOnlyPath(path)).toBe(true);
-    }
-    for (const path of ["/", "/fleet", "/settings/servers", "/activity", "/server", "/applications"]) {
-      expect(isLocalOnlyPath(path)).toBe(false);
-    }
-    expect(hubAreaOf("/apps/shop.example.com")).toBe("apps");
-    expect(hubAreaOf("/settings")).toBeNull();
+describe("where a hub starts", () => {
+  const hub = withCentral({ role: "hub", sealed: false, locked: false });
+
+  it("starts a hub on All servers when nothing has been chosen in this tab: it has no server of its own to begin on", () => {
+    expect(startsOnFleet(hub, "/", null, false)).toBe(true);
   });
 
-  it("sends a hub's overview and deployment pages to the fleet, and nothing on a server or a node", () => {
-    const hub = withCentral({ role: "hub", sealed: false, locked: false });
-    expect(hubRedirect(hub, "/", null)).toEqual({ hub: "overview" });
-    expect(hubRedirect(hub, "/apps", null)).toEqual({ hub: "apps" });
-    // A new application starts by asking which of the fleet's servers deploys it.
-    expect(hubRedirect(hub, "/apps/new", null)).toBeNull();
-    expect(hubRedirect(hub, "/settings/security", null)).toBeNull();
-    // `/n/web-2/apps` is web-2's page: the router reads it as /apps with node web-2.
-    expect(hubRedirect(hub, "/apps", "web-2")).toBeNull();
-    expect(hubRedirect(SESSION, "/apps", null)).toBeNull();
-  });
-
-  it("reads the fleet's `hub` search back, ignoring anything else", () => {
-    expect(parseHubArea("databases")).toBe("databases");
-    expect(parseHubArea("overview")).toBe("overview");
-    expect(parseHubArea("settings")).toBeUndefined();
-    expect(parseHubArea(3)).toBeUndefined();
+  it("leaves everything else where it is: a hub whose operator chose something, a page that is not the start, a node, and any other server", () => {
+    // The hub itself chosen in the selector is a choice: its home is its home.
+    expect(startsOnFleet(hub, "/", null, true)).toBe(false);
+    // Nothing a hub does not have is sent to the fleet any more: the page says why it is not there (FeatureGate).
+    for (const path of ["/apps", "/databases", "/cron", "/domains", "/backups", "/apps/new", "/settings/security", "/catalog"]) {
+      expect(startsOnFleet(hub, path, null, false)).toBe(false);
+    }
+    expect(startsOnFleet(hub, "/", "web-2", false)).toBe(false);
+    expect(startsOnFleet(SESSION, "/", null, false)).toBe(false);
   });
 });
 

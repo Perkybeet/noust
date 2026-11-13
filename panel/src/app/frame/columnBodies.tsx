@@ -13,6 +13,7 @@ import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { useCan } from "../../components/page/permissions";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
+import type { FeatureKey } from "../../features/central/features";
 import { domainRows } from "../../features/domains/domainRows";
 import { SERVER_CAPABILITY, securityOverviewQuery, summaryQuery } from "../../features/server/queries";
 import { countByOwner } from "../../features/teams/organization";
@@ -20,8 +21,8 @@ import { useOrganised } from "../../features/teams/useOrganised";
 import { useOrganization } from "../../features/teams/useOrganization";
 import { useT } from "../../i18n";
 import { useNodeCapability } from "../../nodes/capability";
-import { useHasFleet, useServerList } from "../../nodes/servers";
-import { useConsoleContext, useNode } from "../../nodes/useNode";
+import { useHasFleet } from "../../nodes/servers";
+import { useConsoleContext, useNode, useScopeOffers } from "../../nodes/useNode";
 import { accountColumn, areaColumn } from "../columns";
 import type { ColumnGroup, ColumnKind } from "../columns";
 import { dest } from "../nav";
@@ -30,12 +31,13 @@ import { ColumnHead } from "./ColumnHead";
 import { ColumnList } from "./ColumnList";
 import type { ListGroup } from "./ColumnList";
 
-/** What the register's lists are drawn for: who is looking and which optional parts apply. */
+/** What the register's lists are drawn for: who is looking, which optional parts apply, and what the server can do. */
 export function useNavContext(extra: NavContext["when"] = {}): NavContext {
   const can = useCan();
   const { organised } = useOrganised();
   const hasFleet = useHasFleet();
-  return { can, when: { organised, fleet: hasFleet, ...extra } };
+  const features = useScopeOffers();
+  return { can, features, when: { organised, fleet: hasFleet, ...extra } };
 }
 
 /** The register's groups as the column draws them: titled by the catalog, one link per section. */
@@ -117,23 +119,25 @@ export function AccountColumn() {
  * and keeps its room, so the column does not change when it arrives. Only the area on screen reads its own.
  */
 export function useAreaCounts(kind: ColumnKind, enabled: boolean): Readonly<Partial<Record<string, number | null>>> {
-  const on = (area: ColumnKind): boolean => enabled && kind === area;
+  const offered = useScopeOffers();
+  // A count is read only where the server can do what it counts: a list a hub would refuse is not asked of it (item 187).
+  const on = (area: ColumnKind, feature?: FeatureKey): boolean => enabled && kind === area && offered(feature);
   const summary = useQuery({ ...summaryQuery(), enabled: on("server") });
-  const security = useQuery({ ...securityOverviewQuery(), enabled: on("security") });
-  const backups = useQuery({ ...backupsQuery(null), enabled: on("backups") });
-  const schedules = useQuery({ ...backupSchedulesQuery(), enabled: on("backups") });
-  const volumes = useQuery({ ...volumePoliciesQuery(), enabled: on("backups") });
+  const security = useQuery({ ...securityOverviewQuery(), enabled: on("security", "server_security") });
+  const backups = useQuery({ ...backupsQuery(null), enabled: on("backups", "application_backups") });
+  const schedules = useQuery({ ...backupSchedulesQuery(), enabled: on("backups", "application_backups") });
+  const volumes = useQuery({ ...volumePoliciesQuery(), enabled: on("backups", "volume_backups") });
   const destinations = useQuery({ ...backupDestinationsQuery(), enabled: on("backups") });
   const recipes = useQuery({ ...recipesQuery(), enabled: on("catalog") });
-  const installed = useQuery({ ...installedRecipesQuery(), enabled: on("catalog") });
-  const certs = useQuery({ ...certsQuery(), enabled: on("domains") });
-  const sites = useQuery({ ...sitesQuery(), enabled: on("domains") });
-  const accounts = useQuery({ ...dnsAccountsQuery(), enabled: on("domains") });
-  const tunnels = useQuery({ ...tunnelsQuery(), enabled: on("network") });
-  const streams = useQuery({ ...streamsQuery(), enabled: on("network") });
-  const databases = useQuery({ ...databasesQuery(), enabled: on("databases") });
-  const applications = useQuery({ ...appsQuery(), enabled: on("apps") });
-  const dbServers = useQuery({ ...serversQuery(), enabled: on("databases") });
+  const installed = useQuery({ ...installedRecipesQuery(), enabled: on("catalog", "recipes") });
+  const certs = useQuery({ ...certsQuery(), enabled: on("domains", "certificates") });
+  const sites = useQuery({ ...sitesQuery(), enabled: on("domains", "sites") });
+  const accounts = useQuery({ ...dnsAccountsQuery(), enabled: on("domains", "dns_accounts") });
+  const tunnels = useQuery({ ...tunnelsQuery(), enabled: on("network", "tunnels") });
+  const streams = useQuery({ ...streamsQuery(), enabled: on("network", "published_ports") });
+  const databases = useQuery({ ...databasesQuery(), enabled: on("databases", "databases") });
+  const applications = useQuery({ ...appsQuery(), enabled: on("apps", "applications") });
+  const dbServers = useQuery({ ...serversQuery(), enabled: on("databases", "databases") });
   const org = useOrganization();
   if (!enabled) return {};
   const found = security.data?.counts;
@@ -177,26 +181,15 @@ export function useAreaCounts(kind: ColumnKind, enabled: boolean): Readonly<Part
   }
 }
 
-/** The servers of the fleet as links that choose one: what "All servers" lists under its faces. */
-function nodeGroup(t: ReturnType<typeof useT>, nodes: readonly { name: string }[], to: string): ListGroup {
-  return {
-    key: "servers",
-    heading: t("nav.columnGroups.servers"),
-    items: nodes.map((node) => ({ key: `node:${node.name}`, to, search: { node: node.name }, label: node.name, icon: OBJECT_ICONS.server })),
-  };
-}
-
 /**
- * The column of an area that has pages of its own or fixed views: its sections as the register gives
- * them, and from "All servers" the fleet's faces of it. The machine's areas (Network, Security, Server)
- * list the servers there, since choosing one is choosing it in the selector.
+ * The column of an area that has pages of its own or fixed views: its sections as the register gives them, the same with a
+ * server chosen and with All servers (item 196), each at its fleet page from the fleet. Choosing a server is the selector's.
  */
 export function AreaColumn({ kind }: { kind: ColumnKind }) {
   const t = useT();
   const context = useConsoleContext();
   const hasFleet = useHasFleet();
   const { node } = useNode();
-  const servers = useServerList();
   const fleet = context.kind === "fleet";
   const ctx = useNavContext({ fleet: kind === "server" ? node !== null : hasFleet });
   const capability = useNodeCapability(SERVER_CAPABILITY);
@@ -206,7 +199,6 @@ export function AreaColumn({ kind }: { kind: ColumnKind }) {
   const { organised } = useOrganised();
   const area = dest(kind);
   const groups = toListGroups(areaColumn(kind, ctx, fleet ? "fleet" : "server"), t, undefined, counts);
-  if (fleet && (kind === "server" || kind === "network" || kind === "security")) groups.push(nodeGroup(t, servers.nodes, "/server"));
   // Under the views of the applications, the projects they are grouped in: a way to one project without opening the list, and
   // the pages that manage them (all the projects, and the teams) as the last of the group instead of two more views.
   if (kind === "apps" && !fleet) {

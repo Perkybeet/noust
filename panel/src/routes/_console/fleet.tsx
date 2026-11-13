@@ -2,23 +2,19 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { inPlace } from "../../app/searchNavigation";
-import { parseHubArea } from "../../features/central/central";
-import type { HubArea } from "../../features/central/central";
 import { FleetLayout } from "../../features/fleet/FleetLayout";
 import { nodesQuery } from "../../features/fleet/nodesList";
 import { useOnArrival } from "../../lib/useArrival";
 
 interface FleetLayoutSearch {
-  /** A hub was asked for one of the pages it does not have, and opened the fleet instead. */
-  hub?: HubArea | "overview";
   /** A link that asks for the "Add a server" flow once: the palette, and the old Settings > Servers address. */
   add?: true;
 }
 
 function validateSearch(search: Record<string, unknown>): FleetLayoutSearch {
-  const hub = parseHubArea(search["hub"]);
+  // The `hub` an address of 4.2 carried (a hub that sent its pages here) is not read: the page it asked for says why it is not there.
   const add = search["add"] === true || search["add"] === "true" || search["add"] === 1;
-  return { ...(hub === undefined ? {} : { hub }), ...(add ? { add: true as const } : {}) };
+  return add ? { add: true as const } : {};
 }
 
 /** The fleet ("All servers"): its header and one view per URL, every server at once. */
@@ -43,7 +39,7 @@ function spent<S extends { add?: true }>(search: S): S {
 }
 
 function FleetRoute() {
-  const { hub, add } = Route.useSearch();
+  const { add } = Route.useSearch();
   // The layout wraps every view of the fleet: moving within the current page, not to the layout's own.
   const navigate = useNavigate();
   const [adding, setAdding] = useState(false);
@@ -52,5 +48,5 @@ function FleetRoute() {
     setAdding(true);
     void navigate({ to: ".", search: (previous: FleetLayoutSearch) => spent(previous), ...inPlace({ replace: true }) });
   });
-  return <FleetLayout hub={hub} adding={adding} onAddingChange={setAdding} />;
+  return <FleetLayout adding={adding} onAddingChange={setAdding} />;
 }

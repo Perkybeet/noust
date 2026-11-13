@@ -44,7 +44,7 @@ export function CatalogPage({ search, onSearchChange }: CatalogPageProps) {
     />
   );
   return (
-    <CatalogFrame filters={<CatalogFilterBar search={search} onSearchChange={onSearchChange} catalog={catalog} />}>
+    <CatalogFrame library filters={<CatalogFilterBar search={search} onSearchChange={onSearchChange} catalog={catalog} />}>
       {popular.length > 0 ? (
         <Sections>
           <Section title={t("catalog.popular.title")} icon={OBJECT_ICONS.recipe}>

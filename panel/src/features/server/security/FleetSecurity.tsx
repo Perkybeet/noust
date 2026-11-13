@@ -20,7 +20,7 @@ import { StatusGlyph, StatusPill, stateTextClass } from "../../../components/ui/
 import { buttonClassName } from "../../../components/ui/Button";
 import { useT } from "../../../i18n";
 import { NODE_STATE, nodeStatus, useServerList } from "../../../nodes/servers";
-import { useCentral } from "../../central/central";
+import { useFeature } from "../../central/features";
 import { nodeGet } from "../../fleet/nodes";
 import type { Fail2ban, SecurityOverview, SshStatus } from "../queries";
 
@@ -80,12 +80,12 @@ function Passwords({ node }: { node: string | null }) {
 export function FleetSecurity() {
   const t = useT();
   const servers = useServerList();
-  const { role } = useCentral();
+  const checksHere = useFeature("server_security");
   const label = t("nav.security.label");
-  // A hub deploys nothing of its own, so it has no machine's pages to open here; every other central is a server of the list.
+  // The central is a row where it can check its machine: its own table says (a hub in a container has nothing to check).
   const rows = useMemo<ServerRow[]>(
-    () => [...(role === "hub" ? [] : [{ node: null, label: servers.hostname ?? t("fleet.selector.thisServer") }]), ...servers.nodes.map((node) => ({ node: node.name, label: node.name }))],
-    [role, servers.hostname, servers.nodes, t],
+    () => [...(checksHere ? [{ node: null, label: servers.hostname ?? t("fleet.selector.thisServer") }] : []), ...servers.nodes.map((node) => ({ node: node.name, label: node.name }))],
+    [checksHere, servers.hostname, servers.nodes, t],
   );
   const columns: Column<ServerRow>[] = [
     {

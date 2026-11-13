@@ -5,6 +5,7 @@ export const BACKUPS_SCREENS = strip(
   area("backups", "/backups", "nav.backups.label", {
     scope: "both",
     group: "safe",
+    feature: "application_backups",
     fleetTo: "/fleet/backups",
     shortcut: ["g", "k"],
     goTo: "nav.backups.goTo",
@@ -12,8 +13,8 @@ export const BACKUPS_SCREENS = strip(
     rootLabel: "backups.tabs.backups",
   }),
   (backups) => [
-    tab(backups, "schedules", "backups.tabs.schedules"),
-    tab(backups, "volumes", "volumeBackups.tab"),
+    tab(backups, "schedules", "backups.tabs.schedules", { feature: "application_backups" }),
+    tab(backups, "volumes", "volumeBackups.tab", { feature: "volume_backups" }),
     tab(backups, "noust", "selfBackup.tab"),
     tab(backups, "destinations", "backups.tabs.destinations"),
   ],

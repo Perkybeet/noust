@@ -14,7 +14,7 @@ import type { T } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { NODE_STATE, nodeStatus, useHasFleet, useServerList } from "../../nodes/servers";
 import { useNode } from "../../nodes/useNode";
-import { useCentral } from "../central/central";
+import { useFeature } from "../central/features";
 import { accessOf, fleetViewQuery, originOf } from "../fleet/data";
 import type { AccessCeiling } from "../fleet/data";
 import type { Step } from "./wizard";
@@ -162,7 +162,7 @@ export function useServerStep(handlers: ServerStepHandlers): ServerStep {
   const navigate = useNavigate();
   const hasFleet = useHasFleet();
   const { node } = useNode();
-  const { role } = useCentral();
+  const deploysHere = useFeature("applications");
   const servers = useServerList();
   const fleet = useQuery({ ...fleetViewQuery("servers"), enabled: hasFleet });
   const answered = useRouterState({ select: (state) => state.location.state.newAppServer });
@@ -175,8 +175,8 @@ export function useServerStep(handlers: ServerStepHandlers): ServerStep {
   });
   const accessByNode = new Map((fleet.data?.items ?? []).filter((row) => !originOf(row).local).map((row) => [originOf(row).node, accessOf(row)]));
   const options: ServerOption[] = [
-    // A hub deploys nothing itself: it is not a place for an application.
-    ...(role === "hub"
+    // A central that cannot deploy (a hub) is not a place for an application: its table says so.
+    ...(!deploysHere
       ? []
       : [
           {
@@ -229,9 +229,10 @@ export function useServerStep(handlers: ServerStepHandlers): ServerStep {
       latest.current.onContinue();
       return;
     }
+    // What the link asked for (`start`, the recipe) goes with the choice: it is the way in, and the server was only what was missing.
     void navigate({
       to: "/apps/new",
-      search: { node: chosen === THIS_SERVER ? undefined : chosen },
+      search: ((previous: Record<string, unknown>) => ({ ...previous, node: chosen === THIS_SERVER ? undefined : chosen })) as never,
       state: (previous) => ({ ...previous, newAppServer: chosen }),
     });
   };

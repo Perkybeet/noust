@@ -13,6 +13,7 @@ import { Notice } from "../../../components/ui/Notice";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
+import { useScopeOffers } from "../../../nodes/useNode";
 import { ChoiceCards } from "../../../components/ui/ChoiceCards";
 import type { CreateAppBody, Step } from "../../new-app/wizard";
 import { provisionableEngines } from "../../app/database/CreateLinkDialog";
@@ -71,7 +72,9 @@ function newAppEngines(engines: readonly Engine[]): Engine[] {
  * once, quietly: a server where the engines cannot be read deploys as before, without the step.
  */
 export function useDatabaseStepAvailable(): boolean {
-  const engines = useQuery({ ...enginesQuery(), retry: false, staleTime: 60_000 });
+  // Asked of the server the wizard is on, and only when it makes databases: a hub, which the wizard starts on before a server is chosen, is not asked.
+  const makesDatabases = useScopeOffers()("databases");
+  const engines = useQuery({ ...enginesQuery(), retry: false, staleTime: 60_000, enabled: makesDatabases });
   return newAppEngines(engines.data?.engines ?? []).length > 0;
 }
 

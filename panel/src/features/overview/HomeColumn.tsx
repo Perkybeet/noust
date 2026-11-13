@@ -6,6 +6,7 @@ import { SlidingIndicator } from "../../components/ui/SlidingIndicator";
 import { ICONS } from "../../components/ui/icons";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { useT } from "../../i18n";
+import { useScopeOffers } from "../../nodes/useNode";
 import { cx } from "../../lib/cx";
 import { useEditorSession } from "./editorSession";
 import { BUILTIN_IDS } from "./panels";
@@ -71,6 +72,7 @@ function PanelList() {
 function GalleryColumn() {
   const t = useT();
   const can = useCan();
+  const features = useScopeOffers();
   const address = useHomeAddress();
   const session = useEditorSession();
   return (
@@ -82,6 +84,7 @@ function GalleryColumn() {
       <Gallery
         scope={session?.scope ?? address.scope}
         can={can}
+        features={features}
         layout={session?.layout ?? []}
         full={session?.full ?? false}
         onAdd={(widget) => session?.add(widget)}

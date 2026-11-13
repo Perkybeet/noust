@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, onNode, signedInRoutes } from "../../test/fakes";
+import { catalogueRoutes } from "../catalog/testFixtures";
 import { DB1, SERVERS_VIEW, WEB2, centralSession } from "../fleet/testFixtures";
 
 const APP_TYPES = { types: [{ type: "nextjs", name: "Next.js", default_port: 3000 }] };
@@ -64,6 +65,34 @@ describe("the New application wizard on a fleet", () => {
     await waitFor(() => {
       expect(calls.callsTo("GET /api/nodes/web-2/api/apps").length).toBeGreaterThan(0);
     });
+  });
+
+  it("asks the server before it opens a recipe the link named, and keeps the link through the choice (Use, from the catalog)", { timeout: 40_000 }, async () => {
+    const wizardReads = {
+      "GET /api/apps": () => json(200, { total: 0, apps: [] }),
+      "GET /api/apps/types": () => json(200, APP_TYPES),
+      ...catalogueRoutes(),
+    };
+    const calls = fakeBackend({
+      ...signedInRoutes(centralSession()),
+      ...wizardReads,
+      ...onNode("web-2", { ...signedInRoutes(), ...wizardReads }),
+      "GET /api/nodes": () => json(200, { items: [WEB2, DB1] }),
+      "GET /api/fleet/servers": () => json(200, SERVERS_VIEW),
+    });
+    const { user, history } = renderConsole("/apps/new?start=recipe&recipe=freshrss");
+    const group = await screen.findByRole("radiogroup", { name: "Server" });
+    // The recipe is not opened on whichever server happens to be on screen: the wizard asked first.
+    expect(calls.callsTo("GET /api/recipes/freshrss")).toHaveLength(0);
+    await user.click(within(group).getByRole("radio", { name: /web-2/ }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await waitFor(() => {
+      expect(history.location.pathname).toBe("/n/web-2/apps/new");
+    });
+    // The way in (start, recipe) went with the choice: the recipe opens on web-2.
+    expect(await screen.findByRole("heading", { level: 2, name: "Address and variables" })).toBeInTheDocument();
+    expect(calls.callsTo("GET /api/nodes/web-2/api/recipes/freshrss").length).toBeGreaterThan(0);
+    expect(calls.callsTo("GET /api/recipes/freshrss")).toHaveLength(0);
   });
 
   it("does not ask when there is only one server it could be (the others cannot take it), and says so on the stepper", { timeout: 30_000 }, async () => {

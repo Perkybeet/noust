@@ -19,6 +19,7 @@ export const CATALOG_TABS: Strip = strip(
   (catalog) => [
     tab(catalog, "installed", "nav.screens.installedRecipes.label", {
       exact: true,
+      feature: "recipes",
       keywords: "nav.screens.installedRecipes.keywords",
       command: "nav.screens.installedRecipes.command",
     }),

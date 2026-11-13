@@ -18,8 +18,9 @@ import { announce } from "./Announcer";
 import { appSectionCommands } from "./appCommands";
 import { helpFor, helpUrl } from "./help";
 import { nodeOfConsolePath } from "./nodeRoute";
+import type { FeatureKey } from "../features/central/features";
 import { useHasFleet, useServerList } from "../nodes/servers";
-import { useConsoleContext, useNode, useSwitchNode } from "../nodes/useNode";
+import { allServersTarget, useConsoleContext, useNode, useScopeOffers, useSwitchNode } from "../nodes/useNode";
 import type { Command } from "./CommandPalette";
 import { paletteEntries } from "./nav";
 import { pageCommands } from "./pageCommands";
@@ -31,6 +32,18 @@ import type { ThemeChoice } from "./theme";
 import { appVerbCommands } from "./verbCommands";
 import type { AppVerb } from "./verbCommands";
 import { OBJECT_ICONS } from "../components/ui/objectIcons";
+
+/** The actions of the palette that make something on the server chosen, and the function each asks of it. */
+const NEEDS_A_SERVER: Readonly<Record<string, FeatureKey>> = {
+  "action:new-database": "databases",
+  "action:new-backup": "application_backups",
+  "action:add-name": "domains",
+  "action:open-port": "published_ports",
+  "action:new-site": "sites",
+  "action:issue-certificate": "certificates",
+  "action:new-project": "applications",
+  "action:new-team": "applications",
+};
 
 const THEME_ICONS = { system: Monitor, light: Sun, dark: Moon } as const;
 
@@ -57,8 +70,10 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void, onV
   const context = useConsoleContext();
   const hasFleet = useHasFleet();
   const onFleet = context.kind === "fleet";
-  const { data: apps } = useQuery({ ...appsQuery(), enabled: open && !onFleet });
-  const { data: types } = useQuery({ ...appTypesQuery(), enabled: open && !onFleet, retry: false });
+  const features = useScopeOffers();
+  const deploys = features("applications");
+  const { data: apps } = useQuery({ ...appsQuery(), enabled: open && !onFleet && deploys });
+  const { data: types } = useQuery({ ...appTypesQuery(), enabled: open && !onFleet && deploys, retry: false });
   // Inside an application's pages the palette also finds that application's sections.
   const params = useParams({ strict: false });
   const appDomain = !onFleet && typeof params.domain === "string" ? params.domain : null;
@@ -101,7 +116,9 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void, onV
     const pages: Command[] = pageCommands(
       paletteEntries({
         t,
+        scope: onFleet ? "fleet" : "server",
         can: (permission) => permissions?.includes(permission) ?? false,
+        features,
         when: { organised, fleet: hasFleet },
       }).filter((entry) => entry.scope !== "fleet" || entry.id === "fleet" || hasFleet),
       go,
@@ -368,7 +385,7 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void, onV
                     keywords: t("fleet.selector.keywords"),
                     kind: "navigate" as const,
                     run: () => {
-                      void navigate({ to: "/fleet", search: { node: undefined } }).then(() => {
+                      void navigate({ to: allServersTarget(pathname), search: { node: undefined } } as never).then(() => {
                         announce(t("fleet.selector.switchedAll"));
                       });
                     },
@@ -401,6 +418,12 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void, onV
               })),
           ];
 
-    return [...pages, ...applications, ...resources, ...servers, ...verbs, ...actions];
-  }, [open, apps, types, index, fleetApps, onFleet, navigate, theme, setTheme, openShortcuts, signOut, t, pathname, appDomain, currentApp, node, nodes, hostname, switchNode, hasFleet, context.kind, permissions, organised, mayOrganise, mayCreateTeams, can, onVerb]);
+    // An action that makes a thing on a server is offered where there is one server to make it on (not from All servers, which has
+    // no place to put it) and where that server can do it: a hub has no databases to make, and the palette never says it does.
+    const kept = actions.filter((action) => {
+      const needs = NEEDS_A_SERVER[action.id];
+      return needs === undefined || (!onFleet && features(needs));
+    });
+    return [...pages, ...applications, ...resources, ...servers, ...verbs, ...kept];
+  }, [open, features, apps, types, index, fleetApps, onFleet, navigate, theme, setTheme, openShortcuts, signOut, t, pathname, appDomain, currentApp, node, nodes, hostname, switchNode, hasFleet, context.kind, permissions, organised, mayOrganise, mayCreateTeams, can, onVerb]);
 }

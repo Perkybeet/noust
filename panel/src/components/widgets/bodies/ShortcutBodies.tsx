@@ -10,6 +10,8 @@ import { useT } from "../../../i18n";
 import type { PlainKey } from "../../../i18n";
 import { ICONS } from "../../ui/icons";
 import { OBJECT_ICONS } from "../../ui/objectIcons";
+import type { FeatureKey } from "../../../features/central/features";
+import { useScopeOffers } from "../../../nodes/useNode";
 import { useCan } from "../../page/permissions";
 
 interface Shortcut {
@@ -18,6 +20,8 @@ interface Shortcut {
   icon: LucideIcon;
   /** What the account must hold to be offered it. */
   needs: string;
+  /** The function of the server's table it does: a server that cannot do it is not offered the shortcut (item 187). */
+  feature?: FeatureKey;
   to: string;
   search?: Record<string, string | boolean>;
 }
@@ -25,12 +29,12 @@ interface Shortcut {
 /** In the order a tile fills: a small one has four, a wide one eight. */
 const SHORTCUTS: readonly Shortcut[] = [
   { id: "app", label: "widgets.actions.newApp", icon: ICONS.add, needs: "apps.deploy", to: "/apps/new" },
-  { id: "database", label: "widgets.actions.newDatabase", icon: OBJECT_ICONS.database, needs: "databases.write", to: "/databases" },
-  { id: "backup", label: "common.words.backUpNow", icon: OBJECT_ICONS.backup, needs: "backups.run", to: "/backups" },
+  { id: "database", label: "widgets.actions.newDatabase", icon: OBJECT_ICONS.database, needs: "databases.write", feature: "databases", to: "/databases" },
+  { id: "backup", label: "common.words.backUpNow", icon: OBJECT_ICONS.backup, needs: "backups.run", feature: "application_backups", to: "/backups" },
   // A shortcut opens what it says: the dialog that opens a port, the one that adds a name (the pages open them on `?new`).
-  { id: "port", label: "widgets.actions.openPort", icon: OBJECT_ICONS.port, needs: "server.host_access", to: "/network", search: { new: true } },
-  { id: "domain", label: "widgets.actions.addDomain", icon: OBJECT_ICONS.domain, needs: "apps.manage", to: "/domains", search: { new: true } },
-  { id: "terminal", label: "widgets.actions.terminal", icon: OBJECT_ICONS.terminal, needs: "server.terminal", to: "/server/terminal" },
+  { id: "port", label: "widgets.actions.openPort", icon: OBJECT_ICONS.port, needs: "server.host_access", feature: "published_ports", to: "/network", search: { new: true } },
+  { id: "domain", label: "widgets.actions.addDomain", icon: OBJECT_ICONS.domain, needs: "apps.manage", feature: "domains", to: "/domains", search: { new: true } },
+  { id: "terminal", label: "widgets.actions.terminal", icon: OBJECT_ICONS.terminal, needs: "server.terminal", feature: "root_shell", to: "/server/terminal" },
   { id: "logs", label: "widgets.actions.logs", icon: OBJECT_ICONS.log, needs: "server.read", to: "/logs" },
   { id: "update", label: "widgets.actions.systemUpdates", icon: OBJECT_ICONS.update, needs: "server.manage", to: "/server/system" },
   { id: "server", label: "widgets.actions.addServer", icon: OBJECT_ICONS.server, needs: "fleet.manage", to: "/fleet", search: { add: true } },
@@ -41,7 +45,8 @@ const SHORTCUTS: readonly Shortcut[] = [
 export function ActionsBody() {
   const t = useT();
   const can = useCan();
-  const offered = SHORTCUTS.filter((shortcut) => can(shortcut.needs)).slice(0, 8);
+  const features = useScopeOffers();
+  const offered = SHORTCUTS.filter((shortcut) => can(shortcut.needs) && features(shortcut.feature)).slice(0, 8);
   if (offered.length === 0) return <p className="text-13 text-fg-muted">{t("widgets.actions.none")}</p>;
   return (
     <ul className="grid h-full grid-cols-2 content-center gap-1.5 [&>li:nth-child(n+5)]:hidden w-wide:grid-cols-4 w-wide:[&>li:nth-child(n+5)]:block w-xwide:grid-cols-8">

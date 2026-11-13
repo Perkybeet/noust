@@ -24,21 +24,25 @@ export const ALERTS_SCREENS = strip(
   (alerts) => [
     tab(alerts, "checks", "nav.settingsTabs.checks.label", {
       exact: true,
+      feature: "process_monitor",
       keywords: "nav.settingsTabs.checks.keywords",
       command: "nav.settingsTabs.checks.command",
     }),
     tab(alerts, "probes", "nav.settingsTabs.probes.label", {
       exact: true,
+      feature: "process_monitor",
       keywords: "nav.settingsTabs.probes.keywords",
       command: "nav.settingsTabs.probes.command",
     }),
     tab(alerts, "status", "nav.settingsTabs.statusPage.label", {
       exact: true,
+      feature: "status_page",
       keywords: "nav.settingsTabs.statusPage.keywords",
       command: "nav.settingsTabs.statusPage.command",
     }),
     tab(alerts, "metrics", "nav.settingsTabs.metrics.label", {
       exact: true,
+      feature: "process_monitor",
       keywords: "nav.settingsTabs.metrics.keywords",
       command: "nav.settingsTabs.metrics.command",
     }),

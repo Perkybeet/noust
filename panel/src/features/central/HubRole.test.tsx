@@ -19,6 +19,14 @@ describe("the central's refusals, wherever a page shows an error", () => {
     await expectNoAxeViolations(container);
   });
 
+  it("offers no Try again for what a hub will not do the next time either, and keeps it for a failure that can change", () => {
+    const { unmount } = render(<ErrorBlock error={HUB_ROLE} title="Could not create the application" onRetry={() => undefined} />);
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+    unmount();
+    render(<ErrorBlock error={new ApiError(500, "boom", "It broke")} title="Could not create the application" onRetry={() => undefined} />);
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+  });
+
   it("keeps the backend's own fix when it sends one", () => {
     const withHint = new ApiError(409, "hub_role", HUB_ROLE.detail, "Run it on the server instead.");
     render(<ErrorBlock error={withHint} title="Could not create the application" />);

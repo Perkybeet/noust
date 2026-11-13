@@ -211,8 +211,8 @@ describe("3. the budgets", () => {
       expect(areaTarget(area, "fleet")).toBe(area.fleetTo);
       expect(areaTarget(area, "server")).toBe(area.to);
     }
-    // An area with no fleet view opens where it always did.
-    expect(areaTarget(dest("databases"), "fleet")).toBe("/databases");
+    // An area with no fleet page of its own opens the table of servers under /fleet, which is its address there, never a server's page.
+    expect(areaTarget(dest("databases"), "fleet")).toBe("/fleet/databases");
   });
 
   it("opens the list of servers only from All servers: with a server chosen the Server area is that server's page", () => {
@@ -225,7 +225,8 @@ describe("3. the budgets", () => {
     expect(areaTarget(dest("network"), "server")).toBe("/network");
     // The other areas keep to the scope the page is in.
     expect(areaTarget(dest("apps"), "server")).toBe("/apps");
-    expect(areaTarget(dest("domains"), "fleet")).toBe("/fleet/certificates");
+    expect(areaTarget(dest("domains"), "fleet")).toBe("/fleet/domains");
+    expect(dest("domains.certificates").fleetTo).toBe("/fleet/certificates");
   });
 
   it("lets the keys of Server lead where its item of the bar does: its page on a server, the list over all of them", () => {
@@ -357,8 +358,8 @@ describe("5. the shortcuts", () => {
     for (const face of DESTS.filter((entry) => entry.faceOf !== undefined)) expect(face.shortcut, `${face.id} would take keys its area has`).toBeUndefined();
     const fleet = new Map(shortcuts("fleet").map((shortcut) => [shortcut.id, shortcut.to]));
     expect(fleet.get("apps")).toBe("/fleet/apps");
-    expect(fleet.get("domains")).toBe("/fleet/certificates");
-    expect(fleet.get("databases")).toBe("/databases");
+    expect(fleet.get("domains")).toBe("/fleet/domains");
+    expect(fleet.get("databases")).toBe("/fleet/databases");
   });
 
   it("never gives a letter to two destinations that can be on one bar, nor takes the ones the shell keeps", () => {
@@ -394,12 +395,12 @@ describe("5. the shortcuts", () => {
     expect(shortcuts("fleet").map((shortcut) => [...shortcut.keys, shortcut.to])).toEqual([
       ["g", "o", "/fleet"],
       ["g", "a", "/fleet/apps"],
-      ["g", "t", "/catalog"],
-      ["g", "b", "/databases"],
-      ["g", "c", "/cron"],
-      ["g", "n", "/fleet/certificates"],
+      ["g", "t", "/fleet/catalog"],
+      ["g", "b", "/fleet/databases"],
+      ["g", "c", "/fleet/cron"],
+      ["g", "n", "/fleet/domains"],
       ["g", "w", "/fleet/network"],
-      ["g", "l", "/logs"],
+      ["g", "l", "/fleet/logs"],
       ["g", "e", "/fleet/alerts"],
       ["g", "y", "/fleet/activity"],
       ["g", "k", "/fleet/backups"],

@@ -11,7 +11,7 @@ export const DOMAINS_SCREENS = strip(
   area("domains", "/domains", "nav.domains.label", {
     scope: "both",
     group: "reach",
-    fleetTo: "/fleet/certificates",
+    feature: "domains",
     shortcut: ["g", "n"],
     goTo: "nav.domains.goTo",
     keywords: "nav.domains.keywords",
@@ -19,13 +19,13 @@ export const DOMAINS_SCREENS = strip(
   }),
   (domains) => {
     // Not exact: each zone of Noust DNS is beneath it (an exception of app/nav.ts), and the tab is where they are.
-    const dns = tab(domains, "dns", "domains.sections.dns.tab", { permission: "server.read", column: "dns", keywords: "domains.sections.dns.keywords" });
+    const dns = tab(domains, "dns", "domains.sections.dns.tab", { permission: "server.read", feature: "dns_accounts", column: "dns", keywords: "domains.sections.dns.keywords" });
     return [
-      tab(domains, "sites", "domains.sections.sites.tab", { exact: true, keywords: "domains.sections.sites.keywords" }),
-      tab(domains, "certificates", "domains.sections.certificates.tab", { exact: true, keywords: "domains.sections.certificates.keywords" }),
+      tab(domains, "sites", "domains.sections.sites.tab", { exact: true, feature: "sites", keywords: "domains.sections.sites.keywords" }),
+      tab(domains, "certificates", "domains.sections.certificates.tab", { exact: true, feature: "certificates", fleetTo: "/fleet/certificates", keywords: "domains.sections.certificates.keywords" }),
       dns,
       // Beside the providers in the column, and found by name in the palette. Its zones are the page of one zone.
-      tab(dns, "noust", "noustDns.title", { permission: "server.read", column: "dns", keywords: "noustDns.keywords", command: "noustDns.command" }),
+      tab(dns, "noust", "noustDns.title", { permission: "server.read", feature: "noust_dns", column: "dns", keywords: "noustDns.keywords", command: "noustDns.command" }),
     ];
   },
 );

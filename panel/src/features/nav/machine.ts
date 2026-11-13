@@ -4,7 +4,7 @@ import { area, strip, tab } from "../../app/navCore";
 // happens, each an area of its own. The register is app/nav.ts; these are groups of it.
 // Activity also answers `g d` (the shell keeps it: inside an application it means "go to deployments").
 export const CRON_SCREENS = [
-  area("cron", "/cron", "nav.cron.label", { scope: "both", group: "runs", shortcut: ["g", "c"], goTo: "nav.cron.goTo", keywords: "nav.cron.keywords" }),
+  area("cron", "/cron", "nav.cron.label", { scope: "both", group: "runs", feature: "scheduled_jobs", shortcut: ["g", "c"], goTo: "nav.cron.goTo", keywords: "nav.cron.keywords" }),
 ];
 export const LOGS_SCREENS = [
   area("logs", "/logs", "logSearch.nav.label", { scope: "both", group: "happens", shortcut: ["g", "l"], goTo: "nav.logs.goTo", keywords: "logSearch.nav.keywords" }),

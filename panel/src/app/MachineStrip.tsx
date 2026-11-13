@@ -15,7 +15,7 @@ import type { T } from "../i18n";
 import { cx } from "../lib/cx";
 import { formatDuration, formatLoad } from "../lib/format";
 import { useHasFleet } from "../nodes/servers";
-import { useConsoleContext, useNode } from "../nodes/useNode";
+import { useConsoleContext, useNode, useScopeOffers } from "../nodes/useNode";
 import { useStreamStatus } from "../realtime/events";
 import type { StreamStatus } from "../realtime/events";
 
@@ -155,6 +155,8 @@ function ServerStrip({ className, showName }: { className?: string | undefined; 
   // The session is this server's: on a node, its name stands in until its machine answers.
   const { node } = useNode();
   const name = machine?.hostname ?? node ?? hostname;
+  // The tally of Noust's services links to the Services page: on a machine that does not run any (a hub, a container) there is nothing to count.
+  const services = useScopeOffers()("services");
 
   return (
     <div
@@ -193,10 +195,12 @@ function ServerStrip({ className, showName }: { className?: string | undefined; 
 
           {machine ? (
             <>
-              <div className="hidden shrink-0 items-center gap-4 @min-[36rem]:flex">
-                <Divider className={showName ? undefined : "hidden @min-[62rem]:block"} />
-                <UnitTally units={machine.units} named={showName} />
-              </div>
+              {services ? (
+                <div className="hidden shrink-0 items-center gap-4 @min-[36rem]:flex">
+                  <Divider className={showName ? undefined : "hidden @min-[62rem]:block"} />
+                  <UnitTally units={machine.units} named={showName} />
+                </div>
+              ) : null}
               {/* Meters after the words: the Overview and Server show these readings in full. */}
               <div className="hidden shrink-0 items-center gap-4 @min-[43rem]:flex">
                 <Divider />
@@ -208,7 +212,7 @@ function ServerStrip({ className, showName }: { className?: string | undefined; 
                 <Divider />
                 <Load machine={machine} />
               </div>
-              {machine.units.failed > 0 ? (
+              {services && machine.units.failed > 0 ? (
                 <Link
                   to="/server/services"
                   aria-label={t("shell.machine.failedUnits", { count: machine.units.failed })}

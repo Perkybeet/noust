@@ -2,6 +2,7 @@ import { Link, Outlet } from "@tanstack/react-router";
 import { Cloud, RotateCw } from "lucide-react";
 import { useState } from "react";
 
+import { isFleetFace } from "../../app/nav";
 import { useRenderedPathname } from "../../app/renderedPath";
 import { DetailPage } from "../../components/page/DetailPage";
 import { Can } from "../../components/page/permissions";
@@ -11,8 +12,8 @@ import { ICONS } from "../../components/ui/icons";
 import { Notice } from "../../components/ui/Notice";
 import { useT } from "../../i18n";
 import { useServerList } from "../../nodes/servers";
-import type { HubArea } from "../central/central";
 import { useCentral } from "../central/central";
+import { useFeature } from "../central/features";
 import { CentralLockedNotice } from "../central/CentralLockedNotice";
 import { AddServer } from "./enroll/AddServer";
 import { FleetActionsProvider, useFleetActions } from "./BulkActionDialog";
@@ -53,8 +54,6 @@ function UpdateAll() {
 }
 
 export interface FleetLayoutProps {
-  /** Set when a hub was asked for one of the pages it does not have. */
-  hub?: HubArea | "overview" | undefined;
   /** The "Add a server" flow is open: the URL says so, so the palette and old links can open it. */
   adding?: boolean | undefined;
   onAddingChange?: ((adding: boolean) => void) | undefined;
@@ -67,9 +66,11 @@ export interface FleetLayoutProps {
  * applications, certificates, backups, updates and activity side by side. Each view is the
  * central's one aggregated answer; a server that is down is a row of it, never a blank page.
  */
-export function FleetLayout({ hub, adding: addingProp, onAddingChange }: FleetLayoutProps) {
+export function FleetLayout({ adding: addingProp, onAddingChange }: FleetLayoutProps) {
   const t = useT();
   const central = useCentral();
+  // A central that cannot deploy (a hub) says so once on the fleet's first page: what it manages is its servers' (item 187).
+  const deploysHere = useFeature("applications");
   const servers = useServerList();
   const [addingState, setAddingState] = useState(false);
   const adding = addingProp ?? addingState;
@@ -90,7 +91,8 @@ export function FleetLayout({ hub, adding: addingProp, onAddingChange }: FleetLa
   // The list of servers, whole or only the ones that are waiting for something: both are where they are updated.
   const onServersList = onServers || pathname === "/fleet/updates";
   const onServersViews = pathname === "/fleet/servers" || pathname === "/fleet/updates" || pathname === "/fleet/software";
-  const ownHeader = OWN_HEADER.has(pathname);
+  // A section whose fleet page is not built yet is drawn by its own page, with its own title: the fleet's header is not over it.
+  const ownHeader = OWN_HEADER.has(pathname) || !isFleetFace(pathname);
 
   const add = (
     <Button
@@ -113,10 +115,10 @@ export function FleetLayout({ hub, adding: addingProp, onAddingChange }: FleetLa
   );
 
   const notices =
-    central.locked || hub !== undefined || central.role === "hub" ? (
+    central.locked || !deploysHere ? (
       <div className="flex flex-col gap-3">
         <CentralLockedNotice />
-        {hub !== undefined || central.role === "hub" ? (
+        {!deploysHere ? (
           <Notice title={t("servers.fleet.hub.title")}>{empty ? t("servers.fleet.hub.noServers") : t("servers.fleet.hub.description")}</Notice>
         ) : null}
       </div>

@@ -22,7 +22,7 @@ import { useCan } from "../../components/page/permissions";
 import { useWidgetBoard } from "../../components/widgets/useWidgetBoard";
 import { DragGhost, WidgetGrid } from "../../components/widgets/WidgetGrid";
 import { useT } from "../../i18n";
-import { useNode } from "../../nodes/useNode";
+import { useNode, useScopeOffers } from "../../nodes/useNode";
 import { setEditorSession } from "./editorSession";
 import { FirstSteps } from "./FirstSteps";
 import { NewPanelPage } from "./NewPanelPage";
@@ -68,6 +68,7 @@ export function HomePage({ scope, panelId, customising }: HomePageProps) {
 function PanelPage({ scope, panelId, customising }: HomePageProps) {
   const t = useT();
   const can = useCan();
+  const features = useScopeOffers();
   const panels = usePanels();
   const wanted = panelId ?? BUILTIN_IDS[scope];
   const panel = panels.panels.find((candidate) => candidate.id === wanted) ?? panels.panels.find((candidate) => candidate.id === BUILTIN_IDS[scope]) ?? panels.panels[0];
@@ -76,7 +77,7 @@ function PanelPage({ scope, panelId, customising }: HomePageProps) {
     return (
       // The line under the title is there already, so the widgets do not move down when the panel is known.
       <DashboardPage header={{ title: panel.name, meta: <Follows panel={panel} /> }}>
-        <PanelSkeleton layout={defaultLayout(panel.scope, can)} columns={4} title={t("nav.overview.label")} />
+        <PanelSkeleton layout={defaultLayout(panel.scope, can, features)} columns={4} title={t("nav.overview.label")} />
       </DashboardPage>
     );
   }
@@ -110,6 +111,7 @@ function Follows({ panel }: { panel: Panel }) {
 function PanelView({ panel, panels, customising }: { panel: Panel; panels: Panels; customising: boolean }) {
   const t = useT();
   const can = useCan();
+  const features = useScopeOffers();
   const phone = !useMediaQuery(LG_UP);
   // A finger lifts a widget by holding it, and says so: there is no pointer to take hold of its handle with.
   const touch = useMediaQuery(COARSE_POINTER);
@@ -233,6 +235,7 @@ function PanelView({ panel, panels, customising }: { panel: Panel; panels: Panel
           <Gallery
             scope={panel.scope}
             can={can}
+            features={features}
             layout={layout}
             full={full}
             onAdd={(widget) => {

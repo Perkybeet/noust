@@ -14,7 +14,6 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import { NODE_STATE, nodeStatus, useServerList } from "../../nodes/servers";
-import { useCentral } from "../central/central";
 
 interface Row {
   /** The node's name; null is this central itself. */
@@ -44,10 +43,9 @@ function summaryQueries(name: string | null, enabled: boolean) {
 export function NetworkServers() {
   const t = useT();
   const servers = useServerList();
-  const { role } = useCentral();
-  // A hub deploys nothing of its own, so it has no machine's pages to open here; every other central is a server of the list.
+  // The central is a server of the list: it has a network of its own whatever it deploys (a hub included).
   const rows: Row[] = [
-    ...(role === "hub" ? [] : [{ name: null, label: servers.hostname ?? t("fleet.selector.thisServer"), reachable: true, status: NODE_STATE.reachable }]),
+    { name: null, label: servers.hostname ?? t("fleet.selector.thisServer"), reachable: true, status: NODE_STATE.reachable },
     ...servers.nodes.map((node) => ({ name: node.name, label: node.name, reachable: nodeStatus(node) === "reachable", status: NODE_STATE[nodeStatus(node)] })),
   ];
   const results = useQueries({ queries: rows.flatMap((row) => summaryQueries(row.name, row.reachable)) });

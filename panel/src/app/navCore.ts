@@ -6,6 +6,7 @@
  * sidebar and the tests read. docs/DESIGN.md, NV-1.
  */
 
+import type { FeatureKey } from "../features/central/features";
 import type { PlainKey } from "../i18n";
 import type { FileRouteTypes } from "../routeTree.gen";
 import { INTERIM_ROWS } from "./redirects";
@@ -49,6 +50,8 @@ export interface Dest {
   fleetTo?: ConsolePath;
   /** A fleet screen only: the area it is the fleet's face of, which the bar lights and the breadcrumbs say. */
   faceOf?: string;
+  /** What its column calls it from All servers when its page there is not the section of a server ("Servers" for the list of them, "With an update" for Updates). */
+  fleetLabel?: PlainKey;
   /** What the section is for, in the second column of its resource. */
   intent?: Intent;
   /**
@@ -72,6 +75,12 @@ export interface Dest {
   goTo?: PlainKey;
   /** The permission that shows it: whoever lacks it does not see it, in the palette either. */
   permission?: string;
+  /**
+   * The function of the server's table (`session.central.features`) it needs to do anything: a server that cannot do it
+   * does not offer it, in the bar, the column, the tabs, the palette and the shortcuts alike (item 187). The sections of a
+   * resource carry their resource's.
+   */
+  feature?: FeatureKey;
   when?: When;
   /** Capabilities of the resource (a database's engine): shown when it has any of them. */
   needs?: readonly string[];
@@ -131,6 +140,8 @@ export const tab = /* @__NO_SIDE_EFFECTS__ */ (parent: Dest, name: string, label
   parent: parent.id,
   scope: "server",
   label,
+  // The sections of a resource (an application, a database) need what the resource does; the tabs of an area each say their own.
+  ...(parent.kind !== "area" && parent.feature !== undefined ? { feature: parent.feature } : {}),
   ...more,
 });
 
@@ -180,6 +191,8 @@ export interface NavContext {
   when?: Partial<Record<When, boolean>>;
   /** What the resource can do (a database's engine): a tab with `needs` is offered when it has any. Absent: all. */
   capabilities?: readonly string[];
+  /** Whether the server offers a function (`useOffers`). Absent: every destination is offered, whatever it needs. */
+  features?: (key: FeatureKey | undefined) => boolean;
   /** Include the screens that are only a route so far; for the register's own tests. */
   staged?: boolean;
 }
@@ -188,6 +201,7 @@ export interface NavContext {
 export function shown(entry: Dest, ctx: NavContext): boolean {
   if (ctx.staged !== true && isStaged(entry)) return false;
   if (entry.permission !== undefined && ctx.can !== undefined && !ctx.can(entry.permission)) return false;
+  if (entry.feature !== undefined && ctx.features !== undefined && !ctx.features(entry.feature)) return false;
   if (entry.when !== undefined && ctx.when !== undefined && ctx.when[entry.when] !== true) return false;
   if (entry.needs !== undefined && ctx.capabilities !== undefined && !entry.needs.some((need) => ctx.capabilities?.includes(need) === true)) return false;
   return true;

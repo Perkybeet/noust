@@ -24,6 +24,7 @@ import { Select } from "../../../components/ui/Select";
 import { useT } from "../../../i18n";
 import { formatDateTime } from "../../../lib/format";
 import { NodeCapabilityGate } from "../../../nodes/capability";
+import { useScopeOffers } from "../../../nodes/useNode";
 import { KERNEL, LIVE_MS, SCAN, SCAN_FURTHER, SYSTEM_LINES, SYSTEM_MORE_LINES, isLive, journalFilters, rangeOf, stretchOf } from "../../logs/data";
 import type { LogsSearch } from "../../logs/data";
 import { LogToolbar } from "../../logs/LogToolbar";
@@ -80,7 +81,8 @@ function Logs({ search, onSearchChange }: SystemLogsProps) {
   const [lines, setLines] = useState(SYSTEM_LINES);
   const [scan, setScan] = useState(SCAN);
   const [investigating, setInvestigating] = useState<[number, number] | null>(null);
-  const units = useQuery(journalUnitsQuery());
+  // The list of units is the services' (a hub does not have any): the filter has nothing to offer there, and nothing is asked of it.
+  const units = useQuery({ ...journalUnitsQuery(), enabled: useScopeOffers()("services") });
   const filters = journalFilters(search, lines, scan);
   const journal = useQuery({ ...journalSearchQuery(filters), refetchInterval: isLive(search) ? LIVE_MS : false });
   const entries = journal.data?.entries;

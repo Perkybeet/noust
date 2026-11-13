@@ -8,7 +8,7 @@
  */
 
 import type { PlainKey } from "../i18n";
-import { DESTS, EXCEPTION_CRUMBS, areaLabelKey, areaTarget, crumbsOf, dest } from "./nav";
+import { DESTS, EXCEPTION_CRUMBS, areaLabelKey, areaTarget, crumbsOf, dest, fleetTarget } from "./nav";
 import type { ConsolePath, Dest, Scope } from "./nav";
 
 /** What names a step: a catalog key, or a parameter of the route (the resource's name, which is never translated). */
@@ -60,7 +60,8 @@ export function crumbsFor(route: string, scope: Scope): CrumbStep[] {
     steps.push({
       id: entry.id,
       name: resource ? { param } : { key: areaLabelKey(entry, scope) },
-      to: entry.kind === "area" ? areaTarget(entry, scope) : entry.to,
+      // From All servers a step leads to the section's page under /fleet, so following the trail never changes the scope.
+      to: entry.kind === "area" ? areaTarget(entry, scope) : scope === "fleet" && entry.scope !== "fleet" && !entry.to.includes("$") ? fleetTarget(entry) : entry.to,
       resource,
       entry,
     });
