@@ -262,6 +262,15 @@ class TestWorkingOnATeamsServer:
 
         assert node.seen[-1]["headers"]["x-noust-actor-role"] == role
 
+    def test_what_is_only_the_consoles_does_not_cost_a_member_its_role_on_a_node(self) -> None:
+        # The operator role holds the permission to use the built-in assistant, which is the
+        # console's and no team role's: lacking only that, a person is still an operator to a node.
+        from noust.web.permissions.roles import NOT_A_NODES, OPERATOR, role_within
+
+        assert NOT_A_NODES and NOT_A_NODES <= OPERATOR
+        assert role_within("viewer", OPERATOR - NOT_A_NODES) == "operator"
+        assert role_within("viewer", OPERATOR - NOT_A_NODES - {"apps.deploy"}) == "viewer"
+
     def test_what_is_about_the_machine_is_refused_before_it_is_forwarded(
         self, world: World, fleet: StoreManager, served: tuple[FakeNode, int]
     ) -> None:

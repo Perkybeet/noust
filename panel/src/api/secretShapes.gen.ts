@@ -126,7 +126,7 @@ export interface SecretVariableRules {
 export const SECRET_VARIABLE_RULES: SecretVariableRules = {
   nameSubstrings: ["PASSWORD", "_PASS", "SECRET", "TOKEN", "API_KEY", "PRIVATE_KEY", "ENCRYPTION_KEY", "SIGNING_KEY", "ACCESS_KEY", "SECRET_KEY", "CLIENT_SECRET", "WEBHOOK_SECRET"],
   nameWords: ["apikey", "auth", "credential", "credentials", "key", "passwd", "password", "secret", "token", "webhook"],
-  nonSecretNames: ["master_token", "node_host_key_changed", "require_password", "token_expiration_hours", "token_expiring", "token_warning_days"],
+  nonSecretNames: ["master_token", "node_host_key_changed", "require_password", "token_expiration_hours", "token_expiring", "token_production_approval", "token_warning_days"],
   publicPrefixes: ["NEXT_PUBLIC_", "VITE_", "PUBLIC_", "NUXT_PUBLIC_", "REACT_APP_"],
   neverPublicWords: ["PASSWORD", "PASSWD", "PASS", "SECRET_KEY", "PRIVATE_KEY", "TOKEN"],
   entropy: { minLength: 24, minBits: 4.0, minClasses: 3 },

@@ -37,7 +37,7 @@ from noust.core.operation_classes import CHANGE_PERMISSIONS, classify_schema
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute, require_elevated
 from noust.web.permissions.principal import audit_actor
-from noust.web.pydantic_compat import dump_model
+from noust.web.pydantic_compat import bounded_list, dump_model
 
 router = APIRouter(route_class=NoustErrorRoute)
 
@@ -209,8 +209,8 @@ class PolicyChange(BaseModel):
         reset: The cells to put back to what the release ships.
     """
 
-    cells: list[PolicyCellChange] = Field(default_factory=list, max_length=MAX_CELLS)
-    reset: list[PolicyCellRef] = Field(default_factory=list, max_length=MAX_CELLS)
+    cells: list[PolicyCellChange] = bounded_list(MAX_CELLS)
+    reset: list[PolicyCellRef] = bounded_list(MAX_CELLS)
 
 
 def _operations(request: Request) -> dict[str, tuple[int, int]]:

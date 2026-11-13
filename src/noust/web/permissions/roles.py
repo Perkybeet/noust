@@ -238,6 +238,13 @@ def legacy_scope(permissions: frozenset[str] | set[str]) -> str:
 #: credential down to one a node understands.
 _ROLES_BY_REACH: tuple[str, ...] = ("admin", "security", "operator", "auditor", "viewer")
 
+#: What a role holds about the console a person works in and never about a server a central drives:
+#: the built-in assistant is the console's, and nothing a node does asks for it. A role is still the
+#: role it was for a node when the person lacks only these: without that, a team's administrator
+#: (whose team role holds none of them) stopped being an operator on the team's servers the day the
+#: operator role was given the assistant.
+NOT_A_NODES: frozenset[str] = frozenset({P.ASSISTANT_USE})
+
 
 def role_within(
     role: str | None, permissions: frozenset[str] | set[str], store: Any = None
@@ -270,6 +277,6 @@ def role_within(
     table = role_table(store)
     for candidate in _ROLES_BY_REACH:
         definition = table.get(candidate)
-        if definition and definition <= held:
+        if definition and (definition - NOT_A_NODES) <= held:
             return candidate
     return FALLBACK_ROLE
