@@ -38,6 +38,14 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/auth/tokens"): Permission.SELF,
     ("POST", "/api/auth/tokens"): Permission.SELF,
     ("DELETE", "/api/auth/tokens/{token_id}"): Permission.SELF,
+    # What a token did, by interventions, and leaving it as it was (item 185). Reading is the token's
+    # owner's, whoever governs accounts and whoever reads the audit trail (the handler decides, and a
+    # person of a team sees only their own applications); putting it back is deploying, in sudo mode.
+    ("GET", "/api/auth/credentials"): Permission.SELF,
+    ("GET", "/api/auth/tokens/{token_id}/activity"): Permission.SELF,
+    ("GET", "/api/auth/tokens/{token_id}/activity/{n}"): Permission.SELF,
+    ("GET", "/api/auth/tokens/{token_id}/activity/{n}/undo"): Permission.SELF,
+    ("POST", "/api/auth/tokens/{token_id}/activity/{n}/undo"): Permission.APPS_DEPLOY,
     ("PATCH", "/api/auth/tokens/{token_id}"): Permission.SELF,
     ("POST", "/api/auth/fleet/revoke"): Permission.SELF,
     ("POST", "/api/auth/password"): Permission.SELF,

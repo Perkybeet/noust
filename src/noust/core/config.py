@@ -2632,6 +2632,8 @@ NON_SECRET_KEYS: frozenset[str] = frozenset(
         # security.master_token holds a word, break_glass or recovery: what the master token
         # may do, never the token.
         "master_token",
+        # The switch of a control: whether what a token changes in production waits for a person.
+        "token_production_approval",
     }
 )
 

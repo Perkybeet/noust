@@ -395,19 +395,22 @@ export interface paths {
          * List Approvals
          * @description List the requests the caller may see, newest first.
          *
-         *     Deciders and auditors see every request; everybody else sees their own.
+         *     Deciders and auditors see every request; the owner of a token sees what it asked; a person who holds
+         *     what a call the policy held needs sees it; everybody else sees their own.
          *
          *     Args:
          *         session: The caller.
          *         state: Only this state: ``requested``, ``approved``, ``rejected``,
          *             ``expired`` or ``executed``.
          *         mine: Only the caller's own.
+         *         caller: Only the calls of this class of caller.
+         *         origin: Only those that wait for this reason.
          *
          *     Returns:
          *         The requests.
          *
          *     Raises:
-         *         HTTPException: 400 for an unknown state.
+         *         HTTPException: 400 for an unknown state, class or origin.
          */
         get: operations["list_approvals_api_approvals_get"];
         put?: never;
@@ -8188,6 +8191,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Credentials
+         * @description List the credentials whose activity the caller may read, the assistant as one for each person.
+         *
+         *     Every token is a credential, but the built-in assistant has a token for each conversation, and a few
+         *     hundred of them, each lasting hours, are not a list anybody reads: they are one credential, "the
+         *     assistant, on behalf of" a person, whose interventions are its conversations. Whoever governs accounts or
+         *     reads the audit trail sees every credential; anybody else, their own.
+         *
+         *     Args:
+         *         session: The caller.
+         *
+         *     Returns:
+         *         The credentials, newest first.
+         */
+        get: operations["list_credentials_api_auth_credentials_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/dashboards": {
         parameters: {
             query?: never;
@@ -10361,6 +10395,131 @@ export interface paths {
          *             ``elevation_required`` when the change widens it.
          */
         patch: operations["restrict_api_token_api_auth_tokens__token_id__patch"];
+        trace?: never;
+    };
+    "/api/auth/tokens/{token_id}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Activity
+         * @description List what a credential did, as interventions, newest first.
+         *
+         *     An intervention is what it did without a silence of more than thirty minutes between one thing and the
+         *     next. A person of a team sees only what names an application of their team.
+         *
+         *     Args:
+         *         token_id: The token's record, as listed by ``GET /api/auth/tokens``.
+         *         session: The caller: the token's owner, whoever governs accounts or reads the audit trail.
+         *         days: How far back to read.
+         *         limit: The most interventions returned.
+         *
+         *     Returns:
+         *         The interventions, each with what it did in numbers, the applications it changed, the deployments
+         *         it started and the client it said it was.
+         *
+         *     Raises:
+         *         HTTPException: 404 for a token the caller may not read.
+         */
+        get: operations["list_activity_api_auth_tokens__token_id__activity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/tokens/{token_id}/activity/{n}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Activity
+         * @description Read one intervention: the timeline of what the credential did.
+         *
+         *     Args:
+         *         token_id: The token's record.
+         *         n: The intervention's number, from the list.
+         *         session: The caller.
+         *
+         *     Returns:
+         *         The intervention with its timeline (the action, the resource, how it ended, the deployment it
+         *         started and the client it said it was), and whether it can be put back.
+         *
+         *     Raises:
+         *         HTTPException: 404 for a token the caller may not read, or an intervention it does not have.
+         */
+        get: operations["get_activity_api_auth_tokens__token_id__activity__n__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/tokens/{token_id}/activity/{n}/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Undo Plan
+         * @description Propose how to leave an intervention as it was. Changes nothing.
+         *
+         *     For each application the credential deployed, the way back Noust already has, to the version before the
+         *     first thing it deployed there, or why there is none; and what it did that has no way back here, with why.
+         *
+         *     Args:
+         *         token_id: The token's record.
+         *         n: The intervention's number.
+         *         session: The caller.
+         *
+         *     Returns:
+         *         The plan.
+         *
+         *     Raises:
+         *         HTTPException: 404 for a token the caller may not read, or an intervention it does not have.
+         */
+        get: operations["get_undo_plan_api_auth_tokens__token_id__activity__n__undo_get"];
+        put?: never;
+        /**
+         * Post Undo
+         * @description Leave an intervention as it was: a job, in sudo mode, for the applications chosen.
+         *
+         *     Each application goes back by the way back Noust already has, behind its health gate. A going back
+         *     that passes a deployment that changed the database's schema is refused with 409 ``schema_changed``
+         *     unless the body confirms it for that application: Noust puts code back, never a database. The job says
+         *     what went back and what did not, and what the credential did that has no way back here.
+         *
+         *     Args:
+         *         token_id: The token's record.
+         *         n: The intervention's number.
+         *         body: The applications to put back and the ones whose schema change is confirmed.
+         *         session: The caller, in sudo mode, holding ``apps.deploy`` in each application.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 404 for a token or an intervention the caller may not read; 403 for an application
+         *             the caller may not deploy; 409 ``undo_unavailable`` when nothing asked can go back, and
+         *             ``schema_changed`` when a confirmation is missing.
+         */
+        post: operations["post_undo_api_auth_tokens__token_id__activity__n__undo_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/auth/verify": {
@@ -12706,6 +12865,88 @@ export interface paths {
          *         HTTPException: If the configuration cannot be written.
          */
         patch: operations["patch_config_api_config_patch"];
+        trace?: never;
+    };
+    "/api/config/approval-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Approval Policy
+         * @description Read what a token and the built-in assistant may do alone, propose or never.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The table: a row for each permission that changes something, each with its four cells, and for
+         *         each cell what judges a call, what the release ships, what the operator chose and which values it
+         *         may be given.
+         */
+        get: operations["get_approval_policy_api_config_approval_policy_get"];
+        /**
+         * Put Approval Policy
+         * @description Change the table: give some cells a value and put others back, all or nothing.
+         *
+         *     A change that gives a token or the assistant more freedom than it has waits for a second person where
+         *     the server asks for them (answered 202 ``approval_required``); one that only takes it away does not.
+         *
+         *     Args:
+         *         body: The cells to give a value and the cells to put back.
+         *         request: The request.
+         *         session: The authenticated session, in sudo mode.
+         *
+         *     Returns:
+         *         The table as it is now.
+         *
+         *     Raises:
+         *         ValidationError: 400 for a cell that does not exist or a value the cell may not have, naming
+         *             what it may.
+         */
+        put: operations["put_approval_policy_api_config_approval_policy_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/config/approval-policy/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Approval Policy
+         * @description Say what saving a change would do, and to which credentials, without saving it.
+         *
+         *     It is the simulation of ``PUT``: the same validation (a cell that does not exist or a value it may not
+         *     have is a 400 naming what it may be), and nothing written.
+         *
+         *     Args:
+         *         body: The same body ``PUT`` takes.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The cells that would change, the commands that make the change, the credentials that would behave
+         *         differently, how many requests already wait, and whether saving asks for a second person.
+         *
+         *     Raises:
+         *         ValidationError: 400 as ``PUT`` would.
+         */
+        post: operations["preview_approval_policy_api_config_approval_policy_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/config/apps-directory": {
@@ -34914,48 +35155,123 @@ export interface components {
             team?: string | null;
         };
         /**
-         * ActivityEntry
-         * @description One thing that happened lately.
+         * ActivityCredential
+         * @description The token whose activity this is.
          *
          *     Attributes:
-         *         id: Stable identifier (``job:<id>``).
-         *         type: What it was: ``deploy``, ``update``, ``backup``, ``restore``...
-         *         title: The job's name.
-         *         title_coded: The name as a sentence with a code and values, for a job whose name is one
-         *             of Noust's own sentences (a fleet job's title); None for any other, whose name is
-         *             shown as written.
-         *         status: How it went: ``pending``, ``running``, ``completed``,
-         *             ``failed``, ``cancelled``.
-         *         domain: The application it acted on, if any.
-         *         actor: Who asked, if known.
-         *         actor_name: The name its owner is greeted by, when the actor is an account (its login when
-         *             the account has no display name); None for a token, the master token or a webhook.
-         *         at: When it ended (or started), with its UTC offset.
+         *         id: Its record: that of the token itself, and for the assistant that of its newest token (any of
+         *             its tokens opens the same page).
+         *         name: Its name, which is on every audit line it made; ``assistant:<person>`` for the assistant.
+         *         kind: ``token``, ``assistant`` (the built-in assistant, by whoever it works for) or ``fleet`` (a
+         *             central's).
+         *         owner: The account it acts for, by username: the person behind the assistant.
+         *         revoked: Whether it was revoked (every one of its tokens, for the assistant).
+         *         tokens: How many tokens it is made of: one, except for the built-in assistant, which is ONE
+         *             credential for each person whatever number of tokens it used (each conversation has its own).
+         *         clients: What its clients said of themselves, newest first, labelled as what they said; none for
+         *             the assistant, whose client is Noust itself.
          */
-        ActivityEntry: {
-            /** Actor */
-            actor?: string | null;
-            /** Actor Name */
-            actor_name?: string | null;
-            /** At */
-            at?: string | null;
-            /** Domain */
-            domain?: string | null;
+        ActivityCredential: {
+            /** Clients */
+            clients?: components["schemas"]["ApprovalClientInfo"][];
             /** Id */
-            id: string;
+            id: number;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Owner */
+            owner?: string | null;
             /**
-             * Status
-             * @default
+             * Revoked
+             * @default false
              */
+            revoked: boolean;
+            /**
+             * Tokens
+             * @default 1
+             */
+            tokens: number;
+        };
+        /**
+         * ActivityDeployment
+         * @description A deployment a credential's call started.
+         *
+         *     Attributes:
+         *         id: The deployment.
+         *         domain: The application.
+         *         status: ``success``, ``failed``, ``rolled_back`` or still running.
+         *         commit: Its commit.
+         *         release: Its release.
+         *         started_at: When it started.
+         *         finished_at: When it ended.
+         *         schema_changed: A hook or a migration changed the database's schema.
+         *         job: The job that ran it.
+         */
+        ActivityDeployment: {
+            /** Commit */
+            commit?: string | null;
+            /** Domain */
+            domain: string;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Id */
+            id: number;
+            /** Job */
+            job?: string | null;
+            /** Release */
+            release?: string | null;
+            /**
+             * Schema Changed
+             * @default false
+             */
+            schema_changed: boolean;
+            /** Started At */
+            started_at?: string | null;
+            /** Status */
             status: string;
-            /**
-             * Title
-             * @default
-             */
-            title: string;
-            title_coded?: components["schemas"]["CodedText"] | null;
-            /** Type */
-            type: string;
+        };
+        /**
+         * ActivityDetail
+         * @description One intervention, with its timeline.
+         *
+         *     Attributes:
+         *         credential: The token.
+         *         intervention: The intervention.
+         *         timeline: What it did, oldest first.
+         *         deployments: The deployments it started.
+         *         clients: What the token's clients said of themselves.
+         *         undo: Whether it can be put back.
+         */
+        ActivityDetail: {
+            /** Clients */
+            clients: components["schemas"]["ApprovalClientInfo"][];
+            credential: components["schemas"]["ActivityCredential"];
+            /** Deployments */
+            deployments: components["schemas"]["ActivityDeployment"][];
+            intervention: components["schemas"]["InterventionInfo"];
+            /** Timeline */
+            timeline: components["schemas"]["noust__web__api__token_activity__ActivityEntry"][];
+            undo: components["schemas"]["UndoSummary"];
+        };
+        /**
+         * ActivityList
+         * @description The interventions of a credential.
+         *
+         *     Attributes:
+         *         credential: The token.
+         *         interventions: Newest first.
+         *         days: How far back it was read.
+         *         complete: False when the reading stopped at its cap before reaching ``days``.
+         */
+        ActivityList: {
+            /** Complete */
+            complete: boolean;
+            credential: components["schemas"]["ActivityCredential"];
+            /** Days */
+            days: number;
+            /** Interventions */
+            interventions: components["schemas"]["InterventionInfo"][];
         };
         /**
          * AddAppDomainRequest
@@ -36461,6 +36777,66 @@ export interface components {
             role?: string | null;
         };
         /**
+         * ApprovalClientInfo
+         * @description What the client of a token said of itself, shown as what it said.
+         *
+         *     Attributes:
+         *         name: The name the client gave itself (the ``clientInfo`` of MCP's handshake, or the first
+         *             product of its ``User-Agent``).
+         *         version: Its version, or empty.
+         *         source: ``client_info`` or ``user_agent``.
+         *         label: The name and the version, as one line.
+         *         declared: Always true: the server cannot know it, only that the client said it.
+         *         first_seen: When this client was first seen with the token, ISO 8601.
+         *         last_seen: When it was last seen.
+         */
+        ApprovalClientInfo: {
+            /**
+             * Declared
+             * @default true
+             */
+            declared: boolean;
+            /** First Seen */
+            first_seen?: string | null;
+            /**
+             * Label
+             * @default
+             */
+            label: string;
+            /** Last Seen */
+            last_seen?: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Source
+             * @default user_agent
+             */
+            source: string;
+            /**
+             * Version
+             * @default
+             */
+            version: string;
+        };
+        /**
+         * ApprovalCredentialInfo
+         * @description The token that made a call the policy held.
+         *
+         *     Attributes:
+         *         id: The token's record, which ``/api/auth/tokens/{id}/activity`` reads; None when the token is
+         *             gone from the list.
+         *         name: The token's name.
+         *         owner: The account it acts for, by username; None for a token nobody owns.
+         */
+        ApprovalCredentialInfo: {
+            /** Id */
+            id?: number | null;
+            /** Name */
+            name: string;
+            /** Owner */
+            owner?: string | null;
+        };
+        /**
          * ApprovalInfo
          * @description One request for a second person's approval.
          *
@@ -36491,17 +36867,35 @@ export interface components {
          *         executed_at: When the call ran.
          *         mine: Whether the caller asked for it.
          *         can_decide: Whether the caller may approve or reject it now.
+         *         origin: What made it wait: ``rule`` (the second-person rule), ``policy`` (the approval policy for
+         *             a token or the built-in assistant) or ``both``. A request of the policy can be decided by
+         *             a person who holds what the call needs, the token's owner included; one the rule holds
+         *             asks for another person.
+         *         caller: The class of caller that made the call: ``token`` or ``assistant``; None when a
+         *             person asked.
+         *         environment: ``production`` or ``other``: where the resource the call names lives, read by the
+         *             server and never from what the caller sent; None when a person asked.
+         *         domain: The application the call names, when it names one.
+         *         needs: The permissions the call needs, which a person holds to decide a request of the policy.
+         *         client: What the token's client said of itself, labelled as what it said; None when nobody was
+         *             seen.
+         *         credential: The token that made the call, when a token did.
+         *         owned: Whether the caller is the account the token acts for.
          */
         ApprovalInfo: {
             /** Action */
             action: string;
+            /** Caller */
+            caller?: string | null;
             /**
              * Can Decide
              * @default false
              */
             can_decide: boolean;
+            client?: components["schemas"]["ApprovalClientInfo"] | null;
             /** Created At */
             created_at: number;
+            credential?: components["schemas"]["ApprovalCredentialInfo"] | null;
             /** Decided At */
             decided_at?: number | null;
             decider?: components["schemas"]["ApprovalActorInfo"] | null;
@@ -36509,6 +36903,10 @@ export interface components {
             decision_comment?: string | null;
             /** Description */
             description: string;
+            /** Domain */
+            domain?: string | null;
+            /** Environment */
+            environment?: string | null;
             /** Execute By */
             execute_by?: number | null;
             /** Executed At */
@@ -36528,6 +36926,18 @@ export interface components {
              * @default false
              */
             mine: boolean;
+            /** Needs */
+            needs?: string[];
+            /**
+             * Origin
+             * @default rule
+             */
+            origin: string;
+            /**
+             * Owned
+             * @default false
+             */
+            owned: boolean;
             /** Parameters */
             parameters?: {
                 [key: string]: unknown;
@@ -36579,6 +36989,33 @@ export interface components {
             request_hours: number;
             /** Rules */
             rules: components["schemas"]["ApprovalRuleInfo"][];
+        };
+        /**
+         * ApprovalPolicyTable
+         * @description The approval policy for a caller that is not a person.
+         *
+         *     Attributes:
+         *         values: The three values, from the one that asks for nothing to the strictest.
+         *         callers: The classes of caller the table has cells for.
+         *         environments: ``production`` and ``other``.
+         *         profile: What the security profile asks.
+         *         floor: What no table lifts.
+         *         rows: A row for each permission that changes something.
+         *         chosen: How many cells the operator chose.
+         */
+        ApprovalPolicyTable: {
+            /** Callers */
+            callers: string[];
+            /** Chosen */
+            chosen: number;
+            /** Environments */
+            environments: string[];
+            floor: components["schemas"]["PolicyFloor"];
+            profile: components["schemas"]["PolicyProfile"];
+            /** Rows */
+            rows: components["schemas"]["PolicyRowInfo"][];
+            /** Values */
+            values: string[];
         };
         /**
          * ApprovalRuleInfo
@@ -43108,6 +43545,63 @@ export interface components {
             required: boolean;
             /** Secret */
             secret: boolean;
+        };
+        /**
+         * CredentialList
+         * @description The credentials the caller may read the activity of.
+         *
+         *     Attributes:
+         *         credentials: Newest first. The built-in assistant is one entry for each person, not one for each
+         *             conversation.
+         */
+        CredentialList: {
+            /** Credentials */
+            credentials: components["schemas"]["CredentialSummary"][];
+        };
+        /**
+         * CredentialSummary
+         * @description One credential of the list.
+         *
+         *     Attributes:
+         *         kind: ``token``, ``assistant`` or ``fleet``.
+         *         id: The token's record; for the assistant that of its newest token. ``/api/auth/tokens/{id}/activity``
+         *             reads what it did.
+         *         name: The token's name; ``assistant:<person>`` for the assistant.
+         *         owner: The account it acts for, by username: the person behind the assistant.
+         *         scope: The token's scope; None for the assistant.
+         *         created_at: When it was issued (its first token, for the assistant), UNIX seconds.
+         *         expires_at: When it expires (the last of its tokens, for the assistant), or None.
+         *         last_used_at: When it last authenticated a request, or None.
+         *         revoked: Whether it was revoked (every one of its tokens, for the assistant).
+         *         tokens: How many tokens it is made of: one, except for the assistant.
+         */
+        CredentialSummary: {
+            /** Created At */
+            created_at: number;
+            /** Expires At */
+            expires_at?: number | null;
+            /** Id */
+            id: number;
+            /** Kind */
+            kind: string;
+            /** Last Used At */
+            last_used_at?: number | null;
+            /** Name */
+            name: string;
+            /** Owner */
+            owner?: string | null;
+            /**
+             * Revoked
+             * @default false
+             */
+            revoked: boolean;
+            /** Scope */
+            scope?: string | null;
+            /**
+             * Tokens
+             * @default 1
+             */
+            tokens: number;
         };
         /**
          * CronActionResponse
@@ -52808,6 +53302,54 @@ export interface components {
             speed_mbps: number;
         };
         /**
+         * InterventionInfo
+         * @description What a credential did in a row.
+         *
+         *     Attributes:
+         *         n: Its number, which names it in the other routes.
+         *         started_at: When the first thing happened.
+         *         ended_at: When the last did.
+         *         ongoing: It did something less than thirty minutes ago, so it may go on.
+         *         calls: How many things it did.
+         *         changes: Of those, how many changed something and ran.
+         *         proposed: How many waited for a person.
+         *         refused: How many were refused.
+         *         failed: How many failed.
+         *         apps: The applications it changed, in the order it met them.
+         *         deployments: How many deployments it started.
+         *         client: The client it said it was while this went on, when known, as what it said.
+         *         conversation: For the assistant, the token of the conversation this was; None for any other
+         *             credential. An intervention of the assistant is a conversation, or a stretch of one without
+         *             thirty minutes of silence.
+         */
+        InterventionInfo: {
+            /** Apps */
+            apps: string[];
+            /** Calls */
+            calls: number;
+            /** Changes */
+            changes: number;
+            client?: components["schemas"]["ApprovalClientInfo"] | null;
+            /** Conversation */
+            conversation?: string | null;
+            /** Deployments */
+            deployments: number;
+            /** Ended At */
+            ended_at: string;
+            /** Failed */
+            failed: number;
+            /** N */
+            n: number;
+            /** Ongoing */
+            ongoing: boolean;
+            /** Proposed */
+            proposed: number;
+            /** Refused */
+            refused: number;
+            /** Started At */
+            started_at: string;
+        };
+        /**
          * InventoryApplyIn
          * @description Body of ``POST /api/nodes/{node}/inventory``.
          *
@@ -53159,6 +53701,32 @@ export interface components {
             port: number;
             /** Ssh Port */
             ssh_port: number;
+        };
+        /**
+         * IrreversibleInfo
+         * @description Something the credential did that cannot be undone from here.
+         *
+         *     Attributes:
+         *         at: When.
+         *         method: The method of the call.
+         *         path: The route called.
+         *         domain: The application it named.
+         *         why: ``deleted``, ``database``, ``restore``, ``variables``, ``service_state`` or ``no_way_back``.
+         *         detail: The reason in a sentence, in English.
+         */
+        IrreversibleInfo: {
+            /** At */
+            at: string;
+            /** Detail */
+            detail: string;
+            /** Domain */
+            domain?: string | null;
+            /** Method */
+            method?: string | null;
+            /** Path */
+            path?: string | null;
+            /** Why */
+            why: string;
         };
         /**
          * IssueClientCertificateRequest
@@ -57757,6 +58325,101 @@ export interface components {
             watch_paths?: string[];
         };
         /**
+         * PolicyCellChange
+         * @description A cell to give a value.
+         *
+         *     Attributes:
+         *         caller: ``token`` or ``assistant``.
+         *         environment: ``production`` or ``other``.
+         *         permission: A permission that changes something.
+         *         value: ``alone``, ``propose`` or ``never``, as the cell offers.
+         */
+        PolicyCellChange: {
+            /** Caller */
+            caller: string;
+            /** Environment */
+            environment: string;
+            /** Permission */
+            permission: string;
+            /** Value */
+            value: string;
+        };
+        /**
+         * PolicyCellInfo
+         * @description One cell of the table: what happens to a call of this permission, from this caller, in this environment.
+         *
+         *     Attributes:
+         *         caller: ``token`` or ``assistant``.
+         *         environment: ``production`` or ``other``.
+         *         value: What judges a call now: ``alone``, ``propose`` or ``never``.
+         *         default: What the release ships here (the security profile included).
+         *         chosen: What the operator chose, or None when nobody did.
+         *         offered: The values this cell may be given: a screen offers these and no other.
+         *         fixed: Only one value is offered.
+         *         reason: Why fewer than three are offered: ``assistant_floor`` (what the assistant never does: the
+         *             padlock), ``confirm`` (the row asks you to confirm it is you: the key), ``assistant_narrow``
+         *             (it is left alone only where it is narrow and reversible) or ``profile_floor`` (the security
+         *             profile asks that a token's changes in production wait for a person); None when all three
+         *             are.
+         *         legacy: ``alone`` is what ships for a token here, as it always was, though the row does not offer
+         *             it (the key): a token issued to act in sudo mode keeps doing what it did until a value that
+         *             is offered is chosen. A screen shows it as what it is and offers only ``offered``.
+         */
+        PolicyCellInfo: {
+            /** Caller */
+            caller: string;
+            /** Chosen */
+            chosen?: string | null;
+            /** Default */
+            default: string;
+            /** Environment */
+            environment: string;
+            /** Fixed */
+            fixed: boolean;
+            /**
+             * Legacy
+             * @default false
+             */
+            legacy: boolean;
+            /** Offered */
+            offered: string[];
+            /** Reason */
+            reason?: string | null;
+            /** Value */
+            value: string;
+        };
+        /**
+         * PolicyCellRef
+         * @description A cell to put back to what the release ships.
+         *
+         *     Attributes:
+         *         caller: ``token`` or ``assistant``.
+         *         environment: ``production`` or ``other``.
+         *         permission: A permission that changes something.
+         */
+        PolicyCellRef: {
+            /** Caller */
+            caller: string;
+            /** Environment */
+            environment: string;
+            /** Permission */
+            permission: string;
+        };
+        /**
+         * PolicyChange
+         * @description A change of the table: some cells given a value, some put back. All or nothing.
+         *
+         *     Attributes:
+         *         cells: The cells to give a value.
+         *         reset: The cells to put back to what the release ships.
+         */
+        PolicyChange: {
+            /** Cells */
+            cells?: components["schemas"]["PolicyCellChange"][];
+            /** Reset */
+            reset?: components["schemas"]["PolicyCellRef"][];
+        };
+        /**
          * PolicyFields
          * @description A site's policy, field by field.
          *
@@ -57879,6 +58542,75 @@ export interface components {
             waf: string;
             /** Waf Exclusions */
             waf_exclusions?: number[];
+        };
+        /**
+         * PolicyFloor
+         * @description What no table lifts.
+         *
+         *     Attributes:
+         *         assistant_never: The permissions the built-in assistant never uses.
+         *         assistant_alone: The only permissions its cell may be ``alone`` for.
+         */
+        PolicyFloor: {
+            /** Assistant Alone */
+            assistant_alone: string[];
+            /** Assistant Never */
+            assistant_never: string[];
+        };
+        /**
+         * PolicyOperations
+         * @description How many operations of the API a row governs.
+         *
+         *     Attributes:
+         *         total: Operations that change something with this permission.
+         *         strong: Of those, the ones that ask for sudo mode or for a second person every time: the built-in
+         *             assistant never does them, whatever its cell says, and a token does them only as its own sudo
+         *             mode allows.
+         */
+        PolicyOperations: {
+            /** Strong */
+            strong: number;
+            /** Total */
+            total: number;
+        };
+        /**
+         * PolicyPreview
+         * @description What saving a change would do, before it is saved.
+         *
+         *     Attributes:
+         *         changes: The cells whose value would change, in the order they were named.
+         *         commands: The commands that make the same change, in order: what the preview says it will do.
+         *         credentials: The credentials that would behave differently: the tokens that hold a permission of a
+         *             cell that changes, and the assistant when one of its cells does. Nothing is said of what they
+         *             will ask tomorrow: only that they would be judged differently.
+         *         waiting: How many requests already wait for a person; they do not change.
+         *         needs_second_person: Saving gives more freedom than the policy has now, and this server asks
+         *             another person to approve that.
+         */
+        PolicyPreview: {
+            /** Changes */
+            changes: components["schemas"]["PreviewChange"][];
+            /** Commands */
+            commands: string[];
+            /** Credentials */
+            credentials: components["schemas"]["PreviewCredential"][];
+            /** Needs Second Person */
+            needs_second_person: boolean;
+            /** Waiting */
+            waiting: number;
+        };
+        /**
+         * PolicyProfile
+         * @description What the security profile asks of the table.
+         *
+         *     Attributes:
+         *         token_production_approval: Whether what a token changes in production waits for a person (the
+         *             control of that name, by the operator or by a framework such as ENS): ``propose`` is then
+         *             the least a token's cell in production can be.
+         */
+        PolicyProfile: {
+            /** Token Production Approval */
+            token_production_approval: boolean;
         };
         /**
          * PolicyRequest
@@ -58015,6 +58747,35 @@ export interface components {
             users: string[];
             /** Webserver */
             webserver: string;
+        };
+        /**
+         * PolicyRowInfo
+         * @description One permission that changes something and what the table says of it.
+         *
+         *     Attributes:
+         *         permission: The permission.
+         *         area: The part before the dot, as the table of roles groups them.
+         *         description: What it lets one do, in a sentence.
+         *         key: Most of what it does asks you to confirm it is you (sudo mode) or a second person every time:
+         *             ``alone`` is never offered in its cells. The key of the table.
+         *         changed: Somebody chose some cell of the row (the filter of changed rows).
+         *         operations: How many operations it governs.
+         *         cells: The four cells: each class of caller in each environment.
+         */
+        PolicyRowInfo: {
+            /** Area */
+            area: string;
+            /** Cells */
+            cells: components["schemas"]["PolicyCellInfo"][];
+            /** Changed */
+            changed: boolean;
+            /** Description */
+            description: string;
+            /** Key */
+            key: boolean;
+            operations: components["schemas"]["PolicyOperations"];
+            /** Permission */
+            permission: string;
         };
         /**
          * PolicyTimer
@@ -58227,6 +58988,62 @@ export interface components {
             scripts?: string[];
         };
         /**
+         * PreviewChange
+         * @description A cell whose value would change.
+         *
+         *     Attributes:
+         *         caller: ``token`` or ``assistant``.
+         *         environment: ``production`` or ``other``.
+         *         permission: The permission.
+         *         before: What judges a call now.
+         *         after: What would judge it.
+         *         loosens: It gives more freedom than it does now (a second person is asked for where the server
+         *             asks for them).
+         *         reset: The change puts the cell back to what the release ships.
+         */
+        PreviewChange: {
+            /** After */
+            after: string;
+            /** Before */
+            before: string;
+            /** Caller */
+            caller: string;
+            /** Environment */
+            environment: string;
+            /** Loosens */
+            loosens: boolean;
+            /** Permission */
+            permission: string;
+            /**
+             * Reset
+             * @default false
+             */
+            reset: boolean;
+        };
+        /**
+         * PreviewCredential
+         * @description A credential whose behaviour changes.
+         *
+         *     Attributes:
+         *         kind: ``token`` or ``assistant`` (the built-in assistant, whatever number of tokens it uses).
+         *         id: The token's record; None for the assistant.
+         *         name: The token's name; None for the assistant.
+         *         owner: The account the token acts for.
+         *         effects: What changes for it.
+         */
+        PreviewCredential: {
+            /** Effects */
+            effects: components["schemas"]["PreviewEffect"][];
+            /** Id */
+            id?: number | null;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name?: string | null;
+            /** Owner */
+            owner?: string | null;
+        };
+        /**
          * PreviewDetailResponse
          * @description One preview, and what runs it.
          *
@@ -58284,6 +59101,26 @@ export interface components {
             verdict: string;
             /** Wildcard */
             wildcard: string;
+        };
+        /**
+         * PreviewEffect
+         * @description What a credential would find different.
+         *
+         *     Attributes:
+         *         permission: The permission.
+         *         environment: ``production`` or ``other``.
+         *         before: What it is judged by now.
+         *         after: What it would be judged by.
+         */
+        PreviewEffect: {
+            /** After */
+            after: string;
+            /** Before */
+            before: string;
+            /** Environment */
+            environment: string;
+            /** Permission */
+            permission: string;
         };
         /**
          * PreviewLogsResponse
@@ -70667,6 +71504,108 @@ export interface components {
             jail?: string | null;
         };
         /**
+         * UndoItemInfo
+         * @description One application of the plan.
+         *
+         *     Attributes:
+         *         kind: ``rollback``.
+         *         domain: The application.
+         *         deployments: What the credential deployed there.
+         *         status: ``ready``, ``needs_confirmation`` (going back passes a deployment that changed the
+         *             database's schema, which Noust puts code back past and never the database), ``already`` or
+         *             ``blocked``.
+         *         reason: Why it is blocked: ``app_gone``, ``failed_only``, ``nothing_before``, ``superseded`` or
+         *             ``unavailable``.
+         *         detail: The reason in a sentence, in English.
+         *         back_to: The deployment it would go back to.
+         *         back_to_commit: Its commit.
+         *         back_to_release: Its release.
+         *         back_to_at: When it started.
+         *         schema_changed: The deployments that changed the schema and that going back passes.
+         *         superseded_by: The deployments of somebody else on top of the credential's.
+         */
+        UndoItemInfo: {
+            /** Back To */
+            back_to?: number | null;
+            /** Back To At */
+            back_to_at?: string | null;
+            /** Back To Commit */
+            back_to_commit?: string | null;
+            /** Back To Release */
+            back_to_release?: string | null;
+            /** Deployments */
+            deployments: number[];
+            /** Detail */
+            detail?: string | null;
+            /** Domain */
+            domain: string;
+            /** Kind */
+            kind: string;
+            /** Reason */
+            reason?: string | null;
+            /** Schema Changed */
+            schema_changed?: number[];
+            /** Status */
+            status: string;
+            /** Superseded By */
+            superseded_by?: number[];
+        };
+        /**
+         * UndoPlanInfo
+         * @description What would put an intervention back.
+         *
+         *     Attributes:
+         *         credential: The token's name.
+         *         intervention: Its number.
+         *         available: Something can be put back.
+         *         items: An item for each application it deployed.
+         *         irreversible: What it did that cannot be undone from here, with why.
+         */
+        UndoPlanInfo: {
+            /** Available */
+            available: boolean;
+            /** Credential */
+            credential: string;
+            /** Intervention */
+            intervention: number;
+            /** Irreversible */
+            irreversible: components["schemas"]["IrreversibleInfo"][];
+            /** Items */
+            items: components["schemas"]["UndoItemInfo"][];
+        };
+        /**
+         * UndoRequest
+         * @description Asking to put an intervention back.
+         *
+         *     Attributes:
+         *         apps: The applications to put back; every one that can when omitted.
+         *         schema_changed_ok: The applications for which going back past a deployment that changed the
+         *             database's schema is confirmed: Noust puts the code back, never the database.
+         */
+        UndoRequest: {
+            /** Apps */
+            apps?: string[] | null;
+            /** Schema Changed Ok */
+            schema_changed_ok?: string[];
+        };
+        /**
+         * UndoSummary
+         * @description Whether something of an intervention can be put back.
+         *
+         *     Attributes:
+         *         available: Something can.
+         *         items: How many applications the plan has.
+         *         irreversible: How many things it did have no way back here.
+         */
+        UndoSummary: {
+            /** Available */
+            available: boolean;
+            /** Irreversible */
+            irreversible: number;
+            /** Items */
+            items: number;
+        };
+        /**
          * UnitDevice
          * @description A device node or group the process may open.
          */
@@ -75114,6 +76053,50 @@ export interface components {
             username: string;
         };
         /**
+         * ActivityEntry
+         * @description One thing that happened lately.
+         *
+         *     Attributes:
+         *         id: Stable identifier (``job:<id>``).
+         *         type: What it was: ``deploy``, ``update``, ``backup``, ``restore``...
+         *         title: The job's name.
+         *         title_coded: The name as a sentence with a code and values, for a job whose name is one
+         *             of Noust's own sentences (a fleet job's title); None for any other, whose name is
+         *             shown as written.
+         *         status: How it went: ``pending``, ``running``, ``completed``,
+         *             ``failed``, ``cancelled``.
+         *         domain: The application it acted on, if any.
+         *         actor: Who asked, if known.
+         *         actor_name: The name its owner is greeted by, when the actor is an account (its login when
+         *             the account has no display name); None for a token, the master token or a webhook.
+         *         at: When it ended (or started), with its UTC offset.
+         */
+        noust__web__api__overview__ActivityEntry: {
+            /** Actor */
+            actor?: string | null;
+            /** Actor Name */
+            actor_name?: string | null;
+            /** At */
+            at?: string | null;
+            /** Domain */
+            domain?: string | null;
+            /** Id */
+            id: string;
+            /**
+             * Status
+             * @default
+             */
+            status: string;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            title_coded?: components["schemas"]["CodedText"] | null;
+            /** Type */
+            type: string;
+        };
+        /**
          * OverviewResponse
          * @description Everything the Overview shows.
          *
@@ -75135,7 +76118,7 @@ export interface components {
          */
         noust__web__api__overview__OverviewResponse: {
             /** Activity */
-            activity?: components["schemas"]["ActivityEntry"][];
+            activity?: components["schemas"]["noust__web__api__overview__ActivityEntry"][];
             apps: components["schemas"]["AppsFigure"];
             /** Attention */
             attention?: components["schemas"]["AttentionItem"][];
@@ -75617,6 +76600,61 @@ export interface components {
             slug: string;
             /** Team */
             team: string;
+        };
+        /**
+         * ActivityEntry
+         * @description One thing the credential did.
+         *
+         *     Attributes:
+         *         at: When, ISO 8601.
+         *         seq: The sequence number of its first event in the chained audit trail.
+         *         credential: The token that did it: for the assistant, the token of its conversation.
+         *         via: ``api``, ``mcp``, ``assistant`` or ``fleet``.
+         *         kind: ``change``, ``tool``, ``read``, ``proposal`` or ``event``.
+         *         method: The HTTP method, for a call of the API.
+         *         path: The route called.
+         *         tool: The tool of MCP.
+         *         domain: The application it names.
+         *         result: ``ok``, ``proposed`` (a person had to approve it), ``refused`` or ``failed``.
+         *         status: The HTTP status, when the audit line carries it.
+         *         approval: The approval request, when the call waited for a person or ran with one.
+         *         operator: The person a central acted for, for a fleet token.
+         *         events: The names of what else the same request recorded.
+         *         deployment: The deployment it started.
+         */
+        noust__web__api__token_activity__ActivityEntry: {
+            /** Approval */
+            approval?: number | null;
+            /** At */
+            at: string;
+            /**
+             * Credential
+             * @default
+             */
+            credential: string;
+            deployment?: components["schemas"]["ActivityDeployment"] | null;
+            /** Domain */
+            domain?: string | null;
+            /** Events */
+            events?: string[];
+            /** Kind */
+            kind: string;
+            /** Method */
+            method?: string | null;
+            /** Operator */
+            operator?: string | null;
+            /** Path */
+            path?: string | null;
+            /** Result */
+            result: string;
+            /** Seq */
+            seq?: number | null;
+            /** Status */
+            status?: number | null;
+            /** Tool */
+            tool?: string | null;
+            /** Via */
+            via: string;
         };
         /**
          * DeliveriesOut
@@ -76224,6 +77262,10 @@ export interface operations {
                 state?: string | null;
                 /** @description Only the caller's own requests */
                 mine?: boolean;
+                /** @description Only calls of this class of caller: `token` or `assistant` */
+                caller?: string | null;
+                /** @description Only those that wait for this reason: `rule`, `policy` or `both` */
+                origin?: string | null;
             };
             header?: never;
             path?: never;
@@ -84905,6 +85947,26 @@ export interface operations {
             };
         };
     };
+    list_credentials_api_auth_credentials_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CredentialList"];
+                };
+            };
+        };
+    };
     list_dashboards_api_auth_dashboards_get: {
         parameters: {
             query?: never;
@@ -86963,6 +88025,142 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiTokenInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_activity_api_auth_tokens__token_id__activity_get: {
+        parameters: {
+            query?: {
+                /** @description How many days back to read */
+                days?: number;
+                /** @description Most interventions returned */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                token_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_activity_api_auth_tokens__token_id__activity__n__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token_id: number;
+                n: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_undo_plan_api_auth_tokens__token_id__activity__n__undo_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token_id: number;
+                n: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UndoPlanInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_undo_api_auth_tokens__token_id__activity__n__undo_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token_id: number;
+                n: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["UndoRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -89445,6 +90643,92 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConfigPatchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_approval_policy_api_config_approval_policy_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalPolicyTable"];
+                };
+            };
+        };
+    };
+    put_approval_policy_api_config_approval_policy_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PolicyChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalPolicyTable"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_approval_policy_api_config_approval_policy_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PolicyChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyPreview"];
                 };
             };
             /** @description Validation Error */

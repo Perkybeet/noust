@@ -105,6 +105,10 @@ NOT_SECRET: dict[tuple[str, str], str] = {
         "settings",
     ): "what is not secret of a destination; its keys are in the secret store",
     ("cloud_accounts", "token_tail"): "the last characters of a token, to tell accounts apart",
+    (
+        "credential_clients",
+        "credential",
+    ): "the name of an API token (never the token) whose client this is: the name is on every audit line",
     ("custom_certificates", "key_type"): "an algorithm name",
     ("database_accounts", "password_changed_at"): "a time",
     ("database_links", "env_var"): "the name of a variable",

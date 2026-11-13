@@ -194,16 +194,42 @@ ActiveTeamRequest = TypedDict("ActiveTeamRequest", {
     "team": NotRequired[Union[str, None]],
 })
 
-ActivityEntry = TypedDict("ActivityEntry", {
-    "actor": NotRequired[Union[str, None]],
-    "actor_name": NotRequired[Union[str, None]],
-    "at": NotRequired[Union[str, None]],
-    "domain": NotRequired[Union[str, None]],
-    "id": Required[str],
-    "status": NotRequired[str],
-    "title": NotRequired[str],
-    "title_coded": NotRequired[Union["CodedText", None]],
-    "type": Required[str],
+ActivityCredential = TypedDict("ActivityCredential", {
+    "clients": NotRequired[list["ApprovalClientInfo"]],
+    "id": Required[int],
+    "kind": Required[str],
+    "name": Required[str],
+    "owner": NotRequired[Union[str, None]],
+    "revoked": NotRequired[bool],
+    "tokens": NotRequired[int],
+})
+
+ActivityDeployment = TypedDict("ActivityDeployment", {
+    "commit": NotRequired[Union[str, None]],
+    "domain": Required[str],
+    "finished_at": NotRequired[Union[str, None]],
+    "id": Required[int],
+    "job": NotRequired[Union[str, None]],
+    "release": NotRequired[Union[str, None]],
+    "schema_changed": NotRequired[bool],
+    "started_at": NotRequired[Union[str, None]],
+    "status": Required[str],
+})
+
+ActivityDetail = TypedDict("ActivityDetail", {
+    "clients": Required[list["ApprovalClientInfo"]],
+    "credential": Required["ActivityCredential"],
+    "deployments": Required[list["ActivityDeployment"]],
+    "intervention": Required["InterventionInfo"],
+    "timeline": Required[list["NoustWebApiTokenActivityActivityEntry"]],
+    "undo": Required["UndoSummary"],
+})
+
+ActivityList = TypedDict("ActivityList", {
+    "complete": Required[bool],
+    "credential": Required["ActivityCredential"],
+    "days": Required[int],
+    "interventions": Required[list["InterventionInfo"]],
 })
 
 AddAppDomainRequest = TypedDict("AddAppDomainRequest", {
@@ -667,14 +693,35 @@ ApprovalActorInfo = TypedDict("ApprovalActorInfo", {
     "role": NotRequired[Union[str, None]],
 })
 
+ApprovalClientInfo = TypedDict("ApprovalClientInfo", {
+    "declared": NotRequired[bool],
+    "first_seen": NotRequired[Union[str, None]],
+    "label": NotRequired[str],
+    "last_seen": NotRequired[Union[str, None]],
+    "name": Required[str],
+    "source": NotRequired[str],
+    "version": NotRequired[str],
+})
+
+ApprovalCredentialInfo = TypedDict("ApprovalCredentialInfo", {
+    "id": NotRequired[Union[int, None]],
+    "name": Required[str],
+    "owner": NotRequired[Union[str, None]],
+})
+
 ApprovalInfo = TypedDict("ApprovalInfo", {
     "action": Required[str],
+    "caller": NotRequired[Union[str, None]],
     "can_decide": NotRequired[bool],
+    "client": NotRequired[Union["ApprovalClientInfo", None]],
     "created_at": Required[float],
+    "credential": NotRequired[Union["ApprovalCredentialInfo", None]],
     "decided_at": NotRequired[Union[float, None]],
     "decider": NotRequired[Union["ApprovalActorInfo", None]],
     "decision_comment": NotRequired[Union[str, None]],
     "description": Required[str],
+    "domain": NotRequired[Union[str, None]],
+    "environment": NotRequired[Union[str, None]],
     "execute_by": NotRequired[Union[float, None]],
     "executed_at": NotRequired[Union[float, None]],
     "expires_at": Required[float],
@@ -683,6 +730,9 @@ ApprovalInfo = TypedDict("ApprovalInfo", {
     "kind": Required[str],
     "method": Required[str],
     "mine": NotRequired[bool],
+    "needs": NotRequired[list[str]],
+    "origin": NotRequired[str],
+    "owned": NotRequired[bool],
     "parameters": NotRequired[dict[str, Any]],
     "path": Required[str],
     "reason": NotRequired[Union[str, None]],
@@ -702,6 +752,16 @@ ApprovalPolicyInfo = TypedDict("ApprovalPolicyInfo", {
     "reason_required": Required[bool],
     "request_hours": Required[float],
     "rules": Required[list["ApprovalRuleInfo"]],
+})
+
+ApprovalPolicyTable = TypedDict("ApprovalPolicyTable", {
+    "callers": Required[list[str]],
+    "chosen": Required[int],
+    "environments": Required[list[str]],
+    "floor": Required["PolicyFloor"],
+    "profile": Required["PolicyProfile"],
+    "rows": Required[list["PolicyRowInfo"]],
+    "values": Required[list[str]],
 })
 
 ApprovalRuleInfo = TypedDict("ApprovalRuleInfo", {
@@ -2712,6 +2772,23 @@ CredentialFieldModel = TypedDict("CredentialFieldModel", {
     "name": Required[str],
     "required": Required[bool],
     "secret": Required[bool],
+})
+
+CredentialList = TypedDict("CredentialList", {
+    "credentials": Required[list["CredentialSummary"]],
+})
+
+CredentialSummary = TypedDict("CredentialSummary", {
+    "created_at": Required[float],
+    "expires_at": NotRequired[Union[float, None]],
+    "id": Required[int],
+    "kind": Required[str],
+    "last_used_at": NotRequired[Union[float, None]],
+    "name": Required[str],
+    "owner": NotRequired[Union[str, None]],
+    "revoked": NotRequired[bool],
+    "scope": NotRequired[Union[str, None]],
+    "tokens": NotRequired[int],
 })
 
 CronActionResponse = TypedDict("CronActionResponse", {
@@ -5773,6 +5850,22 @@ InterfaceInfo = TypedDict("InterfaceInfo", {
     "speed_mbps": NotRequired[int],
 })
 
+InterventionInfo = TypedDict("InterventionInfo", {
+    "apps": Required[list[str]],
+    "calls": Required[int],
+    "changes": Required[int],
+    "client": NotRequired[Union["ApprovalClientInfo", None]],
+    "conversation": NotRequired[Union[str, None]],
+    "deployments": Required[int],
+    "ended_at": Required[str],
+    "failed": Required[int],
+    "n": Required[int],
+    "ongoing": Required[bool],
+    "proposed": Required[int],
+    "refused": Required[int],
+    "started_at": Required[str],
+})
+
 InventoryApplyIn = TypedDict("InventoryApplyIn", {
     "document": Required[dict[str, Any]],
     "include_ssh": NotRequired[bool],
@@ -5886,6 +5979,15 @@ InviteOut = TypedDict("InviteOut", {
     "node": Required[str],
     "port": Required[int],
     "ssh_port": Required[int],
+})
+
+IrreversibleInfo = TypedDict("IrreversibleInfo", {
+    "at": Required[str],
+    "detail": Required[str],
+    "domain": NotRequired[Union[str, None]],
+    "method": NotRequired[Union[str, None]],
+    "path": NotRequired[Union[str, None]],
+    "why": Required[str],
 })
 
 IssueClientCertificateRequest = TypedDict("IssueClientCertificateRequest", {
@@ -7448,6 +7550,36 @@ PlatformProposalResponse = TypedDict("PlatformProposalResponse", {
     "watch_paths": NotRequired[list[str]],
 })
 
+PolicyCellChange = TypedDict("PolicyCellChange", {
+    "caller": Required[str],
+    "environment": Required[str],
+    "permission": Required[str],
+    "value": Required[str],
+})
+
+PolicyCellInfo = TypedDict("PolicyCellInfo", {
+    "caller": Required[str],
+    "chosen": NotRequired[Union[str, None]],
+    "default": Required[str],
+    "environment": Required[str],
+    "fixed": Required[bool],
+    "legacy": NotRequired[bool],
+    "offered": Required[list[str]],
+    "reason": NotRequired[Union[str, None]],
+    "value": Required[str],
+})
+
+PolicyCellRef = TypedDict("PolicyCellRef", {
+    "caller": Required[str],
+    "environment": Required[str],
+    "permission": Required[str],
+})
+
+PolicyChange = TypedDict("PolicyChange", {
+    "cells": NotRequired[list["PolicyCellChange"]],
+    "reset": NotRequired[list["PolicyCellRef"]],
+})
+
 PolicyFields = TypedDict("PolicyFields", {
     "access": NotRequired[str],
     "allow_ips": NotRequired[list[str]],
@@ -7472,6 +7604,28 @@ PolicyFields = TypedDict("PolicyFields", {
     "trusted_proxies": NotRequired[list[str]],
     "waf": NotRequired[str],
     "waf_exclusions": NotRequired[list[int]],
+})
+
+PolicyFloor = TypedDict("PolicyFloor", {
+    "assistant_alone": Required[list[str]],
+    "assistant_never": Required[list[str]],
+})
+
+PolicyOperations = TypedDict("PolicyOperations", {
+    "strong": Required[int],
+    "total": Required[int],
+})
+
+PolicyPreview = TypedDict("PolicyPreview", {
+    "changes": Required[list["PreviewChange"]],
+    "commands": Required[list[str]],
+    "credentials": Required[list["PreviewCredential"]],
+    "needs_second_person": Required[bool],
+    "waiting": Required[int],
+})
+
+PolicyProfile = TypedDict("PolicyProfile", {
+    "token_production_approval": Required[bool],
 })
 
 PolicyRequest = TypedDict("PolicyRequest", {
@@ -7512,6 +7666,16 @@ PolicyResponse = TypedDict("PolicyResponse", {
     "reason": NotRequired[str],
     "users": Required[list[str]],
     "webserver": Required[str],
+})
+
+PolicyRowInfo = TypedDict("PolicyRowInfo", {
+    "area": Required[str],
+    "cells": Required[list["PolicyCellInfo"]],
+    "changed": Required[bool],
+    "description": Required[str],
+    "key": Required[bool],
+    "operations": Required["PolicyOperations"],
+    "permission": Required[str],
 })
 
 PolicyTimer = TypedDict("PolicyTimer", {
@@ -7586,6 +7750,24 @@ PreviewBody = TypedDict("PreviewBody", {
     "scripts": NotRequired[list[str]],
 })
 
+PreviewChange = TypedDict("PreviewChange", {
+    "after": Required[str],
+    "before": Required[str],
+    "caller": Required[str],
+    "environment": Required[str],
+    "loosens": Required[bool],
+    "permission": Required[str],
+    "reset": NotRequired[bool],
+})
+
+PreviewCredential = TypedDict("PreviewCredential", {
+    "effects": Required[list["PreviewEffect"]],
+    "id": NotRequired[Union[int, None]],
+    "kind": Required[str],
+    "name": NotRequired[Union[str, None]],
+    "owner": NotRequired[Union[str, None]],
+})
+
 PreviewDetailResponse = TypedDict("PreviewDetailResponse", {
     "active": NotRequired[bool],
     "last_deployment": NotRequired[Union[dict[str, Any], None]],
@@ -7603,6 +7785,13 @@ PreviewDnsResponse = TypedDict("PreviewDnsResponse", {
     "resolved_addresses": Required[list[str]],
     "verdict": Required[str],
     "wildcard": Required[str],
+})
+
+PreviewEffect = TypedDict("PreviewEffect", {
+    "after": Required[str],
+    "before": Required[str],
+    "environment": Required[str],
+    "permission": Required[str],
 })
 
 PreviewLogsResponse = TypedDict("PreviewLogsResponse", {
@@ -11544,6 +11733,40 @@ UnbanRequest = TypedDict("UnbanRequest", {
     "jail": NotRequired[Union[str, None]],
 })
 
+UndoItemInfo = TypedDict("UndoItemInfo", {
+    "back_to": NotRequired[Union[int, None]],
+    "back_to_at": NotRequired[Union[str, None]],
+    "back_to_commit": NotRequired[Union[str, None]],
+    "back_to_release": NotRequired[Union[str, None]],
+    "deployments": Required[list[int]],
+    "detail": NotRequired[Union[str, None]],
+    "domain": Required[str],
+    "kind": Required[str],
+    "reason": NotRequired[Union[str, None]],
+    "schema_changed": NotRequired[list[int]],
+    "status": Required[str],
+    "superseded_by": NotRequired[list[int]],
+})
+
+UndoPlanInfo = TypedDict("UndoPlanInfo", {
+    "available": Required[bool],
+    "credential": Required[str],
+    "intervention": Required[int],
+    "irreversible": Required[list["IrreversibleInfo"]],
+    "items": Required[list["UndoItemInfo"]],
+})
+
+UndoRequest = TypedDict("UndoRequest", {
+    "apps": NotRequired[Union[list[str], None]],
+    "schema_changed_ok": NotRequired[list[str]],
+})
+
+UndoSummary = TypedDict("UndoSummary", {
+    "available": Required[bool],
+    "irreversible": Required[int],
+    "items": Required[int],
+})
+
 UnitDevice = TypedDict("UnitDevice", {
     "mode": NotRequired[str],
     "path": Required[str],
@@ -12961,8 +13184,20 @@ NoustWebApiOidcLinkRequest = TypedDict("NoustWebApiOidcLinkRequest", {
     "username": Required[str],
 })
 
+NoustWebApiOverviewActivityEntry = TypedDict("NoustWebApiOverviewActivityEntry", {
+    "actor": NotRequired[Union[str, None]],
+    "actor_name": NotRequired[Union[str, None]],
+    "at": NotRequired[Union[str, None]],
+    "domain": NotRequired[Union[str, None]],
+    "id": Required[str],
+    "status": NotRequired[str],
+    "title": NotRequired[str],
+    "title_coded": NotRequired[Union["CodedText", None]],
+    "type": Required[str],
+})
+
 NoustWebApiOverviewOverviewResponse = TypedDict("NoustWebApiOverviewOverviewResponse", {
-    "activity": NotRequired[list["ActivityEntry"]],
+    "activity": NotRequired[list["NoustWebApiOverviewActivityEntry"]],
     "apps": Required["AppsFigure"],
     "attention": NotRequired[list["AttentionItem"]],
     "attention_total": NotRequired[int],
@@ -13145,6 +13380,24 @@ NoustWebApiTeamsProjectOut = TypedDict("NoustWebApiTeamsProjectOut", {
     "name": Required[str],
     "slug": Required[str],
     "team": Required[str],
+})
+
+NoustWebApiTokenActivityActivityEntry = TypedDict("NoustWebApiTokenActivityActivityEntry", {
+    "approval": NotRequired[Union[int, None]],
+    "at": Required[str],
+    "credential": NotRequired[str],
+    "deployment": NotRequired[Union["ActivityDeployment", None]],
+    "domain": NotRequired[Union[str, None]],
+    "events": NotRequired[list[str]],
+    "kind": Required[str],
+    "method": NotRequired[Union[str, None]],
+    "operator": NotRequired[Union[str, None]],
+    "path": NotRequired[Union[str, None]],
+    "result": Required[str],
+    "seq": NotRequired[Union[int, None]],
+    "status": NotRequired[Union[int, None]],
+    "tool": NotRequired[Union[str, None]],
+    "via": Required[str],
 })
 
 NoustWebApiViewsDeliveriesOut = TypedDict("NoustWebApiViewsDeliveriesOut", {

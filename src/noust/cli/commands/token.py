@@ -404,3 +404,215 @@ def revoke_command(ctx: Context, token_id: int, force: bool) -> None:
         raise SystemExit(1)
 
     ctx.logger.success(f"Revoked API token: {name}")
+
+
+def _credential_of(name: str) -> tuple[Any, Any]:
+    """
+    Find the token a name, or ``assistant:<person>``, stands for.
+
+    Args:
+        name: A token's name, or what the built-in assistant of a person is called.
+
+    Returns:
+        ``(record, reference)``: the token's record and what a reading of its activity follows.
+
+    Raises:
+        click.ClickException: When no token has that name.
+    """
+    from noust.core.credential_activity import reference_of
+
+    manager = token_manager()
+    records = manager.list_api_tokens()
+    wanted = name
+    if name.startswith("assistant:"):
+        account = manager.accounts.find(name.partition(":")[2])
+        mine = [
+            r
+            for r in records
+            if account is not None
+            and r.get("caller") == "assistant"
+            and r.get("owner_account_id") == account.id
+        ]
+        if not mine:
+            raise click.ClickException(f"The built-in assistant has not worked for {name[10:]!r}.")
+        wanted = str(max(mine, key=lambda r: int(r["id"]))["name"])
+    record = next((r for r in records if r["name"] == wanted), None)
+    if record is None:
+        raise click.ClickException(
+            f"No API token is called {name!r}. 'noust token list' shows them, and the built-in "
+            "assistant of a person is assistant:<username>."
+        )
+    owner = (
+        manager.accounts.get(int(record["owner_account_id"]))
+        if record.get("owner_account_id")
+        else None
+    )
+    return record, reference_of(record, records, owner.username if owner else None)
+
+
+@cli.command("activity", read_only=lambda params: not params["apply_undo"])
+@click.argument("name")
+@click.argument("intervention", type=int, required=False)
+@click.option(
+    "--days",
+    type=click.IntRange(1, 365),
+    default=30,
+    show_default=True,
+    help="How far back to read.",
+)
+@click.option(
+    "--undo", "show_undo", is_flag=True, help="Show how to leave the intervention as it was."
+)
+@click.option(
+    "--apply",
+    "apply_undo",
+    is_flag=True,
+    help="Do it: put back the applications the plan can (as root, on the audit trail).",
+)
+@click.option("--app", "apps", multiple=True, help="Only this application (repeat).")
+@click.option(
+    "--confirm-schema",
+    "confirm_schema",
+    multiple=True,
+    help="Confirm going back past a deployment that changed the database's schema, for this application.",
+)
+@json_option("Print the activity as JSON.")
+@pass_context
+def activity_command(
+    ctx: Context,
+    name: str,
+    intervention: int | None,
+    days: int,
+    show_undo: bool,
+    apply_undo: bool,
+    apps: tuple[str, ...],
+    confirm_schema: tuple[str, ...],
+) -> None:
+    """
+    Show what a token did, by interventions, and leave one as it was.
+
+    Without a number, the interventions: what the token did without a silence of half an hour. With one, its
+    timeline. ``--undo`` shows how to put it back (nothing changes), ``--apply`` does it, one application at a
+    time by the way back Noust already has, and says what went back and what did not. The built-in assistant
+    is one credential for each person: ``assistant:<username>``, its interventions its conversations.
+    """
+    from noust.core.credential_activity import CredentialActivity
+    from noust.deployers.credential_undo import Undoer
+    from noust.web.mcp.tools import BY_NAME
+
+    def reads(tool: str) -> bool:
+        found = BY_NAME.get(tool)
+        return found is not None and found.read_only
+
+    _record, ref = _credential_of(name)
+    activity = CredentialActivity()
+    if intervention is None:
+        found, complete = activity.interventions(ref, days=days, is_read_tool=reads)
+        if ctx.json_output:
+            click.echo(
+                json.dumps(
+                    {
+                        "credential": ref.label,
+                        "complete": complete,
+                        "interventions": [shown.to_dict() for shown in found],
+                    }
+                )
+            )
+            return
+        if not found:
+            ctx.logger.info(
+                f"{ref.label} did nothing in the last {days} days that the audit trail holds."
+            )
+            return
+        ctx.logger.table(
+            ["Number", "From", "To", "Calls", "Changes", "Waited", "Refused", "Applications"],
+            [
+                [
+                    str(shown.n),
+                    shown.started_at[:19].replace("T", " "),
+                    shown.ended_at[:19].replace("T", " ")
+                    + (" (going on)" if shown.ongoing else ""),
+                    str(len(shown.entries)),
+                    str(shown.to_dict()["changes"]),
+                    str(shown.to_dict()["proposed"]),
+                    str(shown.to_dict()["refused"]),
+                    ", ".join(shown.apps) or "-",
+                ]
+                for shown in found
+            ],
+        )
+        if not complete:
+            ctx.logger.warning(
+                "The audit trail is longer than one reading goes through: older ones are not here."
+            )
+        return
+    chosen = activity.intervention(ref, intervention, is_read_tool=reads)
+    if chosen is None:
+        raise click.ClickException(
+            f"{ref.label} has no intervention {intervention} in the audit trail."
+        )
+    undoer = Undoer(activity)
+    if apply_undo:
+        plan = undoer.plan(ref, chosen)
+        domains = list(apps) or [i.domain for i in plan.items]
+        result = undoer.apply(
+            ref,
+            intervention,
+            domains=domains,
+            confirmed=list(confirm_schema),
+            is_read_tool=reads,
+        )
+        if ctx.json_output:
+            click.echo(json.dumps(result.to_dict()))
+            return
+        for entry in result.reverted:
+            ctx.logger.success(f"{entry['domain']} went back to deployment {entry['back_to']}.")
+        for entry in result.not_reverted:
+            ctx.logger.warning(
+                f"{entry['domain'] or ''} did not go back ({entry['reason']}): {entry['detail']}"
+            )
+        for entry in result.irreversible:
+            ctx.logger.info(
+                f"No way back from here: {entry['detail']} ({entry['method']} {entry['path']})"
+            )
+        if not result.reverted:
+            raise SystemExit(1)
+        return
+    if show_undo:
+        plan = undoer.plan(ref, chosen)
+        if ctx.json_output:
+            click.echo(json.dumps(plan.to_dict()))
+            return
+        for step in plan.items:
+            line = f"{step.domain}: {step.status}"
+            if step.back_to is not None:
+                line += f", back to deployment {step.back_to} ({step.back_to_commit or step.back_to_release or '-'})"
+            ctx.logger.info(line + (f": {step.detail}" if step.detail else ""))
+            if step.schema_changed:
+                ctx.logger.warning(
+                    f"  Passes deployments that changed the database's schema: {step.schema_changed}. "
+                    f"Confirm with --confirm-schema {step.domain}; Noust puts code back, never the database."
+                )
+        for lost in plan.irreversible:
+            ctx.logger.info(f"No way back from here: {lost.detail} ({lost.method} {lost.path})")
+        if not plan.items and not plan.irreversible:
+            ctx.logger.info(
+                "This intervention deployed nothing and changed nothing that has no way back."
+            )
+        return
+    if ctx.json_output:
+        click.echo(json.dumps({"credential": ref.label, **chosen.to_dict(with_entries=True)}))
+        return
+    ctx.logger.table(
+        ["At", "Via", "What", "Application", "Result"],
+        [
+            [
+                entry.at[:19].replace("T", " "),
+                entry.via,
+                f"{entry.method} {entry.path}" if entry.method else (entry.tool or "-"),
+                entry.domain or "-",
+                entry.result + (f" (request {entry.approval})" if entry.approval else ""),
+            ]
+            for entry in chosen.entries
+        ],
+    )

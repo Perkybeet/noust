@@ -268,6 +268,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("authentication", "reset_account_mfa"): ("POST", "/api/auth/accounts/{username}/reset-mfa", "accounts.manage", True),
     ("authentication", "set_account_roles"): ("PUT", "/api/auth/accounts/{username}/roles", "accounts.manage", True),
     ("authentication", "unlock_account"): ("POST", "/api/auth/accounts/{username}/unlock", "accounts.manage", True),
+    ("authentication", "list_credentials"): ("GET", "/api/auth/credentials", "self", False),
     ("authentication", "elevate"): ("POST", "/api/auth/elevate", "self", False),
     ("authentication", "list_exceptions"): ("GET", "/api/auth/exceptions", "accounts.read", False),
     ("authentication", "create_exception"): ("POST", "/api/auth/exceptions", "accounts.manage", True),
@@ -297,6 +298,10 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("authentication", "create_api_token"): ("POST", "/api/auth/tokens", "self", True),
     ("authentication", "restrict_api_token"): ("PATCH", "/api/auth/tokens/{token_id}", "self", False),
     ("authentication", "revoke_api_token"): ("DELETE", "/api/auth/tokens/{token_id}", "self", False),
+    ("authentication", "list_activity"): ("GET", "/api/auth/tokens/{token_id}/activity", "self", False),
+    ("authentication", "get_activity"): ("GET", "/api/auth/tokens/{token_id}/activity/{n}", "self", False),
+    ("authentication", "get_undo_plan"): ("GET", "/api/auth/tokens/{token_id}/activity/{n}/undo", "self", False),
+    ("authentication", "post_undo"): ("POST", "/api/auth/tokens/{token_id}/activity/{n}/undo", "apps.deploy", True),
     ("authentication", "verify_token"): ("GET", "/api/auth/verify", "self", False),
     ("authentication", "create_ws_ticket"): ("POST", "/api/auth/ws-ticket", "self", False),
     ("backup_collection", "list_collection"): ("GET", "/api/backup-collection", "backups.collect", False),
@@ -395,6 +400,9 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("configuration", "get_config"): ("GET", "/api/config", "settings.read", False),
     ("configuration", "update_config"): ("PUT", "/api/config", "security.manage", True),
     ("configuration", "patch_config"): ("PATCH", "/api/config", "settings.manage", True),
+    ("configuration", "get_approval_policy"): ("GET", "/api/config/approval-policy", "settings.read", False),
+    ("configuration", "put_approval_policy"): ("PUT", "/api/config/approval-policy", "security.manage", True),
+    ("configuration", "preview_approval_policy"): ("POST", "/api/config/approval-policy/preview", "security.manage", False),
     ("configuration", "get_apps_directory"): ("GET", "/api/config/apps-directory", "settings.read", False),
     ("configuration", "update_apps_directory"): ("PUT", "/api/config/apps-directory", "settings.manage", True),
     ("configuration", "get_backup_config"): ("GET", "/api/config/backup", "settings.read", False),
@@ -2889,13 +2897,13 @@ class Approvals:
     def __init__(self, call: Call) -> None:
         self._call = call
 
-    def list_approvals(self, *, state: Union[str, None] = None, mine: Union[bool, None] = None) -> "ApprovalListResponse":
+    def list_approvals(self, *, state: Union[str, None] = None, mine: Union[bool, None] = None, caller: Union[str, None] = None, origin: Union[str, None] = None) -> "ApprovalListResponse":
         """GET /api/approvals
 
         List Approvals
 
         Needs: permission `self`."""
-        return self._call("GET", "/api/approvals", query={"state": state, "mine": mine}, body=None)
+        return self._call("GET", "/api/approvals", query={"state": state, "mine": mine, "caller": caller, "origin": origin}, body=None)
 
     def approval_policy(self) -> "ApprovalPolicyInfo":
         """GET /api/approvals/policy
@@ -3076,7 +3084,7 @@ class Audit:
 
 
 class Authentication:
-    """Authentication: 46 operations."""
+    """Authentication: 51 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -3200,6 +3208,14 @@ class Authentication:
 
         Needs: permission `accounts.manage`, sudo mode."""
         return self._call("POST", f"/api/auth/accounts/{quote(str(username), safe='')}/unlock", query=None, body=None)
+
+    def list_credentials(self) -> "CredentialList":
+        """GET /api/auth/credentials
+
+        List Credentials
+
+        Needs: permission `self`."""
+        return self._call("GET", "/api/auth/credentials", query=None, body=None)
 
     def elevate(self, body: "ElevateRequest") -> "ElevateResponse":
         """POST /api/auth/elevate
@@ -3432,6 +3448,38 @@ class Authentication:
 
         Needs: permission `self`."""
         return self._call("DELETE", f"/api/auth/tokens/{quote(str(token_id), safe='')}", query=None, body=None)
+
+    def list_activity(self, token_id: int | str, *, days: Union[int, None] = None, limit: Union[int, None] = None) -> "ActivityList":
+        """GET /api/auth/tokens/{token_id}/activity
+
+        List Activity
+
+        Needs: permission `self`."""
+        return self._call("GET", f"/api/auth/tokens/{quote(str(token_id), safe='')}/activity", query={"days": days, "limit": limit}, body=None)
+
+    def get_activity(self, token_id: int | str, n: int | str) -> "ActivityDetail":
+        """GET /api/auth/tokens/{token_id}/activity/{n}
+
+        Get Activity
+
+        Needs: permission `self`."""
+        return self._call("GET", f"/api/auth/tokens/{quote(str(token_id), safe='')}/activity/{quote(str(n), safe='')}", query=None, body=None)
+
+    def get_undo_plan(self, token_id: int | str, n: int | str) -> "UndoPlanInfo":
+        """GET /api/auth/tokens/{token_id}/activity/{n}/undo
+
+        Get Undo Plan
+
+        Needs: permission `self`."""
+        return self._call("GET", f"/api/auth/tokens/{quote(str(token_id), safe='')}/activity/{quote(str(n), safe='')}/undo", query=None, body=None)
+
+    def post_undo(self, token_id: int | str, n: int | str, *, body: Union["UndoRequest", None] = None) -> "JobAcceptedResponse":
+        """POST /api/auth/tokens/{token_id}/activity/{n}/undo
+
+        Post Undo
+
+        Needs: permission `apps.deploy`, sudo mode."""
+        return self._call("POST", f"/api/auth/tokens/{quote(str(token_id), safe='')}/activity/{quote(str(n), safe='')}/undo", query=None, body=body)
 
     def verify_token(self) -> "TokenInfo":
         """GET /api/auth/verify
@@ -4268,7 +4316,7 @@ class Compose:
 
 
 class Configuration:
-    """Configuration: 27 operations."""
+    """Configuration: 30 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -4296,6 +4344,30 @@ class Configuration:
 
         Needs: permission `settings.manage`, sudo mode."""
         return self._call("PATCH", "/api/config", query=None, body=body)
+
+    def get_approval_policy(self) -> "ApprovalPolicyTable":
+        """GET /api/config/approval-policy
+
+        Get Approval Policy
+
+        Needs: permission `settings.read`."""
+        return self._call("GET", "/api/config/approval-policy", query=None, body=None)
+
+    def put_approval_policy(self, body: "PolicyChange") -> "ApprovalPolicyTable":
+        """PUT /api/config/approval-policy
+
+        Put Approval Policy
+
+        Needs: permission `security.manage`, sudo mode, a second person's approval can be required."""
+        return self._call("PUT", "/api/config/approval-policy", query=None, body=body)
+
+    def preview_approval_policy(self, body: "PolicyChange") -> "PolicyPreview":
+        """POST /api/config/approval-policy/preview
+
+        Preview Approval Policy
+
+        Needs: permission `security.manage`."""
+        return self._call("POST", "/api/config/approval-policy/preview", query=None, body=body)
 
     def get_apps_directory(self) -> "AppsDirectoryResponse":
         """GET /api/config/apps-directory

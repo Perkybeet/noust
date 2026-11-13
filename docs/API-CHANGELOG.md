@@ -27,6 +27,37 @@ against the schema of 4.2.0.
 
 ### Added
 
+- **What a token and the built-in assistant may do alone** (`/api/config/approval-policy`). `GET` (permission
+  `settings.read`) is the table: a row for each permission that changes something (`permission`, `area`,
+  `description`, `key`, `changed`, `operations`) with four cells (`caller` `token` or `assistant`, `environment`
+  `production` or `other`; `value`, `default`, `chosen`, `offered`, `fixed`, `reason`, `legacy`), the floor the
+  assistant never goes below (`floor`) and what the security profile asks (`profile`). `PUT` (`security.manage`,
+  sudo mode, and a second person where the server asks for one when it gives more freedom) takes `cells` and
+  `reset`, all or nothing, and a value the cell does not offer is a `400` naming what it may be.
+  `POST /api/config/approval-policy/preview` validates a change like the `PUT`, writes nothing and says which
+  cells change (`changes`), the `commands` that make the same change, the `credentials` that would behave
+  differently, how many requests already wait and whether saving asks for a second person. The audit event is
+  `approval.policy`.
+- **A call the policy holds or refuses.** For a token or the built-in assistant, the guard of the API answers
+  `202 approval_required` (`coded.code` `approvals.held_by_policy_token` or `approvals.held_by_policy_assistant`,
+  the same `fields`: `approval` and `state`) or `403 approval_never` / `approval_floor`
+  (`fields`: `caller`, `environment`, `permission`). A client that never meets a policy meets nothing new: a
+  token is `alone` everywhere until somebody changes the table.
+- **Who called, on a request.** `GET /api/approvals` and `GET /api/approvals/{id}` carry `origin` (`rule`,
+  `policy` or `both`), `caller`, `environment`, `domain`, `needs`, `client` (the name and version the token's
+  client said of itself, `declared` always true), `credential` (`id`, `name`, `owner`) and `owned`. The list
+  takes `caller` and `origin`. A person who holds what a call the policy held needs, and the owner of the token,
+  read and decide it, and the list and `GET /api/attention` count it for them.
+- **What a token did** (`/api/auth/tokens/{token_id}/activity`, `/activity/{n}`, `/activity/{n}/undo`, and
+  `GET /api/auth/credentials`). A token's interventions (what it did without a silence of thirty minutes) with
+  their timelines, read from the audit trail; `GET .../undo` is the plan of leaving one as it was (an item for
+  each application it deployed, and what it did that has no way back here, with why), and `POST .../undo`
+  (permission `apps.deploy`, sudo mode; `202` a job) does it, `409 schema_changed` asking the confirmation of a
+  deployment that changed the database's schema. The built-in assistant is one credential for each person
+  (`kind: assistant`, its interventions are its conversations); `GET /api/auth/credentials` lists it once. The
+  audit event is `auth.token.undo`.
+- **A tool of MCP that changes something takes `approval`**, the number of the request a person approved for
+  exactly that call, and a call that waits for a person is answered "Not done", not as an error.
 - **The copies a central holds of its servers** (`/api/central-backups`). The central comes for each server's
   copies through the tunnel it already has (the tunnel goes one way on purpose: the central collects, a server
   never sends). `GET /api/central-backups` lists what it holds (`node`, `kind`, `owner`, `size`, `files`,

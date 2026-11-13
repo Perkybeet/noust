@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-1225 operations.
+1233 operations.
 
 ## Access
 
@@ -276,6 +276,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/auth/accounts/{username}/reset-mfa` | Reset Account Mfa | `accounts.manage` | yes |  |
 | PUT | `/api/auth/accounts/{username}/roles` | Set Account Roles | `accounts.manage` | yes | yes |
 | POST | `/api/auth/accounts/{username}/unlock` | Unlock Account | `accounts.manage` | yes |  |
+| GET | `/api/auth/credentials` | List Credentials | `self` |  |  |
 | POST | `/api/auth/elevate` | Elevate | `self` |  |  |
 | GET | `/api/auth/exceptions` | List Exceptions | `accounts.read` |  |  |
 | POST | `/api/auth/exceptions` | Create Exception | `accounts.manage` | yes |  |
@@ -305,6 +306,10 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/auth/tokens` | Create Api Token | `self` | yes |  |
 | PATCH | `/api/auth/tokens/{token_id}` | Restrict Api Token | `self` |  |  |
 | DELETE | `/api/auth/tokens/{token_id}` | Revoke Api Token | `self` |  |  |
+| GET | `/api/auth/tokens/{token_id}/activity` | List Activity | `self` |  |  |
+| GET | `/api/auth/tokens/{token_id}/activity/{n}` | Get Activity | `self` |  |  |
+| GET | `/api/auth/tokens/{token_id}/activity/{n}/undo` | Get Undo Plan | `self` |  |  |
+| POST | `/api/auth/tokens/{token_id}/activity/{n}/undo` | Post Undo | `apps.deploy` | yes |  |
 | GET | `/api/auth/verify` | Verify Token | `self` |  |  |
 | POST | `/api/auth/ws-ticket` | Create Ws Ticket | `self` |  |  |
 
@@ -453,6 +458,9 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/config` | Get Config | `settings.read` |  |  |
 | PUT | `/api/config` | Update Config | `security.manage` | yes |  |
 | PATCH | `/api/config` | Patch Config | `settings.manage` | yes |  |
+| GET | `/api/config/approval-policy` | Get Approval Policy | `settings.read` |  |  |
+| PUT | `/api/config/approval-policy` | Put Approval Policy | `security.manage` | yes | yes |
+| POST | `/api/config/approval-policy/preview` | Preview Approval Policy | `security.manage` |  |  |
 | GET | `/api/config/apps-directory` | Get Apps Directory | `settings.read` |  |  |
 | PUT | `/api/config/apps-directory` | Update Apps Directory | `settings.manage` | yes |  |
 | GET | `/api/config/backup` | Get Backup Config | `settings.read` |  |  |

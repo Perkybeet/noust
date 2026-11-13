@@ -550,6 +550,17 @@ def input_schema(openapi: Mapping[str, Any], tool: Tool) -> dict[str, Any]:
             "type": "boolean",
             "description": f"Must be true: this would {tool.effect}.",
         }
+    if not tool.read_only:
+        # What this server's approval policy holds for a person waits as a request; once a person
+        # approved it, the same call made again with its number runs, once.
+        properties["approval"] = {
+            "type": "integer",
+            "minimum": 1,
+            "description": (
+                "The number of the request a person approved for exactly this call, when an earlier "
+                "answer said it was waiting for approval. Leave it out otherwise."
+            ),
+        }
     schema: dict[str, Any] = {
         "type": "object",
         "properties": properties,

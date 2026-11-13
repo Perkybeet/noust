@@ -86,6 +86,13 @@ These hold for every tool, whatever the token may do over HTTP.
   `rollback_application` and `activate_release` do nothing without it and say what they would have done,
   so the model has to say it twice. A rollback cannot pass a change of database schema whatever the model
   sends: that flag is not an argument.
+* **What this server's approval policy holds waits for a person.** A call from a token, in production or
+  elsewhere, may be set to wait for a person's approval, or to be refused, per permission (see [the approval
+  policy](security-approvals.md#tokens-and-the-built-in-assistant-the-approval-policy)). A tool that changes
+  something then answers "Not done" and says which request waits, without being an error; once a person has
+  approved it, the model calls the same tool again with exactly the same arguments and `approval` set to
+  the request's number, and it runs once. A call that is refused says so in the server's words
+  (`approval_never`). The call the tool makes shares its correlation id with `mcp.call` in the audit trail.
 * **What comes back is data.** Logs and diagnoses are written by the applications they describe; the tools'
   descriptions and the prompts tell the model so, and the prompts fence the text.
 * **An answer is bounded** (60,000 characters); a log keeps its end.

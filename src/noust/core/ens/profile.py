@@ -134,6 +134,11 @@ class ProfileDefaults:
             refused unless the operator forces it in so many words
             (``terminal.server.force_ens``), because it is the console at its
             most root-equivalent.
+        token_production_approval: Whether what an API token changes in
+            production waits for a person to approve it (op.acc.3.2): the
+            factory value of the approval policy's cells for a token in the
+            production environment becomes ``propose``, and a table cannot
+            say ``alone`` there (:mod:`noust.core.caller_policy`).
     """
 
     name: str
@@ -167,6 +172,7 @@ class ProfileDefaults:
     server_terminal: bool = True
     audit_fail_closed: bool = False
     restore_drill_days: int = 30
+    token_production_approval: bool = False
 
     @property
     def ens(self) -> bool:
@@ -246,6 +252,7 @@ ENS_MEDIUM = ProfileDefaults(
     terminal_max_minutes=60,
     server_terminal=False,
     audit_fail_closed=True,
+    token_production_approval=True,
 )
 
 
@@ -395,6 +402,7 @@ _FIELD_CONTROLS: dict[str, str] = {
     "terminal_max_minutes": "terminal_max_minutes",
     "server_terminal": "server_terminal",
     "audit_fail_closed": "audit_fail_closed",
+    "token_production_approval": "token_production_approval",
 }
 
 #: Fields that say "allowed": the control's strict end, ``refused``, is False.

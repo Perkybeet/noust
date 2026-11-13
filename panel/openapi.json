@@ -1068,87 +1068,216 @@
         "title": "ActiveTeamRequest",
         "type": "object"
       },
-      "ActivityEntry": {
-        "description": "One thing that happened lately.\n\nAttributes:\n    id: Stable identifier (``job:<id>``).\n    type: What it was: ``deploy``, ``update``, ``backup``, ``restore``...\n    title: The job's name.\n    title_coded: The name as a sentence with a code and values, for a job whose name is one\n        of Noust's own sentences (a fleet job's title); None for any other, whose name is\n        shown as written.\n    status: How it went: ``pending``, ``running``, ``completed``,\n        ``failed``, ``cancelled``.\n    domain: The application it acted on, if any.\n    actor: Who asked, if known.\n    actor_name: The name its owner is greeted by, when the actor is an account (its login when\n        the account has no display name); None for a token, the master token or a webhook.\n    at: When it ended (or started), with its UTC offset.",
+      "ActivityCredential": {
+        "description": "The token whose activity this is.\n\nAttributes:\n    id: Its record: that of the token itself, and for the assistant that of its newest token (any of\n        its tokens opens the same page).\n    name: Its name, which is on every audit line it made; ``assistant:<person>`` for the assistant.\n    kind: ``token``, ``assistant`` (the built-in assistant, by whoever it works for) or ``fleet`` (a\n        central's).\n    owner: The account it acts for, by username: the person behind the assistant.\n    revoked: Whether it was revoked (every one of its tokens, for the assistant).\n    tokens: How many tokens it is made of: one, except for the built-in assistant, which is ONE\n        credential for each person whatever number of tokens it used (each conversation has its own).\n    clients: What its clients said of themselves, newest first, labelled as what they said; none for\n        the assistant, whose client is Noust itself.",
         "properties": {
-          "actor": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Actor"
-          },
-          "actor_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Actor Name"
-          },
-          "at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "At"
-          },
-          "domain": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Domain"
+          "clients": {
+            "items": {
+              "$ref": "#/components/schemas/ApprovalClientInfo"
+            },
+            "title": "Clients",
+            "type": "array"
           },
           "id": {
             "title": "Id",
+            "type": "integer"
+          },
+          "kind": {
+            "title": "Kind",
             "type": "string"
           },
-          "status": {
-            "default": "",
-            "title": "Status",
+          "name": {
+            "title": "Name",
             "type": "string"
           },
-          "title": {
-            "default": "",
-            "title": "Title",
-            "type": "string"
-          },
-          "title_coded": {
+          "owner": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/CodedText"
+                "type": "string"
               },
               {
                 "type": "null"
               }
-            ]
+            ],
+            "title": "Owner"
           },
-          "type": {
-            "title": "Type",
+          "revoked": {
+            "default": false,
+            "title": "Revoked",
+            "type": "boolean"
+          },
+          "tokens": {
+            "default": 1,
+            "title": "Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "kind"
+        ],
+        "title": "ActivityCredential",
+        "type": "object"
+      },
+      "ActivityDeployment": {
+        "description": "A deployment a credential's call started.\n\nAttributes:\n    id: The deployment.\n    domain: The application.\n    status: ``success``, ``failed``, ``rolled_back`` or still running.\n    commit: Its commit.\n    release: Its release.\n    started_at: When it started.\n    finished_at: When it ended.\n    schema_changed: A hook or a migration changed the database's schema.\n    job: The job that ran it.",
+        "properties": {
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "job": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job"
+          },
+          "release": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release"
+          },
+          "schema_changed": {
+            "default": false,
+            "title": "Schema Changed",
+            "type": "boolean"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "title": "Status",
             "type": "string"
           }
         },
         "required": [
           "id",
-          "type"
+          "domain",
+          "status"
         ],
-        "title": "ActivityEntry",
+        "title": "ActivityDeployment",
+        "type": "object"
+      },
+      "ActivityDetail": {
+        "description": "One intervention, with its timeline.\n\nAttributes:\n    credential: The token.\n    intervention: The intervention.\n    timeline: What it did, oldest first.\n    deployments: The deployments it started.\n    clients: What the token's clients said of themselves.\n    undo: Whether it can be put back.",
+        "properties": {
+          "clients": {
+            "items": {
+              "$ref": "#/components/schemas/ApprovalClientInfo"
+            },
+            "title": "Clients",
+            "type": "array"
+          },
+          "credential": {
+            "$ref": "#/components/schemas/ActivityCredential"
+          },
+          "deployments": {
+            "items": {
+              "$ref": "#/components/schemas/ActivityDeployment"
+            },
+            "title": "Deployments",
+            "type": "array"
+          },
+          "intervention": {
+            "$ref": "#/components/schemas/InterventionInfo"
+          },
+          "timeline": {
+            "items": {
+              "$ref": "#/components/schemas/noust__web__api__token_activity__ActivityEntry"
+            },
+            "title": "Timeline",
+            "type": "array"
+          },
+          "undo": {
+            "$ref": "#/components/schemas/UndoSummary"
+          }
+        },
+        "required": [
+          "credential",
+          "intervention",
+          "timeline",
+          "deployments",
+          "clients",
+          "undo"
+        ],
+        "title": "ActivityDetail",
+        "type": "object"
+      },
+      "ActivityList": {
+        "description": "The interventions of a credential.\n\nAttributes:\n    credential: The token.\n    interventions: Newest first.\n    days: How far back it was read.\n    complete: False when the reading stopped at its cap before reaching ``days``.",
+        "properties": {
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "credential": {
+            "$ref": "#/components/schemas/ActivityCredential"
+          },
+          "days": {
+            "title": "Days",
+            "type": "integer"
+          },
+          "interventions": {
+            "items": {
+              "$ref": "#/components/schemas/InterventionInfo"
+            },
+            "title": "Interventions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "credential",
+          "interventions",
+          "days",
+          "complete"
+        ],
+        "title": "ActivityList",
         "type": "object"
       },
       "AddAppDomainRequest": {
@@ -4136,21 +4265,144 @@
         "title": "ApprovalActorInfo",
         "type": "object"
       },
+      "ApprovalClientInfo": {
+        "description": "What the client of a token said of itself, shown as what it said.\n\nAttributes:\n    name: The name the client gave itself (the ``clientInfo`` of MCP's handshake, or the first\n        product of its ``User-Agent``).\n    version: Its version, or empty.\n    source: ``client_info`` or ``user_agent``.\n    label: The name and the version, as one line.\n    declared: Always true: the server cannot know it, only that the client said it.\n    first_seen: When this client was first seen with the token, ISO 8601.\n    last_seen: When it was last seen.",
+        "properties": {
+          "declared": {
+            "default": true,
+            "title": "Declared",
+            "type": "boolean"
+          },
+          "first_seen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Seen"
+          },
+          "label": {
+            "default": "",
+            "title": "Label",
+            "type": "string"
+          },
+          "last_seen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "source": {
+            "default": "user_agent",
+            "title": "Source",
+            "type": "string"
+          },
+          "version": {
+            "default": "",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ApprovalClientInfo",
+        "type": "object"
+      },
+      "ApprovalCredentialInfo": {
+        "description": "The token that made a call the policy held.\n\nAttributes:\n    id: The token's record, which ``/api/auth/tokens/{id}/activity`` reads; None when the token is\n        gone from the list.\n    name: The token's name.\n    owner: The account it acts for, by username; None for a token nobody owns.",
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ApprovalCredentialInfo",
+        "type": "object"
+      },
       "ApprovalInfo": {
-        "description": "One request for a second person's approval.\n\nAttributes:\n    id: Its id; the value of ``X-Noust-Approval``.\n    action: ``root_equivalent``, ``fleet.node.add``, ``fleet.node.remove``,\n        ``db.query.write``, ``db.query.analyze``, ``db.rows.write``,\n        ``apps.local_source``, ``user.role_change``, ``user.create``,\n        ``user.invite``, ``access.grant``, ``team.member``,\n        ``access.role_widen`` or ``auth.source_roles``.\n    kind: ``infrastructure`` or ``role_change``.\n    description: What the action is, in one sentence.\n    method: The call's method.\n    path: The call's path.\n    parameters: What the call carries, secrets redacted: ``method``,\n        ``path``, ``query`` and ``body``.\n    fingerprint: SHA-256 of the exact call the approval allows.\n    reason: Why the requester asked.\n    state: ``requested``, ``approved``, ``rejected``, ``expired`` or\n        ``executed``.\n    requester: Who asked.\n    created_at: When, UNIX seconds.\n    expires_at: When it expires undecided.\n    decided_at: When it was decided.\n    decider: Who decided.\n    decision_comment: What they said.\n    execute_by: Until when an approval allows the call.\n    executed_at: When the call ran.\n    mine: Whether the caller asked for it.\n    can_decide: Whether the caller may approve or reject it now.",
+        "description": "One request for a second person's approval.\n\nAttributes:\n    id: Its id; the value of ``X-Noust-Approval``.\n    action: ``root_equivalent``, ``fleet.node.add``, ``fleet.node.remove``,\n        ``db.query.write``, ``db.query.analyze``, ``db.rows.write``,\n        ``apps.local_source``, ``user.role_change``, ``user.create``,\n        ``user.invite``, ``access.grant``, ``team.member``,\n        ``access.role_widen`` or ``auth.source_roles``.\n    kind: ``infrastructure`` or ``role_change``.\n    description: What the action is, in one sentence.\n    method: The call's method.\n    path: The call's path.\n    parameters: What the call carries, secrets redacted: ``method``,\n        ``path``, ``query`` and ``body``.\n    fingerprint: SHA-256 of the exact call the approval allows.\n    reason: Why the requester asked.\n    state: ``requested``, ``approved``, ``rejected``, ``expired`` or\n        ``executed``.\n    requester: Who asked.\n    created_at: When, UNIX seconds.\n    expires_at: When it expires undecided.\n    decided_at: When it was decided.\n    decider: Who decided.\n    decision_comment: What they said.\n    execute_by: Until when an approval allows the call.\n    executed_at: When the call ran.\n    mine: Whether the caller asked for it.\n    can_decide: Whether the caller may approve or reject it now.\n    origin: What made it wait: ``rule`` (the second-person rule), ``policy`` (the approval policy for\n        a token or the built-in assistant) or ``both``. A request of the policy can be decided by\n        a person who holds what the call needs, the token's owner included; one the rule holds\n        asks for another person.\n    caller: The class of caller that made the call: ``token`` or ``assistant``; None when a\n        person asked.\n    environment: ``production`` or ``other``: where the resource the call names lives, read by the\n        server and never from what the caller sent; None when a person asked.\n    domain: The application the call names, when it names one.\n    needs: The permissions the call needs, which a person holds to decide a request of the policy.\n    client: What the token's client said of itself, labelled as what it said; None when nobody was\n        seen.\n    credential: The token that made the call, when a token did.\n    owned: Whether the caller is the account the token acts for.",
         "properties": {
           "action": {
             "title": "Action",
             "type": "string"
+          },
+          "caller": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Caller"
           },
           "can_decide": {
             "default": false,
             "title": "Can Decide",
             "type": "boolean"
           },
+          "client": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ApprovalClientInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "created_at": {
             "title": "Created At",
             "type": "number"
+          },
+          "credential": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ApprovalCredentialInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "decided_at": {
             "anyOf": [
@@ -4187,6 +4439,28 @@
           "description": {
             "title": "Description",
             "type": "string"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
+          },
+          "environment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Environment"
           },
           "execute_by": {
             "anyOf": [
@@ -4233,6 +4507,23 @@
           "mine": {
             "default": false,
             "title": "Mine",
+            "type": "boolean"
+          },
+          "needs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Needs",
+            "type": "array"
+          },
+          "origin": {
+            "default": "rule",
+            "title": "Origin",
+            "type": "string"
+          },
+          "owned": {
+            "default": false,
+            "title": "Owned",
             "type": "boolean"
           },
           "parameters": {
@@ -4344,6 +4635,60 @@
           "rules"
         ],
         "title": "ApprovalPolicyInfo",
+        "type": "object"
+      },
+      "ApprovalPolicyTable": {
+        "description": "The approval policy for a caller that is not a person.\n\nAttributes:\n    values: The three values, from the one that asks for nothing to the strictest.\n    callers: The classes of caller the table has cells for.\n    environments: ``production`` and ``other``.\n    profile: What the security profile asks.\n    floor: What no table lifts.\n    rows: A row for each permission that changes something.\n    chosen: How many cells the operator chose.",
+        "properties": {
+          "callers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Callers",
+            "type": "array"
+          },
+          "chosen": {
+            "title": "Chosen",
+            "type": "integer"
+          },
+          "environments": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Environments",
+            "type": "array"
+          },
+          "floor": {
+            "$ref": "#/components/schemas/PolicyFloor"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/PolicyProfile"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/PolicyRowInfo"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "values": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "values",
+          "callers",
+          "environments",
+          "profile",
+          "floor",
+          "rows",
+          "chosen"
+        ],
+        "title": "ApprovalPolicyTable",
         "type": "object"
       },
       "ApprovalRuleInfo": {
@@ -16153,6 +16498,106 @@
           "required"
         ],
         "title": "CredentialFieldModel",
+        "type": "object"
+      },
+      "CredentialList": {
+        "description": "The credentials the caller may read the activity of.\n\nAttributes:\n    credentials: Newest first. The built-in assistant is one entry for each person, not one for each\n        conversation.",
+        "properties": {
+          "credentials": {
+            "items": {
+              "$ref": "#/components/schemas/CredentialSummary"
+            },
+            "title": "Credentials",
+            "type": "array"
+          }
+        },
+        "required": [
+          "credentials"
+        ],
+        "title": "CredentialList",
+        "type": "object"
+      },
+      "CredentialSummary": {
+        "description": "One credential of the list.\n\nAttributes:\n    kind: ``token``, ``assistant`` or ``fleet``.\n    id: The token's record; for the assistant that of its newest token. ``/api/auth/tokens/{id}/activity``\n        reads what it did.\n    name: The token's name; ``assistant:<person>`` for the assistant.\n    owner: The account it acts for, by username: the person behind the assistant.\n    scope: The token's scope; None for the assistant.\n    created_at: When it was issued (its first token, for the assistant), UNIX seconds.\n    expires_at: When it expires (the last of its tokens, for the assistant), or None.\n    last_used_at: When it last authenticated a request, or None.\n    revoked: Whether it was revoked (every one of its tokens, for the assistant).\n    tokens: How many tokens it is made of: one, except for the assistant.",
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "number"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner"
+          },
+          "revoked": {
+            "default": false,
+            "title": "Revoked",
+            "type": "boolean"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scope"
+          },
+          "tokens": {
+            "default": 1,
+            "title": "Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "name",
+          "created_at"
+        ],
+        "title": "CredentialSummary",
         "type": "object"
       },
       "CronActionResponse": {
@@ -33301,6 +33746,94 @@
         "title": "InterfaceInfo",
         "type": "object"
       },
+      "InterventionInfo": {
+        "description": "What a credential did in a row.\n\nAttributes:\n    n: Its number, which names it in the other routes.\n    started_at: When the first thing happened.\n    ended_at: When the last did.\n    ongoing: It did something less than thirty minutes ago, so it may go on.\n    calls: How many things it did.\n    changes: Of those, how many changed something and ran.\n    proposed: How many waited for a person.\n    refused: How many were refused.\n    failed: How many failed.\n    apps: The applications it changed, in the order it met them.\n    deployments: How many deployments it started.\n    client: The client it said it was while this went on, when known, as what it said.\n    conversation: For the assistant, the token of the conversation this was; None for any other\n        credential. An intervention of the assistant is a conversation, or a stretch of one without\n        thirty minutes of silence.",
+        "properties": {
+          "apps": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Apps",
+            "type": "array"
+          },
+          "calls": {
+            "title": "Calls",
+            "type": "integer"
+          },
+          "changes": {
+            "title": "Changes",
+            "type": "integer"
+          },
+          "client": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ApprovalClientInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "conversation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation"
+          },
+          "deployments": {
+            "title": "Deployments",
+            "type": "integer"
+          },
+          "ended_at": {
+            "title": "Ended At",
+            "type": "string"
+          },
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "n": {
+            "title": "N",
+            "type": "integer"
+          },
+          "ongoing": {
+            "title": "Ongoing",
+            "type": "boolean"
+          },
+          "proposed": {
+            "title": "Proposed",
+            "type": "integer"
+          },
+          "refused": {
+            "title": "Refused",
+            "type": "integer"
+          },
+          "started_at": {
+            "title": "Started At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "n",
+          "started_at",
+          "ended_at",
+          "ongoing",
+          "calls",
+          "changes",
+          "proposed",
+          "refused",
+          "failed",
+          "apps",
+          "deployments"
+        ],
+        "title": "InterventionInfo",
+        "type": "object"
+      },
       "InventoryApplyIn": {
         "description": "Body of ``POST /api/nodes/{node}/inventory``.\n\nAttributes:\n    document: An inventory another central exported for this server.\n    include_ssh: Also apply how that central reached it (its wait, its bastion).",
         "properties": {
@@ -33978,6 +34511,63 @@
           "command"
         ],
         "title": "InviteOut",
+        "type": "object"
+      },
+      "IrreversibleInfo": {
+        "description": "Something the credential did that cannot be undone from here.\n\nAttributes:\n    at: When.\n    method: The method of the call.\n    path: The route called.\n    domain: The application it named.\n    why: ``deleted``, ``database``, ``restore``, ``variables``, ``service_state`` or ``no_way_back``.\n    detail: The reason in a sentence, in English.",
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
+          },
+          "method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Method"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "why": {
+            "title": "Why",
+            "type": "string"
+          }
+        },
+        "required": [
+          "at",
+          "why",
+          "detail"
+        ],
+        "title": "IrreversibleInfo",
         "type": "object"
       },
       "IssueClientCertificateRequest": {
@@ -42780,6 +43370,158 @@
         "title": "PlatformProposalResponse",
         "type": "object"
       },
+      "PolicyCellChange": {
+        "description": "A cell to give a value.\n\nAttributes:\n    caller: ``token`` or ``assistant``.\n    environment: ``production`` or ``other``.\n    permission: A permission that changes something.\n    value: ``alone``, ``propose`` or ``never``, as the cell offers.",
+        "properties": {
+          "caller": {
+            "maxLength": 16,
+            "title": "Caller",
+            "type": "string"
+          },
+          "environment": {
+            "maxLength": 16,
+            "title": "Environment",
+            "type": "string"
+          },
+          "permission": {
+            "maxLength": 64,
+            "title": "Permission",
+            "type": "string"
+          },
+          "value": {
+            "maxLength": 16,
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "caller",
+          "environment",
+          "permission",
+          "value"
+        ],
+        "title": "PolicyCellChange",
+        "type": "object"
+      },
+      "PolicyCellInfo": {
+        "description": "One cell of the table: what happens to a call of this permission, from this caller, in this environment.\n\nAttributes:\n    caller: ``token`` or ``assistant``.\n    environment: ``production`` or ``other``.\n    value: What judges a call now: ``alone``, ``propose`` or ``never``.\n    default: What the release ships here (the security profile included).\n    chosen: What the operator chose, or None when nobody did.\n    offered: The values this cell may be given: a screen offers these and no other.\n    fixed: Only one value is offered.\n    reason: Why fewer than three are offered: ``assistant_floor`` (what the assistant never does: the\n        padlock), ``confirm`` (the row asks you to confirm it is you: the key), ``assistant_narrow``\n        (it is left alone only where it is narrow and reversible) or ``profile_floor`` (the security\n        profile asks that a token's changes in production wait for a person); None when all three\n        are.\n    legacy: ``alone`` is what ships for a token here, as it always was, though the row does not offer\n        it (the key): a token issued to act in sudo mode keeps doing what it did until a value that\n        is offered is chosen. A screen shows it as what it is and offers only ``offered``.",
+        "properties": {
+          "caller": {
+            "title": "Caller",
+            "type": "string"
+          },
+          "chosen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chosen"
+          },
+          "default": {
+            "title": "Default",
+            "type": "string"
+          },
+          "environment": {
+            "title": "Environment",
+            "type": "string"
+          },
+          "fixed": {
+            "title": "Fixed",
+            "type": "boolean"
+          },
+          "legacy": {
+            "default": false,
+            "title": "Legacy",
+            "type": "boolean"
+          },
+          "offered": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Offered",
+            "type": "array"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "caller",
+          "environment",
+          "value",
+          "default",
+          "offered",
+          "fixed"
+        ],
+        "title": "PolicyCellInfo",
+        "type": "object"
+      },
+      "PolicyCellRef": {
+        "description": "A cell to put back to what the release ships.\n\nAttributes:\n    caller: ``token`` or ``assistant``.\n    environment: ``production`` or ``other``.\n    permission: A permission that changes something.",
+        "properties": {
+          "caller": {
+            "maxLength": 16,
+            "title": "Caller",
+            "type": "string"
+          },
+          "environment": {
+            "maxLength": 16,
+            "title": "Environment",
+            "type": "string"
+          },
+          "permission": {
+            "maxLength": 64,
+            "title": "Permission",
+            "type": "string"
+          }
+        },
+        "required": [
+          "caller",
+          "environment",
+          "permission"
+        ],
+        "title": "PolicyCellRef",
+        "type": "object"
+      },
+      "PolicyChange": {
+        "description": "A change of the table: some cells given a value, some put back. All or nothing.\n\nAttributes:\n    cells: The cells to give a value.\n    reset: The cells to put back to what the release ships.",
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/PolicyCellChange"
+            },
+            "maxItems": 400,
+            "title": "Cells",
+            "type": "array"
+          },
+          "reset": {
+            "items": {
+              "$ref": "#/components/schemas/PolicyCellRef"
+            },
+            "maxItems": 400,
+            "title": "Reset",
+            "type": "array"
+          }
+        },
+        "title": "PolicyChange",
+        "type": "object"
+      },
       "PolicyFields": {
         "description": "A site's policy, field by field.\n\nAttributes:\n    basic_auth: Ask visitors for a name and password.\n    realm: The sign-in prompt's title.\n    access: ``all`` (the password and the address list must both pass) or ``any``.\n    allow_ips: Addresses and networks allowed; everyone else is refused when there are any.\n    deny_ips: Addresses and networks refused first.\n    real_ip: ``off``, ``cloudflare`` or ``custom``.\n    real_ip_header: The header carrying the client address (``custom``).\n    trusted_proxies: The networks the header is believed from (``custom``).\n    rate_limit: Requests per client address, ``10r/s`` or ``300r/m``; empty for none.\n    rate_burst: Requests above the rate let through before refusing.\n    connection_limit: Concurrent connections per client address; 0 for none.\n    headers: Response headers set by the operator, over the defaults.\n    hidden_headers: Default headers the site does not send.\n    hsts: ``default`` (the server's setting), ``on`` or ``off``.\n    noindex: Tell search engines not to index the site.\n    canonical: ``www``, ``apex`` or empty.\n    forward_auth: The authentication service requests are asked about; None for none.\n    http3: Serve the site over HTTP/3 (QUIC) as well.\n    client_certs: Answer only a visitor with a certificate the site's own authority signed.\n    waf: The web application firewall: ``detect``, ``block`` or empty for none.\n    waf_exclusions: Numbers of the rules the firewall leaves out for this site.\n    routes: What happens at prefixes of the site, longest path first.\n    force_https: Whether port 80 is sent to HTTPS once the site has a certificate. False\n        leaves the site answering on both (nginx only).",
         "properties": {
@@ -42919,6 +43661,107 @@
           }
         },
         "title": "PolicyFields",
+        "type": "object"
+      },
+      "PolicyFloor": {
+        "description": "What no table lifts.\n\nAttributes:\n    assistant_never: The permissions the built-in assistant never uses.\n    assistant_alone: The only permissions its cell may be ``alone`` for.",
+        "properties": {
+          "assistant_alone": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Assistant Alone",
+            "type": "array"
+          },
+          "assistant_never": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Assistant Never",
+            "type": "array"
+          }
+        },
+        "required": [
+          "assistant_never",
+          "assistant_alone"
+        ],
+        "title": "PolicyFloor",
+        "type": "object"
+      },
+      "PolicyOperations": {
+        "description": "How many operations of the API a row governs.\n\nAttributes:\n    total: Operations that change something with this permission.\n    strong: Of those, the ones that ask for sudo mode or for a second person every time: the built-in\n        assistant never does them, whatever its cell says, and a token does them only as its own sudo\n        mode allows.",
+        "properties": {
+          "strong": {
+            "title": "Strong",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "strong"
+        ],
+        "title": "PolicyOperations",
+        "type": "object"
+      },
+      "PolicyPreview": {
+        "description": "What saving a change would do, before it is saved.\n\nAttributes:\n    changes: The cells whose value would change, in the order they were named.\n    commands: The commands that make the same change, in order: what the preview says it will do.\n    credentials: The credentials that would behave differently: the tokens that hold a permission of a\n        cell that changes, and the assistant when one of its cells does. Nothing is said of what they\n        will ask tomorrow: only that they would be judged differently.\n    waiting: How many requests already wait for a person; they do not change.\n    needs_second_person: Saving gives more freedom than the policy has now, and this server asks\n        another person to approve that.",
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/PreviewChange"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "commands": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Commands",
+            "type": "array"
+          },
+          "credentials": {
+            "items": {
+              "$ref": "#/components/schemas/PreviewCredential"
+            },
+            "title": "Credentials",
+            "type": "array"
+          },
+          "needs_second_person": {
+            "title": "Needs Second Person",
+            "type": "boolean"
+          },
+          "waiting": {
+            "title": "Waiting",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "changes",
+          "commands",
+          "credentials",
+          "waiting",
+          "needs_second_person"
+        ],
+        "title": "PolicyPreview",
+        "type": "object"
+      },
+      "PolicyProfile": {
+        "description": "What the security profile asks of the table.\n\nAttributes:\n    token_production_approval: Whether what a token changes in production waits for a person (the\n        control of that name, by the operator or by a framework such as ENS): ``propose`` is then\n        the least a token's cell in production can be.",
+        "properties": {
+          "token_production_approval": {
+            "title": "Token Production Approval",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "token_production_approval"
+        ],
+        "title": "PolicyProfile",
         "type": "object"
       },
       "PolicyRequest": {
@@ -43269,6 +44112,52 @@
           "applicable"
         ],
         "title": "PolicyResponse",
+        "type": "object"
+      },
+      "PolicyRowInfo": {
+        "description": "One permission that changes something and what the table says of it.\n\nAttributes:\n    permission: The permission.\n    area: The part before the dot, as the table of roles groups them.\n    description: What it lets one do, in a sentence.\n    key: Most of what it does asks you to confirm it is you (sudo mode) or a second person every time:\n        ``alone`` is never offered in its cells. The key of the table.\n    changed: Somebody chose some cell of the row (the filter of changed rows).\n    operations: How many operations it governs.\n    cells: The four cells: each class of caller in each environment.",
+        "properties": {
+          "area": {
+            "title": "Area",
+            "type": "string"
+          },
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/PolicyCellInfo"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "changed": {
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "boolean"
+          },
+          "operations": {
+            "$ref": "#/components/schemas/PolicyOperations"
+          },
+          "permission": {
+            "title": "Permission",
+            "type": "string"
+          }
+        },
+        "required": [
+          "permission",
+          "area",
+          "description",
+          "key",
+          "changed",
+          "operations",
+          "cells"
+        ],
+        "title": "PolicyRowInfo",
         "type": "object"
       },
       "PolicyTimer": {
@@ -43657,6 +44546,105 @@
         "title": "PreviewBody",
         "type": "object"
       },
+      "PreviewChange": {
+        "description": "A cell whose value would change.\n\nAttributes:\n    caller: ``token`` or ``assistant``.\n    environment: ``production`` or ``other``.\n    permission: The permission.\n    before: What judges a call now.\n    after: What would judge it.\n    loosens: It gives more freedom than it does now (a second person is asked for where the server\n        asks for them).\n    reset: The change puts the cell back to what the release ships.",
+        "properties": {
+          "after": {
+            "title": "After",
+            "type": "string"
+          },
+          "before": {
+            "title": "Before",
+            "type": "string"
+          },
+          "caller": {
+            "title": "Caller",
+            "type": "string"
+          },
+          "environment": {
+            "title": "Environment",
+            "type": "string"
+          },
+          "loosens": {
+            "title": "Loosens",
+            "type": "boolean"
+          },
+          "permission": {
+            "title": "Permission",
+            "type": "string"
+          },
+          "reset": {
+            "default": false,
+            "title": "Reset",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "caller",
+          "environment",
+          "permission",
+          "before",
+          "after",
+          "loosens"
+        ],
+        "title": "PreviewChange",
+        "type": "object"
+      },
+      "PreviewCredential": {
+        "description": "A credential whose behaviour changes.\n\nAttributes:\n    kind: ``token`` or ``assistant`` (the built-in assistant, whatever number of tokens it uses).\n    id: The token's record; None for the assistant.\n    name: The token's name; None for the assistant.\n    owner: The account the token acts for.\n    effects: What changes for it.",
+        "properties": {
+          "effects": {
+            "items": {
+              "$ref": "#/components/schemas/PreviewEffect"
+            },
+            "title": "Effects",
+            "type": "array"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner"
+          }
+        },
+        "required": [
+          "kind",
+          "effects"
+        ],
+        "title": "PreviewCredential",
+        "type": "object"
+      },
       "PreviewDetailResponse": {
         "description": "One preview, and what runs it.\n\nAttributes:\n    preview: The preview.\n    active: Whether its unit is running now.\n    last_deployment: Its newest deployment's status and when.",
         "properties": {
@@ -43762,6 +44750,35 @@
           "ok"
         ],
         "title": "PreviewDnsResponse",
+        "type": "object"
+      },
+      "PreviewEffect": {
+        "description": "What a credential would find different.\n\nAttributes:\n    permission: The permission.\n    environment: ``production`` or ``other``.\n    before: What it is judged by now.\n    after: What it would be judged by.",
+        "properties": {
+          "after": {
+            "title": "After",
+            "type": "string"
+          },
+          "before": {
+            "title": "Before",
+            "type": "string"
+          },
+          "environment": {
+            "title": "Environment",
+            "type": "string"
+          },
+          "permission": {
+            "title": "Permission",
+            "type": "string"
+          }
+        },
+        "required": [
+          "permission",
+          "environment",
+          "before",
+          "after"
+        ],
+        "title": "PreviewEffect",
         "type": "object"
       },
       "PreviewLogsResponse": {
@@ -66814,6 +67831,212 @@
         "title": "UnbanRequest",
         "type": "object"
       },
+      "UndoItemInfo": {
+        "description": "One application of the plan.\n\nAttributes:\n    kind: ``rollback``.\n    domain: The application.\n    deployments: What the credential deployed there.\n    status: ``ready``, ``needs_confirmation`` (going back passes a deployment that changed the\n        database's schema, which Noust puts code back past and never the database), ``already`` or\n        ``blocked``.\n    reason: Why it is blocked: ``app_gone``, ``failed_only``, ``nothing_before``, ``superseded`` or\n        ``unavailable``.\n    detail: The reason in a sentence, in English.\n    back_to: The deployment it would go back to.\n    back_to_commit: Its commit.\n    back_to_release: Its release.\n    back_to_at: When it started.\n    schema_changed: The deployments that changed the schema and that going back passes.\n    superseded_by: The deployments of somebody else on top of the credential's.",
+        "properties": {
+          "back_to": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Back To"
+          },
+          "back_to_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Back To At"
+          },
+          "back_to_commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Back To Commit"
+          },
+          "back_to_release": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Back To Release"
+          },
+          "deployments": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Deployments",
+            "type": "array"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "schema_changed": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Schema Changed",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "superseded_by": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Superseded By",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "domain",
+          "deployments",
+          "status"
+        ],
+        "title": "UndoItemInfo",
+        "type": "object"
+      },
+      "UndoPlanInfo": {
+        "description": "What would put an intervention back.\n\nAttributes:\n    credential: The token's name.\n    intervention: Its number.\n    available: Something can be put back.\n    items: An item for each application it deployed.\n    irreversible: What it did that cannot be undone from here, with why.",
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "credential": {
+            "title": "Credential",
+            "type": "string"
+          },
+          "intervention": {
+            "title": "Intervention",
+            "type": "integer"
+          },
+          "irreversible": {
+            "items": {
+              "$ref": "#/components/schemas/IrreversibleInfo"
+            },
+            "title": "Irreversible",
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/UndoItemInfo"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "credential",
+          "intervention",
+          "available",
+          "items",
+          "irreversible"
+        ],
+        "title": "UndoPlanInfo",
+        "type": "object"
+      },
+      "UndoRequest": {
+        "description": "Asking to put an intervention back.\n\nAttributes:\n    apps: The applications to put back; every one that can when omitted.\n    schema_changed_ok: The applications for which going back past a deployment that changed the\n        database's schema is confirmed: Noust puts the code back, never the database.",
+        "properties": {
+          "apps": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 200,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Apps"
+          },
+          "schema_changed_ok": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Schema Changed Ok",
+            "type": "array"
+          }
+        },
+        "title": "UndoRequest",
+        "type": "object"
+      },
+      "UndoSummary": {
+        "description": "Whether something of an intervention can be put back.\n\nAttributes:\n    available: Something can.\n    items: How many applications the plan has.\n    irreversible: How many things it did have no way back here.",
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "irreversible": {
+            "title": "Irreversible",
+            "type": "integer"
+          },
+          "items": {
+            "title": "Items",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "available",
+          "items",
+          "irreversible"
+        ],
+        "title": "UndoSummary",
+        "type": "object"
+      },
       "UnitDevice": {
         "description": "A device node or group the process may open.",
         "properties": {
@@ -75030,12 +76253,95 @@
         "title": "LinkRequest",
         "type": "object"
       },
+      "noust__web__api__overview__ActivityEntry": {
+        "description": "One thing that happened lately.\n\nAttributes:\n    id: Stable identifier (``job:<id>``).\n    type: What it was: ``deploy``, ``update``, ``backup``, ``restore``...\n    title: The job's name.\n    title_coded: The name as a sentence with a code and values, for a job whose name is one\n        of Noust's own sentences (a fleet job's title); None for any other, whose name is\n        shown as written.\n    status: How it went: ``pending``, ``running``, ``completed``,\n        ``failed``, ``cancelled``.\n    domain: The application it acted on, if any.\n    actor: Who asked, if known.\n    actor_name: The name its owner is greeted by, when the actor is an account (its login when\n        the account has no display name); None for a token, the master token or a webhook.\n    at: When it ended (or started), with its UTC offset.",
+        "properties": {
+          "actor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor"
+          },
+          "actor_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Name"
+          },
+          "at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "default": "",
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "default": "",
+            "title": "Title",
+            "type": "string"
+          },
+          "title_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type"
+        ],
+        "title": "ActivityEntry",
+        "type": "object"
+      },
       "noust__web__api__overview__OverviewResponse": {
         "description": "Everything the Overview shows.\n\nAttributes:\n    schema_version: The shape of this answer (``schema`` in the body).\n    generated_at: When it was collected (it may be a few seconds old).\n    server: Which server.\n    apps: Applications by state.\n    deploys: Deployments today.\n    certificates: Certificates expiring.\n    backups: Backups in the last 24 hours.\n    disk: The disk and its forecast.\n    updates: Pending operating system updates.\n    attention: What needs an operator, worst first.\n    attention_total: How many there are, if the list was cut.\n    activity: What happened lately, newest first.\n    history: Whether metrics history is being recorded.\n    spark: The last hour of CPU and memory, when asked for.",
         "properties": {
           "activity": {
             "items": {
-              "$ref": "#/components/schemas/ActivityEntry"
+              "$ref": "#/components/schemas/noust__web__api__overview__ActivityEntry"
             },
             "title": "Activity",
             "type": "array"
@@ -76077,6 +77383,145 @@
         "title": "ProjectOut",
         "type": "object"
       },
+      "noust__web__api__token_activity__ActivityEntry": {
+        "description": "One thing the credential did.\n\nAttributes:\n    at: When, ISO 8601.\n    seq: The sequence number of its first event in the chained audit trail.\n    credential: The token that did it: for the assistant, the token of its conversation.\n    via: ``api``, ``mcp``, ``assistant`` or ``fleet``.\n    kind: ``change``, ``tool``, ``read``, ``proposal`` or ``event``.\n    method: The HTTP method, for a call of the API.\n    path: The route called.\n    tool: The tool of MCP.\n    domain: The application it names.\n    result: ``ok``, ``proposed`` (a person had to approve it), ``refused`` or ``failed``.\n    status: The HTTP status, when the audit line carries it.\n    approval: The approval request, when the call waited for a person or ran with one.\n    operator: The person a central acted for, for a fleet token.\n    events: The names of what else the same request recorded.\n    deployment: The deployment it started.",
+        "properties": {
+          "approval": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval"
+          },
+          "at": {
+            "title": "At",
+            "type": "string"
+          },
+          "credential": {
+            "default": "",
+            "title": "Credential",
+            "type": "string"
+          },
+          "deployment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ActivityDeployment"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
+          },
+          "events": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Method"
+          },
+          "operator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operator"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "result": {
+            "title": "Result",
+            "type": "string"
+          },
+          "seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seq"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "tool": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool"
+          },
+          "via": {
+            "title": "Via",
+            "type": "string"
+          }
+        },
+        "required": [
+          "at",
+          "via",
+          "kind",
+          "result"
+        ],
+        "title": "ActivityEntry",
+        "type": "object"
+      },
       "noust__web__api__views__DeliveriesOut": {
         "description": "The record of deliveries of every server.\n\nAttributes:\n    counts: For each server that answered (this central's own name for itself), how many\n        deliveries its record has in each state (``sent``, ``failed``, ``retrying``,\n        ``held``), the whole of it and not only the part listed in ``items``.",
         "properties": {
@@ -77001,7 +78446,7 @@
     },
     "/api/approvals": {
       "get": {
-        "description": "List the requests the caller may see, newest first.\n\nDeciders and auditors see every request; everybody else sees their own.\n\nArgs:\n    session: The caller.\n    state: Only this state: ``requested``, ``approved``, ``rejected``,\n        ``expired`` or ``executed``.\n    mine: Only the caller's own.\n\nReturns:\n    The requests.\n\nRaises:\n    HTTPException: 400 for an unknown state.",
+        "description": "List the requests the caller may see, newest first.\n\nDeciders and auditors see every request; the owner of a token sees what it asked; a person who holds\nwhat a call the policy held needs sees it; everybody else sees their own.\n\nArgs:\n    session: The caller.\n    state: Only this state: ``requested``, ``approved``, ``rejected``,\n        ``expired`` or ``executed``.\n    mine: Only the caller's own.\n    caller: Only the calls of this class of caller.\n    origin: Only those that wait for this reason.\n\nReturns:\n    The requests.\n\nRaises:\n    HTTPException: 400 for an unknown state, class or origin.",
         "operationId": "list_approvals_api_approvals_get",
         "parameters": [
           {
@@ -77032,6 +78477,42 @@
               "description": "Only the caller's own requests",
               "title": "Mine",
               "type": "boolean"
+            }
+          },
+          {
+            "description": "Only calls of this class of caller: `token` or `assistant`",
+            "in": "query",
+            "name": "caller",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only calls of this class of caller: `token` or `assistant`",
+              "title": "Caller"
+            }
+          },
+          {
+            "description": "Only those that wait for this reason: `rule`, `policy` or `both`",
+            "in": "query",
+            "name": "origin",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only those that wait for this reason: `rule`, `policy` or `both`",
+              "title": "Origin"
             }
           }
         ],
@@ -90764,6 +92245,29 @@
         "x-noust-requires-elevation": true
       }
     },
+    "/api/auth/credentials": {
+      "get": {
+        "description": "List the credentials whose activity the caller may read, the assistant as one for each person.\n\nEvery token is a credential, but the built-in assistant has a token for each conversation, and a few\nhundred of them, each lasting hours, are not a list anybody reads: they are one credential, \"the\nassistant, on behalf of\" a person, whose interventions are its conversations. Whoever governs accounts or\nreads the audit trail sees every credential; anybody else, their own.\n\nArgs:\n    session: The caller.\n\nReturns:\n    The credentials, newest first.",
+        "operationId": "list_credentials_api_auth_credentials_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CredentialList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Credentials",
+        "tags": [
+          "Authentication"
+        ],
+        "x-noust-permission": "self"
+      }
+    },
     "/api/auth/dashboards": {
       "get": {
         "description": "List the panels of the account asking.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Its panels in order, and the limits.\n\nRaises:\n    ValidationError: 400 when the principal is not an account.",
@@ -93626,6 +95130,253 @@
           "Authentication"
         ],
         "x-noust-permission": "self"
+      }
+    },
+    "/api/auth/tokens/{token_id}/activity": {
+      "get": {
+        "description": "List what a credential did, as interventions, newest first.\n\nAn intervention is what it did without a silence of more than thirty minutes between one thing and the\nnext. A person of a team sees only what names an application of their team.\n\nArgs:\n    token_id: The token's record, as listed by ``GET /api/auth/tokens``.\n    session: The caller: the token's owner, whoever governs accounts or reads the audit trail.\n    days: How far back to read.\n    limit: The most interventions returned.\n\nReturns:\n    The interventions, each with what it did in numbers, the applications it changed, the deployments\n    it started and the client it said it was.\n\nRaises:\n    HTTPException: 404 for a token the caller may not read.",
+        "operationId": "list_activity_api_auth_tokens__token_id__activity_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token_id",
+            "required": true,
+            "schema": {
+              "title": "Token Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "How many days back to read",
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "description": "How many days back to read",
+              "maximum": 365,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Most interventions returned",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "description": "Most interventions returned",
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Activity",
+        "tags": [
+          "Authentication"
+        ],
+        "x-noust-permission": "self"
+      }
+    },
+    "/api/auth/tokens/{token_id}/activity/{n}": {
+      "get": {
+        "description": "Read one intervention: the timeline of what the credential did.\n\nArgs:\n    token_id: The token's record.\n    n: The intervention's number, from the list.\n    session: The caller.\n\nReturns:\n    The intervention with its timeline (the action, the resource, how it ended, the deployment it\n    started and the client it said it was), and whether it can be put back.\n\nRaises:\n    HTTPException: 404 for a token the caller may not read, or an intervention it does not have.",
+        "operationId": "get_activity_api_auth_tokens__token_id__activity__n__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token_id",
+            "required": true,
+            "schema": {
+              "title": "Token Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "n",
+            "required": true,
+            "schema": {
+              "title": "N",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Activity",
+        "tags": [
+          "Authentication"
+        ],
+        "x-noust-permission": "self"
+      }
+    },
+    "/api/auth/tokens/{token_id}/activity/{n}/undo": {
+      "get": {
+        "description": "Propose how to leave an intervention as it was. Changes nothing.\n\nFor each application the credential deployed, the way back Noust already has, to the version before the\nfirst thing it deployed there, or why there is none; and what it did that has no way back here, with why.\n\nArgs:\n    token_id: The token's record.\n    n: The intervention's number.\n    session: The caller.\n\nReturns:\n    The plan.\n\nRaises:\n    HTTPException: 404 for a token the caller may not read, or an intervention it does not have.",
+        "operationId": "get_undo_plan_api_auth_tokens__token_id__activity__n__undo_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token_id",
+            "required": true,
+            "schema": {
+              "title": "Token Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "n",
+            "required": true,
+            "schema": {
+              "title": "N",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UndoPlanInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Undo Plan",
+        "tags": [
+          "Authentication"
+        ],
+        "x-noust-permission": "self"
+      },
+      "post": {
+        "description": "Leave an intervention as it was: a job, in sudo mode, for the applications chosen.\n\nEach application goes back by the way back Noust already has, behind its health gate. A going back\nthat passes a deployment that changed the database's schema is refused with 409 ``schema_changed``\nunless the body confirms it for that application: Noust puts code back, never a database. The job says\nwhat went back and what did not, and what the credential did that has no way back here.\n\nArgs:\n    token_id: The token's record.\n    n: The intervention's number.\n    body: The applications to put back and the ones whose schema change is confirmed.\n    session: The caller, in sudo mode, holding ``apps.deploy`` in each application.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 404 for a token or an intervention the caller may not read; 403 for an application\n        the caller may not deploy; 409 ``undo_unavailable`` when nothing asked can go back, and\n        ``schema_changed`` when a confirmation is missing.",
+        "operationId": "post_undo_api_auth_tokens__token_id__activity__n__undo_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token_id",
+            "required": true,
+            "schema": {
+              "title": "Token Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "n",
+            "required": true,
+            "schema": {
+              "title": "N",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/UndoRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Undo",
+        "tags": [
+          "Authentication"
+        ],
+        "x-noust-permission": "apps.deploy",
+        "x-noust-requires-elevation": true
       }
     },
     "/api/auth/verify": {
@@ -97239,6 +98990,119 @@
         ],
         "x-noust-permission": "security.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/config/approval-policy": {
+      "get": {
+        "description": "Read what a token and the built-in assistant may do alone, propose or never.\n\nArgs:\n    request: The request.\n    session: The authenticated session.\n\nReturns:\n    The table: a row for each permission that changes something, each with its four cells, and for\n    each cell what judges a call, what the release ships, what the operator chose and which values it\n    may be given.",
+        "operationId": "get_approval_policy_api_config_approval_policy_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalPolicyTable"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Approval Policy",
+        "tags": [
+          "Configuration"
+        ],
+        "x-noust-permission": "settings.read"
+      },
+      "put": {
+        "description": "Change the table: give some cells a value and put others back, all or nothing.\n\nA change that gives a token or the assistant more freedom than it has waits for a second person where\nthe server asks for them (answered 202 ``approval_required``); one that only takes it away does not.\n\nArgs:\n    body: The cells to give a value and the cells to put back.\n    request: The request.\n    session: The authenticated session, in sudo mode.\n\nReturns:\n    The table as it is now.\n\nRaises:\n    ValidationError: 400 for a cell that does not exist or a value the cell may not have, naming\n        what it may.",
+        "operationId": "put_approval_policy_api_config_approval_policy_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PolicyChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalPolicyTable"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Approval Policy",
+        "tags": [
+          "Configuration"
+        ],
+        "x-noust-permission": "security.manage",
+        "x-noust-requires-approval": {
+          "action": "approvals.policy",
+          "kind": "role_change",
+          "when": "a cell gives a token or the assistant more freedom than it has now"
+        },
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/config/approval-policy/preview": {
+      "post": {
+        "description": "Say what saving a change would do, and to which credentials, without saving it.\n\nIt is the simulation of ``PUT``: the same validation (a cell that does not exist or a value it may not\nhave is a 400 naming what it may be), and nothing written.\n\nArgs:\n    body: The same body ``PUT`` takes.\n    session: The authenticated session.\n\nReturns:\n    The cells that would change, the commands that make the change, the credentials that would behave\n    differently, how many requests already wait, and whether saving asks for a second person.\n\nRaises:\n    ValidationError: 400 as ``PUT`` would.",
+        "operationId": "preview_approval_policy_api_config_approval_policy_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PolicyChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyPreview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Approval Policy",
+        "tags": [
+          "Configuration"
+        ],
+        "x-noust-permission": "security.manage"
       }
     },
     "/api/config/apps-directory": {

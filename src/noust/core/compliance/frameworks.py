@@ -275,6 +275,11 @@ _ENS_M: dict[str, Requirement] = {
     "separation_of_duties": _r(True, _OP_ACC_3_1, _OP_ACC_3_2),
     "sso_no_admin": _r(True, _OP_ACC_3_2),
     "approvals": _r(True, _OP_ACC_3_2, _OP_EXP_5_4),
+    "token_production_approval": _r(
+        True,
+        _OP_ACC_3_2,
+        note="A token acts without a person at hand: what it changes in production waits for one.",
+    ),
     "second_factor": _r(
         True,
         _OP_ACC_6_R8,

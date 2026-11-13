@@ -207,6 +207,7 @@ Every configuration key and the value it has until you change it. Set one with `
 | `security.single_role_per_account` | `false` |
 | `security.sso_no_admin` | `false` |
 | `security.tls_certificate` | `"any"` |
+| `security.token_production_approval` | `false` |
 | `server.name` | `""` |
 | `service_group` | `"www-data"` |
 | `service_user` | `"www-data"` |

@@ -295,6 +295,7 @@ CONTROLS: tuple[Control, ...] = (
     _flag("second_factor", GROUP_ACCESS, "security.second_factor"),
     _flag("approvals", GROUP_ACCESS, "approval.enabled"),
     _flag("restricted_tokens", GROUP_ACCESS, "security.restricted_tokens"),
+    _flag("token_production_approval", GROUP_ACCESS, "security.token_production_approval"),
     Control(
         "token_max_days",
         GROUP_ACCESS,
@@ -546,6 +547,10 @@ DESCRIPTIONS: dict[str, str] = {
     "restricted_tokens": (
         "An API token belongs to an account, cannot act in sudo mode and never holds "
         "root-equivalent, account or security permissions."
+    ),
+    "token_production_approval": (
+        "What an API token changes in production waits for a person to approve it, as what the "
+        "built-in assistant changes always does."
     ),
     "token_max_days": "The longest life of an API token, in days; an expiry becomes mandatory.",
     "master_token": (

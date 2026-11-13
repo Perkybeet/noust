@@ -21,6 +21,26 @@ export const serverText: Catalog<typeof en> = {
       text: "Esto necesita la aprobación de una segunda persona en la central.",
       hint: "Pídela en la central y repite la llamada a través de ella cuando esté aprobada.",
     },
+    held_by_policy_assistant: {
+      text: "Esta llamada espera a que una persona la apruebe: la política de aprobación de este servidor lo pide cuando el asistente integrado cambia {permission} en el entorno {environment}. La solicitud {request} está esperando.",
+      hint: "Una vez aprobada, envía exactamente la misma llamada otra vez con la cabecera {header}: {request}, en menos de {minutes} minutos.",
+    },
+    held_by_policy_token: {
+      text: "Esta llamada espera a que una persona la apruebe: la política de aprobación de este servidor lo pide cuando un token cambia {permission} en el entorno {environment}. La solicitud {request} está esperando.",
+      hint: "Una vez aprobada, envía exactamente la misma llamada otra vez con la cabecera {header}: {request}, en menos de {minutes} minutos.",
+    },
+    never_assistant_floor: {
+      text: "El asistente integrado no hace esto por su cuenta, diga lo que diga la política de aprobación.",
+      hint: "Lo hace una persona desde la consola, en su propia sesión. Este límite no se puede configurar.",
+    },
+    never_by_policy_assistant: {
+      text: "La política de aprobación de este servidor no deja que el asistente integrado cambie {permission} en el entorno {environment}.",
+      hint: "Quien tenga el permiso security.manage cambia la política, en modo sudo. Una persona puede hacer esta llamada desde la consola.",
+    },
+    never_by_policy_token: {
+      text: "La política de aprobación de este servidor no deja que un token cambie {permission} en el entorno {environment}.",
+      hint: "Quien tenga el permiso security.manage cambia la política, en modo sudo. Una persona puede hacer esta llamada desde la consola.",
+    },
     reason_required: {
       text: "Di por qué: esta llamada necesita la aprobación de una segunda persona y un motivo.",
       hint: "Envía el motivo en la cabecera {header} (codificado en porcentaje).",

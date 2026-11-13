@@ -42,6 +42,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from noust.core.accounts.approvals import (
+    ORIGIN_BOTH,
+    ORIGIN_POLICY,
+    ORIGIN_RULE,
+    POLICY_RULE,
     STATES,
     ApprovalActor,
     ApprovalDenied,
@@ -52,11 +56,16 @@ from noust.core.accounts.approvals import (
     describe_rules,
     may_need_approval,
     one_time_fields,
+    route_requirement,
     rule_for,
     snapshot,
 )
+from noust.core.caller_policy import NEVER, PROPOSE
+from noust.core.callers import ASSISTANT, PERSON, caller_of
 from noust.core.compliance import explain
 from noust.core.server_text import Param, ServerText, say
+from noust.core.teams import current_scope, scoped_store
+from noust.web.api import caller_gate
 from noust.web.api.deps import NoustErrorRoute, ensure_elevated, require_elevated
 from noust.web.api.openapi import api_routes, route_requires_elevation
 from noust.web.auth import FLEET_ACTOR_PATTERN, get_client_ip, is_fleet, require_auth
@@ -64,6 +73,7 @@ from noust.web.permissions import Permission
 from noust.web.permissions.enforce import has_permission, required_permissions, route_template
 from noust.web.permissions.principal import actor_of, principal_of
 from noust.web.permissions.registry import NODE_PROXY_TEMPLATE, match_path, proxied_path
+from noust.web.permissions.team_roles import instance_permissions_of, permissions_at
 
 router = APIRouter(route_class=NoustErrorRoute)
 
@@ -100,6 +110,46 @@ class ApprovalActorInfo(BaseModel):
     role: str | None = None
 
 
+class ApprovalClientInfo(BaseModel):
+    """
+    What the client of a token said of itself, shown as what it said.
+
+    Attributes:
+        name: The name the client gave itself (the ``clientInfo`` of MCP's handshake, or the first
+            product of its ``User-Agent``).
+        version: Its version, or empty.
+        source: ``client_info`` or ``user_agent``.
+        label: The name and the version, as one line.
+        declared: Always true: the server cannot know it, only that the client said it.
+        first_seen: When this client was first seen with the token, ISO 8601.
+        last_seen: When it was last seen.
+    """
+
+    name: str
+    version: str = ""
+    source: str = "user_agent"
+    label: str = ""
+    declared: bool = True
+    first_seen: str | None = None
+    last_seen: str | None = None
+
+
+class ApprovalCredentialInfo(BaseModel):
+    """
+    The token that made a call the policy held.
+
+    Attributes:
+        id: The token's record, which ``/api/auth/tokens/{id}/activity`` reads; None when the token is
+            gone from the list.
+        name: The token's name.
+        owner: The account it acts for, by username; None for a token nobody owns.
+    """
+
+    id: int | None = None
+    name: str
+    owner: str | None = None
+
+
 class ApprovalInfo(BaseModel):
     """
     One request for a second person's approval.
@@ -131,6 +181,20 @@ class ApprovalInfo(BaseModel):
         executed_at: When the call ran.
         mine: Whether the caller asked for it.
         can_decide: Whether the caller may approve or reject it now.
+        origin: What made it wait: ``rule`` (the second-person rule), ``policy`` (the approval policy for
+            a token or the built-in assistant) or ``both``. A request of the policy can be decided by
+            a person who holds what the call needs, the token's owner included; one the rule holds
+            asks for another person.
+        caller: The class of caller that made the call: ``token`` or ``assistant``; None when a
+            person asked.
+        environment: ``production`` or ``other``: where the resource the call names lives, read by the
+            server and never from what the caller sent; None when a person asked.
+        domain: The application the call names, when it names one.
+        needs: The permissions the call needs, which a person holds to decide a request of the policy.
+        client: What the token's client said of itself, labelled as what it said; None when nobody was
+            seen.
+        credential: The token that made the call, when a token did.
+        owned: Whether the caller is the account the token acts for.
     """
 
     id: int
@@ -153,6 +217,14 @@ class ApprovalInfo(BaseModel):
     executed_at: float | None = None
     mine: bool = False
     can_decide: bool = False
+    origin: str = ORIGIN_RULE
+    caller: str | None = None
+    environment: str | None = None
+    domain: str | None = None
+    needs: list[str] = Field(default_factory=list)
+    client: ApprovalClientInfo | None = None
+    credential: ApprovalCredentialInfo | None = None
+    owned: bool = False
 
 
 class ApprovalListResponse(BaseModel):
@@ -229,13 +301,18 @@ def approvals() -> ApprovalManager:
     return ApprovalManager()
 
 
-def approval_actor(session: dict[str, Any], client_ip: str | None = None) -> ApprovalActor:
+def approval_actor(
+    session: dict[str, Any], client_ip: str | None = None, *, domain: str | None = None
+) -> ApprovalActor:
     """
     Name the principal behind a request as an approval sees it.
 
     Args:
         session: The authenticated payload.
         client_ip: Where it came from.
+        domain: The application a request is about, to read what the principal holds there (the
+            request the approval policy made is decided by a person who holds what its call needs);
+            what it holds on the server itself when omitted.
 
     Returns:
         The actor: an account with its role and person, the master token, a
@@ -263,6 +340,28 @@ def approval_actor(session: dict[str, Any], client_ip: str | None = None) -> App
         via=principal.via,
         source=client_ip or principal.source,
         account=behind,
+        permissions=_held_for(session, domain),
+    )
+
+
+def _held_for(session: dict[str, Any], domain: str | None) -> frozenset[str]:
+    """
+    Args:
+        session: The authenticated payload.
+        domain: The application a request is about, or None for the server itself.
+
+    Returns:
+        What the principal holds there: its permissions in the team, project and environment of the
+        application when it sees it, only what it holds on the server when the request names none, and
+        nothing for an application it does not see.
+    """
+    if domain is None:
+        return instance_permissions_of(session)
+    placement = scoped_store().placement_of_domain(domain)
+    if placement is None:
+        return frozenset() if current_scope().restricted else instance_permissions_of(session)
+    return permissions_at(
+        session, placement.team_id, placement.project_id, placement.environment_id
     )
 
 
@@ -501,6 +600,15 @@ def asked_sentence(approval: Any, policy: ApprovalPolicy) -> ServerText:
     }
     if approval.state == "approved":
         return say("approvals.asked_approved", **values)
+    if getattr(approval, "origin", ORIGIN_RULE) == ORIGIN_POLICY:
+        return caller_gate.held_sentence(
+            str(approval.caller),
+            str(approval.environment),
+            (approval.needs or ("",))[0],
+            request=approval.id,
+            header=APPROVAL_HEADER,
+            minutes=int(policy.execute_minutes),
+        )
     return say("approvals.asked_waiting", approvers=", ".join(policy.approvers), **values)
 
 
@@ -511,7 +619,17 @@ async def require_approval(
     Hold every call that needs a second person to that person's decision.
 
     Installed on the API router after ``require_auth`` (FastAPI resolves that
-    one once per request, so this adds no second authentication).
+    one once per request, so this adds no second authentication). Two things
+    hold a call here, and the guard is where both are decided (rule 4):
+
+    - the four-eyes rule (:func:`~noust.core.accounts.approvals.rule_for`), when
+      approvals are on, for whoever makes the call;
+    - the approval policy for a caller that is not a person
+      (:mod:`noust.core.caller_policy`): a token or the built-in assistant whose
+      cell for what the call changes, in the environment of its resource, says
+      ``propose`` (the call waits for a person, with the same flow) or ``never``
+      (it is refused, saying which policy and who changes it). The MCP calls
+      the API with the caller's own token and comes through here too.
 
     Args:
         request: The call.
@@ -520,36 +638,76 @@ async def require_approval(
     Raises:
         HTTPException: 202 ``approval_required`` naming the request it
             created; 400 ``approval_reason_required`` under the ENS profile
-            without ``X-Noust-Reason``; 403 ``elevation_required`` first when
-            the route asks for sudo mode; ``approval_*`` (403, 404, 409) for
-            an ``X-Noust-Approval`` that does not allow this call.
+            without ``X-Noust-Reason``; 403 ``approval_never`` or
+            ``approval_floor`` for what the policy never allows a token or the
+            assistant; 403 ``elevation_required`` first when the route asks
+            for sudo mode; ``approval_*`` (403, 404, 409) for an
+            ``X-Noust-Approval`` that does not allow this call.
     """
     method = request.method.upper()
-    if not session or method in _SAFE_METHODS:
+    if not session:
+        return
+    caller = caller_of(session)
+    if caller != PERSON:
+        caller_gate.note_client(session, request)
+    if method in _SAFE_METHODS:
+        if caller == ASSISTANT:
+            await caller_gate.judge_read(request, session)
         return
     template = route_template(request)
     if template is None:
         return
     needed = await required_permissions(request) or []
     rule_template = template
-    if template == NODE_PROXY_TEMPLATE:
+    proxied = template == NODE_PROXY_TEMPLATE
+    if proxied:
         inner = proxied_path(request.url.path)
         matched = match_path(method, inner) if inner else None
         rule_template = matched[0] if matched else template
-    if not may_need_approval(method, rule_template, needed):
+    covered = may_need_approval(method, rule_template, needed)
+    manager: ApprovalManager | None = None
+    policy: ApprovalPolicy | None = None
+    raw: bytes | None = None
+    rule = None
+    if covered:
+        manager = approvals()
+        policy = manager.policy()
+        if policy.enabled or caller != PERSON:
+            # Read only now, for a call a rule may cover: every such route takes JSON, which FastAPI
+            # has read already and Starlette keeps on the request.
+            raw = await request.body()
+            rule = rule_for(method, rule_template, needed, _json_body(raw), request.path_params)
+    elif caller == PERSON:
         return
-    manager = approvals()
-    policy = manager.policy()
-    if not policy.enabled:
+    four_eyes = rule if policy is not None and policy.enabled else None
+    judgement: caller_gate.Judgement | None = None
+    held = False
+    if caller != PERSON:
+        requirement = route_requirement(method, rule_template, needed)
+        judgement = await caller_gate.judge(
+            request,
+            session,
+            method=method,
+            template=rule_template,
+            needed=needed,
+            elevation=_route_needs_elevation(request, method, template),
+            approval_when=requirement["when"] if requirement else None,
+            four_eyes_action=rule.action if rule is not None else None,
+            proxied=proxied,
+        )
+        if judgement.verdict.value == NEVER:
+            caller_gate.refuse(request, session, judgement)
+        held = judgement.verdict.value == PROPOSE
+    if four_eyes is None and not held:
         return
-    # Read only now, for a call a rule may cover: every such route takes JSON,
-    # which FastAPI has read already and Starlette keeps on the request.
-    raw = await request.body()
-    rule = rule_for(method, rule_template, needed, _json_body(raw), request.path_params)
-    if rule is None:
-        return
+    if manager is None or policy is None:
+        manager = approvals()
+        policy = manager.policy()
+    if raw is None:
+        raw = await request.body()
     if is_fleet(session):
-        _vouched_by_central(request, session, rule.action)
+        if four_eyes is not None:
+            _vouched_by_central(request, session, four_eyes.action)
         return
 
     client_ip = get_client_ip(request)
@@ -561,6 +719,7 @@ async def require_approval(
         omit=one_time_fields(method, rule_template),
     )
     requester = approval_actor(session, client_ip)
+    action = (four_eyes or POLICY_RULE).action
     presented = request.headers.get(APPROVAL_HEADER)
     if presented:
         try:
@@ -579,7 +738,7 @@ async def require_approval(
                 actor=requester.audit_actor(),
                 target=request.url.path,
                 outcome="denied",
-                details={"action": rule.action, "reason": exc.code, "approval": presented[:16]},
+                details={"action": action, "reason": exc.code, "approval": presented[:16]},
             )
             raise _http(exc) from exc
         request.state.noust_approval = approval
@@ -588,7 +747,7 @@ async def require_approval(
     if _route_needs_elevation(request, method, template):
         ensure_elevated(request, session)
     reason = _reason(request)
-    if policy.reason_required and not reason:
+    if four_eyes is not None and policy.reason_required and not reason:
         raise HTTPException(
             status_code=400,
             detail=_refusal(
@@ -597,24 +756,39 @@ async def require_approval(
                 explain.why_on("change_reasons").said(),
             ),
         )
+    origin = ORIGIN_BOTH if (four_eyes is not None and held) else ORIGIN_RULE
+    if four_eyes is None:
+        origin = ORIGIN_POLICY
+    context: dict[str, Any] = {}
+    if judgement is not None:
+        context = {
+            "caller": judgement.verdict.caller,
+            "environment": judgement.verdict.environment,
+            "domain": judgement.domain,
+            "needs": judgement.needs,
+            "client": caller_gate.current_client(session),
+        }
     try:
         approval, _created = manager.request(
-            rule,
+            four_eyes or POLICY_RULE,
             method=method,
             path=request.url.path,
             parameters=parameters,
             fingerprint=digest,
             reason=reason,
             requester=requester,
+            origin=origin,
+            **context,
         )
     except ApprovalError as exc:
         raise _http(exc) from exc
+    why = explain.why_on("approvals").said() if four_eyes is not None else None
     raise HTTPException(
         status_code=202,
         detail=_refusal(
             "approval_required",
             asked_sentence(approval, policy),
-            explain.why_on("approvals").said(),
+            why,
             fields={"approval": str(approval.id), "state": approval.state},
         ),
         headers={
@@ -644,23 +818,106 @@ def _sees_all(session: dict[str, Any], manager: ApprovalManager) -> bool:
     )
 
 
-def _info(
-    request: ApprovalRequest, viewer: ApprovalActor, manager: ApprovalManager
-) -> ApprovalInfo:
+def _is_owner(request: ApprovalRequest, viewer: ApprovalActor) -> bool:
     """
     Args:
         request: A request.
         viewer: Who is looking.
+
+    Returns:
+        Whether the viewer is the account the token that asked acts for.
+    """
+    owner = request.requester.account
+    return request.requester.kind == "token" and owner is not None and owner == viewer.behind
+
+
+def can_see(request: ApprovalRequest, session: dict[str, Any], manager: ApprovalManager) -> bool:
+    """
+    Say whether the caller may read a request.
+
+    Everybody reads their own, the owner of a token reads what it asked, and whoever reads the audit
+    trail or decides reads all of them. A request the approval policy made is also read by a person who
+    holds what its call needs and sees the application it names, through the scoped store: a team's
+    administrator reads what a token of their team asked for, and never another team's.
+
+    Args:
+        request: The request.
+        session: The caller.
+        manager: The approval manager.
+
+    Returns:
+        True when the caller may see it.
+    """
+    viewer = approval_actor(session)
+    if request.requester.same_principal(viewer) or _sees_all(session, manager):
+        return True
+    if _is_owner(request, viewer):
+        return True
+    if request.origin == ORIGIN_RULE or not request.needs:
+        return False
+    held = approval_actor(session, domain=request.domain).permissions or frozenset()
+    return all(permission in held for permission in request.needs)
+
+
+def can_decide(request: ApprovalRequest, session: dict[str, Any], manager: ApprovalManager) -> bool:
+    """
+    Args:
+        request: The request.
+        session: The caller.
+        manager: The approval manager.
+
+    Returns:
+        Whether the caller may approve or reject it now: it waits for a decision, the caller may read it
+        and the rules of who decides it (:meth:`ApprovalManager.eligibility`) allow the caller.
+    """
+    if request.state != "requested" or not can_see(request, session, manager):
+        return False
+    return manager.eligibility(request, approval_actor(session, domain=request.domain)) is None
+
+
+def _credential(request: ApprovalRequest) -> ApprovalCredentialInfo | None:
+    """
+    Args:
+        request: A request.
+
+    Returns:
+        The token that made it, with its record and the account it acts for; None when a person did.
+    """
+    if request.requester.kind != "token":
+        return None
+    from noust.web.server import get_token_manager
+
+    manager = get_token_manager()
+    record = manager.sessions.get_api_token_by_name(request.requester.id or "")
+    owner: str | None = None
+    if request.requester.account is not None and request.requester.account.isdigit():
+        account = manager.accounts.get(int(request.requester.account))
+        owner = account.username if account is not None else None
+    return ApprovalCredentialInfo(
+        id=int(record["id"]) if record is not None else None,
+        name=request.requester.id or "",
+        owner=owner,
+    )
+
+
+def _info(
+    request: ApprovalRequest, session: dict[str, Any], manager: ApprovalManager
+) -> ApprovalInfo:
+    """
+    Args:
+        request: A request.
+        session: Who is looking.
         manager: The approval manager, to judge whether the viewer may decide.
 
     Returns:
         Its description for the viewer.
     """
+    viewer = approval_actor(session)
     data = request.to_dict()
     data["mine"] = request.requester.same_principal(viewer)
-    data["can_decide"] = (
-        request.state in ("requested",) and manager.eligibility(request, viewer) is None
-    )
+    data["can_decide"] = can_decide(request, session, manager)
+    data["owned"] = _is_owner(request, viewer)
+    data["credential"] = _credential(request)
     return ApprovalInfo(**data)
 
 
@@ -674,20 +931,20 @@ def _visible(
         manager: The approval manager.
 
     Returns:
-        The request and the caller, when the caller may see it.
+        The request and the caller as it decides it (with what it holds where the call lands), when the
+        caller may see it.
 
     Raises:
         HTTPException: 404, the same for a request that does not exist and
             one the caller may not see.
     """
-    viewer = approval_actor(session)
     try:
         request = manager.get(approval_id)
     except ApprovalError as exc:
         raise _http(exc) from exc
-    if not _sees_all(session, manager) and not request.requester.same_principal(viewer):
+    if not can_see(request, session, manager):
         raise HTTPException(status_code=404, detail=f"No approval request with id {approval_id}")
-    return request, viewer
+    return request, approval_actor(session, domain=request.domain)
 
 
 @router.get("", response_model=ApprovalListResponse)
@@ -695,34 +952,56 @@ def list_approvals(
     session: dict[str, Any] = Depends(require_auth),
     state: str | None = Query(default=None, description="Only requests in this state"),
     mine: bool = Query(default=False, description="Only the caller's own requests"),
+    caller: str | None = Query(
+        default=None, description="Only calls of this class of caller: `token` or `assistant`"
+    ),
+    origin: str | None = Query(
+        default=None,
+        description="Only those that wait for this reason: `rule`, `policy` or `both`",
+    ),
 ) -> ApprovalListResponse:
     """
     List the requests the caller may see, newest first.
 
-    Deciders and auditors see every request; everybody else sees their own.
+    Deciders and auditors see every request; the owner of a token sees what it asked; a person who holds
+    what a call the policy held needs sees it; everybody else sees their own.
 
     Args:
         session: The caller.
         state: Only this state: ``requested``, ``approved``, ``rejected``,
             ``expired`` or ``executed``.
         mine: Only the caller's own.
+        caller: Only the calls of this class of caller.
+        origin: Only those that wait for this reason.
 
     Returns:
         The requests.
 
     Raises:
-        HTTPException: 400 for an unknown state.
+        HTTPException: 400 for an unknown state, class or origin.
     """
     if state is not None and state not in STATES:
         raise HTTPException(
             status_code=400, detail=f"Unknown state {state!r}; use one of {', '.join(STATES)}"
         )
+    if caller is not None and caller not in ("token", "assistant"):
+        raise HTTPException(
+            status_code=400, detail=f"Unknown class of caller {caller!r}; use token or assistant"
+        )
+    if origin is not None and origin not in (ORIGIN_RULE, ORIGIN_POLICY, ORIGIN_BOTH):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown origin {origin!r}; use {ORIGIN_RULE}, {ORIGIN_POLICY} or {ORIGIN_BOTH}",
+        )
     manager = approvals()
     viewer = approval_actor(session)
-    only = viewer if mine or not _sees_all(session, manager) else None
-    found = manager.list(state=state, requester=only)
+    found = manager.list(
+        state=state, requester=viewer if mine else None, caller=caller, origin=origin
+    )
+    if not mine:
+        found = [item for item in found if can_see(item, session, manager)]
     return ApprovalListResponse(
-        approvals=[_info(item, viewer, manager) for item in found],
+        approvals=[_info(item, session, manager) for item in found],
         pending=sum(1 for item in found if item.state == "requested"),
     )
 
@@ -760,8 +1039,8 @@ def get_approval(approval_id: int, session: dict[str, Any] = Depends(require_aut
         HTTPException: 404 when it does not exist or is not the caller's to see.
     """
     manager = approvals()
-    request, viewer = _visible(approval_id, session, manager)
-    return _info(request, viewer, manager)
+    request, _viewer = _visible(approval_id, session, manager)
+    return _info(request, session, manager)
 
 
 def _decide(
@@ -792,7 +1071,7 @@ def _decide(
         )
     except (ApprovalError, ApprovalDenied) as exc:
         raise _http(exc) from exc
-    return _info(decided, decider, manager)
+    return _info(decided, session, manager)
 
 
 @router.post("/{approval_id}/approve", response_model=ApprovalInfo)

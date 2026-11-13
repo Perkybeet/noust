@@ -520,6 +520,16 @@ TEAMS_FRAGMENT = "TEAMS"
 #: database: ``(method, route, how the route is classified)``. Each route must be served and must
 #: be classified as said, so a route that drifts to "open" or loses its resource fails here.
 OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
+    # A request that waits for a person (item 184) names the application its call is about. The
+    # routes are open to everyone signed in and each handler narrows what it shows or lets decide:
+    # the requester's own, whoever reads the audit trail, and a person who holds the permissions
+    # the call needs and sees the application through the scoped store (``_reviewable``).
+    "approval_requests": (
+        ("GET", "/api/approvals", OPEN),
+        ("GET", "/api/approvals/{approval_id}", OPEN),
+        ("POST", "/api/approvals/{approval_id}/approve", OPEN),
+        ("POST", "/api/approvals/{approval_id}/reject", OPEN),
+    ),
     # The record of deliveries names every team's applications and keeps what was sent about
     # them: the server's, like the channels it went through.
     "notification_deliveries": (

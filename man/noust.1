@@ -3251,6 +3251,54 @@ Print the requests as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
+.SS noust approval policy
+What a token and the built\-in assistant may do alone, propose or never.
+
+.SS noust approval policy reset
+Put a permission back to what this release ships for a class of caller, where it applies.
+.TP
+.B Arguments
+.br
+\fIpermission\fR
+.br
+\fIcaller\fR
+.br
+\fIenvironment\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust approval policy set
+Give a class of caller a value for a permission that changes something, where it applies.
+.TP
+.B Arguments
+.br
+\fIpermission\fR
+.br
+\fIcaller\fR
+.br
+\fIenvironment\fR
+.br
+\fIvalue\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust approval policy show
+Show the policy: for each permission that changes something, in production and elsewhere.
+.TP
+.B \-\-caller
+Only this class of caller.
+.TP
+.B \-\-changed
+Only the cells somebody chose.
+.TP
+.B \-\-json
+Print the table as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
 .SS noust approval reject
 Reject a request, or withdraw an approval that was not used yet.
 .TP
@@ -16915,6 +16963,36 @@ Why this change is made (a change reference, a ticket). Recorded with the comman
 
 .SS noust token
 Manage API tokens: named, scoped credentials for scripts and automation.
+
+.SS noust token activity
+Show what a token did, by interventions, and leave one as it was.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.br
+\fIintervention\fR
+.TP
+.B \-\-days
+How far back to read. Default: 30.
+.TP
+.B \-\-undo
+Show how to leave the intervention as it was.
+.TP
+.B \-\-apply
+Do it: put back the applications the plan can (as root, on the audit trail).
+.TP
+.B \-\-app
+Only this application (repeat).
+.TP
+.B \-\-confirm\-schema
+Confirm going back past a deployment that changed the database's schema, for this application.
+.TP
+.B \-\-json
+Print the activity as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
 
 .SS noust token create
 Issue a named, scoped API token. NAME must be unique across every token ever issued, live or revoked.

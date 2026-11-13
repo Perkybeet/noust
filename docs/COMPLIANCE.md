@@ -44,6 +44,7 @@ The console has the same under Settings > Compliance. Disabling a framework, or 
 | `second_factor` | Every account enrols an authenticator or a passkey before it can do anything else. Where nothing asks for it, an account may set it up later, until the console is published on a public name. | off | `security.second_factor` | on is stricter |
 | `approvals` | Root-equivalent actions, servers and role changes wait for a second person to approve them. | off | `approval.enabled` | on is stricter |
 | `restricted_tokens` | An API token belongs to an account, cannot act in sudo mode and never holds root-equivalent, account or security permissions. | off | `security.restricted_tokens` | on is stricter |
+| `token_production_approval` | What an API token changes in production waits for a person to approve it, as what the built-in assistant changes always does. | off | `security.token_production_approval` | on is stricter |
 | `token_max_days` | The longest life of an API token, in days; an expiry becomes mandatory. | no limit | `auth.tokens.max_days` (its default is not a choice: `noust compliance set token_max_days` records one in `auth.tokens.enforce_max_days`, and it then limits without a framework) | a smaller number is stricter |
 | `master_token` | What the master token may do once accounts exist: the console as break-glass, or only get a person back in. | break_glass | `security.master_token` | last choice is stricter |
 | `sudo_password` | Confirming sudo mode asks for the account's password as well as a second factor. | off | `auth.sudo.require_password` | on is stricter |
@@ -140,7 +141,7 @@ Spain's National Security Scheme, category MEDIA: what Noust has called the ens-
 
 Reference: Real Decreto 311/2022, Annex II.
 
-Enable it with `noust compliance enable ens-media`. It asks of 41 control(s); 35 of them ask for more than the default.
+Enable it with `noust compliance enable ens-media`. It asks of 42 control(s); 36 of them ask for more than the default.
 
 | Control | Value | Clause | Note |
 |---|---|---|---|
@@ -151,6 +152,7 @@ Enable it with `noust compliance enable ens-media`. It asks of 41 control(s); 35
 | `second_factor` | on | op.acc.6.r8.1: Two factors from or through uncontrolled zones | Every account has held one since 3.1 under this category; the control keeps it. |
 | `approvals` | on | op.acc.3.2: Whoever authorises and whoever controls the use are different people<br>op.exp.5.4: Relevant changes are approved beforehand |  |
 | `restricted_tokens` | on | op.acc.1.3: A unique identifier for every entity that accesses the system<br>op.acc.4.2: Least privilege |  |
+| `token_production_approval` | on | op.acc.3.2: Whoever authorises and whoever controls the use are different people | A token acts without a person at hand: what it changes in production waits for one. |
 | `token_max_days` | 90 days | op.acc.6.4: Credentials are changed periodically | The period is the organisation's; 90 days is Noust's. |
 | `master_token` | recovery | op.acc.6.r8.1: Two factors from or through uncontrolled zones |  |
 | `sudo_password` | on | op.acc.6.r6.1: Points where authentication is renewed, not just the session | The measure asks for renewal points from category ALTA; MEDIA keeps what 3.1 decided. |
@@ -202,7 +204,7 @@ Spain's National Security Scheme, category ALTA: MEDIA plus a backup kept apart.
 
 Reference: Real Decreto 311/2022, Annex II.
 
-Enable it with `noust compliance enable ens-alta`. It asks of 42 control(s); 36 of them ask for more than the default.
+Enable it with `noust compliance enable ens-alta`. It asks of 43 control(s); 37 of them ask for more than the default.
 
 | Control | Value | Clause | Note |
 |---|---|---|---|
@@ -213,6 +215,7 @@ Enable it with `noust compliance enable ens-alta`. It asks of 42 control(s); 36 
 | `second_factor` | on | op.acc.6.r8.1: Two factors from or through uncontrolled zones | Every account has held one since 3.1 under this category; the control keeps it. |
 | `approvals` | on | op.acc.3.2: Whoever authorises and whoever controls the use are different people<br>op.exp.5.4: Relevant changes are approved beforehand |  |
 | `restricted_tokens` | on | op.acc.1.3: A unique identifier for every entity that accesses the system<br>op.acc.4.2: Least privilege |  |
+| `token_production_approval` | on | op.acc.3.2: Whoever authorises and whoever controls the use are different people | A token acts without a person at hand: what it changes in production waits for one. |
 | `token_max_days` | 90 days | op.acc.6.4: Credentials are changed periodically | The period is the organisation's; 90 days is Noust's. |
 | `master_token` | recovery | op.acc.6.r8.1: Two factors from or through uncontrolled zones |  |
 | `sudo_password` | on | op.acc.6.r6.1: Points where authentication is renewed, not just the session | The measure asks for renewal points from category ALTA; MEDIA keeps what 3.1 decided. |
@@ -509,6 +512,7 @@ What each framework asks of each control. A blank cell means it asks nothing.
 | `second_factor` |  | on | on | on | on | on | on | on |  |
 | `approvals` |  | on | on |  |  |  |  | on |  |
 | `restricted_tokens` | on | on | on | on | on |  |  | on | on |
+| `token_production_approval` |  | on | on |  |  |  |  |  |  |
 | `token_max_days` | 90 days | 90 days | 90 days | 90 days | 90 days |  |  | 90 days | 90 days |
 | `master_token` | recovery | recovery | recovery | recovery |  |  |  | recovery |  |
 | `sudo_password` |  | on | on | on | on |  |  | on |  |

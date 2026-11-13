@@ -103,3 +103,78 @@ edited at all, and is handed on only by an owner, through every route.
   make that exact call once, within `approval.execute_minutes` (30), with
   `X-Noust-Approval: <id>`.
 - Every step is an audit event naming both people.
+
+## Tokens and the built-in assistant: the approval policy
+
+The second person's rule is about what a call *is*. A token (CI, a script, a client of MCP) and the
+built-in assistant are also callers that are not a person, so a server decides, for each of them, how
+much it does without one. Who calls is read from the credential and never from what the client says of
+itself: a **person** (a session, the master token, a central acting for its operator), a **token**, or
+the **built-in assistant** (its own token, marked when it is issued). A person is held to the roles and
+to the rule above and to nothing else.
+
+For each permission that changes something (reading is not approved), in **production** and in **every
+other environment** (the environment of the application the call names; what names none, or an
+application the caller does not see, counts as production), the policy says one of three things:
+
+| Value | What happens |
+|---|---|
+| `alone` | The call runs, as it always has. |
+| `propose` | The call does not run. It becomes a request, with the same flow as above, that a person approves in the console; once approved, the same call, made again with `X-Noust-Approval`, runs once. |
+| `never` | The call is refused with the sentence of the policy that forbids it and who changes it (`403 approval_never`). |
+
+**What ships.** A token keeps doing what it did: `alone` everywhere its permissions let it, so a pipeline
+that deployed yesterday deploys tomorrow. The assistant proposes everything that changes something, in
+both environments. Nothing changes until somebody changes the table.
+
+**What no table lifts** (the floor). The assistant never does what thirteen permissions let one do
+(`secrets.reveal`, `root_equivalent`, `server.host_access`, `server.terminal`, `apps.terminal`,
+`accounts.manage`, `accounts.read`, `audit.manage`, `audit.read`, `security.manage`, `settings.manage`,
+`fleet.manage`, `teams.manage`): those rows are `never` and fixed (`403 approval_floor`). What asks for sudo
+mode, or for a second person every time, is never the assistant's whatever its cells say: a person does
+it from the console, in their own session. Where most of what a permission does asks for that (the *key*
+rows: `apps.manage`, `server.manage`, `databases.manage`...), `alone` is not offered at all; a token keeps
+doing what it does there until it is given a value that is offered, because a token issued to act in sudo
+mode is a decision somebody already made.
+
+**ENS.** The control `token_production_approval` (asked by ENS MEDIA and ALTA, `security.token_production_approval`
+for anyone) makes `propose` the least a token's cell in production can be, and what the operator chose before
+is kept and applies again if it goes away.
+
+**Who decides what the policy held.** A person with an account who holds every permission the call needs,
+in the application's team: another person of the team, and also the **owner of the token** (she is
+supervising her own tool, which is not the second person the rule asks for). A call that the rule also holds
+still asks for another person. A token, the master token and a central never decide. The request says who
+called: the class, the token, the environment, the application and the client the token said it was.
+
+**Who changes it.** `security.manage` and sudo mode (`PUT /api/config/approval-policy`; `noust approvals
+policy set PERMISSION CALLER ENVIRONMENT VALUE` as root). Giving a token or the assistant more freedom than it
+has waits for a second person where the server asks for one; taking it away does not. Before saving, the
+console shows what it would change and to which credentials (`POST /api/config/approval-policy/preview`).
+
+**The MCP.** A tool of MCP is a call of the API with the caller's token, so it comes through the same
+place. A tool that changes something takes an `approval` argument: when a call waited for a person, the
+answer says so ("Not done"), and once a person approved it the model calls the same tool again with the
+request's number.
+
+## What a token did, and leaving it as it was
+
+Every token is a credential, and the audit trail already says what each did. `GET
+/api/auth/tokens/{id}/activity` (and `noust token activity NAME`) reads it as **interventions**: what a
+token did without a silence of more than thirty minutes between one thing and the next, each with its
+timeline (the action, the application, how it ended, the deployment it started and the client it said it
+was, labelled as what it said). The built-in assistant is **one credential for each person**, whatever
+number of tokens it used (each conversation has one): `assistant:<person>`, whose interventions are its
+conversations.
+
+The owner of a token, whoever governs accounts and whoever reads the audit trail read it; a person of a
+team sees only what names an application of their team.
+
+"Leave it as it was" proposes, then does: for each application the intervention deployed, the way back
+Noust already has, to the version before the first thing it deployed there, behind its health gate and
+with its confirmation when a deployment changed the database's schema (Noust puts code back, never a
+database). Where there is none it says why: somebody else deployed after it, it is already as it was, the
+version before cannot be gone back to, the application is gone. What the token did that has no way back
+here (a deleted application, a restored backup, a database, a variable, a service stopped) is listed with
+its reason, never silently left out. Doing it is a job in sudo mode (`POST .../activity/{n}/undo`, `noust
+token activity NAME N --apply`) that says what went back and what did not.

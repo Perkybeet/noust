@@ -189,6 +189,10 @@ export const complianceSetup = {
       title: "Restricted API tokens",
       summary: "A token has an owner and no root-level permissions.",
     },
+    token_production_approval: {
+      title: "Token changes in production wait for a person",
+      summary: "What an API token changes in production is approved by a person first.",
+    },
     token_max_days: {
       title: "Longest API token life",
       summary: "An expiry becomes mandatory, at most this long.",

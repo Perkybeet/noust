@@ -18,6 +18,6 @@ start do not pay for a feature that is not on. What the modules are:
 - :mod:`~noust.core.assistant.limits`: the ceilings a conversation runs under.
 - :mod:`~noust.core.assistant.conversations`: what a person said to it, kept in the store.
 
-The loop that investigates, the tools and the console are built on these (the next lane) and
-never reach around them.
+The loop that investigates, the tools and the console are built on these and never reach around
+them.
 """

@@ -300,7 +300,28 @@ Send `X-Noust-Reason` (percent-encoded UTF-8) with the first call to say why; th
 profile requires it. Another person decides with `POST /api/approvals/{id}/approve` or
 `/reject` (sudo mode), or `noust approval approve ID` as root. Then the requester sends the same
 call again, byte for byte, with `X-Noust-Approval: 17`; it runs once. `GET /api/approvals` lists
-requests (`state=requested|approved|rejected|expired|executed|all`).
+requests (`state=requested|approved|rejected|expired|executed|all`, and `caller=token|assistant`,
+`origin=rule|policy|both`).
+
+A call from a **token** or the **built-in assistant** is also held, or refused, by the approval policy
+(`GET /api/config/approval-policy`: what each of them does alone, proposes or never, for each permission that
+changes something, in production and elsewhere). A call the policy holds answers the same `202`
+`approval_required`, with `coded.code` `approvals.held_by_policy_token` or `approvals.held_by_policy_assistant`,
+and the request says who called (`origin: "policy"`, `caller`, `environment`, `domain`, `needs`, `client`,
+`credential`). A call it never allows answers `403`:
+
+```json
+{"error": "approval_never",
+ "detail": "The approval policy of this server does not let a token change apps.deploy in the production environment.",
+ "hint": "Somebody who holds the security.manage permission changes the policy, in sudo mode. A person can do this call from the console.",
+ "fields": {"caller": "token", "environment": "production", "permission": "apps.deploy"},
+ "coded": {"code": "approvals.never_by_policy_token", "params": {"permission": "apps.deploy", "environment": "production"}}}
+```
+
+`approval_floor` is the same answer for what the built-in assistant never does, whatever the table says. A
+person who holds what the call needs decides a request of the policy, and so may the owner of the token; a
+token, the master token and a central never decide. See [Sudo mode and four-eyes
+approvals](security-approvals.md#tokens-and-the-built-in-assistant-the-approval-policy).
 
 ## Errors
 

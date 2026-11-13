@@ -54,6 +54,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, cast
 
+from noust.core.accounts import policy_requests
 from noust.core.accounts.approval_roles import (
     BodyCheck,
     accepts_offers,
@@ -74,6 +75,13 @@ if TYPE_CHECKING:
 
 KIND_INFRASTRUCTURE = "infrastructure"
 KIND_ROLE_CHANGE = "role_change"
+
+#: What made a request wait: the second-person rule (every request before 4.3), the approval policy for a
+#: caller that is not a person (:mod:`noust.core.caller_policy`), or both at once.
+ORIGIN_RULE = "rule"
+ORIGIN_POLICY = "policy"
+ORIGIN_BOTH = "both"
+ORIGINS: tuple[str, ...] = (ORIGIN_RULE, ORIGIN_POLICY, ORIGIN_BOTH)
 
 STATE_REQUESTED = "requested"
 STATE_APPROVED = "approved"
@@ -310,6 +318,14 @@ ROOT_EQUIVALENT_RULE = ApprovalRule(
     "configuration.",
 )
 
+#: A call from a token or from the built-in assistant that the approval policy holds for a person: what a
+#: request made by the policy is, when no second-person rule describes the call better.
+POLICY_RULE = ApprovalRule(
+    "caller.propose",
+    KIND_INFRASTRUCTURE,
+    "A call from a token or the built-in assistant that this server's approval policy holds for a person.",
+)
+
 #: Routes that need one by what they are.
 ROUTE_RULES: dict[tuple[str, str], ApprovalRule] = {
     ("POST", "/api/nodes"): ApprovalRule(
@@ -507,8 +523,17 @@ _SOURCE_ROLES = ApprovalRule(
     "default role and team, what its groups mean, provisioning and linking by e-mail address.",
 )
 
+#: Giving a token or the built-in assistant more freedom than the policy gives it now: only that waits for
+#: a person, because a change that takes freedom away can only make a server safer.
+_POLICY_CHANGE = ApprovalRule(
+    "approvals.policy",
+    KIND_ROLE_CHANGE,
+    "Giving a token or the built-in assistant more freedom than the approval policy gives it now.",
+)
+
 #: Routes that need one by what their body asks.
 BODY_RULES: dict[tuple[str, str], tuple[ApprovalRule, BodyCheck]] = {
+    ("PUT", "/api/config/approval-policy"): (_POLICY_CHANGE, policy_requests.loosens_policy),
     ("POST", "/api/databases/query"): (
         ApprovalRule("db.query.write", KIND_INFRASTRUCTURE, "A SQL statement that may write."),
         _writes_sql,
@@ -644,6 +669,7 @@ _CONDITIONS: dict[str, str] = {
     "team.member": "the account is not a member yet, or the role is above the one it has",
     "access.role_widen": "the role would hold a permission it does not hold now",
     "auth.source_roles": "the source is new, or would hand out different roles than it does",
+    "approvals.policy": "a cell gives a token or the assistant more freedom than it has now",
 }
 
 
@@ -832,6 +858,9 @@ class ApprovalActor:
         account: The account behind it: the account itself, or the owner of
             an API token. A token is its owner when deciding, so nobody
             approves what they asked for through a token of their own.
+        permissions: What the principal holds where the request's call lands, when the one who
+            reads it asks (the request made by the approval policy is decided by a person who
+            holds what its call needs); None when nobody asked.
     """
 
     kind: str
@@ -842,6 +871,7 @@ class ApprovalActor:
     via: str | None = None
     source: str | None = None
     account: str | None = None
+    permissions: frozenset[str] | None = None
 
     @property
     def account_id(self) -> int | None:
@@ -1004,6 +1034,14 @@ class ApprovalRequest:
         decision_comment: What the decider said.
         execute_by: Until when an approval allows the call.
         executed_at: When the call ran.
+        origin: What made it wait: ``rule``, ``policy`` or ``both``.
+        caller: The class of caller that made the call (``token`` or ``assistant``), when it was not a
+            person.
+        environment: ``production`` or ``other``, for a call a caller that is not a person made.
+        domain: The application the call names, when it names one.
+        needs: The permissions the call needs: what a person holds to decide a request of the policy.
+        client: What the credential's client said of itself (``name``, ``version``, ``source``), shown
+            as what it said.
     """
 
     id: int
@@ -1023,11 +1061,17 @@ class ApprovalRequest:
     decision_comment: str | None
     execute_by: float | None
     executed_at: float | None
+    origin: str = ORIGIN_RULE
+    caller: str | None = None
+    environment: str | None = None
+    domain: str | None = None
+    needs: tuple[str, ...] = ()
+    client: dict[str, Any] | None = None
 
     @property
     def description(self) -> str:
         """The rule's sentence for this action."""
-        for rule in (ROOT_EQUIVALENT_RULE, *ROUTE_RULES.values()):
+        for rule in (ROOT_EQUIVALENT_RULE, POLICY_RULE, *ROUTE_RULES.values()):
             if rule.action == self.action:
                 return rule.description
         for rule, _check in BODY_RULES.values():
@@ -1059,6 +1103,12 @@ class ApprovalRequest:
             "decision_comment": self.decision_comment,
             "execute_by": self.execute_by,
             "executed_at": self.executed_at,
+            "origin": self.origin,
+            "caller": self.caller,
+            "environment": self.environment,
+            "domain": self.domain,
+            "needs": list(self.needs),
+            "client": self.client,
         }
 
 
@@ -1109,6 +1159,7 @@ def _request(row: sqlite3.Row) -> ApprovalRequest:
         decision_comment=row["decision_comment"],
         execute_by=row["execute_by"],
         executed_at=row["executed_at"],
+        **policy_requests.read_columns(row),
     )
 
 
@@ -1243,7 +1294,13 @@ class ApprovalManager:
         return _request(rows[0])
 
     def list(
-        self, *, state: str | None = None, requester: ApprovalActor | None = None, limit: int = 200
+        self,
+        *,
+        state: str | None = None,
+        requester: ApprovalActor | None = None,
+        limit: int = 200,
+        caller: str | None = None,
+        origin: str | None = None,
     ) -> builtins.list[ApprovalRequest]:
         """
         List requests, newest first.
@@ -1252,6 +1309,8 @@ class ApprovalManager:
             state: Only those in this state.
             requester: Only this principal's.
             limit: At most this many.
+            caller: Only those made by this class of caller (``token`` or ``assistant``).
+            origin: Only those that wait for this reason (``rule``, ``policy`` or ``both``).
 
         Returns:
             The requests.
@@ -1265,6 +1324,15 @@ class ApprovalManager:
         if requester is not None:
             clauses.append("requester_kind = ? AND requester_id IS ?")
             params.extend([requester.kind, requester.id])
+        if caller:
+            clauses.append("caller = ?")
+            params.append(caller)
+        if origin == ORIGIN_RULE:
+            clauses.append("(origin IS NULL OR origin = ?)")
+            params.append(ORIGIN_RULE)
+        elif origin:
+            clauses.append("origin = ?")
+            params.append(origin)
         where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
         rows = self._rows(
             f"SELECT * FROM approval_requests {where} ORDER BY id DESC LIMIT ?",  # noqa: S608 - fixed clauses
@@ -1284,6 +1352,12 @@ class ApprovalManager:
         fingerprint: str,
         reason: str | None,
         requester: ApprovalActor,
+        origin: str = ORIGIN_RULE,
+        caller: str | None = None,
+        environment: str | None = None,
+        domain: str | None = None,
+        needs: Collection[str] = (),
+        client: Mapping[str, Any] | None = None,
     ) -> tuple[ApprovalRequest, bool]:
         """
         Ask for an approval of one call, or find the one already asked for.
@@ -1296,6 +1370,12 @@ class ApprovalManager:
             fingerprint: Its fingerprint (:func:`snapshot`).
             reason: Why.
             requester: Who asks.
+            origin: What makes it wait: ``rule``, ``policy`` or ``both``.
+            caller: The class of caller, when it is not a person.
+            environment: ``production`` or ``other``, for such a caller.
+            domain: The application the call names.
+            needs: The permissions the call needs.
+            client: What the credential's client said of itself.
 
         Returns:
             The request, and whether it was created now (False when the same
@@ -1304,7 +1384,10 @@ class ApprovalManager:
         Raises:
             ApprovalError: ``approval_limit`` when the requester has too many
                 waiting.
+            ValueError: When ``origin`` is none of :data:`ORIGINS`: a defect of the caller.
         """
+        if origin not in ORIGINS:
+            raise ValueError(f"origin must be one of {', '.join(ORIGINS)}, not {origin!r}")
         self.expire_due()
         existing = self._rows(
             "SELECT * FROM approval_requests WHERE requester_kind = ? AND requester_id IS ? "
@@ -1331,8 +1414,9 @@ class ApprovalManager:
             cursor.execute(
                 "INSERT INTO approval_requests (action, kind, method, path, parameters, "
                 "fingerprint, reason, state, requester_kind, requester_id, requester_name, "
-                "requester_role, requester_person, requester_account, created_at, expires_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "requester_role, requester_person, requester_account, created_at, expires_at, "
+                "origin, caller, environment, domain, needs, client) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     rule.action,
                     rule.kind,
@@ -1350,11 +1434,20 @@ class ApprovalManager:
                     requester.behind,
                     now,
                     now + policy.request_hours * 3600,
+                    *policy_requests.write_columns(
+                        origin, caller, environment, domain, needs, client
+                    ),
                 ),
             )
             approval_id = int(cursor.lastrowid or 0)
         created = self.get(approval_id)
-        self._record("approval.request", requester, created, reason=created.reason or "")
+        self._record(
+            "approval.request",
+            requester,
+            created,
+            reason=created.reason or "",
+            **policy_requests.audit_details(created),
+        )
         _notify_requested(created)
         return created, True
 
@@ -1378,6 +1471,8 @@ class ApprovalManager:
                 "Only a person with an account decides approvals; tokens, the master token "
                 "and centrals never do."
             )
+        if request.origin == ORIGIN_POLICY:
+            return policy_requests.eligibility(request, decider)
         if decider.same_principal(request.requester) or (
             decider.behind is not None and decider.behind == request.requester.behind
         ):

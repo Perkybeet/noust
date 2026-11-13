@@ -19,6 +19,7 @@ application directly and its answer collected.
 from __future__ import annotations
 
 import json
+import re
 import urllib.parse
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -29,6 +30,9 @@ from noust.web.auth import CSRF_HEADER_NAME
 #: Largest answer collected from the application, so a tool cannot be made to
 #: hold an unbounded body in memory.
 MAX_RESPONSE_BYTES = 8 * 1024 * 1024
+
+#: What a correlation id may be (the one the audit trail accepts from a header).
+_CORRELATION = re.compile(r"[A-Za-z0-9._-]{1,64}")
 
 
 @dataclass(frozen=True)
@@ -73,6 +77,8 @@ async def call_api(
     client_host: str,
     host: str,
     scheme: str = "https",
+    correlation_id: str | None = None,
+    approval: int | None = None,
 ) -> GatewayResponse:
     """
     Make one request of the application, as a caller holding ``token``.
@@ -93,6 +99,11 @@ async def call_api(
         host: The ``Host`` the caller asked for, so the allowed-hosts check
             sees the same one.
         scheme: ``http`` or ``https``, as the caller reached the console.
+        correlation_id: The id of the MCP request this call is part of, so that what the API records
+            for it (the request's line, the events it raises) shares it with the ``mcp.call`` event
+            and the audit trail reads them as one.
+        approval: The request a person approved for exactly this call, to make it under
+            ``X-Noust-Approval``: the way a client of MCP runs what the policy held for a person.
 
     Returns:
         The API's answer.
@@ -108,6 +119,10 @@ async def call_api(
         (b"accept", b"application/json"),
         (b"user-agent", b"noust-mcp"),
     ]
+    if correlation_id is not None and _CORRELATION.fullmatch(correlation_id):
+        headers.append((b"x-noust-request-id", correlation_id.encode("ascii")))
+    if approval is not None:
+        headers.append((b"x-noust-approval", str(int(approval)).encode("ascii")))
     if token is not None:
         headers.append((b"authorization", f"Bearer {token}".encode("latin-1")))
     if cookie is not None:

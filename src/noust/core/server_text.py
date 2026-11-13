@@ -826,6 +826,40 @@ CATALOG: dict[str, str] = {
         "Say why: this call needs a second person's approval, and a reason."
     ),
     "approvals.reason_required.hint": "Send the reason in the {header} header (percent-encoded).",
+    "approvals.held_by_policy_token": (
+        "This call waits for a person to approve it: the approval policy of this server asks for "
+        "it when a token changes {permission} in the {environment} environment. Request "
+        "{request} is waiting."
+    ),
+    "approvals.held_by_policy_token.hint": _SEND_AGAIN,
+    "approvals.held_by_policy_assistant": (
+        "This call waits for a person to approve it: the approval policy of this server asks for "
+        "it when the built-in assistant changes {permission} in the {environment} environment. "
+        "Request {request} is waiting."
+    ),
+    "approvals.held_by_policy_assistant.hint": _SEND_AGAIN,
+    "approvals.never_by_policy_token": (
+        "The approval policy of this server does not let a token change {permission} in the "
+        "{environment} environment."
+    ),
+    "approvals.never_by_policy_token.hint": (
+        "Somebody who holds the security.manage permission changes the policy, in sudo mode. A "
+        "person can do this call from the console."
+    ),
+    "approvals.never_by_policy_assistant": (
+        "The approval policy of this server does not let the built-in assistant change "
+        "{permission} in the {environment} environment."
+    ),
+    "approvals.never_by_policy_assistant.hint": (
+        "Somebody who holds the security.manage permission changes the policy, in sudo mode. A "
+        "person can do this call from the console."
+    ),
+    "approvals.never_assistant_floor": (
+        "The built-in assistant does not do this on its own, whatever the approval policy says."
+    ),
+    "approvals.never_assistant_floor.hint": (
+        "A person does it from the console, in their own session. This limit is not configurable."
+    ),
     "approvals.central_missing": "This needs a second person's approval on the central.",
     "approvals.central_missing.hint": (
         "Ask for it on the central and retry through it once it is approved."

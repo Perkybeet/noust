@@ -158,6 +158,28 @@ class TestWhoCallsIsInTheRequest:
         assert mine is not None and mine["caller"] == "assistant"
         assert other is not None and other["caller"] == "token"
 
+    def test_the_policy_of_who_calls_reads_that_same_fact(self, world: World) -> None:
+        from noust.core.callers import ASSISTANT, TOKEN, caller_of
+
+        manager = get_token_manager()
+        mine = manager.verify_api_token(issue("omar").token, "10.0.0.1")
+        other = manager.verify_api_token(world.people["omar"].token, "10.0.0.1")
+        assert caller_of(mine) == ASSISTANT
+        assert caller_of(other) == TOKEN
+
+    def test_what_it_would_change_waits_for_a_person_and_an_ordinary_token_goes_on_as_ever(
+        self, world: World
+    ) -> None:
+        # The pair of the seam, end to end: the token the assistant is issued, through the API's own
+        # guard, under the policy as it ships.
+        mine = world.client.post(
+            "/api/apps/shop.acme.example/restart", headers=header(issue("omar"))
+        )
+        other = world.client.post("/api/apps/shop.acme.example/restart", headers=world.as_("omar"))
+        assert mine.status_code == 202
+        assert mine.json()["error"] == "approval_required"
+        assert other.status_code != 202
+
     def test_the_audit_trail_names_the_assistant_as_the_way_in(self, world: World) -> None:
         from noust.web.permissions.principal import actor_of
 

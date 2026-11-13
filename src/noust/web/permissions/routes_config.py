@@ -30,6 +30,13 @@ ROUTES: dict[tuple[str, str], str] = {
     ("PUT", "/api/config/ssl"): Permission.SETTINGS_MANAGE,
     ("GET", "/api/config/policy"): Permission.SETTINGS_READ,
     ("PUT", "/api/config/policy"): Permission.SETTINGS_MANAGE,
+    # What a token and the built-in assistant may do alone, propose or never (item 184). Changing it
+    # is a security setting: it decides who acts without a person, and giving more freedom waits for
+    # a second person where the server asks for one (noust.core.accounts.approvals).
+    ("GET", "/api/config/approval-policy"): Permission.SETTINGS_READ,
+    ("PUT", "/api/config/approval-policy"): Permission.SECURITY_MANAGE,
+    # What saving a change would do, and to which credentials, writing nothing (the same validation as the PUT).
+    ("POST", "/api/config/approval-policy/preview"): Permission.SECURITY_MANAGE,
     ("GET", "/api/config/web"): Permission.SETTINGS_READ,
     ("PUT", "/api/config/web"): Permission.SECURITY_MANAGE,
     ("GET", "/api/config/smtp"): Permission.SETTINGS_READ,

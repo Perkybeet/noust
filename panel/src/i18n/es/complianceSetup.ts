@@ -191,6 +191,10 @@ export const complianceSetup: Catalog<typeof en> = {
       title: "Tokens de API restringidos",
       summary: "Un token tiene propietario y ningún permiso de nivel root.",
     },
+    token_production_approval: {
+      title: "Los cambios de un token en producción esperan a una persona",
+      summary: "Lo que un token de API cambia en producción lo aprueba antes una persona.",
+    },
     token_max_days: {
       title: "Vida máxima de un token de API",
       summary: "Pasa a ser obligatoria una caducidad, como mucho de esta duración.",

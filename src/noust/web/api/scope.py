@@ -203,6 +203,39 @@ def _resolve(ref: Ref, values: list[str], scoped: ScopedStore) -> Target | None:
     raise ValueError(f"Unknown resource kind {ref.kind!r}")  # a typo in the table
 
 
+async def placements_of(
+    request: Request, rule: Rule
+) -> list[tuple[Ref, str | None, Target | None]]:
+    """
+    Say where each resource a route is addressed to lives, whoever the principal is.
+
+    The reading :func:`enforce_scope` does for a principal that does not see every team, for the guards
+    that ask about a resource after it (the approval policy's environment): the same references, read
+    the same way, from the same ambient scope.
+
+    Args:
+        request: The request.
+        rule: The route's rule (:func:`~noust.web.permissions.scopes.rule_for`).
+
+    Returns:
+        ``(reference, name, target)`` for each reference of the rule: the first name it is read from and
+        where the resource is, or None for a target when it is not found, is not seen or is not named.
+    """
+    if rule.scoping != RESOURCE:
+        return []
+    body = await _json_object(request) if any(ref.where == BODY for ref in rule.refs) else None
+    scoped = ScopedStore()
+    found: list[tuple[Ref, str | None, Target | None]] = []
+    for ref in rule.refs:
+        try:
+            values = _values(ref, request, body)
+        except ValidationError:
+            found.append((ref, None, None))
+            continue
+        found.append((ref, values[0], _resolve(ref, values, scoped)))
+    return found
+
+
 def _refuse_instance(permission: str) -> PermissionDenied:
     """
     Args:

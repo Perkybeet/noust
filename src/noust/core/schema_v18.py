@@ -214,8 +214,48 @@ REPORTS_COLUMNS: list[Column] = []
 
 # Owned by the policy lane: what each credential that is not a person may do, in which
 # environment, and what it did (items 184 and 185).
-AGENTS_SQL = ""
-AGENTS_COLUMNS: list[Column] = []
+# caller_policy: the cells of the approval policy the operator chose (``noust.core.caller_policy``,
+#   the only writer): a class of caller that is not a person, an environment (``production`` or
+#   ``other``), a permission that changes something, and one of ``alone``, ``propose`` or ``never``.
+#   A cell nobody chose has no row, and is what the release ships (and what the security profile asks).
+#   The database refuses a class, an environment or a value outside the closed lists.
+# credential_clients: the name and version a credential's client said of itself (the ``clientInfo`` of
+#   MCP's ``initialize``, or the product token of ``User-Agent``), at most a few per credential and
+#   labelled as what the client said, never as a fact (``noust.core.credential_clients``).
+# approval_requests, new columns: who asked and why it waits, so a person deciding sees the class of
+#   caller (``caller``), what held it (``origin``: ``rule`` for the second-person rule, ``policy`` for
+#   this policy, ``both``), the environment of the resource and the application it names, the
+#   permissions the call needs (JSON, what a person must hold to decide a policy request) and the
+#   client the credential said it was (JSON). A row from before 4.3 has none of them, and is a ``rule``.
+AGENTS_SQL = """
+CREATE TABLE IF NOT EXISTS caller_policy (
+    caller TEXT NOT NULL CHECK (caller IN ('token', 'assistant')),
+    environment TEXT NOT NULL CHECK (environment IN ('production', 'other')),
+    permission TEXT NOT NULL,
+    value TEXT NOT NULL CHECK (value IN ('alone', 'propose', 'never')),
+    updated_at TEXT NOT NULL,
+    updated_by TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (caller, environment, permission)
+);
+CREATE TABLE IF NOT EXISTS credential_clients (
+    credential TEXT NOT NULL,
+    source TEXT NOT NULL CHECK (source IN ('client_info', 'user_agent')),
+    name TEXT NOT NULL,
+    version TEXT NOT NULL DEFAULT '',
+    first_seen TEXT NOT NULL,
+    last_seen TEXT NOT NULL,
+    PRIMARY KEY (credential, source, name, version)
+);
+CREATE INDEX IF NOT EXISTS idx_credential_clients_seen ON credential_clients(credential, last_seen);
+"""
+AGENTS_COLUMNS: list[Column] = [
+    ("approval_requests", "caller", "TEXT"),
+    ("approval_requests", "origin", "TEXT"),
+    ("approval_requests", "environment", "TEXT"),
+    ("approval_requests", "domain", "TEXT"),
+    ("approval_requests", "needs", "TEXT"),
+    ("approval_requests", "client", "TEXT"),
+]
 
 # Owned by the assistant's base lane: the optional assistant's settings, its provider and
 # the limits it runs under, what a person said to it, and what it cost (item 171). Times are ISO

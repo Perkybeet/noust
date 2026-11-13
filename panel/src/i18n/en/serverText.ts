@@ -32,6 +32,26 @@ export const serverText = {
       text: "This needs a second person's approval on the central.",
       hint: "Ask for it on the central and retry through it once it is approved.",
     },
+    held_by_policy_assistant: {
+      text: "This call waits for a person to approve it: the approval policy of this server asks for it when the built-in assistant changes {permission} in the {environment} environment. Request {request} is waiting.",
+      hint: "Once approved, send exactly the same call again with the header {header}: {request}, within {minutes} minutes.",
+    },
+    held_by_policy_token: {
+      text: "This call waits for a person to approve it: the approval policy of this server asks for it when a token changes {permission} in the {environment} environment. Request {request} is waiting.",
+      hint: "Once approved, send exactly the same call again with the header {header}: {request}, within {minutes} minutes.",
+    },
+    never_assistant_floor: {
+      text: "The built-in assistant does not do this on its own, whatever the approval policy says.",
+      hint: "A person does it from the console, in their own session. This limit is not configurable.",
+    },
+    never_by_policy_assistant: {
+      text: "The approval policy of this server does not let the built-in assistant change {permission} in the {environment} environment.",
+      hint: "Somebody who holds the security.manage permission changes the policy, in sudo mode. A person can do this call from the console.",
+    },
+    never_by_policy_token: {
+      text: "The approval policy of this server does not let a token change {permission} in the {environment} environment.",
+      hint: "Somebody who holds the security.manage permission changes the policy, in sudo mode. A person can do this call from the console.",
+    },
     reason_required: {
       text: "Say why: this call needs a second person's approval, and a reason.",
       hint: "Send the reason in the {header} header (percent-encoded).",

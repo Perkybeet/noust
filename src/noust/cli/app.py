@@ -169,6 +169,7 @@ LOCAL_ONLY_COMMANDS: frozenset[str] = frozenset({"context"})
 #: Alternative spellings, kept because they are in muscle memory, scripts and
 #: the published documentation. Removing one is a breaking change.
 ALIASES: dict[str, str] = {
+    "approvals": "approval",
     "bak": "backup",
     "certificate": "cert",
     "database": "db",

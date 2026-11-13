@@ -2992,7 +2992,7 @@ Four-eyes requests: list them, and approve or reject them as root.
 noust approval [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`approve`](#noust-approval-approve), [`list`](#noust-approval-list), [`reject`](#noust-approval-reject), [`show`](#noust-approval-show)
+Subcommands: [`approve`](#noust-approval-approve), [`list`](#noust-approval-list), [`policy`](#noust-approval-policy), [`reject`](#noust-approval-reject), [`show`](#noust-approval-show)
 
 ### noust approval approve
 
@@ -3021,6 +3021,61 @@ noust approval list [OPTIONS]
 |---|---|---|
 | `--state` | Which requests to list. | `requested` |
 | `--json` | Print the requests as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust approval policy
+
+What a token and the built-in assistant may do alone, propose or never.
+
+```bash
+noust approval policy [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`reset`](#noust-approval-policy-reset), [`set`](#noust-approval-policy-set), [`show`](#noust-approval-policy-show)
+
+### noust approval policy reset
+
+Put a permission back to what this release ships for a class of caller, where it applies.
+
+```bash
+noust approval policy reset [OPTIONS] PERMISSION {token|assistant}
+                                   {production|other|both}
+```
+
+Arguments: `permission`, `caller`, `environment`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust approval policy set
+
+Give a class of caller a value for a permission that changes something, where it applies.
+
+```bash
+noust approval policy set [OPTIONS] PERMISSION {token|assistant}
+                                 {production|other|both} {alone|propose|never}
+```
+
+Arguments: `permission`, `caller`, `environment`, `value`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust approval policy show
+
+Show the policy: for each permission that changes something, in production and elsewhere.
+
+```bash
+noust approval policy show [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--caller` | Only this class of caller. |  |
+| `--changed` | Only the cells somebody chose. |  |
+| `--json` | Print the table as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust approval reject
@@ -16332,7 +16387,27 @@ Manage API tokens: named, scoped credentials for scripts and automation.
 noust token [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`create`](#noust-token-create), [`list`](#noust-token-list), [`revoke`](#noust-token-revoke), [`set`](#noust-token-set)
+Subcommands: [`activity`](#noust-token-activity), [`create`](#noust-token-create), [`list`](#noust-token-list), [`revoke`](#noust-token-revoke), [`set`](#noust-token-set)
+
+### noust token activity
+
+Show what a token did, by interventions, and leave one as it was.
+
+```bash
+noust token activity [OPTIONS] NAME [INTERVENTION]
+```
+
+Arguments: `name`, `intervention`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--days` | How far back to read. | `30` |
+| `--undo` | Show how to leave the intervention as it was. |  |
+| `--apply` | Do it: put back the applications the plan can (as root, on the audit trail). |  |
+| `--app` | Only this application (repeat). |  |
+| `--confirm-schema` | Confirm going back past a deployment that changed the database's schema, for this application. |  |
+| `--json` | Print the activity as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust token create
 

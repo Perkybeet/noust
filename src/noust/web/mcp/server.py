@@ -24,13 +24,17 @@ from __future__ import annotations
 
 import dataclasses
 import logging
+import sqlite3
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
 from noust import __version__
+from noust.core.audit import current_correlation_id
 from noust.core.audit import record as audit_record
+from noust.core.credential_clients import CredentialClients
 from noust.core.exceptions import NoustError
+from noust.core.store import StoreError
 from noust.web.mcp import guardrails
 from noust.web.mcp.gateway import call_api
 from noust.web.mcp.tools import (
@@ -254,6 +258,7 @@ class McpServer:
             JsonRpcError: For a method or parameters that are not valid.
         """
         if method == "initialize":
+            self._note_client(params, caller)
             return self._initialize(params)
         if method == "ping":
             return {}
@@ -293,6 +298,26 @@ class McpServer:
             "serverInfo": {"name": "noust", "title": "Noust", "version": __version__},
             "instructions": INSTRUCTIONS,
         }
+
+    @staticmethod
+    def _note_client(params: dict[str, Any], caller: Caller) -> None:
+        """
+        Remember the client a token says it is, from the handshake.
+
+        What a client calls itself decides nothing: it is kept, labelled as what it said, for the
+        person who reads what a token did or has to decide what it asked for.
+
+        Args:
+            params: The ``initialize`` parameters.
+            caller: Who is calling.
+        """
+        name = caller.session.get("token_name")
+        if not name:
+            return
+        try:
+            CredentialClients().note_client_info(str(name), params.get("clientInfo"))
+        except (sqlite3.Error, StoreError) as exc:
+            logger.warning("Could not note the client of the token %s: %s", name, exc)
 
     # -------------------------------------------------------------------- tools
 
@@ -404,8 +429,9 @@ class McpServer:
         if tool.destructive and arguments.get("confirm") is not True:
             self._audit(caller, tool.name, domain, "denied", {"reason": "not confirmed"})
             return Outcome(guardrails.CONFIRM_NEEDED.format(effect=tool.effect), is_error=True)
-        sent = {k: v for k, v in arguments.items() if k != "confirm"}
+        sent = {k: v for k, v in arguments.items() if k not in ("confirm", "approval")}
         path, query, body = build_request(tool, openapi, sent)
+        approval = arguments.get("approval")
         response = await call_api(
             caller.app,
             tool.method,
@@ -416,8 +442,14 @@ class McpServer:
             client_host=caller.client_host,
             host=caller.host,
             scheme=caller.scheme,
+            correlation_id=current_correlation_id(),
+            approval=approval if isinstance(approval, int) else None,
         )
         decoded = response.json()
+        if response.status == 202 and self._waits_for_a_person(decoded):
+            waiting = (decoded.get("fields") or {}).get("approval")
+            self._audit(caller, tool.name, domain, "proposed", {"status": 202, "approval": waiting})
+            return Outcome(self._proposal(decoded), status=202)
         if response.status >= 400:
             self._audit(
                 caller,
@@ -439,6 +471,36 @@ class McpServer:
             structured = safe if isinstance(safe, dict) else None
         self._audit(caller, tool.name, domain, "ok", {"status": response.status})
         return Outcome(text, structured=structured, status=response.status)
+
+    @staticmethod
+    def _waits_for_a_person(decoded: Any) -> bool:
+        """
+        Args:
+            decoded: The API's answer.
+
+        Returns:
+            Whether the call did not run because a person has to approve it first.
+        """
+        return isinstance(decoded, dict) and decoded.get("error") == "approval_required"
+
+    @staticmethod
+    def _proposal(decoded: Mapping[str, Any]) -> str:
+        """
+        Args:
+            decoded: The API's ``approval_required`` answer.
+
+        Returns:
+            What the model reads: the call did not run, who decides, and what to do once approved, in the
+            server's own words.
+        """
+        fields = decoded.get("fields") or {}
+        parts = [
+            f"Not done. This call waits for a person to approve it (request {fields.get('approval')}): "
+            f"{decoded.get('detail') or ''}".strip(),
+            "Do not repeat it before a person has approved it. When they have, call the same tool "
+            "again with exactly the same arguments and the argument approval set to the request's number.",
+        ]
+        return guardrails.limit(guardrails.scrub_text("\n".join(parts)))
 
     @staticmethod
     def _refusal(status: int, decoded: Any) -> str:

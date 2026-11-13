@@ -31,7 +31,7 @@ from noust.managers.attention import (
     recipe_items,
     request_items,
 )
-from noust.web.api.approvals import approval_actor, approvals
+from noust.web.api.approvals import approvals, can_decide
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute
 from noust.web.api.overview import AttentionItem, current_overview
@@ -77,11 +77,10 @@ def waiting_requests(session: Mapping[str, Any]) -> list[dict[str, Any]]:
         none for a token or a central, which never decide), as the approvals' API describes them.
     """
     manager = approvals()
-    viewer = approval_actor(dict(session))
     return [
         request.to_dict()
         for request in manager.list(state="requested")
-        if manager.eligibility(request, viewer) is None
+        if can_decide(request, dict(session), manager)
     ]
 
 

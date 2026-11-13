@@ -47,6 +47,7 @@ from noust.web.api.app_stack import router as app_stack_router
 from noust.web.api.app_staged import router as app_staged_router
 from noust.web.api.app_tags import app_router as app_tags_app_router
 from noust.web.api.app_tags import router as app_tags_router
+from noust.web.api.approval_policy import router as approval_policy_router
 from noust.web.api.approvals import require_approval
 from noust.web.api.approvals import router as approvals_router
 from noust.web.api.apps import router as apps_router
@@ -172,6 +173,8 @@ from noust.web.api.terminal import apps_router as terminal_apps_router
 from noust.web.api.terminal import router as terminal_router
 from noust.web.api.terminal import server_router as terminal_server_router
 from noust.web.api.timeline import router as timeline_router
+from noust.web.api.token_activity import credentials_router
+from noust.web.api.token_activity import router as token_activity_router
 from noust.web.api.tunnels import router as tunnels_router
 from noust.web.api.unknown_hosts import router as unknown_hosts_router
 from noust.web.api.variables import router as variables_router
@@ -240,6 +243,9 @@ router = APIRouter(
 )
 
 router.include_router(auth_router, prefix="/auth", tags=["Authentication"])
+# What a token did, and leaving it as it was: under the token it is about (item 185).
+router.include_router(token_activity_router, prefix="/auth/tokens", tags=["Authentication"])
+router.include_router(credentials_router, prefix="/auth/credentials", tags=["Authentication"])
 router.include_router(audit_router, prefix="/audit", tags=["Audit"])
 router.include_router(ens_router, prefix="/ens", tags=["Compliance"])
 router.include_router(compliance_router, prefix="/compliance", tags=["Compliance"])
@@ -292,6 +298,9 @@ router.include_router(jobs_router, tags=["Jobs"])
 router.include_router(operations_router, prefix="/operations", tags=["Jobs"])
 router.include_router(config_router, prefix="/config", tags=["Configuration"])
 router.include_router(config_policy_router, prefix="/config/policy", tags=["Configuration"])
+router.include_router(
+    approval_policy_router, prefix="/config/approval-policy", tags=["Configuration"]
+)
 # The console's own reach: published on a name of its own, over TLS (4.0).
 router.include_router(console_exposure_router, prefix="/console", tags=["Console"])
 # Before the backups router: its "/{backup_id}" would take "failures" and "encryption" for a
