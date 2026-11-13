@@ -69,6 +69,12 @@ RULES: dict[str, dict[str, str]] = {
     # What a one-time task printed and the command it ran: both already masked by shape when they
     # are written, and masked again in a copy, since a task's output is whatever it chose to say.
     "cron_once_history": {"command": TEXT, "output": TEXT},
+    # The built-in assistant: the provider's key (sealed, and emptied in a copy all the same), what
+    # people said to it (masked when written and masked again in a copy) and the key to the
+    # disguise of their personal data, which never leaves the server.
+    "assistant_settings": {"api_key": BLANK},
+    "assistant_conversations": {"markers": BLANK, "title": TEXT},
+    "assistant_messages": {"content": TEXT, "tool_calls": DOCUMENT},
     # A stack's Compose document can hold a value somebody typed into it (a password in an
     # ``environment:``): masked by shape in a copy, as the document is never handed over as it is.
     "docker_stack_versions": {"text": TEXT},

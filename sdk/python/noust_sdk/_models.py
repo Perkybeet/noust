@@ -735,6 +735,60 @@ AppsFigure = TypedDict("AppsFigure", {
     "unmanaged": NotRequired[int],
 })
 
+AssistantReason = TypedDict("AssistantReason", {
+    "code": Required[str],
+    "hint": NotRequired[Union[str, None]],
+    "params": NotRequired[dict[str, Union[bool, int, float, str]]],
+    "text": Required[str],
+})
+
+AssistantSession = TypedDict("AssistantSession", {
+    "can_use": NotRequired[bool],
+    "enabled": NotRequired[bool],
+    "location": NotRequired[Union[str, None]],
+    "mask_personal": NotRequired[Union[bool, None]],
+    "model": NotRequired[Union[str, None]],
+    "reason": NotRequired[Union["AssistantReason", None]],
+    "tools": NotRequired[bool],
+})
+
+AssistantSettingsIn = TypedDict("AssistantSettingsIn", {
+    "allow_private_host": NotRequired[bool],
+    "api_key": NotRequired[Union[str, None]],
+    "base_url": NotRequired[Union[str, None]],
+    "currency": NotRequired[Union[str, None]],
+    "enabled": NotRequired[Union[bool, None]],
+    "flow_reason": NotRequired[Union[str, None]],
+    "limits": NotRequired[Union[dict[str, float], None]],
+    "location": NotRequired[Union[str, None]],
+    "mask_personal": NotRequired[Union[bool, None]],
+    "model": NotRequired[Union[str, None]],
+    "preset": NotRequired[Union[str, None]],
+    "prices": NotRequired[Union[dict[str, "PriceModel"], None]],
+    "probe": NotRequired[bool],
+})
+
+AssistantSettingsOut = TypedDict("AssistantSettingsOut", {
+    "base_url": Required[str],
+    "calls_tools": Required[bool],
+    "configured": Required[bool],
+    "currency": Required[str],
+    "enabled": Required[bool],
+    "flow_reason": Required[str],
+    "has_key": Required[bool],
+    "key_set_at": NotRequired[Union[str, None]],
+    "limits": Required[dict[str, float]],
+    "location": Required[str],
+    "mask_personal": Required[bool],
+    "model": Required[str],
+    "preset": Required[str],
+    "prices": Required[dict[str, "PriceModel"]],
+    "probe": NotRequired[Union["ProbeOut", None]],
+    "probed_at": NotRequired[Union[str, None]],
+    "updated_at": NotRequired[Union[str, None]],
+    "updated_by": Required[str],
+})
+
 AttentionItem = TypedDict("AttentionItem", {
     "id": Required[str],
     "origin": NotRequired[Union[str, None]],
@@ -2384,6 +2438,21 @@ ControlInfo = TypedDict("ControlInfo", {
     "value": NotRequired[Any],
 })
 
+ConversationDetailOut = TypedDict("ConversationDetailOut", {
+    "created_at": Required[str],
+    "id": Required[str],
+    "messages": Required[list["MessageOut"]],
+    "title": Required[str],
+    "updated_at": Required[str],
+})
+
+ConversationOut = TypedDict("ConversationOut", {
+    "created_at": Required[str],
+    "id": Required[str],
+    "title": Required[str],
+    "updated_at": Required[str],
+})
+
 ConversionRequest = TypedDict("ConversionRequest", {
     "code": Required[str],
     "state": Required[str],
@@ -2876,11 +2945,6 @@ DeleteRowRequest = TypedDict("DeleteRowRequest", {
     "key": Required[dict[str, Any]],
     "relation": Required[str],
     "schema": Required[str],
-})
-
-DeletedOut = TypedDict("DeletedOut", {
-    "node": Required[str],
-    "warnings": NotRequired[list[str]],
 })
 
 DeletedResponse = TypedDict("DeletedResponse", {
@@ -5163,7 +5227,7 @@ GitHubSourcesOut = TypedDict("GitHubSourcesOut", {
     "configured": Required[bool],
     "hooks_url": NotRequired[Union[str, None]],
     "host": Required[str],
-    "warnings": NotRequired[list["SentenceOut"]],
+    "warnings": NotRequired[list["NoustWebApiIntegrationsSentenceOut"]],
 })
 
 GitHubStatusOut = TypedDict("GitHubStatusOut", {
@@ -5179,7 +5243,7 @@ GitHubStatusOut = TypedDict("GitHubStatusOut", {
     "owner": NotRequired[Union[str, None]],
     "settings_url": NotRequired[Union[str, None]],
     "slug": NotRequired[Union[str, None]],
-    "warnings": NotRequired[list["SentenceOut"]],
+    "warnings": NotRequired[list["NoustWebApiIntegrationsSentenceOut"]],
 })
 
 GitLabStatusOut = TypedDict("GitLabStatusOut", {
@@ -6371,7 +6435,7 @@ ManifestOut = TypedDict("ManifestOut", {
     "manifest": Required[dict[str, Any]],
     "post_url": Required[str],
     "state": Required[str],
-    "warnings": NotRequired[list["SentenceOut"]],
+    "warnings": NotRequired[list["NoustWebApiIntegrationsSentenceOut"]],
 })
 
 ManifestRequest = TypedDict("ManifestRequest", {
@@ -6473,6 +6537,15 @@ MergeAppEnvResponse = TypedDict("MergeAppEnvResponse", {
     "domain": Required[str],
     "dry_run": Required[bool],
     "restart_required": Required[bool],
+})
+
+MessageOut = TypedDict("MessageOut", {
+    "content": Required[str],
+    "created_at": Required[str],
+    "role": Required[str],
+    "seq": Required[int],
+    "tool_call_id": NotRequired[Union[str, None]],
+    "tool_calls": NotRequired[Union[list[dict[str, str]], None]],
 })
 
 MessageResponse = TypedDict("MessageResponse", {
@@ -6988,6 +7061,11 @@ ObservationListResponse = TypedDict("ObservationListResponse", {
     "stats": NotRequired[Union[dict[str, int], None]],
 })
 
+OffOut = TypedDict("OffOut", {
+    "revoked": Required[int],
+    "settings": Required["AssistantSettingsOut"],
+})
+
 Offer = TypedDict("Offer", {
     "key": Required[str],
     "value": Required[Any],
@@ -7489,6 +7567,21 @@ PrepareRequest = TypedDict("PrepareRequest", {
     "passphrase": NotRequired[Union[str, None]],
 })
 
+PresetOut = TypedDict("PresetOut", {
+    "base_url": Required[str],
+    "docs": Required[str],
+    "id": Required[str],
+    "location": Required[str],
+    "name": Required[str],
+    "needs_key": Required[bool],
+})
+
+PresetsOut = TypedDict("PresetsOut", {
+    "limits": Required[dict[str, float]],
+    "locations": Required[list[str]],
+    "presets": Required[list["PresetOut"]],
+})
+
 PreviewBody = TypedDict("PreviewBody", {
     "scripts": NotRequired[list[str]],
 })
@@ -7590,6 +7683,11 @@ PreviewsResponse = TypedDict("PreviewsResponse", {
     "total": Required[int],
 })
 
+PriceModel = TypedDict("PriceModel", {
+    "input_per_million": Required[float],
+    "output_per_million": Required[float],
+})
+
 PrivateModel = TypedDict("PrivateModel", {
     "allow_ips": Required[list[str]],
     "app": Required[str],
@@ -7665,6 +7763,14 @@ ProbeModel = TypedDict("ProbeModel", {
     "title": Required[str],
     "uptime": Required[dict[str, "UptimeModel"]],
     "url": Required[str],
+})
+
+ProbeOut = TypedDict("ProbeOut", {
+    "model_found": NotRequired[Union[bool, None]],
+    "models": NotRequired[list[str]],
+    "reachable": Required[bool],
+    "sentences": NotRequired[list["NoustWebApiAssistantSentenceOut"]],
+    "tools": NotRequired[Union[bool, None]],
 })
 
 ProbeResult = TypedDict("ProbeResult", {
@@ -9666,12 +9772,6 @@ SelfUpdateOut = TypedDict("SelfUpdateOut", {
     "supported": Required[bool],
 })
 
-SentenceOut = TypedDict("SentenceOut", {
-    "coded": Required[dict[str, Any]],
-    "hint": NotRequired[Union[str, None]],
-    "text": Required[str],
-})
-
 SeparationConflict = TypedDict("SeparationConflict", {
     "accounts": Required[list[dict[str, str]]],
     "exception": Required[bool],
@@ -9893,6 +9993,7 @@ SessionEntry = TypedDict("SessionEntry", {
 SessionInfo = TypedDict("SessionInfo", {
     "account": NotRequired[Union["AccountInfo", None]],
     "accounts_exist": NotRequired[Union[bool, None]],
+    "assistant": NotRequired[Union["AssistantSession", None]],
     "authenticated": Required[bool],
     "central": NotRequired[Union["SessionCentral", None]],
     "csrf_cookie": NotRequired[str],
@@ -11277,6 +11378,15 @@ ToolInfo = TypedDict("ToolInfo", {
     "title": Required[str],
 })
 
+TotalsOut = TypedDict("TotalsOut", {
+    "completion_tokens": Required[int],
+    "estimated_steps": Required[int],
+    "prompt_tokens": Required[int],
+    "spend": Required[float],
+    "steps": Required[int],
+    "unpriced_steps": Required[int],
+})
+
 TrafficModel = TypedDict("TrafficModel", {
     "available": Required[bool],
     "log": NotRequired[Union[str, None]],
@@ -11786,6 +11896,17 @@ UptimeModel = TypedDict("UptimeModel", {
     "max_ms": NotRequired[Union[int, None]],
     "mean_ms": NotRequired[Union[float, None]],
     "percent": NotRequired[Union[float, None]],
+})
+
+UsageOut = TypedDict("UsageOut", {
+    "actions_last_hour": NotRequired[Union[int, None]],
+    "conversation": NotRequired[Union["TotalsOut", None]],
+    "currency": Required[str],
+    "limits": Required[dict[str, float]],
+    "month": Required["TotalsOut"],
+    "month_start": Required[str],
+    "notes": NotRequired[list["AssistantReason"]],
+    "priced_models": Required[list[str]],
 })
 
 UsageResponse = TypedDict("UsageResponse", {
@@ -12425,6 +12546,17 @@ NoustWebApiAppsMigrateRequest = TypedDict("NoustWebApiAppsMigrateRequest", {
     "persist": NotRequired[Union[list[str], None]],
 })
 
+NoustWebApiAssistantDeletedOut = TypedDict("NoustWebApiAssistantDeletedOut", {
+    "deleted": Required[bool],
+})
+
+NoustWebApiAssistantSentenceOut = TypedDict("NoustWebApiAssistantSentenceOut", {
+    "code": Required[str],
+    "hint": NotRequired[Union[str, None]],
+    "params": NotRequired[dict[str, Union[bool, int, float, str]]],
+    "text": Required[str],
+})
+
 NoustWebApiAuditCatalogResponse = TypedDict("NoustWebApiAuditCatalogResponse", {
     "categories": Required[list[str]],
     "events": Required[list["CatalogEvent"]],
@@ -12479,6 +12611,11 @@ NoustWebApiCertSettingsAuthorityModel = TypedDict("NoustWebApiCertSettingsAuthor
     "name": Required[str],
     "needs_eab": Required[bool],
     "trusted": Required[bool],
+})
+
+NoustWebApiCloudDeletedOut = TypedDict("NoustWebApiCloudDeletedOut", {
+    "node": Required[str],
+    "warnings": NotRequired[list[str]],
 })
 
 NoustWebApiCloudMachineOut = TypedDict("NoustWebApiCloudMachineOut", {
@@ -12759,6 +12896,12 @@ NoustWebApiIntegrationsBranchOut = TypedDict("NoustWebApiIntegrationsBranchOut",
 NoustWebApiIntegrationsRemovalOut = TypedDict("NoustWebApiIntegrationsRemovalOut", {
     "removed": Required[bool],
     "settings_url": NotRequired[Union[str, None]],
+})
+
+NoustWebApiIntegrationsSentenceOut = TypedDict("NoustWebApiIntegrationsSentenceOut", {
+    "coded": Required[dict[str, Any]],
+    "hint": NotRequired[Union[str, None]],
+    "text": Required[str],
 })
 
 NoustWebApiInternalCaAuthorityModel = TypedDict("NoustWebApiInternalCaAuthorityModel", {

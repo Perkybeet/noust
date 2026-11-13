@@ -310,6 +310,11 @@ export const complianceSetup = {
       title: "Terminal on the server",
       summary: "Whether Noust may open a root shell on the server in the browser.",
     },
+    assistant_flows: {
+      title: "Assistant: models on your side",
+      summary:
+        "The assistant is turned on only with a model of your own, or with a provider declared as an authorized flow.",
+    },
     terminal_idle_minutes: {
       title: "Terminal idle time",
       summary: "A console terminal with nothing typed this long is ended.",

@@ -58,8 +58,23 @@ except where the other end is yours and needs nothing.
 | Cloudflare's address ranges | `www.cloudflare.com` | Only when you press refresh on the trusted proxies |
 | When a domain's registration expires | The RDAP server of the registry of each registrable domain you serve (`rdap.verisign.com` for `.com`, `rdap.nominet.uk` for `.uk`...); which server answers for which top-level domain is a table that ships with Noust, so IANA is never asked | Once a day for each registrable domain, only after you turn on `monitor.domain_expiry` (it is off, and no profile, the ENS one included, turns it on), or when you run `noust domain expiry --refresh` |
 | A remote console | The Noust server named by `--context` | When you run a command against it |
+| The built-in assistant | The model provider you chose for it (a service that speaks the OpenAI-compatible protocol, or a model on this machine or your network): what a person says to it, and what it reads of your server to answer, with every secret removed and, for a provider that is not on this machine or your network, emails and IP addresses disguised with markers. See [assistant.md](assistant.md) | Only after an administrator turns the assistant on (it is off, and no profile turns it on), and then only when a person talks to it or the provider is probed; `noust assistant disable` stops it at once |
 | Your own applications | This machine, to check a port or a health path | Every deploy; the monitor's reachability scan |
 | Your fleet | Each node, through an SSH tunnel that ends on that node's loopback | While a central manages nodes |
+
+**The assistant's requests** are the one kind that sends what your server holds to a service that is not
+yours, so the assistant is off until an administrator turns it on, with a model the administrator
+chose and a limit on everything it may spend. Nothing leaves until then: not a probe, not a model list,
+not a request to see whether it would work. What leaves is only what a person asked it and what it read
+to answer (the tools are the ones of the MCP endpoint, limited to what that person may read), with
+what is secret removed before it is sent: the values of every application's variables, Noust's own
+credentials and anything that looks like a credential. For a provider outside your machine and network,
+emails and IP addresses are also replaced by markers that only your own server can put back. It never
+reaches an internal address you did not list in `security.allow_private_hosts`, never follows a
+redirect, and sends `User-Agent: noust/<version>` and the key as the header the provider asks for. The
+conversations stay in your server's store for 30 days and their author can delete them; the audit
+trail keeps what a conversation did (the tool, whether it worked, a summary of each turn), never what
+was said. Turn it off with `noust assistant disable`, which also revokes every token it holds.
 
 **The registration request** is the one that sends a name you serve to somebody who did not ask for it,
 so it is off until you turn it on (`noust config set monitor.domain_expiry true`, or the switch in

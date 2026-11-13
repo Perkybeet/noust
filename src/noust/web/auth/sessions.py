@@ -31,6 +31,7 @@ from noust.web.auth.records import (
     API_TOKEN_BINDING_COLUMNS,
     API_TOKEN_COLUMNS_3_1,
     API_TOKEN_COLUMNS_4_0,
+    API_TOKEN_COLUMNS_4_3,
     API_TOKENS_TABLE_SQL,
     _token_record,
 )
@@ -213,6 +214,7 @@ class SessionStore:
                 *API_TOKEN_COLUMNS_3_1,
                 *API_TOKEN_BINDING_COLUMNS,
                 *API_TOKEN_COLUMNS_4_0,
+                *API_TOKEN_COLUMNS_4_3,
             ):
                 if column not in token_columns:
                     self._conn.execute(f"ALTER TABLE api_tokens ADD COLUMN {column} {declaration}")
@@ -639,6 +641,7 @@ class SessionStore:
         created_by: str | None = None,
         bound_kind: str | None = None,
         bound_id: int | None = None,
+        caller: str | None = None,
     ) -> int:
         """
         Persist a new API token record.
@@ -659,6 +662,7 @@ class SessionStore:
             bound_kind: ``team``, ``project`` or ``environment`` when the token
                 is bound to one, else None.
             bound_id: That scope's row.
+            caller: ``assistant`` for the built-in assistant's token; None for every other.
 
         Returns:
             The new record's id.
@@ -670,7 +674,7 @@ class SessionStore:
             cursor = self._conn.execute(
                 "INSERT INTO api_tokens (name, token_hash, scope, created_at, expires_at, "
                 "owner_account_id, permissions, allowed_cidrs, allow_elevated, created_by, "
-                "bound_kind, bound_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "bound_kind, bound_id, caller) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     name,
                     token_hash,
@@ -684,6 +688,7 @@ class SessionStore:
                     created_by,
                     bound_kind,
                     bound_id,
+                    caller,
                 ),
             )
         return int(cursor.lastrowid or 0)
@@ -740,6 +745,25 @@ class SessionStore:
                 "UPDATE api_tokens SET revoked_at = ? WHERE owner_account_id = ? "
                 "AND revoked_at IS NULL",
                 (time.time(), account_id),
+            )
+        return cursor.rowcount
+
+    def revoke_caller_tokens(self, caller: str, *, name_prefix: str = "") -> int:
+        """
+        Revoke every live token that was issued for one kind of caller.
+
+        Args:
+            caller: ``assistant``.
+            name_prefix: Only the tokens whose name starts with this (a conversation's).
+
+        Returns:
+            How many were revoked.
+        """
+        with self._lock, self._conn:
+            cursor = self._conn.execute(
+                "UPDATE api_tokens SET revoked_at = ? WHERE caller = ? AND revoked_at IS NULL "
+                "AND substr(name, 1, ?) = ?",
+                (time.time(), caller, len(name_prefix), name_prefix),
             )
         return cursor.rowcount
 
@@ -860,7 +884,7 @@ class SessionStore:
             rows = self._conn.execute(
                 "SELECT id, name, scope, created_at, expires_at, last_used_at, revoked_at, "
                 "owner_account_id, permissions, allowed_cidrs, allow_elevated, created_by, "
-                "last_used_ip, bound_kind, bound_id FROM api_tokens "
+                "last_used_ip, bound_kind, bound_id, caller FROM api_tokens "
                 "WHERE (? IS NULL OR owner_account_id = ?) "
                 "ORDER BY created_at DESC, id DESC",
                 (owner_account_id, owner_account_id),

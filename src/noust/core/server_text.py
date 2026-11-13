@@ -1975,6 +1975,197 @@ CATALOG: dict[str, str] = {
     "jobs.step.domains.ordering": "Ordering the certificate of its own",
     "jobs.step.domains.giving_back": "Giving it back",
     "jobs.step.domains.in_place": "The certificate is in place",
+    # -- The built-in assistant's provider (noust.core.assistant.client): what a model's server
+    # can answer, and why a request to it was not made or not finished. A provider's own words
+    # (``message``) are values, shown as they came.
+    "assistant.provider.destination_refused": (
+        "The assistant may not call {host}: it resolves to {address}, inside a private or "
+        "internal network"
+    ),
+    "assistant.provider.destination_refused.hint": (
+        "If the model really runs there, list the host in security.allow_private_hosts: that says "
+        "this server may call it."
+    ),
+    "assistant.provider.unresolved": "The name {host} did not resolve to any address",
+    "assistant.provider.unresolved.hint": (
+        "Check the spelling of the address and that this server's DNS can look it up."
+    ),
+    "assistant.provider.insecure_address": (
+        "{host} would be reached over plain http://, which sends the key and what the assistant "
+        "reads of this server unprotected"
+    ),
+    "assistant.provider.insecure_address.hint": (
+        "Use an https:// address. A model on this machine or on your own network can use http:// "
+        "once its host is listed in security.allow_private_hosts."
+    ),
+    "assistant.provider.bad_address": "{address} is not the base address of a provider",
+    "assistant.provider.bad_address.hint": (
+        "Give the address up to and including its version, such as https://api.example.org/v1, "
+        "with no user name, password, query or fragment. The key is given apart."
+    ),
+    "assistant.provider.unreachable": "The provider at {host} could not be reached: {reason}",
+    "assistant.provider.unreachable.hint": (
+        "Check that the address and the port are right and that the model's server is running."
+    ),
+    "assistant.provider.timeout": "The provider did not answer within {seconds} seconds",
+    "assistant.provider.timeout.hint": (
+        "Try again. A model on a small machine can take longer than that to read a long "
+        "conversation: a smaller or a faster one answers sooner."
+    ),
+    "assistant.provider.unauthorized": "The provider refused the key (HTTP {status}): {message}",
+    "assistant.provider.unauthorized.hint": (
+        "Check the key in the assistant's settings, and that it is allowed to use the model."
+    ),
+    "assistant.provider.not_found": (
+        "The provider answered that something is not there (HTTP {status}): {message}"
+    ),
+    "assistant.provider.not_found.hint": (
+        "Check the model's name and the address: it must end at the provider's version, such as "
+        "/v1, and the model must be one the provider has."
+    ),
+    "assistant.provider.rate_limited": (
+        "The provider is limiting how fast it answers (HTTP {status}) and went on doing so after "
+        "{tries} tries"
+    ),
+    "assistant.provider.rate_limited.hint": (
+        "Wait a little and ask again. The limits are set in the provider's own account."
+    ),
+    "assistant.provider.server_error": (
+        "The provider failed (HTTP {status}) and went on failing after {tries} tries: {message}"
+    ),
+    "assistant.provider.server_error.hint": (
+        "Try again later. If it stays, the provider's status page says why."
+    ),
+    "assistant.provider.rejected": "The provider rejected the request (HTTP {status}): {message}",
+    "assistant.provider.rejected.hint": (
+        "Its own words above say what it did not accept. A model that is not made to call tools "
+        "is one reason: the probe says whether this one does."
+    ),
+    "assistant.provider.cut": "The provider cut its answer short",
+    "assistant.provider.cut.hint": (
+        "Try again. If it keeps happening with this model, the model's server may be running out "
+        "of memory."
+    ),
+    "assistant.provider.bad_reply": "The provider's answer could not be read as Chat Completions",
+    "assistant.provider.bad_reply.hint": (
+        "Check that the address is that of a server that speaks the OpenAI-compatible protocol "
+        "and ends at its version, such as /v1."
+    ),
+    "assistant.provider.cancelled": "The request to the provider was cancelled",
+    "assistant.provider.too_large": "The provider's answer is larger than {megabytes} MB",
+    "assistant.provider.too_large.hint": "Ask for less, or choose another model.",
+    "assistant.provider.redirected": (
+        "The provider answered with a redirect to {location}, which the assistant never follows"
+    ),
+    "assistant.provider.redirected.hint": (
+        "Use the address it redirects to, if that is the right one."
+    ),
+    "assistant.provider.reported_error": (
+        "The provider reported an error in the middle of its answer: {message}"
+    ),
+    # -- The built-in assistant's limits (noust.core.assistant.limits): which one was reached and
+    # who changes it. A warning comes at 80 % of a limit and the stop at all of it.
+    "assistant.limit.steps": "The assistant stopped after {limit} steps in one answer",
+    "assistant.limit.steps.hint": (
+        "Ask it to go on if it should. A person with the settings.manage permission can raise "
+        "this limit in the assistant's settings."
+    ),
+    "assistant.limit.steps_near": (
+        "The assistant has used {used} of the {limit} steps it may take in one answer"
+    ),
+    "assistant.limit.input_tokens": ("This conversation reached its limit of {limit} input tokens"),
+    "assistant.limit.input_tokens.hint": (
+        "Start a new conversation. A person with the settings.manage permission can raise this "
+        "limit in the assistant's settings."
+    ),
+    "assistant.limit.input_tokens_near": (
+        "This conversation has used {used} of its {limit} input tokens"
+    ),
+    "assistant.limit.conversation_spend": (
+        "This conversation reached its spending limit of {limit} {currency}"
+    ),
+    "assistant.limit.conversation_spend.hint": (
+        "Start a new conversation. A person with the settings.manage permission can raise this "
+        "limit in the assistant's settings."
+    ),
+    "assistant.limit.conversation_spend_near": (
+        "This conversation has spent {used} of its {limit} {currency}"
+    ),
+    "assistant.limit.month_spend": (
+        "The assistant reached its spending limit for this month, {limit} {currency}"
+    ),
+    "assistant.limit.month_spend.hint": (
+        "The month starts again on the first, UTC. A person with the settings.manage permission "
+        "can raise this limit in the assistant's settings."
+    ),
+    "assistant.limit.month_spend_near": (
+        "The assistant has spent {used} of its {limit} {currency} for this month"
+    ),
+    "assistant.limit.actions": (
+        "The assistant already made {limit} changes in the last hour, the most it may"
+    ),
+    "assistant.limit.actions.hint": (
+        "Wait a little, or make the change yourself. A person with the settings.manage "
+        "permission can raise this limit in the assistant's settings."
+    ),
+    "assistant.limit.actions_near": (
+        "The assistant has made {used} of the {limit} changes it may make in an hour"
+    ),
+    "assistant.limit.no_price": (
+        "There is no price for the model {model}, so spending is not limited, only tokens"
+    ),
+    "assistant.limit.no_price.hint": (
+        "Add its price per million tokens in the assistant's settings to get a spending limit."
+    ),
+    "assistant.limit.estimated": (
+        "The provider does not report how many tokens it used, so they are estimated from the "
+        "characters"
+    ),
+    # -- What the probe found of a provider (noust.core.assistant.probe).
+    "assistant.probe.answers": "The provider at {host} answers",
+    "assistant.probe.model_missing": (
+        "The provider answers, but its list of models does not include {model}"
+    ),
+    "assistant.probe.model_missing.hint": (
+        "Check the model's name against the provider's own list: the names it gives are the ones "
+        "that work."
+    ),
+    "assistant.probe.tools_ok": (
+        "The model {model} made the test call to a tool correctly, so the assistant can "
+        "investigate with it"
+    ),
+    "assistant.probe.no_tools": (
+        "The model {model} did not make the test call to a tool the way the protocol asks, so the "
+        "assistant can explain what you show it but not investigate or act"
+    ),
+    "assistant.probe.no_tools.hint": (
+        "Choose a model made to call tools (the provider's documentation says which), or a "
+        "server that reads them: vLLM needs its tool-call parser switched on."
+    ),
+    "assistant.probe.memory_low": (
+        "This machine has {memory_gb} GB of memory and no GPU: a model that runs on it will not "
+        "have the room to investigate"
+    ),
+    "assistant.probe.memory_low.hint": (
+        "Use a provider's API, or a machine on your network with a GPU or at least 16 GB. Noust "
+        "does not promise how a model would run here."
+    ),
+    # -- The built-in assistant as a whole (noust.web.assistant, the API).
+    "assistant.off": "The assistant was turned off, so what it was doing stopped",
+    "assistant.off.hint": (
+        "A person with the settings.manage permission turns it on again in the assistant's "
+        "settings."
+    ),
+    "assistant.unavailable.off": "The assistant is off",
+    "assistant.unavailable.off.hint": (
+        "A person with the settings.manage permission can turn it on in the assistant's settings."
+    ),
+    "assistant.unavailable.permission": "Your role does not allow using the assistant",
+    "assistant.unavailable.permission.hint": (
+        "An administrator can give you a role that holds assistant.use."
+    ),
+    "assistant.unavailable.account": "The assistant acts for a person, and this is not an account",
+    "assistant.unavailable.account.hint": "Sign in with your own account.",
 }
 
 

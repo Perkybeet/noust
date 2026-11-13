@@ -22,6 +22,7 @@ from noust.core.web_gate import token_manager
 
 __all__ = [
     "access_manager",
+    "assistant_identity",
     "mcp_catalog",
     "mcp_settings",
     "permission_descriptions",
@@ -29,6 +30,7 @@ __all__ = [
 ]
 
 if TYPE_CHECKING:
+    from noust.web.assistant.identity import AssistantIdentity
     from noust.web.mcp.server import Settings as McpSettings
     from noust.web.mcp.tools import Tool
     from noust.web.permissions.access import AccessManager
@@ -95,3 +97,19 @@ def mcp_settings() -> tuple[McpSettings, tuple[str, ...]]:
     except ImportError as exc:
         raise _missing(exc) from exc
     return load_settings(), tuple(SUPPORTED_VERSIONS)
+
+
+def assistant_identity() -> AssistantIdentity:
+    """
+    Returns:
+        The issuer of the built-in assistant's tokens, over the token manager the console uses, so
+        that turning the assistant off from a shell revokes what the console's conversations hold.
+
+    Raises:
+        DependencyError: When the console's dependencies are not installed.
+    """
+    try:
+        from noust.web.assistant.identity import AssistantIdentity
+    except ImportError as exc:
+        raise _missing(exc) from exc
+    return AssistantIdentity(token_manager())

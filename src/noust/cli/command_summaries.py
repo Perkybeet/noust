@@ -48,6 +48,12 @@ SUMMARIES: dict[str, tuple[bool, bool | str, str, str]] = {
         "",
         "Four-eyes requests: list them, and approve or reject them as root.",
     ),
+    "assistant": (
+        False,
+        False,
+        "",
+        "Set up and look after the built-in assistant (an AI, with a model of your choice).",
+    ),
     "audit": (
         False,
         False,

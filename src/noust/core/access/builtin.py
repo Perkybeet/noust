@@ -47,7 +47,12 @@ VIEWER: frozenset[str] = frozenset(
         P.TEAMS_READ,
     }
 )
-OPERATOR: frozenset[str] = VIEWER | {P.APPS_OPERATE, P.APPS_DEPLOY, P.BACKUPS_RUN}
+OPERATOR: frozenset[str] = VIEWER | {
+    P.APPS_OPERATE,
+    P.APPS_DEPLOY,
+    P.BACKUPS_RUN,
+    P.ASSISTANT_USE,
+}
 ADMIN: frozenset[str] = OPERATOR | {
     P.APPS_MANAGE,
     # A shell as the application reads its secrets and changes what runs, so it is

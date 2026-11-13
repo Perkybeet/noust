@@ -335,6 +335,7 @@ only what recovering an account takes.
 | `apps.operate` | Start, stop and restart; renew certificates; run cron jobs |  | yes | yes |  |  | yes | yes |
 | `apps.read` | See applications, sites, certificates, jobs, logs and deployments | yes | yes | yes | yes | yes | yes | yes |
 | `apps.terminal` | A terminal and one-off commands as an application's own account, with its secrets |  |  | yes |  |  | yes | yes |
+| `assistant.use` | Talk to the built-in assistant, which acts with a token of its own that holds at most what you hold, and see what it cost |  | yes | yes |  |  | yes | yes |
 | `audit.manage` | Manage the audit log and activity history |  |  | yes | yes |  |  | yes |
 | `audit.read` | Read the whole audit log |  |  | yes | yes | yes |  | yes |
 | `backups.collect` | Read the files of the backups, to carry them to the central |  |  | yes |  |  | yes | yes |
@@ -366,8 +367,8 @@ only what recovering an account takes.
 ### The routes
 
 <!-- generated:routes -->
-- **1216** API operations. **1172** need a permission (`x-noust-permission`) and **44** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
-- **401** operations need sudo mode and **59** can need a second person.
+- **1225** API operations. **1181** need a permission (`x-noust-permission`) and **44** are public on purpose (the sign-in, the health probe, the forge webhooks, which check their own credential); a route that is neither fails a test and is refused when the server runs.
+- **403** operations need sudo mode and **59** can need a second person.
 - **7** WebSocket routes, each with its permission, checked at the handshake.
 
 | Permission | Operations |
@@ -379,6 +380,7 @@ only what recovering an account takes.
 | `apps.operate` | 34 |
 | `apps.read` | 156 |
 | `apps.terminal` | 12 |
+| `assistant.use` | 4 |
 | `audit.manage` | 1 |
 | `audit.read` | 10 |
 | `backups.collect` | 3 |
@@ -402,8 +404,8 @@ only what recovering an account takes.
 | `server.manage` | 68 |
 | `server.read` | 89 |
 | `server.terminal` | 1 |
-| `settings.manage` | 35 |
-| `settings.read` | 27 |
+| `settings.manage` | 38 |
+| `settings.read` | 29 |
 | `teams.manage` | 14 |
 | `teams.read` | 10 |
 <!-- /generated:routes -->
@@ -495,17 +497,17 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **554** events.
+The catalogue holds **565** events.
 
 | Category | Events |
 |---|---|
-| access | 49 |
+| access | 51 |
 | account | 40 |
-| config | 32 |
+| config | 35 |
 | change | 369 |
 | read | 22 |
-| denial | 17 |
-| system | 22 |
+| denial | 18 |
+| system | 27 |
 | host | 3 |
 <!-- /generated:audit -->
 

@@ -345,6 +345,15 @@ RULES: tuple[Rule, ...] = (
     # API as that token and is held to its team and permissions there. Turning it on is the server's.
     _rule("/api/mcp/settings", INSTANCE),
     _rule("/api/mcp/**", OPEN),
+    # How the assistant is set up is the server's spending and the server's flow of data, so its
+    # settings, its probe and its providers are the instance's. Talking to it is a person's: a
+    # conversation is its author's alone, which the store holds it to by account, and what the
+    # assistant reads it reads with a token bound to the person's own teams, so a person who works
+    # in one team and holds assistant.use through their role is offered it too.
+    _rule("/api/assistant/conversations", OPEN),
+    _rule("/api/assistant/conversations/**", OPEN),
+    _rule("/api/assistant/usage", OPEN),
+    _rule("/api/assistant/**", INSTANCE),
     # A preview reads through the API as the caller, so every route it meets holds it to its team.
     # An apply is held to the ceiling (a team's admin applies what is in their team) and then each
     # call it makes is a request as the caller to a route that holds it to the application's own.

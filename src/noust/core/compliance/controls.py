@@ -467,6 +467,7 @@ CONTROLS: tuple[Control, ...] = (
         "security.server_terminal",
         ("allowed", "refused"),
     ),
+    _flag("assistant_flows", GROUP_NETWORK, "security.assistant_flows"),
     Control(
         "terminal_idle_minutes",
         GROUP_NETWORK,
@@ -594,6 +595,10 @@ DESCRIPTIONS: dict[str, str] = {
     "console_exposure": "Whether `noust console expose` may publish the console on a public name.",
     "database_remote_listen": "Whether a database engine may listen beyond loopback.",
     "server_terminal": "Whether Noust may open a root shell on the server in the browser.",
+    "assistant_flows": (
+        "The built-in assistant is turned on only with a model on this machine or the operator's "
+        "network, or with a provider declared an authorized flow, with the reason recorded."
+    ),
     "terminal_idle_minutes": "A console terminal with nothing typed this long is ended.",
     "terminal_max_minutes": "The longest a console terminal lasts in all.",
     "mounts_read_only": "A server path bound into an application is read-only.",

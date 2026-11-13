@@ -47,6 +47,7 @@ log = logging.getLogger(__name__)
 __all__ = [
     "SECTIONS",
     "ChannelSecretError",
+    "ensure_key",
     "is_sealed",
     "key_path",
     "open_sealed",
@@ -169,7 +170,7 @@ def seal(tree: dict[str, Any], key_file: Path) -> dict[str, Any]:
     pending = [leaf for leaf in _leaves(sealed) if not is_sealed(leaf[1][leaf[2]])]
     if not pending:
         return sealed
-    key = _key(key_file)
+    key = ensure_key(key_file)
     for path, parent, name in pending:
         parent[name] = _DOMAIN.seal(parent[name], key, ".".join(path))
     return sealed
@@ -209,9 +210,12 @@ def open_sealed(tree: dict[str, Any], key_file: Path) -> tuple[dict[str, Any], l
     return opened, problems
 
 
-def _key(key_file: Path) -> bytes:
+def ensure_key(key_file: Path) -> bytes:
     """
     Load the key, making it when there is none.
+
+    Public because every secret kept beside the configuration under a domain of its own (the
+    built-in assistant's provider key is one) shares this file and must make it the same way.
 
     A rehearsal (``--dry-run``) makes no file: what it seals is thrown away with it.
 

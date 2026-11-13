@@ -7250,6 +7250,234 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/assistant/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Conversations
+         * @description List the caller's own conversations with the assistant, the latest first.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Them. Nobody else's is ever in the list.
+         */
+        get: operations["list_conversations_api_assistant_conversations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assistant/conversations/{conversation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Conversation
+         * @description Read one of the caller's conversations.
+         *
+         *     Args:
+         *         conversation_id: Its identifier.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The conversation with its messages, the disguised emails and addresses put back.
+         *
+         *     Raises:
+         *         ConversationNotFound: There is none, or it is another person's (the same answer).
+         */
+        get: operations["get_conversation_api_assistant_conversations__conversation_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Conversation
+         * @description Delete one of the caller's conversations, and take back the token it acted with.
+         *
+         *     What it cost stays counted: deleting it does not give the month's spending back.
+         *
+         *     Args:
+         *         conversation_id: Its identifier.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Whether it was deleted; False for one that does not exist or is another person's.
+         */
+        delete: operations["delete_conversation_api_assistant_conversations__conversation_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assistant/off": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn Off
+         * @description Turn the assistant off and revoke every token it holds, at once, in sudo mode.
+         *
+         *     What a conversation in progress tries next fails with the sentence ``assistant.off``.
+         *
+         *     Args:
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         How many tokens were revoked, and the settings as they are now.
+         */
+        post: operations["turn_off_api_assistant_off_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assistant/presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Presets
+         * @description List the providers by name, each with the address read on its documentation.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The presets, the places the data may end up and the default limits.
+         */
+        get: operations["presets_api_assistant_presets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assistant/probe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Probe
+         * @description Ask the provider what it can do and say what was found.
+         *
+         *     Whether it answers, whether it has the model, whether the model makes a well formed call to a
+         *     toy tool (if not, the assistant only explains) and, for a model on this machine, an honest word
+         *     about its memory. What is found is kept with the settings.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         What the probe found.
+         *
+         *     Raises:
+         *         ValidationError: No provider was chosen.
+         */
+        post: operations["probe_api_assistant_probe_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assistant/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Settings
+         * @description Show what is chosen for the assistant, never the key.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The settings.
+         */
+        get: operations["get_settings_api_assistant_settings_get"];
+        /**
+         * Put Settings
+         * @description Choose the provider, the limits and the prices, and turn the assistant on or off, in sudo mode.
+         *
+         *     A change to the provider is probed (unless ``probe`` is false), and turning it on needs a probe
+         *     that found the provider answering. Turning it off revokes every token the assistant holds.
+         *
+         *     Args:
+         *         body: What to change; what is left out stays.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The settings as they are now.
+         *
+         *     Raises:
+         *         ProviderAddressError: The address cannot be called.
+         *         ValidationError: A value is not acceptable.
+         */
+        put: operations["put_settings_api_assistant_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assistant/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Usage
+         * @description Show what the assistant cost and the limits it runs under.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         conversation: One of the caller's conversations.
+         *
+         *     Returns:
+         *         The month's totals (everyone's together), the conversation's when asked for and its
+         *         author's, what the caller made it do in the last hour, and the limits.
+         */
+        get: operations["usage_api_assistant_usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/attention": {
         parameters: {
             query?: never;
@@ -11585,6 +11813,9 @@ export interface paths {
          *     the page and not on every load. Who may ask is the route's permission, declared in
          *     :mod:`noust.web.permissions.routes_central` and enforced for every route at once.
          *
+         *     Args:
+         *         session: The authenticated session.
+         *
          *     Returns:
          *         The report.
          *
@@ -11613,6 +11844,9 @@ export interface paths {
          *     On a machine with systemd the timers are systemd's and this is what the central would run were
          *     there none: the same rows, read. On a container host (a hub told to deploy containers here) it is
          *     what runs, and what came due while the central was off says so in ``missed``.
+         *
+         *     Args:
+         *         session: The authenticated session.
          *
          *     Returns:
          *         Every task, by key.
@@ -36444,6 +36678,194 @@ export interface components {
             unmanaged: number;
         };
         /**
+         * AssistantReason
+         * @description Why the assistant is not available to this caller, as a sentence with a code.
+         *
+         *     Attributes:
+         *         text: The sentence in English, always sent.
+         *         hint: How to fix it in English, when the sentence has a fix.
+         */
+        AssistantReason: {
+            /** Code */
+            code: string;
+            /** Hint */
+            hint?: string | null;
+            /** Params */
+            params?: {
+                [key: string]: boolean | number | string;
+            };
+            /** Text */
+            text: string;
+        };
+        /**
+         * AssistantSession
+         * @description The assistant, as the session shows it.
+         *
+         *     Attributes:
+         *         enabled: The assistant is on.
+         *         can_use: It is on and this caller may use it: draw it.
+         *         tools: The model was found to call tools, so it may investigate; False means it only
+         *             explains what it is shown. Meaningless unless ``enabled``.
+         *         reason: Why ``can_use`` is False, when it is.
+         *         model: The model it talks to, for the label that says it is an AI and which one. Only for
+         *             a caller who may use it.
+         *         location: Where what is said to it ends up: ``machine``, ``network``, ``eu``, ``outside``
+         *             or ``unknown``. Only for a caller who may use it.
+         *         mask_personal: Emails and addresses are disguised before they are sent. Only for a caller
+         *             who may use it.
+         */
+        AssistantSession: {
+            /**
+             * Can Use
+             * @default false
+             */
+            can_use: boolean;
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /** Location */
+            location?: string | null;
+            /** Mask Personal */
+            mask_personal?: boolean | null;
+            /** Model */
+            model?: string | null;
+            reason?: components["schemas"]["AssistantReason"] | null;
+            /**
+             * Tools
+             * @default false
+             */
+            tools: boolean;
+        };
+        /**
+         * AssistantSettingsIn
+         * @description What to change; what is left out stays.
+         *
+         *     Attributes:
+         *         enabled: True turns the assistant on (after a probe found the provider answering), False
+         *             turns it off and revokes its tokens.
+         *         preset: A provider preset (``GET /api/assistant/presets``): it fills the address.
+         *         base_url: The provider's address, up to its version.
+         *         model: The model's name.
+         *         api_key: The key; an empty text takes it away. Sealed when stored, never given back.
+         *         location: Where the data ends up, for a public provider the operator has a contract with.
+         *         flow_reason: Why a provider outside is an authorized flow.
+         *         mask_personal: Whether emails and addresses are disguised; only a provider of one's own
+         *             may have it off.
+         *         limits: Limits to change, by name; the others stay.
+         *         prices: The whole price table.
+         *         currency: What the prices are in.
+         *         allow_private_host: Consent that this server calls the provider's host though it is on
+         *             this machine or the network: the host is listed in ``security.allow_private_hosts``.
+         *         probe: Probe the provider after saving a change to it (the default).
+         */
+        AssistantSettingsIn: {
+            /**
+             * Allow Private Host
+             * @default false
+             */
+            allow_private_host: boolean;
+            /** Api Key */
+            api_key?: string | null;
+            /** Base Url */
+            base_url?: string | null;
+            /** Currency */
+            currency?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Flow Reason */
+            flow_reason?: string | null;
+            /** Limits */
+            limits?: {
+                [key: string]: number;
+            } | null;
+            /** Location */
+            location?: string | null;
+            /** Mask Personal */
+            mask_personal?: boolean | null;
+            /** Model */
+            model?: string | null;
+            /** Preset */
+            preset?: string | null;
+            /** Prices */
+            prices?: {
+                [key: string]: components["schemas"]["PriceModel"];
+            } | null;
+            /**
+             * Probe
+             * @default true
+             */
+            probe: boolean;
+        };
+        /**
+         * AssistantSettingsOut
+         * @description What is chosen for the assistant. The key is never in it.
+         *
+         *     Attributes:
+         *         enabled: The assistant is on.
+         *         configured: A provider and a model were chosen.
+         *         preset: The provider preset it was chosen from, or empty.
+         *         base_url: The provider's address.
+         *         model: The model's name.
+         *         has_key: A key is kept (sealed); it is never given back.
+         *         key_set_at: When the key was set.
+         *         location: Where the data ends up: ``machine``, ``network``, ``eu``, ``outside`` or
+         *             ``unknown`` (the provider's documentation does not say).
+         *         flow_reason: Why a provider outside is an authorized flow, under the ENS profile.
+         *         mask_personal: Emails and addresses are disguised with markers before they are sent: always
+         *             for a provider that is not on this machine or the operator's network.
+         *         limits: The ceilings, each always a number.
+         *         prices: What each model costs.
+         *         currency: What the prices and the spending limits are in.
+         *         probe: What the probe last found; None when it has not run since the provider changed.
+         *         probed_at: When.
+         *         calls_tools: The model was found to call tools, so it may investigate.
+         *         updated_at: When the settings last changed.
+         *         updated_by: Who changed them.
+         */
+        AssistantSettingsOut: {
+            /** Base Url */
+            base_url: string;
+            /** Calls Tools */
+            calls_tools: boolean;
+            /** Configured */
+            configured: boolean;
+            /** Currency */
+            currency: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Flow Reason */
+            flow_reason: string;
+            /** Has Key */
+            has_key: boolean;
+            /** Key Set At */
+            key_set_at?: string | null;
+            /** Limits */
+            limits: {
+                [key: string]: number;
+            };
+            /** Location */
+            location: string;
+            /** Mask Personal */
+            mask_personal: boolean;
+            /** Model */
+            model: string;
+            /** Preset */
+            preset: string;
+            /** Prices */
+            prices: {
+                [key: string]: components["schemas"]["PriceModel"];
+            };
+            probe?: components["schemas"]["ProbeOut"] | null;
+            /** Probed At */
+            probed_at?: string | null;
+            /** Updated At */
+            updated_at?: string | null;
+            /** Updated By */
+            updated_by: string;
+        };
+        /**
          * AttentionItem
          * @description Something that needs an operator.
          *
@@ -41637,6 +42059,45 @@ export interface components {
             value?: unknown;
         };
         /**
+         * ConversationDetailOut
+         * @description A conversation with its messages.
+         *
+         *     Attributes:
+         *         messages: In order.
+         */
+        ConversationDetailOut: {
+            /** Created At */
+            created_at: string;
+            /** Id */
+            id: string;
+            /** Messages */
+            messages: components["schemas"]["MessageOut"][];
+            /** Title */
+            title: string;
+            /** Updated At */
+            updated_at: string;
+        };
+        /**
+         * ConversationOut
+         * @description One conversation, without its messages.
+         *
+         *     Attributes:
+         *         id: Its identifier.
+         *         title: What it is called.
+         *         created_at: When it began (UTC).
+         *         updated_at: When it was last used.
+         */
+        ConversationOut: {
+            /** Created At */
+            created_at: string;
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** Updated At */
+            updated_at: string;
+        };
+        /**
          * ConversionRequest
          * @description The ``code`` and ``state`` GitHub's callback carried.
          */
@@ -43416,20 +43877,6 @@ export interface components {
              * @description Schema (the database on MySQL)
              */
             schema: string;
-        };
-        /**
-         * DeletedOut
-         * @description The outcome of deleting a machine.
-         *
-         *     Attributes:
-         *         node: The server's name.
-         *         warnings: What the operator should know.
-         */
-        DeletedOut: {
-            /** Node */
-            node: string;
-            /** Warnings */
-            warnings?: string[];
         };
         /**
          * DeletedResponse
@@ -50690,7 +51137,7 @@ export interface components {
             /** Host */
             host: string;
             /** Warnings */
-            warnings?: components["schemas"]["SentenceOut"][];
+            warnings?: components["schemas"]["noust__web__api__integrations__SentenceOut"][];
         };
         /**
          * GitHubStatusOut
@@ -50738,7 +51185,7 @@ export interface components {
              * Warnings
              * @default []
              */
-            warnings: components["schemas"]["SentenceOut"][];
+            warnings: components["schemas"]["noust__web__api__integrations__SentenceOut"][];
         };
         /**
          * GitLabStatusOut
@@ -54327,7 +54774,7 @@ export interface components {
              * Warnings
              * @default []
              */
-            warnings: components["schemas"]["SentenceOut"][];
+            warnings: components["schemas"]["noust__web__api__integrations__SentenceOut"][];
         };
         /**
          * ManifestRequest
@@ -54607,6 +55054,34 @@ export interface components {
             dry_run: boolean;
             /** Restart Required */
             restart_required: boolean;
+        };
+        /**
+         * MessageOut
+         * @description One message of a conversation, as its author reads it.
+         *
+         *     Attributes:
+         *         seq: Its place, from 1.
+         *         role: ``user``, ``assistant`` or ``tool``.
+         *         content: The text, with the disguised emails and addresses put back.
+         *         tool_calls: For an assistant message that called tools: ``id``, ``name`` and ``arguments``.
+         *         tool_call_id: For a tool message, the call it answers.
+         *         created_at: When it was written.
+         */
+        MessageOut: {
+            /** Content */
+            content: string;
+            /** Created At */
+            created_at: string;
+            /** Role */
+            role: string;
+            /** Seq */
+            seq: number;
+            /** Tool Call Id */
+            tool_call_id?: string | null;
+            /** Tool Calls */
+            tool_calls?: {
+                [key: string]: string;
+            }[] | null;
         };
         /**
          * MessageResponse
@@ -56115,6 +56590,19 @@ export interface components {
             stats?: {
                 [key: string]: number;
             } | null;
+        };
+        /**
+         * OffOut
+         * @description The result of turning the assistant off.
+         *
+         *     Attributes:
+         *         revoked: How many tokens it held, all revoked.
+         *         settings: The settings as they are now.
+         */
+        OffOut: {
+            /** Revoked */
+            revoked: number;
+            settings: components["schemas"]["AssistantSettingsOut"];
         };
         /**
          * Offer
@@ -57683,6 +58171,51 @@ export interface components {
             passphrase?: string | null;
         };
         /**
+         * PresetOut
+         * @description A provider by name.
+         *
+         *     Attributes:
+         *         id: Its stable name.
+         *         name: What it is called.
+         *         base_url: Its address, read on its documentation.
+         *         needs_key: Whether it asks for a key.
+         *         location: Where the data ends up, as its documentation says.
+         *         docs: The page the address was read from.
+         */
+        PresetOut: {
+            /** Base Url */
+            base_url: string;
+            /** Docs */
+            docs: string;
+            /** Id */
+            id: string;
+            /** Location */
+            location: string;
+            /** Name */
+            name: string;
+            /** Needs Key */
+            needs_key: boolean;
+        };
+        /**
+         * PresetsOut
+         * @description The providers on offer.
+         *
+         *     Attributes:
+         *         presets: Them.
+         *         locations: Every place the data may end up.
+         *         limits: The default limits.
+         */
+        PresetsOut: {
+            /** Limits */
+            limits: {
+                [key: string]: number;
+            };
+            /** Locations */
+            locations: string[];
+            /** Presets */
+            presets: components["schemas"]["PresetOut"][];
+        };
+        /**
          * PreviewBody
          * @description Body of ``POST /api/fleet/cloud/scripts/preview``.
          *
@@ -58033,6 +58566,20 @@ export interface components {
             total: number;
         };
         /**
+         * PriceModel
+         * @description What a model costs per million tokens, in the currency of the settings.
+         *
+         *     Attributes:
+         *         input_per_million: What a million tokens sent cost.
+         *         output_per_million: What a million tokens said cost.
+         */
+        PriceModel: {
+            /** Input Per Million */
+            input_per_million: number;
+            /** Output Per Million */
+            output_per_million: number;
+        };
+        /**
          * PrivateModel
          * @description Whether an application answers a private network only.
          *
@@ -58297,6 +58844,30 @@ export interface components {
             };
             /** Url */
             url: string;
+        };
+        /**
+         * ProbeOut
+         * @description What the probe found of a provider.
+         *
+         *     Attributes:
+         *         reachable: The provider answered something.
+         *         model_found: The model is in the provider's list; None when it gives no list.
+         *         tools: The model made the test call to a tool well formed; None when it was not tried.
+         *             When it is not True the assistant only explains: it neither investigates nor acts.
+         *         models: The models the provider lists.
+         *         sentences: What it found, in order.
+         */
+        ProbeOut: {
+            /** Model Found */
+            model_found?: boolean | null;
+            /** Models */
+            models?: string[];
+            /** Reachable */
+            reachable: boolean;
+            /** Sentences */
+            sentences?: components["schemas"]["noust__web__api__assistant__SentenceOut"][];
+            /** Tools */
+            tools?: boolean | null;
         };
         /**
          * ProbeResult
@@ -64657,25 +65228,6 @@ export interface components {
             supported: boolean;
         };
         /**
-         * SentenceOut
-         * @description Something the operator should know, as a sentence with a code.
-         *
-         *     Attributes:
-         *         text: The sentence in English.
-         *         hint: How to fix it.
-         *         coded: The same sentence as ``{code, params}``, for the console to translate.
-         */
-        SentenceOut: {
-            /** Coded */
-            coded: {
-                [key: string]: unknown;
-            };
-            /** Hint */
-            hint?: string | null;
-            /** Text */
-            text: string;
-        };
-        /**
          * SeparationConflict
          * @description A person holding roles that should not go together.
          *
@@ -65411,6 +65963,9 @@ export interface components {
          *         central: This server's role and whether its sealed secrets are
          *             locked, so the console hides what a hub does not do and offers
          *             the unlock form; None for an anonymous caller.
+         *         assistant: Whether the built-in assistant is on and this caller may use it, with the
+         *             reason when not, so the console draws nothing when there is nothing to offer; None
+         *             for an anonymous caller.
          *         login_label: What the operator chose to show on the sign-in page.
          *         account: The account signed in, or None.
          *         role: Its role, or the role a central forwarded.
@@ -65440,6 +65995,7 @@ export interface components {
             account?: components["schemas"]["AccountInfo"] | null;
             /** Accounts Exist */
             accounts_exist?: boolean | null;
+            assistant?: components["schemas"]["AssistantSession"] | null;
             /** Authenticated */
             authenticated: boolean;
             central?: components["schemas"]["SessionCentral"] | null;
@@ -69646,6 +70202,32 @@ export interface components {
             title: string;
         };
         /**
+         * TotalsOut
+         * @description What a stretch of conversation used.
+         *
+         *     Attributes:
+         *         steps: Requests to the provider.
+         *         prompt_tokens: Tokens sent.
+         *         completion_tokens: Tokens said.
+         *         spend: The cost of the steps that have a price.
+         *         unpriced_steps: Steps whose model had no price, which spend leaves out.
+         *         estimated_steps: Steps whose tokens are an estimate.
+         */
+        TotalsOut: {
+            /** Completion Tokens */
+            completion_tokens: number;
+            /** Estimated Steps */
+            estimated_steps: number;
+            /** Prompt Tokens */
+            prompt_tokens: number;
+            /** Spend */
+            spend: number;
+            /** Steps */
+            steps: number;
+            /** Unpriced Steps */
+            unpriced_steps: number;
+        };
+        /**
          * TrafficModel
          * @description Whether requests are being counted from the access log.
          *
@@ -71189,6 +71771,38 @@ export interface components {
             mean_ms?: number | null;
             /** Percent */
             percent?: number | null;
+        };
+        /**
+         * UsageOut
+         * @description What was used, and the limits it runs under.
+         *
+         *     Attributes:
+         *         conversation: One conversation's totals, when one was asked for and is the caller's.
+         *         month: The calendar month's totals, everyone's together.
+         *         actions_last_hour: The changes the assistant made for the caller in the last hour.
+         *         limits: The limits in force.
+         *         currency: What spending is in.
+         *         month_start: The first moment of the month counted (UTC).
+         *         priced_models: The models that have a price: for any other, spending is not limited.
+         *         notes: What to know about the numbers (no price for the model, an estimate).
+         */
+        UsageOut: {
+            /** Actions Last Hour */
+            actions_last_hour?: number | null;
+            conversation?: components["schemas"]["TotalsOut"] | null;
+            /** Currency */
+            currency: string;
+            /** Limits */
+            limits: {
+                [key: string]: number;
+            };
+            month: components["schemas"]["TotalsOut"];
+            /** Month Start */
+            month_start: string;
+            /** Notes */
+            notes?: components["schemas"]["AssistantReason"][];
+            /** Priced Models */
+            priced_models: string[];
         };
         /**
          * UsageResponse
@@ -73171,6 +73785,37 @@ export interface components {
             persist?: string[] | null;
         };
         /**
+         * DeletedOut
+         * @description The result of deleting a conversation.
+         *
+         *     Attributes:
+         *         deleted: Whether it was deleted.
+         */
+        noust__web__api__assistant__DeletedOut: {
+            /** Deleted */
+            deleted: boolean;
+        };
+        /**
+         * SentenceOut
+         * @description One thing the probe found, as a sentence with a code.
+         *
+         *     Attributes:
+         *         text: The sentence in English, always sent.
+         *         hint: How to fix it in English, when the sentence has a fix.
+         */
+        noust__web__api__assistant__SentenceOut: {
+            /** Code */
+            code: string;
+            /** Hint */
+            hint?: string | null;
+            /** Params */
+            params?: {
+                [key: string]: boolean | number | string;
+            };
+            /** Text */
+            text: string;
+        };
+        /**
          * CatalogResponse
          * @description Response for ``GET /api/audit/events``.
          *
@@ -73362,6 +74007,20 @@ export interface components {
             needs_eab: boolean;
             /** Trusted */
             trusted: boolean;
+        };
+        /**
+         * DeletedOut
+         * @description The outcome of deleting a machine.
+         *
+         *     Attributes:
+         *         node: The server's name.
+         *         warnings: What the operator should know.
+         */
+        noust__web__api__cloud__DeletedOut: {
+            /** Node */
+            node: string;
+            /** Warnings */
+            warnings?: string[];
         };
         /**
          * MachineOut
@@ -74243,6 +74902,25 @@ export interface components {
             removed: boolean;
             /** Settings Url */
             settings_url?: string | null;
+        };
+        /**
+         * SentenceOut
+         * @description Something the operator should know, as a sentence with a code.
+         *
+         *     Attributes:
+         *         text: The sentence in English.
+         *         hint: How to fix it.
+         *         coded: The same sentence as ``{code, params}``, for the console to translate.
+         */
+        noust__web__api__integrations__SentenceOut: {
+            /** Coded */
+            coded: {
+                [key: string]: unknown;
+            };
+            /** Hint */
+            hint?: string | null;
+            /** Text */
+            text: string;
         };
         /**
          * AuthorityModel
@@ -83279,6 +83957,233 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_conversations_api_assistant_conversations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationOut"][];
+                };
+            };
+        };
+    };
+    get_conversation_api_assistant_conversations__conversation_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_conversation_api_assistant_conversations__conversation_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__assistant__DeletedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    turn_off_api_assistant_off_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OffOut"];
+                };
+            };
+        };
+    };
+    presets_api_assistant_presets_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PresetsOut"];
+                };
+            };
+        };
+    };
+    probe_api_assistant_probe_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProbeOut"];
+                };
+            };
+        };
+    };
+    get_settings_api_assistant_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantSettingsOut"];
+                };
+            };
+        };
+    };
+    put_settings_api_assistant_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssistantSettingsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssistantSettingsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    usage_api_assistant_usage_get: {
+        parameters: {
+            query?: {
+                /** @description A conversation of the caller's, to give its totals too */
+                conversation?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageOut"];
                 };
             };
             /** @description Validation Error */
@@ -98039,7 +98944,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DeletedOut"];
+                    "application/json": components["schemas"]["noust__web__api__cloud__DeletedOut"];
                 };
             };
             /** @description Validation Error */

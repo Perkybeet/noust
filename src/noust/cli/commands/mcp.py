@@ -23,18 +23,9 @@ from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.cli.commands.team_common import record
 from noust.cli.web_state import access_manager, mcp_catalog, mcp_settings, token_manager
 from noust.core.config import MCP_GROUPS, Config
+from noust.core.mcp_presets import PRESETS, SELF_PERMISSION, permissions_of_preset
 
-#: What each kind of client needs, as the groups it uses: a deploying client also reads.
-#: The groups are the names in ``noust.web.mcp.tools``, spelled here because that module is
-#: the console's and is only imported when a command runs.
-PRESETS: dict[str, tuple[str, ...]] = {
-    "inspect": ("inspect",),
-    "deploy": ("inspect", "deploy"),
-    "control": ("inspect", "deploy", "control"),
-}
-
-#: The permission every session holds for itself, which every token keeps.
-SELF_PERMISSION = "self"
+__all__ = ["PRESETS", "SELF_PERMISSION", "cli", "permissions_for"]
 
 
 def permissions_for(preset: str) -> list[str]:
@@ -46,14 +37,8 @@ def permissions_for(preset: str) -> list[str]:
         The permissions the routes behind that kind of client's tools need, and
         nothing more.
     """
-    groups = PRESETS[preset]
     tools, permission_for_route = mcp_catalog()
-    needed = {
-        permission_for_route(tool.method, tool.path) or "" for tool in tools if tool.group in groups
-    }
-    needed.discard("")
-    needed.add(SELF_PERMISSION)
-    return sorted(needed)
+    return permissions_of_preset(preset, tools, permission_for_route)
 
 
 @click.group("mcp", cls=NoustGroup)

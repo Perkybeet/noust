@@ -46,6 +46,7 @@ AREAS: dict[str, str] = {
     "monitor": "the monitor: samples, watches and thresholds",
     "console": "the console as a program: the machine it is developed on, how it is published, its headers and its proxies",
     "central": "a central as a machine: its role, what it can do, its container image, deploying on it and what it runs on a schedule",
+    "assistant": "the built-in assistant: its provider, its limits, what it masks, its token, its conversations and its floor",
 }
 
 

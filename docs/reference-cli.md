@@ -4,7 +4,7 @@
 
 Every command of `noust`, with its options. Global options (`--verbose`, `--dry-run`, `--json`, `--no-color`, `--reason`) go before or after the command name. `noust COMMAND --help` prints the same text, and `man noust` is generated from the same tree.
 
-Commands: [`2fa`](#noust-2fa), [`access`](#noust-access), [`alert`](#noust-alert), [`app`](#noust-app), [`approval`](#noust-approval), [`audit`](#noust-audit), [`auth`](#noust-auth), [`backup`](#noust-backup), [`central`](#noust-central), [`cert`](#noust-cert), [`compliance`](#noust-compliance), [`compose`](#noust-compose), [`config`](#noust-config), [`console`](#noust-console), [`context`](#noust-context), [`create`](#noust-create), [`cron`](#noust-cron), [`db`](#noust-db), [`delete`](#noust-delete), [`deploy`](#noust-deploy), [`diagnose`](#noust-diagnose), [`dns`](#noust-dns), [`docker`](#noust-docker), [`domain`](#noust-domain), [`ens`](#noust-ens), [`env`](#noust-env), [`environment`](#noust-environment), [`fleet`](#noust-fleet), [`github`](#noust-github), [`gitlab`](#noust-gitlab), [`health`](#noust-health), [`import`](#noust-import), [`incident`](#noust-incident), [`list`](#noust-list), [`log`](#noust-log), [`logdrain`](#noust-logdrain), [`logs`](#noust-logs), [`manifest`](#noust-manifest), [`map`](#noust-map), [`mcp`](#noust-mcp), [`monitor`](#noust-monitor), [`node`](#noust-node), [`notify`](#noust-notify), [`passkey`](#noust-passkey), [`preview`](#noust-preview), [`probe`](#noust-probe), [`project`](#noust-project), [`push`](#noust-push), [`recipe`](#noust-recipe), [`registry`](#noust-registry), [`releases`](#noust-releases), [`restart`](#noust-restart), [`restore-server`](#noust-restore-server), [`rollback`](#noust-rollback), [`runtime`](#noust-runtime), [`secrets`](#noust-secrets), [`self-backup`](#noust-self-backup), [`self-update`](#noust-self-update), [`server`](#noust-server), [`service`](#noust-service), [`sessions`](#noust-sessions), [`setup`](#noust-setup), [`site`](#noust-site), [`start`](#noust-start), [`status`](#noust-status), [`stop`](#noust-stop), [`store`](#noust-store), [`stream`](#noust-stream), [`support`](#noust-support), [`team`](#noust-team), [`token`](#noust-token), [`tunnel`](#noust-tunnel), [`update`](#noust-update), [`upload`](#noust-upload), [`user`](#noust-user), [`variables`](#noust-variables), [`web`](#noust-web), [`webserver`](#noust-webserver), [`workspace`](#noust-workspace)
+Commands: [`2fa`](#noust-2fa), [`access`](#noust-access), [`alert`](#noust-alert), [`app`](#noust-app), [`approval`](#noust-approval), [`assistant`](#noust-assistant), [`audit`](#noust-audit), [`auth`](#noust-auth), [`backup`](#noust-backup), [`central`](#noust-central), [`cert`](#noust-cert), [`compliance`](#noust-compliance), [`compose`](#noust-compose), [`config`](#noust-config), [`console`](#noust-console), [`context`](#noust-context), [`create`](#noust-create), [`cron`](#noust-cron), [`db`](#noust-db), [`delete`](#noust-delete), [`deploy`](#noust-deploy), [`diagnose`](#noust-diagnose), [`dns`](#noust-dns), [`docker`](#noust-docker), [`domain`](#noust-domain), [`ens`](#noust-ens), [`env`](#noust-env), [`environment`](#noust-environment), [`fleet`](#noust-fleet), [`github`](#noust-github), [`gitlab`](#noust-gitlab), [`health`](#noust-health), [`import`](#noust-import), [`incident`](#noust-incident), [`list`](#noust-list), [`log`](#noust-log), [`logdrain`](#noust-logdrain), [`logs`](#noust-logs), [`manifest`](#noust-manifest), [`map`](#noust-map), [`mcp`](#noust-mcp), [`monitor`](#noust-monitor), [`node`](#noust-node), [`notify`](#noust-notify), [`passkey`](#noust-passkey), [`preview`](#noust-preview), [`probe`](#noust-probe), [`project`](#noust-project), [`push`](#noust-push), [`recipe`](#noust-recipe), [`registry`](#noust-registry), [`releases`](#noust-releases), [`restart`](#noust-restart), [`restore-server`](#noust-restore-server), [`rollback`](#noust-rollback), [`runtime`](#noust-runtime), [`secrets`](#noust-secrets), [`self-backup`](#noust-self-backup), [`self-update`](#noust-self-update), [`server`](#noust-server), [`service`](#noust-service), [`sessions`](#noust-sessions), [`setup`](#noust-setup), [`site`](#noust-site), [`start`](#noust-start), [`status`](#noust-status), [`stop`](#noust-stop), [`store`](#noust-store), [`stream`](#noust-stream), [`support`](#noust-support), [`team`](#noust-team), [`token`](#noust-token), [`tunnel`](#noust-tunnel), [`update`](#noust-update), [`upload`](#noust-upload), [`user`](#noust-user), [`variables`](#noust-variables), [`web`](#noust-web), [`webserver`](#noust-webserver), [`workspace`](#noust-workspace)
 
 ## noust 2fa
 
@@ -3051,6 +3051,115 @@ Arguments: `approval_id`
 | Option | What it does | Default |
 |---|---|---|
 | `--json` | Print the request as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+## noust assistant
+
+Set up and look after the built-in assistant (an AI, with a model of your choice).
+
+```bash
+noust assistant [OPTIONS] COMMAND [ARGS]...
+```
+
+Subcommands: [`configure`](#noust-assistant-configure), [`disable`](#noust-assistant-disable), [`enable`](#noust-assistant-enable), [`probe`](#noust-assistant-probe), [`status`](#noust-assistant-status), [`usage`](#noust-assistant-usage)
+
+### noust assistant configure
+
+Choose the provider, its limits and its prices, without turning the assistant on.
+
+```bash
+noust assistant configure [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--preset` | A provider by name: see 'noust assistant status'. |  |
+| `--base-url` | The provider's address, up to its version, such as https://api.example.org/v1. |  |
+| `--model` | The model's name, as the provider calls it. |  |
+| `--key-stdin` | Read the provider's key from one line of standard input. NOUST_ASSISTANT_API_KEY is read when this is not given. Never an argument. |  |
+| `--location` | Where a public provider keeps what it is sent, when you have a contract that says so. An address on this machine or your network says it itself. |  |
+| `--flow-reason` | Why a provider outside is an authorized flow (the contract, the data processing agreement). The ENS profile asks for it before the assistant is turned on with one. |  |
+| `--allow-private-host` | Say that this server may call the provider's host though it is on this machine or your network: the host is added to security.allow_private_hosts. |  |
+| `--personal-data`, `--no-personal-data` | Disguise emails and addresses with markers before they are sent (always on for a provider that is not on this machine or your network). |  |
+| `--limit` | Change a limit: steps_per_turn, input_tokens_per_conversation, spend_per_conversation, spend_per_month, actions_per_hour. Never removed. |  |
+| `--price` | What a model costs per million tokens, in the currency below. Replaces the price table. Without one there is no limit on spending, only on tokens. |  |
+| `--currency` | What the prices are in, such as EUR. |  |
+| `--no-probe` | Do not ask the provider what it can do afterwards. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust assistant disable
+
+Turn the assistant off and revoke every token it holds, at once.
+
+```bash
+noust assistant disable [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust assistant enable
+
+Turn the assistant on, choosing the provider first if it is given here.
+
+```bash
+noust assistant enable [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--preset` | A provider by name: see 'noust assistant status'. |  |
+| `--base-url` | The provider's address, up to its version, such as https://api.example.org/v1. |  |
+| `--model` | The model's name, as the provider calls it. |  |
+| `--key-stdin` | Read the provider's key from one line of standard input. NOUST_ASSISTANT_API_KEY is read when this is not given. Never an argument. |  |
+| `--location` | Where a public provider keeps what it is sent, when you have a contract that says so. An address on this machine or your network says it itself. |  |
+| `--flow-reason` | Why a provider outside is an authorized flow (the contract, the data processing agreement). The ENS profile asks for it before the assistant is turned on with one. |  |
+| `--allow-private-host` | Say that this server may call the provider's host though it is on this machine or your network: the host is added to security.allow_private_hosts. |  |
+| `--personal-data`, `--no-personal-data` | Disguise emails and addresses with markers before they are sent (always on for a provider that is not on this machine or your network). |  |
+| `--limit` | Change a limit: steps_per_turn, input_tokens_per_conversation, spend_per_conversation, spend_per_month, actions_per_hour. Never removed. |  |
+| `--price` | What a model costs per million tokens, in the currency below. Replaces the price table. Without one there is no limit on spending, only on tokens. |  |
+| `--currency` | What the prices are in, such as EUR. |  |
+| `--no-probe` | Do not ask the provider what it can do afterwards. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust assistant probe
+
+Ask the provider what it can do: whether it answers, has the model and calls tools.
+
+```bash
+noust assistant probe [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print what was found as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust assistant status
+
+Say whether the assistant is on, which provider it uses and what the limits are.
+
+```bash
+noust assistant status [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the settings as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust assistant usage
+
+Show what the assistant cost this month and the limits it runs under.
+
+```bash
+noust assistant usage [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--json` | Print the usage as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ## noust audit

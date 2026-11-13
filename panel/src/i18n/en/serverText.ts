@@ -37,6 +37,158 @@ export const serverText = {
       hint: "Send the reason in the {header} header (percent-encoded).",
     },
   },
+  assistant: {
+    limit: {
+      actions: {
+        text: "The assistant already made {limit} changes in the last hour, the most it may",
+        hint: "Wait a little, or make the change yourself. A person with the settings.manage permission can raise this limit in the assistant's settings.",
+      },
+      actions_near: {
+        text: "The assistant has made {used} of the {limit} changes it may make in an hour",
+      },
+      conversation_spend: {
+        text: "This conversation reached its spending limit of {limit} {currency}",
+        hint: "Start a new conversation. A person with the settings.manage permission can raise this limit in the assistant's settings.",
+      },
+      conversation_spend_near: {
+        text: "This conversation has spent {used} of its {limit} {currency}",
+      },
+      estimated: {
+        text: "The provider does not report how many tokens it used, so they are estimated from the characters",
+      },
+      input_tokens: {
+        text: "This conversation reached its limit of {limit} input tokens",
+        hint: "Start a new conversation. A person with the settings.manage permission can raise this limit in the assistant's settings.",
+      },
+      input_tokens_near: {
+        text: "This conversation has used {used} of its {limit} input tokens",
+      },
+      month_spend: {
+        text: "The assistant reached its spending limit for this month, {limit} {currency}",
+        hint: "The month starts again on the first, UTC. A person with the settings.manage permission can raise this limit in the assistant's settings.",
+      },
+      month_spend_near: {
+        text: "The assistant has spent {used} of its {limit} {currency} for this month",
+      },
+      no_price: {
+        text: "There is no price for the model {model}, so spending is not limited, only tokens",
+        hint: "Add its price per million tokens in the assistant's settings to get a spending limit.",
+      },
+      steps: {
+        text: "The assistant stopped after {limit} steps in one answer",
+        hint: "Ask it to go on if it should. A person with the settings.manage permission can raise this limit in the assistant's settings.",
+      },
+      steps_near: {
+        text: "The assistant has used {used} of the {limit} steps it may take in one answer",
+      },
+    },
+    off: {
+      text: "The assistant was turned off, so what it was doing stopped",
+      hint: "A person with the settings.manage permission turns it on again in the assistant's settings.",
+    },
+    probe: {
+      answers: {
+        text: "The provider at {host} answers",
+      },
+      memory_low: {
+        text: "This machine has {memory_gb} GB of memory and no GPU: a model that runs on it will not have the room to investigate",
+        hint: "Use a provider's API, or a machine on your network with a GPU or at least 16 GB. Noust does not promise how a model would run here.",
+      },
+      model_missing: {
+        text: "The provider answers, but its list of models does not include {model}",
+        hint: "Check the model's name against the provider's own list: the names it gives are the ones that work.",
+      },
+      no_tools: {
+        text: "The model {model} did not make the test call to a tool the way the protocol asks, so the assistant can explain what you show it but not investigate or act",
+        hint: "Choose a model made to call tools (the provider's documentation says which), or a server that reads them: vLLM needs its tool-call parser switched on.",
+      },
+      tools_ok: {
+        text: "The model {model} made the test call to a tool correctly, so the assistant can investigate with it",
+      },
+    },
+    provider: {
+      bad_address: {
+        text: "{address} is not the base address of a provider",
+        hint: "Give the address up to and including its version, such as https://api.example.org/v1, with no user name, password, query or fragment. The key is given apart.",
+      },
+      bad_reply: {
+        text: "The provider's answer could not be read as Chat Completions",
+        hint: "Check that the address is that of a server that speaks the OpenAI-compatible protocol and ends at its version, such as /v1.",
+      },
+      cancelled: {
+        text: "The request to the provider was cancelled",
+      },
+      cut: {
+        text: "The provider cut its answer short",
+        hint: "Try again. If it keeps happening with this model, the model's server may be running out of memory.",
+      },
+      destination_refused: {
+        text: "The assistant may not call {host}: it resolves to {address}, inside a private or internal network",
+        hint: "If the model really runs there, list the host in security.allow_private_hosts: that says this server may call it.",
+      },
+      insecure_address: {
+        text: "{host} would be reached over plain http://, which sends the key and what the assistant reads of this server unprotected",
+        hint: "Use an https:// address. A model on this machine or on your own network can use http:// once its host is listed in security.allow_private_hosts.",
+      },
+      not_found: {
+        text: "The provider answered that something is not there (HTTP {status}): {message}",
+        hint: "Check the model's name and the address: it must end at the provider's version, such as /v1, and the model must be one the provider has.",
+      },
+      rate_limited: {
+        text: "The provider is limiting how fast it answers (HTTP {status}) and went on doing so after {tries} tries",
+        hint: "Wait a little and ask again. The limits are set in the provider's own account.",
+      },
+      redirected: {
+        text: "The provider answered with a redirect to {location}, which the assistant never follows",
+        hint: "Use the address it redirects to, if that is the right one.",
+      },
+      rejected: {
+        text: "The provider rejected the request (HTTP {status}): {message}",
+        hint: "Its own words above say what it did not accept. A model that is not made to call tools is one reason: the probe says whether this one does.",
+      },
+      reported_error: {
+        text: "The provider reported an error in the middle of its answer: {message}",
+      },
+      server_error: {
+        text: "The provider failed (HTTP {status}) and went on failing after {tries} tries: {message}",
+        hint: "Try again later. If it stays, the provider's status page says why.",
+      },
+      timeout: {
+        text: "The provider did not answer within {seconds} seconds",
+        hint: "Try again. A model on a small machine can take longer than that to read a long conversation: a smaller or a faster one answers sooner.",
+      },
+      too_large: {
+        text: "The provider's answer is larger than {megabytes} MB",
+        hint: "Ask for less, or choose another model.",
+      },
+      unauthorized: {
+        text: "The provider refused the key (HTTP {status}): {message}",
+        hint: "Check the key in the assistant's settings, and that it is allowed to use the model.",
+      },
+      unreachable: {
+        text: "The provider at {host} could not be reached: {reason}",
+        hint: "Check that the address and the port are right and that the model's server is running.",
+      },
+      unresolved: {
+        text: "The name {host} did not resolve to any address",
+        hint: "Check the spelling of the address and that this server's DNS can look it up.",
+      },
+    },
+    unavailable: {
+      account: {
+        text: "The assistant acts for a person, and this is not an account",
+        hint: "Sign in with your own account.",
+      },
+      off: {
+        text: "The assistant is off",
+        hint: "A person with the settings.manage permission can turn it on in the assistant's settings.",
+      },
+      permission: {
+        text: "Your role does not allow using the assistant",
+        hint: "An administrator can give you a role that holds assistant.use.",
+      },
+    },
+  },
   authdns: {
     check: {
       ds_dangling: {

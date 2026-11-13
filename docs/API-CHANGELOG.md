@@ -174,6 +174,18 @@ against the schema of 4.2.0.
   its English and its fix.
   `GET /api/apps/{domain}/runs` (`apps.read`) says how an application that exists runs: `form` (`server` or
   `container`), `via` (`dockerfile`, `railpack`, `image` or `compose`) and, for a container, the `image` that serves.
+- **The built-in assistant** (`/api/assistant`), off until an administrator turns it on
+  ([assistant.md](assistant.md)). `GET /api/assistant/settings` (`settings.read`) says what is chosen and never
+  returns the key (`has_key`, `key_set_at`); `PUT /api/assistant/settings` (`settings.manage`, sudo mode) chooses the
+  provider, the limits and the prices and turns it on or off; `POST /api/assistant/probe` (`settings.manage`) asks
+  the provider what it can do, as sentences with a code; `POST /api/assistant/off` (`settings.manage`, sudo mode)
+  turns it off and revokes every token it holds; `GET /api/assistant/presets` (`settings.read`) lists the providers
+  by name; `GET /api/assistant/usage` (`assistant.use`) says what it cost and the limits; and a person's own
+  conversations are listed, read and deleted at `/api/assistant/conversations` (`assistant.use`). `GET
+  /api/auth/session` carries `assistant` (`enabled`, `can_use`, `tools`, `model`, `location`, `mask_personal` and,
+  when it is not offered to this caller, a `reason` with a code), and `central.features` has a key `assistant`. A new
+  permission, `assistant.use`, held by the administrator and operator roles and by no team role. The tokens of the
+  API carry `caller` in what they authenticate (`token` or `assistant`); no route can ask for the second.
 
 ## 4.2.0
 

@@ -237,6 +237,15 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("approvals", "get_approval"): ("GET", "/api/approvals/{approval_id}", "self", False),
     ("approvals", "approve_request"): ("POST", "/api/approvals/{approval_id}/approve", "self", True),
     ("approvals", "reject_request"): ("POST", "/api/approvals/{approval_id}/reject", "self", True),
+    ("assistant", "list_conversations"): ("GET", "/api/assistant/conversations", "assistant.use", False),
+    ("assistant", "get_conversation"): ("GET", "/api/assistant/conversations/{conversation_id}", "assistant.use", False),
+    ("assistant", "delete_conversation"): ("DELETE", "/api/assistant/conversations/{conversation_id}", "assistant.use", False),
+    ("assistant", "turn_off"): ("POST", "/api/assistant/off", "settings.manage", True),
+    ("assistant", "presets"): ("GET", "/api/assistant/presets", "settings.read", False),
+    ("assistant", "probe"): ("POST", "/api/assistant/probe", "settings.manage", False),
+    ("assistant", "get_settings"): ("GET", "/api/assistant/settings", "settings.read", False),
+    ("assistant", "put_settings"): ("PUT", "/api/assistant/settings", "settings.manage", True),
+    ("assistant", "usage"): ("GET", "/api/assistant/usage", "assistant.use", False),
     ("audit", "list_audit_entries"): ("GET", "/api/audit", "audit.read", False),
     ("audit", "audit_catalog"): ("GET", "/api/audit/events", "audit.read", False),
     ("audit", "export_audit_log"): ("GET", "/api/audit/export", "audit.read", False),
@@ -2919,6 +2928,86 @@ class Approvals:
 
         Needs: permission `self`, sudo mode."""
         return self._call("POST", f"/api/approvals/{quote(str(approval_id), safe='')}/reject", query=None, body=body)
+
+
+
+class Assistant:
+    """Assistant: 9 operations."""
+
+    def __init__(self, call: Call) -> None:
+        self._call = call
+
+    def list_conversations(self) -> list["ConversationOut"]:
+        """GET /api/assistant/conversations
+
+        List Conversations
+
+        Needs: permission `assistant.use`."""
+        return self._call("GET", "/api/assistant/conversations", query=None, body=None)
+
+    def get_conversation(self, conversation_id: str) -> "ConversationDetailOut":
+        """GET /api/assistant/conversations/{conversation_id}
+
+        Get Conversation
+
+        Needs: permission `assistant.use`."""
+        return self._call("GET", f"/api/assistant/conversations/{quote(str(conversation_id), safe='')}", query=None, body=None)
+
+    def delete_conversation(self, conversation_id: str) -> "NoustWebApiAssistantDeletedOut":
+        """DELETE /api/assistant/conversations/{conversation_id}
+
+        Delete Conversation
+
+        Needs: permission `assistant.use`."""
+        return self._call("DELETE", f"/api/assistant/conversations/{quote(str(conversation_id), safe='')}", query=None, body=None)
+
+    def turn_off(self) -> "OffOut":
+        """POST /api/assistant/off
+
+        Turn Off
+
+        Needs: permission `settings.manage`, sudo mode."""
+        return self._call("POST", "/api/assistant/off", query=None, body=None)
+
+    def presets(self) -> "PresetsOut":
+        """GET /api/assistant/presets
+
+        Presets
+
+        Needs: permission `settings.read`."""
+        return self._call("GET", "/api/assistant/presets", query=None, body=None)
+
+    def probe(self) -> "ProbeOut":
+        """POST /api/assistant/probe
+
+        Probe
+
+        Needs: permission `settings.manage`."""
+        return self._call("POST", "/api/assistant/probe", query=None, body=None)
+
+    def get_settings(self) -> "AssistantSettingsOut":
+        """GET /api/assistant/settings
+
+        Get Settings
+
+        Needs: permission `settings.read`."""
+        return self._call("GET", "/api/assistant/settings", query=None, body=None)
+
+    def put_settings(self, body: "AssistantSettingsIn") -> "AssistantSettingsOut":
+        """PUT /api/assistant/settings
+
+        Put Settings
+
+        Needs: permission `settings.manage`, sudo mode."""
+        return self._call("PUT", "/api/assistant/settings", query=None, body=body)
+
+    def usage(self, *, conversation: Union[str, None] = None) -> "UsageOut":
+        """GET /api/assistant/usage
+
+        Usage
+
+        Needs: permission `assistant.use`."""
+        return self._call("GET", "/api/assistant/usage", query={"conversation": conversation}, body=None)
 
 
 
@@ -6976,7 +7065,7 @@ class Fleet:
         Needs: permission `fleet.manage`."""
         return self._call("GET", f"/api/fleet/cloud/servers/{quote(str(node), safe='')}", query={"live": live}, body=None)
 
-    def delete_machine(self, node: str, *, confirm: Union[str, None] = None, remove_node: Union[bool, None] = None) -> "DeletedOut":
+    def delete_machine(self, node: str, *, confirm: Union[str, None] = None, remove_node: Union[bool, None] = None) -> "NoustWebApiCloudDeletedOut":
         """DELETE /api/fleet/cloud/servers/{node}
 
         Delete Machine
@@ -11506,6 +11595,7 @@ class Api:
     alerts: Alerts
     applications: Applications
     approvals: Approvals
+    assistant: Assistant
     audit: Audit
     authentication: Authentication
     backup_collection: BackupCollection
@@ -11572,6 +11662,7 @@ class Api:
         self.alerts = Alerts(call)
         self.applications = Applications(call)
         self.approvals = Approvals(call)
+        self.assistant = Assistant(call)
         self.audit = Audit(call)
         self.authentication = Authentication(call)
         self.backup_collection = BackupCollection(call)

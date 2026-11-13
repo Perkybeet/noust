@@ -39,7 +39,8 @@ API_TOKENS_TABLE_SQL = """
         last_used_ip TEXT,
         bound_kind TEXT,
         bound_id INTEGER,
-        legacy_prefix_used_at REAL
+        legacy_prefix_used_at REAL,
+        caller TEXT
     )
 """
 
@@ -74,6 +75,18 @@ API_TOKEN_BINDING_COLUMNS = (
 #: 3.0. The token is stored hashed, so its prefix is only known while it is presented; this
 #: is how ``noust health`` can name the scripts still holding one.
 API_TOKEN_COLUMNS_4_0 = (("legacy_prefix_used_at", "REAL"),)
+
+#: Column 4.3 added to ``api_tokens``: who a token is for, a closed list. NULL is an ordinary token
+#: (a person's script, a pipeline: ``token``) and ``assistant`` is the built-in assistant's, which
+#: nothing else writes (:meth:`noust.web.auth.TokenManager.create_api_token` does, for the assistant,
+#: and no route of the tokens API can ask for it). The payload a request authenticates with carries
+#: it as ``caller``.
+API_TOKEN_COLUMNS_4_3 = (("caller", "TEXT"),)
+
+#: The callers a token may be for, besides a person's own session.
+TOKEN_CALLER = "token"  # noqa: S105 - a kind of caller, not a credential
+ASSISTANT_CALLER = "assistant"
+CALLERS: tuple[str, ...] = (TOKEN_CALLER, ASSISTANT_CALLER)
 
 #: How recently a token of the old kind must have been used to count as still in use.
 LEGACY_TOKEN_WINDOW_DAYS = 30.0

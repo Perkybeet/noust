@@ -464,6 +464,10 @@ tabs:
             slug: guides/mcp
             type: guide
             summary: "The MCP endpoint: tools for an editor or a script, as an API token, with the same permissions."
+          - source: docs/assistant.md
+            slug: guides/assistant
+            type: guide
+            summary: "The built-in assistant: an optional AI with the model you choose, what leaves your server, the token it acts with, its limits and how to turn it off."
       - title: Operate the server
         pages:
           - source: docs/MONITOR.md
@@ -895,6 +899,7 @@ redirects:
   sso: guides/sso
   manifest: guides/manifest
   mcp: guides/mcp
+  assistant: guides/assistant
   remote: guides/remote
   sdk: guides/sdk
   terraform: guides/terraform

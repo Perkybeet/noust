@@ -23,7 +23,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -167,6 +167,7 @@ def prune(
     except (NoustError, OSError) as exc:
         report.errors["observations"] = str(exc)
     _prune_terminal_recordings(report, moment)
+    _prune_assistant(report)
     periods = {"sessions": settings.sessions_days}
     for kind, pruner in sorted(_pruners.items()):
         days = periods.get(kind, settings.jobs_days)
@@ -213,6 +214,32 @@ def _prune_terminal_recordings(report: RetentionReport, moment: datetime) -> Non
         report.deleted["terminal"] = recording.prune(moment - timedelta(days=days))
     except (NoustError, OSError) as exc:
         report.errors["terminal"] = str(exc)
+
+
+#: How long the ledger of what the assistant's steps cost is kept: more than any month it counts.
+_ASSISTANT_LEDGER_DAYS = 400
+
+
+def _prune_assistant(report: RetentionReport) -> None:
+    """
+    Remove the conversations with the assistant that are past their period, and an old ledger.
+
+    The period is ``retention.assistant_days`` (30 by default).
+
+    Args:
+        report: Where what was removed, or why not, is recorded.
+    """
+    from noust.core.assistant.conversations import Conversations
+    from noust.core.config import Config
+
+    now = datetime.now(timezone.utc)
+    try:
+        days = int(Config().get("retention.assistant_days", 30))
+        conversations = Conversations()
+        report.deleted["assistant"] = conversations.prune(now - timedelta(days=days))
+        conversations.prune_usage(now - timedelta(days=_ASSISTANT_LEDGER_DAYS))
+    except (NoustError, OSError, ValueError) as exc:
+        report.errors["assistant"] = str(exc)
 
 
 def _deployments_still_needed(store: NoustStore) -> set[int]:

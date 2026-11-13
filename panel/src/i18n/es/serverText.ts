@@ -26,6 +26,158 @@ export const serverText: Catalog<typeof en> = {
       hint: "Envía el motivo en la cabecera {header} (codificado en porcentaje).",
     },
   },
+  assistant: {
+    limit: {
+      actions: {
+        text: "El asistente ya hizo {limit} cambios en la última hora, el máximo que puede",
+        hint: "Espera un poco, o haz tú el cambio. Quien tenga el permiso settings.manage puede subir este límite en los ajustes del asistente.",
+      },
+      actions_near: {
+        text: "El asistente ha hecho {used} de los {limit} cambios que puede hacer en una hora",
+      },
+      conversation_spend: {
+        text: "Esta conversación llegó a su límite de gasto de {limit} {currency}",
+        hint: "Empieza una conversación nueva. Quien tenga el permiso settings.manage puede subir este límite en los ajustes del asistente.",
+      },
+      conversation_spend_near: {
+        text: "Esta conversación ha gastado {used} de sus {limit} {currency}",
+      },
+      estimated: {
+        text: "El proveedor no dice cuántos tokens usó, así que se estiman a partir de los caracteres",
+      },
+      input_tokens: {
+        text: "Esta conversación llegó a su límite de {limit} tokens de entrada",
+        hint: "Empieza una conversación nueva. Quien tenga el permiso settings.manage puede subir este límite en los ajustes del asistente.",
+      },
+      input_tokens_near: {
+        text: "Esta conversación ha usado {used} de sus {limit} tokens de entrada",
+      },
+      month_spend: {
+        text: "El asistente llegó a su límite de gasto de este mes, {limit} {currency}",
+        hint: "El mes vuelve a empezar el día 1, en UTC. Quien tenga el permiso settings.manage puede subir este límite en los ajustes del asistente.",
+      },
+      month_spend_near: {
+        text: "El asistente ha gastado {used} de sus {limit} {currency} de este mes",
+      },
+      no_price: {
+        text: "No hay precio para el modelo {model}, así que el gasto no tiene límite, solo los tokens",
+        hint: "Añade su precio por millón de tokens en los ajustes del asistente para tener un límite de gasto.",
+      },
+      steps: {
+        text: "El asistente se detuvo tras {limit} pasos en una sola respuesta",
+        hint: "Pídele que siga si hace falta. Quien tenga el permiso settings.manage puede subir este límite en los ajustes del asistente.",
+      },
+      steps_near: {
+        text: "El asistente ha dado {used} de los {limit} pasos que puede dar en una respuesta",
+      },
+    },
+    off: {
+      text: "Se apagó el asistente, así que lo que estaba haciendo se detuvo",
+      hint: "Quien tenga el permiso settings.manage lo vuelve a encender en los ajustes del asistente.",
+    },
+    probe: {
+      answers: {
+        text: "El proveedor en {host} contesta",
+      },
+      memory_low: {
+        text: "Esta máquina tiene {memory_gb} GB de memoria y ninguna GPU: un modelo que funcione en ella no tendrá sitio para investigar",
+        hint: "Usa la API de un proveedor, o una máquina de tu red con GPU o al menos 16 GB. Noust no promete cómo iría un modelo aquí.",
+      },
+      model_missing: {
+        text: "El proveedor contesta, pero su lista de modelos no incluye {model}",
+        hint: "Compara el nombre del modelo con la lista del propio proveedor: los nombres que él da son los que funcionan.",
+      },
+      no_tools: {
+        text: "El modelo {model} no hizo la llamada de prueba a una herramienta como pide el protocolo, así que el asistente puede explicar lo que le enseñes, pero no investigar ni actuar",
+        hint: "Elige un modelo hecho para llamar a herramientas (la documentación del proveedor dice cuáles), o un servidor que las lea: vLLM necesita activar su analizador de llamadas.",
+      },
+      tools_ok: {
+        text: "El modelo {model} hizo bien la llamada de prueba a una herramienta, así que el asistente puede investigar con él",
+      },
+    },
+    provider: {
+      bad_address: {
+        text: "{address} no es la dirección base de un proveedor",
+        hint: "Da la dirección hasta su versión inclusive, como https://api.example.org/v1, sin usuario, contraseña, consulta ni fragmento. La clave se da aparte.",
+      },
+      bad_reply: {
+        text: "La respuesta del proveedor no se pudo leer como Chat Completions",
+        hint: "Comprueba que la dirección es la de un servidor que habla el protocolo compatible con OpenAI y que acaba en su versión, como /v1.",
+      },
+      cancelled: {
+        text: "Se canceló la petición al proveedor",
+      },
+      cut: {
+        text: "El proveedor cortó su respuesta a medias",
+        hint: "Inténtalo otra vez. Si con este modelo ocurre siempre, puede que el servidor del modelo se esté quedando sin memoria.",
+      },
+      destination_refused: {
+        text: "El asistente no puede llamar a {host}: se resuelve en {address}, dentro de una red privada o interna",
+        hint: "Si el modelo funciona de verdad ahí, añade el equipo a security.allow_private_hosts: eso dice que este servidor puede llamarlo.",
+      },
+      insecure_address: {
+        text: "A {host} se llegaría por http:// sin cifrar, y así la clave y lo que el asistente lee de este servidor viajarían sin protección",
+        hint: "Usa una dirección https://. Un modelo en esta máquina o en tu red puede usar http:// cuando su equipo está en security.allow_private_hosts.",
+      },
+      not_found: {
+        text: "El proveedor respondió que algo no existe (HTTP {status}): {message}",
+        hint: "Revisa el nombre del modelo y la dirección: debe acabar en la versión del proveedor, como /v1, y el modelo debe ser uno que el proveedor tenga.",
+      },
+      rate_limited: {
+        text: "El proveedor está limitando la velocidad de sus respuestas (HTTP {status}) y siguió haciéndolo tras {tries} intentos",
+        hint: "Espera un poco y vuelve a preguntar. Los límites se fijan en la cuenta del propio proveedor.",
+      },
+      redirected: {
+        text: "El proveedor respondió con una redirección a {location}, que el asistente no sigue nunca",
+        hint: "Usa la dirección a la que redirige, si es la correcta.",
+      },
+      rejected: {
+        text: "El proveedor rechazó la petición (HTTP {status}): {message}",
+        hint: "Sus propias palabras, arriba, dicen qué no aceptó. Un modelo que no está hecho para llamar a herramientas es una razón: la sonda dice si este las llama.",
+      },
+      reported_error: {
+        text: "El proveedor comunicó un error en mitad de su respuesta: {message}",
+      },
+      server_error: {
+        text: "El proveedor falló (HTTP {status}) y siguió fallando tras {tries} intentos: {message}",
+        hint: "Inténtalo más tarde. Si sigue igual, la página de estado del proveedor dirá por qué.",
+      },
+      timeout: {
+        text: "El proveedor no contestó en {seconds} segundos",
+        hint: "Inténtalo otra vez. Un modelo en una máquina pequeña puede tardar más que eso en leer una conversación larga: uno más pequeño o más rápido contesta antes.",
+      },
+      too_large: {
+        text: "La respuesta del proveedor pesa más de {megabytes} MB",
+        hint: "Pide menos, o elige otro modelo.",
+      },
+      unauthorized: {
+        text: "El proveedor rechazó la clave (HTTP {status}): {message}",
+        hint: "Revisa la clave en los ajustes del asistente y que tenga permiso para usar el modelo.",
+      },
+      unreachable: {
+        text: "No se pudo llegar al proveedor en {host}: {reason}",
+        hint: "Comprueba que la dirección y el puerto son correctos y que el servidor del modelo está en marcha.",
+      },
+      unresolved: {
+        text: "El nombre {host} no se resuelve en ninguna dirección",
+        hint: "Revisa que la dirección esté bien escrita y que el DNS de este servidor pueda resolverla.",
+      },
+    },
+    unavailable: {
+      account: {
+        text: "El asistente actúa en nombre de una persona, y esto no es una cuenta",
+        hint: "Entra con tu propia cuenta.",
+      },
+      off: {
+        text: "El asistente está apagado",
+        hint: "Quien tenga el permiso settings.manage puede encenderlo en los ajustes del asistente.",
+      },
+      permission: {
+        text: "Tu rol no permite usar el asistente",
+        hint: "Un administrador puede darte un rol que tenga assistant.use.",
+      },
+    },
+  },
   authdns: {
     check: {
       ds_dangling: {

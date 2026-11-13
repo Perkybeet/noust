@@ -896,6 +896,21 @@ NOT_OWNED: dict[str, str] = {
     "reached only through /api/auth/dashboards, which is open to every account and answers about "
     "the caller alone. It names no application or database: a widget's data is read through the "
     "routes of what it shows, each held to the caller's teams",
+    "assistant_settings": "the built-in assistant's provider, key and limits: the instance's, "
+    "reached only through /api/assistant/settings and the other routes of the assistant, all of "
+    "them the instance's (the assistant is the server's spending and the server's data flow, and "
+    "assistant.use is not in any team role)",
+    "assistant_conversations": "what a person said to the assistant: the account's own, read and "
+    "deleted through its author alone (every method of the conversation store takes the account "
+    "and answers a conversation that is not the caller's as one that does not exist). What the "
+    "assistant reads of an application it reads with a token bound to the author's teams, so a "
+    "transcript holds nothing the author could not read",
+    "assistant_messages": "the messages of a conversation of the assistant: reached only through "
+    "the conversation, which is its author's",
+    "assistant_usage": "what each step of the assistant cost: the instance's ledger, with no "
+    "application or database in it, read through /api/assistant/usage which is the instance's",
+    "assistant_actions": "the changes the assistant made for a person, counted for the limit per "
+    "hour: the instance's ledger, with the tool's name and no application",
 }
 
 #: Prefixes whose routes belong to what the tables above hold. None of them may be "open": a route

@@ -30,84 +30,25 @@ prompts tell the model to read them as such.
 from __future__ import annotations
 
 import json
-import re
-from collections.abc import Mapping
 from typing import Any
 
-from noust.core.audit.sanitize import secret_name
-from noust.core.config import REDACTED
-from noust.core.redact import scrubber_for
-from noust.core.secret_detection import redact_url_credentials
+from noust.core.scrubbing import MAX_DEPTH, REDACTED, hide_secrets, scrub_text
+
+__all__ = [
+    "CONFIRM_NEEDED",
+    "MAX_DEPTH",
+    "MAX_RESULT_CHARS",
+    "REDACTED",
+    "hide_secrets",
+    "limit",
+    "render",
+    "scrub_text",
+    "tail",
+]
 
 #: The most characters one tool result carries. Past it the end is cut and the
 #: model is told, because a megabyte of journal is not an answer.
 MAX_RESULT_CHARS = 60_000
-
-#: How deep a structure is walked.
-MAX_DEPTH = 12
-
-#: ``API_KEY=abc`` and ``password: abc`` in free text, as logs print them.
-_ASSIGNMENT = re.compile(
-    r"(?im)^(?P<head>[ \t]*(?:export[ \t]+)?[A-Za-z0-9_.\-]*"
-    r"(?:secret|token|passw(?:or)?d|passwd|api[_\-]?key|private[_\-]?key|credential|auth)"
-    r"[A-Za-z0-9_.\-]*[ \t]*[=:][ \t]*)(?P<value>\S[^\r\n]*)$"
-)
-#: A bearer token or a private key block, wherever it appears.
-_BEARER = re.compile(r"(?i)(bearer[ \t]+)[A-Za-z0-9._~+/=\-]{12,}")
-_PRIVATE_KEY = re.compile(
-    r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----", re.DOTALL
-)
-
-
-def scrub_text(text: str, domain: str | None = None) -> str:
-    """
-    Remove from a piece of text what must not reach a client.
-
-    Args:
-        text: Output of an application, a job or the server.
-        domain: The application it is about, whose own secret values are
-            known and removed wherever they appear.
-
-    Returns:
-        The text with known secret values, URL passwords, secret-looking
-        assignments, bearer tokens and private keys replaced.
-    """
-    cleaned = redact_url_credentials(text)
-    cleaned = _PRIVATE_KEY.sub(REDACTED, cleaned)
-    cleaned = _BEARER.sub(lambda match: f"{match.group(1)}{REDACTED}", cleaned)
-    cleaned = _ASSIGNMENT.sub(lambda match: f"{match.group('head')}{REDACTED}", cleaned)
-    return scrubber_for(domain).scrub(cleaned)
-
-
-def hide_secrets(value: Any, domain: str | None = None, depth: int = 0) -> Any:
-    """
-    Walk an answer and remove every secret from it.
-
-    Args:
-        value: Anything JSON can hold.
-        domain: The application the answer is about, if one.
-        depth: Nesting level, for the recursion.
-
-    Returns:
-        A copy in which the value of every secret-named key is the redaction
-        marker and every string is scrubbed.
-    """
-    if depth > MAX_DEPTH:
-        return REDACTED
-    if isinstance(value, str):
-        return scrub_text(value, domain)
-    if isinstance(value, Mapping):
-        cleaned: dict[str, Any] = {}
-        for key, item in value.items():
-            name = str(key)
-            if secret_name(name) and item not in (None, "", True, False):
-                cleaned[name] = REDACTED
-            else:
-                cleaned[name] = hide_secrets(item, domain, depth + 1)
-        return cleaned
-    if isinstance(value, (list, tuple)):
-        return [hide_secrets(item, domain, depth + 1) for item in value]
-    return value
 
 
 def limit(text: str, maximum: int = MAX_RESULT_CHARS) -> str:

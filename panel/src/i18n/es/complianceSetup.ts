@@ -312,6 +312,11 @@ export const complianceSetup: Catalog<typeof en> = {
       title: "Terminal en el servidor",
       summary: "Si Noust puede abrir una shell de root en el servidor desde el navegador.",
     },
+    assistant_flows: {
+      title: "Asistente: modelos de tu lado",
+      summary:
+        "El asistente solo se enciende con un modelo propio o con un proveedor declarado como flujo autorizado.",
+    },
     terminal_idle_minutes: {
       title: "Inactividad del terminal",
       summary: "Un terminal de la consola sin teclear nada durante este tiempo termina.",

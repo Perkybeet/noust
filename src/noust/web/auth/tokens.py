@@ -60,6 +60,8 @@ from noust.web.auth.constants import (
 from noust.web.auth.files import _file_stamp, _generation, write_private_file
 from noust.web.auth.payload import CredentialRefused, master_payload
 from noust.web.auth.records import (
+    ASSISTANT_CALLER,
+    CALLERS,
     ENS_TOKEN_EXCLUDED,
     LEGACY_TOKEN_CEILING,
     LEGACY_TOKEN_WINDOW_DAYS,
@@ -879,6 +881,7 @@ class TokenManager:
         bound: tuple[str, int] | None = None,
         issuer_permissions: frozenset[str] | None = None,
         preset: str | None = None,
+        caller: str | None = None,
     ) -> dict[str, Any]:
         """
         Issue a named, scoped API token.
@@ -921,6 +924,10 @@ class TokenManager:
                 that acts in sudo mode is a standing exemption from a fresh
                 proof, so only whoever governs accounts may hand one out, and
                 nobody hands one to themselves from a lesser role.
+            caller: Who the token is for: None or ``token`` for an ordinary one, and
+                ``assistant`` for the built-in assistant's, which is only for an account, is
+                never asked for sudo mode and is not issued by any route of the tokens API
+                (:mod:`noust.web.assistant.identity` is its one issuer).
 
         Returns:
             The record, including the one and only clear copy of the token
@@ -930,10 +937,22 @@ class TokenManager:
             SecurityError: When the name is empty or taken, the scope is not
                 a scope, is ``fleet`` (see :meth:`create_fleet_token`), the
                 expiry is not positive or too long, a permission or network
-                is not valid, the owner does not hold a permission asked, or a
+                is not valid, the owner does not hold a permission asked, a
                 token is bound without an owner or to a scope its owner does
-                not reach.
+                not reach, or the caller is not one there is, or is the
+                assistant with ``allow_elevated`` or without an owner.
         """
+        if caller is not None and caller not in CALLERS:
+            raise SecurityError(
+                f"Unknown caller for an API token: {caller!r}",
+                details=f"Use one of: {', '.join(CALLERS)}, or none.",
+            )
+        if caller == ASSISTANT_CALLER and (allow_elevated or owner is None):
+            raise SecurityError(
+                "The assistant's token acts for a person and never in sudo mode",
+                details="Issue it for an account, without allow_elevated: what needs a "
+                "person's confirmation is done by the person, in the console.",
+            )
         if scope == FLEET_SCOPE:
             # The chokepoint for the one scope that may speak for somebody
             # else: POST /api/auth/tokens and 'noust token create' both land
@@ -1006,25 +1025,7 @@ class TokenManager:
             # A token never holds more than its owner does anywhere: the role's
             # permissions and what the owner's team roles add - and, bound to a
             # scope, only what the owner holds there.
-            owned = team_fields(
-                owner.id,
-                instance_role_of(owner),
-                permissions_of_account(owner, self.accounts.store),
-                self.accounts.store,
-            )
-            if bound is not None:
-                kind, bound_id = bound
-                if kind not in BOUND_KINDS or not bound_reach(
-                    owned, kind, bound_id, self.accounts.store
-                ):
-                    raise SecurityError(
-                        f"{owner.username!r} does not reach that {kind}",
-                        details=(
-                            "A token bound to a scope can only be issued by someone who has a "
-                            "role there: give the account one first ('noust access grant')."
-                        ),
-                    )
-                owned = {**owned, **bound_fields(owned, kind, bound_id, self.accounts.store)}
+            owned = self._owned(owner, bound)
             held = owned["permissions"]
             if permissions is None:
                 granted = TOKEN_SCOPES[scope] & held
@@ -1079,7 +1080,62 @@ class TokenManager:
             created_by=created_by,
             bound_kind=bound[0] if bound is not None else None,
             bound_id=bound[1] if bound is not None else None,
+            caller=None if caller == "token" else caller,
         )
+
+    def _owned(self, owner: Account, bound: tuple[str, int] | None) -> dict[str, Any]:
+        """
+        What an account holds, as a token it owns may hold at most.
+
+        Args:
+            owner: The account.
+            bound: ``(kind, id)`` of a team, project or environment the token is bound to.
+
+        Returns:
+            The account's permissions and teams: the role's permissions and what its team roles
+            add and, bound to a scope, only what it holds there.
+
+        Raises:
+            SecurityError: The account does not reach the scope it is bound to.
+        """
+        owned = team_fields(
+            owner.id,
+            instance_role_of(owner),
+            permissions_of_account(owner, self.accounts.store),
+            self.accounts.store,
+        )
+        if bound is not None:
+            kind, bound_id = bound
+            if kind not in BOUND_KINDS or not bound_reach(
+                owned, kind, bound_id, self.accounts.store
+            ):
+                raise SecurityError(
+                    f"{owner.username!r} does not reach that {kind}",
+                    details=(
+                        "A token bound to a scope can only be issued by someone who has a "
+                        "role there: give the account one first ('noust access grant')."
+                    ),
+                )
+            owned = {**owned, **bound_fields(owned, kind, bound_id, self.accounts.store)}
+        return owned
+
+    def permissions_held_by(
+        self, owner: Account, bound: tuple[str, int] | None = None
+    ) -> frozenset[str]:
+        """
+        Say what a token issued for an account may hold at most.
+
+        Args:
+            owner: The account.
+            bound: The scope the token would be bound to, if any.
+
+        Returns:
+            Every permission the account holds (there, when bound).
+
+        Raises:
+            SecurityError: The account does not reach the scope it would be bound to.
+        """
+        return frozenset(self._owned(owner, bound)["permissions"])
 
     def create_fleet_token(self, name: str) -> dict[str, Any]:
         """
@@ -1113,6 +1169,7 @@ class TokenManager:
         created_by: str | None = None,
         bound_kind: str | None = None,
         bound_id: int | None = None,
+        caller: str | None = None,
     ) -> dict[str, Any]:
         """
         Mint and store an API token whose scope the caller already vetted.
@@ -1128,6 +1185,7 @@ class TokenManager:
             created_by: Who issued it.
             bound_kind: The kind of scope it is bound to, already checked.
             bound_id: That scope's row.
+            caller: ``assistant`` for the built-in assistant's token, already checked.
 
         Returns:
             The record, including the one and only clear copy of the token.
@@ -1165,6 +1223,7 @@ class TokenManager:
                 created_by=created_by,
                 bound_kind=bound_kind,
                 bound_id=bound_id,
+                caller=caller,
             )
         except sqlite3.IntegrityError as exc:
             raise SecurityError(
@@ -1188,6 +1247,7 @@ class TokenManager:
             "allow_elevated": allow_elevated,
             "bound_kind": bound_kind,
             "bound_id": bound_id,
+            "caller": caller,
         }
 
     def list_api_tokens(self, owner_account_id: int | None = None) -> list[dict[str, Any]]:
@@ -1377,6 +1437,11 @@ class TokenManager:
         }
         if record["scope"] != FLEET_SCOPE:
             payload.update(self._token_principal(record, client_ip))
+            # Who the token is for: read by whatever decides by "who calls" (an approval rule, the
+            # audit trail). A token of the registry that never had the column is an ordinary one.
+            payload["caller"] = (
+                ASSISTANT_CALLER if record.get("caller") == ASSISTANT_CALLER else "token"
+            )
 
         last_used = record["last_used_at"]
         recorded = record.get("legacy_prefix_used_at")

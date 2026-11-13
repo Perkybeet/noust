@@ -38,6 +38,7 @@ from noust.core.accounts.model import AccountError
 from noust.core.accounts.passkeys import PasskeyManager
 from noust.core.token_presets import TOKEN_PRESETS
 from noust.core.totp import provisioning_uri
+from noust.web.api.assistant_session import AssistantSession, session_assistant
 from noust.web.api.auth_accounts import AccountInfo
 from noust.web.api.auth_accounts import router as accounts_router
 from noust.web.api.central import SessionCentral, session_central
@@ -323,6 +324,9 @@ class SessionInfo(BaseModel):
         central: This server's role and whether its sealed secrets are
             locked, so the console hides what a hub does not do and offers
             the unlock form; None for an anonymous caller.
+        assistant: Whether the built-in assistant is on and this caller may use it, with the
+            reason when not, so the console draws nothing when there is nothing to offer; None
+            for an anonymous caller.
         login_label: What the operator chose to show on the sign-in page.
         account: The account signed in, or None.
         role: Its role, or the role a central forwarded.
@@ -359,6 +363,7 @@ class SessionInfo(BaseModel):
     csrf_header: str = CSRF_HEADER_NAME
     csrf_cookie: str = CSRF_COOKIE_NAME
     central: SessionCentral | None = None
+    assistant: AssistantSession | None = None
     login_label: str | None = None
     account: AccountInfo | None = None
     role: str | None = None
@@ -1236,6 +1241,7 @@ def get_session_info(request: Request) -> SessionInfo:
         hostname=socket.gethostname(),
         version=__version__,
         central=session_central(),
+        assistant=session_assistant(session),
         login_label=policy.login_label or None,
         account=AccountInfo.of(account) if account is not None else None,
         role=session.get("role"),

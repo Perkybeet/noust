@@ -73,6 +73,10 @@ class Permission:
     TEAMS_READ = "teams.read"
     TEAMS_MANAGE = "teams.manage"
 
+    # The built-in assistant (4.3, item 171): talk to it and see what it cost. Its spending and its
+    # flow of data are the instance's, so it is in no team role.
+    ASSISTANT_USE = "assistant.use"
+
 
 #: Every permission there is.
 ALL_PERMISSIONS: frozenset[str] = frozenset(
@@ -130,6 +134,10 @@ DESCRIPTIONS: dict[str, str] = {
     Permission.COMPLIANCE_READ: "Read the ENS compliance check and its evidence report",
     Permission.TEAMS_READ: "See the teams, projects and environments one belongs to",
     Permission.TEAMS_MANAGE: "Create and delete teams, projects and environments, and their members",
+    Permission.ASSISTANT_USE: (
+        "Talk to the built-in assistant, which acts with a token of its own that holds at most "
+        "what you hold, and see what it cost"
+    ),
 }
 
 __all__ = ["ALL_PERMISSIONS", "DESCRIPTIONS", "PUBLIC", "Permission"]

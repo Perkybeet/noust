@@ -179,11 +179,13 @@ Every configuration key and the value it has until you change it. Set one with `
 | `notifications.language` | `"en"` |
 | `notifications.muted_until` | `""` |
 | `releases.bundle_max_bytes` | `8589934592` |
+| `retention.assistant_days` | `30` |
 | `retention.deployments_days` | `365` |
 | `retention.jobs_days` | `90` |
 | `retention.sessions_days` | `30` |
 | `retention.terminal_days` | `90` |
 | `security.allow_private_hosts` | `[]` |
+| `security.assistant_flows` | `false` |
 | `security.backup_offsite` | `false` |
 | `security.change_reasons` | `false` |
 | `security.console_exposure` | `"allowed"` |

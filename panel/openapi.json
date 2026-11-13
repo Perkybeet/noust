@@ -4476,6 +4476,400 @@
         "title": "AppsFigure",
         "type": "object"
       },
+      "AssistantReason": {
+        "description": "Why the assistant is not available to this caller, as a sentence with a code.\n\nAttributes:\n    text: The sentence in English, always sent.\n    hint: How to fix it in English, when the sentence has a fix.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "params": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Params",
+            "type": "object"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "text"
+        ],
+        "title": "AssistantReason",
+        "type": "object"
+      },
+      "AssistantSession": {
+        "description": "The assistant, as the session shows it.\n\nAttributes:\n    enabled: The assistant is on.\n    can_use: It is on and this caller may use it: draw it.\n    tools: The model was found to call tools, so it may investigate; False means it only\n        explains what it is shown. Meaningless unless ``enabled``.\n    reason: Why ``can_use`` is False, when it is.\n    model: The model it talks to, for the label that says it is an AI and which one. Only for\n        a caller who may use it.\n    location: Where what is said to it ends up: ``machine``, ``network``, ``eu``, ``outside``\n        or ``unknown``. Only for a caller who may use it.\n    mask_personal: Emails and addresses are disguised before they are sent. Only for a caller\n        who may use it.",
+        "properties": {
+          "can_use": {
+            "default": false,
+            "title": "Can Use",
+            "type": "boolean"
+          },
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "mask_personal": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mask Personal"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssistantReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tools": {
+            "default": false,
+            "title": "Tools",
+            "type": "boolean"
+          }
+        },
+        "title": "AssistantSession",
+        "type": "object"
+      },
+      "AssistantSettingsIn": {
+        "description": "What to change; what is left out stays.\n\nAttributes:\n    enabled: True turns the assistant on (after a probe found the provider answering), False\n        turns it off and revokes its tokens.\n    preset: A provider preset (``GET /api/assistant/presets``): it fills the address.\n    base_url: The provider's address, up to its version.\n    model: The model's name.\n    api_key: The key; an empty text takes it away. Sealed when stored, never given back.\n    location: Where the data ends up, for a public provider the operator has a contract with.\n    flow_reason: Why a provider outside is an authorized flow.\n    mask_personal: Whether emails and addresses are disguised; only a provider of one's own\n        may have it off.\n    limits: Limits to change, by name; the others stay.\n    prices: The whole price table.\n    currency: What the prices are in.\n    allow_private_host: Consent that this server calls the provider's host though it is on\n        this machine or the network: the host is listed in ``security.allow_private_hosts``.\n    probe: Probe the provider after saving a change to it (the default).",
+        "properties": {
+          "allow_private_host": {
+            "default": false,
+            "title": "Allow Private Host",
+            "type": "boolean"
+          },
+          "api_key": {
+            "anyOf": [
+              {
+                "maxLength": 600,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key"
+          },
+          "base_url": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Url"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "maxLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "flow_reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flow Reason"
+          },
+          "limits": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limits"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "maxLength": 20,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "mask_personal": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mask Personal"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "preset": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preset"
+          },
+          "prices": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/PriceModel"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prices"
+          },
+          "probe": {
+            "default": true,
+            "title": "Probe",
+            "type": "boolean"
+          }
+        },
+        "title": "AssistantSettingsIn",
+        "type": "object"
+      },
+      "AssistantSettingsOut": {
+        "description": "What is chosen for the assistant. The key is never in it.\n\nAttributes:\n    enabled: The assistant is on.\n    configured: A provider and a model were chosen.\n    preset: The provider preset it was chosen from, or empty.\n    base_url: The provider's address.\n    model: The model's name.\n    has_key: A key is kept (sealed); it is never given back.\n    key_set_at: When the key was set.\n    location: Where the data ends up: ``machine``, ``network``, ``eu``, ``outside`` or\n        ``unknown`` (the provider's documentation does not say).\n    flow_reason: Why a provider outside is an authorized flow, under the ENS profile.\n    mask_personal: Emails and addresses are disguised with markers before they are sent: always\n        for a provider that is not on this machine or the operator's network.\n    limits: The ceilings, each always a number.\n    prices: What each model costs.\n    currency: What the prices and the spending limits are in.\n    probe: What the probe last found; None when it has not run since the provider changed.\n    probed_at: When.\n    calls_tools: The model was found to call tools, so it may investigate.\n    updated_at: When the settings last changed.\n    updated_by: Who changed them.",
+        "properties": {
+          "base_url": {
+            "title": "Base Url",
+            "type": "string"
+          },
+          "calls_tools": {
+            "title": "Calls Tools",
+            "type": "boolean"
+          },
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "flow_reason": {
+            "title": "Flow Reason",
+            "type": "string"
+          },
+          "has_key": {
+            "title": "Has Key",
+            "type": "boolean"
+          },
+          "key_set_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Set At"
+          },
+          "limits": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Limits",
+            "type": "object"
+          },
+          "location": {
+            "title": "Location",
+            "type": "string"
+          },
+          "mask_personal": {
+            "title": "Mask Personal",
+            "type": "boolean"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "preset": {
+            "title": "Preset",
+            "type": "string"
+          },
+          "prices": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PriceModel"
+            },
+            "title": "Prices",
+            "type": "object"
+          },
+          "probe": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProbeOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "probed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Probed At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "updated_by": {
+            "title": "Updated By",
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "configured",
+          "preset",
+          "base_url",
+          "model",
+          "has_key",
+          "location",
+          "flow_reason",
+          "mask_personal",
+          "limits",
+          "prices",
+          "currency",
+          "calls_tools",
+          "updated_by"
+        ],
+        "title": "AssistantSettingsOut",
+        "type": "object"
+      },
       "AttentionItem": {
         "description": "Something that needs an operator.\n\nAttributes:\n    id: Stable across refreshes.\n    subject: What it is about: ``{\"kind\": \"app\", \"domain\": ...}``,\n        ``{\"kind\": \"certificate\", \"domain\": ...}``, ``{\"kind\": \"unit\",\n        \"name\": ...}``, ``{\"kind\": \"monitor\", \"process\": ..., \"pid\": ...}``,\n        ``{\"kind\": \"alert\", \"rule\": ..., \"subject\": ...}``,\n        ``{\"kind\": \"probe\", \"name\": ...}``, ``{\"kind\": \"machine\", \"fact\": ...}`` or\n        ``{\"kind\": \"finding\", \"check\": ..., \"group\": ...}``.\n    title: A domain, a unit, a process, a rule (and the application it fires for).\n    origin: Where the row comes from: that of the reason that made it serious.\n    severity: The worst of its reasons.\n    reasons: Each reason, with its own severity.",
         "properties": {
@@ -13913,6 +14307,72 @@
         "title": "ControlInfo",
         "type": "object"
       },
+      "ConversationDetailOut": {
+        "description": "A conversation with its messages.\n\nAttributes:\n    messages: In order.",
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/MessageOut"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "created_at",
+          "updated_at",
+          "messages"
+        ],
+        "title": "ConversationDetailOut",
+        "type": "object"
+      },
+      "ConversationOut": {
+        "description": "One conversation, without its messages.\n\nAttributes:\n    id: Its identifier.\n    title: What it is called.\n    created_at: When it began (UTC).\n    updated_at: When it was last used.",
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ConversationOut",
+        "type": "object"
+      },
       "ConversionRequest": {
         "description": "The ``code`` and ``state`` GitHub's callback carried.",
         "properties": {
@@ -16976,27 +17436,6 @@
           "key"
         ],
         "title": "DeleteRowRequest",
-        "type": "object"
-      },
-      "DeletedOut": {
-        "description": "The outcome of deleting a machine.\n\nAttributes:\n    node: The server's name.\n    warnings: What the operator should know.",
-        "properties": {
-          "node": {
-            "title": "Node",
-            "type": "string"
-          },
-          "warnings": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Warnings",
-            "type": "array"
-          }
-        },
-        "required": [
-          "node"
-        ],
-        "title": "DeletedOut",
         "type": "object"
       },
       "DeletedResponse": {
@@ -29744,7 +30183,7 @@
           },
           "warnings": {
             "items": {
-              "$ref": "#/components/schemas/SentenceOut"
+              "$ref": "#/components/schemas/noust__web__api__integrations__SentenceOut"
             },
             "title": "Warnings",
             "type": "array"
@@ -29873,7 +30312,7 @@
           "warnings": {
             "default": [],
             "items": {
-              "$ref": "#/components/schemas/SentenceOut"
+              "$ref": "#/components/schemas/noust__web__api__integrations__SentenceOut"
             },
             "title": "Warnings",
             "type": "array"
@@ -36511,7 +36950,7 @@
           "warnings": {
             "default": [],
             "items": {
-              "$ref": "#/components/schemas/SentenceOut"
+              "$ref": "#/components/schemas/noust__web__api__integrations__SentenceOut"
             },
             "title": "Warnings",
             "type": "array"
@@ -37108,6 +37547,63 @@
           "dry_run"
         ],
         "title": "MergeAppEnvResponse",
+        "type": "object"
+      },
+      "MessageOut": {
+        "description": "One message of a conversation, as its author reads it.\n\nAttributes:\n    seq: Its place, from 1.\n    role: ``user``, ``assistant`` or ``tool``.\n    content: The text, with the disguised emails and addresses put back.\n    tool_calls: For an assistant message that called tools: ``id``, ``name`` and ``arguments``.\n    tool_call_id: For a tool message, the call it answers.\n    created_at: When it was written.",
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "tool_call_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Call Id"
+          },
+          "tool_calls": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Calls"
+          }
+        },
+        "required": [
+          "seq",
+          "role",
+          "content",
+          "created_at"
+        ],
+        "title": "MessageOut",
         "type": "object"
       },
       "MessageResponse": {
@@ -40001,6 +40497,24 @@
           "count"
         ],
         "title": "ObservationListResponse",
+        "type": "object"
+      },
+      "OffOut": {
+        "description": "The result of turning the assistant off.\n\nAttributes:\n    revoked: How many tokens it held, all revoked.\n    settings: The settings as they are now.",
+        "properties": {
+          "revoked": {
+            "title": "Revoked",
+            "type": "integer"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/AssistantSettingsOut"
+          }
+        },
+        "required": [
+          "revoked",
+          "settings"
+        ],
+        "title": "OffOut",
         "type": "object"
       },
       "Offer": {
@@ -43056,6 +43570,78 @@
         "title": "PrepareRequest",
         "type": "object"
       },
+      "PresetOut": {
+        "description": "A provider by name.\n\nAttributes:\n    id: Its stable name.\n    name: What it is called.\n    base_url: Its address, read on its documentation.\n    needs_key: Whether it asks for a key.\n    location: Where the data ends up, as its documentation says.\n    docs: The page the address was read from.",
+        "properties": {
+          "base_url": {
+            "title": "Base Url",
+            "type": "string"
+          },
+          "docs": {
+            "title": "Docs",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "location": {
+            "title": "Location",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "needs_key": {
+            "title": "Needs Key",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "base_url",
+          "needs_key",
+          "location",
+          "docs"
+        ],
+        "title": "PresetOut",
+        "type": "object"
+      },
+      "PresetsOut": {
+        "description": "The providers on offer.\n\nAttributes:\n    presets: Them.\n    locations: Every place the data may end up.\n    limits: The default limits.",
+        "properties": {
+          "limits": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Limits",
+            "type": "object"
+          },
+          "locations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Locations",
+            "type": "array"
+          },
+          "presets": {
+            "items": {
+              "$ref": "#/components/schemas/PresetOut"
+            },
+            "title": "Presets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "presets",
+          "locations",
+          "limits"
+        ],
+        "title": "PresetsOut",
+        "type": "object"
+      },
       "PreviewBody": {
         "description": "Body of ``POST /api/fleet/cloud/scripts/preview``.\n\nAttributes:\n    scripts: Library entries to add, in order.",
         "properties": {
@@ -43634,6 +44220,25 @@
         "title": "PreviewsResponse",
         "type": "object"
       },
+      "PriceModel": {
+        "description": "What a model costs per million tokens, in the currency of the settings.\n\nAttributes:\n    input_per_million: What a million tokens sent cost.\n    output_per_million: What a million tokens said cost.",
+        "properties": {
+          "input_per_million": {
+            "title": "Input Per Million",
+            "type": "number"
+          },
+          "output_per_million": {
+            "title": "Output Per Million",
+            "type": "number"
+          }
+        },
+        "required": [
+          "input_per_million",
+          "output_per_million"
+        ],
+        "title": "PriceModel",
+        "type": "object"
+      },
       "PrivateModel": {
         "description": "Whether an application answers a private network only.\n\nAttributes:\n    app: The application's primary domain.\n    private: Its allowed addresses are not empty and all of them are private ranges.\n    networks: Networks this server is on whose ranges are all allowed.\n    allow_ips: The addresses and networks allowed.\n    public_ranges: Allowed entries that are not private.\n    applicable: Whether the application's site takes a policy.\n    reason: Why not.\n    available: The networks it could be published to.\n    tailnet_name: What the tailnet calls this server.\n    tailnet_certificate: The Tailscale certificate the application is served with.",
         "properties": {
@@ -43997,6 +44602,56 @@
           "uptime"
         ],
         "title": "ProbeModel",
+        "type": "object"
+      },
+      "ProbeOut": {
+        "description": "What the probe found of a provider.\n\nAttributes:\n    reachable: The provider answered something.\n    model_found: The model is in the provider's list; None when it gives no list.\n    tools: The model made the test call to a tool well formed; None when it was not tried.\n        When it is not True the assistant only explains: it neither investigates nor acts.\n    models: The models the provider lists.\n    sentences: What it found, in order.",
+        "properties": {
+          "model_found": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Found"
+          },
+          "models": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "reachable": {
+            "title": "Reachable",
+            "type": "boolean"
+          },
+          "sentences": {
+            "items": {
+              "$ref": "#/components/schemas/noust__web__api__assistant__SentenceOut"
+            },
+            "title": "Sentences",
+            "type": "array"
+          },
+          "tools": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tools"
+          }
+        },
+        "required": [
+          "reachable"
+        ],
+        "title": "ProbeOut",
         "type": "object"
       },
       "ProbeResult": {
@@ -55800,37 +56455,6 @@
         "title": "SelfUpdateOut",
         "type": "object"
       },
-      "SentenceOut": {
-        "description": "Something the operator should know, as a sentence with a code.\n\nAttributes:\n    text: The sentence in English.\n    hint: How to fix it.\n    coded: The same sentence as ``{code, params}``, for the console to translate.",
-        "properties": {
-          "coded": {
-            "additionalProperties": true,
-            "title": "Coded",
-            "type": "object"
-          },
-          "hint": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Hint"
-          },
-          "text": {
-            "title": "Text",
-            "type": "string"
-          }
-        },
-        "required": [
-          "text",
-          "coded"
-        ],
-        "title": "SentenceOut",
-        "type": "object"
-      },
       "SeparationConflict": {
         "description": "A person holding roles that should not go together.\n\nAttributes:\n    person_ref: The person.\n    accounts: Their accounts, with the role of each.\n    exception: Whether a documented exception covers them.",
         "properties": {
@@ -57123,7 +57747,7 @@
         "type": "object"
       },
       "SessionInfo": {
-        "description": "Bootstrap information the console reads before it knows anything else.\n\nAnswered for an anonymous caller too, with ``authenticated=False``, so the\nconsole can decide between the sign-in screen and the shell from one\nrequest instead of treating a 401 as \"maybe not logged in yet\". An\nanonymous caller learns nothing about the server (ENS op.acc.6.7, G10):\nno hostname, no version, not whether a second factor is on - only the\nlabel the operator chose for the sign-in page.\n\nAttributes:\n    authenticated: Whether a usable credential was presented.\n    scope: The credential's 3.0 scope, or None when unauthenticated.\n    expires_at: Session expiry, ISO 8601, or None.\n    elevated_until: End of the sudo-mode confirmation window, ISO 8601,\n        or None when the session is not currently elevated.\n    totp_enabled: Whether this credential's sign-in asks for a second\n        factor: the account's own authenticator, or the console's for the\n        master token. False for an anonymous caller.\n    hostname: This machine's hostname, so an operator with several panels\n        open can tell them apart; the operator's sign-in label (empty by\n        default) for an anonymous caller.\n    version: The installed Noust version; empty for an anonymous caller.\n    csrf_header: Header name a mutation must echo the CSRF cookie in.\n    csrf_cookie: Name of the readable CSRF cookie.\n    central: This server's role and whether its sealed secrets are\n        locked, so the console hides what a hub does not do and offers\n        the unlock form; None for an anonymous caller.\n    login_label: What the operator chose to show on the sign-in page.\n    account: The account signed in, or None.\n    role: Its role, or the role a central forwarded.\n    roles: Every role the account holds, in order; empty for a credential that is no account.\n    grant: For the master token, how it holds the console.\n    permissions: Everything the credential may do.\n    mfa_required: The account must enrol an authenticator first.\n    notice: The usage notice to accept first, when one is pending.\n    accounts_exist: Whether this server has accounts; while it has none\n        the console offers to create the first.\n    security_profile: ``standard`` or ``ens-medium``.\n    idle_minutes: How long the session may go unused.\n    elevation_factors: What the credential can confirm sudo mode with:\n        ``totp``, ``passkey`` and ``backup_code`` for an account, those it\n        has; for the master token ``totp`` and ``passkey`` when it has them,\n        ``master_token`` while it has neither. Empty for an anonymous\n        caller and for an account with no second factor, which cannot\n        enter sudo mode.\n    elevation_requires_password: Whether confirming with a code also asks\n        for the account's password (``auth.sudo.require_password``, always\n        under ENS). A passkey confirms on its own either way.\n    elevation_idle_minutes: How long sudo mode stays open after the last\n        elevated action.\n    elevation_max_minutes: The longest it lasts from the confirmation.",
+        "description": "Bootstrap information the console reads before it knows anything else.\n\nAnswered for an anonymous caller too, with ``authenticated=False``, so the\nconsole can decide between the sign-in screen and the shell from one\nrequest instead of treating a 401 as \"maybe not logged in yet\". An\nanonymous caller learns nothing about the server (ENS op.acc.6.7, G10):\nno hostname, no version, not whether a second factor is on - only the\nlabel the operator chose for the sign-in page.\n\nAttributes:\n    authenticated: Whether a usable credential was presented.\n    scope: The credential's 3.0 scope, or None when unauthenticated.\n    expires_at: Session expiry, ISO 8601, or None.\n    elevated_until: End of the sudo-mode confirmation window, ISO 8601,\n        or None when the session is not currently elevated.\n    totp_enabled: Whether this credential's sign-in asks for a second\n        factor: the account's own authenticator, or the console's for the\n        master token. False for an anonymous caller.\n    hostname: This machine's hostname, so an operator with several panels\n        open can tell them apart; the operator's sign-in label (empty by\n        default) for an anonymous caller.\n    version: The installed Noust version; empty for an anonymous caller.\n    csrf_header: Header name a mutation must echo the CSRF cookie in.\n    csrf_cookie: Name of the readable CSRF cookie.\n    central: This server's role and whether its sealed secrets are\n        locked, so the console hides what a hub does not do and offers\n        the unlock form; None for an anonymous caller.\n    assistant: Whether the built-in assistant is on and this caller may use it, with the\n        reason when not, so the console draws nothing when there is nothing to offer; None\n        for an anonymous caller.\n    login_label: What the operator chose to show on the sign-in page.\n    account: The account signed in, or None.\n    role: Its role, or the role a central forwarded.\n    roles: Every role the account holds, in order; empty for a credential that is no account.\n    grant: For the master token, how it holds the console.\n    permissions: Everything the credential may do.\n    mfa_required: The account must enrol an authenticator first.\n    notice: The usage notice to accept first, when one is pending.\n    accounts_exist: Whether this server has accounts; while it has none\n        the console offers to create the first.\n    security_profile: ``standard`` or ``ens-medium``.\n    idle_minutes: How long the session may go unused.\n    elevation_factors: What the credential can confirm sudo mode with:\n        ``totp``, ``passkey`` and ``backup_code`` for an account, those it\n        has; for the master token ``totp`` and ``passkey`` when it has them,\n        ``master_token`` while it has neither. Empty for an anonymous\n        caller and for an account with no second factor, which cannot\n        enter sudo mode.\n    elevation_requires_password: Whether confirming with a code also asks\n        for the account's password (``auth.sudo.require_password``, always\n        under ENS). A passkey confirms on its own either way.\n    elevation_idle_minutes: How long sudo mode stays open after the last\n        elevated action.\n    elevation_max_minutes: The longest it lasts from the confirmation.",
         "properties": {
           "account": {
             "anyOf": [
@@ -57145,6 +57769,16 @@
               }
             ],
             "title": "Accounts Exist"
+          },
+          "assistant": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssistantSession"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "authenticated": {
             "title": "Authenticated",
@@ -65321,6 +65955,45 @@
         "title": "ToolInfo",
         "type": "object"
       },
+      "TotalsOut": {
+        "description": "What a stretch of conversation used.\n\nAttributes:\n    steps: Requests to the provider.\n    prompt_tokens: Tokens sent.\n    completion_tokens: Tokens said.\n    spend: The cost of the steps that have a price.\n    unpriced_steps: Steps whose model had no price, which spend leaves out.\n    estimated_steps: Steps whose tokens are an estimate.",
+        "properties": {
+          "completion_tokens": {
+            "title": "Completion Tokens",
+            "type": "integer"
+          },
+          "estimated_steps": {
+            "title": "Estimated Steps",
+            "type": "integer"
+          },
+          "prompt_tokens": {
+            "title": "Prompt Tokens",
+            "type": "integer"
+          },
+          "spend": {
+            "title": "Spend",
+            "type": "number"
+          },
+          "steps": {
+            "title": "Steps",
+            "type": "integer"
+          },
+          "unpriced_steps": {
+            "title": "Unpriced Steps",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "steps",
+          "prompt_tokens",
+          "completion_tokens",
+          "spend",
+          "unpriced_steps",
+          "estimated_steps"
+        ],
+        "title": "TotalsOut",
+        "type": "object"
+      },
       "TrafficModel": {
         "description": "Whether requests are being counted from the access log.\n\nAttributes:\n    available: True when they are being recorded now.\n    log: The access log they are read from.\n    reason: Why not, when the site should have one.",
         "properties": {
@@ -68438,6 +69111,73 @@
           "good"
         ],
         "title": "UptimeModel",
+        "type": "object"
+      },
+      "UsageOut": {
+        "description": "What was used, and the limits it runs under.\n\nAttributes:\n    conversation: One conversation's totals, when one was asked for and is the caller's.\n    month: The calendar month's totals, everyone's together.\n    actions_last_hour: The changes the assistant made for the caller in the last hour.\n    limits: The limits in force.\n    currency: What spending is in.\n    month_start: The first moment of the month counted (UTC).\n    priced_models: The models that have a price: for any other, spending is not limited.\n    notes: What to know about the numbers (no price for the model, an estimate).",
+        "properties": {
+          "actions_last_hour": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actions Last Hour"
+          },
+          "conversation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TotalsOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "limits": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Limits",
+            "type": "object"
+          },
+          "month": {
+            "$ref": "#/components/schemas/TotalsOut"
+          },
+          "month_start": {
+            "title": "Month Start",
+            "type": "string"
+          },
+          "notes": {
+            "items": {
+              "$ref": "#/components/schemas/AssistantReason"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "priced_models": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Priced Models",
+            "type": "array"
+          }
+        },
+        "required": [
+          "month",
+          "limits",
+          "currency",
+          "month_start",
+          "priced_models"
+        ],
+        "title": "UsageOut",
         "type": "object"
       },
       "UsageResponse": {
@@ -72015,6 +72755,70 @@
         "title": "MigrateRequest",
         "type": "object"
       },
+      "noust__web__api__assistant__DeletedOut": {
+        "description": "The result of deleting a conversation.\n\nAttributes:\n    deleted: Whether it was deleted.",
+        "properties": {
+          "deleted": {
+            "title": "Deleted",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "deleted"
+        ],
+        "title": "DeletedOut",
+        "type": "object"
+      },
+      "noust__web__api__assistant__SentenceOut": {
+        "description": "One thing the probe found, as a sentence with a code.\n\nAttributes:\n    text: The sentence in English, always sent.\n    hint: How to fix it in English, when the sentence has a fix.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "params": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Params",
+            "type": "object"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "text"
+        ],
+        "title": "SentenceOut",
+        "type": "object"
+      },
       "noust__web__api__audit__CatalogResponse": {
         "description": "Response for ``GET /api/audit/events``.\n\nAttributes:\n    categories: Every category, in display order.\n    events: Every event.",
         "properties": {
@@ -72315,6 +73119,27 @@
           "trusted"
         ],
         "title": "AuthorityModel",
+        "type": "object"
+      },
+      "noust__web__api__cloud__DeletedOut": {
+        "description": "The outcome of deleting a machine.\n\nAttributes:\n    node: The server's name.\n    warnings: What the operator should know.",
+        "properties": {
+          "node": {
+            "title": "Node",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "node"
+        ],
+        "title": "DeletedOut",
         "type": "object"
       },
       "noust__web__api__cloud__MachineOut": {
@@ -73888,6 +74713,37 @@
           "removed"
         ],
         "title": "RemovalOut",
+        "type": "object"
+      },
+      "noust__web__api__integrations__SentenceOut": {
+        "description": "Something the operator should know, as a sentence with a code.\n\nAttributes:\n    text: The sentence in English.\n    hint: How to fix it.\n    coded: The same sentence as ``{code, params}``, for the console to translate.",
+        "properties": {
+          "coded": {
+            "additionalProperties": true,
+            "title": "Coded",
+            "type": "object"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "coded"
+        ],
+        "title": "SentenceOut",
         "type": "object"
       },
       "noust__web__api__internal_ca__AuthorityModel": {
@@ -88314,6 +89170,307 @@
         "x-noust-requires-elevation": true
       }
     },
+    "/api/assistant/conversations": {
+      "get": {
+        "description": "List the caller's own conversations with the assistant, the latest first.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Them. Nobody else's is ever in the list.",
+        "operationId": "list_conversations_api_assistant_conversations_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ConversationOut"
+                  },
+                  "title": "Response List Conversations Api Assistant Conversations Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Conversations",
+        "tags": [
+          "Assistant"
+        ],
+        "x-noust-permission": "assistant.use"
+      }
+    },
+    "/api/assistant/conversations/{conversation_id}": {
+      "delete": {
+        "description": "Delete one of the caller's conversations, and take back the token it acted with.\n\nWhat it cost stays counted: deleting it does not give the month's spending back.\n\nArgs:\n    conversation_id: Its identifier.\n    session: The authenticated session.\n\nReturns:\n    Whether it was deleted; False for one that does not exist or is another person's.",
+        "operationId": "delete_conversation_api_assistant_conversations__conversation_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__assistant__DeletedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Conversation",
+        "tags": [
+          "Assistant"
+        ],
+        "x-noust-permission": "assistant.use"
+      },
+      "get": {
+        "description": "Read one of the caller's conversations.\n\nArgs:\n    conversation_id: Its identifier.\n    session: The authenticated session.\n\nReturns:\n    The conversation with its messages, the disguised emails and addresses put back.\n\nRaises:\n    ConversationNotFound: There is none, or it is another person's (the same answer).",
+        "operationId": "get_conversation_api_assistant_conversations__conversation_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationDetailOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Conversation",
+        "tags": [
+          "Assistant"
+        ],
+        "x-noust-permission": "assistant.use"
+      }
+    },
+    "/api/assistant/off": {
+      "post": {
+        "description": "Turn the assistant off and revoke every token it holds, at once, in sudo mode.\n\nWhat a conversation in progress tries next fails with the sentence ``assistant.off``.\n\nArgs:\n    session: The authenticated, elevated session.\n\nReturns:\n    How many tokens were revoked, and the settings as they are now.",
+        "operationId": "turn_off_api_assistant_off_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OffOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Turn Off",
+        "tags": [
+          "Assistant"
+        ],
+        "x-noust-permission": "settings.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/assistant/presets": {
+      "get": {
+        "description": "List the providers by name, each with the address read on its documentation.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The presets, the places the data may end up and the default limits.",
+        "operationId": "presets_api_assistant_presets_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresetsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Presets",
+        "tags": [
+          "Assistant"
+        ],
+        "x-noust-permission": "settings.read"
+      }
+    },
+    "/api/assistant/probe": {
+      "post": {
+        "description": "Ask the provider what it can do and say what was found.\n\nWhether it answers, whether it has the model, whether the model makes a well formed call to a\ntoy tool (if not, the assistant only explains) and, for a model on this machine, an honest word\nabout its memory. What is found is kept with the settings.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    What the probe found.\n\nRaises:\n    ValidationError: No provider was chosen.",
+        "operationId": "probe_api_assistant_probe_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProbeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Probe",
+        "tags": [
+          "Assistant"
+        ],
+        "x-noust-permission": "settings.manage"
+      }
+    },
+    "/api/assistant/settings": {
+      "get": {
+        "description": "Show what is chosen for the assistant, never the key.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The settings.",
+        "operationId": "get_settings_api_assistant_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistantSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Settings",
+        "tags": [
+          "Assistant"
+        ],
+        "x-noust-permission": "settings.read"
+      },
+      "put": {
+        "description": "Choose the provider, the limits and the prices, and turn the assistant on or off, in sudo mode.\n\nA change to the provider is probed (unless ``probe`` is false), and turning it on needs a probe\nthat found the provider answering. Turning it off revokes every token the assistant holds.\n\nArgs:\n    body: What to change; what is left out stays.\n    session: The authenticated, elevated session.\n\nReturns:\n    The settings as they are now.\n\nRaises:\n    ProviderAddressError: The address cannot be called.\n    ValidationError: A value is not acceptable.",
+        "operationId": "put_settings_api_assistant_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssistantSettingsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistantSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Settings",
+        "tags": [
+          "Assistant"
+        ],
+        "x-noust-permission": "settings.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/assistant/usage": {
+      "get": {
+        "description": "Show what the assistant cost and the limits it runs under.\n\nArgs:\n    session: The authenticated session.\n    conversation: One of the caller's conversations.\n\nReturns:\n    The month's totals (everyone's together), the conversation's when asked for and its\n    author's, what the caller made it do in the last hour, and the limits.",
+        "operationId": "usage_api_assistant_usage_get",
+        "parameters": [
+          {
+            "description": "A conversation of the caller's, to give its totals too",
+            "in": "query",
+            "name": "conversation",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A conversation of the caller's, to give its totals too",
+              "title": "Conversation"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Usage",
+        "tags": [
+          "Assistant"
+        ],
+        "x-noust-permission": "assistant.use"
+      }
+    },
     "/api/attention": {
       "get": {
         "description": "Answer what needs this person, worst first, with one count.\n\nArgs:\n    session: Authenticated session, injected.\n    only: ``own`` leaves out the server's own list.\n\nReturns:\n    The list the bell, Home and the bar of the console show.",
@@ -94795,7 +95952,7 @@
     },
     "/api/central/container-host/check": {
       "post": {
-        "description": "Check that this central can deploy on its machine's Docker, and say what to change.\n\nThe same report as ``noust central deploy-here check``. It asks the engine afresh and proves\neach folder with a witness file that a throw-away container has to read, which takes a few\nseconds and leaves nothing behind. It is a POST because it does something (writes a file and\nstarts a container, both removed), and a GET never does; the console asks it when a person opens\nthe page and not on every load. Who may ask is the route's permission, declared in\n:mod:`noust.web.permissions.routes_central` and enforced for every route at once.\n\nReturns:\n    The report.\n\nRaises:\n    ConfigError: 409/422 through the error contract, when ``central.role`` or\n        ``central.deploy_here`` holds what is not one of their values.",
+        "description": "Check that this central can deploy on its machine's Docker, and say what to change.\n\nThe same report as ``noust central deploy-here check``. It asks the engine afresh and proves\neach folder with a witness file that a throw-away container has to read, which takes a few\nseconds and leaves nothing behind. It is a POST because it does something (writes a file and\nstarts a container, both removed), and a GET never does; the console asks it when a person opens\nthe page and not on every load. Who may ask is the route's permission, declared in\n:mod:`noust.web.permissions.routes_central` and enforced for every route at once.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The report.\n\nRaises:\n    ConfigError: 409/422 through the error contract, when ``central.role`` or\n        ``central.deploy_here`` holds what is not one of their values.",
         "operationId": "check_container_host_api_central_container_host_check_post",
         "responses": {
           "200": {
@@ -94818,7 +95975,7 @@
     },
     "/api/central/schedule": {
       "get": {
-        "description": "List what the central schedules itself and how each task stands. Changes nothing.\n\nOn a machine with systemd the timers are systemd's and this is what the central would run were\nthere none: the same rows, read. On a container host (a hub told to deploy containers here) it is\nwhat runs, and what came due while the central was off says so in ``missed``.\n\nReturns:\n    Every task, by key.",
+        "description": "List what the central schedules itself and how each task stands. Changes nothing.\n\nOn a machine with systemd the timers are systemd's and this is what the central would run were\nthere none: the same rows, read. On a container host (a hub told to deploy containers here) it is\nwhat runs, and what came due while the central was off says so in ``missed``.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Every task, by key.",
         "operationId": "central_schedule_api_central_schedule_get",
         "responses": {
           "200": {
@@ -111068,7 +112225,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DeletedOut"
+                  "$ref": "#/components/schemas/noust__web__api__cloud__DeletedOut"
                 }
               }
             },

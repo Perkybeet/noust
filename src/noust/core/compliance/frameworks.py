@@ -221,6 +221,9 @@ _OP_MON_3_1 = _c("op.mon.3.1", "An automatic collection of security events")
 _MP_EQ_2_1 = _c("mp.eq.2.1", "Locks after a prudent time of inactivity")
 _MP_EQ_2_R1 = _c("mp.eq.2.r1.1", "Open sessions are cancelled after a longer time")
 _MP_COM_1_1 = _c("mp.com.1.1", "A perimeter protection separates the internal network from outside")
+_OP_EXT_4 = _c(
+    "op.ext.4", "Each flow to an external service is authorised beforehand and documented"
+)
 _MP_COM_2_1 = _c("mp.com.2.1", "Encrypted channels outside the security domain")
 _MP_COM_2_R1 = _c("mp.com.2.r1.1", "Algorithms and parameters authorised by the CCN")
 _MP_COM_3_R2 = _c("mp.com.3.r2.1", "Authenticity of the other end, with authorised parameters")
@@ -307,6 +310,7 @@ _ENS_M: dict[str, Requirement] = {
     "tls_certificate": _r("operator", _MP_COM_2_R1, _MP_COM_3_R2),
     "certificate_min_days": _r(30, _MP_COM_2_R1),
     "server_terminal": _r("refused", _OP_ACC_4_2),
+    "assistant_flows": _r(True, _OP_EXT_4),
     "terminal_idle_minutes": _r(10, _MP_EQ_2_1),
     "terminal_max_minutes": _r(60, _MP_EQ_2_1),
     "db_write_root_equivalent": _r(True, _OP_ACC_4_2),

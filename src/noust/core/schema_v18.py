@@ -218,8 +218,85 @@ AGENTS_SQL = ""
 AGENTS_COLUMNS: list[Column] = []
 
 # Owned by the assistant's base lane: the optional assistant's settings, its provider and
-# the limits it runs under (item 171).
-ASSISTANT_SQL = ""
+# the limits it runs under, what a person said to it, and what it cost (item 171). Times are ISO
+# 8601, UTC.
+# assistant_settings: one row (``id`` is 1, made when the assistant is first configured): off
+#   until ``enabled``, the provider (``preset``, ``base_url``, ``model``), its key sealed in
+#   ``api_key`` (noust.core.assistant.settings seals it and nothing else writes the column) and
+#   when it was set, where the data ends up (``location``, with the reason the operator gave for
+#   a provider outside under the ENS profile in ``flow_reason``), whether personal data is
+#   disguised, the limits and the price table as JSON, and what the probe last found.
+# assistant_conversations / assistant_messages: what a person said to it and what it answered,
+#   per account, already masked and bounded when they are written; ``markers`` is the key to the
+#   disguise of emails and addresses, which never leaves the server. Kept ``retention.assistant_days``.
+# assistant_usage: one row per step of a conversation with the tokens it used and what that cost,
+#   NULL when the model has no price. Not deleted with a conversation: a person who deletes theirs
+#   does not give the month's spending back.
+# assistant_actions: one row per action that changes something, for the limit per hour.
+ASSISTANT_SQL = """
+CREATE TABLE IF NOT EXISTS assistant_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    enabled INTEGER NOT NULL DEFAULT 0,
+    preset TEXT NOT NULL DEFAULT '',
+    base_url TEXT NOT NULL DEFAULT '',
+    model TEXT NOT NULL DEFAULT '',
+    api_key TEXT NOT NULL DEFAULT '',
+    key_set_at TEXT,
+    location TEXT NOT NULL DEFAULT 'unknown',
+    flow_reason TEXT NOT NULL DEFAULT '',
+    mask_personal INTEGER NOT NULL DEFAULT 1,
+    limits TEXT NOT NULL DEFAULT '{}',
+    prices TEXT NOT NULL DEFAULT '{}',
+    currency TEXT NOT NULL DEFAULT 'USD',
+    probe TEXT NOT NULL DEFAULT '{}',
+    probed_at TEXT,
+    updated_at TEXT NOT NULL,
+    updated_by TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS assistant_conversations (
+    id TEXT PRIMARY KEY,
+    account_id INTEGER NOT NULL,
+    title TEXT NOT NULL DEFAULT '',
+    markers TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_assistant_conversations_account
+    ON assistant_conversations(account_id, updated_at);
+CREATE TABLE IF NOT EXISTS assistant_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    conversation_id TEXT NOT NULL,
+    seq INTEGER NOT NULL,
+    role TEXT NOT NULL,
+    content TEXT NOT NULL DEFAULT '',
+    tool_calls TEXT,
+    tool_call_id TEXT,
+    created_at TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_assistant_messages_seq
+    ON assistant_messages(conversation_id, seq);
+CREATE TABLE IF NOT EXISTS assistant_usage (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    conversation_id TEXT NOT NULL,
+    account_id INTEGER NOT NULL,
+    at TEXT NOT NULL,
+    model TEXT NOT NULL,
+    prompt_tokens INTEGER NOT NULL,
+    completion_tokens INTEGER NOT NULL,
+    estimated INTEGER NOT NULL DEFAULT 0,
+    cost REAL
+);
+CREATE INDEX IF NOT EXISTS idx_assistant_usage_conversation ON assistant_usage(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_assistant_usage_at ON assistant_usage(at);
+CREATE TABLE IF NOT EXISTS assistant_actions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_id INTEGER NOT NULL,
+    conversation_id TEXT NOT NULL,
+    tool TEXT NOT NULL,
+    at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_assistant_actions_account ON assistant_actions(account_id, at);
+"""
 ASSISTANT_COLUMNS: list[Column] = []
 
 # Owned by the Docker lane that updates images and edits a stack's Compose (item 189).

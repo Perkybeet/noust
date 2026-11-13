@@ -596,6 +596,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "sessions_days": 30,
         # Recordings of console terminals (noust.terminal.recordings).
         "terminal_days": 90,
+        # What people said to the built-in assistant (noust.core.assistant.conversations).
+        "assistant_days": 30,
     },
     "terminal": {
         # The console's terminal (noust.terminal): a shell in the browser as
@@ -2146,6 +2148,7 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "terminal.server.force_ens": _validate_flag("terminal.server.force_ens"),
     "terminal.exec.max_seconds": _int_range_validator("terminal.exec.max_seconds", 1, 86400),
     "retention.terminal_days": _int_range_validator("retention.terminal_days", 1, 3650),
+    "retention.assistant_days": _int_range_validator("retention.assistant_days", 1, 3650),
     "central.role": validate_central_role,
     "central.deploy_here": validate_deploy_here,
     "dns.resolvers": _validate_address_list("dns.resolvers"),

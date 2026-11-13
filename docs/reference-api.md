@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-1216 operations.
+1225 operations.
 
 ## Access
 
@@ -230,6 +230,20 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/approvals/{approval_id}` | Get Approval | `self` |  |  |
 | POST | `/api/approvals/{approval_id}/approve` | Approve Request | `self` | yes |  |
 | POST | `/api/approvals/{approval_id}/reject` | Reject Request | `self` | yes |  |
+
+## Assistant
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| GET | `/api/assistant/conversations` | List Conversations | `assistant.use` |  |  |
+| GET | `/api/assistant/conversations/{conversation_id}` | Get Conversation | `assistant.use` |  |  |
+| DELETE | `/api/assistant/conversations/{conversation_id}` | Delete Conversation | `assistant.use` |  |  |
+| POST | `/api/assistant/off` | Turn Off | `settings.manage` | yes |  |
+| GET | `/api/assistant/presets` | Presets | `settings.read` |  |  |
+| POST | `/api/assistant/probe` | Probe | `settings.manage` |  |  |
+| GET | `/api/assistant/settings` | Get Settings | `settings.read` |  |  |
+| PUT | `/api/assistant/settings` | Put Settings | `settings.manage` | yes |  |
+| GET | `/api/assistant/usage` | Usage | `assistant.use` |  |  |
 
 ## Audit
 

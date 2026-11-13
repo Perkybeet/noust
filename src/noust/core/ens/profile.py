@@ -522,6 +522,28 @@ def server_terminal_allowed(config: Any | None = None) -> bool:
     return not resolve.restricts("server_terminal", config)
 
 
+def assistant_needs_declared_flow(config: Any | None = None) -> bool:
+    """
+    Report whether the built-in assistant may only be turned on with a provider of the operator's
+    own side, or one declared an authorized flow.
+
+    Under the ENS profile (op.ext.4) every flow to an external service is authorised beforehand and
+    documented, and a model provider outside is a flow nobody had listed. The assistant is off by
+    default whatever the profile says; this is what the profile adds when it is turned on.
+
+    Args:
+        config: The configuration; the process-wide one by default.
+
+    Returns:
+        True when the ``assistant_flows`` control is on: the assistant is then turned on with a model
+        on this machine or the operator's network, or with a provider whose ``flow_reason`` is
+        recorded.
+    """
+    from noust.core.compliance import resolve
+
+    return resolve.is_on("assistant_flows", config)
+
+
 @dataclass(frozen=True)
 class BaselineItem:
     """

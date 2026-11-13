@@ -89,6 +89,7 @@ The console has the same under Settings > Compliance. Disabling a framework, or 
 | `console_exposure` | Whether `noust console expose` may publish the console on a public name. | allowed | `security.console_exposure` | last choice is stricter |
 | `database_remote_listen` | Whether a database engine may listen beyond loopback. | allowed | `security.database_remote_listen` | last choice is stricter |
 | `server_terminal` | Whether Noust may open a root shell on the server in the browser. | allowed | `security.server_terminal` | last choice is stricter |
+| `assistant_flows` | The built-in assistant is turned on only with a model on this machine or the operator's network, or with a provider declared an authorized flow, with the reason recorded. | off | `security.assistant_flows` | on is stricter |
 | `terminal_idle_minutes` | A console terminal with nothing typed this long is ended. | 120 minutes | `terminal.idle_minutes` | a smaller number is stricter |
 | `terminal_max_minutes` | The longest a console terminal lasts in all. | 720 minutes | `terminal.max_minutes` | a smaller number is stricter |
 | `mounts_read_only` | A server path bound into an application is read-only. | off | `security.mounts_read_only` | on is stricter |
@@ -139,7 +140,7 @@ Spain's National Security Scheme, category MEDIA: what Noust has called the ens-
 
 Reference: Real Decreto 311/2022, Annex II.
 
-Enable it with `noust compliance enable ens-media`. It asks of 40 control(s); 34 of them ask for more than the default.
+Enable it with `noust compliance enable ens-media`. It asks of 41 control(s); 35 of them ask for more than the default.
 
 | Control | Value | Clause | Note |
 |---|---|---|---|
@@ -179,6 +180,7 @@ Enable it with `noust compliance enable ens-media`. It asks of 40 control(s); 34
 | `console_exposure` | refused | mp.com.1.1: A perimeter protection separates the internal network from outside<br>op.acc.4.5: A specific remote-access policy with express authorisation |  |
 | `database_remote_listen` | refused | mp.com.1.1: A perimeter protection separates the internal network from outside |  |
 | `server_terminal` | refused | op.acc.4.2: Least privilege |  |
+| `assistant_flows` | on | op.ext.4: Each flow to an external service is authorised beforehand and documented |  |
 | `terminal_idle_minutes` | 10 minutes | mp.eq.2.1: Locks after a prudent time of inactivity |  |
 | `terminal_max_minutes` | 60 minutes | mp.eq.2.1: Locks after a prudent time of inactivity |  |
 | `mounts_read_only` | on | op.acc.2.3: Access to operating-system components and configuration is controlled |  |
@@ -200,7 +202,7 @@ Spain's National Security Scheme, category ALTA: MEDIA plus a backup kept apart.
 
 Reference: Real Decreto 311/2022, Annex II.
 
-Enable it with `noust compliance enable ens-alta`. It asks of 41 control(s); 35 of them ask for more than the default.
+Enable it with `noust compliance enable ens-alta`. It asks of 42 control(s); 36 of them ask for more than the default.
 
 | Control | Value | Clause | Note |
 |---|---|---|---|
@@ -241,6 +243,7 @@ Enable it with `noust compliance enable ens-alta`. It asks of 41 control(s); 35 
 | `console_exposure` | refused | mp.com.1.1: A perimeter protection separates the internal network from outside<br>op.acc.4.5: A specific remote-access policy with express authorisation |  |
 | `database_remote_listen` | refused | mp.com.1.1: A perimeter protection separates the internal network from outside |  |
 | `server_terminal` | refused | op.acc.4.2: Least privilege |  |
+| `assistant_flows` | on | op.ext.4: Each flow to an external service is authorised beforehand and documented |  |
 | `terminal_idle_minutes` | 10 minutes | mp.eq.2.1: Locks after a prudent time of inactivity |  |
 | `terminal_max_minutes` | 60 minutes | mp.eq.2.1: Locks after a prudent time of inactivity |  |
 | `mounts_read_only` | on | op.acc.2.3: Access to operating-system components and configuration is controlled |  |
@@ -536,6 +539,7 @@ What each framework asks of each control. A blank cell means it asks nothing.
 | `console_exposure` | refused | refused | refused | refused |  |  |  | refused | refused |
 | `database_remote_listen` | refused | refused | refused | refused |  |  |  | refused | refused |
 | `server_terminal` |  | refused | refused | refused |  |  |  |  |  |
+| `assistant_flows` |  | on | on |  |  |  |  |  |  |
 | `terminal_idle_minutes` |  | 10 minutes | 10 minutes | 10 minutes |  |  |  |  |  |
 | `terminal_max_minutes` |  | 60 minutes | 60 minutes | 60 minutes |  |  |  |  |  |
 | `mounts_read_only` | on | on | on | on |  |  |  |  |  |

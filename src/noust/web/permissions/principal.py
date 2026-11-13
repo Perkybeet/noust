@@ -121,7 +121,8 @@ def principal_of(payload: Mapping[str, Any] | None) -> Principal:
             name,
             f"token:{name}",
             payload.get("role"),
-            "bearer",
+            # The built-in assistant's token is an actor of its own in the audit trail.
+            "assistant" if payload.get("caller") == "assistant" else "bearer",
             source,
             None,
             permissions,

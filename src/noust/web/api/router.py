@@ -50,6 +50,7 @@ from noust.web.api.app_tags import router as app_tags_router
 from noust.web.api.approvals import require_approval
 from noust.web.api.approvals import router as approvals_router
 from noust.web.api.apps import router as apps_router
+from noust.web.api.assistant import router as assistant_router
 from noust.web.api.attention import router as attention_router
 from noust.web.api.audit import router as audit_router
 from noust.web.api.auth import router as auth_router
@@ -458,6 +459,7 @@ router.include_router(access_team_router, prefix="/teams", tags=["Access"])
 router.include_router(access_router, prefix="/access", tags=["Access"])
 router.include_router(roles_router, prefix="/roles", tags=["Access"])
 router.include_router(mcp_router, prefix="/mcp", tags=["MCP"])
+router.include_router(assistant_router, prefix="/assistant", tags=["Assistant"])
 router.include_router(manifest_router, prefix="/manifest", tags=["Manifest"])
 router.include_router(teams_flat_router, tags=["Teams"])
 router.include_router(teams_move_router, prefix="/apps", tags=["Teams"])

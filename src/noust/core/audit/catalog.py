@@ -811,6 +811,59 @@ EVENTS: dict[str, EventSpec] = {
             "host.truncated": "Further host actions of one request were not recorded.",
         },
     ),
+    # The built-in assistant (4.3, item 171). Who chose and turned it on, the token it acts with,
+    # and what it did as that token: the tool, whether it worked and how big the answer was, and
+    # a summary of each turn. Never the conversation: that is the author's, kept for them alone.
+    **_events(
+        "config",
+        NOTICE,
+        {
+            "assistant.settings": (
+                "The built-in assistant's provider, limits or prices were changed (the key is "
+                "never in the event, only whether one is kept)."
+            ),
+            "assistant.enable": "The built-in assistant was turned on.",
+            "assistant.disable": "The built-in assistant was turned off.",
+        },
+    ),
+    **_events(
+        "access",
+        NOTICE,
+        {
+            "assistant.token": (
+                "A token for a conversation with the built-in assistant was issued: it holds at "
+                "most what the person who asks holds, never acts in sudo mode and lasts hours."
+            ),
+            "assistant.off": "Turning the built-in assistant off revoked the tokens it acts with.",
+        },
+    ),
+    **_events(
+        "system",
+        INFO,
+        {
+            "assistant.probe": "The provider of the built-in assistant was probed.",
+            "assistant.tool": (
+                "The built-in assistant called a tool for a person: its name and the "
+                "application, never the arguments' values."
+            ),
+            "assistant.result": (
+                "A tool's answer reached the built-in assistant: whether it worked and how large "
+                "it was, never what it said."
+            ),
+            "assistant.summary": (
+                "A turn of a conversation with the built-in assistant ended: its steps, tokens, "
+                "cost and the tools it used, never the conversation."
+            ),
+            "assistant.conversation.delete": "A person deleted a conversation with the assistant.",
+        },
+    ),
+    **_events(
+        "denial",
+        WARNING,
+        {
+            "assistant.limit": "A limit stopped the built-in assistant, and which one it was.",
+        },
+    ),
 }
 
 

@@ -104,6 +104,13 @@ CLIENTS: dict[str, tuple[str, str]] = {
     ),
     "client/api.py": (OPERATOR, "the remote command line, to the console named by --context"),
     "core/accounts/oidc_client.py": (OPERATOR, "the identity provider set up for single sign-on"),
+    "core/assistant/client.py": (
+        OPERATOR,
+        "the model provider the operator chose for the built-in assistant, which is off until "
+        "they turn it on: what a person says to it and what it reads of this server with the "
+        "person's own permissions, with secrets removed and, for a provider that is not the "
+        "operator's own, emails and addresses disguised",
+    ),
     "core/email_api.py": (
         OPERATOR,
         "the email service a channel sends through (Resend, Postmark, Brevo, Amazon SES)",
@@ -173,6 +180,11 @@ CONNECTORS: dict[str, tuple[str, str]] = {
         "the directory (LDAP, Active Directory) set up for sign-in",
     ),
     "core/app_state.py": (OWN, "is the application's port open"),
+    "core/assistant/client.py": (
+        OPERATOR,
+        "the model provider of the built-in assistant, dialled at the address that was judged "
+        "(never an internal one the operator did not list)",
+    ),
     "core/audit/sinks.py": (OPERATOR, "the syslog destination"),
     "core/net.py": (
         OWN,
