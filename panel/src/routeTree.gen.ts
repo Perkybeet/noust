@@ -155,10 +155,24 @@ import { Route as ConsoleDomainsDnsIndexRouteImport } from "./routes/_console/do
 import { Route as ConsoleDomainsDnsNoustRouteImport } from "./routes/_console/domains/dns/noust"
 import { Route as ConsoleDomainsSitesIndexRouteImport } from "./routes/_console/domains/sites/index"
 import { Route as ConsoleDomainsSitesSiteRouteImport } from "./routes/_console/domains/sites/$site"
+import { Route as ConsoleFleetDockerIndexRouteImport } from "./routes/_console/fleet/docker/index"
+import { Route as ConsoleFleetDockerContainersRouteImport } from "./routes/_console/fleet/docker/containers"
+import { Route as ConsoleFleetDockerEngineRouteImport } from "./routes/_console/fleet/docker/engine"
+import { Route as ConsoleFleetDockerImagesRouteImport } from "./routes/_console/fleet/docker/images"
+import { Route as ConsoleFleetDockerNetworksRouteImport } from "./routes/_console/fleet/docker/networks"
+import { Route as ConsoleFleetDockerStacksRouteImport } from "./routes/_console/fleet/docker/stacks"
+import { Route as ConsoleFleetDockerVolumesRouteImport } from "./routes/_console/fleet/docker/volumes"
 import { Route as ConsoleFleetJobsIdRouteImport } from "./routes/_console/fleet_/jobs/$id"
 import { Route as ConsoleIntegrationsGithubCallbackRouteImport } from "./routes/_console/integrations/github/callback"
 import { Route as ConsoleIntegrationsGitlabCallbackRouteImport } from "./routes/_console/integrations/gitlab/callback"
 import { Route as ConsoleProjectsTeamProjectRouteImport } from "./routes/_console/projects/$team/$project"
+import { Route as ConsoleServerDockerIndexRouteImport } from "./routes/_console/server_/docker/index"
+import { Route as ConsoleServerDockerContainersRouteImport } from "./routes/_console/server_/docker/containers"
+import { Route as ConsoleServerDockerEngineRouteImport } from "./routes/_console/server_/docker/engine"
+import { Route as ConsoleServerDockerImagesRouteImport } from "./routes/_console/server_/docker/images"
+import { Route as ConsoleServerDockerNetworksRouteImport } from "./routes/_console/server_/docker/networks"
+import { Route as ConsoleServerDockerStacksRouteImport } from "./routes/_console/server_/docker/stacks"
+import { Route as ConsoleServerDockerVolumesRouteImport } from "./routes/_console/server_/docker/volumes"
 import { Route as ConsoleServerServicesNameRouteImport } from "./routes/_console/server_/services/$name"
 import { Route as ConsoleTeamsTeamIndexRouteImport } from "./routes/_console/teams/$team/index"
 import { Route as ConsoleTeamsTeamMembersRouteImport } from "./routes/_console/teams/$team/members"
@@ -199,6 +213,9 @@ import { Route as ConsoleDatabasesEngineNameSettingsRouteImport } from "./routes
 import { Route as ConsoleDatabasesEngineNameUsersRouteImport } from "./routes/_console/databases/$engine/$name/users"
 import { Route as ConsoleDatabasesEnginesEngineSettingsRouteImport } from "./routes/_console/databases/engines_/$engine/settings"
 import { Route as ConsoleDomainsDnsZonesZoneRouteImport } from "./routes/_console/domains/dns/zones/$zone"
+import { Route as ConsoleServerDockerComposeNameRouteImport } from "./routes/_console/server_/docker/compose/$name"
+import { Route as ConsoleServerDockerContainersRefRouteImport } from "./routes/_console/server_/docker/containers_/$ref"
+import { Route as ConsoleServerDockerStacksNameRouteImport } from "./routes/_console/server_/docker/stacks_/$name"
 import { Route as ConsoleServerServicesNameIndexRouteImport } from "./routes/_console/server_/services/$name/index"
 import { Route as ConsoleServerServicesNameLogsRouteImport } from "./routes/_console/server_/services/$name/logs"
 import { Route as ConsoleServerServicesNameUnitRouteImport } from "./routes/_console/server_/services/$name_/unit"
@@ -960,6 +977,47 @@ const ConsoleDomainsSitesSiteRoute = ConsoleDomainsSitesSiteRouteImport.update({
   path: "/domains/sites/$site",
   getParentRoute: () => ConsoleRoute,
 } as any)
+const ConsoleFleetDockerIndexRoute = ConsoleFleetDockerIndexRouteImport.update({
+  id: "/docker/",
+  path: "/docker/",
+  getParentRoute: () => ConsoleFleetRoute,
+} as any)
+const ConsoleFleetDockerContainersRoute =
+  ConsoleFleetDockerContainersRouteImport.update({
+    id: "/docker/containers",
+    path: "/docker/containers",
+    getParentRoute: () => ConsoleFleetRoute,
+  } as any)
+const ConsoleFleetDockerEngineRoute =
+  ConsoleFleetDockerEngineRouteImport.update({
+    id: "/docker/engine",
+    path: "/docker/engine",
+    getParentRoute: () => ConsoleFleetRoute,
+  } as any)
+const ConsoleFleetDockerImagesRoute =
+  ConsoleFleetDockerImagesRouteImport.update({
+    id: "/docker/images",
+    path: "/docker/images",
+    getParentRoute: () => ConsoleFleetRoute,
+  } as any)
+const ConsoleFleetDockerNetworksRoute =
+  ConsoleFleetDockerNetworksRouteImport.update({
+    id: "/docker/networks",
+    path: "/docker/networks",
+    getParentRoute: () => ConsoleFleetRoute,
+  } as any)
+const ConsoleFleetDockerStacksRoute =
+  ConsoleFleetDockerStacksRouteImport.update({
+    id: "/docker/stacks",
+    path: "/docker/stacks",
+    getParentRoute: () => ConsoleFleetRoute,
+  } as any)
+const ConsoleFleetDockerVolumesRoute =
+  ConsoleFleetDockerVolumesRouteImport.update({
+    id: "/docker/volumes",
+    path: "/docker/volumes",
+    getParentRoute: () => ConsoleFleetRoute,
+  } as any)
 const ConsoleFleetJobsIdRoute = ConsoleFleetJobsIdRouteImport.update({
   id: "/fleet_/jobs/$id",
   path: "/fleet/jobs/$id",
@@ -981,6 +1039,48 @@ const ConsoleProjectsTeamProjectRoute =
   ConsoleProjectsTeamProjectRouteImport.update({
     id: "/projects/$team/$project",
     path: "/projects/$team/$project",
+    getParentRoute: () => ConsoleRoute,
+  } as any)
+const ConsoleServerDockerIndexRoute =
+  ConsoleServerDockerIndexRouteImport.update({
+    id: "/server_/docker/",
+    path: "/server/docker/",
+    getParentRoute: () => ConsoleRoute,
+  } as any)
+const ConsoleServerDockerContainersRoute =
+  ConsoleServerDockerContainersRouteImport.update({
+    id: "/server_/docker/containers",
+    path: "/server/docker/containers",
+    getParentRoute: () => ConsoleRoute,
+  } as any)
+const ConsoleServerDockerEngineRoute =
+  ConsoleServerDockerEngineRouteImport.update({
+    id: "/server_/docker/engine",
+    path: "/server/docker/engine",
+    getParentRoute: () => ConsoleRoute,
+  } as any)
+const ConsoleServerDockerImagesRoute =
+  ConsoleServerDockerImagesRouteImport.update({
+    id: "/server_/docker/images",
+    path: "/server/docker/images",
+    getParentRoute: () => ConsoleRoute,
+  } as any)
+const ConsoleServerDockerNetworksRoute =
+  ConsoleServerDockerNetworksRouteImport.update({
+    id: "/server_/docker/networks",
+    path: "/server/docker/networks",
+    getParentRoute: () => ConsoleRoute,
+  } as any)
+const ConsoleServerDockerStacksRoute =
+  ConsoleServerDockerStacksRouteImport.update({
+    id: "/server_/docker/stacks",
+    path: "/server/docker/stacks",
+    getParentRoute: () => ConsoleRoute,
+  } as any)
+const ConsoleServerDockerVolumesRoute =
+  ConsoleServerDockerVolumesRouteImport.update({
+    id: "/server_/docker/volumes",
+    path: "/server/docker/volumes",
     getParentRoute: () => ConsoleRoute,
   } as any)
 const ConsoleServerServicesNameRoute =
@@ -1221,6 +1321,24 @@ const ConsoleDomainsDnsZonesZoneRoute =
     path: "/domains/dns/zones/$zone",
     getParentRoute: () => ConsoleRoute,
   } as any)
+const ConsoleServerDockerComposeNameRoute =
+  ConsoleServerDockerComposeNameRouteImport.update({
+    id: "/server_/docker/compose/$name",
+    path: "/server/docker/compose/$name",
+    getParentRoute: () => ConsoleRoute,
+  } as any)
+const ConsoleServerDockerContainersRefRoute =
+  ConsoleServerDockerContainersRefRouteImport.update({
+    id: "/server_/docker/containers_/$ref",
+    path: "/server/docker/containers/$ref",
+    getParentRoute: () => ConsoleRoute,
+  } as any)
+const ConsoleServerDockerStacksNameRoute =
+  ConsoleServerDockerStacksNameRouteImport.update({
+    id: "/server_/docker/stacks_/$name",
+    path: "/server/docker/stacks/$name",
+    getParentRoute: () => ConsoleRoute,
+  } as any)
 const ConsoleServerServicesNameIndexRoute =
   ConsoleServerServicesNameIndexRouteImport.update({
     id: "/",
@@ -1382,10 +1500,22 @@ export interface FileRoutesByFullPath {
   "/databases/$engine/$name": typeof ConsoleDatabasesEngineNameRouteWithChildren
   "/domains/dns/noust": typeof ConsoleDomainsDnsNoustRoute
   "/domains/sites/$site": typeof ConsoleDomainsSitesSiteRoute
+  "/fleet/docker/containers": typeof ConsoleFleetDockerContainersRoute
+  "/fleet/docker/engine": typeof ConsoleFleetDockerEngineRoute
+  "/fleet/docker/images": typeof ConsoleFleetDockerImagesRoute
+  "/fleet/docker/networks": typeof ConsoleFleetDockerNetworksRoute
+  "/fleet/docker/stacks": typeof ConsoleFleetDockerStacksRoute
+  "/fleet/docker/volumes": typeof ConsoleFleetDockerVolumesRoute
   "/fleet/jobs/$id": typeof ConsoleFleetJobsIdRoute
   "/integrations/github/callback": typeof ConsoleIntegrationsGithubCallbackRoute
   "/integrations/gitlab/callback": typeof ConsoleIntegrationsGitlabCallbackRoute
   "/projects/$team/$project": typeof ConsoleProjectsTeamProjectRoute
+  "/server/docker/containers": typeof ConsoleServerDockerContainersRoute
+  "/server/docker/engine": typeof ConsoleServerDockerEngineRoute
+  "/server/docker/images": typeof ConsoleServerDockerImagesRoute
+  "/server/docker/networks": typeof ConsoleServerDockerNetworksRoute
+  "/server/docker/stacks": typeof ConsoleServerDockerStacksRoute
+  "/server/docker/volumes": typeof ConsoleServerDockerVolumesRoute
   "/server/services/$name": typeof ConsoleServerServicesNameRouteWithChildren
   "/teams/$team/members": typeof ConsoleTeamsTeamMembersRoute
   "/teams/$team/notifications": typeof ConsoleTeamsTeamNotificationsRoute
@@ -1395,6 +1525,8 @@ export interface FileRoutesByFullPath {
   "/apps/$domain/": typeof ConsoleAppsDomainIndexRoute
   "/domains/dns/": typeof ConsoleDomainsDnsIndexRoute
   "/domains/sites/": typeof ConsoleDomainsSitesIndexRoute
+  "/fleet/docker/": typeof ConsoleFleetDockerIndexRoute
+  "/server/docker/": typeof ConsoleServerDockerIndexRoute
   "/teams/$team/": typeof ConsoleTeamsTeamIndexRoute
   "/apps/$domain/deployments/$id": typeof ConsoleAppsDomainDeploymentsIdRoute
   "/apps/$domain/settings/access": typeof ConsoleAppsDomainSettingsAccessRoute
@@ -1427,6 +1559,9 @@ export interface FileRoutesByFullPath {
   "/databases/$engine/$name/users": typeof ConsoleDatabasesEngineNameUsersRoute
   "/databases/engines/$engine/settings": typeof ConsoleDatabasesEnginesEngineSettingsRoute
   "/domains/dns/zones/$zone": typeof ConsoleDomainsDnsZonesZoneRoute
+  "/server/docker/compose/$name": typeof ConsoleServerDockerComposeNameRoute
+  "/server/docker/containers/$ref": typeof ConsoleServerDockerContainersRefRoute
+  "/server/docker/stacks/$name": typeof ConsoleServerDockerStacksNameRoute
   "/server/services/$name/logs": typeof ConsoleServerServicesNameLogsRoute
   "/server/services/$name/unit": typeof ConsoleServerServicesNameUnitRoute
   "/apps/$domain/deployments/": typeof ConsoleAppsDomainDeploymentsIndexRoute
@@ -1566,10 +1701,22 @@ export interface FileRoutesByTo {
   "/apps/$domain/triggers": typeof ConsoleAppsDomainTriggersRoute
   "/domains/dns/noust": typeof ConsoleDomainsDnsNoustRoute
   "/domains/sites/$site": typeof ConsoleDomainsSitesSiteRoute
+  "/fleet/docker/containers": typeof ConsoleFleetDockerContainersRoute
+  "/fleet/docker/engine": typeof ConsoleFleetDockerEngineRoute
+  "/fleet/docker/images": typeof ConsoleFleetDockerImagesRoute
+  "/fleet/docker/networks": typeof ConsoleFleetDockerNetworksRoute
+  "/fleet/docker/stacks": typeof ConsoleFleetDockerStacksRoute
+  "/fleet/docker/volumes": typeof ConsoleFleetDockerVolumesRoute
   "/fleet/jobs/$id": typeof ConsoleFleetJobsIdRoute
   "/integrations/github/callback": typeof ConsoleIntegrationsGithubCallbackRoute
   "/integrations/gitlab/callback": typeof ConsoleIntegrationsGitlabCallbackRoute
   "/projects/$team/$project": typeof ConsoleProjectsTeamProjectRoute
+  "/server/docker/containers": typeof ConsoleServerDockerContainersRoute
+  "/server/docker/engine": typeof ConsoleServerDockerEngineRoute
+  "/server/docker/images": typeof ConsoleServerDockerImagesRoute
+  "/server/docker/networks": typeof ConsoleServerDockerNetworksRoute
+  "/server/docker/stacks": typeof ConsoleServerDockerStacksRoute
+  "/server/docker/volumes": typeof ConsoleServerDockerVolumesRoute
   "/teams/$team/members": typeof ConsoleTeamsTeamMembersRoute
   "/teams/$team/notifications": typeof ConsoleTeamsTeamNotificationsRoute
   "/teams/$team/settings": typeof ConsoleTeamsTeamSettingsRoute
@@ -1578,6 +1725,8 @@ export interface FileRoutesByTo {
   "/apps/$domain": typeof ConsoleAppsDomainIndexRoute
   "/domains/dns": typeof ConsoleDomainsDnsIndexRoute
   "/domains/sites": typeof ConsoleDomainsSitesIndexRoute
+  "/fleet/docker": typeof ConsoleFleetDockerIndexRoute
+  "/server/docker": typeof ConsoleServerDockerIndexRoute
   "/teams/$team": typeof ConsoleTeamsTeamIndexRoute
   "/apps/$domain/deployments/$id": typeof ConsoleAppsDomainDeploymentsIdRoute
   "/apps/$domain/settings/access": typeof ConsoleAppsDomainSettingsAccessRoute
@@ -1610,6 +1759,9 @@ export interface FileRoutesByTo {
   "/databases/$engine/$name/users": typeof ConsoleDatabasesEngineNameUsersRoute
   "/databases/engines/$engine/settings": typeof ConsoleDatabasesEnginesEngineSettingsRoute
   "/domains/dns/zones/$zone": typeof ConsoleDomainsDnsZonesZoneRoute
+  "/server/docker/compose/$name": typeof ConsoleServerDockerComposeNameRoute
+  "/server/docker/containers/$ref": typeof ConsoleServerDockerContainersRefRoute
+  "/server/docker/stacks/$name": typeof ConsoleServerDockerStacksNameRoute
   "/server/services/$name/logs": typeof ConsoleServerServicesNameLogsRoute
   "/server/services/$name/unit": typeof ConsoleServerServicesNameUnitRoute
   "/apps/$domain/deployments": typeof ConsoleAppsDomainDeploymentsIndexRoute
@@ -1761,10 +1913,22 @@ export interface FileRoutesById {
   "/_console/databases/$engine/$name": typeof ConsoleDatabasesEngineNameRouteWithChildren
   "/_console/domains/dns/noust": typeof ConsoleDomainsDnsNoustRoute
   "/_console/domains/sites/$site": typeof ConsoleDomainsSitesSiteRoute
+  "/_console/fleet/docker/containers": typeof ConsoleFleetDockerContainersRoute
+  "/_console/fleet/docker/engine": typeof ConsoleFleetDockerEngineRoute
+  "/_console/fleet/docker/images": typeof ConsoleFleetDockerImagesRoute
+  "/_console/fleet/docker/networks": typeof ConsoleFleetDockerNetworksRoute
+  "/_console/fleet/docker/stacks": typeof ConsoleFleetDockerStacksRoute
+  "/_console/fleet/docker/volumes": typeof ConsoleFleetDockerVolumesRoute
   "/_console/fleet_/jobs/$id": typeof ConsoleFleetJobsIdRoute
   "/_console/integrations/github/callback": typeof ConsoleIntegrationsGithubCallbackRoute
   "/_console/integrations/gitlab/callback": typeof ConsoleIntegrationsGitlabCallbackRoute
   "/_console/projects/$team/$project": typeof ConsoleProjectsTeamProjectRoute
+  "/_console/server_/docker/containers": typeof ConsoleServerDockerContainersRoute
+  "/_console/server_/docker/engine": typeof ConsoleServerDockerEngineRoute
+  "/_console/server_/docker/images": typeof ConsoleServerDockerImagesRoute
+  "/_console/server_/docker/networks": typeof ConsoleServerDockerNetworksRoute
+  "/_console/server_/docker/stacks": typeof ConsoleServerDockerStacksRoute
+  "/_console/server_/docker/volumes": typeof ConsoleServerDockerVolumesRoute
   "/_console/server_/services/$name": typeof ConsoleServerServicesNameRouteWithChildren
   "/_console/teams/$team/members": typeof ConsoleTeamsTeamMembersRoute
   "/_console/teams/$team/notifications": typeof ConsoleTeamsTeamNotificationsRoute
@@ -1774,6 +1938,8 @@ export interface FileRoutesById {
   "/_console/apps/$domain/": typeof ConsoleAppsDomainIndexRoute
   "/_console/domains/dns/": typeof ConsoleDomainsDnsIndexRoute
   "/_console/domains/sites/": typeof ConsoleDomainsSitesIndexRoute
+  "/_console/fleet/docker/": typeof ConsoleFleetDockerIndexRoute
+  "/_console/server_/docker/": typeof ConsoleServerDockerIndexRoute
   "/_console/teams/$team/": typeof ConsoleTeamsTeamIndexRoute
   "/_console/apps/$domain/deployments/$id": typeof ConsoleAppsDomainDeploymentsIdRoute
   "/_console/apps/$domain/settings/access": typeof ConsoleAppsDomainSettingsAccessRoute
@@ -1806,6 +1972,9 @@ export interface FileRoutesById {
   "/_console/databases/$engine/$name/users": typeof ConsoleDatabasesEngineNameUsersRoute
   "/_console/databases/engines_/$engine/settings": typeof ConsoleDatabasesEnginesEngineSettingsRoute
   "/_console/domains/dns/zones/$zone": typeof ConsoleDomainsDnsZonesZoneRoute
+  "/_console/server_/docker/compose/$name": typeof ConsoleServerDockerComposeNameRoute
+  "/_console/server_/docker/containers_/$ref": typeof ConsoleServerDockerContainersRefRoute
+  "/_console/server_/docker/stacks_/$name": typeof ConsoleServerDockerStacksNameRoute
   "/_console/server_/services/$name/logs": typeof ConsoleServerServicesNameLogsRoute
   "/_console/server_/services/$name_/unit": typeof ConsoleServerServicesNameUnitRoute
   "/_console/apps/$domain/deployments/": typeof ConsoleAppsDomainDeploymentsIndexRoute
@@ -1957,10 +2126,22 @@ export interface FileRouteTypes {
     | "/databases/$engine/$name"
     | "/domains/dns/noust"
     | "/domains/sites/$site"
+    | "/fleet/docker/containers"
+    | "/fleet/docker/engine"
+    | "/fleet/docker/images"
+    | "/fleet/docker/networks"
+    | "/fleet/docker/stacks"
+    | "/fleet/docker/volumes"
     | "/fleet/jobs/$id"
     | "/integrations/github/callback"
     | "/integrations/gitlab/callback"
     | "/projects/$team/$project"
+    | "/server/docker/containers"
+    | "/server/docker/engine"
+    | "/server/docker/images"
+    | "/server/docker/networks"
+    | "/server/docker/stacks"
+    | "/server/docker/volumes"
     | "/server/services/$name"
     | "/teams/$team/members"
     | "/teams/$team/notifications"
@@ -1970,6 +2151,8 @@ export interface FileRouteTypes {
     | "/apps/$domain/"
     | "/domains/dns/"
     | "/domains/sites/"
+    | "/fleet/docker/"
+    | "/server/docker/"
     | "/teams/$team/"
     | "/apps/$domain/deployments/$id"
     | "/apps/$domain/settings/access"
@@ -2002,6 +2185,9 @@ export interface FileRouteTypes {
     | "/databases/$engine/$name/users"
     | "/databases/engines/$engine/settings"
     | "/domains/dns/zones/$zone"
+    | "/server/docker/compose/$name"
+    | "/server/docker/containers/$ref"
+    | "/server/docker/stacks/$name"
     | "/server/services/$name/logs"
     | "/server/services/$name/unit"
     | "/apps/$domain/deployments/"
@@ -2141,10 +2327,22 @@ export interface FileRouteTypes {
     | "/apps/$domain/triggers"
     | "/domains/dns/noust"
     | "/domains/sites/$site"
+    | "/fleet/docker/containers"
+    | "/fleet/docker/engine"
+    | "/fleet/docker/images"
+    | "/fleet/docker/networks"
+    | "/fleet/docker/stacks"
+    | "/fleet/docker/volumes"
     | "/fleet/jobs/$id"
     | "/integrations/github/callback"
     | "/integrations/gitlab/callback"
     | "/projects/$team/$project"
+    | "/server/docker/containers"
+    | "/server/docker/engine"
+    | "/server/docker/images"
+    | "/server/docker/networks"
+    | "/server/docker/stacks"
+    | "/server/docker/volumes"
     | "/teams/$team/members"
     | "/teams/$team/notifications"
     | "/teams/$team/settings"
@@ -2153,6 +2351,8 @@ export interface FileRouteTypes {
     | "/apps/$domain"
     | "/domains/dns"
     | "/domains/sites"
+    | "/fleet/docker"
+    | "/server/docker"
     | "/teams/$team"
     | "/apps/$domain/deployments/$id"
     | "/apps/$domain/settings/access"
@@ -2185,6 +2385,9 @@ export interface FileRouteTypes {
     | "/databases/$engine/$name/users"
     | "/databases/engines/$engine/settings"
     | "/domains/dns/zones/$zone"
+    | "/server/docker/compose/$name"
+    | "/server/docker/containers/$ref"
+    | "/server/docker/stacks/$name"
     | "/server/services/$name/logs"
     | "/server/services/$name/unit"
     | "/apps/$domain/deployments"
@@ -2335,10 +2538,22 @@ export interface FileRouteTypes {
     | "/_console/databases/$engine/$name"
     | "/_console/domains/dns/noust"
     | "/_console/domains/sites/$site"
+    | "/_console/fleet/docker/containers"
+    | "/_console/fleet/docker/engine"
+    | "/_console/fleet/docker/images"
+    | "/_console/fleet/docker/networks"
+    | "/_console/fleet/docker/stacks"
+    | "/_console/fleet/docker/volumes"
     | "/_console/fleet_/jobs/$id"
     | "/_console/integrations/github/callback"
     | "/_console/integrations/gitlab/callback"
     | "/_console/projects/$team/$project"
+    | "/_console/server_/docker/containers"
+    | "/_console/server_/docker/engine"
+    | "/_console/server_/docker/images"
+    | "/_console/server_/docker/networks"
+    | "/_console/server_/docker/stacks"
+    | "/_console/server_/docker/volumes"
     | "/_console/server_/services/$name"
     | "/_console/teams/$team/members"
     | "/_console/teams/$team/notifications"
@@ -2348,6 +2563,8 @@ export interface FileRouteTypes {
     | "/_console/apps/$domain/"
     | "/_console/domains/dns/"
     | "/_console/domains/sites/"
+    | "/_console/fleet/docker/"
+    | "/_console/server_/docker/"
     | "/_console/teams/$team/"
     | "/_console/apps/$domain/deployments/$id"
     | "/_console/apps/$domain/settings/access"
@@ -2380,6 +2597,9 @@ export interface FileRouteTypes {
     | "/_console/databases/$engine/$name/users"
     | "/_console/databases/engines_/$engine/settings"
     | "/_console/domains/dns/zones/$zone"
+    | "/_console/server_/docker/compose/$name"
+    | "/_console/server_/docker/containers_/$ref"
+    | "/_console/server_/docker/stacks_/$name"
     | "/_console/server_/services/$name/logs"
     | "/_console/server_/services/$name_/unit"
     | "/_console/apps/$domain/deployments/"
@@ -3421,6 +3641,55 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleDomainsSitesSiteRouteImport
       parentRoute: typeof ConsoleRoute
     }
+    "/_console/fleet/docker/": {
+      id: "/_console/fleet/docker/"
+      path: "/docker"
+      fullPath: "/fleet/docker/"
+      preLoaderRoute: typeof ConsoleFleetDockerIndexRouteImport
+      parentRoute: typeof ConsoleFleetRoute
+    }
+    "/_console/fleet/docker/containers": {
+      id: "/_console/fleet/docker/containers"
+      path: "/docker/containers"
+      fullPath: "/fleet/docker/containers"
+      preLoaderRoute: typeof ConsoleFleetDockerContainersRouteImport
+      parentRoute: typeof ConsoleFleetRoute
+    }
+    "/_console/fleet/docker/engine": {
+      id: "/_console/fleet/docker/engine"
+      path: "/docker/engine"
+      fullPath: "/fleet/docker/engine"
+      preLoaderRoute: typeof ConsoleFleetDockerEngineRouteImport
+      parentRoute: typeof ConsoleFleetRoute
+    }
+    "/_console/fleet/docker/images": {
+      id: "/_console/fleet/docker/images"
+      path: "/docker/images"
+      fullPath: "/fleet/docker/images"
+      preLoaderRoute: typeof ConsoleFleetDockerImagesRouteImport
+      parentRoute: typeof ConsoleFleetRoute
+    }
+    "/_console/fleet/docker/networks": {
+      id: "/_console/fleet/docker/networks"
+      path: "/docker/networks"
+      fullPath: "/fleet/docker/networks"
+      preLoaderRoute: typeof ConsoleFleetDockerNetworksRouteImport
+      parentRoute: typeof ConsoleFleetRoute
+    }
+    "/_console/fleet/docker/stacks": {
+      id: "/_console/fleet/docker/stacks"
+      path: "/docker/stacks"
+      fullPath: "/fleet/docker/stacks"
+      preLoaderRoute: typeof ConsoleFleetDockerStacksRouteImport
+      parentRoute: typeof ConsoleFleetRoute
+    }
+    "/_console/fleet/docker/volumes": {
+      id: "/_console/fleet/docker/volumes"
+      path: "/docker/volumes"
+      fullPath: "/fleet/docker/volumes"
+      preLoaderRoute: typeof ConsoleFleetDockerVolumesRouteImport
+      parentRoute: typeof ConsoleFleetRoute
+    }
     "/_console/fleet_/jobs/$id": {
       id: "/_console/fleet_/jobs/$id"
       path: "/fleet/jobs/$id"
@@ -3447,6 +3716,55 @@ declare module "@tanstack/react-router" {
       path: "/projects/$team/$project"
       fullPath: "/projects/$team/$project"
       preLoaderRoute: typeof ConsoleProjectsTeamProjectRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    "/_console/server_/docker/": {
+      id: "/_console/server_/docker/"
+      path: "/server/docker"
+      fullPath: "/server/docker/"
+      preLoaderRoute: typeof ConsoleServerDockerIndexRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    "/_console/server_/docker/containers": {
+      id: "/_console/server_/docker/containers"
+      path: "/server/docker/containers"
+      fullPath: "/server/docker/containers"
+      preLoaderRoute: typeof ConsoleServerDockerContainersRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    "/_console/server_/docker/engine": {
+      id: "/_console/server_/docker/engine"
+      path: "/server/docker/engine"
+      fullPath: "/server/docker/engine"
+      preLoaderRoute: typeof ConsoleServerDockerEngineRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    "/_console/server_/docker/images": {
+      id: "/_console/server_/docker/images"
+      path: "/server/docker/images"
+      fullPath: "/server/docker/images"
+      preLoaderRoute: typeof ConsoleServerDockerImagesRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    "/_console/server_/docker/networks": {
+      id: "/_console/server_/docker/networks"
+      path: "/server/docker/networks"
+      fullPath: "/server/docker/networks"
+      preLoaderRoute: typeof ConsoleServerDockerNetworksRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    "/_console/server_/docker/stacks": {
+      id: "/_console/server_/docker/stacks"
+      path: "/server/docker/stacks"
+      fullPath: "/server/docker/stacks"
+      preLoaderRoute: typeof ConsoleServerDockerStacksRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    "/_console/server_/docker/volumes": {
+      id: "/_console/server_/docker/volumes"
+      path: "/server/docker/volumes"
+      fullPath: "/server/docker/volumes"
+      preLoaderRoute: typeof ConsoleServerDockerVolumesRouteImport
       parentRoute: typeof ConsoleRoute
     }
     "/_console/server_/services/$name": {
@@ -3729,6 +4047,27 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleDomainsDnsZonesZoneRouteImport
       parentRoute: typeof ConsoleRoute
     }
+    "/_console/server_/docker/compose/$name": {
+      id: "/_console/server_/docker/compose/$name"
+      path: "/server/docker/compose/$name"
+      fullPath: "/server/docker/compose/$name"
+      preLoaderRoute: typeof ConsoleServerDockerComposeNameRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    "/_console/server_/docker/containers_/$ref": {
+      id: "/_console/server_/docker/containers_/$ref"
+      path: "/server/docker/containers/$ref"
+      fullPath: "/server/docker/containers/$ref"
+      preLoaderRoute: typeof ConsoleServerDockerContainersRefRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    "/_console/server_/docker/stacks_/$name": {
+      id: "/_console/server_/docker/stacks_/$name"
+      path: "/server/docker/stacks/$name"
+      fullPath: "/server/docker/stacks/$name"
+      preLoaderRoute: typeof ConsoleServerDockerStacksNameRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
     "/_console/server_/services/$name/": {
       id: "/_console/server_/services/$name/"
       path: "/"
@@ -3802,6 +4141,13 @@ interface ConsoleFleetRouteChildren {
   ConsoleFleetSoftwareRoute: typeof ConsoleFleetSoftwareRoute
   ConsoleFleetUpdatesRoute: typeof ConsoleFleetUpdatesRoute
   ConsoleFleetIndexRoute: typeof ConsoleFleetIndexRoute
+  ConsoleFleetDockerContainersRoute: typeof ConsoleFleetDockerContainersRoute
+  ConsoleFleetDockerEngineRoute: typeof ConsoleFleetDockerEngineRoute
+  ConsoleFleetDockerImagesRoute: typeof ConsoleFleetDockerImagesRoute
+  ConsoleFleetDockerNetworksRoute: typeof ConsoleFleetDockerNetworksRoute
+  ConsoleFleetDockerStacksRoute: typeof ConsoleFleetDockerStacksRoute
+  ConsoleFleetDockerVolumesRoute: typeof ConsoleFleetDockerVolumesRoute
+  ConsoleFleetDockerIndexRoute: typeof ConsoleFleetDockerIndexRoute
 }
 
 const ConsoleFleetRouteChildren: ConsoleFleetRouteChildren = {
@@ -3819,6 +4165,13 @@ const ConsoleFleetRouteChildren: ConsoleFleetRouteChildren = {
   ConsoleFleetSoftwareRoute: ConsoleFleetSoftwareRoute,
   ConsoleFleetUpdatesRoute: ConsoleFleetUpdatesRoute,
   ConsoleFleetIndexRoute: ConsoleFleetIndexRoute,
+  ConsoleFleetDockerContainersRoute: ConsoleFleetDockerContainersRoute,
+  ConsoleFleetDockerEngineRoute: ConsoleFleetDockerEngineRoute,
+  ConsoleFleetDockerImagesRoute: ConsoleFleetDockerImagesRoute,
+  ConsoleFleetDockerNetworksRoute: ConsoleFleetDockerNetworksRoute,
+  ConsoleFleetDockerStacksRoute: ConsoleFleetDockerStacksRoute,
+  ConsoleFleetDockerVolumesRoute: ConsoleFleetDockerVolumesRoute,
+  ConsoleFleetDockerIndexRoute: ConsoleFleetDockerIndexRoute,
 }
 
 const ConsoleFleetRouteWithChildren = ConsoleFleetRoute._addFileChildren(
@@ -4197,12 +4550,22 @@ interface ConsoleRouteChildren {
   ConsoleIntegrationsGithubCallbackRoute: typeof ConsoleIntegrationsGithubCallbackRoute
   ConsoleIntegrationsGitlabCallbackRoute: typeof ConsoleIntegrationsGitlabCallbackRoute
   ConsoleProjectsTeamProjectRoute: typeof ConsoleProjectsTeamProjectRoute
+  ConsoleServerDockerContainersRoute: typeof ConsoleServerDockerContainersRoute
+  ConsoleServerDockerEngineRoute: typeof ConsoleServerDockerEngineRoute
+  ConsoleServerDockerImagesRoute: typeof ConsoleServerDockerImagesRoute
+  ConsoleServerDockerNetworksRoute: typeof ConsoleServerDockerNetworksRoute
+  ConsoleServerDockerStacksRoute: typeof ConsoleServerDockerStacksRoute
+  ConsoleServerDockerVolumesRoute: typeof ConsoleServerDockerVolumesRoute
   ConsoleServerServicesNameRoute: typeof ConsoleServerServicesNameRouteWithChildren
   ConsoleActivityTasksIndexRoute: typeof ConsoleActivityTasksIndexRoute
   ConsoleDomainsDnsIndexRoute: typeof ConsoleDomainsDnsIndexRoute
   ConsoleDomainsSitesIndexRoute: typeof ConsoleDomainsSitesIndexRoute
+  ConsoleServerDockerIndexRoute: typeof ConsoleServerDockerIndexRoute
   ConsoleDatabasesEnginesEngineSettingsRoute: typeof ConsoleDatabasesEnginesEngineSettingsRoute
   ConsoleDomainsDnsZonesZoneRoute: typeof ConsoleDomainsDnsZonesZoneRoute
+  ConsoleServerDockerComposeNameRoute: typeof ConsoleServerDockerComposeNameRoute
+  ConsoleServerDockerContainersRefRoute: typeof ConsoleServerDockerContainersRefRoute
+  ConsoleServerDockerStacksNameRoute: typeof ConsoleServerDockerStacksNameRoute
   ConsoleServerServicesNameUnitRoute: typeof ConsoleServerServicesNameUnitRoute
 }
 
@@ -4253,13 +4616,23 @@ const ConsoleRouteChildren: ConsoleRouteChildren = {
   ConsoleIntegrationsGitlabCallbackRoute:
     ConsoleIntegrationsGitlabCallbackRoute,
   ConsoleProjectsTeamProjectRoute: ConsoleProjectsTeamProjectRoute,
+  ConsoleServerDockerContainersRoute: ConsoleServerDockerContainersRoute,
+  ConsoleServerDockerEngineRoute: ConsoleServerDockerEngineRoute,
+  ConsoleServerDockerImagesRoute: ConsoleServerDockerImagesRoute,
+  ConsoleServerDockerNetworksRoute: ConsoleServerDockerNetworksRoute,
+  ConsoleServerDockerStacksRoute: ConsoleServerDockerStacksRoute,
+  ConsoleServerDockerVolumesRoute: ConsoleServerDockerVolumesRoute,
   ConsoleServerServicesNameRoute: ConsoleServerServicesNameRouteWithChildren,
   ConsoleActivityTasksIndexRoute: ConsoleActivityTasksIndexRoute,
   ConsoleDomainsDnsIndexRoute: ConsoleDomainsDnsIndexRoute,
   ConsoleDomainsSitesIndexRoute: ConsoleDomainsSitesIndexRoute,
+  ConsoleServerDockerIndexRoute: ConsoleServerDockerIndexRoute,
   ConsoleDatabasesEnginesEngineSettingsRoute:
     ConsoleDatabasesEnginesEngineSettingsRoute,
   ConsoleDomainsDnsZonesZoneRoute: ConsoleDomainsDnsZonesZoneRoute,
+  ConsoleServerDockerComposeNameRoute: ConsoleServerDockerComposeNameRoute,
+  ConsoleServerDockerContainersRefRoute: ConsoleServerDockerContainersRefRoute,
+  ConsoleServerDockerStacksNameRoute: ConsoleServerDockerStacksNameRoute,
   ConsoleServerServicesNameUnitRoute: ConsoleServerServicesNameUnitRoute,
 }
 

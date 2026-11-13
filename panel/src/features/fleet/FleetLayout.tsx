@@ -25,7 +25,22 @@ import { OBJECT_ICONS } from "../../components/ui/objectIcons";
  * The faces of an area that is a page of its own (Activity, Backups, Alerts, and Network and Security, the machine's areas): the same page as the area's, with
  * its own header, a title of its own and the server filter, so the fleet's header is not drawn over it.
  */
-const OWN_HEADER: ReadonlySet<string> = new Set(["/fleet/activity", "/fleet/backups", "/fleet/central-backups", "/fleet/alerts", "/fleet/network", "/fleet/security"]);
+const OWN_HEADER: ReadonlySet<string> = new Set([
+  "/fleet/activity",
+  "/fleet/backups",
+  "/fleet/central-backups",
+  "/fleet/alerts",
+  "/fleet/network",
+  "/fleet/security",
+  "/fleet/docker",
+  "/fleet/docker/",
+  "/fleet/docker/stacks",
+  "/fleet/docker/containers",
+  "/fleet/docker/images",
+  "/fleet/docker/volumes",
+  "/fleet/docker/networks",
+  "/fleet/docker/engine",
+]);
 
 /**
  * "Update Noust on every server": the one press that does what each row's own does, for the servers whose Noust has a

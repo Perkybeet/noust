@@ -287,6 +287,21 @@ class DockerMachine(FakeRunner):
             stderr=answered[2],
         )
 
+    def answer(self, argv: Sequence[str]) -> tuple[int, str, str] | None:
+        """
+        Answer a ``docker`` command for a caller that has its own runner (the console's sandbox).
+
+        Args:
+            argv: The command.
+
+        Returns:
+            ``(exit code, stdout, stderr)``, or None for a command that is not Docker's or when Docker is not installed.
+        """
+        recorded = tuple(argv)
+        if recorded[:1] != ("docker",) or not self.installed:
+            return None
+        return self._docker(recorded)
+
     def _docker(self, argv: tuple[str, ...]) -> tuple[int, str, str]:
         """
         Answer one ``docker`` command.

@@ -25,7 +25,7 @@ from fnmatch import fnmatch
 from pathlib import Path
 from typing import Any
 
-from . import server_host
+from . import docker_host, server_host
 from .constants import CALL_HISTORY
 from .demo_database import (
     _PG_AVAILABLE_EXTENSIONS,
@@ -242,6 +242,11 @@ def make_runner(
                 answered = self._containers.answer(args)
                 if answered is not None:
                     return CommandResult(args, *answered)
+                # What the Docker zone asks: the engine's own listings, one container from the inside,
+                # a volume that is removed and is gone from the next listing.
+                engine = docker_host.answer(args)
+                if engine is not None:
+                    return CommandResult(args, *engine)
             if program == "pg_lsclusters":
                 return ok(args, _PG_CLUSTER_LINE)
             if program.endswith("/bin/postgres") and "-C" in args:

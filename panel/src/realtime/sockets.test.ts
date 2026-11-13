@@ -170,6 +170,28 @@ describe("useLogStream", () => {
     });
     expect(result.current.lines.map((line) => line.text)).toEqual(["a", "b", "c"]);
   });
+
+  it("does not follow again what said its output has ended: a container that is not running", async () => {
+    const { result } = renderHook(() =>
+      useLogStream("adminer", { path: (ref) => `/ws/docker/logs/${ref}`, getTicket: () => Promise.resolve("t"), connect }),
+    );
+    await flush();
+    const first = FakeWebSocket.latest();
+    expect(new URL(first.url).pathname).toBe("/ws/docker/logs/adminer");
+    act(() => {
+      first.open();
+      first.frame({ type: "log", data: "the last thing it printed" });
+      first.frame({ type: "ended" });
+      first.drop();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    // The same socket is still the latest one: nothing was opened after it, and the output is closed, not "reconnecting".
+    expect(FakeWebSocket.latest()).toBe(first);
+    expect(result.current.status).toBe("closed");
+    expect(result.current.lines.map((line) => line.text)).toEqual(["the last thing it printed"]);
+  });
 });
 
 describe("useJobStream", () => {

@@ -15,6 +15,7 @@ export const terminal = {
   document: {
     app: "Terminal - {domain}",
     server: "Terminal - the server",
+    container: "Terminal - {name}",
   },
   /** The strip above the screen. */
   header: {
@@ -56,6 +57,12 @@ export const terminal = {
       summary: "As the account the application runs as, in its sandbox.",
       description:
         "You get a shell as the account the application runs as, in its sandbox and with its environment: the same files and the same secrets it has, and nothing else on the server. A stack's shell is a shell in its container.",
+    },
+    container: {
+      title: "A shell in {name}",
+      summary: "Inside the container, as the account it runs as.",
+      description:
+        "You get a shell inside the container, as the account it runs as, with what it has: its files and its environment. It is recorded like every terminal of Noust, and what you change stays in the container until it is replaced.",
     },
     server: {
       title: "A root shell on the server",

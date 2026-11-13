@@ -1,4 +1,15 @@
 import { area, hidden, strip, tab } from "../../app/navCore";
+import type { ConsolePath, Dest, More } from "../../app/navCore";
+import type { PlainKey } from "../../i18n";
+
+/**
+ * A page of the Docker zone (item 189): its path is `/server/docker/<name>` and its id `server.docker.<name>`. Not
+ * `tab(server, "docker/stacks")`, which would put a slash in an id; the entry is the same one in every other respect.
+ */
+const docker = (server: Dest, name: string, label: PlainKey, more: More): Dest => ({
+  ...tab(server, `docker.${name}`, label, more),
+  to: `/server/docker/${name}` as ConsolePath,
+});
 
 /**
  * The machine, which is Server on the bar (Servers over every server): its sections, and Terminal, which is
@@ -36,6 +47,38 @@ export const SERVER_SCREENS = strip(
     // Publishing this machine's console on a name of its own over HTTPS: the machine's, whatever the central carries to the others.
     tab(server, "console", "server.tabs.console", { column: "running", feature: "console_exposure", keywords: "server.tabs.consoleKeywords", permission: "settings.read" }),
     tab(server, "software", "server.tabs.software", { column: "running", feature: "software", fleetTo: "/fleet/software", fleetLabel: "software.fleet.tab", keywords: "server.tabs.softwareKeywords", permission: "server.read" }),
+    // Docker, seen as the machine's own: what runs in it, whose each thing is and what it holds. The zone needs the function the
+    // table calls `docker_zone`: a server that has no Docker does not offer it, and a typed address says why (`FeatureGate`).
+    // With All servers each page is the fleet's own (`fleetTo`), one list of every server's with the server as a column.
+    tab(server, "docker", "server.docker.summary", {
+      column: "docker",
+      exact: true,
+      feature: "docker_zone",
+      fleetTo: "/fleet/docker",
+      permission: "docker.read",
+      keywords: "server.docker.summaryKeywords",
+      command: "server.docker.summaryCommand",
+    }),
+    docker(server, "stacks", "server.docker.stacks", { column: "docker", feature: "docker_zone", fleetTo: "/fleet/docker/stacks", permission: "docker.read", keywords: "server.docker.stacksKeywords", command: "server.docker.stacksCommand" }),
+    docker(server, "containers", "server.docker.containers", {
+      column: "docker",
+      feature: "docker_zone",
+      fleetTo: "/fleet/docker/containers",
+      permission: "docker.read",
+      keywords: "server.docker.containersKeywords",
+      command: "server.docker.containersCommand",
+    }),
+    docker(server, "images", "server.docker.images", { column: "docker", feature: "docker_zone", fleetTo: "/fleet/docker/images", permission: "docker.read", keywords: "server.docker.imagesKeywords", command: "server.docker.imagesCommand" }),
+    docker(server, "volumes", "server.docker.volumes", { column: "docker", feature: "docker_zone", fleetTo: "/fleet/docker/volumes", permission: "docker.read", keywords: "server.docker.volumesKeywords", command: "server.docker.volumesCommand" }),
+    docker(server, "networks", "server.docker.networks", {
+      column: "docker",
+      feature: "docker_zone",
+      fleetTo: "/fleet/docker/networks",
+      permission: "docker.read",
+      keywords: "server.docker.networksKeywords",
+      command: "server.docker.networksCommand",
+    }),
+    docker(server, "engine", "server.docker.engine", { column: "docker", feature: "docker_zone", fleetTo: "/fleet/docker/engine", permission: "docker.read", keywords: "server.docker.engineKeywords", command: "server.docker.engineCommand" }),
     tab(server, "files", "server.tabs.files", { column: "tools", keywords: "server.tabs.filesKeywords" }),
     // The machine written down in a file: what applying it would change here, before anything does.
     tab(server, "manifest", "manifestPreview.nav.label", { column: "tools", keywords: "manifestPreview.nav.keywords", command: "manifestPreview.nav.command", permission: "apps.read", feature: "applications" }),

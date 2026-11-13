@@ -5,7 +5,7 @@
  */
 
 import { Link, Outlet, useNavigate } from "@tanstack/react-router";
-import { Cog, Play, RotateCw, Square } from "lucide-react";
+import { Play, RotateCw, Square } from "lucide-react";
 import { useState } from "react";
 
 import { DetailPage } from "../../components/page/DetailPage";
@@ -21,12 +21,12 @@ import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusPill } from "../../components/ui/StatusPill";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { useT } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
 import { serviceState } from "./data";
 import { useServiceActions } from "./useServiceActions";
 import { useServiceRecord } from "./useServiceRecord";
-import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 function NotFound({ name }: { name: string }) {
   const t = useT();
@@ -35,7 +35,7 @@ function NotFound({ name }: { name: string }) {
       <EmptyState
         variant="firstUse"
         level={2}
-        icon={<Cog />}
+        icon={<OBJECT_ICONS.service />}
         title={t("services.detail.notFoundTitle")}
         description={t("services.detail.notFoundDescription")}
         action={

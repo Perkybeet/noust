@@ -30,6 +30,7 @@ export const nav = {
     publish: "Publish",
     machine: "This machine",
     running: "What runs",
+    docker: "Docker",
     tools: "Tools",
     fleet: "Fleet",
     dns: "DNS",

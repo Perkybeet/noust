@@ -30,7 +30,7 @@ import type { Injected } from "./useTerminalSession";
 import { useTerminalSession } from "./useTerminalSession";
 import type { Phase, SessionState, TerminalTarget } from "./useTerminalSession";
 import { terminalStatusQuery, useHasPermission } from "./queries";
-import type { TerminalStatus } from "./queries";
+import type { TerminalPermission, TerminalStatus } from "./queries";
 import { clock, endedSentence, secondsUntil } from "./words";
 import type { ReactNode } from "react";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
@@ -53,6 +53,11 @@ export interface TerminalPanelProps {
   target: TerminalTarget;
   /** For tests: how the socket is made and where the console's ticket comes from. */
   injected?: Injected;
+}
+
+/** The permission a shell in the target takes: an application's, or the server's for a container nobody of an application owns. */
+function neededPermission(target: TerminalTarget): TerminalPermission {
+  return target.kind === "app" || (target.kind === "container" && target.app) ? "apps.terminal" : "server.terminal";
 }
 
 function minutes(seconds: number): number {
@@ -171,7 +176,7 @@ function HowItWorks({ target, status, t }: { target: TerminalTarget; status: Ter
       className="w-96"
     >
       <div className="flex flex-col gap-2 text-13 text-fg-muted">
-        <p>{app ? t("terminal.start.app.description") : t("terminal.start.server.description")}</p>
+        <p>{target.kind === "container" ? t("terminal.start.container.description") : app ? t("terminal.start.app.description") : t("terminal.start.server.description")}</p>
         <p>{t("terminal.start.recorded", { idle: minutes(status.idle_seconds), max: minutes(status.max_seconds) })}</p>
         <p>{t("terminal.start.sudo")}</p>
       </div>
@@ -190,16 +195,16 @@ function Start({ target, status, permitted, loading, onOpen, t }: StartProps) {
   ];
   return (
     <Card
-      title={app ? t("terminal.start.app.title", { domain: target.domain }) : t("terminal.start.server.title")}
+      title={target.kind === "container" ? t("terminal.start.container.title", { name: target.ref }) : target.kind === "app" ? t("terminal.start.app.title", { domain: target.domain }) : t("terminal.start.server.title")}
       status={<StatusPill state="unknown" label={t("terminal.state.notOpen")} size="sm" />}
-      description={app ? t("terminal.start.app.summary") : t("terminal.start.server.summary")}
+      description={target.kind === "container" ? t("terminal.start.container.summary") : app ? t("terminal.start.app.summary") : t("terminal.start.server.summary")}
     >
       <div className="flex flex-col gap-3">
-        {permitted === false ? <Notice tone="warning">{t("terminal.start.permission", { permission: app ? "apps.terminal" : "server.terminal" })}</Notice> : null}
+        {permitted === false ? <Notice tone="warning">{t("terminal.start.permission", { permission: neededPermission(target) })}</Notice> : null}
         <div className="flex flex-wrap items-center gap-2">
           <Button
             // The application's header already carries the page's primary action (Update).
-            variant={app ? "secondary" : "primary"}
+            variant={target.kind === "server" ? "primary" : "secondary"}
             icon={<OBJECT_ICONS.terminal aria-hidden="true" />}
             loading={loading}
             disabled={permitted !== true}
@@ -283,7 +288,7 @@ function DisplayOptions({
 export function TerminalPanel({ target, injected }: TerminalPanelProps) {
   const t = useT();
   const status = useQuery(terminalStatusQuery());
-  const permitted = useHasPermission(target.kind === "app" ? "apps.terminal" : "server.terminal");
+  const permitted = useHasPermission(neededPermission(target));
   const session = useTerminalSession(target, injected);
   const { state, source } = session;
   const [last, setLast] = useState<{ shell?: string; service?: string }>({});
@@ -304,7 +309,8 @@ export function TerminalPanel({ target, injected }: TerminalPanelProps) {
 
     if (state.phase === "idle") {
       if (target.kind === "server" && !settings.server.allowed) return <Off target={target} status={settings} t={t} />;
-      if (target.kind === "app" && !settings.enabled) return <Off target={target} status={settings} t={t} />;
+      // A container's shell is governed by the same switch as an application's.
+      if (target.kind !== "server" && !settings.enabled) return <Off target={target} status={settings} t={t} />;
       return <Start target={target} status={settings} permitted={permitted} loading={false} onOpen={open} t={t} />;
     }
 
@@ -327,7 +333,7 @@ export function TerminalPanel({ target, injected }: TerminalPanelProps) {
       );
     }
 
-    const label = target.kind === "app" ? t("terminal.document.app", { domain: target.domain }) : t("terminal.document.server");
+    const label = target.kind === "app" ? t("terminal.document.app", { domain: target.domain }) : target.kind === "container" ? t("terminal.document.container", { name: target.ref }) : t("terminal.document.server");
     const live = state.phase === "open" || state.phase === "reconnecting" || state.phase === "opening";
 
     return (
@@ -342,7 +348,7 @@ export function TerminalPanel({ target, injected }: TerminalPanelProps) {
               </Button>
             ) : (
               <Button
-                variant={target.kind === "app" ? "secondary" : "primary"}
+                variant={target.kind === "server" ? "primary" : "secondary"}
                 icon={<Plus aria-hidden="true" />}
                 onClick={() => {
                   // A new terminal is the same one again: the options it was opened with are kept.

@@ -194,6 +194,11 @@ export interface LogStreamOptions {
   lines?: number;
   /** Most lines held in memory; the oldest go first. */
   cap?: number;
+  /**
+   * The stream's path for what is followed, when it is not an application's journal: a container's output is
+   * `/ws/docker/logs/{ref}`, and speaks the same frames. Read once, when the stream starts.
+   */
+  path?: (target: string) => string;
   getTicket?: () => Promise<string>;
   connect?: (url: string) => SocketLike;
 }
@@ -216,7 +221,7 @@ export function useLogStream(domain: string | null, options: LogStreamOptions = 
     setFollowing(domain);
     setState(INITIAL_LOG_STREAM);
   }
-  const injected = useRef({ getTicket: options.getTicket, connect: options.connect });
+  const injected = useRef({ getTicket: options.getTicket, connect: options.connect, path: options.path });
   const { node } = useNode();
 
   useEffect(() => {
@@ -227,6 +232,8 @@ export function useLogStream(domain: string | null, options: LogStreamOptions = 
     let connections = 0;
     let lastText: string | null = null;
     let skipEcho = false;
+    // A container that is not running ends its output: the server says so and closes, and following it again would only repeat its last line.
+    let ended = false;
 
     const flush = (): void => {
       flushTimer = null;
@@ -247,7 +254,7 @@ export function useLogStream(domain: string | null, options: LogStreamOptions = 
     };
 
     const socket = new StreamSocket({
-      path: `/ws/logs/${encodeURIComponent(domain)}`,
+      path: injected.current.path !== undefined ? injected.current.path(domain) : `/ws/logs/${encodeURIComponent(domain)}`,
       node,
       // After a reconnection, ask for one line of backlog and drop it if it is the last line
       // already shown: the full backlog again would duplicate everything on screen.
@@ -276,6 +283,9 @@ export function useLogStream(domain: string | null, options: LogStreamOptions = 
           case "warning":
             if (text !== null) push({ text, level: "warn" });
             return;
+          case "ended":
+            ended = true;
+            return;
           case "error":
             setState((current) => ({
               ...current,
@@ -286,6 +296,7 @@ export function useLogStream(domain: string | null, options: LogStreamOptions = 
             return;
         }
       },
+      isComplete: () => ended,
       ...(injected.current.getTicket ? { getTicket: injected.current.getTicket } : {}),
       ...(injected.current.connect ? { connect: injected.current.connect } : {}),
     });

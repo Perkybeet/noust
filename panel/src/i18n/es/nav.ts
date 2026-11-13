@@ -29,6 +29,7 @@ export const nav: Catalog<typeof en> = {
     publish: "Publicar",
     machine: "Esta máquina",
     running: "Lo que corre",
+    docker: "Docker",
     tools: "Herramientas",
     fleet: "Flota",
     dns: "DNS",

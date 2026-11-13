@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { Cog } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { appsQuery } from "../../api/queries/apps";
@@ -12,6 +11,7 @@ import { Button } from "../../components/ui/Button";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { ICONS } from "../../components/ui/icons";
 import { Select } from "../../components/ui/Select";
+import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { useT } from "../../i18n";
 import { HeaderActions } from "../server/headerSlot";
 import { CreateServiceDialog } from "./CreateServiceDialog";
@@ -137,7 +137,7 @@ export function ServicesPage({ search, onSearchChange }: ServicesPageProps) {
           <EmptyState
             variant="firstUse"
             level={2}
-            icon={<Cog />}
+            icon={<OBJECT_ICONS.service />}
             title={t("services.page.emptyTitle")}
             description={t("services.page.emptyDescription")}
             action={

@@ -31,6 +31,7 @@ from .constants import (
     OLDER_NODE_ENV,
 )
 from .databases import seed_databases
+from .docker_host import model_docker_host
 from .fleet import (
     join_fleet_node,
     mount_fleet_test_seam,
@@ -115,9 +116,17 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
     certs: list[str] = []
     profile = PROFILES[args.host_profile]
     use(profile)
-    set_runner(
-        make_runner(units, ports, domains, certs, sandbox.systemd_dir, programs=profile.programs)
-    )
+    programs = profile.programs
+    if args.docker:
+        # Docker is deliberately absent from the default machine; this one has it.
+        from .machine import INSTALLED_PROGRAMS
+        from .server_host import SERVER_PROGRAMS
+
+        programs = (
+            *(programs if programs is not None else (*INSTALLED_PROGRAMS, *SERVER_PROGRAMS)),
+            "docker",
+        )
+    set_runner(make_runner(units, ports, domains, certs, sandbox.systemd_dir, programs=programs))
     # Managers report progress on stdout, which belongs to the one JSON line
     # the caller parses.
     with contextlib.redirect_stdout(sys.stderr):
@@ -175,6 +184,17 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
     certs.extend(seeded_certs)
     # The VPS the Server area manages (/api/server): see model_server_host.
     host = model_server_host(sandbox, args.hostname or socket.gethostname(), units, profile)
+    if args.docker and not args.empty:
+        # The engine the Docker zone looks at, over the applications that were just seeded.
+        from noust.core.store import get_store
+
+        model_docker_host(
+            {
+                app.domain: app.app_path
+                for app in get_store(sandbox.store_file).list_apps()
+                if app.app_path
+            }
+        )
     if video:
         from .video import settle_server_host
 

@@ -150,6 +150,28 @@ describe("DetailPage (T2)", () => {
     expect(template?.querySelector("[data-slot=content]")).not.toBeNull();
   });
 
+  it("puts a second column beside the content, after it in the reading order, and draws none unless it is given", async () => {
+    const { container } = await renderRouted(
+      <DetailPage header={{ title: "web-1" }} aside={<p>consumption</p>}>
+        <p>logs</p>
+      </DetailPage>,
+    );
+    const content = container.querySelector("[data-slot=content]");
+    expect(content).toHaveClass("lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]");
+    expect(content?.textContent).toBe("logsconsumption");
+    expect(container.querySelector("[data-slot=aside]")).toHaveTextContent("consumption");
+  });
+
+  it("has no second column of its own", async () => {
+    const { container } = await renderRouted(
+      <DetailPage header={{ title: "web-1" }}>
+        <p>logs</p>
+      </DetailPage>,
+    );
+    expect(container.querySelector("[data-slot=aside]")).toBeNull();
+    expect(container.querySelector("[data-slot=content]")).not.toHaveClass("grid");
+  });
+
   it("is the shell's own width unless it is told otherwise", async () => {
     const { container } = await renderRouted(
       <DetailPage header={{ title: "shop.example.com" }}>

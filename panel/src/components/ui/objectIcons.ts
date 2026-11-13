@@ -15,10 +15,12 @@ import {
   CloudCog,
   CloudUpload,
   CodeXml,
+  Cog,
   Computer,
   Container,
   Cpu,
   Database,
+  Disc3,
   Download,
   Eraser,
   EthernetPort,
@@ -50,6 +52,7 @@ import {
   Key,
   KeySquare,
   Layers,
+  LayoutDashboard,
   ListTodo,
   LogIn,
   Megaphone,
@@ -198,6 +201,12 @@ export const OBJECT_ICONS = {
   packages: Package,
   sandbox: FlaskConical,
   container: Container,
+  /** What Docker has on the machine as a whole: the summary that opens the zone. */
+  summary: LayoutDashboard,
+  /** An image Docker holds, the thing a container is made from. */
+  image: Disc3,
+  /** The Docker engine itself: which one runs here and what fits in it. */
+  engine: Cog,
   compose: Blocks,
   registry: Warehouse,
   stackNetworks: Cable,

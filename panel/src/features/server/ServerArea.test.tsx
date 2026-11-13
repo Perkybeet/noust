@@ -76,6 +76,14 @@ describe("the Server area", () => {
       "Web server",
       "Console",
       "Software",
+      // A session that says nothing of its functions offers what its role always allowed: the pages of Docker are there.
+      "Summary",
+      "Stacks",
+      "Containers",
+      "Images",
+      "Volumes",
+      "Networks",
+      "Engine",
       "Files",
       "Manifest",
     ]);

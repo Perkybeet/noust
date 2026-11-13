@@ -26,6 +26,8 @@ export { DataTable } from "./DataTable";
 export type { Column, DataTableProps, SortDirection, SortState } from "./DataTable";
 export { Dialog, DialogClose } from "./Dialog";
 export type { DialogProps, DialogSize } from "./Dialog";
+export { DiffLines } from "./DiffLines";
+export type { DiffLine, DiffLinesProps } from "./DiffLines";
 export { Disclosure } from "./Disclosure";
 export type { DisclosureProps } from "./Disclosure";
 export { Drawer } from "./Drawer";

@@ -44,6 +44,8 @@ export const SESSION: SessionInfo = {
     "server.read",
     "server.manage",
     "server.host_access",
+    "docker.read",
+    "docker.manage",
     "databases.read",
     "databases.write",
     "databases.manage",

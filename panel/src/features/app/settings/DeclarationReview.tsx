@@ -5,16 +5,13 @@
  * discarded from the draft without touching the others. Nothing here applies anything.
  */
 
-import { Minus, Plus } from "lucide-react";
-
 import type { ResponseOf } from "../../../api/client";
 import { Button } from "../../../components/ui/Button";
-import { Mono } from "../../../components/ui/Mono";
+import { DiffLines } from "../../../components/ui/DiffLines";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
-import { cx } from "../../../lib/cx";
 import { blockOfSection, changedBlocks } from "./declarationDiff";
-import type { BlockChange, DiffLine } from "./declarationDiff";
+import type { BlockChange } from "./declarationDiff";
 
 type Plan = ResponseOf<"/api/apps/{domain}/apply", "post">["plan"];
 
@@ -42,27 +39,6 @@ export function blockName(t: T, key: string): string {
   }
 }
 
-function Lines({ lines, label }: { lines: readonly DiffLine[]; label: string }) {
-  const t = useT();
-  return (
-    <div role="group" aria-label={label} className="overflow-x-auto rounded-control border border-border bg-bg-sunken py-1 text-12 leading-5 scroll-thin">
-      {lines.map((line, index) => (
-        <div
-          key={`${String(index)}:${line.kind}`}
-          className={cx("flex w-max min-w-full px-2", line.kind === "add" && "bg-ok-soft", line.kind === "del" && "bg-fail-soft")}
-        >
-          {/* A shape as well as a ground: the change is read without its colour. */}
-          <span aria-hidden="true" className="w-4 shrink-0 text-fg-muted select-none">
-            {line.kind === "add" ? <Plus className="size-3" /> : line.kind === "del" ? <Minus className="size-3" /> : null}
-          </span>
-          {line.kind !== "same" ? <span className="sr-only">{line.kind === "add" ? t("declaration.review.addedLine") : t("declaration.review.removedLine")}</span> : null}
-          <Mono className="whitespace-pre">{line.text === "" ? " " : line.text}</Mono>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function BlockCard({ change, plan, onDiscard, disabled }: { change: BlockChange; plan: Plan | null; onDiscard: (key: string) => void; disabled: boolean }) {
   const t = useT();
   const name = blockName(t, change.key);
@@ -80,7 +56,7 @@ function BlockCard({ change, plan, onDiscard, disabled }: { change: BlockChange;
           {t("declaration.review.discard", { block: name })}
         </Button>
       </div>
-      <Lines lines={change.lines} label={t("declaration.review.linesOf", { block: name })} />
+      <DiffLines lines={change.lines} label={t("declaration.review.linesOf", { block: name })} labels={{ added: t("declaration.review.addedLine"), removed: t("declaration.review.removedLine") }} />
     </li>
   );
 }

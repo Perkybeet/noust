@@ -108,6 +108,7 @@ export const COLUMN_GROUP_TITLES: Readonly<Record<string, PlainKey>> = {
   publish: "nav.columnGroups.publish",
   machine: "nav.columnGroups.machine",
   running: "nav.columnGroups.running",
+  docker: "nav.columnGroups.docker",
   tools: "nav.columnGroups.tools",
   fleet: "nav.columnGroups.fleet",
   dns: "nav.columnGroups.dns",

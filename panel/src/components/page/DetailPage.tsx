@@ -22,6 +22,12 @@ export interface DetailPageProps {
   /** The active tab (an Outlet). It never repeats the page's or the tab's title in an h2. */
   children: ReactNode;
   /**
+   * A second, narrower column beside the content from 1024px, and under it on a narrower window: what is read next to the main thing
+   * and never instead of it (a container's consumption and what it touches, beside its logs). A page whose sections are all of
+   * one weight has none.
+   */
+  aside?: ReactNode;
+  /**
    * How wide the page is, header and content together: `page` (the shell's column, the default) or `settings` (the
    * width of a settings subsection, `--width-settings`). A header is as wide as its content, so the title and its
    * actions end where the content does and never at the edge of the window, a screen away from what they govern
@@ -36,7 +42,7 @@ export interface DetailPageProps {
  * header and the tabs are the layout route's, so they keep their place and height while the
  * tabs change beneath them.
  */
-export function DetailPage({ header, banner, job, tabs, children, measure = "page", className }: DetailPageProps) {
+export function DetailPage({ header, banner, job, tabs, children, aside, measure = "page", className }: DetailPageProps) {
   const between = banner !== undefined || job !== undefined || tabs !== undefined;
   return (
     <div data-template="detail" data-measure={measure} className={cx("flex min-w-0 flex-col", measure === "settings" && "max-w-settings", className)}>
@@ -50,9 +56,19 @@ export function DetailPage({ header, banner, job, tabs, children, measure = "pag
           {tabs !== undefined ? <div data-slot="tabs">{tabs}</div> : null}
         </div>
       ) : null}
-      <div data-slot="content" className="mt-8 min-w-0">
-        {children}
-      </div>
+      {aside !== undefined ? (
+        // design-exception: arbitrary-grid the second column of the template: the two share the width in one fixed proportion, which only the template knows
+        <div data-slot="content" className="mt-8 grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+          <div className="min-w-0">{children}</div>
+          <div data-slot="aside" className="min-w-0">
+            {aside}
+          </div>
+        </div>
+      ) : (
+        <div data-slot="content" className="mt-8 min-w-0">
+          {children}
+        </div>
+      )}
     </div>
   );
 }

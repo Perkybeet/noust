@@ -10,6 +10,7 @@ import { Kit32 } from "./Kit32";
 import { Kit40 } from "./Kit40";
 import { Kit42 } from "./Kit42";
 import { Kit43 } from "./Kit43";
+import { KitDocker } from "./KitDocker";
 import { PageKit } from "./PageKit";
 import { Stone } from "./Stone";
 import { KitArrange } from "./KitArrange";
@@ -117,6 +118,10 @@ const NAV: { title: string; links: [string, string][] }[] = [
       ["k43-fleet-list", "Fleet list"],
       ["k43-servers-table", "Table of servers"],
       ["k43-which-server", "On which server?"],
+      ["kd-owner", "Owner mark"],
+      ["kd-version", "Version mark"],
+      ["kd-menu", "Object menu"],
+      ["kd-diff", "Diff lines"],
     ],
   },
   {
@@ -238,6 +243,7 @@ export function DesignGallery() {
           <Kit40 />
           <Kit42 />
           <Kit43 />
+          <KitDocker />
           <Components />
           <PageKit />
           <Patterns />

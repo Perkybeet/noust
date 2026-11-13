@@ -266,6 +266,7 @@ export const appPages: Catalog<typeof en> = {
     howFolder: "Carpeta",
     howImage: "Imagen",
     howSeeService: "Ver el servicio",
+    howSeeDocker: "Ver en Docker",
     howToContainer: "Para ejecutarla en un contenedor: se despliega de nuevo como contenedor y se mueve el dominio. No se convierte sobre la marcha.",
     howToServer: "Para ejecutarla directamente en el servidor: se despliega de nuevo y se mueve el dominio. No se convierte sobre la marcha.",
     liveNow: "Ahora en producción",

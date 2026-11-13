@@ -79,10 +79,12 @@ export function useTerminalSession(target: TerminalTarget, injected: Injected = 
     environment.update(node, injected);
   });
 
-  const domain = target.kind === "app" ? target.domain : null;
+  // One connection for as long as it is the same place: the target is a new object on every render, its parts are what matter.
+  const place = target.kind === "app" ? `app:${target.domain}` : target.kind === "container" ? `container:${target.app ? "app" : "server"}:${target.ref}` : "server";
   const connection = useMemo(
-    () => new TerminalConnection(domain === null ? { kind: "server" } : { kind: "app", domain }, environment.dependencies()),
-    [domain, environment],
+    () => new TerminalConnection(target, environment.dependencies()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `place` says everything of `target` a connection is made from
+    [place, environment],
   );
 
   useEffect(() => {

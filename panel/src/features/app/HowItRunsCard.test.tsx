@@ -6,6 +6,7 @@ import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { APPS, SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
+import { dockerSession } from "../docker/testing";
 import { screenWidth } from "./testRoutes";
 import { DOCKER_CONTAINERS_PATH, dockerContainersHref } from "./howItRuns";
 
@@ -69,10 +70,28 @@ describe("how an application runs, on its page (item 189)", () => {
     expect(within(section).getByText("noust-shop-example-com:20261112-101500-abc1234")).toBeInTheDocument();
     // A container has no unit of its own to show: its containers are the machine's.
     expect(within(section).queryByText("shop-example-com.service")).not.toBeInTheDocument();
-    // The Docker zone is where its containers are listed; until that page exists nothing here leads to it.
-    expect(within(section).queryByRole("link")).not.toBeInTheDocument();
+    // The way to a service is not drawn for a container: its way is the Docker zone, said below.
+    expect(within(section).queryByRole("link", { name: "See the service" })).not.toBeInTheDocument();
     expect(within(section).getByText(/To run it directly on the server: it is deployed again and the domain is moved/)).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
+  });
+
+  it("leads a container application to its containers in the Docker zone, where the zone is offered and the role may read it", async () => {
+    await overview(() => json(200, { domain: DOMAIN, form: "container", via: "dockerfile", image: "noust-shop:1" }), { ...SERVICE_APP, app_type: "container" }, dockerSession(true));
+    const link = within(await card()).getByRole("link", { name: "See in Docker" });
+    expect(link).toHaveAttribute("href", dockerContainersHref(DOMAIN));
+  });
+
+  it("does not lead there for a role that may not read Docker, nor where Docker is not at hand", async () => {
+    const withoutRead = { ...dockerSession(true), permissions: (SESSION.permissions ?? []).filter((permission) => permission !== "docker.read") };
+    await overview(() => json(200, { domain: DOMAIN, form: "container", via: "dockerfile", image: "noust-shop:1" }), { ...SERVICE_APP, app_type: "container" }, withoutRead);
+    expect(within(await card()).queryByRole("link", { name: "See in Docker" })).not.toBeInTheDocument();
+  });
+
+  it("does not lead there where the server says it cannot do Docker: what cannot be done is not offered", async () => {
+    await overview(() => json(200, { domain: DOMAIN, form: "container", via: "dockerfile", image: "noust-shop:1" }), { ...SERVICE_APP, app_type: "container" }, dockerSession(false));
+    expect(await within(await card()).findByText("In a container, built with the Dockerfile of its repository.")).toBeInTheDocument();
+    expect(within(await card()).queryByRole("link", { name: "See in Docker" })).not.toBeInTheDocument();
   });
 
   it("says a container Railpack built is one", async () => {

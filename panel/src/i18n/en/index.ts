@@ -40,6 +40,7 @@ export { cron } from "./cron";
 export { databases } from "./databases";
 export { dbServers } from "./dbServers";
 export { declaration } from "./declaration";
+export { docker } from "./docker";
 export { domains } from "./domains";
 export { dumpImport } from "./dumpImport";
 export { enroll } from "./enroll";

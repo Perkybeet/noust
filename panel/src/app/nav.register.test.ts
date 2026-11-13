@@ -141,7 +141,8 @@ describe("3. the budgets", () => {
 
   it("keeps the sections of one area or resource to sixteen, an application's seventeen being the one accepted (NV-3)", () => {
     const parents = new Set(DESTS.filter((entry) => entry.kind === "tab").map((entry) => entry.parent ?? ""));
-    for (const parent of parents) expect(tabsById(parent, EVERYTHING).length, `the sections of ${parent}`).toBeLessThanOrEqual(parent === "app" ? 17 : 16);
+    // The machine's sections include Docker's seven pages (item 189): twenty, the one other area over sixteen, for the reason in app/columns.test.ts.
+    for (const parent of parents) expect(tabsById(parent, EVERYTHING).length, `the sections of ${parent}`).toBeLessThanOrEqual(parent === "app" ? 17 : parent === "server" ? 20 : 16);
   });
 
   it("keeps Settings to eight sections a group, seven groups and twenty-six in all (NV-3)", () => {
@@ -200,6 +201,13 @@ describe("3. the budgets", () => {
       "/fleet/apps",
       "/fleet/backups",
       "/fleet/certificates",
+      "/fleet/docker",
+      "/fleet/docker/containers",
+      "/fleet/docker/engine",
+      "/fleet/docker/images",
+      "/fleet/docker/networks",
+      "/fleet/docker/stacks",
+      "/fleet/docker/volumes",
       "/fleet/network",
       "/fleet/security",
       "/fleet/servers",
@@ -659,6 +667,13 @@ describe("what the pages draw from the register", () => {
       "/server/webserver",
       "/server/console",
       "/server/software",
+      "/server/docker",
+      "/server/docker/stacks",
+      "/server/docker/containers",
+      "/server/docker/images",
+      "/server/docker/volumes",
+      "/server/docker/networks",
+      "/server/docker/engine",
       "/server/files",
       "/server/manifest",
       "/server/central",

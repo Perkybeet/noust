@@ -27,7 +27,11 @@ import { reconnectDelay } from "../../realtime/backoff";
 import { WS_CLOSE_UNAUTHORIZED } from "../../realtime/sockets";
 import type { SocketLike } from "../../realtime/sockets";
 
-export type TerminalTarget = { kind: "app"; domain: string } | { kind: "server" };
+/**
+ * What a shell opens in: an application, the server itself, or a container of Docker (its name or id). A container's shell takes the
+ * permission of whose it is, which the page that offers it already knows (`app`: an application's, so `apps.terminal`; any other, `server.terminal`).
+ */
+export type TerminalTarget = { kind: "app"; domain: string } | { kind: "server" } | { kind: "container"; ref: string; app: boolean };
 
 export type Phase = "idle" | "opening" | "open" | "reconnecting" | "ended" | "failed";
 
@@ -276,7 +280,10 @@ export class TerminalConnection {
       const ticket =
         this.target.kind === "app"
           ? await request("post", "/api/apps/{domain}/terminal", { params: { domain: this.target.domain }, body })
-          : await request("post", "/api/server/terminal", { body });
+          : this.target.kind === "container"
+            ? // A container has no service to pick: it is the one thing the shell opens in.
+              await request("post", "/api/docker/containers/{ref}/terminal", { params: { ref: this.target.ref }, body: { rows: body.rows, cols: body.cols, ...(body.shell !== undefined ? { shell: body.shell } : {}), ...(body.resume !== undefined ? { resume: body.resume } : {}) } })
+            : await request("post", "/api/server/terminal", { body });
       if (mine !== this.generation) return;
       await this.connect(ticket, mine);
     } catch (error: unknown) {

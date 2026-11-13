@@ -11,6 +11,7 @@ export const terminal: Catalog<typeof en> = {
   document: {
     app: "Terminal - {domain}",
     server: "Terminal - el servidor",
+    container: "Terminal - {name}",
   },
   header: {
     label: "Sesión de terminal",
@@ -50,6 +51,12 @@ export const terminal: Catalog<typeof en> = {
       summary: "Con la cuenta con la que se ejecuta la aplicación, en su sandbox.",
       description:
         "Obtienes una shell con la cuenta con la que se ejecuta la aplicación, en su sandbox y con su entorno: los mismos archivos y los mismos secretos que ella tiene, y nada más del servidor. La shell de un stack es una shell dentro de su contenedor.",
+    },
+    container: {
+      title: "Una shell en {name}",
+      summary: "Dentro del contenedor, como la cuenta con la que corre.",
+      description:
+        "Obtienes una shell dentro del contenedor, como la cuenta con la que corre, con lo que tiene: sus ficheros y su entorno. Se graba como cada terminal de Noust, y lo que cambies se queda en el contenedor hasta que lo sustituyan.",
     },
     server: {
       title: "Una shell de root en el servidor",

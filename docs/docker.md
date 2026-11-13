@@ -6,6 +6,16 @@ This page is about what changes it: updating the images in use with a net, takin
 into Noust, and editing the Compose of a stack so that a bad edit goes back by itself. The console shows it in
 the server's Docker section; every step has a command, and both are the same implementation.
 
+## The console's Docker section
+
+Server > Docker has seven pages: Summary (what asks for you first), Stacks, Containers, Images, Volumes, Networks and Engine. Every row
+says whose it is (an application's, a database engine's, Noust's own, or "Noust did not create it") and offers only what the server says
+can be done to it: what an application owns is read here and changed from the application, and what nobody of Noust made is started,
+stopped, restarted and removed here. A container is read from the inside (why it stopped, its last words as it printed them, its logs as they
+are written, what it uses, a console), a volume asks for its name before it is deleted, and the cleanup is a plan: what would go, whose it is
+and how much it holds, read before anything is removed. With All servers the same pages list every server, with the server as a column and a
+filter. A machine with no usable Docker does not offer the section at all (what a server cannot do is not given as an option, like every other function of its table); an address that was typed says why in the server's own words. With a server reached through the central, the central's table is not that server's to judge, and each page says what that server has.
+
 ## Which images have a new version
 
 ```bash

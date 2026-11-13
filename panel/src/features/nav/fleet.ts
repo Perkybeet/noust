@@ -85,12 +85,30 @@ const alerts = face("fleet.alerts", "/fleet/alerts", "nav.fleetBar.alerts.label"
   command: "fleet.tabs.command.alerts",
 });
 
+// Docker of the whole fleet (item 189): the same seven pages as one server's, with the server as a column and a filter. They are
+// faces of the Servers area, in a group of its column of their own, offered wherever the fleet is (a server that has none says so in its row).
+const dockerFace = (name: string, label: PlainKey, command: PlainKey, keywords: PlainKey): Dest =>
+  face(name === "" ? "fleet.docker" : `fleet.docker.${name}`, (name === "" ? "/fleet/docker" : `/fleet/docker/${name}`) as Dest["to"], label, "server", {
+    faceOf: "server",
+    column: "docker",
+    permission: "docker.read",
+    command,
+    keywords,
+  });
+const dockerSummary = dockerFace("", "server.docker.summary", "server.docker.fleet.summaryCommand", "server.docker.summaryKeywords");
+const dockerStacks = dockerFace("stacks", "server.docker.stacks", "server.docker.fleet.stacksCommand", "server.docker.stacksKeywords");
+const dockerContainers = dockerFace("containers", "server.docker.containers", "server.docker.fleet.containersCommand", "server.docker.containersKeywords");
+const dockerImages = dockerFace("images", "server.docker.images", "server.docker.fleet.imagesCommand", "server.docker.imagesKeywords");
+const dockerVolumes = dockerFace("volumes", "server.docker.volumes", "server.docker.fleet.volumesCommand", "server.docker.volumesKeywords");
+const dockerNetworks = dockerFace("networks", "server.docker.networks", "server.docker.fleet.networksCommand", "server.docker.networksKeywords");
+const dockerEngine = dockerFace("engine", "server.docker.engine", "server.docker.fleet.engineCommand", "server.docker.engineKeywords");
+
 /**
  * The fleet: every server at once, as the faces of the areas that have one. The applications'
  * second view, the ones that run on several servers, is a tab of the fleet's Applications. The
  * register is app/nav.ts; this is one group of it.
  */
-export const FLEET_SCREENS: Strip = [overview, servers, network, security, apps, placements, certificates, backups, centralBackups, updates, software, activity, alerts];
+export const FLEET_SCREENS: Strip = [overview, servers, network, security, apps, placements, certificates, backups, centralBackups, updates, software, dockerSummary, dockerStacks, dockerContainers, dockerImages, dockerVolumes, dockerNetworks, dockerEngine, activity, alerts];
 
 /** The two views of the fleet's applications, every server's and those that run on several. */
 export const FLEET_APPS_SCREENS: Strip = [apps, placements];

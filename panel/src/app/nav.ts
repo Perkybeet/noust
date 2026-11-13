@@ -125,6 +125,9 @@ export const EXCEPTIONS: Readonly<Record<string, string>> = {
   "/fleet/jobs/$id": "one fleet job, opened from the notice that started it",
   "/projects/$team/$project": "one project, opened from the Projects list",
   "/server/services/$name/unit": "a service's unit file, opened from the service's page",
+  "/server/docker/containers/$ref": "one container from the inside, opened from the list of containers",
+  "/server/docker/stacks/$name": "one stack, opened from the list of stacks",
+  "/server/docker/compose/$name": "the Compose document of one stack, opened from the stack's page",
   "/fleet/$": "any section of the console seen from All servers that has no page of the fleet of its own yet: the table of servers stands in for it (item 196)",
 };
 
@@ -142,6 +145,9 @@ export const EXCEPTION_CRUMBS: Readonly<Record<string, { from: string; name: { p
   "/fleet/jobs/$id": { from: "activity", name: { param: "id", prefix: "#" } },
   "/projects/$team/$project": { from: "apps.projects", name: { param: "project" } },
   "/server/services/$name/unit": { from: "service", name: { key: "services.actions.unitFile" } },
+  "/server/docker/containers/$ref": { from: "server.docker.containers", name: { param: "ref" } },
+  "/server/docker/stacks/$name": { from: "server.docker.stacks", name: { param: "name" } },
+  "/server/docker/compose/$name": { from: "server.docker.stacks", name: { key: "docker.compose.crumb" } },
   "/integrations/github/callback": { from: "settings.integrations", name: { key: "settings.integrations.callback.title" } },
   "/integrations/gitlab/callback": { from: "settings.integrations", name: { key: "gitlab.callback.title" } },
 };

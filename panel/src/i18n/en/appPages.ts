@@ -273,6 +273,7 @@ export const appPages = {
     howFolder: "Folder",
     howImage: "Image",
     howSeeService: "See the service",
+    howSeeDocker: "See in Docker",
     howToContainer: "To run it in a container: it is deployed again as a container and the domain is moved. It is not converted on the fly.",
     howToServer: "To run it directly on the server: it is deployed again and the domain is moved. It is not converted on the fly.",
     liveNow: "Live now",

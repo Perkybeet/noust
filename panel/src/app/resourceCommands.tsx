@@ -8,8 +8,6 @@
  * page that shows it. Pure, so every rule is tested without a palette.
  */
 
-import { Cog } from "lucide-react";
-
 import type { CertEntry } from "../api/queries/certs";
 import type { Database } from "../api/queries/databases";
 import type { DeploymentList } from "../api/queries/deployments";
@@ -17,12 +15,12 @@ import type { ServiceList } from "../api/queries/services";
 import type { SiteEntry } from "../api/queries/sites";
 import type { Project, Team } from "../api/queries/teams";
 import { deployStatus } from "../components/page/status";
+import { OBJECT_ICONS } from "../components/ui/objectIcons";
 import type { T } from "../i18n";
 import { engineName } from "../features/databases/engines";
 import { serviceState } from "../features/services/data";
 import { teamRoleLabel } from "../features/teams/roles";
 import type { Command } from "./CommandPalette";
-import { OBJECT_ICONS } from "../components/ui/objectIcons";
 
 export type ServiceEntry = ServiceList["services"][number];
 export type DeploymentEntry = DeploymentList["items"][number];
@@ -114,7 +112,7 @@ function serviceCommands(services: readonly ServiceEntry[], { navigate }: Resour
     group: "Services",
     label: service.name,
     ...(service.description ? { detail: service.description } : {}),
-    icon: <Cog />,
+    icon: <OBJECT_ICONS.service />,
     status: serviceState(service).state,
     keywords: words(service.description),
     kind: "navigate",

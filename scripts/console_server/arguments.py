@@ -147,6 +147,14 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--docker",
+        action="store_true",
+        help=(
+            "model a machine that has Docker, with the stacks, images and volumes the console's Docker zone "
+            "draws (the default machine has none, so that the Software page offers to install it)"
+        ),
+    )
+    parser.add_argument(
         "--seal",
         action="store_true",
         help=(

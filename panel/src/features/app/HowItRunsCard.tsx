@@ -6,12 +6,14 @@ import { appRunsQuery } from "../../api/queries/apps";
 import type { App } from "../../api/queries/apps";
 import { KeyValueList } from "../../components/page/KeyValueList";
 import type { KeyValueItem } from "../../components/page/KeyValueList";
+import { useCan } from "../../components/page/permissions";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { SurfaceSection } from "../../components/page/SurfaceSection";
 import { appStatus } from "../../components/page/status";
 import { buttonClassName } from "../../components/ui/Button";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import type { T } from "../../i18n";
+import { useScopeOffers } from "../../nodes/useNode";
 import { runsWords } from "./howItRuns";
 
 /** The folder the service runs from: the active release on releases, the folder itself in place. */
@@ -29,6 +31,10 @@ function folderOf(app: App): string | null {
  */
 export function HowItRunsCard({ app, t }: { app: App; t: T }) {
   const runs = useQuery(appRunsQuery(app.domain));
+  const mayReadDocker = useCan("docker.read");
+  // Offered by the register's one filter, like every link to a place: where the server has no Docker the link is not given.
+  const offers = useScopeOffers();
+  const mayOpenDocker = mayReadDocker && offers("docker_zone");
   const data = runs.data;
   if (data === undefined) {
     // A server without the route (a node of 4.2) has nothing to say, and always had none; any other failure is said.
@@ -56,11 +62,15 @@ export function HowItRunsCard({ app, t }: { app: App; t: T }) {
       icon={server ? OBJECT_ICONS.service : OBJECT_ICONS.container}
       description={t(words.line)}
       actions={
-        // A container's own page is the Docker zone's, which links here from its side when it exists: a link to a
-        // page that is not there yet would be a dead end.
+        // A container's own page is the Docker zone's: its Containers page, filtered to this application, for whoever may read Docker
+        // and where the zone is offered (a link to a page the column does not have would be a dead end).
         server && service !== null ? (
           <Link to="/services/$name" params={{ name: service }} className={buttonClassName("secondary", "sm")}>
             {t("appPages.overview.howSeeService")}
+          </Link>
+        ) : mayOpenDocker ? (
+          <Link to="/server/docker/containers" search={{ app: app.domain }} className={buttonClassName("secondary", "sm")}>
+            {t("appPages.overview.howSeeDocker")}
           </Link>
         ) : undefined
       }
