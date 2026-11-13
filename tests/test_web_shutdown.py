@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import signal
 import threading
+from collections.abc import Iterator
 from typing import Any
 
 import pytest
@@ -28,7 +29,8 @@ from fastapi import FastAPI
 
 from noust.web import events as events_module
 from noust.web import server as server_module
-from noust.web.events import _stream, begin_shutdown, shutting_down
+from noust.web.events import EventHub, _stream, begin_shutdown, shutting_down
+from noust.web.jobs import JobManager
 from tests.support.web_shutdown import _quiet_lifespan
 
 
@@ -41,6 +43,28 @@ def fresh_shutdown_flag(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch: Patching helper, scoped to the test.
     """
     monkeypatch.setattr(events_module, "_closing", threading.Event())
+
+
+@pytest.fixture(autouse=True)
+def nobody_elses_events(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """
+    Give every test a stream nothing else speaks on.
+
+    A stream listens to the process's job manager and to its hub. A job another test of the same
+    worker left running ends when it ends, and its last transition arrived on this test's stream as a
+    frame nobody here sent: a stream that "should be waiting" had something to say. A manager and a
+    hub of this test's own hear nothing but what the test does.
+
+    Args:
+        monkeypatch: Patching helper, scoped to the test.
+
+    Yields:
+        Nothing: the test runs between the two resets.
+    """
+    JobManager.reset_instance()
+    monkeypatch.setattr(events_module, "hub", EventHub())
+    yield
+    JobManager.reset_instance()
 
 
 class ConnectedRequest:
