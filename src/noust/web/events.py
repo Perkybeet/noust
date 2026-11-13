@@ -643,6 +643,46 @@ def _frame_domain(frame: str) -> str | None:
     return domain if isinstance(domain, str) else None
 
 
+#: The event the built-in assistant speaks on: what a turn says, reads and proposes, to the person who asked.
+ASSISTANT_EVENT = "event: assistant"
+
+
+def _frame_audience(frame: str) -> int | None:
+    """
+    Read whom an ``assistant`` frame of the hub is for.
+
+    Args:
+        frame: A rendered frame, ``event: assistant`` and ``data: <json>``.
+
+    Returns:
+        The account it is for; None for a frame that says none, which nobody receives.
+    """
+    _name, _, rest = frame.partition("\n")
+    try:
+        payload = json.loads(rest.removeprefix("data: ").strip())
+    except ValueError:
+        return None
+    account = payload.get("for") if isinstance(payload, dict) else None
+    return account if isinstance(account, int) and not isinstance(account, bool) else None
+
+
+def _account_of(session: dict[str, Any] | None) -> int | None:
+    """
+    Args:
+        session: The payload a stream was authenticated with.
+
+    Returns:
+        The account it acts as: a signed-in account, or the owner of an API token; None for the
+        master token and for a central.
+    """
+    if not session or session.get("fleet"):
+        return None
+    raw = session.get("account_id")
+    if raw is None:
+        raw = session.get("owner_account_id")
+    return int(raw) if raw is not None else None
+
+
 async def _stream(request: Request, session: dict[str, Any] | None = None) -> AsyncIterator[str]:
     """
     Yield events until the client goes away or its credential does.
@@ -667,6 +707,7 @@ async def _stream(request: Request, session: dict[str, Any] | None = None) -> As
     # the credential was admitted with, not whatever the client asks for.
     scoped = ScopedStore(scope_of(session)) if session is not None else None
     restricted = scoped is not None and scoped.scope.restricted
+    mine = _account_of(session)
 
     def deliver(frames: list[str]) -> None:
         """
@@ -712,7 +753,12 @@ async def _stream(request: Request, session: dict[str, Any] | None = None) -> As
         Args:
             frame: The rendered frame.
         """
-        if restricted and scoped is not None:
+        if frame.startswith(ASSISTANT_EVENT):
+            # What the assistant says in a conversation is its author's: it is delivered to the
+            # streams of that account and to no other, whatever the scope of the stream.
+            if mine is None or _frame_audience(frame) != mine:
+                return
+        elif restricted and scoped is not None:
             if frame != WAKE_FRAME and not scoped.sees_domain(_frame_domain(frame)):
                 return
         deliver([frame])

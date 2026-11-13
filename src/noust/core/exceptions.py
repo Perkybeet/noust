@@ -325,6 +325,23 @@ class QueueFullError(NoustError):
         self.limit = limit
 
 
+class AssistantBusyError(QueueFullError):
+    """The built-in assistant is answering as many people as it may at once: ask again in a moment."""
+
+    def __init__(self, text: ServerText, *, limit: int = 0):
+        """
+        Args:
+            text: The sentence that says so.
+            limit: How many turns it answers at once.
+        """
+        super().__init__(text.text, text.hint or "", limit=limit)
+        self.coded = text
+
+
+class AssistantTurnRunningError(NoustError):
+    """A conversation of the built-in assistant is still answering the last question."""
+
+
 class BuildError(DeploymentError):
     """Raised when application build fails."""
 

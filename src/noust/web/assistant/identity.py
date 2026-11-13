@@ -56,6 +56,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "ASSISTANT_PRESET",
+    "EXTRA_READS",
     "NEVER_HELD",
     "TOKEN_HOURS",
     "AssistantIdentity",
@@ -69,6 +70,10 @@ __all__ = [
 #: really do is the intersection with the person's own permissions and what the policy lets it
 #: propose. The assistant's loop never offers a tool the token cannot use.
 ASSISTANT_PRESET = "control"
+
+#: What the token may also read, because the assistant looks at what an alert says and at the servers
+#: of a fleet, which no tool of the MCP endpoint needs: reading, never changing.
+EXTRA_READS: frozenset[str] = frozenset({Permission.SERVER_READ, Permission.FLEET_READ})
 
 #: How long a conversation's token lives, in hours.
 TOKEN_HOURS = 4.0
@@ -116,7 +121,7 @@ def preset_permissions(preset: str = ASSISTANT_PRESET) -> frozenset[str]:
         The permissions the routes behind its tools need, without what is never held, and ``self``.
     """
     needed = permissions_of_preset(preset, TOOLS, permission_for_route)
-    return (frozenset(needed) - NEVER_HELD) | {SELF_PERMISSION}
+    return (frozenset(needed) - NEVER_HELD) | EXTRA_READS | {SELF_PERMISSION}
 
 
 def off_sentence() -> ServerText:

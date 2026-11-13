@@ -35,8 +35,22 @@ LOADED_WHEN_USED = (
     "noust.core.assistant.probe",
     "noust.core.assistant.conversations",
     "noust.core.assistant.presets",
+    "noust.core.assistant.bm25",
+    "noust.core.assistant.calls",
+    "noust.core.assistant.docsearch",
+    "noust.core.assistant.opsearch",
+    "noust.core.assistant.prompt",
+    "noust.core.assistant.provenance",
+    "noust.core.assistant.records",
     "noust.web.assistant",
     "noust.web.assistant.identity",
+    "noust.web.assistant.bridge",
+    "noust.web.assistant.context",
+    "noust.web.assistant.loop",
+    "noust.web.assistant.outcome",
+    "noust.web.assistant.present",
+    "noust.web.assistant.toolbox",
+    "noust.web.assistant.turns",
 )
 
 

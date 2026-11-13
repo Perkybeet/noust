@@ -52,8 +52,9 @@ _NAME = re.compile(r"[\w][\w .+@-]*")
 _VERSION = re.compile(r"[\w][\w.+-]*")
 _PRODUCT = re.compile(r"\s*([^\s/()]+)(?:/([^\s/()]*))?")
 
-#: The gateway of the MCP server calls the API as its caller with its own user agent: it is Noust, not a client.
-_OWN = frozenset({"noust-mcp"})
+#: The gateway of the MCP server and the built-in assistant call the API as their caller with a name of
+#: their own: it is Noust, not a client.
+_OWN = frozenset({"noust-mcp", "noust-assistant"})
 
 _written: dict[tuple[str, str, str, str, str], float] = {}
 

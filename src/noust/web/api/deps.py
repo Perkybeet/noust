@@ -65,6 +65,7 @@ from noust.core.docker.errors import (
 )
 from noust.core.ens.incident import IncidentLockdownError
 from noust.core.exceptions import (
+    AssistantTurnRunningError,
     CancelRefused,
     CertificateConflictError,
     ConfigError,
@@ -200,6 +201,8 @@ _STATUS_BY_ERROR: tuple[tuple[type[NoustError], int], ...] = (
     (DeploymentCancelled, 409),
     # The deploy queue has no room: try again when it has.
     (QueueFullError, 429),
+    # A conversation that is still answering is a state of it: ask when it ends, or cancel it.
+    (AssistantTurnRunningError, 409),
     # Going back past a schema change waits for the operator's yes.
     (SchemaChangedError, 409),
     # A freeze of deploys, or an application whose pushes are paused: a state, not a fault.
@@ -276,6 +279,7 @@ _CODE_BY_ERROR: tuple[tuple[type[NoustError], str], ...] = (
     (CancelRefused, "cancel_refused"),
     (DeploymentCancelled, "deployment_cancelled"),
     (QueueFullError, "queue_full"),
+    (AssistantTurnRunningError, "assistant_turn_running"),
     # A change that costs something waits for the operator's yes; the
     # console lists every warning before asking.
     (ConfirmationRequired, "confirmation_required"),

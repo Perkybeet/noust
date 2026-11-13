@@ -58,6 +58,38 @@ export const serverText = {
     },
   },
   assistant: {
+    act: {
+      activate_release: {
+        text: "Activate release {release_id} of {domain}",
+      },
+      cancel_job: {
+        text: "Cancel job {job_id}",
+      },
+      create_backup: {
+        text: "Back up {domain}",
+      },
+      deploy_application: {
+        text: "Update {domain}",
+      },
+      operation: {
+        text: "{summary} ({method} {path})",
+      },
+      renew_certificate: {
+        text: "Renew the certificate of {domain}",
+      },
+      restart_application: {
+        text: "Restart {domain}",
+      },
+      rollback_application: {
+        text: "Go back to a backup of {domain}",
+      },
+      start_application: {
+        text: "Start {domain}",
+      },
+      stop_application: {
+        text: "Stop {domain}",
+      },
+    },
     limit: {
       actions: {
         text: "The assistant already made {limit} changes in the last hour, the most it may",
@@ -126,6 +158,31 @@ export const serverText = {
         text: "The model {model} made the test call to a tool correctly, so the assistant can investigate with it",
       },
     },
+    proposal: {
+      why: {
+        actions_limit: {
+          text: "The assistant reached its limit of changes for this hour, so it asks",
+        },
+        foreign_value: {
+          text: "It carries a value that is neither yours nor Noust's, so it asks even where your policy would let it be done alone",
+        },
+        needs_second: {
+          text: "This asks a second person to approve it, and you cannot be the second",
+        },
+        needs_sudo: {
+          text: "This asks you to confirm it is you (sudo mode), so you do it with your own session",
+        },
+        policy_alone: {
+          text: "Your approval policy lets the assistant do this without asking",
+        },
+        policy_propose: {
+          text: "Your approval policy: the assistant proposes what changes something here",
+        },
+        read_outside: {
+          text: "The assistant read text somebody else wrote in this conversation, so it asks even where your policy would let it be done alone",
+        },
+      },
+    },
     provider: {
       bad_address: {
         text: "{address} is not the base address of a provider",
@@ -192,6 +249,118 @@ export const serverText = {
       unresolved: {
         text: "The name {host} did not resolve to any address",
         hint: "Check the spelling of the address and that this server's DNS can look it up.",
+      },
+    },
+    refused: {
+      not_offered: {
+        text: "This is not something the assistant is offered",
+        hint: "A person does it in the console.",
+      },
+      secret_value: {
+        text: "The call carries a secret, and the assistant never handles secrets",
+        hint: "Set it yourself in the console: the assistant does not see the value.",
+      },
+    },
+    step: {
+      application_logs: {
+        text: "Read the last lines of the journal of {domain}",
+      },
+      deployment_log: {
+        text: "Read the build log of deployment {deployment_id}",
+      },
+      diagnose_application: {
+        text: "Read the diagnosis of {domain}",
+      },
+      find_operation: {
+        text: "Looked for the operation that does: {query}",
+      },
+      fleet_apps: {
+        text: "Read the applications of every server",
+      },
+      fleet_backups: {
+        text: "Read the backups of every server",
+      },
+      fleet_certificates: {
+        text: "Read the certificates of every server",
+      },
+      fleet_servers: {
+        text: "Read the servers of the fleet",
+      },
+      fleet_updates: {
+        text: "Read which servers have updates",
+      },
+      get_application: {
+        text: "Read the state of {domain}",
+      },
+      get_deployment: {
+        text: "Read deployment {deployment_id}",
+      },
+      get_job: {
+        text: "Read job {job_id}",
+      },
+      job_log: {
+        text: "Read the log of job {job_id}",
+      },
+      list_application_domains: {
+        text: "Read the domains of {domain}",
+      },
+      list_applications: {
+        text: "Read the list of applications",
+      },
+      list_backups: {
+        text: "Read the backups",
+      },
+      list_certificates: {
+        text: "Read the certificates",
+      },
+      list_deployments: {
+        text: "Read the history of deployments",
+      },
+      list_environment_variables: {
+        text: "Read the names of the variables of {domain}, without their values",
+      },
+      list_jobs: {
+        text: "Read the recent jobs",
+      },
+      list_projects: {
+        text: "Read the projects",
+      },
+      list_releases: {
+        text: "Read the releases of {domain}",
+      },
+      list_teams: {
+        text: "Read the teams",
+      },
+      operation: {
+        text: "Made the read call {method} {path}",
+      },
+      search_docs: {
+        text: "Looked up the documentation: {query}",
+      },
+      server_health: {
+        text: "Read the health of the server",
+      },
+    },
+    turn: {
+      busy: {
+        text: "The assistant is answering as many people as it may at once",
+        hint: "Try again in a moment.",
+      },
+      failed: {
+        text: "The assistant could not finish this answer: {reason}",
+        hint: "Ask again. If it happens every time, the log of the console says why.",
+      },
+      interrupted: {
+        text: "The server restarted before the assistant finished this answer",
+        hint: "Ask again: what it already read is not kept.",
+      },
+      running: {
+        text: "This conversation is still answering",
+        hint: "Wait for it to end, or cancel it.",
+      },
+      too_long: {
+        text: "This answer took longer than {minutes} minutes, so the assistant stopped",
+        hint: "Ask again with a narrower question, or look at it by hand.",
       },
     },
     unavailable: {

@@ -14,7 +14,7 @@ whoever writes the loop:
 - **a limit reached cuts between steps**: the step that crossed it is whole and written down, and the
   next one is not made;
 - **the person reads their own addresses back**, while the model only ever saw the markers;
-- **nothing is asked of a node**: the assistant belongs to the console where the person is.
+- **nothing is asked of a node by the assistant itself**: with a fleet it asks the central's own API.
 """
 
 from __future__ import annotations
@@ -249,10 +249,10 @@ def _edges() -> list[graph.Edge]:
     return graph.read_edges(PACKAGE)
 
 
-def test_nothing_is_asked_of_a_node() -> None:
-    # The assistant belongs to the console where the person is: a central with a node of 4.2 has
-    # nothing to ask of it that it lacks, because the assistant asks it nothing. None of its modules
-    # imports the fleet's client or the proxy to a node.
+def test_nothing_is_asked_of_a_node_by_the_assistant_itself() -> None:
+    # With a fleet the assistant belongs to the central the person is in, and what it does on a server it does
+    # through the central's own API (the proxy to the node is a route of that API), as the assistant's token.
+    # None of its modules imports the fleet's client or the proxy: it re-implements nothing a node does.
     mine = ("noust.core.assistant", "noust.web.assistant", "noust.web.api.assistant")
     for edge in _edges():
         if edge.source.startswith(mine):

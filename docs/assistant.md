@@ -16,6 +16,7 @@ is good, and nothing here says an assistant cannot be misled by what it reads (s
 ```
 printf '%s\n' "$KEY" | noust assistant enable --preset mistral --model MODEL --key-stdin
 noust assistant status
+noust assistant ask --as marta "Why does shop.example.com keep restarting?"
 noust assistant disable
 ```
 
@@ -107,12 +108,104 @@ account, limited to the person's teams. The browser never talks to the provider:
 
 [PRIVACY.md](PRIVACY.md) lists this request among the ones you ask for.
 
+## What it does
+
+Three things, and it is told which of them the model can do (the probe says so):
+
+- **It explains.** Beside a failed deployment, a diagnosis or an alert, "explain this" gives it what that page
+  shows, which **Noust reads** (the model is not asked to go and find it), masked, bounded and marked as data. The
+  answer says what it thinks happened and what to try, and when it leans on a line of an error it **quotes it as
+  Noust holds it**, with its number: the model says which lines it relies on and Noust draws those lines from its
+  own copy of the text, so an answer cannot put words in the system's mouth. A model that does not call tools only
+  explains what it is shown.
+- **It investigates.** With a model that calls tools it reads what it needs, step by step, with read-only tools:
+  the same short list as [the MCP endpoint](mcp.md) (applications, their state, journal and diagnosis, the names of
+  their variables, deployments, jobs, backups, certificates, the server's health), and three of its own:
+  `search_docs` (the pages of this documentation, to cite; offered only where the documentation is installed),
+  `find_operation` (which operation of the API does what the person wants) and `call_operation` (prepare the exact
+  call of an operation that was found). Every step is shown as it happens ("read the log of deployment 14") with
+  how much it read and how many values that looked like secrets were hidden before they were sent.
+- **It proposes.** What changes something is never a promise of the model's: every call has a class, **computed from
+  what the API publishes of its operation** (never from the model's words), and the [approval policy of who
+  calls](security-approvals.md) says what the assistant may do with it.
+
+### What it does with a call
+
+| The call | What happens |
+|---|---|
+| A read | It is made, with the assistant's token, and written under "what it read". |
+| A change, where the policy says "does it" | It is made, counted in the hour's limit on changes, and written down in the conversation and the audit trail. |
+| A change, where the policy says "proposes" | **Nothing is made.** The exact call (method, path, query, body), its fingerprint and, where the operation has one, what its simulation says it would do, are kept as a *proposal*. |
+| What asks for sudo mode, or for a second person | It is a proposal too, **and the person carries it out in the console with their own session**, where sudo mode and the second approver are asked as always. The server grants nothing new. |
+| What the floor forbids, or a cell set to "never" | There is no call and no proposal: the model is told it is not offered, and the person is told who changes it. |
+
+A proposal says how much of the decision is the person's: their approval once, also confirming it is them (sudo mode),
+also a second person, or "done, as your policy lets it". It lives as long as its conversation, is approved or
+rejected **once**, and what came of it (done, failed with the system's own words, rejected) is written in the
+conversation and is told to the model at its next turn. There is no "approve all". The browser reports what came
+of a call it made, and the server checks that the call is the proposal's (its fingerprint) and that **the audit
+trail shows it was made** (the browser sends the proposal's identifier as `X-Noust-Request-Id`) before it gives it as
+done.
+
+### What a text somebody else wrote cannot do
+
+Logs, a README, a commit message and a branch name are written by whoever can write to the application, and a model
+can be misled by them: nothing here says otherwise. What is done about it does not depend on the model:
+
+- **Where the policy says "does it", the assistant still only proposes** a call that carries a value that neither
+  the person wrote nor Noust knows (a host, an address, a URL, an email, a command or the value of a variable): it is
+  shown to the person, highlighted, with the text it was found in, and a call that carries a secret is not offered
+  at all. And once the assistant has read text from outside in a conversation, whatever it is told to do afterwards
+  is proposed, not done.
+- **What it can reach is bounded by its token** (never sudo mode, never the floor), by the policy (what is changed
+  is limited per hour) and by the API (teams, approvals), not by what the model says.
+- A test attacks it every time the code changes: instructions hidden in a journal, a build log, a commit message
+  and a branch name ask to stop every application, set a variable, send alerts to a stranger, add a domain, deploy
+  and delete an application, and a scripted model that obeys makes exactly those calls. None reaches the API as a
+  change.
+
+## Asking it
+
+In the console, from the panel and from "explain this". From the terminal:
+
+```
+noust assistant ask --as marta "Why does shop.example.com keep restarting?"
+noust assistant ask --as marta --server web-01 --page deployment:14 "Explain this"
+```
+
+`--as` names the account it acts for (it holds at most what that account holds). It explains and investigates;
+**what it proposes is listed with the call that would carry it out and is not carried out**: a person does it in the
+console, in their own session.
+
+Over the API a question is `POST /api/assistant/conversations/{id}/turns` (it answers `202` at once), and
+everything the turn does (the text, each step, each proposal, the usage, the end) arrives on the console's event
+stream as the `assistant` event, to the streams of the account that asked and no other. A person cancels a turn
+(`POST .../turns/{turn}/cancel`) and it stops between two steps; turning the assistant off ends every turn. See
+[api.md](api.md).
+
 ## With a fleet
 
 The assistant belongs to the console a person works in. With a central it is turned on once, on the central, with
-the central's model and limits, and nothing is installed or turned on in the servers the central manages. What it
-looks at is the server chosen in the console, reached through the central like everything else the console shows
-of that server, so each server still decides what its central may do on it (`noust fleet authorize --access`).
+the central's model and limits, and nothing is installed or turned on in the servers the central manages. This is
+also true of a central that deploys nothing itself: it is where the person is, and it is **the assistant of its
+servers**.
+
+Every question carries the server the person chose in the console. A tool on a server is **the same tool**, called
+through the central's proxy to that server with the assistant's token (the central re-implements nothing a node
+does). So:
+
+- each server still decides what its central may do on it (`noust fleet authorize --access`), and what a server
+  marks as asking for sudo mode does not pass: the central answers for its operator's sudo mode only when a person
+  confirmed it, and the assistant's token never does;
+- the server's audit trail names the assistant and, in its token's name, the person behind it;
+- the approval policy that rules is the central's, where the person is, and a call on a server is judged as
+  production;
+- a server that runs an older Noust and lacks what is asked says so in words;
+- a member of a team reaches only the servers assigned to their team, and their applications.
+
+With **all the servers**, the central's views of the fleet are offered for reading (servers, applications,
+certificates, backups, updates), and every tool that applies to one server takes a `server`: before it changes
+something it has to know which, and it asks the person when it does not.
 
 ## Who it acts as
 
@@ -187,6 +280,7 @@ authorized flow with its reason recorded** (`--flow-reason`). It is off by defau
   a model from being misled by what it reads. What bounds the damage is not the model: the token holds at most
   what the person holds and never what is above, what changes something is limited per hour, and what needs
   sudo mode or a second person is done by a person.
+- That what it quotes is the whole error: it quotes a few lines, and says which text they are from.
 - That its diagnosis is right. It shows what it read and what it concluded; the error is always shown as the
   system said it.
 - That a model of your own is fast, or good, on the machine you have.
@@ -196,11 +290,13 @@ authorized flow with its reason recorded** (`--flow-reason`). It is off by defau
 
 | | |
 |---|---|
-| `noust assistant status\|configure\|enable\|disable\|probe\|usage` | The command line. The key by standard input (`--key-stdin`) or `NOUST_ASSISTANT_API_KEY`, never as an argument. |
+| `noust assistant status\|configure\|enable\|disable\|probe\|usage\|ask` | The command line. The key by standard input (`--key-stdin`) or `NOUST_ASSISTANT_API_KEY`, never as an argument. |
 | `GET /api/assistant/settings`, `PUT /api/assistant/settings` | What is chosen, without the key; changing it needs `settings.manage` and sudo mode. |
 | `POST /api/assistant/probe`, `POST /api/assistant/off` | The probe; turning it off. |
 | `GET /api/assistant/usage`, `GET /api/assistant/presets` | What it cost; the providers by name. |
 | `GET /api/assistant/conversations`, `GET`/`DELETE` `.../{id}` | A person's own conversations. |
+| `POST /api/assistant/conversations`, `POST .../{id}/turns`, `GET .../{id}/turns`, `POST .../turns/{turn}/cancel` | Begin a conversation; ask (`202`, and the answer arrives as the `assistant` event of `/events`); read what each turn did; stop one. |
+| `GET .../{id}/proposals`, `POST .../proposals/{id}/outcome`, `POST .../proposals/{id}/reject` | The calls it prepared; say what came of one the person carried out (the audit trail has to show it); reject one. |
 | `assistant` in `GET /api/auth/session` | Whether it is on, whether this person may use it, whether its model calls tools, which model it is and where the data goes, or why it is not offered. |
 | `retention.assistant_days` | Days its conversations are kept (30). |
 | `security.assistant_flows` | The compliance control above. |

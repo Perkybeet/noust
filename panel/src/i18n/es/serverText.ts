@@ -47,6 +47,38 @@ export const serverText: Catalog<typeof en> = {
     },
   },
   assistant: {
+    act: {
+      activate_release: {
+        text: "Activar la versión {release_id} de {domain}",
+      },
+      cancel_job: {
+        text: "Cancelar el trabajo {job_id}",
+      },
+      create_backup: {
+        text: "Hacer una copia de {domain}",
+      },
+      deploy_application: {
+        text: "Actualizar {domain}",
+      },
+      operation: {
+        text: "{summary} ({method} {path})",
+      },
+      renew_certificate: {
+        text: "Renovar el certificado de {domain}",
+      },
+      restart_application: {
+        text: "Reiniciar {domain}",
+      },
+      rollback_application: {
+        text: "Volver a una copia de {domain}",
+      },
+      start_application: {
+        text: "Iniciar {domain}",
+      },
+      stop_application: {
+        text: "Detener {domain}",
+      },
+    },
     limit: {
       actions: {
         text: "El asistente ya hizo {limit} cambios en la última hora, el máximo que puede",
@@ -115,6 +147,31 @@ export const serverText: Catalog<typeof en> = {
         text: "El modelo {model} hizo bien la llamada de prueba a una herramienta, así que el asistente puede investigar con él",
       },
     },
+    proposal: {
+      why: {
+        actions_limit: {
+          text: "El asistente llegó al tope de cambios de esta hora, así que pregunta",
+        },
+        foreign_value: {
+          text: "Lleva un valor que no es tuyo ni de Noust, así que pregunta aunque tu política lo dejara hacer solo",
+        },
+        needs_second: {
+          text: "Esto pide la aprobación de una segunda persona, y tú no puedes ser la segunda",
+        },
+        needs_sudo: {
+          text: "Esto pide que confirmes que eres tú (modo sudo), así que lo haces con tu propia sesión",
+        },
+        policy_alone: {
+          text: "Tu política de aprobación deja que el asistente haga esto sin preguntar",
+        },
+        policy_propose: {
+          text: "Tu política de aprobación: el asistente propone lo que cambia algo aquí",
+        },
+        read_outside: {
+          text: "El asistente leyó en esta conversación un texto que escribió otra persona, así que pregunta aunque tu política lo dejara hacer solo",
+        },
+      },
+    },
     provider: {
       bad_address: {
         text: "{address} no es la dirección base de un proveedor",
@@ -181,6 +238,118 @@ export const serverText: Catalog<typeof en> = {
       unresolved: {
         text: "El nombre {host} no se resuelve en ninguna dirección",
         hint: "Revisa que la dirección esté bien escrita y que el DNS de este servidor pueda resolverla.",
+      },
+    },
+    refused: {
+      not_offered: {
+        text: "El asistente no tiene esto entre lo que puede hacer",
+        hint: "Lo hace una persona en la consola.",
+      },
+      secret_value: {
+        text: "La llamada lleva un secreto, y el asistente nunca maneja secretos",
+        hint: "Ponlo tú en la consola: el asistente no ve el valor.",
+      },
+    },
+    step: {
+      application_logs: {
+        text: "Leyó las últimas líneas del diario de {domain}",
+      },
+      deployment_log: {
+        text: "Leyó el registro de la compilación del despliegue {deployment_id}",
+      },
+      diagnose_application: {
+        text: "Leyó el diagnóstico de {domain}",
+      },
+      find_operation: {
+        text: "Buscó la operación que hace: {query}",
+      },
+      fleet_apps: {
+        text: "Leyó las aplicaciones de todos los servidores",
+      },
+      fleet_backups: {
+        text: "Leyó las copias de todos los servidores",
+      },
+      fleet_certificates: {
+        text: "Leyó los certificados de todos los servidores",
+      },
+      fleet_servers: {
+        text: "Leyó los servidores de la flota",
+      },
+      fleet_updates: {
+        text: "Leyó qué servidores tienen actualizaciones",
+      },
+      get_application: {
+        text: "Leyó el estado de {domain}",
+      },
+      get_deployment: {
+        text: "Leyó el despliegue {deployment_id}",
+      },
+      get_job: {
+        text: "Leyó el trabajo {job_id}",
+      },
+      job_log: {
+        text: "Leyó el registro del trabajo {job_id}",
+      },
+      list_application_domains: {
+        text: "Leyó los dominios de {domain}",
+      },
+      list_applications: {
+        text: "Leyó la lista de aplicaciones",
+      },
+      list_backups: {
+        text: "Leyó las copias de seguridad",
+      },
+      list_certificates: {
+        text: "Leyó los certificados",
+      },
+      list_deployments: {
+        text: "Leyó el historial de despliegues",
+      },
+      list_environment_variables: {
+        text: "Leyó los nombres de las variables de {domain}, sin sus valores",
+      },
+      list_jobs: {
+        text: "Leyó los trabajos recientes",
+      },
+      list_projects: {
+        text: "Leyó los proyectos",
+      },
+      list_releases: {
+        text: "Leyó las versiones de {domain}",
+      },
+      list_teams: {
+        text: "Leyó los equipos",
+      },
+      operation: {
+        text: "Hizo la lectura {method} {path}",
+      },
+      search_docs: {
+        text: "Buscó en la documentación: {query}",
+      },
+      server_health: {
+        text: "Leyó la salud del servidor",
+      },
+    },
+    turn: {
+      busy: {
+        text: "El asistente está contestando a todas las personas que puede a la vez",
+        hint: "Prueba otra vez en un momento.",
+      },
+      failed: {
+        text: "El asistente no pudo acabar esta respuesta: {reason}",
+        hint: "Pregunta otra vez. Si pasa siempre, el registro de la consola dice por qué.",
+      },
+      interrupted: {
+        text: "El servidor se reinició antes de que el asistente acabara esta respuesta",
+        hint: "Pregunta otra vez: lo que ya había leído no se conserva.",
+      },
+      running: {
+        text: "Esta conversación sigue contestando",
+        hint: "Espera a que acabe, o cancélala.",
+      },
+      too_long: {
+        text: "Esta respuesta tardó más de {minutes} minutos, así que el asistente se paró",
+        hint: "Pregunta otra vez con algo más concreto, o míralo a mano.",
       },
     },
     unavailable: {

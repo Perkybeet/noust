@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-1233 operations.
+1241 operations.
 
 ## Access
 
@@ -236,8 +236,16 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | Method | Path | What it does | Permission | Sudo | Approval |
 |---|---|---|---|---|---|
 | GET | `/api/assistant/conversations` | List Conversations | `assistant.use` |  |  |
+| POST | `/api/assistant/conversations` | Begin Conversation | `assistant.use` |  |  |
 | GET | `/api/assistant/conversations/{conversation_id}` | Get Conversation | `assistant.use` |  |  |
 | DELETE | `/api/assistant/conversations/{conversation_id}` | Delete Conversation | `assistant.use` |  |  |
+| GET | `/api/assistant/conversations/{conversation_id}/proposals` | List Proposals | `assistant.use` |  |  |
+| GET | `/api/assistant/conversations/{conversation_id}/proposals/{proposal_id}` | Get Proposal | `assistant.use` |  |  |
+| POST | `/api/assistant/conversations/{conversation_id}/proposals/{proposal_id}/outcome` | Report Outcome | `assistant.use` |  |  |
+| POST | `/api/assistant/conversations/{conversation_id}/proposals/{proposal_id}/reject` | Reject Proposal | `assistant.use` |  |  |
+| GET | `/api/assistant/conversations/{conversation_id}/turns` | List Turns | `assistant.use` |  |  |
+| POST | `/api/assistant/conversations/{conversation_id}/turns` | Ask | `assistant.use` |  |  |
+| POST | `/api/assistant/conversations/{conversation_id}/turns/{turn_id}/cancel` | Cancel Turn | `assistant.use` |  |  |
 | POST | `/api/assistant/off` | Turn Off | `settings.manage` | yes |  |
 | GET | `/api/assistant/presets` | Presets | `settings.read` |  |  |
 | POST | `/api/assistant/probe` | Probe | `settings.manage` |  |  |

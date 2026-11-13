@@ -3328,6 +3328,28 @@ Why this change is made (a change reference, a ticket). Recorded with the comman
 .SS noust assistant
 Set up and look after the built\-in assistant (an AI, with a model of your choice).
 
+.SS noust assistant ask
+Ask the assistant something and read its answer here.
+.TP
+.B Arguments
+.br
+\fIquestion\fR
+.TP
+.B \-\-as
+The account the assistant acts for: it holds at most what that account holds.
+.TP
+.B \-\-server
+The server it is about: a name, or 'all' (a central's servers).
+.TP
+.B \-\-page
+The page the question is asked from: deployment:ID, diagnosis:DOMAIN, alert:RULE or page:/ROUTE.
+.TP
+.B \-\-json
+Print the turn as JSON instead of the text.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
 .SS noust assistant configure
 Choose the provider, its limits and its prices, without turning the assistant on.
 .TP

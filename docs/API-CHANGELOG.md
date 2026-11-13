@@ -217,6 +217,20 @@ against the schema of 4.2.0.
   when it is not offered to this caller, a `reason` with a code), and `central.features` has a key `assistant`. A new
   permission, `assistant.use`, held by the administrator and operator roles and by no team role. The tokens of the
   API carry `caller` in what they authenticate (`token` or `assistant`); no route can ask for the second.
+- **Asking the built-in assistant** (`assistant.use`, a person's own conversations only). `POST
+  /api/assistant/conversations` begins one and `POST /api/assistant/conversations/{id}/turns` asks a question in it
+  (`message`, and optionally `page`, `server` and `locale`): it answers `202` at once and the turn runs in the server.
+  What it does arrives on `/events` as the new **`assistant`** event, to the streams of the account that asked and to
+  no other (`start`, `text`, `step`, `proposal`, `warning`, `usage`, `end`; see [api.md](api.md)). `GET
+  /api/assistant/conversations/{id}/turns` has all of it again (what each turn read, its answer cut at the lines of
+  the system it quotes, the calls it proposed, what it was not offered, what stopped it, the model that answered and
+  where it is), and `POST .../turns/{turn}/cancel` stops one between two steps. The calls it **proposes** are listed at
+  `GET .../proposals` with their exact call (`call`: method, path, query, body and the `X-Noust-Request-Id` to make it
+  with) and fingerprint; the person's browser carries one out with the person's own session and reports it at `POST
+  .../proposals/{id}/outcome`, which the server accepts only when the audit trail shows the call was made, or rejects
+  it at `POST .../proposals/{id}/reject`. A question while the conversation still answers is `409
+  assistant_turn_running`, and a server answering as many as it may is `429 queue_full`. The audit events `assistant.proposal`
+  and `assistant.outcome` are new.
 
 ## 4.2.0
 

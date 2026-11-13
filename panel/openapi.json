@@ -9433,6 +9433,46 @@
         "title": "BundleUploadStart",
         "type": "object"
       },
+      "CallOut": {
+        "description": "The exact call a proposal makes.\n\nAttributes:\n    method: The HTTP method.\n    path: The path, from ``/api`` on (through ``/api/nodes/{server}/api`` for a server of the fleet).\n    query: The query as pairs.\n    body: The JSON body, or null.\n    headers: What the browser sends with it: ``X-Noust-Request-Id``, which joins the audit trail to the\n        proposal.",
+        "properties": {
+          "body": {
+            "title": "Body"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Headers",
+            "type": "object"
+          },
+          "method": {
+            "title": "Method",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "query": {
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Query",
+            "type": "array"
+          }
+        },
+        "required": [
+          "method",
+          "path",
+          "headers"
+        ],
+        "title": "CallOut",
+        "type": "object"
+      },
       "CancelOut": {
         "description": "The result of cancelling.",
         "properties": {
@@ -9445,6 +9485,20 @@
           "cancelled"
         ],
         "title": "CancelOut",
+        "type": "object"
+      },
+      "CancelledOut": {
+        "description": "The result of asking a turn to stop.\n\nAttributes:\n    cancelled: Whether it was running and is asked to stop.",
+        "properties": {
+          "cancelled": {
+            "title": "Cancelled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "cancelled"
+        ],
+        "title": "CancelledOut",
         "type": "object"
       },
       "CandidateOut": {
@@ -14697,6 +14751,19 @@
           "messages"
         ],
         "title": "ConversationDetailOut",
+        "type": "object"
+      },
+      "ConversationIn": {
+        "description": "What begins a conversation.\n\nAttributes:\n    title: What to call it; the first question names it when empty.",
+        "properties": {
+          "title": {
+            "default": "",
+            "maxLength": 120,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "title": "ConversationIn",
         "type": "object"
       },
       "ConversationOut": {
@@ -40762,6 +40829,38 @@
         "title": "NoisyRule",
         "type": "object"
       },
+      "NotOfferedOut": {
+        "description": "Something the assistant was not offered, which the person is told.\n\nAttributes:\n    title: What it was, as a sentence with a code.\n    why: Why not, as a sentence with a code: its fix says who changes it.\n    floor: Nobody changes it (the floor), as against a cell of the approval policy.",
+        "properties": {
+          "floor": {
+            "default": false,
+            "title": "Floor",
+            "type": "boolean"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/noust__web__api__assistant__SentenceOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "why": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/noust__web__api__assistant__SentenceOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "NotOfferedOut",
+        "type": "object"
+      },
       "NoticeAcceptance": {
         "description": "Acceptance of the usage notice.\n\nAttributes:\n    version: The version of the notice that was shown.",
         "properties": {
@@ -41252,6 +41351,68 @@
         "title": "OsOut",
         "type": "object"
       },
+      "OutcomeIn": {
+        "description": "What the browser says came of a call it carried out.\n\nAttributes:\n    fingerprint: The proposal's fingerprint, which must be the one that was kept.\n    status: The status the call got.\n    approval: The request of a second person, when the call became one (the ``202``).\n    job_id: The job the call queued, when it queued one.\n    output: The system's own words when it failed.\n    result: What the call answered, when it is small.",
+        "properties": {
+          "approval": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval"
+          },
+          "fingerprint": {
+            "maxLength": 64,
+            "minLength": 64,
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "output": {
+            "anyOf": [
+              {
+                "maxLength": 8000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output"
+          },
+          "result": {
+            "title": "Result"
+          },
+          "status": {
+            "maximum": 599.0,
+            "minimum": 100.0,
+            "title": "Status",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "fingerprint",
+          "status"
+        ],
+        "title": "OutcomeIn",
+        "type": "object"
+      },
       "OverviewModel": {
         "description": "The authority, what it signed, and whether this server trusts it.\n\nAttributes:\n    authority: The authority, or None while this server has none.\n    issued: The certificates it signed that are kept, soonest to expire first.\n    root_pem: The root certificate (public: what a device installs), or None while there is\n        no authority. The console offers it as a download in both forms.\n    trusted_here: This server's own store holds the root.\n    system_store: Which system's store that is (``Debian, Ubuntu and Alpine``), or None when\n        Noust does not know how to update this system's.\n    default_dns: The suffixes a new authority signs for unless told otherwise.\n    default_networks: The address ranges, the same.",
         "properties": {
@@ -41604,6 +41765,58 @@
           "updated_by"
         ],
         "title": "PackagesResponse",
+        "type": "object"
+      },
+      "PartOut": {
+        "description": "A piece of an answer: its words, or lines of the system quoted as the system wrote them.\n\nAttributes:\n    type: ``text`` (Markdown the console draws safely) or ``literal``.\n    text: For ``text``, the words.\n    source: For ``literal``, which text it is from (``{\"id\", \"kind\", \"label\"}``, the label a sentence).\n    lines: For ``literal``, the lines with their numbers (``{\"n\", \"text\"}``).",
+        "properties": {
+          "lines": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lines"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "title": "PartOut",
         "type": "object"
       },
       "PasskeyAvailability": {
@@ -46346,6 +46559,193 @@
           "at"
         ],
         "title": "ProofLoginOut",
+        "type": "object"
+      },
+      "ProposalOut": {
+        "description": "A call the assistant prepared for a person, or made for them where their policy says so.\n\nAttributes:\n    id: Its identifier.\n    turn: The turn it was made in.\n    tool: The tool it came from.\n    klass: How much of the decision is the person's: ``ask`` (their approval, once), ``you`` (it also asks\n        them to confirm it is them: sudo mode), ``two`` (it also waits for a second person), or ``alone``\n        (the assistant made it, as their policy lets it).\n    state: ``waiting``, ``running`` (it became a job), ``second`` (it waits for a second person),\n        ``done``, ``failed`` or ``rejected``.\n    title: What it is, as a sentence with a code.\n    effect: What the operation does, in a line, from the API's own description.\n    why: Why it is of this class, as a sentence with a code.\n    permission: What it needs.\n    environment: ``production`` or ``other``.\n    server: The server it is for, or empty.\n    facts: The values of the call, each ``{\"name\", \"value\"}`` with ``foreign`` on one that is neither the\n        person's nor Noust's (``{\"kind\", \"source\", \"line\", \"label\"}``: where it was found).\n    plan: What the operation's simulation says it would do, when it has one.\n    needs: What carrying it out asks for (``elevation``, ``second_person``).\n    call: The exact call.\n    fingerprint: The SHA-256 of the call, the one the approvals use.\n    created_at: When it was prepared.\n    decided_at: When it was decided.\n    decided_by: Who carried it out or rejected it.\n    status: The status the call got.\n    result: What came of it.\n    output: The system's own words when it failed.\n    approval: The request of a second person, when it waits for one.\n    job_id: The job it became.\n    verified: The audit trail showed the call was made.",
+        "properties": {
+          "approval": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval"
+          },
+          "call": {
+            "$ref": "#/components/schemas/CallOut"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "decided_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided By"
+          },
+          "effect": {
+            "default": "",
+            "title": "Effect",
+            "type": "string"
+          },
+          "environment": {
+            "default": "production",
+            "title": "Environment",
+            "type": "string"
+          },
+          "facts": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Facts",
+            "type": "array"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "klass": {
+            "title": "Klass",
+            "type": "string"
+          },
+          "needs": {
+            "additionalProperties": true,
+            "title": "Needs",
+            "type": "object"
+          },
+          "output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output"
+          },
+          "permission": {
+            "default": "",
+            "title": "Permission",
+            "type": "string"
+          },
+          "plan": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan"
+          },
+          "result": {
+            "title": "Result"
+          },
+          "server": {
+            "default": "",
+            "title": "Server",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/noust__web__api__assistant__SentenceOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tool": {
+            "title": "Tool",
+            "type": "string"
+          },
+          "turn": {
+            "title": "Turn",
+            "type": "string"
+          },
+          "verified": {
+            "default": false,
+            "title": "Verified",
+            "type": "boolean"
+          },
+          "why": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/noust__web__api__assistant__SentenceOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "turn",
+          "tool",
+          "klass",
+          "state",
+          "call",
+          "fingerprint",
+          "created_at"
+        ],
+        "title": "ProposalOut",
         "type": "object"
       },
       "ProposedCronResponse": {
@@ -63834,6 +64234,95 @@
         "title": "StatusPageModel",
         "type": "object"
       },
+      "StepOut": {
+        "description": "One thing the assistant looked at or did.\n\nAttributes:\n    id: Its identifier within the turn.\n    tool: The tool.\n    what: What it is, as a sentence with a code.\n    server: The server it was on, or empty.\n    state: ``running``, ``done``, ``failed``, ``refused`` or ``proposed``.\n    outside: What it read was written by somebody else.\n    size: How much it read (``{\"unit\": \"lines\" | \"items\" | \"chars\" | \"results\", \"count\"}``).\n    masked: How many values that looked like secrets were hidden before they were sent.\n    error: What the server answered, when it failed.\n    proposal: The proposal it made, when it made one.",
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "masked": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Masked"
+          },
+          "outside": {
+            "default": false,
+            "title": "Outside",
+            "type": "boolean"
+          },
+          "proposal": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposal"
+          },
+          "server": {
+            "default": "",
+            "title": "Server",
+            "type": "string"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "tool": {
+            "title": "Tool",
+            "type": "string"
+          },
+          "what": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/noust__web__api__assistant__SentenceOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "tool",
+          "state"
+        ],
+        "title": "StepOut",
+        "type": "object"
+      },
       "StepsOut": {
         "description": "What a change did, one sentence per step.",
         "properties": {
@@ -67826,6 +68315,251 @@
           "available"
         ],
         "title": "TunnelSupportModel",
+        "type": "object"
+      },
+      "TurnIn": {
+        "description": "A question.\n\nAttributes:\n    message: What the person asks.\n    page: The page it is asked from, when it is asked about one: ``{\"kind\": \"deployment\", \"id\": 14}``,\n        ``{\"kind\": \"diagnosis\", \"domain\": ...}``, ``{\"kind\": \"alert\", \"rule\": ...}`` or\n        ``{\"kind\": \"page\", \"route\": ...}``, each with an optional ``server``. Left out, nothing of\n        any page is read. Noust reads what the page shows; the model is not told to go and find it.\n    server: The server the person is looking at: a server's name, ``*`` for all of them, or left out for\n        the one the person is on (on a central that deploys nothing, all of them).\n    locale: The language the console speaks, for the language of the answer.",
+        "properties": {
+          "locale": {
+            "anyOf": [
+              {
+                "maxLength": 20,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locale"
+          },
+          "message": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          },
+          "server": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Server"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "TurnIn",
+        "type": "object"
+      },
+      "TurnOut": {
+        "description": "One question and its answer, as the console draws it.\n\nAttributes:\n    id: Its identifier.\n    seq: Its place in the conversation.\n    state: ``running``, ``done``, ``failed``, ``cancelled`` or ``stopped`` (by a limit, or because the\n        assistant was turned off).\n    question: What was asked.\n    page: The page it was asked from, or empty.\n    server: The server it was about.\n    model: The model that answered: the answer says it is an AI, and which.\n    location: Where that model is: ``machine``, ``network``, ``eu``, ``outside`` or ``unknown``.\n    started_at: When it began.\n    ended_at: When it ended.\n    steps: What it looked at and did, in order.\n    text: The answer as plain text.\n    parts: The answer cut at the lines of the system it quotes.\n    proposals: The calls it prepared in this turn.\n    not_offered: What it was not offered.\n    warnings: The limits that are near, as sentences.\n    stop: The limit or the switch that ended it, as a sentence.\n    error: What went wrong, with the provider's own words in ``output``.\n    usage: What it used (``steps``, ``tokens``, ``spend``, ``conversation``, ``currency``).",
+        "properties": {
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "location": {
+            "default": "unknown",
+            "title": "Location",
+            "type": "string"
+          },
+          "model": {
+            "default": "",
+            "title": "Model",
+            "type": "string"
+          },
+          "not_offered": {
+            "items": {
+              "$ref": "#/components/schemas/NotOfferedOut"
+            },
+            "title": "Not Offered",
+            "type": "array"
+          },
+          "page": {
+            "additionalProperties": true,
+            "title": "Page",
+            "type": "object"
+          },
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/PartOut"
+            },
+            "title": "Parts",
+            "type": "array"
+          },
+          "proposals": {
+            "items": {
+              "$ref": "#/components/schemas/ProposalOut"
+            },
+            "title": "Proposals",
+            "type": "array"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "server": {
+            "default": "",
+            "title": "Server",
+            "type": "string"
+          },
+          "started_at": {
+            "title": "Started At",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/StepOut"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "stop": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/noust__web__api__assistant__SentenceOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "text": {
+            "default": "",
+            "title": "Text",
+            "type": "string"
+          },
+          "usage": {
+            "additionalProperties": true,
+            "title": "Usage",
+            "type": "object"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/noust__web__api__assistant__SentenceOut"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "seq",
+          "state",
+          "question",
+          "started_at"
+        ],
+        "title": "TurnOut",
+        "type": "object"
+      },
+      "TurnStartedOut": {
+        "description": "A turn that began.\n\nAttributes:\n    turn: Its identifier, which the events carry.\n    conversation: The conversation.\n    seq: Its place in the conversation, from 1.\n    state: ``running``.\n    model: The model that answers.\n    location: Where that model is.\n    server: The server it is about: a name, ``*`` or empty for this one.",
+        "properties": {
+          "conversation": {
+            "title": "Conversation",
+            "type": "string"
+          },
+          "location": {
+            "title": "Location",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "server": {
+            "title": "Server",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "turn": {
+            "title": "Turn",
+            "type": "string"
+          }
+        },
+        "required": [
+          "turn",
+          "conversation",
+          "seq",
+          "state",
+          "model",
+          "location",
+          "server"
+        ],
+        "title": "TurnStartedOut",
+        "type": "object"
+      },
+      "TurnsOut": {
+        "description": "The turns of a conversation.\n\nAttributes:\n    turns: In order.",
+        "properties": {
+          "turns": {
+            "items": {
+              "$ref": "#/components/schemas/TurnOut"
+            },
+            "title": "Turns",
+            "type": "array"
+          }
+        },
+        "required": [
+          "turns"
+        ],
+        "title": "TurnsOut",
         "type": "object"
       },
       "TwoFactorCode": {
@@ -90805,6 +91539,47 @@
           "Assistant"
         ],
         "x-noust-permission": "assistant.use"
+      },
+      "post": {
+        "description": "Begin a conversation with the assistant.\n\nArgs:\n    body: What to call it.\n    session: The authenticated session.\n\nReturns:\n    The conversation, empty.\n\nRaises:\n    NoustPermissionError: The assistant is off, or the caller is not an account.",
+        "operationId": "begin_conversation_api_assistant_conversations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversationIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Begin Conversation",
+        "tags": [
+          "Assistant"
+        ],
+        "x-noust-permission": "assistant.use"
       }
     },
     "/api/assistant/conversations/{conversation_id}": {
@@ -90887,6 +91662,372 @@
           }
         },
         "summary": "Get Conversation",
+        "tags": [
+          "Assistant"
+        ],
+        "x-noust-permission": "assistant.use"
+      }
+    },
+    "/api/assistant/conversations/{conversation_id}/proposals": {
+      "get": {
+        "description": "List the calls the assistant prepared in a conversation.\n\nArgs:\n    conversation_id: The conversation.\n    session: The authenticated session.\n\nReturns:\n    Them, in order.\n\nRaises:\n    ConversationNotFound: There is none, or it is another person's.",
+        "operationId": "list_proposals_api_assistant_conversations__conversation_id__proposals_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProposalOut"
+                  },
+                  "title": "Response List Proposals Api Assistant Conversations  Conversation Id  Proposals Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Proposals",
+        "tags": [
+          "Assistant"
+        ],
+        "x-noust-permission": "assistant.use"
+      }
+    },
+    "/api/assistant/conversations/{conversation_id}/proposals/{proposal_id}": {
+      "get": {
+        "description": "Read one proposal, brought up to date with the job it became.\n\nArgs:\n    conversation_id: The conversation.\n    proposal_id: The proposal.\n    session: The authenticated session.\n\nReturns:\n    The proposal.\n\nRaises:\n    ConversationNotFound: There is no such proposal of the caller's.",
+        "operationId": "get_proposal_api_assistant_conversations__conversation_id__proposals__proposal_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "title": "Proposal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposalOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Proposal",
+        "tags": [
+          "Assistant"
+        ],
+        "x-noust-permission": "assistant.use"
+      }
+    },
+    "/api/assistant/conversations/{conversation_id}/proposals/{proposal_id}/outcome": {
+      "post": {
+        "description": "Say what came of a call the browser carried out, with the person's own session.\n\nThe server gives it as made only when the audit trail shows the call (the browser sent the proposal's\nidentifier as ``X-Noust-Request-Id``) and the fingerprint is the proposal's, and what happened is what the\naudit trail says. A call that became a request for a second person must be that proposal's request.\n\nArgs:\n    conversation_id: The conversation.\n    proposal_id: The proposal.\n    body: What the browser says came of it.\n    session: The authenticated session.\n\nReturns:\n    The proposal as it is now.\n\nRaises:\n    ConversationNotFound: There is no such proposal of the caller's.\n    ValidationError: The fingerprint is not the proposal's, the audit trail has no line for the call, or\n        the call became a request that is not this one.",
+        "operationId": "report_outcome_api_assistant_conversations__conversation_id__proposals__proposal_id__outcome_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "title": "Proposal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OutcomeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposalOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Report Outcome",
+        "tags": [
+          "Assistant"
+        ],
+        "x-noust-permission": "assistant.use"
+      }
+    },
+    "/api/assistant/conversations/{conversation_id}/proposals/{proposal_id}/reject": {
+      "post": {
+        "description": "Reject a proposal: nothing is done, and the assistant is told at the next question.\n\nArgs:\n    conversation_id: The conversation.\n    proposal_id: The proposal.\n    session: The authenticated session.\n\nReturns:\n    The proposal, rejected.\n\nRaises:\n    ConversationNotFound: There is no such proposal of the caller's.\n    ValidationError: It was already decided.",
+        "operationId": "reject_proposal_api_assistant_conversations__conversation_id__proposals__proposal_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "title": "Proposal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposalOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reject Proposal",
+        "tags": [
+          "Assistant"
+        ],
+        "x-noust-permission": "assistant.use"
+      }
+    },
+    "/api/assistant/conversations/{conversation_id}/turns": {
+      "get": {
+        "description": "Read the turns of one of the caller's conversations: what was asked, what the assistant read, answered and\nproposed.\n\nArgs:\n    conversation_id: The conversation.\n    session: The authenticated session.\n\nReturns:\n    Its turns in order, with the disguised emails and addresses put back.\n\nRaises:\n    ConversationNotFound: There is none, or it is another person's.",
+        "operationId": "list_turns_api_assistant_conversations__conversation_id__turns_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TurnsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Turns",
+        "tags": [
+          "Assistant"
+        ],
+        "x-noust-permission": "assistant.use"
+      },
+      "post": {
+        "description": "Ask a question in a conversation; the answer arrives on the event stream.\n\nThe answer is ``202`` at once. The assistant reads, answers and proposes in the server, and what it does\nis announced as the ``assistant`` event of ``/events`` to the streams of this account. Asking while the\nconversation is still answering is a ``409``.\n\nArgs:\n    conversation_id: The conversation.\n    body: The question, the page it is about and the server.\n    request: The request.\n    session: The authenticated session.\n\nReturns:\n    The turn that began.\n\nRaises:\n    NoustPermissionError: The assistant is off.\n    ConversationNotFound: There is no such conversation of the caller's.\n    AssistantTurnRunningError: It is still answering the last question.\n    AssistantBusyError: The server is answering as many as it may.\n    ValidationError: The page or the server is not acceptable.",
+        "operationId": "ask_api_assistant_conversations__conversation_id__turns_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TurnIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TurnStartedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ask",
+        "tags": [
+          "Assistant"
+        ],
+        "x-noust-permission": "assistant.use"
+      }
+    },
+    "/api/assistant/conversations/{conversation_id}/turns/{turn_id}/cancel": {
+      "post": {
+        "description": "Ask a turn to stop. It stops between two steps, never in the middle of an action.\n\nArgs:\n    conversation_id: The conversation.\n    turn_id: The turn.\n    session: The authenticated session.\n\nReturns:\n    Whether it was running.",
+        "operationId": "cancel_turn_api_assistant_conversations__conversation_id__turns__turn_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "turn_id",
+            "required": true,
+            "schema": {
+              "title": "Turn Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CancelledOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Turn",
         "tags": [
           "Assistant"
         ],

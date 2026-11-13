@@ -78,6 +78,10 @@ class TestTheUserAgent:
         assert parse_user_agent("noust-mcp") is None
         assert parse_user_agent("noust-mcp/1.0") is None
 
+    def test_the_assistant_of_noust_is_not_a_client_either(self) -> None:
+        assert parse_user_agent("noust-assistant") is None
+        assert parse_user_agent("noust-assistant/1") is None
+
     def test_it_is_cut_to_a_size_and_to_what_a_person_can_read(self) -> None:
         name, version = parse_user_agent("a" * 500 + "/" + "9" * 500) or ("", "")
         assert len(name) <= cc.MAX_NAME and len(version) <= cc.MAX_VERSION

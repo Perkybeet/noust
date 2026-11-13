@@ -273,6 +273,15 @@ AGENTS_COLUMNS: list[Column] = [
 #   NULL when the model has no price. Not deleted with a conversation: a person who deletes theirs
 #   does not give the month's spending back.
 # assistant_actions: one row per action that changes something, for the limit per hour.
+# assistant_turns: one row per question and its answer: where it was asked from (``page``), which
+#   server it was about, which model answered and where that model is, what it read (``steps``), what
+#   it was not offered (``not_offered``), what it said (``answer``, with the lines of the system it
+#   quoted in ``citations``), what stopped it, and what it used. Read by its author alone.
+# assistant_proposals: a call the assistant prepared for a person to carry out, exactly (method,
+#   path, query, body), with its fingerprint (the one the approvals use), the request id the
+#   person's browser sends with it so that the audit trail proves it was made, its class (``ask``,
+#   ``you``, ``two`` or ``alone`` for one it did itself), its state and what came of it. Lives as
+#   long as its conversation.
 ASSISTANT_SQL = """
 CREATE TABLE IF NOT EXISTS assistant_settings (
     id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -336,6 +345,67 @@ CREATE TABLE IF NOT EXISTS assistant_actions (
     at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_assistant_actions_account ON assistant_actions(account_id, at);
+CREATE TABLE IF NOT EXISTS assistant_turns (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL,
+    account_id INTEGER NOT NULL,
+    seq INTEGER NOT NULL,
+    state TEXT NOT NULL DEFAULT 'running',
+    question TEXT NOT NULL DEFAULT '',
+    page TEXT NOT NULL DEFAULT '{}',
+    server TEXT NOT NULL DEFAULT '',
+    model TEXT NOT NULL DEFAULT '',
+    location TEXT NOT NULL DEFAULT 'unknown',
+    answer TEXT NOT NULL DEFAULT '',
+    citations TEXT NOT NULL DEFAULT '{}',
+    steps TEXT NOT NULL DEFAULT '[]',
+    not_offered TEXT NOT NULL DEFAULT '[]',
+    warnings TEXT NOT NULL DEFAULT '[]',
+    stop TEXT,
+    error TEXT,
+    usage TEXT NOT NULL DEFAULT '{}',
+    started_at TEXT NOT NULL,
+    ended_at TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_assistant_turns_seq
+    ON assistant_turns(conversation_id, seq);
+CREATE TABLE IF NOT EXISTS assistant_proposals (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL,
+    turn_id TEXT NOT NULL,
+    account_id INTEGER NOT NULL,
+    seq INTEGER NOT NULL,
+    tool TEXT NOT NULL,
+    klass TEXT NOT NULL,
+    state TEXT NOT NULL,
+    method TEXT NOT NULL,
+    path TEXT NOT NULL,
+    query TEXT NOT NULL DEFAULT '[]',
+    body TEXT,
+    fingerprint TEXT NOT NULL,
+    request_id TEXT NOT NULL,
+    permission TEXT NOT NULL DEFAULT '',
+    environment TEXT NOT NULL DEFAULT 'production',
+    server TEXT NOT NULL DEFAULT '',
+    title TEXT NOT NULL DEFAULT '{}',
+    effect TEXT NOT NULL DEFAULT '',
+    why TEXT NOT NULL DEFAULT '{}',
+    facts TEXT NOT NULL DEFAULT '[]',
+    plan TEXT,
+    needs TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL,
+    decided_at TEXT,
+    decided_by TEXT,
+    result TEXT,
+    output TEXT,
+    status INTEGER,
+    approval INTEGER,
+    job_id TEXT,
+    verified INTEGER NOT NULL DEFAULT 0,
+    told INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_assistant_proposals_conversation
+    ON assistant_proposals(conversation_id, seq);
 """
 ASSISTANT_COLUMNS: list[Column] = []
 

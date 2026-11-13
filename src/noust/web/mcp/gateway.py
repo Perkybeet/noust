@@ -79,6 +79,7 @@ async def call_api(
     scheme: str = "https",
     correlation_id: str | None = None,
     approval: int | None = None,
+    user_agent: str = "noust-mcp",
 ) -> GatewayResponse:
     """
     Make one request of the application, as a caller holding ``token``.
@@ -104,6 +105,8 @@ async def call_api(
             and the audit trail reads them as one.
         approval: The request a person approved for exactly this call, to make it under
             ``X-Noust-Approval``: the way a client of MCP runs what the policy held for a person.
+        user_agent: What the call says it is made by. A credential's list of clients is read from it, and
+            the ones that are Noust's own (``credential_clients``) are left out of that list.
 
     Returns:
         The API's answer.
@@ -117,7 +120,7 @@ async def call_api(
     headers = [
         (b"host", host.encode("latin-1")),
         (b"accept", b"application/json"),
-        (b"user-agent", b"noust-mcp"),
+        (b"user-agent", user_agent.encode("latin-1")),
     ]
     if correlation_id is not None and _CORRELATION.fullmatch(correlation_id):
         headers.append((b"x-noust-request-id", correlation_id.encode("ascii")))

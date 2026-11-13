@@ -1575,7 +1575,19 @@ BundleUploadStart = TypedDict("BundleUploadStart", {
     "size": Required[int],
 })
 
+CallOut = TypedDict("CallOut", {
+    "body": NotRequired[Any],
+    "headers": Required[dict[str, str]],
+    "method": Required[str],
+    "path": Required[str],
+    "query": NotRequired[list[list[str]]],
+})
+
 CancelOut = TypedDict("CancelOut", {
+    "cancelled": Required[bool],
+})
+
+CancelledOut = TypedDict("CancelledOut", {
     "cancelled": Required[bool],
 })
 
@@ -2505,6 +2517,10 @@ ConversationDetailOut = TypedDict("ConversationDetailOut", {
     "messages": Required[list["MessageOut"]],
     "title": Required[str],
     "updated_at": Required[str],
+})
+
+ConversationIn = TypedDict("ConversationIn", {
+    "title": NotRequired[str],
 })
 
 ConversationOut = TypedDict("ConversationOut", {
@@ -7096,6 +7112,12 @@ NoisyRule = TypedDict("NoisyRule", {
     "message": Required[str],
 })
 
+NotOfferedOut = TypedDict("NotOfferedOut", {
+    "floor": NotRequired[bool],
+    "title": NotRequired[Union["NoustWebApiAssistantSentenceOut", None]],
+    "why": NotRequired[Union["NoustWebApiAssistantSentenceOut", None]],
+})
+
 NoticeAcceptance = TypedDict("NoticeAcceptance", {
     "version": Required[str],
 })
@@ -7196,6 +7218,15 @@ OsOut = TypedDict("OsOut", {
     "version": Required[str],
 })
 
+OutcomeIn = TypedDict("OutcomeIn", {
+    "approval": NotRequired[Union[int, None]],
+    "fingerprint": Required[str],
+    "job_id": NotRequired[Union[str, None]],
+    "output": NotRequired[Union[str, None]],
+    "result": NotRequired[Any],
+    "status": Required[int],
+})
+
 OverviewModel = TypedDict("OverviewModel", {
     "authority": NotRequired[Union["NoustWebApiInternalCaAuthorityModel", None]],
     "default_dns": Required[list[str]],
@@ -7250,6 +7281,13 @@ PackagesResponse = TypedDict("PackagesResponse", {
     "supported": Required[bool],
     "updated_at": Required[Union[str, None]],
     "updated_by": Required[Union[str, None]],
+})
+
+PartOut = TypedDict("PartOut", {
+    "lines": NotRequired[Union[list[dict[str, Any]], None]],
+    "source": NotRequired[Union[dict[str, Any], None]],
+    "text": NotRequired[Union[str, None]],
+    "type": Required[str],
 })
 
 PasskeyAvailability = TypedDict("PasskeyAvailability", {
@@ -8084,6 +8122,34 @@ ProofLoginOut = TypedDict("ProofLoginOut", {
     "at": Required[float],
     "source": Required[str],
     "user": Required[str],
+})
+
+ProposalOut = TypedDict("ProposalOut", {
+    "approval": NotRequired[Union[int, None]],
+    "call": Required["CallOut"],
+    "created_at": Required[str],
+    "decided_at": NotRequired[Union[str, None]],
+    "decided_by": NotRequired[Union[str, None]],
+    "effect": NotRequired[str],
+    "environment": NotRequired[str],
+    "facts": NotRequired[list[dict[str, Any]]],
+    "fingerprint": Required[str],
+    "id": Required[str],
+    "job_id": NotRequired[Union[str, None]],
+    "klass": Required[str],
+    "needs": NotRequired[dict[str, Any]],
+    "output": NotRequired[Union[str, None]],
+    "permission": NotRequired[str],
+    "plan": NotRequired[Union[dict[str, Any], None]],
+    "result": NotRequired[Any],
+    "server": NotRequired[str],
+    "state": Required[str],
+    "status": NotRequired[Union[int, None]],
+    "title": NotRequired[Union["NoustWebApiAssistantSentenceOut", None]],
+    "tool": Required[str],
+    "turn": Required[str],
+    "verified": NotRequired[bool],
+    "why": NotRequired[Union["NoustWebApiAssistantSentenceOut", None]],
 })
 
 ProposedCronResponse = TypedDict("ProposedCronResponse", {
@@ -10984,6 +11050,19 @@ StatusPageModel = TypedDict("StatusPageModel", {
     "title": Required[str],
 })
 
+StepOut = TypedDict("StepOut", {
+    "error": NotRequired[Union[str, None]],
+    "id": Required[str],
+    "masked": NotRequired[Union[int, None]],
+    "outside": NotRequired[bool],
+    "proposal": NotRequired[Union[str, None]],
+    "server": NotRequired[str],
+    "size": NotRequired[Union[dict[str, Any], None]],
+    "state": Required[str],
+    "tool": Required[str],
+    "what": NotRequired[Union["NoustWebApiAssistantSentenceOut", None]],
+})
+
 StepsOut = TypedDict("StepsOut", {
     "steps": Required[list[str]],
 })
@@ -11726,6 +11805,49 @@ TunnelSupportModel = TypedDict("TunnelSupportModel", {
     "hint": NotRequired[Union[str, None]],
     "problem": NotRequired[Union[str, None]],
     "sealed": NotRequired[bool],
+})
+
+TurnIn = TypedDict("TurnIn", {
+    "locale": NotRequired[Union[str, None]],
+    "message": Required[str],
+    "page": NotRequired[Union[dict[str, Any], None]],
+    "server": NotRequired[Union[str, None]],
+})
+
+TurnOut = TypedDict("TurnOut", {
+    "ended_at": NotRequired[Union[str, None]],
+    "error": NotRequired[Union[dict[str, Any], None]],
+    "id": Required[str],
+    "location": NotRequired[str],
+    "model": NotRequired[str],
+    "not_offered": NotRequired[list["NotOfferedOut"]],
+    "page": NotRequired[dict[str, Any]],
+    "parts": NotRequired[list["PartOut"]],
+    "proposals": NotRequired[list["ProposalOut"]],
+    "question": Required[str],
+    "seq": Required[int],
+    "server": NotRequired[str],
+    "started_at": Required[str],
+    "state": Required[str],
+    "steps": NotRequired[list["StepOut"]],
+    "stop": NotRequired[Union["NoustWebApiAssistantSentenceOut", None]],
+    "text": NotRequired[str],
+    "usage": NotRequired[dict[str, Any]],
+    "warnings": NotRequired[list["NoustWebApiAssistantSentenceOut"]],
+})
+
+TurnStartedOut = TypedDict("TurnStartedOut", {
+    "conversation": Required[str],
+    "location": Required[str],
+    "model": Required[str],
+    "seq": Required[int],
+    "server": Required[str],
+    "state": Required[str],
+    "turn": Required[str],
+})
+
+TurnsOut = TypedDict("TurnsOut", {
+    "turns": Required[list["TurnOut"]],
 })
 
 TwoFactorCode = TypedDict("TwoFactorCode", {

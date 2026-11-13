@@ -75,6 +75,25 @@ RULES: dict[str, dict[str, str]] = {
     "assistant_settings": {"api_key": BLANK},
     "assistant_conversations": {"markers": BLANK, "title": TEXT},
     "assistant_messages": {"content": TEXT, "tool_calls": DOCUMENT},
+    # What each turn kept (the question, the answer, what it read and quoted) and the calls it prepared
+    # for a person: masked by shape when written and masked again in a copy.
+    "assistant_turns": {
+        "question": TEXT,
+        "answer": TEXT,
+        "citations": DOCUMENT,
+        "steps": DOCUMENT,
+        "not_offered": DOCUMENT,
+        "page": DOCUMENT,
+        "error": DOCUMENT,
+    },
+    "assistant_proposals": {
+        "query": DOCUMENT,
+        "body": DOCUMENT,
+        "facts": DOCUMENT,
+        "plan": DOCUMENT,
+        "result": DOCUMENT,
+        "output": TEXT,
+    },
     # A stack's Compose document can hold a value somebody typed into it (a password in an
     # ``environment:``): masked by shape in a copy, as the document is never handed over as it is.
     "docker_stack_versions": {"text": TEXT},

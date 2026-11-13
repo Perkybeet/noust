@@ -512,18 +512,7 @@ class McpServer:
         Returns:
             What the model reads: the server's own words, scrubbed.
         """
-        contract = decoded if isinstance(decoded, dict) else {}
-        detail = contract.get("detail")
-        if isinstance(detail, dict):
-            contract, detail = detail, detail.get("detail")
-        parts = [
-            f"The server refused ({status}{', ' + contract['error'] if contract.get('error') else ''}): {detail or decoded}"
-        ]
-        if contract.get("hint"):
-            parts.append(f"Hint: {contract['hint']}")
-        if contract.get("output"):
-            parts.append(f"Output:\n{contract['output']}")
-        return guardrails.limit(guardrails.scrub_text("\n".join(str(p) for p in parts)))
+        return guardrails.refusal_text(status, decoded)
 
     @staticmethod
     def _audit(

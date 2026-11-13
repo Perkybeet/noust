@@ -238,8 +238,16 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("approvals", "approve_request"): ("POST", "/api/approvals/{approval_id}/approve", "self", True),
     ("approvals", "reject_request"): ("POST", "/api/approvals/{approval_id}/reject", "self", True),
     ("assistant", "list_conversations"): ("GET", "/api/assistant/conversations", "assistant.use", False),
+    ("assistant", "begin_conversation"): ("POST", "/api/assistant/conversations", "assistant.use", False),
     ("assistant", "get_conversation"): ("GET", "/api/assistant/conversations/{conversation_id}", "assistant.use", False),
     ("assistant", "delete_conversation"): ("DELETE", "/api/assistant/conversations/{conversation_id}", "assistant.use", False),
+    ("assistant", "list_proposals"): ("GET", "/api/assistant/conversations/{conversation_id}/proposals", "assistant.use", False),
+    ("assistant", "get_proposal"): ("GET", "/api/assistant/conversations/{conversation_id}/proposals/{proposal_id}", "assistant.use", False),
+    ("assistant", "report_outcome"): ("POST", "/api/assistant/conversations/{conversation_id}/proposals/{proposal_id}/outcome", "assistant.use", False),
+    ("assistant", "reject_proposal"): ("POST", "/api/assistant/conversations/{conversation_id}/proposals/{proposal_id}/reject", "assistant.use", False),
+    ("assistant", "list_turns"): ("GET", "/api/assistant/conversations/{conversation_id}/turns", "assistant.use", False),
+    ("assistant", "ask"): ("POST", "/api/assistant/conversations/{conversation_id}/turns", "assistant.use", False),
+    ("assistant", "cancel_turn"): ("POST", "/api/assistant/conversations/{conversation_id}/turns/{turn_id}/cancel", "assistant.use", False),
     ("assistant", "turn_off"): ("POST", "/api/assistant/off", "settings.manage", True),
     ("assistant", "presets"): ("GET", "/api/assistant/presets", "settings.read", False),
     ("assistant", "probe"): ("POST", "/api/assistant/probe", "settings.manage", False),
@@ -2940,7 +2948,7 @@ class Approvals:
 
 
 class Assistant:
-    """Assistant: 9 operations."""
+    """Assistant: 17 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -2952,6 +2960,14 @@ class Assistant:
 
         Needs: permission `assistant.use`."""
         return self._call("GET", "/api/assistant/conversations", query=None, body=None)
+
+    def begin_conversation(self, body: "ConversationIn") -> "ConversationOut":
+        """POST /api/assistant/conversations
+
+        Begin Conversation
+
+        Needs: permission `assistant.use`."""
+        return self._call("POST", "/api/assistant/conversations", query=None, body=body)
 
     def get_conversation(self, conversation_id: str) -> "ConversationDetailOut":
         """GET /api/assistant/conversations/{conversation_id}
@@ -2968,6 +2984,62 @@ class Assistant:
 
         Needs: permission `assistant.use`."""
         return self._call("DELETE", f"/api/assistant/conversations/{quote(str(conversation_id), safe='')}", query=None, body=None)
+
+    def list_proposals(self, conversation_id: str) -> list["ProposalOut"]:
+        """GET /api/assistant/conversations/{conversation_id}/proposals
+
+        List Proposals
+
+        Needs: permission `assistant.use`."""
+        return self._call("GET", f"/api/assistant/conversations/{quote(str(conversation_id), safe='')}/proposals", query=None, body=None)
+
+    def get_proposal(self, conversation_id: str, proposal_id: str) -> "ProposalOut":
+        """GET /api/assistant/conversations/{conversation_id}/proposals/{proposal_id}
+
+        Get Proposal
+
+        Needs: permission `assistant.use`."""
+        return self._call("GET", f"/api/assistant/conversations/{quote(str(conversation_id), safe='')}/proposals/{quote(str(proposal_id), safe='')}", query=None, body=None)
+
+    def report_outcome(self, conversation_id: str, proposal_id: str, body: "OutcomeIn") -> "ProposalOut":
+        """POST /api/assistant/conversations/{conversation_id}/proposals/{proposal_id}/outcome
+
+        Report Outcome
+
+        Needs: permission `assistant.use`."""
+        return self._call("POST", f"/api/assistant/conversations/{quote(str(conversation_id), safe='')}/proposals/{quote(str(proposal_id), safe='')}/outcome", query=None, body=body)
+
+    def reject_proposal(self, conversation_id: str, proposal_id: str) -> "ProposalOut":
+        """POST /api/assistant/conversations/{conversation_id}/proposals/{proposal_id}/reject
+
+        Reject Proposal
+
+        Needs: permission `assistant.use`."""
+        return self._call("POST", f"/api/assistant/conversations/{quote(str(conversation_id), safe='')}/proposals/{quote(str(proposal_id), safe='')}/reject", query=None, body=None)
+
+    def list_turns(self, conversation_id: str) -> "TurnsOut":
+        """GET /api/assistant/conversations/{conversation_id}/turns
+
+        List Turns
+
+        Needs: permission `assistant.use`."""
+        return self._call("GET", f"/api/assistant/conversations/{quote(str(conversation_id), safe='')}/turns", query=None, body=None)
+
+    def ask(self, conversation_id: str, body: "TurnIn") -> "TurnStartedOut":
+        """POST /api/assistant/conversations/{conversation_id}/turns
+
+        Ask
+
+        Needs: permission `assistant.use`."""
+        return self._call("POST", f"/api/assistant/conversations/{quote(str(conversation_id), safe='')}/turns", query=None, body=body)
+
+    def cancel_turn(self, conversation_id: str, turn_id: str) -> "CancelledOut":
+        """POST /api/assistant/conversations/{conversation_id}/turns/{turn_id}/cancel
+
+        Cancel Turn
+
+        Needs: permission `assistant.use`."""
+        return self._call("POST", f"/api/assistant/conversations/{quote(str(conversation_id), safe='')}/turns/{quote(str(turn_id), safe='')}/cancel", query=None, body=None)
 
     def turn_off(self) -> "OffOut":
         """POST /api/assistant/off

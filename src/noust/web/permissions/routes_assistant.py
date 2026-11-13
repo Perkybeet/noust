@@ -25,4 +25,24 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/assistant/conversations"): Permission.ASSISTANT_USE,
     ("GET", "/api/assistant/conversations/{conversation_id}"): Permission.ASSISTANT_USE,
     ("DELETE", "/api/assistant/conversations/{conversation_id}"): Permission.ASSISTANT_USE,
+    ("POST", "/api/assistant/conversations"): Permission.ASSISTANT_USE,
+    ("POST", "/api/assistant/conversations/{conversation_id}/turns"): Permission.ASSISTANT_USE,
+    ("GET", "/api/assistant/conversations/{conversation_id}/turns"): Permission.ASSISTANT_USE,
+    (
+        "POST",
+        "/api/assistant/conversations/{conversation_id}/turns/{turn_id}/cancel",
+    ): Permission.ASSISTANT_USE,
+    ("GET", "/api/assistant/conversations/{conversation_id}/proposals"): Permission.ASSISTANT_USE,
+    (
+        "GET",
+        "/api/assistant/conversations/{conversation_id}/proposals/{proposal_id}",
+    ): Permission.ASSISTANT_USE,
+    (
+        "POST",
+        "/api/assistant/conversations/{conversation_id}/proposals/{proposal_id}/outcome",
+    ): Permission.ASSISTANT_USE,
+    (
+        "POST",
+        "/api/assistant/conversations/{conversation_id}/proposals/{proposal_id}/reject",
+    ): Permission.ASSISTANT_USE,
 }

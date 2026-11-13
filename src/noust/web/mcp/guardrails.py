@@ -41,6 +41,7 @@ __all__ = [
     "REDACTED",
     "hide_secrets",
     "limit",
+    "refusal_text",
     "render",
     "scrub_text",
     "tail",
@@ -99,6 +100,33 @@ def render(value: Any, domain: str | None = None) -> str:
     if isinstance(safe, str):
         return limit(safe)
     return limit(json.dumps(safe, indent=2, ensure_ascii=False, default=str))
+
+
+def refusal_text(status: int, decoded: Any) -> str:
+    """
+    Say what the server refused, in its own words, for a model to read.
+
+    Args:
+        status: The API's status.
+        decoded: Its error body.
+
+    Returns:
+        The server's words, scrubbed and bounded: the status, its code, what it said, its hint and
+        the output it quotes.
+    """
+    contract = decoded if isinstance(decoded, dict) else {}
+    detail = contract.get("detail")
+    if isinstance(detail, dict):
+        contract, detail = detail, detail.get("detail")
+    parts = [
+        f"The server refused ({status}{', ' + contract['error'] if contract.get('error') else ''}): "
+        f"{detail or decoded}"
+    ]
+    if contract.get("hint"):
+        parts.append(f"Hint: {contract['hint']}")
+    if contract.get("output"):
+        parts.append(f"Output:\n{contract['output']}")
+    return limit(scrub_text("\n".join(str(p) for p in parts)))
 
 
 CONFIRM_NEEDED = (

@@ -7272,7 +7272,21 @@ export interface paths {
          */
         get: operations["list_conversations_api_assistant_conversations_get"];
         put?: never;
-        post?: never;
+        /**
+         * Begin Conversation
+         * @description Begin a conversation with the assistant.
+         *
+         *     Args:
+         *         body: What to call it.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The conversation, empty.
+         *
+         *     Raises:
+         *         NoustPermissionError: The assistant is off, or the caller is not an account.
+         */
+        post: operations["begin_conversation_api_assistant_conversations_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7317,6 +7331,220 @@ export interface paths {
          *         Whether it was deleted; False for one that does not exist or is another person's.
          */
         delete: operations["delete_conversation_api_assistant_conversations__conversation_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assistant/conversations/{conversation_id}/proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Proposals
+         * @description List the calls the assistant prepared in a conversation.
+         *
+         *     Args:
+         *         conversation_id: The conversation.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Them, in order.
+         *
+         *     Raises:
+         *         ConversationNotFound: There is none, or it is another person's.
+         */
+        get: operations["list_proposals_api_assistant_conversations__conversation_id__proposals_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assistant/conversations/{conversation_id}/proposals/{proposal_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Proposal
+         * @description Read one proposal, brought up to date with the job it became.
+         *
+         *     Args:
+         *         conversation_id: The conversation.
+         *         proposal_id: The proposal.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The proposal.
+         *
+         *     Raises:
+         *         ConversationNotFound: There is no such proposal of the caller's.
+         */
+        get: operations["get_proposal_api_assistant_conversations__conversation_id__proposals__proposal_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assistant/conversations/{conversation_id}/proposals/{proposal_id}/outcome": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Report Outcome
+         * @description Say what came of a call the browser carried out, with the person's own session.
+         *
+         *     The server gives it as made only when the audit trail shows the call (the browser sent the proposal's
+         *     identifier as ``X-Noust-Request-Id``) and the fingerprint is the proposal's, and what happened is what the
+         *     audit trail says. A call that became a request for a second person must be that proposal's request.
+         *
+         *     Args:
+         *         conversation_id: The conversation.
+         *         proposal_id: The proposal.
+         *         body: What the browser says came of it.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The proposal as it is now.
+         *
+         *     Raises:
+         *         ConversationNotFound: There is no such proposal of the caller's.
+         *         ValidationError: The fingerprint is not the proposal's, the audit trail has no line for the call, or
+         *             the call became a request that is not this one.
+         */
+        post: operations["report_outcome_api_assistant_conversations__conversation_id__proposals__proposal_id__outcome_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assistant/conversations/{conversation_id}/proposals/{proposal_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject Proposal
+         * @description Reject a proposal: nothing is done, and the assistant is told at the next question.
+         *
+         *     Args:
+         *         conversation_id: The conversation.
+         *         proposal_id: The proposal.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The proposal, rejected.
+         *
+         *     Raises:
+         *         ConversationNotFound: There is no such proposal of the caller's.
+         *         ValidationError: It was already decided.
+         */
+        post: operations["reject_proposal_api_assistant_conversations__conversation_id__proposals__proposal_id__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assistant/conversations/{conversation_id}/turns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Turns
+         * @description Read the turns of one of the caller's conversations: what was asked, what the assistant read, answered and
+         *     proposed.
+         *
+         *     Args:
+         *         conversation_id: The conversation.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its turns in order, with the disguised emails and addresses put back.
+         *
+         *     Raises:
+         *         ConversationNotFound: There is none, or it is another person's.
+         */
+        get: operations["list_turns_api_assistant_conversations__conversation_id__turns_get"];
+        put?: never;
+        /**
+         * Ask
+         * @description Ask a question in a conversation; the answer arrives on the event stream.
+         *
+         *     The answer is ``202`` at once. The assistant reads, answers and proposes in the server, and what it does
+         *     is announced as the ``assistant`` event of ``/events`` to the streams of this account. Asking while the
+         *     conversation is still answering is a ``409``.
+         *
+         *     Args:
+         *         conversation_id: The conversation.
+         *         body: The question, the page it is about and the server.
+         *         request: The request.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The turn that began.
+         *
+         *     Raises:
+         *         NoustPermissionError: The assistant is off.
+         *         ConversationNotFound: There is no such conversation of the caller's.
+         *         AssistantTurnRunningError: It is still answering the last question.
+         *         AssistantBusyError: The server is answering as many as it may.
+         *         ValidationError: The page or the server is not acceptable.
+         */
+        post: operations["ask_api_assistant_conversations__conversation_id__turns_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/assistant/conversations/{conversation_id}/turns/{turn_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel Turn
+         * @description Ask a turn to stop. It stops between two steps, never in the middle of an action.
+         *
+         *     Args:
+         *         conversation_id: The conversation.
+         *         turn_id: The turn.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Whether it was running.
+         */
+        post: operations["cancel_turn_api_assistant_conversations__conversation_id__turns__turn_id__cancel_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -39553,10 +39781,47 @@ export interface components {
             size: number;
         };
         /**
+         * CallOut
+         * @description The exact call a proposal makes.
+         *
+         *     Attributes:
+         *         method: The HTTP method.
+         *         path: The path, from ``/api`` on (through ``/api/nodes/{server}/api`` for a server of the fleet).
+         *         query: The query as pairs.
+         *         body: The JSON body, or null.
+         *         headers: What the browser sends with it: ``X-Noust-Request-Id``, which joins the audit trail to the
+         *             proposal.
+         */
+        CallOut: {
+            /** Body */
+            body?: unknown;
+            /** Headers */
+            headers: {
+                [key: string]: string;
+            };
+            /** Method */
+            method: string;
+            /** Path */
+            path: string;
+            /** Query */
+            query?: string[][];
+        };
+        /**
          * CancelOut
          * @description The result of cancelling.
          */
         CancelOut: {
+            /** Cancelled */
+            cancelled: boolean;
+        };
+        /**
+         * CancelledOut
+         * @description The result of asking a turn to stop.
+         *
+         *     Attributes:
+         *         cancelled: Whether it was running and is asked to stop.
+         */
+        CancelledOut: {
             /** Cancelled */
             cancelled: boolean;
         };
@@ -42516,6 +42781,20 @@ export interface components {
             title: string;
             /** Updated At */
             updated_at: string;
+        };
+        /**
+         * ConversationIn
+         * @description What begins a conversation.
+         *
+         *     Attributes:
+         *         title: What to call it; the first question names it when empty.
+         */
+        ConversationIn: {
+            /**
+             * Title
+             * @default
+             */
+            title: string;
         };
         /**
          * ConversationOut
@@ -56993,6 +57272,24 @@ export interface components {
             message: string;
         };
         /**
+         * NotOfferedOut
+         * @description Something the assistant was not offered, which the person is told.
+         *
+         *     Attributes:
+         *         title: What it was, as a sentence with a code.
+         *         why: Why not, as a sentence with a code: its fix says who changes it.
+         *         floor: Nobody changes it (the floor), as against a cell of the approval policy.
+         */
+        NotOfferedOut: {
+            /**
+             * Floor
+             * @default false
+             */
+            floor: boolean;
+            title?: components["schemas"]["noust__web__api__assistant__SentenceOut"] | null;
+            why?: components["schemas"]["noust__web__api__assistant__SentenceOut"] | null;
+        };
+        /**
          * NoticeAcceptance
          * @description Acceptance of the usage notice.
          *
@@ -57249,6 +57546,32 @@ export interface components {
             version: string;
         };
         /**
+         * OutcomeIn
+         * @description What the browser says came of a call it carried out.
+         *
+         *     Attributes:
+         *         fingerprint: The proposal's fingerprint, which must be the one that was kept.
+         *         status: The status the call got.
+         *         approval: The request of a second person, when the call became one (the ``202``).
+         *         job_id: The job the call queued, when it queued one.
+         *         output: The system's own words when it failed.
+         *         result: What the call answered, when it is small.
+         */
+        OutcomeIn: {
+            /** Approval */
+            approval?: number | null;
+            /** Fingerprint */
+            fingerprint: string;
+            /** Job Id */
+            job_id?: string | null;
+            /** Output */
+            output?: string | null;
+            /** Result */
+            result?: unknown;
+            /** Status */
+            status: number;
+        };
+        /**
          * OverviewModel
          * @description The authority, what it signed, and whether this server trusts it.
          *
@@ -57426,6 +57749,30 @@ export interface components {
              * @description Who changed it
              */
             updated_by: string | null;
+        };
+        /**
+         * PartOut
+         * @description A piece of an answer: its words, or lines of the system quoted as the system wrote them.
+         *
+         *     Attributes:
+         *         type: ``text`` (Markdown the console draws safely) or ``literal``.
+         *         text: For ``text``, the words.
+         *         source: For ``literal``, which text it is from (``{"id", "kind", "label"}``, the label a sentence).
+         *         lines: For ``literal``, the lines with their numbers (``{"n", "text"}``).
+         */
+        PartOut: {
+            /** Lines */
+            lines?: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Source */
+            source?: {
+                [key: string]: unknown;
+            } | null;
+            /** Text */
+            text?: string | null;
+            /** Type */
+            type: string;
         };
         /**
          * PasskeyAvailability
@@ -60046,6 +60393,111 @@ export interface components {
             source: string;
             /** User */
             user: string;
+        };
+        /**
+         * ProposalOut
+         * @description A call the assistant prepared for a person, or made for them where their policy says so.
+         *
+         *     Attributes:
+         *         id: Its identifier.
+         *         turn: The turn it was made in.
+         *         tool: The tool it came from.
+         *         klass: How much of the decision is the person's: ``ask`` (their approval, once), ``you`` (it also asks
+         *             them to confirm it is them: sudo mode), ``two`` (it also waits for a second person), or ``alone``
+         *             (the assistant made it, as their policy lets it).
+         *         state: ``waiting``, ``running`` (it became a job), ``second`` (it waits for a second person),
+         *             ``done``, ``failed`` or ``rejected``.
+         *         title: What it is, as a sentence with a code.
+         *         effect: What the operation does, in a line, from the API's own description.
+         *         why: Why it is of this class, as a sentence with a code.
+         *         permission: What it needs.
+         *         environment: ``production`` or ``other``.
+         *         server: The server it is for, or empty.
+         *         facts: The values of the call, each ``{"name", "value"}`` with ``foreign`` on one that is neither the
+         *             person's nor Noust's (``{"kind", "source", "line", "label"}``: where it was found).
+         *         plan: What the operation's simulation says it would do, when it has one.
+         *         needs: What carrying it out asks for (``elevation``, ``second_person``).
+         *         call: The exact call.
+         *         fingerprint: The SHA-256 of the call, the one the approvals use.
+         *         created_at: When it was prepared.
+         *         decided_at: When it was decided.
+         *         decided_by: Who carried it out or rejected it.
+         *         status: The status the call got.
+         *         result: What came of it.
+         *         output: The system's own words when it failed.
+         *         approval: The request of a second person, when it waits for one.
+         *         job_id: The job it became.
+         *         verified: The audit trail showed the call was made.
+         */
+        ProposalOut: {
+            /** Approval */
+            approval?: number | null;
+            call: components["schemas"]["CallOut"];
+            /** Created At */
+            created_at: string;
+            /** Decided At */
+            decided_at?: string | null;
+            /** Decided By */
+            decided_by?: string | null;
+            /**
+             * Effect
+             * @default
+             */
+            effect: string;
+            /**
+             * Environment
+             * @default production
+             */
+            environment: string;
+            /** Facts */
+            facts?: {
+                [key: string]: unknown;
+            }[];
+            /** Fingerprint */
+            fingerprint: string;
+            /** Id */
+            id: string;
+            /** Job Id */
+            job_id?: string | null;
+            /** Klass */
+            klass: string;
+            /** Needs */
+            needs?: {
+                [key: string]: unknown;
+            };
+            /** Output */
+            output?: string | null;
+            /**
+             * Permission
+             * @default
+             */
+            permission: string;
+            /** Plan */
+            plan?: {
+                [key: string]: unknown;
+            } | null;
+            /** Result */
+            result?: unknown;
+            /**
+             * Server
+             * @default
+             */
+            server: string;
+            /** State */
+            state: string;
+            /** Status */
+            status?: number | null;
+            title?: components["schemas"]["noust__web__api__assistant__SentenceOut"] | null;
+            /** Tool */
+            tool: string;
+            /** Turn */
+            turn: string;
+            /**
+             * Verified
+             * @default false
+             */
+            verified: boolean;
+            why?: components["schemas"]["noust__web__api__assistant__SentenceOut"] | null;
         };
         /**
          * ProposedCronResponse
@@ -69434,6 +69886,51 @@ export interface components {
             title: string;
         };
         /**
+         * StepOut
+         * @description One thing the assistant looked at or did.
+         *
+         *     Attributes:
+         *         id: Its identifier within the turn.
+         *         tool: The tool.
+         *         what: What it is, as a sentence with a code.
+         *         server: The server it was on, or empty.
+         *         state: ``running``, ``done``, ``failed``, ``refused`` or ``proposed``.
+         *         outside: What it read was written by somebody else.
+         *         size: How much it read (``{"unit": "lines" | "items" | "chars" | "results", "count"}``).
+         *         masked: How many values that looked like secrets were hidden before they were sent.
+         *         error: What the server answered, when it failed.
+         *         proposal: The proposal it made, when it made one.
+         */
+        StepOut: {
+            /** Error */
+            error?: string | null;
+            /** Id */
+            id: string;
+            /** Masked */
+            masked?: number | null;
+            /**
+             * Outside
+             * @default false
+             */
+            outside: boolean;
+            /** Proposal */
+            proposal?: string | null;
+            /**
+             * Server
+             * @default
+             */
+            server: string;
+            /** Size */
+            size?: {
+                [key: string]: unknown;
+            } | null;
+            /** State */
+            state: string;
+            /** Tool */
+            tool: string;
+            what?: components["schemas"]["noust__web__api__assistant__SentenceOut"] | null;
+        };
+        /**
          * StepsOut
          * @description What a change did, one sentence per step.
          */
@@ -71503,6 +72000,155 @@ export interface components {
              * @default false
              */
             sealed: boolean;
+        };
+        /**
+         * TurnIn
+         * @description A question.
+         *
+         *     Attributes:
+         *         message: What the person asks.
+         *         page: The page it is asked from, when it is asked about one: ``{"kind": "deployment", "id": 14}``,
+         *             ``{"kind": "diagnosis", "domain": ...}``, ``{"kind": "alert", "rule": ...}`` or
+         *             ``{"kind": "page", "route": ...}``, each with an optional ``server``. Left out, nothing of
+         *             any page is read. Noust reads what the page shows; the model is not told to go and find it.
+         *         server: The server the person is looking at: a server's name, ``*`` for all of them, or left out for
+         *             the one the person is on (on a central that deploys nothing, all of them).
+         *         locale: The language the console speaks, for the language of the answer.
+         */
+        TurnIn: {
+            /** Locale */
+            locale?: string | null;
+            /** Message */
+            message: string;
+            /** Page */
+            page?: {
+                [key: string]: unknown;
+            } | null;
+            /** Server */
+            server?: string | null;
+        };
+        /**
+         * TurnOut
+         * @description One question and its answer, as the console draws it.
+         *
+         *     Attributes:
+         *         id: Its identifier.
+         *         seq: Its place in the conversation.
+         *         state: ``running``, ``done``, ``failed``, ``cancelled`` or ``stopped`` (by a limit, or because the
+         *             assistant was turned off).
+         *         question: What was asked.
+         *         page: The page it was asked from, or empty.
+         *         server: The server it was about.
+         *         model: The model that answered: the answer says it is an AI, and which.
+         *         location: Where that model is: ``machine``, ``network``, ``eu``, ``outside`` or ``unknown``.
+         *         started_at: When it began.
+         *         ended_at: When it ended.
+         *         steps: What it looked at and did, in order.
+         *         text: The answer as plain text.
+         *         parts: The answer cut at the lines of the system it quotes.
+         *         proposals: The calls it prepared in this turn.
+         *         not_offered: What it was not offered.
+         *         warnings: The limits that are near, as sentences.
+         *         stop: The limit or the switch that ended it, as a sentence.
+         *         error: What went wrong, with the provider's own words in ``output``.
+         *         usage: What it used (``steps``, ``tokens``, ``spend``, ``conversation``, ``currency``).
+         */
+        TurnOut: {
+            /** Ended At */
+            ended_at?: string | null;
+            /** Error */
+            error?: {
+                [key: string]: unknown;
+            } | null;
+            /** Id */
+            id: string;
+            /**
+             * Location
+             * @default unknown
+             */
+            location: string;
+            /**
+             * Model
+             * @default
+             */
+            model: string;
+            /** Not Offered */
+            not_offered?: components["schemas"]["NotOfferedOut"][];
+            /** Page */
+            page?: {
+                [key: string]: unknown;
+            };
+            /** Parts */
+            parts?: components["schemas"]["PartOut"][];
+            /** Proposals */
+            proposals?: components["schemas"]["ProposalOut"][];
+            /** Question */
+            question: string;
+            /** Seq */
+            seq: number;
+            /**
+             * Server
+             * @default
+             */
+            server: string;
+            /** Started At */
+            started_at: string;
+            /** State */
+            state: string;
+            /** Steps */
+            steps?: components["schemas"]["StepOut"][];
+            stop?: components["schemas"]["noust__web__api__assistant__SentenceOut"] | null;
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+            /** Usage */
+            usage?: {
+                [key: string]: unknown;
+            };
+            /** Warnings */
+            warnings?: components["schemas"]["noust__web__api__assistant__SentenceOut"][];
+        };
+        /**
+         * TurnStartedOut
+         * @description A turn that began.
+         *
+         *     Attributes:
+         *         turn: Its identifier, which the events carry.
+         *         conversation: The conversation.
+         *         seq: Its place in the conversation, from 1.
+         *         state: ``running``.
+         *         model: The model that answers.
+         *         location: Where that model is.
+         *         server: The server it is about: a name, ``*`` or empty for this one.
+         */
+        TurnStartedOut: {
+            /** Conversation */
+            conversation: string;
+            /** Location */
+            location: string;
+            /** Model */
+            model: string;
+            /** Seq */
+            seq: number;
+            /** Server */
+            server: string;
+            /** State */
+            state: string;
+            /** Turn */
+            turn: string;
+        };
+        /**
+         * TurnsOut
+         * @description The turns of a conversation.
+         *
+         *     Attributes:
+         *         turns: In order.
+         */
+        TurnsOut: {
+            /** Turns */
+            turns: components["schemas"]["TurnOut"][];
         };
         /**
          * TwoFactorCode
@@ -85119,6 +85765,39 @@ export interface operations {
             };
         };
     };
+    begin_conversation_api_assistant_conversations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConversationIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_conversation_api_assistant_conversations__conversation_id__get: {
         parameters: {
             query?: never;
@@ -85168,6 +85847,235 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["noust__web__api__assistant__DeletedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_proposals_api_assistant_conversations__conversation_id__proposals_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_proposal_api_assistant_conversations__conversation_id__proposals__proposal_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    report_outcome_api_assistant_conversations__conversation_id__proposals__proposal_id__outcome_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OutcomeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reject_proposal_api_assistant_conversations__conversation_id__proposals__proposal_id__reject_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_turns_api_assistant_conversations__conversation_id__turns_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TurnsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ask_api_assistant_conversations__conversation_id__turns_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TurnIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TurnStartedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_turn_api_assistant_conversations__conversation_id__turns__turn_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+                turn_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CancelledOut"];
                 };
             };
             /** @description Validation Error */

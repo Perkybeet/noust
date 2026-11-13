@@ -138,6 +138,23 @@ class Masker:
         cleaned = self._scrubber.scrub(scrub_text(text, domain))
         return self._disguise(cleaned) if self._personal else cleaned
 
+    def scrub_secrets(self, text: str, *, domain: str | None = None) -> str:
+        """
+        Remove the secrets from what a model said, which is shown and kept like anything else.
+
+        A model is not given a secret, but it can write one it made up, repeat one it was typed, or put
+        together what it read: what it says goes out through the same removal as what it is told, and
+        without the disguise of personal data, which is for what leaves and not for what comes back.
+
+        Args:
+            text: What the model said.
+            domain: The application it is about, whose secrets are removed first.
+
+        Returns:
+            The text with the secrets gone.
+        """
+        return self._scrubber.scrub(scrub_text(text, domain))
+
     def mask_value(self, value: Any, *, domain: str | None = None) -> Any:
         """
         Make a structure fit to be sent.

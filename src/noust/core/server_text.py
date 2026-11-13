@@ -2221,6 +2221,89 @@ CATALOG: dict[str, str] = {
     ),
     "assistant.unavailable.account": "The assistant acts for a person, and this is not an account",
     "assistant.unavailable.account.hint": "Sign in with your own account.",
+    # -- What the assistant read (noust.web.assistant.toolbox): one sentence for each thing it looked
+    # at, in the past, for the list of "what it read" that the person keeps in view.
+    "assistant.step.list_applications": "Read the list of applications",
+    "assistant.step.get_application": "Read the state of {domain}",
+    "assistant.step.application_logs": "Read the last lines of the journal of {domain}",
+    "assistant.step.diagnose_application": "Read the diagnosis of {domain}",
+    "assistant.step.list_environment_variables": (
+        "Read the names of the variables of {domain}, without their values"
+    ),
+    "assistant.step.list_application_domains": "Read the domains of {domain}",
+    "assistant.step.list_releases": "Read the releases of {domain}",
+    "assistant.step.list_deployments": "Read the history of deployments",
+    "assistant.step.get_deployment": "Read deployment {deployment_id}",
+    "assistant.step.deployment_log": "Read the build log of deployment {deployment_id}",
+    "assistant.step.list_jobs": "Read the recent jobs",
+    "assistant.step.get_job": "Read job {job_id}",
+    "assistant.step.job_log": "Read the log of job {job_id}",
+    "assistant.step.list_backups": "Read the backups",
+    "assistant.step.list_certificates": "Read the certificates",
+    "assistant.step.list_teams": "Read the teams",
+    "assistant.step.list_projects": "Read the projects",
+    "assistant.step.server_health": "Read the health of the server",
+    "assistant.step.fleet_servers": "Read the servers of the fleet",
+    "assistant.step.fleet_apps": "Read the applications of every server",
+    "assistant.step.fleet_certificates": "Read the certificates of every server",
+    "assistant.step.fleet_backups": "Read the backups of every server",
+    "assistant.step.fleet_updates": "Read which servers have updates",
+    "assistant.step.search_docs": "Looked up the documentation: {query}",
+    "assistant.step.find_operation": "Looked for the operation that does: {query}",
+    "assistant.step.operation": "Made the read call {method} {path}",
+    # -- What the assistant prepared or did (a title for a proposal), as an instruction.
+    "assistant.act.deploy_application": "Update {domain}",
+    "assistant.act.rollback_application": "Go back to a backup of {domain}",
+    "assistant.act.activate_release": "Activate release {release_id} of {domain}",
+    "assistant.act.cancel_job": "Cancel job {job_id}",
+    "assistant.act.create_backup": "Back up {domain}",
+    "assistant.act.restart_application": "Restart {domain}",
+    "assistant.act.start_application": "Start {domain}",
+    "assistant.act.stop_application": "Stop {domain}",
+    "assistant.act.renew_certificate": "Renew the certificate of {domain}",
+    "assistant.act.operation": "{summary} ({method} {path})",
+    # -- Why a call is a proposal and of which class, or why it is done on its own.
+    "assistant.proposal.why.policy_propose": (
+        "Your approval policy: the assistant proposes what changes something here"
+    ),
+    "assistant.proposal.why.policy_alone": (
+        "Your approval policy lets the assistant do this without asking"
+    ),
+    "assistant.proposal.why.needs_sudo": (
+        "This asks you to confirm it is you (sudo mode), so you do it with your own session"
+    ),
+    "assistant.proposal.why.needs_second": (
+        "This asks a second person to approve it, and you cannot be the second"
+    ),
+    "assistant.proposal.why.foreign_value": (
+        "It carries a value that is neither yours nor Noust's, so it asks even where your policy "
+        "would let it be done alone"
+    ),
+    "assistant.proposal.why.read_outside": (
+        "The assistant read text somebody else wrote in this conversation, so it asks even where "
+        "your policy would let it be done alone"
+    ),
+    "assistant.proposal.why.actions_limit": (
+        "The assistant reached its limit of changes for this hour, so it asks"
+    ),
+    # -- What the assistant was not offered, beside the sentences of the approval policy.
+    "assistant.refused.secret_value": "The call carries a secret, and the assistant never handles secrets",
+    "assistant.refused.secret_value.hint": (
+        "Set it yourself in the console: the assistant does not see the value."
+    ),
+    "assistant.refused.not_offered": "This is not something the assistant is offered",
+    "assistant.refused.not_offered.hint": "A person does it in the console.",
+    # -- How a turn of the assistant ended when it did not end well.
+    "assistant.turn.interrupted": "The server restarted before the assistant finished this answer",
+    "assistant.turn.interrupted.hint": "Ask again: what it already read is not kept.",
+    "assistant.turn.busy": "The assistant is answering as many people as it may at once",
+    "assistant.turn.busy.hint": "Try again in a moment.",
+    "assistant.turn.running": "This conversation is still answering",
+    "assistant.turn.running.hint": "Wait for it to end, or cancel it.",
+    "assistant.turn.failed": "The assistant could not finish this answer: {reason}",
+    "assistant.turn.failed.hint": "Ask again. If it happens every time, the log of the console says why.",
+    "assistant.turn.too_long": "This answer took longer than {minutes} minutes, so the assistant stopped",
+    "assistant.turn.too_long.hint": "Ask again with a narrower question, or look at it by hand.",
 }
 
 

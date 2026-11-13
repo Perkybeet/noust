@@ -44,6 +44,7 @@ from noust.core.secret_detection import REDACTED, URL_CREDENTIALS, redact_url_cr
 from noust.managers import site_routes
 from noust.recipes import logo_paint, logo_png, logo_sanitize, logos
 from noust.validators import (
+    assistant_page,
     container,
     domain,
     environment,
@@ -2521,3 +2522,106 @@ class TestTheMomentAOneTimeTaskRunsAt:
         accepted, _ = verdict(once_at.parse_once_at, text, now=self.NOW)
 
         assert not accepted
+
+
+# ---------------------------------------------------------------------------
+# The page a question to the assistant is asked from
+# ---------------------------------------------------------------------------
+
+
+class TestThePageAQuestionToTheAssistantIsAskedFrom:
+    """The console says which page the person is on, and Noust reads it with a call of the API."""
+
+    GOOD = [
+        {"kind": "deployment", "id": 14},
+        {"kind": "diagnosis", "domain": "shop.example.com", "server": "web-01"},
+        {"kind": "alert", "rule": "certificate-expiring"},
+        {"kind": "page", "route": "/apps/shop.example.com/logs"},
+    ]
+
+    @pytest.mark.parametrize("page", GOOD)
+    def test_a_page_of_a_known_kind_with_its_one_value_is_accepted_as_it_is(
+        self, page: dict[str, Any]
+    ) -> None:
+        accepted, checked = verdict(assistant_page.validate_page, page)
+
+        assert accepted and checked == page
+
+    @pytest.mark.parametrize("payload", PAYLOADS)
+    @pytest.mark.parametrize("field", ["domain", "rule", "route", "server"])
+    def test_no_payload_is_a_value_of_a_page(self, payload: str, field: str) -> None:
+        kind = {"domain": "diagnosis", "rule": "alert", "route": "page", "server": "diagnosis"}[
+            field
+        ]
+        page: dict[str, Any] = {"kind": kind}
+        if field == "server":
+            page["domain"] = "shop.example.com"
+        page[field] = payload
+
+        accepted, checked = verdict(assistant_page.validate_page, page)
+
+        if accepted:
+            assert not CONTROL.search(str(checked))
+
+    @pytest.mark.parametrize(
+        "page",
+        [
+            {"kind": "deployment", "id": "14"},
+            {"kind": "deployment", "id": True},
+            {"kind": "deployment", "id": 0},
+            {"kind": "deployment", "id": -3},
+            {"kind": "deployment", "id": 2**40},
+            {"kind": "deployment", "id": 14.5},
+            {"kind": "diagnosis", "domain": "shop.example.com\n"},
+            {"kind": "diagnosis", "domain": "shop.example.com\x00"},
+            {"kind": "diagnosis", "domain": "../etc/passwd"},
+            {"kind": "diagnosis", "domain": "a" * 300},
+            {"kind": "diagnosis", "domain": "\uff53hop.example.com"},
+            {"kind": "diagnosis", "domain": ""},
+            {"kind": "diagnosis", "domain": None},
+            {"kind": "diagnosis", "domain": ["shop.example.com"]},
+            {"kind": "alert", "rule": "-leading"},
+            {"kind": "alert", "rule": "a b"},
+            {"kind": "page", "route": "apps"},
+            {"kind": "page", "route": "/apps?x=1"},
+            {"kind": "page", "route": "/apps/../../etc/x y"},
+            {"kind": "page", "route": "/" + "a" * 300},
+            {"kind": "deployment", "id": 14, "domain": "shop.example.com"},
+            {"kind": "deployment", "id": 14, "server": "web 01"},
+            {"kind": "deployment", "id": 14, "server": "web-01\n"},
+            {"kind": "shell", "command": "rm -rf /"},
+            {"kind": None},
+            {"kind": ["deployment"]},
+            {},
+        ],
+    )
+    def test_what_is_not_the_shape_of_what_it_names_is_refused_cleanly(
+        self, page: dict[str, Any]
+    ) -> None:
+        accepted, _ = verdict(assistant_page.validate_page, page)
+
+        assert not accepted
+
+    @pytest.mark.parametrize("page", ["deployment", 14, ["kind"], b"x"])
+    def test_a_page_that_is_not_an_object_is_refused(self, page: object) -> None:
+        accepted, _ = verdict(assistant_page.validate_page, page)
+
+        assert not accepted
+
+    def test_no_page_is_no_page(self) -> None:
+        assert assistant_page.validate_page(None) is None
+
+    @given(
+        st.dictionaries(
+            st.sampled_from(["kind", "id", "domain", "rule", "route", "server"]),
+            st.one_of(
+                st.text(alphabet=NASTY, max_size=40), st.integers(), st.booleans(), st.none()
+            ),
+        )
+    )
+    @SETTINGS
+    def test_whatever_is_sent_it_answers_or_refuses(self, page: dict[str, Any]) -> None:
+        accepted, checked = verdict(assistant_page.validate_page, page)
+
+        if accepted and checked is not None:
+            assert not CONTROL.search(str(checked))

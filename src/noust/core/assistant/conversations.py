@@ -277,6 +277,11 @@ class Conversations:
         cursor.execute(
             "DELETE FROM assistant_messages WHERE conversation_id = ?", (conversation_id,)
         )
+        # What each turn kept and the calls prepared in them live as long as the conversation.
+        cursor.execute("DELETE FROM assistant_turns WHERE conversation_id = ?", (conversation_id,))
+        cursor.execute(
+            "DELETE FROM assistant_proposals WHERE conversation_id = ?", (conversation_id,)
+        )
         cursor.execute("DELETE FROM assistant_conversations WHERE id = ?", (conversation_id,))
 
     # -- messages --------------------------------------------------------------------------------

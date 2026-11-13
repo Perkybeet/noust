@@ -296,6 +296,24 @@ def getenv(name: str, default: str | None = None) -> str | None:
     return default if value is None else value
 
 
+def docs_directories() -> tuple[Path, ...]:
+    """
+    Returns:
+        Where the documentation may be installed, in order: a source checkout's ``docs`` and the
+        directories the packages put it in. The assistant looks it up there; where none holds any,
+        it has nothing to look up and does not offer to.
+    """
+    here = Path(__file__).resolve()
+    return (
+        here.parents[3] / "docs",
+        Path("/usr/share/doc/noust"),
+        Path("/usr/share/doc/noust-doc"),
+        Path("/usr/share/doc/packages/noust"),
+        Path("/usr/share/doc/packages/noust/docs"),
+        Path("/usr/share/doc/noust/docs"),
+    )
+
+
 def config_dir() -> Path:
     """
     Return the directory holding config.yaml and the console's state.

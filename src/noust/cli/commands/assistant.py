@@ -440,3 +440,96 @@ def usage_command(ctx: Context) -> None:
     ctx.logger.info(
         "Limits: " + ", ".join(f"{k} {v}" for k, v in report.limits.to_dict().items()) + "."
     )
+
+
+def _call_line(proposal: dict[str, Any]) -> str:
+    """
+    Args:
+        proposal: A proposal as the console draws it.
+
+    Returns:
+        The call that would carry it out, on one line.
+    """
+    call = proposal["call"]
+    line = f"{call['method']} {call['path']}"
+    if call.get("query"):
+        line += "?" + "&".join(f"{k}={v}" for k, v in call["query"])
+    if call.get("body") is not None:
+        line += " " + json.dumps(call["body"], separators=(",", ":"), ensure_ascii=False)
+    return line
+
+
+@cli.command("ask")
+@click.argument("question", nargs=-1, required=True)
+@click.option(
+    "--as",
+    "as_user",
+    required=True,
+    help="The account the assistant acts for: it holds at most what that account holds.",
+)
+@click.option("--server", help="The server it is about: a name, or 'all' (a central's servers).")
+@click.option(
+    "--page",
+    "page_text",
+    help="The page the question is asked from: deployment:ID, diagnosis:DOMAIN, alert:RULE or page:/ROUTE.",
+)
+@json_option("Print the turn as JSON instead of the text.")
+@pass_context
+def ask_command(
+    ctx: Context,
+    question: tuple[str, ...],
+    as_user: str,
+    server: str | None,
+    page_text: str | None,
+) -> None:
+    """
+    Ask the assistant something and read its answer here.
+
+    It explains and investigates, with the same tools and limits as in the console, as the account named
+    by --as. What it proposes is listed with the call that would carry it out and is NOT carried out: a person
+    does it in the console, in their own session.
+    """
+    from noust.web.assistant.ask import ask_as, parse_page
+
+    text = " ".join(question).strip()
+    if not text:
+        raise click.UsageError("Say what to ask.")
+    live = not ctx.json_output
+    turn = ask_as(
+        as_user,
+        text,
+        server="*" if server == "all" else server,
+        page=parse_page(page_text),
+        on_text=(lambda piece: click.echo(piece, nl=False)) if live else None,
+    )
+    if ctx.json_output:
+        click.echo(json.dumps(turn))
+        return
+    click.echo("")
+    for step in turn["steps"]:
+        said = (step.get("what") or {}).get("text") or step["tool"]
+        click.echo(f"  - {said} ({step['state']})", err=True)
+    for refused in turn["not_offered"]:
+        why = refused["why"] or {}
+        click.echo(
+            f"  Not offered: {(refused['title'] or {}).get('text')}. {why.get('text')}", err=True
+        )
+        if why.get("hint"):
+            click.echo(f"    {why['hint']}", err=True)
+    for proposal in turn["proposals"]:
+        title = (proposal["title"] or {}).get("text") or proposal["tool"]
+        if proposal["klass"] == "alone":
+            click.echo(f"  Done as your policy lets it: {title} ({proposal['state']})", err=True)
+            continue
+        click.echo(f"  Proposed, NOT done ({proposal['klass']}): {title}", err=True)
+        click.echo(f"    call: {_call_line(proposal)}", err=True)
+        click.echo("    Carry it out in the console, with your own session.", err=True)
+    if turn["stop"]:
+        click.echo(f"  Stopped: {turn['stop']['text']}", err=True)
+        if turn["stop"].get("hint"):
+            click.echo(f"    {turn['stop']['hint']}", err=True)
+    if turn["error"]:
+        click.echo(f"  It could not answer: {turn['error'].get('text')}", err=True)
+    model = turn.get("model")
+    if model:
+        click.echo(f"  (An AI: {model}; what you said went to: {turn['location']}.)", err=True)

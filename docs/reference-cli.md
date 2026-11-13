@@ -3116,7 +3116,25 @@ Set up and look after the built-in assistant (an AI, with a model of your choice
 noust assistant [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`configure`](#noust-assistant-configure), [`disable`](#noust-assistant-disable), [`enable`](#noust-assistant-enable), [`probe`](#noust-assistant-probe), [`status`](#noust-assistant-status), [`usage`](#noust-assistant-usage)
+Subcommands: [`ask`](#noust-assistant-ask), [`configure`](#noust-assistant-configure), [`disable`](#noust-assistant-disable), [`enable`](#noust-assistant-enable), [`probe`](#noust-assistant-probe), [`status`](#noust-assistant-status), [`usage`](#noust-assistant-usage)
+
+### noust assistant ask
+
+Ask the assistant something and read its answer here.
+
+```bash
+noust assistant ask [OPTIONS] QUESTION...
+```
+
+Arguments: `question`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--as` | The account the assistant acts for: it holds at most what that account holds. |  |
+| `--server` | The server it is about: a name, or 'all' (a central's servers). |  |
+| `--page` | The page the question is asked from: deployment:ID, diagnosis:DOMAIN, alert:RULE or page:/ROUTE. |  |
+| `--json` | Print the turn as JSON instead of the text. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust assistant configure
 

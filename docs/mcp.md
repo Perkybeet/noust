@@ -49,6 +49,12 @@ A tool takes what its route takes: its parameters are read from the route's Open
 cannot drift from it. `tools/list` offers only the tools the token's permissions allow (a viewer's
 token is not offered `deploy_application`), and a tool that is not offered cannot be called by name.
 
+The [built-in assistant](assistant.md) is given these same tools, from the same list and with the same
+checks (not a copy), plus three of its own (a search of this documentation, a search of the API's operations and
+the preparation of the exact call of one of them). What differs is what becomes of a change: through MCP it is
+held to the token's own row of the [approval policy of who calls](security-approvals.md), and the assistant's is
+made, proposed to a person or not offered as its row says.
+
 **Prompts** hand the model what Noust knows, fenced as data: `troubleshoot_application` (the status
 and the diagnosis: unit, port, probes, journal, web server, certificate, memory, disk, most likely
 cause first) and `explain_failed_deploy` (the deployment, its error and the end of its build log).

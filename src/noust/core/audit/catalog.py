@@ -857,6 +857,15 @@ EVENTS: dict[str, EventSpec] = {
                 "cost and the tools it used, never the conversation."
             ),
             "assistant.conversation.delete": "A person deleted a conversation with the assistant.",
+            "assistant.proposal": (
+                "The built-in assistant prepared a call for a person to approve and carry out: "
+                "its tool, its class and the application, never the values of the call."
+            ),
+            "assistant.outcome": (
+                "A person carried out, rejected or answered a call the built-in assistant "
+                "prepared: which, how it ended and who, once the audit trail showed the call "
+                "was made."
+            ),
         },
     ),
     **_events(

@@ -370,6 +370,14 @@ def _settings_out(settings: Any) -> AssistantSettingsOut:
     return AssistantSettingsOut(**document)
 
 
+def _stop_turns() -> None:
+    """Ask every turn that is being answered to stop, and forget the tokens held for them: it was turned off."""
+    from noust.web.assistant.turns import registry, tokens
+
+    registry().cancel_all()
+    tokens().clear()
+
+
 def _account_id(session: dict[str, Any]) -> int:
     """
     Args:
@@ -466,6 +474,7 @@ def put_settings(
         store.disable(actor=who)
         audit_record("assistant.disable", actor=actor_of(session), target="setting:assistant")
         AssistantIdentity().revoke_all(actor=actor_of(session))
+        _stop_turns()
     return _settings_out(store.read())
 
 
@@ -535,6 +544,7 @@ def turn_off(session: Annotated[dict, Depends(require_elevated)]) -> OffOut:
     store.disable(actor=actor_label(session))
     audit_record("assistant.disable", actor=actor_of(session), target="setting:assistant")
     revoked = AssistantIdentity().revoke_all(actor=actor_of(session))
+    _stop_turns()
     return OffOut(revoked=revoked, settings=_settings_out(store.read()))
 
 
