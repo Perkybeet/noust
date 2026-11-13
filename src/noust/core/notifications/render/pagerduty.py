@@ -32,11 +32,11 @@ The routing key is part of the body, as PagerDuty defines it.
 
 from __future__ import annotations
 
-import hashlib
 from dataclasses import dataclass
 from datetime import timezone
 from typing import Any
 
+from noust.core.notifications.grouping import FAMILY, thing_key
 from noust.core.notifications.model import (
     DIGEST_KIND,
     REPORT_KIND,
@@ -55,62 +55,15 @@ ENDPOINTS: dict[str, str] = {
     "eu": "https://events.eu.pagerduty.com/v2/enqueue",
 }
 
-#: The kinds that have a way back, and what they are one thing with. Two kinds
-#: of one family (``app_unreachable`` and ``app_recovered``) are the two sides
-#: of the same incident.
-FAMILY: dict[str, str] = {
-    "app_unreachable": "app",
-    "app_recovered": "app",
-    "unit_failed": "unit",
-    "disk_threshold": "disk",
-    "destination_unreachable": "destination",
-    "node_unreachable": "node",
-    "node_recovered": "node",
-    "server_rebooted": "server",
-    "server_back": "server",
-    "alert_firing": "alert",
-    "alert_resolved": "alert",
-    "alert_acknowledged": "alert",
-    "deploy_failed": "deploy",
-    "deploy_rolled_back": "deploy",
-    "deploy_hook_failed": "deploy",
-    "deploy_success": "deploy",
-    "backup_failed": "backup",
-    "backup_success": "backup",
-    "restore_failed": "restore",
-    "restore_success": "restore",
-    "cron_failed": "cron",
-    "cron_success": "cron",
-    "cron_missed": "cron-timer",
-    "cleanup_failed": "cleanup",
-    "cleanup_success": "cleanup",
-    "probe_failed": "probe",
-    "probe_recovered": "probe",
-}
-
-#: The kinds that open what a family's recovery closes.
-_OPENING: dict[str, tuple[str, ...]] = {
-    "app": ("app_unreachable",),
-    "unit": ("unit_failed",),
-    "disk": ("disk_threshold",),
-    "destination": ("destination_unreachable",),
-    "node": ("node_unreachable",),
-    "server": ("server_rebooted",),
-    "alert": ("alert_firing",),
-    "deploy": ("deploy_failed", "deploy_rolled_back", "deploy_hook_failed"),
-    "backup": ("backup_failed",),
-    "restore": ("restore_failed",),
-    "cron": ("cron_failed",),
-    "cron-timer": ("cron_missed",),
-    "cleanup": ("cleanup_failed",),
-    "probe": ("probe_failed",),
-}
-
 #: What is never a page: the monitor's report and the digest of what quiet hours
 #: held are summaries, and an approval is a person asking another for a decision.
 NEVER_A_PAGE: frozenset[str] = frozenset(
     {REPORT_KIND, DIGEST_KIND, "approval_requested", "approval_decided"}
 )
+
+#: A page's incident is the thing the notification is about: the key lives with the grouping
+#: (:func:`~noust.core.notifications.grouping.thing_key`), and the pager calls it its dedup key.
+dedup_key = thing_key
 
 #: The one kind that says somebody took an incident, from Noust's side.
 ACKNOWLEDGED_KIND = "alert_acknowledged"
@@ -133,30 +86,6 @@ class Plan:
     dedup_key: str
 
 
-def dedup_key(n: Notification) -> str:
-    """
-    Name the incident a notification is about.
-
-    Args:
-        n: The notification.
-
-    Returns:
-        A stable key of at most 255 characters: the same for the two sides of
-        a kind that has a way back, so the recovery closes what the failure
-        opened.
-    """
-    family = FAMILY.get(n.kind, n.kind)
-    rule = next((fact.value for fact in n.facts if fact.key == "rule"), "")
-    parts = ["noust", n.server, family, n.domain or n.subject]
-    if family == "alert":
-        # Two rules on one application are two incidents.
-        parts = ["noust", n.server, family, rule, n.domain or ""]
-    key = "/".join(parts)
-    if len(key) <= 255:
-        return key
-    return "noust/" + hashlib.sha256(key.encode("utf-8")).hexdigest()
-
-
 def plan(n: Notification) -> Plan | None:
     """
     Decide what a notification is to a pager.
@@ -169,29 +98,16 @@ def plan(n: Notification) -> Plan | None:
         (nothing is wrong, and it closes nothing).
     """
     if n.kind == TEST_KIND:
-        return Plan("trigger", dedup_key(n))
+        return Plan("trigger", thing_key(n))
     if n.kind in NEVER_A_PAGE:
         return None
     if n.kind == ACKNOWLEDGED_KIND:
-        return Plan("acknowledge", dedup_key(n))
+        return Plan("acknowledge", thing_key(n))
     if n.state in SEVERITY:
-        return Plan("trigger", dedup_key(n))
+        return Plan("trigger", thing_key(n))
     if n.state is State.OK and n.kind in FAMILY:
-        return Plan("resolve", dedup_key(n))
+        return Plan("resolve", thing_key(n))
     return None
-
-
-def opening_kinds(n: Notification) -> tuple[str, ...]:
-    """
-    Args:
-        n: A notification that closes something.
-
-    Returns:
-        The kinds whose problem it closes: the switches a channel must have on
-        for the recovery to be worth sending. Empty for a kind that closes
-        nothing.
-    """
-    return _OPENING.get(FAMILY.get(n.kind, ""), ())
 
 
 def render(n: Notification, routing_key: str, decided: Plan) -> dict[str, Any]:

@@ -73,6 +73,10 @@ export interface SummaryForm {
 export const MAX_FLOOD_MESSAGES = 1000;
 export const MAX_FLOOD_MINUTES = 1440;
 
+/** Where a Telegram channel posts: the group's general thread, one topic, or a topic for each subject. */
+export type TopicPlace = "general" | "one" | "subjects";
+export const TOPIC_PLACES: readonly TopicPlace[] = ["general", "one", "subjects"];
+
 export interface RoutingForm {
   /** The channel keeps its own switch per event; otherwise it follows the server's. */
   ownEvents: boolean;
@@ -82,8 +86,12 @@ export interface RoutingForm {
   quiet: QuietForm;
   flood: FloodForm;
   summary: SummaryForm;
-  /** A Telegram forum topic, as typed: digits, or empty for the chat's general thread. */
+  /** Where a Telegram channel posts. */
+  place: TopicPlace;
+  /** The one topic, as typed: digits, or empty for the group's general thread. */
   topic: string;
+  /** The topic of each subject, as typed; a subject that is not here has none. */
+  topics: Readonly<Record<string, string>>;
 }
 
 /** The lists of a route, in the order a form shows them. */
@@ -175,8 +183,57 @@ export function routingFormFrom(channel: NotificationChannel, serverEvents: Read
       below: below === "failed" ? "failed" : "warning",
       days,
     },
-    topic: textOf(channel.settings?.["thread_id"]),
+    ...topicFormFrom(channel.settings),
   };
+}
+
+/** A topic number as it is typed: a whole number from 1. */
+export function isTopicNumber(value: string): boolean {
+  return /^\d{1,12}$/.test(value.trim()) && Number(value) >= 1;
+}
+
+/** The topic of each subject a Telegram channel has, as the form holds it. */
+function topicsOf(settings: NotificationChannel["settings"]): Record<string, string> {
+  const stored = settings?.["topics"];
+  if (stored === null || typeof stored !== "object" || Array.isArray(stored)) return {};
+  const found: Record<string, string> = {};
+  for (const [subject, number] of Object.entries(stored as Record<string, unknown>)) {
+    const text = textOf(number);
+    if (text !== "") found[subject] = text;
+  }
+  return found;
+}
+
+/**
+ * Where a Telegram channel posts, read from what it has: a topic per subject when any subject has
+ * one, else the one topic, else the general thread. A topic of one event (`threads`) is kept by the
+ * server whatever this says.
+ */
+function topicFormFrom(settings: NotificationChannel["settings"]): Pick<RoutingForm, "place" | "topic" | "topics"> {
+  const topics = topicsOf(settings);
+  const topic = textOf(settings?.["thread_id"]);
+  const place: TopicPlace = Object.keys(topics).length > 0 ? "subjects" : topic !== "" ? "one" : "general";
+  return { place, topic, topics };
+}
+
+/** The `topics` setting a form writes: the subjects that have a number, `{}` for none. */
+export function topicsBlock(form: Pick<RoutingForm, "place" | "topics">): Record<string, number> {
+  if (form.place !== "subjects") return {};
+  // In the order of the subjects' names, whatever order they were typed or read in: the configuration file
+  // keeps them sorted, and a form is dirty only when what it would write differs, not when it lists the same topics in another order.
+  const block: Record<string, number> = {};
+  for (const subject of Object.keys(form.topics).sort()) {
+    const number = form.topics[subject] ?? "";
+    if (isTopicNumber(number)) block[subject] = Number(number.trim());
+  }
+  return block;
+}
+
+/** Whether every number the form holds for where it posts is one the server accepts; an empty one is fine. */
+export function isTopicFormValid(form: Pick<RoutingForm, "place" | "topic" | "topics">): boolean {
+  if (form.place === "one") return form.topic.trim() === "" || isTopicNumber(form.topic);
+  if (form.place === "subjects") return Object.values(form.topics).every((number) => number.trim() === "" || isTopicNumber(number));
+  return true;
 }
 
 /** The `route` block a form writes: only what is set, `{}` for a channel that hears everything. */
@@ -233,7 +290,9 @@ export function routingBody(form: RoutingForm, channel: Pick<NotificationChannel
     flood: floodBlock(form.flood),
     summary: summaryBlock(form.summary),
   };
-  if (channel.type === "telegram") body.settings = { thread_id: form.topic.trim() };
+  // The place decides what is written: the other way of posting is cleared, so a channel never keeps a
+  // topic it no longer uses.
+  if (channel.type === "telegram") body.settings = { thread_id: form.place === "one" ? form.topic.trim() : "", topics: topicsBlock(form) };
   return body;
 }
 
@@ -251,7 +310,10 @@ export function isClock(value: string): boolean {
  * What a channel is limited to, in words for its row: nothing for a channel that hears everything,
  * else one short phrase for each limit it has.
  */
-export function routeSummary(t: T, channel: Pick<NotificationChannel, "route" | "quiet" | "events"> & Partial<Pick<NotificationChannel, "flood" | "summary">>): string[] {
+export function routeSummary(
+  t: T,
+  channel: Pick<NotificationChannel, "route" | "quiet" | "events"> & Partial<Pick<NotificationChannel, "flood" | "summary" | "settings" | "type">>,
+): string[] {
   const phrases: string[] = [];
   const route = channel.route ?? {};
   for (const list of ROUTE_LISTS) {
@@ -273,6 +335,11 @@ export function routeSummary(t: T, channel: Pick<NotificationChannel, "route" | 
   const recap = channel.summary;
   if (recap !== null && recap !== undefined && Object.keys(recap).length > 0) {
     phrases.push(t("notifyRouting.summary.recap", { at: textOf(recap["at"]) }));
+  }
+  if (channel.type === "telegram") {
+    const where = topicFormFrom(channel.settings);
+    if (where.place === "subjects") phrases.push(t("notifyRouting.summary.topics"));
+    else if (where.place === "one") phrases.push(t("notifyRouting.summary.topic", { number: where.topic }));
   }
   const own = Object.keys(channel.events ?? {}).length;
   if (own > 0) phrases.push(t("notifyRouting.summary.ownEvents", { count: own }));

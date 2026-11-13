@@ -1417,10 +1417,12 @@ def update_telegram_config(
     """
     config = load_config()
     bot_token = body.bot_token or config.get("notifications.channels.telegram.bot_token", "")
-    config.set(
-        "notifications.channels.telegram",
-        {"bot_token": bot_token, "chat_id": body.chat_id},
-    )
+    # What the channel already has (where it posts, what it hears, its hours) is the channel's,
+    # not the bot's: changing the bot or the chat does not forget the topics somebody set up.
+    stored = config.get("notifications.channels.telegram", {})
+    block = dict(stored) if isinstance(stored, dict) else {}
+    block.update({"bot_token": bot_token, "chat_id": body.chat_id})
+    config.set("notifications.channels.telegram", block)
     persist(config)
     _audit_write(request, session, changed=["notifications"])
     return MessageResponse(message="Telegram configuration updated")

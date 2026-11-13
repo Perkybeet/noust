@@ -114,6 +114,11 @@ class TestCatalogShape:
             "excerpt",
             # What a change to how the server is reached was, said whole (core/access_changes.py).
             "change",
+            # What keeps notifications together (core/messages_grouping.py): the line of a message
+            # whose topic is gone, the names of the topics Noust creates and the noun of an email's
+            # conversation.
+            "topic",
+            "thing",
         }
 
     def test_every_title_has_a_summary(self) -> None:

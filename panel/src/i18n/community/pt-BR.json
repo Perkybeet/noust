@@ -10158,8 +10158,6 @@
   "notifyRouting.recap.day.sun": "Dom",
   "notifyRouting.pager.title": "Limite e resumo",
   "notifyRouting.pager.description": "Um canal de chamada não tem limite nem resumo: ele já agrupa as repetições por incidente, e um incidente que esperasse por um resumo seria um incidente para o qual ninguém foi chamado.",
-  "notifyRouting.topic.label": "Tópico do Telegram",
-  "notifyRouting.topic.description": "O número de um tópico em um grupo de fórum. Vazio publica no tópico geral do grupo.",
   "notifyRouting.summary.apps": "Aplicações: {names}",
   "notifyRouting.summary.projects": "Projetos: {names}",
   "notifyRouting.summary.environments": "Ambientes: {names}",

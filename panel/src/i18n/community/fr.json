@@ -10158,8 +10158,6 @@
   "notifyRouting.recap.day.sun": "Dim",
   "notifyRouting.pager.title": "Plafond et résumé",
   "notifyRouting.pager.description": "Un canal d'astreinte n'est ni plafonné ni résumé : il regroupe déjà les répétitions par incident, et un incident qui aurait attendu un résumé serait un incident pour lequel personne n'a été appelé.",
-  "notifyRouting.topic.label": "Sujet Telegram",
-  "notifyRouting.topic.description": "Le numéro d'un sujet dans un groupe-forum. Vide : publie dans le fil général du groupe.",
   "notifyRouting.summary.apps": "Applications : {names}",
   "notifyRouting.summary.projects": "Projets : {names}",
   "notifyRouting.summary.environments": "Environnements : {names}",

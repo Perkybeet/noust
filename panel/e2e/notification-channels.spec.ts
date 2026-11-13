@@ -250,3 +250,96 @@ test("telegram: finds the chats the bot has seen, fills the chat ID, and shows T
   await telegram.getByRole("button", { name: "Done" }).click();
   await expect(row(page, "Telegram")).toContainText("Sends to chat -1001987654321.");
 });
+
+/**
+ * The channel set to a modelled bot and chat, through its drawer, so a test of the topics starts from a known group.
+ * The first write of a test asks "Confirm it's you"; what follows is inside the sudo window and does not.
+ */
+async function useGroup(page: Page, consoleServer: ConsoleServer, bot: string, chat: string, asksSudoMode = false): Promise<void> {
+  const telegram = await openDrawer(page, "Telegram");
+  const save = telegram.getByRole("button", { name: "Save" });
+  await telegram.getByLabel("Bot token", { exact: true }).fill(bot);
+  await telegram.getByLabel("Chat ID").fill(chat);
+  await save.click();
+  if (asksSudoMode) await confirmItsYou(page, consoleServer);
+  await expect(save).toBeDisabled();
+  await telegram.getByRole("button", { name: "Done" }).click();
+  await expect(row(page, "Telegram")).toContainText(`Sends to chat ${chat}.`);
+}
+
+async function openRouting(page: Page) {
+  await row(page, "Telegram").getByRole("button", { name: "Routing for Telegram" }).click();
+  const drawer = page.getByRole("dialog", { name: "Routing for Telegram" });
+  await expect(drawer).toBeVisible();
+  return drawer;
+}
+
+test("telegram: a topic for each subject, created by Noust in the group, and what a group that cannot take them says", async ({
+  page,
+  consoleServer,
+  problems,
+}) => {
+  // Sudo mode is asked by answering 403 the first write of the page; what follows is inside its window.
+  problems.expect(/status of 403 .* \/api\/config\/notifications\/telegram$/);
+  await signIn(page, consoleServer, "/settings/notifications");
+  await useGroup(page, consoleServer, "7000000001:console-sandbox-bot", "-1001987654321", true);
+
+  const routing = await openRouting(page);
+  await expect(routing.getByRole("heading", { name: "Where it is posted" })).toBeVisible();
+  const place = routing.getByRole("radiogroup", { name: "Where this channel posts" });
+  await expect(place.getByRole("radio", { name: "General thread" })).toBeChecked();
+  await place.getByRole("radio", { name: "A topic per subject" }).click();
+  for (const subject of ["Deploys", "Alerts", "Backups", "Security", "System"]) {
+    await expect(routing.getByRole("textbox", { name: new RegExp(`^${subject}`) })).toBeVisible();
+  }
+  await stillness(page);
+  await expectNoA11yViolations(page, "the topics of each subject, before any exists");
+
+  // Noust asks the group, through the bot, and the numbers it made are in the fields.
+  await routing.getByRole("button", { name: "Create the missing topics" }).click();
+  await expect(routing.getByText("Created 5 topics.")).toBeVisible();
+  for (const subject of ["Deploys", "Alerts", "Backups", "Security", "System"]) {
+    await expect(routing.getByRole("textbox", { name: new RegExp(`^${subject}`) })).toHaveValue(/^\d+$/);
+  }
+  await expect(routing.getByRole("button", { name: "Save" })).toBeDisabled();
+  await stillness(page);
+  await expectNoA11yViolations(page, "the topics Noust created");
+  await routing.getByRole("button", { name: "Done" }).click();
+  await expect(row(page, "Telegram")).toContainText("A topic for each subject");
+
+  // A group that is not a forum: said, with the way to turn topics on, and nothing is made.
+  await useGroup(page, consoleServer, "7000000003:console-sandbox-plain", "-1001555555555");
+  const plain = await openRouting(page);
+  await plain.getByRole("button", { name: "Create the missing topics" }).click();
+  await expect(plain.getByText("The group does not have topics turned on")).toBeVisible();
+  await expect(plain.getByText(/Only the group's owner can turn them on/)).toBeVisible();
+  await stillness(page);
+  await expectNoA11yViolations(page, "a group that has no topics turned on");
+});
+
+test("telegram: a topic that stopped taking messages is said in the row and in the drawer, with Telegram's own words", async ({
+  page,
+  consoleServer,
+  problems,
+}) => {
+  problems.expect(/status of 403 .* \/api\/config\/notifications\/telegram$/);
+  await signIn(page, consoleServer, "/settings/notifications");
+  await useGroup(page, consoleServer, "7000000001:console-sandbox-bot", "-1001987654321", true);
+
+  // A topic the group does not have: the test still arrives, in the general thread, and the channel is marked.
+  const routing = await openRouting(page);
+  await routing.getByRole("radio", { name: "One topic" }).click();
+  await routing.getByRole("textbox", { name: /Topic number/ }).fill("99");
+  await routing.getByRole("button", { name: "Save" }).click();
+  await expect(routing.getByRole("button", { name: "Save" })).toBeDisabled();
+  await routing.getByRole("button", { name: "Done" }).click();
+  await row(page, "Telegram").getByRole("button", { name: "Send test to Telegram" }).click();
+  await expect(row(page, "Telegram")).toContainText("Sent a test message. Check that it arrived.");
+  await expect(row(page, "Telegram")).toContainText("Topic 99 does not take messages");
+
+  const again = await openRouting(page);
+  await expect(again.getByText("Topic 99 no longer takes messages")).toBeVisible();
+  await expect(again.getByText("Bad Request: message thread not found")).toBeVisible();
+  await stillness(page);
+  await expectNoA11yViolations(page, "a topic that stopped taking messages");
+});

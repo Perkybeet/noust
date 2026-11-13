@@ -12385,7 +12385,7 @@ Notification channels: what Noust tells you, and where.
 noust notify [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`channel`](#noust-notify-channel), [`deliveries`](#noust-notify-deliveries), [`events`](#noust-notify-events), [`list`](#noust-notify-list), [`retry`](#noust-notify-retry), [`telegram-chats`](#noust-notify-telegram-chats), [`test`](#noust-notify-test)
+Subcommands: [`channel`](#noust-notify-channel), [`deliveries`](#noust-notify-deliveries), [`events`](#noust-notify-events), [`list`](#noust-notify-list), [`retry`](#noust-notify-retry), [`telegram-chats`](#noust-notify-telegram-chats), [`telegram-topics`](#noust-notify-telegram-topics), [`test`](#noust-notify-test)
 
 ### noust notify channel
 
@@ -12427,6 +12427,8 @@ Arguments: `name`
 | `--type` | The channel's type. |  |
 | `--enable`, `--disable` | Turn the channel on or off. |  |
 | `--set` | A setting of the type (chat_id, device, mention_role_id...). Not a credential. |  |
+| `--topic` | Telegram: post this subject (deploys, alerts, backups, security or system) in this topic of the forum group; an empty NUMBER stops it having one. |  |
+| `--clear-topics` | Telegram: forget every topic of a subject. |  |
 | `--secret` | Ask for a credential (webhook_url, bot_token, user_key...), hidden. |  |
 | `--secret-stdin` | Read one credential from standard input. |  |
 | `--event` | This channel's own switch for an event (see 'noust notify events'). |  |
@@ -12533,6 +12535,25 @@ noust notify telegram-chats [OPTIONS]
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
 | `--json` | Print the chats as a JSON array. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust notify telegram-topics
+
+Show the topic of each subject, or create the ones that are missing.
+
+```bash
+noust notify telegram-topics [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--channel` | The Telegram channel whose group is asked. | `telegram` |
+| `--create` | Create in the group the topics the subjects are missing, with the channel's bot, and save their numbers. |  |
+| `--recreate` | With --create, also make anew a topic that stopped taking messages. |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--json` | Print the topics as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust notify test

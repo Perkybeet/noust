@@ -25915,6 +25915,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/notifications/channels/{name}/topics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Topics
+         * @description Create the topics of a Telegram channel's group that its subjects are missing.
+         *
+         *     The one request here that asks something of Telegram besides a message, and it is a button
+         *     somebody pushes: nothing is asked until then. The bot the channel already has checks the
+         *     group (does it have topics, may the bot manage them), makes the topics that are missing and
+         *     their numbers are saved into the channel. A group that cannot take them is an answer, not an
+         *     error: it says why, in Telegram's own words where Telegram said it. Asking again makes only
+         *     what is missing.
+         *
+         *     Args:
+         *         name: The Telegram channel.
+         *         body: Whether to also make anew the topics that stopped taking messages.
+         *         request: The incoming request.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         What was made, what was there and why it stopped, if it did.
+         *
+         *     Raises:
+         *         ValidationError: 400 when there is no such channel, it is not a Telegram one, or it has
+         *             no bot token or chat yet.
+         */
+        post: operations["create_topics_api_notifications_channels__name__topics_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/notifications/console-url": {
         parameters: {
             query?: never;
@@ -41136,6 +41176,8 @@ export interface components {
          *             ``below``, ``days``), or null for none.
          *         team: The slug of the team that keeps it (``/api/teams/{team}/notifications``),
          *             or null for the server's own.
+         *         notices: What it has to say about how it is working (a topic that stopped taking
+         *             messages); empty when there is nothing.
          */
         ChannelModel: {
             /** Configured */
@@ -41154,6 +41196,8 @@ export interface components {
             } | null;
             /** Name */
             name: string;
+            /** Notices */
+            notices?: components["schemas"]["NoticeModel"][];
             /** Quiet */
             quiet?: {
                 [key: string]: unknown;
@@ -41196,8 +41240,10 @@ export interface components {
          *     Attributes:
          *         name: The type's name.
          *         keys: Its settings.
+         *         grouping: What it can do to keep messages together.
          */
         ChannelTypeModel: {
+            grouping: components["schemas"]["GroupingModel"];
             /** Keys */
             keys: components["schemas"]["ChannelFieldModel"][];
             /** Name */
@@ -50198,10 +50244,14 @@ export interface components {
          *
          *     Attributes:
          *         items: Every event kind.
+         *         subjects: What the events are about, in the order the console offers them: each is the
+         *             ``subject`` of some of the ``items``, and a chat can give each a topic.
          */
         EventListResponse: {
             /** Items */
             items: components["schemas"]["EventModel"][];
+            /** Subjects */
+            subjects?: string[];
         };
         /**
          * EventModel
@@ -50211,6 +50261,8 @@ export interface components {
          *         kind: Its name.
          *         default_on: Whether it is on when nothing says otherwise.
          *         enabled: Whether the server-wide switch has it on now.
+         *         subject: What it is about (``deploys``, ``alerts``, ``backups``, ``security``,
+         *             ``system``): the topic a chat gives it.
          */
         EventModel: {
             /** Default On */
@@ -50219,6 +50271,8 @@ export interface components {
             enabled: boolean;
             /** Kind */
             kind: string;
+            /** Subject */
+            subject?: string | null;
         };
         /**
          * ExceptionCreate
@@ -52484,6 +52538,24 @@ export interface components {
             id: number;
             /** Name */
             name?: string | null;
+        };
+        /**
+         * GroupingModel
+         * @description What a channel type can do to keep messages together.
+         *
+         *     Attributes:
+         *         topics: A chat that gives each subject a topic of its own (a forum group).
+         *         replies: A recovery can be put as the answer to its failure.
+         *         reason: When it can do neither, why, as a code the console words (``incoming_webhook``:
+         *             the webhook never says the id of the message it posts, so it cannot be answered).
+         */
+        GroupingModel: {
+            /** Reason */
+            reason?: string | null;
+            /** Replies */
+            replies: boolean;
+            /** Topics */
+            topics: boolean;
         };
         /**
          * GuideModel
@@ -57764,6 +57836,36 @@ export interface components {
             text: string;
             /** Version */
             version: string;
+        };
+        /**
+         * NoticeModel
+         * @description Something a channel has to say about how it is working.
+         *
+         *     Attributes:
+         *         code: What it is: ``topic_lost`` (a topic of a Telegram group stopped taking messages, and
+         *             what was meant for it went to the general thread).
+         *         topic: The topic's number in the group.
+         *         subject: The subject it was the topic of, when it was one.
+         *         reason: What the destination answered, in its own words.
+         *         at: When it was first refused, epoch seconds.
+         */
+        NoticeModel: {
+            /**
+             * At
+             * @default 0
+             */
+            at: number;
+            /** Code */
+            code: string;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /** Subject */
+            subject?: string | null;
+            /** Topic */
+            topic: number;
         };
         /**
          * NotificationTestResult
@@ -72292,6 +72394,53 @@ export interface components {
             read_only: boolean;
             /** Title */
             title: string;
+        };
+        /**
+         * TopicsBody
+         * @description What to ask when creating the topics of a Telegram group.
+         *
+         *     Attributes:
+         *         recreate: Also make a new topic for a subject whose topic stopped taking messages.
+         */
+        TopicsBody: {
+            /**
+             * Recreate
+             * @default false
+             */
+            recreate: boolean;
+        };
+        /**
+         * TopicsResultModel
+         * @description What creating the topics did.
+         *
+         *     Attributes:
+         *         created: The subjects that got a topic now, with its number.
+         *         kept: The subjects that already had one, with its number.
+         *         failed: The subjects that have none after this.
+         *         problem: Why it stopped (``not_forum``, ``not_member``, ``no_right``, ``chat_unreachable``,
+         *             ``unreachable``, ``refused``), or null when every subject has a topic.
+         *         detail: What Telegram said, in its own words, when it was Telegram who said it.
+         *         topics: The topic of every subject that has one now.
+         */
+        TopicsResultModel: {
+            /** Created */
+            created?: {
+                [key: string]: number;
+            };
+            /** Detail */
+            detail?: string | null;
+            /** Failed */
+            failed?: string[];
+            /** Kept */
+            kept?: {
+                [key: string]: number;
+            };
+            /** Problem */
+            problem?: string | null;
+            /** Topics */
+            topics?: {
+                [key: string]: number;
+            };
         };
         /**
          * TotalsOut
@@ -106435,6 +106584,41 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_topics_api_notifications_channels__name__topics_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TopicsBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopicsResultModel"];
+                };
             };
             /** @description Validation Error */
             422: {

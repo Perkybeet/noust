@@ -139,6 +139,9 @@ class EmailContent:
             the message identifiable (the notification's own id); a fresh
             one is made otherwise.
         sender_name: The display name in ``From`` (``Noust (web-1)``).
+        in_reply_to: The local part of the ``Message-ID`` of the first message about the same
+            thing, when this one answers it: ``In-Reply-To`` and ``References`` are written
+            from it, with the domain of the sender, so a client threads the two.
     """
 
     subject: str
@@ -148,6 +151,7 @@ class EmailContent:
     images: Sequence[render_email.InlineImage] = ()
     message_id: str | None = None
     sender_name: str | None = None
+    in_reply_to: str | None = None
 
 
 class EmailNotifier:
@@ -377,7 +381,7 @@ class EmailNotifier:
         mail["To"] = ", ".join(self.recipients)
         mail["Date"] = formatdate(usegmt=True)
         mail["Message-ID"] = f"<{content.message_id or uuid.uuid4()}@{domain}>"
-        for header, value in content.headers.items():
+        for header, value in {**content.headers, **self._thread_headers(content, sender)}.items():
             mail[header] = value
         mail.set_content(content.text)
         mail.add_alternative(content.html, subtype="html")
@@ -392,6 +396,26 @@ class EmailNotifier:
                 disposition="inline",
             )
         return mail
+
+    def _thread_headers(self, content: EmailContent, sender: str) -> dict[str, str]:
+        """
+        Name the message this one answers, in the headers a mail client threads by.
+
+        Args:
+            content: The rendered message.
+            sender: The address it is from: the first message was sent from the same one, so
+                its ``Message-ID`` has the same domain.
+
+        Returns:
+            ``In-Reply-To`` and ``References``, both the first message's ``Message-ID`` (the
+            first message is the root of the conversation, and every later one answers it);
+            empty for a message that answers nothing.
+        """
+        if not content.in_reply_to:
+            return {}
+        domain = sender.rpartition("@")[2] if "@" in sender else self._hostname()
+        parent = f"<{content.in_reply_to}@{domain}>"
+        return {"In-Reply-To": parent, "References": parent}
 
     def _send(self, content: EmailContent) -> bool:
         """
@@ -463,7 +487,7 @@ class EmailNotifier:
             sender_name=content.sender_name,
             recipients=tuple(self.recipients),
             message_id=content.message_id,
-            headers=content.headers,
+            headers={**content.headers, **self._thread_headers(content, str(sender))},
             raw=self._build_message_for(content, str(sender)).as_bytes()
             if provider == "ses"
             else b"",
@@ -490,7 +514,7 @@ class EmailNotifier:
         self.logger.debug(f"Sent '{content.subject}' to {len(self.recipients)} recipient(s)")
         return True
 
-    def send_notification(self, notification: Notification) -> bool:
+    def send_notification(self, notification: Notification, in_reply_to: str | None = None) -> bool:
         """
         Lay a notification out as an email and send it.
 
@@ -499,6 +523,8 @@ class EmailNotifier:
 
         Args:
             notification: What to tell the recipients.
+            in_reply_to: The local part of the ``Message-ID`` of the first message about the
+                same thing, when this one answers it (a recovery answers its failure).
 
         Returns:
             True when the server accepted the message.
@@ -506,7 +532,9 @@ class EmailNotifier:
         Raises:
             EmailError: When the message could not be delivered.
         """
-        return self._send(self.content_for(notification, self._inline_images()))
+        return self._send(
+            self.content_for(notification, self._inline_images(), in_reply_to=in_reply_to)
+        )
 
     def send_message(
         self, subject: str, text: str, html: str, *, message_id: str | None = None
@@ -551,7 +579,9 @@ class EmailNotifier:
         return self.provider not in _NO_INLINE_IMAGES
 
     @staticmethod
-    def content_for(notification: Notification, inline_images: bool = True) -> EmailContent:
+    def content_for(
+        notification: Notification, inline_images: bool = True, *, in_reply_to: str | None = None
+    ) -> EmailContent:
         """
         Render a notification into the message the transport sends.
 
@@ -559,6 +589,7 @@ class EmailNotifier:
             notification: What to tell the recipients.
             inline_images: Attach the wordmark. Off for a provider whose API
                 takes only text and HTML.
+            in_reply_to: The local part of the ``Message-ID`` of the message it answers.
 
         Returns:
             The subject, both parts, the headers and the inline image.
@@ -572,6 +603,7 @@ class EmailNotifier:
             images=rendered.images,
             message_id=rendered.message_id,
             sender_name=f"Noust ({notification.server})",
+            in_reply_to=in_reply_to,
         )
 
     def _hostname(self) -> str:

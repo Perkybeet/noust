@@ -3,7 +3,7 @@
  * opens in, a write-only secret field, and the test with what the channel itself answered.
  */
 
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { UseMutationResult } from "@tanstack/react-query";
 import { Eye, EyeOff, Pencil, Send, Settings2 } from "lucide-react";
 import { useId, useState } from "react";
@@ -11,6 +11,7 @@ import type { ReactNode, SyntheticEvent } from "react";
 
 import { testNotificationChannel } from "../../api/queries/config";
 import type { NotificationTestResult } from "../../api/queries/config";
+import { notificationKeys } from "../../api/queries/notifications";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Subsection } from "../../components/page/Subsection";
 import { Button } from "../../components/ui/Button";
@@ -32,7 +33,12 @@ export type ChannelTest = UseMutationResult<NotificationTestResult, Error, void>
 
 /** The test of one channel, shared by its row and its drawer so both say what it answered. */
 export function useChannelTest(channel: string): ChannelTest {
-  return useMutation({ mutationFn: () => testNotificationChannel(channel) });
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => testNotificationChannel(channel),
+    // A test is how a channel finds out that a topic of its group stopped taking messages: the channel's notices are read again.
+    onSettled: () => queryClient.invalidateQueries({ queryKey: notificationKeys.channels }),
+  });
 }
 
 /**

@@ -23,21 +23,29 @@ Literal paths come before the parametrised ones.
 
 from __future__ import annotations
 
+import logging
+import sqlite3
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from noust.core import audit
-from noust.core.exceptions import ValidationError
+from noust.core.exceptions import NoustError, ValidationError
 from noust.core.notification_channels import ChannelAdmin, ChannelView, event_catalog
 from noust.core.notification_ledger import STATES, Delivery, DeliveryLedger
+from noust.core.notification_state import NotificationState
+from noust.core.notifications import grouping
 from noust.core.notifications.instances import TYPES
+from noust.core.notifications.topic_notes import TopicNotes
 from noust.core.notifier import Notifier, fresh_config
+from noust.core.telegram_topics import TelegramTopics
 from noust.web.api.auth import get_current_session
 from noust.web.api.config import persist
 from noust.web.api.databases.common import session_actor
 from noust.web.api.deps import NoustErrorRoute, require_elevated
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(route_class=NoustErrorRoute)
 
@@ -46,6 +54,26 @@ CONSOLE_URL_KEY = "notifications.console_url"
 
 Session = Annotated[dict[str, Any], Depends(get_current_session)]
 Elevated = Annotated[dict[str, Any], Depends(require_elevated)]
+
+
+class NoticeModel(BaseModel):
+    """
+    Something a channel has to say about how it is working.
+
+    Attributes:
+        code: What it is: ``topic_lost`` (a topic of a Telegram group stopped taking messages, and
+            what was meant for it went to the general thread).
+        topic: The topic's number in the group.
+        subject: The subject it was the topic of, when it was one.
+        reason: What the destination answered, in its own words.
+        at: When it was first refused, epoch seconds.
+    """
+
+    code: str
+    topic: int
+    subject: str | None = None
+    reason: str = ""
+    at: float = 0.0
 
 
 class ChannelModel(BaseModel):
@@ -73,6 +101,8 @@ class ChannelModel(BaseModel):
             ``below``, ``days``), or null for none.
         team: The slug of the team that keeps it (``/api/teams/{team}/notifications``),
             or null for the server's own.
+        notices: What it has to say about how it is working (a topic that stopped taking
+            messages); empty when there is nothing.
     """
 
     name: str
@@ -87,6 +117,7 @@ class ChannelModel(BaseModel):
     flood: dict[str, Any] | None = None
     summary: dict[str, Any] | None = None
     team: str | None = None
+    notices: list[NoticeModel] = Field(default_factory=list)
 
 
 class ChannelFieldModel(BaseModel):
@@ -104,6 +135,22 @@ class ChannelFieldModel(BaseModel):
     required: bool
 
 
+class GroupingModel(BaseModel):
+    """
+    What a channel type can do to keep messages together.
+
+    Attributes:
+        topics: A chat that gives each subject a topic of its own (a forum group).
+        replies: A recovery can be put as the answer to its failure.
+        reason: When it can do neither, why, as a code the console words (``incoming_webhook``:
+            the webhook never says the id of the message it posts, so it cannot be answered).
+    """
+
+    topics: bool
+    replies: bool
+    reason: str | None = None
+
+
 class ChannelTypeModel(BaseModel):
     """
     One kind of channel Noust can deliver through.
@@ -111,10 +158,12 @@ class ChannelTypeModel(BaseModel):
     Attributes:
         name: The type's name.
         keys: Its settings.
+        grouping: What it can do to keep messages together.
     """
 
     name: str
     keys: list[ChannelFieldModel]
+    grouping: GroupingModel
 
 
 class ChannelListResponse(BaseModel):
@@ -159,6 +208,39 @@ class ChannelBody(BaseModel):
     summary: dict[str, Any] | None = None
 
 
+class TopicsBody(BaseModel):
+    """
+    What to ask when creating the topics of a Telegram group.
+
+    Attributes:
+        recreate: Also make a new topic for a subject whose topic stopped taking messages.
+    """
+
+    recreate: bool = False
+
+
+class TopicsResultModel(BaseModel):
+    """
+    What creating the topics did.
+
+    Attributes:
+        created: The subjects that got a topic now, with its number.
+        kept: The subjects that already had one, with its number.
+        failed: The subjects that have none after this.
+        problem: Why it stopped (``not_forum``, ``not_member``, ``no_right``, ``chat_unreachable``,
+            ``unreachable``, ``refused``), or null when every subject has a topic.
+        detail: What Telegram said, in its own words, when it was Telegram who said it.
+        topics: The topic of every subject that has one now.
+    """
+
+    created: dict[str, int] = Field(default_factory=dict)
+    kept: dict[str, int] = Field(default_factory=dict)
+    failed: list[str] = Field(default_factory=list)
+    problem: str | None = None
+    detail: str | None = None
+    topics: dict[str, int] = Field(default_factory=dict)
+
+
 class EventModel(BaseModel):
     """
     One event a channel may be switched for.
@@ -167,11 +249,14 @@ class EventModel(BaseModel):
         kind: Its name.
         default_on: Whether it is on when nothing says otherwise.
         enabled: Whether the server-wide switch has it on now.
+        subject: What it is about (``deploys``, ``alerts``, ``backups``, ``security``,
+            ``system``): the topic a chat gives it.
     """
 
     kind: str
     default_on: bool
     enabled: bool
+    subject: str | None = None
 
 
 class EventListResponse(BaseModel):
@@ -180,9 +265,12 @@ class EventListResponse(BaseModel):
 
     Attributes:
         items: Every event kind.
+        subjects: What the events are about, in the order the console offers them: each is the
+            ``subject`` of some of the ``items``, and a chat can give each a topic.
     """
 
     items: list[EventModel]
+    subjects: list[str] = Field(default_factory=list)
 
 
 class DeliveryModel(BaseModel):
@@ -254,6 +342,29 @@ class SweepResponse(BaseModel):
     digests: int
 
 
+def _notices(view: ChannelView) -> list[NoticeModel]:
+    """
+    Args:
+        view: A channel as the admin shows it.
+
+    Returns:
+        What it has to say about how it is working: the topics of a Telegram group that stopped
+        taking messages and that it still posts in. Empty for another type, and when the marks
+        cannot be read: they help to diagnose, they never get in the way of the list.
+    """
+    if view.type != "telegram":
+        return []
+    try:
+        found = TopicNotes(NotificationState()).standing(view.name, view.settings)
+    except (sqlite3.Error, OSError, NoustError) as exc:
+        logger.warning("The marks of channel %s could not be read: %s", view.name, exc)
+        return []
+    return [
+        NoticeModel(code="topic_lost", topic=n.topic, subject=n.subject, reason=n.reason, at=n.at)
+        for n in found
+    ]
+
+
 def _model(view: ChannelView) -> ChannelModel:
     """
     Args:
@@ -262,7 +373,7 @@ def _model(view: ChannelView) -> ChannelModel:
     Returns:
         The response model.
     """
-    return ChannelModel(**view.to_dict())
+    return ChannelModel(**view.to_dict(), notices=_notices(view))
 
 
 def _types() -> list[ChannelTypeModel]:
@@ -277,6 +388,11 @@ def _types() -> list[ChannelTypeModel]:
                 ChannelFieldModel(key=f.key, secret=f.secret, required=f.required)
                 for f in spec.fields
             ],
+            grouping=GroupingModel(
+                topics=grouping.GROUPING[spec.name].topics,
+                replies=grouping.GROUPING[spec.name].replies,
+                reason=grouping.GROUPING[spec.name].reason,
+            ),
         )
         for spec in TYPES.values()
     ]
@@ -388,6 +504,48 @@ def remove_channel(name: str, request: Request, session: Elevated) -> None:
     audit.record("notify.channel.remove", actor=session_actor(session), target=f"channel:{name}")
 
 
+@router.post("/channels/{name}/topics", response_model=TopicsResultModel)
+def create_topics(
+    name: str, body: TopicsBody, request: Request, session: Elevated
+) -> TopicsResultModel:
+    """
+    Create the topics of a Telegram channel's group that its subjects are missing.
+
+    The one request here that asks something of Telegram besides a message, and it is a button
+    somebody pushes: nothing is asked until then. The bot the channel already has checks the
+    group (does it have topics, may the bot manage them), makes the topics that are missing and
+    their numbers are saved into the channel. A group that cannot take them is an answer, not an
+    error: it says why, in Telegram's own words where Telegram said it. Asking again makes only
+    what is missing.
+
+    Args:
+        name: The Telegram channel.
+        body: Whether to also make anew the topics that stopped taking messages.
+        request: The incoming request.
+        session: The elevated session.
+
+    Returns:
+        What was made, what was there and why it stopped, if it did.
+
+    Raises:
+        ValidationError: 400 when there is no such channel, it is not a Telegram one, or it has
+            no bot token or chat yet.
+    """
+    admin = ChannelAdmin()
+    result = TelegramTopics(_notifier()).create(name, admin, recreate=body.recreate)
+    if result.created:
+        persist(admin.config)
+    # Which subjects, never the numbers, the chat or the bot: the trail is kept for years.
+    audit.record(
+        "notify.topics.create",
+        actor=session_actor(session),
+        target=f"channel:{name}",
+        outcome="failure" if result.problem else "success",
+        details={"created": sorted(result.created), "problem": result.problem},
+    )
+    return TopicsResultModel(**result.to_dict())
+
+
 class ConsoleUrlModel(BaseModel):
     """
     Where the links of this server's notifications open.
@@ -459,7 +617,10 @@ def list_events(session: Session) -> EventListResponse:
         Every kind, whether it is on by default and whether it is on now.
     """
     config = ChannelAdmin().config
-    return EventListResponse(items=[EventModel(**item) for item in event_catalog(config)])
+    return EventListResponse(
+        items=[EventModel(**item) for item in event_catalog(config)],
+        subjects=list(grouping.SUBJECTS),
+    )
 
 
 @router.get("/deliveries", response_model=DeliveryListResponse)

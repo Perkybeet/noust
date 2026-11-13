@@ -9931,8 +9931,6 @@
   "notifyRouting.recap.day.sun": "周日",
   "notifyRouting.pager.title": "上限和摘要",
   "notifyRouting.pager.description": "呼叫渠道既不设上限，也不做摘要：它已经按事件合并了重复的消息，而一个等待摘要的事件，就成了没有人被呼叫的事件。",
-  "notifyRouting.topic.label": "Telegram 话题",
-  "notifyRouting.topic.description": "论坛群组中某个话题的编号。留空则发布到群组的主线程。",
   "notifyRouting.summary.apps": "应用：{names}",
   "notifyRouting.summary.projects": "项目：{names}",
   "notifyRouting.summary.environments": "环境：{names}",

@@ -222,6 +222,7 @@ class TestValidation:
                     "chat_id": "-1001234567890",
                     "thread_id": 7,
                     "threads": {"deploy_failed": 11, "backup_failed": "12"},
+                    "topics": {"deploys": 21, "alerts": "22", "system": 23},
                 },
             }
         )
@@ -254,6 +255,11 @@ class TestValidation:
             ({"telegram": {"thread_id": "abc"}}, "thread_id must be a topic number"),
             ({"telegram": {"thread_id": 0}}, "positive topic number"),
             ({"telegram": {"threads": {"nope": 1}}}, "no event 'nope'"),
+            ({"telegram": {"topics": ["deploys"]}}, "topics must map a subject to a topic number"),
+            ({"telegram": {"topics": {"nope": 1}}}, "no subject 'nope'; the subjects are: deploys"),
+            ({"telegram": {"topics": {"deploys": "abc"}}}, "topics.deploys must be a topic number"),
+            ({"telegram": {"topics": {"deploys": 0}}}, "topics.deploys must be a positive topic"),
+            ({"slack": {"topics": {"deploys": 1}}}, "no setting 'topics' for a slack channel"),
             ({"discord": {"mention_role_id": "everyone"}}, "mention_role_id"),
             ({"email": {"recipients": 5}}, "recipients must be a list"),
         ],

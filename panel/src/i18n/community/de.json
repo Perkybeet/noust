@@ -10158,8 +10158,6 @@
   "notifyRouting.recap.day.sun": "So",
   "notifyRouting.pager.title": "Obergrenze und Zusammenfassung",
   "notifyRouting.pager.description": "Ein Paging-Kanal wird weder begrenzt noch zusammengefasst: Er fasst Wiederholungen bereits nach Incident zusammen, und ein Incident, der auf eine Zusammenfassung wartete, wäre einer, für den niemand alarmiert wurde.",
-  "notifyRouting.topic.label": "Telegram-Topic",
-  "notifyRouting.topic.description": "Die Nummer eines Topics in einer Forum-Gruppe. Leer postet in den allgemeinen Thread der Gruppe.",
   "notifyRouting.summary.apps": "Anwendungen: {names}",
   "notifyRouting.summary.projects": "Projekte: {names}",
   "notifyRouting.summary.environments": "Umgebungen: {names}",

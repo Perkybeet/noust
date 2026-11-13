@@ -260,5 +260,7 @@ def test_the_event_catalog_names_every_event_and_what_is_on(admin: ChannelAdmin)
         "kind": "deploy_failed",
         "default_on": True,
         "enabled": False,
+        # The subject a channel groups it under: a failed deploy goes with the deploys.
+        "subject": "deploys",
     }
     assert catalog["cron_success"]["default_on"] is False

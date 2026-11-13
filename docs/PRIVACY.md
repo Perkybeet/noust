@@ -45,7 +45,7 @@ except where the other end is yours and needs nothing.
 
 | Kind | Where it goes | When |
 |---|---|---|
-| Notifications | The webhook, Slack, Discord, Teams, Mattermost, Matrix, Lark, PagerDuty, ntfy, Telegram, Pushover, Gotify or email server of a channel you added, or the email service it sends through (Resend, Postmark, Brevo, Amazon SES) | An event you routed to that channel happens |
+| Notifications | The webhook, Slack, Discord, Teams, Mattermost, Matrix, Lark, PagerDuty, ntfy, Telegram, Pushover, Gotify or email server of a channel you added, or the email service it sends through (Resend, Postmark, Brevo, Amazon SES) | An event you routed to that channel happens, or you press the button that creates the topics of a Telegram group |
 | Log shipping, audit shipping | The syslog or HTTP destination you configured | Continuously, once you configure one |
 | Backup destinations | The destination you configured, which `rclone` reaches (S3-compatible storage, B2, SFTP, SMB, WebDAV and the rest of its backends) | When a backup runs or you test the destination |
 | Git and registries | The repositories and registries your applications deploy from, as the account you connected | When you deploy, update or browse a repository |

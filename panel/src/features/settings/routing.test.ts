@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { NotificationChannel } from "../../api/queries/notifications";
 import { bindT } from "../../i18n";
 import { EVENT_KINDS } from "./notifications";
-import { floodBlock, isClock, isFloodValid, parseList, quietBlock, routeBlock, routeSummary, routingBody, routingDirty, routingFormFrom, summaryBlock } from "./routing";
+import { floodBlock, isClock, isFloodValid, isTopicFormValid, isTopicNumber, parseList, quietBlock, routeBlock, routeSummary, routingBody, routingDirty, routingFormFrom, summaryBlock, topicsBlock } from "./routing";
 
 const en = bindT("en");
 
@@ -80,12 +80,79 @@ describe("a channel's routing", () => {
   it("carries a Telegram channel's topic as its setting, and no other channel's", () => {
     const telegram = channel({ type: "telegram", settings: { thread_id: 12 } });
     const form = routingFormFrom(telegram, SERVER);
+    expect(form.place).toBe("one");
     expect(form.topic).toBe("12");
     form.topic = " 7 ";
-    expect(routingBody(form, telegram).settings).toEqual({ thread_id: "7" });
+    // The other way of posting is cleared, so a channel never keeps a topic it no longer uses.
+    expect(routingBody(form, telegram).settings).toEqual({ thread_id: "7", topics: {} });
     form.topic = "";
-    expect(routingBody(form, telegram).settings).toEqual({ thread_id: "" });
+    expect(routingBody(form, telegram).settings).toEqual({ thread_id: "", topics: {} });
     expect(routingBody(routingFormFrom(channel(), SERVER), channel()).settings).toBeUndefined();
+  });
+
+  describe("where a Telegram channel posts", () => {
+    const telegram = (settings: Record<string, unknown>): NotificationChannel => channel({ type: "telegram", settings });
+
+    it("is the general thread when the channel has no topic at all", () => {
+      const form = routingFormFrom(telegram({ thread_id: "", topics: {} }), SERVER);
+      expect(form.place).toBe("general");
+      expect(routingBody(form, telegram({})).settings).toEqual({ thread_id: "", topics: {} });
+    });
+
+    it("is a topic per subject as soon as one subject has a topic, whatever else is set", () => {
+      const form = routingFormFrom(telegram({ thread_id: 5, topics: { deploys: 11, alerts: "12" } }), SERVER);
+      expect(form.place).toBe("subjects");
+      expect(form.topics).toEqual({ deploys: "11", alerts: "12" });
+    });
+
+    it("writes the topics as numbers, only the subjects that have one, and clears the one topic", () => {
+      const form = routingFormFrom(telegram({ thread_id: 5, topics: { deploys: 11 } }), SERVER);
+      form.topics = { deploys: " 11 ", alerts: "", backups: "30" };
+      expect(routingBody(form, telegram({})).settings).toEqual({ thread_id: "", topics: { deploys: 11, backups: 30 } });
+    });
+
+    it("keeps what was typed in a way of posting that is not chosen, but writes none of it", () => {
+      const form = routingFormFrom(telegram({ topics: { deploys: 11 } }), SERVER);
+      form.place = "general";
+      expect(routingBody(form, telegram({})).settings).toEqual({ thread_id: "", topics: {} });
+      form.place = "one";
+      form.topic = "9";
+      expect(routingBody(form, telegram({})).settings).toEqual({ thread_id: "9", topics: {} });
+    });
+
+    it("is dirty when the place changes, and not when it is only looked at", () => {
+      const saved = telegram({ topics: { deploys: 11 } });
+      const initial = routingFormFrom(saved, SERVER);
+      expect(routingDirty(initial, initial, saved)).toBe(false);
+      expect(routingDirty({ ...initial, place: "general" }, initial, saved)).toBe(true);
+      expect(routingDirty({ ...initial, topics: { deploys: "11", alerts: "" } }, initial, saved)).toBe(false);
+    });
+
+    it("is not dirty for the same topics listed in another order, as the file keeps them sorted and Noust creates them by subject", () => {
+      const saved = telegram({ topics: { alerts: 12, deploys: 11, system: 15 } });
+      const initial = routingFormFrom(saved, SERVER);
+      const created = { ...initial, topics: { deploys: "11", system: "15", alerts: "12" } };
+      expect(routingDirty(created, initial, saved)).toBe(false);
+      expect(Object.keys(topicsBlock(created))).toEqual(["alerts", "deploys", "system"]);
+    });
+
+    it("accepts a topic that is a whole number from 1, and an empty one", () => {
+      expect(["1", "12", " 7 ", "123456789012"].every(isTopicNumber)).toBe(true);
+      expect(["0", "-3", "1.5", "abc", "", "1234567890123"].some(isTopicNumber)).toBe(false);
+      const form = routingFormFrom(telegram({ topics: { deploys: 11 } }), SERVER);
+      expect(isTopicFormValid(form)).toBe(true);
+      expect(isTopicFormValid({ ...form, topics: { deploys: "x" } })).toBe(false);
+      expect(isTopicFormValid({ ...form, topics: { deploys: "" } })).toBe(true);
+      expect(isTopicFormValid({ ...form, place: "one", topic: "twelve" })).toBe(false);
+      expect(isTopicFormValid({ ...form, place: "general", topic: "twelve" })).toBe(true);
+    });
+
+    it("says where it posts in the row, and says nothing of a channel that is not Telegram", () => {
+      expect(routeSummary(en, { ...telegram({ topics: { deploys: 11 } }), route: {}, quiet: null, events: {} })).toContain("A topic for each subject");
+      expect(routeSummary(en, { ...telegram({ thread_id: 7 }), route: {}, quiet: null, events: {} })).toContain("Topic 7");
+      expect(routeSummary(en, { ...telegram({}), route: {}, quiet: null, events: {} })).toEqual([]);
+      expect(routeSummary(en, { ...channel({ settings: { topics: { deploys: 11 } } }), route: {}, quiet: null, events: {} })).toEqual([]);
+    });
   });
 
   it("is dirty only when what would be written differs", () => {

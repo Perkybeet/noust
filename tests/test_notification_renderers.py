@@ -688,14 +688,24 @@ def parsed(page: str) -> _Links:
 
 class TestEmail:
     def test_the_subject_is_state_subject_and_server(self) -> None:
-        rendered = email.render(catalog("en")["deploy.rolled_back"])
+        # What has no way back is told by how it went.
+        rendered = email.render(catalog("en")["cert.expired"])
 
-        assert rendered.subject == "[Noust] Rolled back: shop.example.com (web-1)"
+        assert rendered.subject == "[Noust] Certificate expired: shop.example.com (web-1)"
+
+    def test_what_has_a_way_back_is_told_by_what_it_is_and_not_by_how_it_went(self) -> None:
+        # The subject is the same in every message about the thing, so a mail client keeps them
+        # in one conversation (Gmail breaks one off when the subject changes).
+        rolled_back = email.render(catalog("en")["deploy.rolled_back"])
+        succeeded = email.render(catalog("en")["deploy.succeeded"])
+
+        assert rolled_back.subject == "[Noust] Deploy: shop.example.com (web-1)"
+        assert succeeded.subject == rolled_back.subject
 
     def test_a_subject_without_a_subject_line(self) -> None:
         rendered = email.render(notification(subject=""))
 
-        assert rendered.subject == "[Noust] Deploy failed (web-1)"
+        assert rendered.subject == "[Noust] Deploy (web-1)"
 
     def test_the_subject_is_one_bounded_line(self) -> None:
         rendered = email.render(hostile("en")["hostile.huge_subject"])

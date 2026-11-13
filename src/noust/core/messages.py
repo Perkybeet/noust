@@ -625,6 +625,10 @@ from noust.core.messages_access import ACCESS_MESSAGES, ACCESS_PLURALS  # noqa: 
 MESSAGES.update(ACCESS_MESSAGES)
 _PLURAL_FORMS.update(ACCESS_PLURALS)
 
+from noust.core.messages_grouping import GROUPING_MESSAGES  # noqa: E402
+
+MESSAGES.update(GROUPING_MESSAGES)
+
 #: Abbreviated month names, for the dates a notification spells out. Not
 #: sentences, so not in :data:`MESSAGES`.
 MONTHS: dict[Locale, tuple[str, ...]] = {

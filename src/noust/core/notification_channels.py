@@ -27,6 +27,7 @@ from typing import Any
 
 from noust.core.config import DEFAULT_CONFIG, REDACTED, Config
 from noust.core.exceptions import ValidationError
+from noust.core.notifications import grouping
 from noust.core.notifications.instances import (
     SHARED_KEYS,
     TYPES,
@@ -101,8 +102,9 @@ def event_catalog(config: Config | None = None) -> list[dict[str, Any]]:
         config: The configuration, to read the server-wide switches from.
 
     Returns:
-        One entry per event kind: its name, whether it is on by default and
-        whether the server-wide switch has it on now.
+        One entry per event kind: its name, whether it is on by default,
+        whether the server-wide switch has it on now and what it is about (the
+        subject a chat gives a topic to).
     """
     switches = (config.get("notifications.events") if config is not None else None) or {}
     return [
@@ -110,6 +112,7 @@ def event_catalog(config: Config | None = None) -> list[dict[str, Any]]:
             "kind": kind,
             "default_on": kind not in OFF_BY_DEFAULT,
             "enabled": bool(switches.get(kind, kind not in OFF_BY_DEFAULT)),
+            "subject": grouping.subject_of(kind),
         }
         for kind in EVENT_KINDS
     ]

@@ -903,6 +903,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("notifications", "list_channels"): ("GET", "/api/notifications/channels", "settings.read", False),
     ("notifications", "save_channel"): ("PUT", "/api/notifications/channels/{name}", "settings.manage", True),
     ("notifications", "remove_channel"): ("DELETE", "/api/notifications/channels/{name}", "settings.manage", True),
+    ("notifications", "create_topics"): ("POST", "/api/notifications/channels/{name}/topics", "settings.manage", True),
     ("notifications", "get_console_url"): ("GET", "/api/notifications/console-url", "settings.read", False),
     ("notifications", "set_console_url"): ("PUT", "/api/notifications/console-url", "settings.manage", True),
     ("notifications", "list_deliveries"): ("GET", "/api/notifications/deliveries", "settings.read", False),
@@ -8554,7 +8555,7 @@ class Nodes:
 
 
 class Notifications:
-    """Notifications: 13 operations."""
+    """Notifications: 14 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -8582,6 +8583,14 @@ class Notifications:
 
         Needs: permission `settings.manage`, sudo mode."""
         return self._call("DELETE", f"/api/notifications/channels/{quote(str(name), safe='')}", query=None, body=None)
+
+    def create_topics(self, name: str, body: "TopicsBody") -> "TopicsResultModel":
+        """POST /api/notifications/channels/{name}/topics
+
+        Create Topics
+
+        Needs: permission `settings.manage`, sudo mode."""
+        return self._call("POST", f"/api/notifications/channels/{quote(str(name), safe='')}/topics", query=None, body=body)
 
     def get_console_url(self) -> "ConsoleUrlModel":
         """GET /api/notifications/console-url

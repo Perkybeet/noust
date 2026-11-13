@@ -20,12 +20,14 @@ import { Button } from "../../components/ui/Button";
 import { Checkbox } from "../../components/ui/Checkbox";
 import { Drawer } from "../../components/ui/Drawer";
 import { Field } from "../../components/ui/Field";
+import { InlineMessage } from "../../components/ui/InlineMessage";
 import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
 import { useT } from "../../i18n";
 import { EVENT_GROUPS, eventSpec, readNotificationSettings } from "./notifications";
 import type { EventGroupId } from "./notifications";
-import { QUIET_ALLOWS, SUMMARY_BELOWS, WEEKDAYS, isClock, isFloodValid, routeSummary, routingBody, routingDirty, routingFormFrom } from "./routing";
+import { GroupingPart } from "./GroupingPart";
+import { QUIET_ALLOWS, SUMMARY_BELOWS, WEEKDAYS, isClock, isFloodValid, isTopicFormValid, routeSummary, routingBody, routingDirty, routingFormFrom } from "./routing";
 import type { FloodForm, QuietAllow, QuietForm, RouteForm, RouteList, RoutingForm, SummaryBelow, SummaryForm, Weekday } from "./routing";
 import { FormFailure } from "./SettingsForm";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
@@ -42,15 +44,24 @@ export function RoutingSummary({ name }: { name: string }) {
   const channel = useChannelView(name);
   if (channel === undefined) return null;
   const phrases = routeSummary(t, channel);
-  if (phrases.length === 0) return null;
+  const notices = channel.notices ?? [];
+  if (phrases.length === 0 && notices.length === 0) return null;
   return (
-    <ul aria-label={t("notifyRouting.title", { label: name })} className="mt-1 flex min-w-0 flex-wrap gap-1.5">
-      {phrases.map((phrase) => (
-        <li key={phrase}>
-          <Badge>{phrase}</Badge>
-        </li>
+    <div className="mt-1 flex min-w-0 flex-col gap-1.5">
+      {phrases.length > 0 ? (
+        <ul aria-label={t("notifyRouting.title", { label: name })} className="flex min-w-0 flex-wrap gap-1.5">
+          {phrases.map((phrase) => (
+            <li key={phrase}>
+              <Badge>{phrase}</Badge>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {/* A topic that stopped taking messages is a state of the channel, said where the channel is listed. */}
+      {notices.map((notice) => (
+        <InlineMessage key={notice.topic}>{t("notifyRouting.summary.topicLost", { topic: notice.topic })}</InlineMessage>
       ))}
-    </ul>
+    </div>
   );
 }
 
@@ -81,6 +92,9 @@ function RoutingDrawer({ channel, label, open, onOpenChange }: { channel: Notifi
   const t = useT();
   const queryClient = useQueryClient();
   const config = useQuery(configQuery());
+  const channels = useQuery(notificationChannelsQuery());
+  // What the channel's type can do to keep messages together: the part offers only that.
+  const typeInfo = channels.data?.types.find((candidate) => candidate.name === channel.type);
   const formId = useId();
   const formRef = useRef<HTMLFormElement>(null);
   const serverEvents = useMemo(() => (config.data === undefined ? {} : readNotificationSettings(config.data.config).events), [config.data]);
@@ -89,7 +103,7 @@ function RoutingDrawer({ channel, label, open, onOpenChange }: { channel: Notifi
   const form = draft ?? initial;
   const dirty = draft !== null && routingDirty(draft, initial, channel);
   const timesOk =
-    (!form.quiet.on || (isClock(form.quiet.start) && isClock(form.quiet.end))) && (!form.summary.on || isClock(form.summary.at)) && isFloodValid(form.flood);
+    (!form.quiet.on || (isClock(form.quiet.start) && isClock(form.quiet.end))) && (!form.summary.on || isClock(form.summary.at)) && isFloodValid(form.flood) && isTopicFormValid(form);
   // A pager already collapses repeats by the incident, and an incident that waited for a summary would be one nobody was paged for.
   const pager = channel.type === "pagerduty";
 
@@ -149,6 +163,7 @@ function RoutingDrawer({ channel, label, open, onOpenChange }: { channel: Notifi
       <form id={formId} ref={formRef} noValidate onSubmit={submit} className="flex min-w-0 flex-col gap-8">
         <FormFailure error={save.error} title={t("notifyRouting.saveErrorTitle", { label })} />
         <EventsPart form={form} edit={edit} />
+        <GroupingPart channel={channel} typeInfo={typeInfo} form={form} edit={edit} dirty={dirty} />
         <RoutePart route={form.route} onChange={(route) => edit((current) => ({ ...current, route }))} />
         <QuietPart quiet={form.quiet} onChange={(quiet) => edit((current) => ({ ...current, quiet }))} />
         {pager ? (
@@ -161,21 +176,6 @@ function RoutingDrawer({ channel, label, open, onOpenChange }: { channel: Notifi
             <SummaryPart summary={form.summary} onChange={(summary) => edit((current) => ({ ...current, summary }))} />
           </>
         )}
-        {channel.type === "telegram" ? (
-          <Subsection title={t("notifyRouting.topic.label")} description={t("notifyRouting.topic.description")}>
-            <Field label={t("notifyRouting.topic.label")} optional>
-              <Input
-                mono
-                inputMode="numeric"
-                placeholder="12"
-                value={form.topic}
-                onValueChange={(next: string) => {
-                  edit((current) => ({ ...current, topic: next }));
-                }}
-              />
-            </Field>
-          </Subsection>
-        ) : null}
       </form>
     </Drawer>
   );

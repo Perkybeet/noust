@@ -231,6 +231,26 @@ against the schema of 4.2.0.
   it at `POST .../proposals/{id}/reject`. A question while the conversation still answers is `409
   assistant_turn_running`, and a server answering as many as it may is `429 queue_full`. The audit events `assistant.proposal`
   and `assistant.outcome` are new.
+- **Keeping the messages of a channel together** ([notifications.md](notifications.md#keeping-messages-together)).
+  `GET /api/notifications/events` gives every event a `subject` (`deploys`, `alerts`, `backups`, `security` or
+  `system`) and the answer a `subjects` list in the order the console offers them. `GET
+  /api/notifications/channels` gives every channel type a `grouping` (`topics`, `replies` and, when it can do
+  neither, a `reason` code: `incoming_webhook`, `workflow_webhook`, `custom_bot`, `no_threads`, `incidents`,
+  `receiver` or `not_yet`) and every channel its `notices`: a topic of a Telegram group that stopped taking
+  messages (`code` `topic_lost`, `topic`, `subject`, `reason` in Telegram's own words, `at`). A Telegram channel takes
+  a setting `topics` (subject to topic number) beside `thread_id` and `threads`. `POST
+  /api/notifications/channels/{name}/topics` (`settings.manage`, sudo mode; `recreate`) asks the group, through the
+  channel's bot, to create the topics its subjects are missing and saves their numbers; a group that cannot take them
+  is an answer, not an error (`problem`: `not_forum`, `not_member`, `no_right`, `chat_unreachable`, `unreachable` or
+  `refused`, with `detail` in Telegram's words), and a channel that is not Telegram's or has no bot yet is a `400`.
+
+### Changed, without breaking a client
+
+- **The subject of an email about a thing that has a way back** is the same in every message about it
+  (`[Noust] Application: shop.example.com (web-1)`, `[Noust] Deploy: ...`) and no longer carries how it went, and the
+  later messages carry `In-Reply-To` and `References`. The webhook's payload does not change.
+- `PUT /api/config/notifications/telegram` changes only the bot and the chat. It used to write the whole block, so
+  the topics, the events and the route of the channel went with it.
 
 ## 4.2.0
 

@@ -8,6 +8,14 @@ export type NotificationChannelList = ResponseOf<"/api/notifications/channels", 
 export type NotificationChannel = NotificationChannelList["items"][number];
 export type ChannelTypeInfo = NotificationChannelList["types"][number];
 export type ChannelBody = BodyOf<"/api/notifications/channels/{name}", "put">;
+/** Something a channel has to say about how it is working: a topic of its group that stopped taking messages. */
+export type ChannelNotice = NonNullable<NotificationChannel["notices"]>[number];
+
+/** The events, each with what it is about (the subject a chat gives a topic), and the subjects in order. */
+export type NotificationEvents = ResponseOf<"/api/notifications/events", "get">;
+
+/** What asking Noust to create the topics of a group did. */
+export type TopicsResult = ResponseOf<"/api/notifications/channels/{name}/topics", "post">;
 
 /** One notification on its way to one channel, and what became of it. */
 export type NotificationDeliveries = ResponseOf<"/api/notifications/deliveries", "get">;

@@ -13035,6 +13035,12 @@ Turn the channel on or off.
 .B \-\-set
 A setting of the type (chat_id, device, mention_role_id...). Not a credential.
 .TP
+.B \-\-topic
+Telegram: post this subject (deploys, alerts, backups, security or system) in this topic of the forum group; an empty NUMBER stops it having one.
+.TP
+.B \-\-clear\-topics
+Telegram: forget every topic of a subject.
+.TP
 .B \-\-secret
 Ask for a credential (webhook_url, bot_token, user_key...), hidden.
 .TP
@@ -13200,6 +13206,33 @@ Never emit colour.
 .TP
 .B \-\-json
 Print the chats as a JSON array.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.
+
+.SS noust notify telegram\-topics
+Show the topic of each subject, or create the ones that are missing.
+.TP
+.B \-\-channel
+The Telegram channel whose group is asked. Default: telegram.
+.TP
+.B \-\-create
+Create in the group the topics the subjects are missing, with the channel's bot, and save their numbers.
+.TP
+.B \-\-recreate
+With \-\-create, also make anew a topic that stopped taking messages.
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the topics as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on.

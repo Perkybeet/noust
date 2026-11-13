@@ -243,6 +243,7 @@ EVENTS: dict[str, EventSpec] = {
             "auth.scim.config": "A SCIM provisioning source was configured, its token issued or replaced, or removed.",
             "notify.channel.set": "A notification channel was added or changed.",
             "notify.channel.remove": "A notification channel was removed.",
+            "notify.topics.create": "Topics were created in a Telegram group for the subjects of a channel's messages.",
             "notify.console_url.set": "Where the links of the notifications open was set or cleared.",
             "alert.rule.set": "An alert rule was created or changed.",
             "alert.rule.remove": "An alert rule was removed.",

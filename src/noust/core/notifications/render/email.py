@@ -26,7 +26,10 @@ referenced as ``cid:``.
 tell auto-responders to stay quiet; ``X-Noust-Event``, ``-Code`` and
 ``-Server`` are for mail rules. The subject is
 ``[Noust] <state>: <subject> (<server>)``: state first, the ``[Noust]`` prefix
-kept for existing filters, no glyph (a subject is plain).
+kept for existing filters, no glyph (a subject is plain). For what has a way back
+(an application down and up again, a deploy from its start to its end) the state is
+replaced by what the thing is, so every message about it has one subject and a mail
+client keeps them in one conversation (:func:`subject_line`).
 """
 
 from __future__ import annotations
@@ -38,6 +41,7 @@ from functools import lru_cache
 from importlib.resources import files
 
 from noust.core.messages import message
+from noust.core.notifications import grouping
 from noust.core.notifications.model import STATE_COLORS, Excerpt, Fact, Notification, State
 from noust.core.notifications.render.common import (
     clip,
@@ -162,9 +166,15 @@ def subject_line(n: Notification) -> str:
         n: The notification.
 
     Returns:
-        ``[Noust] Rolled back: shop.example.com (web-1)``.
+        ``[Noust] Rolled back: shop.example.com (web-1)`` for what has no way back. What does
+        (an application that is unreachable and recovers, a deploy that starts and ends) is named
+        by what it is and not by how it went, ``[Noust] Deploy: shop.example.com (web-1)``: the
+        subject is the same in every message about the thing, because Gmail and Outlook break a
+        conversation off when the subject changes, and the state is the first thing the body says.
     """
-    what = f"{n.title}: {n.subject}" if n.subject else n.title
+    family = grouping.family_of(n.kind)
+    head = message(f"thing.{family.replace('-', '_')}", n.locale) if family else n.title
+    what = f"{head}: {n.subject}" if n.subject else head
     return clip(f"[Noust] {what} ({n.server})", _SUBJECT_LIMIT)
 
 

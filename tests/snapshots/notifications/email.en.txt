@@ -1,5 +1,5 @@
 ### deploy.started
-Subject: [Noust] Deploying: shop.example.com (web-1)
+Subject: [Noust] Deploy: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: deploy_started
@@ -21,7 +21,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### deploy.succeeded
-Subject: [Noust] Deployed: shop.example.com (web-1)
+Subject: [Noust] Deploy: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: deploy_success
@@ -45,7 +45,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### deploy.failed
-Subject: [Noust] Deploy failed: shop.example.com (web-1)
+Subject: [Noust] Deploy: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: deploy_failed
@@ -80,7 +80,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### deploy.rolled_back
-Subject: [Noust] Rolled back: shop.example.com (web-1)
+Subject: [Noust] Deploy: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: deploy_rolled_back
@@ -119,7 +119,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### update.started
-Subject: [Noust] Updating: shop.example.com (web-1)
+Subject: [Noust] Deploy: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: deploy_started
@@ -141,7 +141,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### update.succeeded
-Subject: [Noust] Updated: shop.example.com (web-1)
+Subject: [Noust] Deploy: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: deploy_success
@@ -165,7 +165,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### update.failed
-Subject: [Noust] Update failed: shop.example.com (web-1)
+Subject: [Noust] Deploy: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: deploy_failed
@@ -200,7 +200,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### update.rolled_back
-Subject: [Noust] Rolled back: shop.example.com (web-1)
+Subject: [Noust] Deploy: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: deploy_rolled_back
@@ -239,7 +239,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### rollback.started
-Subject: [Noust] Reverting: shop.example.com (web-1)
+Subject: [Noust] Deploy: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: deploy_started
@@ -261,7 +261,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### rollback.succeeded
-Subject: [Noust] Reverted: shop.example.com (web-1)
+Subject: [Noust] Deploy: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: deploy_success
@@ -285,7 +285,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### rollback.failed
-Subject: [Noust] Revert failed: shop.example.com (web-1)
+Subject: [Noust] Deploy: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: deploy_failed
@@ -314,7 +314,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### rollback.rolled_back
-Subject: [Noust] Revert failed: shop.example.com (web-1)
+Subject: [Noust] Deploy: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: deploy_rolled_back
@@ -353,7 +353,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### activate.started
-Subject: [Noust] Activating release: shop.example.com (web-1)
+Subject: [Noust] Deploy: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: deploy_started
@@ -375,7 +375,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### activate.succeeded
-Subject: [Noust] Release activated: shop.example.com (web-1)
+Subject: [Noust] Deploy: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: deploy_success
@@ -399,7 +399,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### activate.failed
-Subject: [Noust] Activation failed: shop.example.com (web-1)
+Subject: [Noust] Deploy: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: deploy_failed
@@ -428,7 +428,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### activate.rolled_back
-Subject: [Noust] Activation failed: shop.example.com (web-1)
+Subject: [Noust] Deploy: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: deploy_rolled_back
@@ -467,7 +467,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### migrate.started
-Subject: [Noust] Migrating to releases: shop.example.com (web-1)
+Subject: [Noust] Deploy: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: deploy_started
@@ -489,7 +489,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### migrate.succeeded
-Subject: [Noust] Migrated to releases: shop.example.com (web-1)
+Subject: [Noust] Deploy: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: deploy_success
@@ -513,7 +513,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### migrate.failed
-Subject: [Noust] Migration failed: shop.example.com (web-1)
+Subject: [Noust] Deploy: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: deploy_failed
@@ -542,7 +542,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### deploy.hook_failed
-Subject: [Noust] Deployed with warnings: shop.example.com (web-1)
+Subject: [Noust] Deploy: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: deploy_hook_failed
@@ -568,7 +568,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### restore.completed
-Subject: [Noust] Restored: shop.example.com (web-1)
+Subject: [Noust] Restore: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: restore_success
@@ -589,7 +589,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### restore.failed
-Subject: [Noust] Restore failed: shop.example.com (web-1)
+Subject: [Noust] Restore: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: restore_failed
@@ -614,7 +614,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### backup.failed
-Subject: [Noust] Backup failed: shop.example.com (web-1)
+Subject: [Noust] Backup: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: backup_failed
@@ -637,7 +637,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### backup.upload_failed
-Subject: [Noust] Backup upload failed: shop.example.com (web-1)
+Subject: [Noust] Backup: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: backup_failed
@@ -662,7 +662,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### backup.collect_failed
-Subject: [Noust] Backups not collected: web-2 (web-1)
+Subject: [Noust] Backup: web-2 (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: backup_failed
@@ -685,7 +685,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### backup.schedule_missing
-Subject: [Noust] Backup schedule missing: shop.example.com (web-1)
+Subject: [Noust] Backup: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: backup_failed
@@ -706,7 +706,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### backup.completed
-Subject: [Noust] Backup completed: shop.example.com (web-1)
+Subject: [Noust] Backup: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: backup_success
@@ -773,7 +773,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### unit.failed
-Subject: [Noust] Service failed: shop-example-com (web-1)
+Subject: [Noust] Service: shop-example-com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: unit_failed
@@ -802,7 +802,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### unit.crash_loop
-Subject: [Noust] Service crash-looping: shop-example-com (web-1)
+Subject: [Noust] Service: shop-example-com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: unit_failed
@@ -838,7 +838,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### unit.stopped_on_failure
-Subject: [Noust] Service stopped on a failure: shop-example-com (web-1)
+Subject: [Noust] Service: shop-example-com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: unit_failed
@@ -861,7 +861,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### unit.recovered
-Subject: [Noust] Service recovered: shop-example-com (web-1)
+Subject: [Noust] Service: shop-example-com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: unit_failed
@@ -881,7 +881,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### disk.threshold
-Subject: [Noust] Disk almost full: / (web-1)
+Subject: [Noust] Disk: / (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: disk_threshold
@@ -903,7 +903,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### disk.recovered
-Subject: [Noust] Disk space recovered: / (web-1)
+Subject: [Noust] Disk: / (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: disk_threshold
@@ -942,7 +942,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### node.unreachable
-Subject: [Noust] Server unreachable: web-2 (web-1)
+Subject: [Noust] Server: web-2 (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: node_unreachable
@@ -967,7 +967,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### node.recovered
-Subject: [Noust] Server reachable again: web-2 (web-1)
+Subject: [Noust] Server: web-2 (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: node_recovered
@@ -988,7 +988,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### drill.failed
-Subject: [Noust] Restore drill failed: shop.example.com (web-1)
+Subject: [Noust] Backup: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: backup_failed
@@ -1014,7 +1014,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### drill.passed
-Subject: [Noust] Restore drill passed: shop.example.com (web-1)
+Subject: [Noust] Backup: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: backup_success
@@ -1035,7 +1035,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### destination.unreachable
-Subject: [Noust] Backup destination unreachable: nas (web-1)
+Subject: [Noust] Backup destination: nas (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: destination_unreachable
@@ -1060,7 +1060,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### destination.recovered
-Subject: [Noust] Backup destination back: nas (web-1)
+Subject: [Noust] Backup destination: nas (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: destination_unreachable
@@ -1131,7 +1131,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### server.rebooted
-Subject: [Noust] Server restarted: web-1 (web-1)
+Subject: [Noust] Server: web-1 (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: server_rebooted
@@ -1152,7 +1152,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### server.back
-Subject: [Noust] Server back: web-1 (web-1)
+Subject: [Noust] Server: web-1 (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: server_back
@@ -1256,7 +1256,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### database.backup.failed
-Subject: [Noust] Backup failed: postgresql/shop (web-1)
+Subject: [Noust] Backup: postgresql/shop (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: backup_failed
@@ -1280,7 +1280,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### database.backup.upload_failed
-Subject: [Noust] Backup upload failed: postgresql/shop (web-1)
+Subject: [Noust] Backup: postgresql/shop (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: backup_failed
@@ -1304,7 +1304,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### database.backup.completed
-Subject: [Noust] Backup completed: postgresql/shop (web-1)
+Subject: [Noust] Backup: postgresql/shop (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: backup_success
@@ -1327,7 +1327,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### database.restore.completed
-Subject: [Noust] Restored: postgresql/shop (web-1)
+Subject: [Noust] Restore: postgresql/shop (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: restore_success
@@ -1348,7 +1348,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### database.restore.failed
-Subject: [Noust] Restore failed: postgresql/shop (web-1)
+Subject: [Noust] Restore: postgresql/shop (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: restore_failed
@@ -1372,7 +1372,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### sandbox.trial_failed
-Subject: [Noust] Sandbox build failed: shop.example.com (web-1)
+Subject: [Noust] Deploy: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: deploy_failed
@@ -1399,7 +1399,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### app.unreachable
-Subject: [Noust] Application not answering: shop.example.com (web-1)
+Subject: [Noust] Application: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: app_unreachable
@@ -1424,7 +1424,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### app.recovered
-Subject: [Noust] Application answering again: shop.example.com (web-1)
+Subject: [Noust] Application: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: app_recovered
@@ -1445,7 +1445,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### app.outside_unit
-Subject: [Noust] Application running outside Noust: shop.example.com (web-1)
+Subject: [Noust] Service: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: unit_failed
@@ -1468,7 +1468,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### alert.above
-Subject: [Noust] Alert firing: cpu-high (web-1)
+Subject: [Noust] Alert: cpu-high (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: alert_firing
@@ -1492,7 +1492,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### alert.below
-Subject: [Noust] Alert firing: shop.example.com (web-1)
+Subject: [Noust] Alert: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: alert_firing
@@ -1516,7 +1516,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### alert.resolved
-Subject: [Noust] Alert resolved: cpu-high (web-1)
+Subject: [Noust] Alert: cpu-high (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: alert_resolved
@@ -1584,7 +1584,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### cron.failed
-Subject: [Noust] Scheduled task failed: shop-sync (web-1)
+Subject: [Noust] Scheduled task: shop-sync (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: cron_failed
@@ -1613,7 +1613,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### cron.succeeded
-Subject: [Noust] Scheduled task ran: shop-sync (web-1)
+Subject: [Noust] Scheduled task: shop-sync (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: cron_success
@@ -1807,7 +1807,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### cleanup.completed
-Subject: [Noust] Disk cleaned: / (web-1)
+Subject: [Noust] Cleanup: / (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: cleanup_success
@@ -1830,7 +1830,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### cleanup.partial
-Subject: [Noust] Disk cleanup partly failed: / (web-1)
+Subject: [Noust] Cleanup: / (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: cleanup_failed
@@ -1857,7 +1857,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### cleanup.failed
-Subject: [Noust] Disk cleanup failed: / (web-1)
+Subject: [Noust] Cleanup: / (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: cleanup_failed
@@ -1883,7 +1883,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### cron.timer_stopped
-Subject: [Noust] Scheduled task will not run: shop-sync (web-1)
+Subject: [Noust] Scheduled task: shop-sync (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: cron_missed
@@ -1906,7 +1906,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### cron.timer_running
-Subject: [Noust] Scheduled task runs again: shop-sync (web-1)
+Subject: [Noust] Scheduled task: shop-sync (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: cron_missed
@@ -1927,7 +1927,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### probe.failed
-Subject: [Noust] Address not answering: shop-site (web-1)
+Subject: [Noust] Probe: shop-site (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: probe_failed
@@ -1954,7 +1954,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### probe.recovered
-Subject: [Noust] Address answering again: shop-site (web-1)
+Subject: [Noust] Probe: shop-site (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: probe_recovered
@@ -1977,7 +1977,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### alert.acknowledged
-Subject: [Noust] Alert taken: cpu-high (web-1)
+Subject: [Noust] Alert: cpu-high (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: alert_acknowledged
@@ -2064,7 +2064,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### webserver.restarted
-Subject: [Noust] Web server restarted: nginx (web-1)
+Subject: [Noust] Service: nginx (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: unit_failed
@@ -2085,7 +2085,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### webserver.down
-Subject: [Noust] Web server down: nginx (web-1)
+Subject: [Noust] Service: nginx (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: unit_failed
@@ -2106,7 +2106,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### webserver.config_invalid
-Subject: [Noust] Web server cannot start: nginx (web-1)
+Subject: [Noust] Service: nginx (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: unit_failed
@@ -2131,7 +2131,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### webserver.restart_failed
-Subject: [Noust] Web server restart failed: nginx (web-1)
+Subject: [Noust] Service: nginx (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: unit_failed
@@ -2155,7 +2155,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### webserver.limit
-Subject: [Noust] Web server keeps falling: nginx (web-1)
+Subject: [Noust] Service: nginx (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: unit_failed
@@ -2176,7 +2176,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### webserver.stopped
-Subject: [Noust] Web server stopped: nginx (web-1)
+Subject: [Noust] Service: nginx (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: unit_failed
@@ -2508,7 +2508,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### hostile.deploy_failed
-Subject: [Noust] Deploy failed: shop.example.com (wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww)
+Subject: [Noust] Deploy: shop.example.com (wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: deploy_failed
@@ -2542,7 +2542,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### hostile.long_output
-Subject: [Noust] Update failed: shop.example.com (wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww)
+Subject: [Noust] Deploy: shop.example.com (wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: deploy_failed
@@ -2576,7 +2576,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### hostile.no_link
-Subject: [Noust] Deployed: shop.example.com (web-1)
+Subject: [Noust] Deploy: shop.example.com (web-1)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: deploy_success
@@ -2598,7 +2598,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### hostile.preview
-Subject: [Noust] Deployed: pr-12.shop.example.com (wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww)
+Subject: [Noust] Deploy: pr-12.shop.example.com (wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: deploy_success
@@ -2623,7 +2623,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### hostile.no_commit
-Subject: [Noust] Updated: shop.example.com (wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww)
+Subject: [Noust] Deploy: shop.example.com (wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww)
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: deploy_success
@@ -2645,7 +2645,7 @@ Change what you receive in Settings > Notifications
 
 ========================================================================
 ### hostile.huge_subject
-Subject: [Noust] Backup failed: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd…
+Subject: [Noust] Backup: ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd…
 Auto-Submitted: auto-generated
 X-Auto-Response-Suppress: All
 X-Noust-Event: backup_failed

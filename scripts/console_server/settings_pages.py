@@ -122,7 +122,44 @@ TELEGRAM_BOTS: dict[str, list[dict[str, Any]]] = {
         {"id": 52345678, "type": "private", "username": "ops_oncall", "first_name": "Ops"},
     ],
     "7000000002:console-sandbox-quiet": [],
+    # A group that is not a forum: what asking for its topics says when the bot has them to make.
+    "7000000003:console-sandbox-plain": [
+        {"id": -1001555555555, "type": "supergroup", "title": "Noust plain group"},
+    ],
+    # A forum whose administrator rights the bot lacks: what asking for its topics says when the bot may not.
+    "7000000004:console-sandbox-norights": [
+        {"id": -1001444444444, "type": "supergroup", "title": "Noust forum, no rights"},
+    ],
 }
+
+#: What each modelled bot is in its group: whether the group has topics, what the bot may do there and
+#: the topics that exist (the number of one a message may be posted in). The first bot is an
+#: administrator of a forum that already has a topic; the second asks for nothing; the third is in a
+#: group with no topics turned on.
+TELEGRAM_GROUPS: dict[str, dict[str, Any]] = {
+    "7000000001:console-sandbox-bot": {
+        "is_forum": True,
+        "status": "administrator",
+        "can_manage_topics": True,
+        "topics": {2},
+    },
+    "7000000003:console-sandbox-plain": {
+        "is_forum": False,
+        "status": "administrator",
+        "can_manage_topics": True,
+        "topics": set(),
+    },
+    "7000000004:console-sandbox-norights": {
+        "is_forum": True,
+        "status": "administrator",
+        "can_manage_topics": False,
+        "topics": {2},
+    },
+}
+
+
+#: The ids of the messages the modelled bots have posted, so each answer carries a new one.
+TELEGRAM_SENT: list[int] = []
 
 
 def model_telegram_bot_api() -> None:
@@ -142,6 +179,7 @@ def model_telegram_bot_api() -> None:
 
     import noust.core.notifier as notifier_module
     import noust.web.api.config as config_api
+    import noust.web.api.notifications as notifications_api
 
     api = notifier_module._TELEGRAM_API + "/bot"
     guard = notifier_module._require_public_destination
@@ -171,26 +209,74 @@ def model_telegram_bot_api() -> None:
                 for index, chat in enumerate(chats)
             ]
             return io.BytesIO(json.dumps({"ok": True, "result": updates}).encode("utf-8"))
-        if method == "sendMessage":
-            sent = json.loads(request.data.decode("utf-8"))
-            if str(sent.get("chat_id")) not in {str(chat["id"]) for chat in chats}:
+        group = TELEGRAM_GROUPS.get(token)
+        asked = json.loads(request.data.decode("utf-8")) if request.data else {}
+        if method in ("sendMessage", "getChat", "getChatMember", "createForumTopic"):
+            if str(asked.get("chat_id")) not in {str(chat["id"]) for chat in chats}:
                 raise refuse(url, 400, "Bad Request", "Bad Request: chat not found")
-            return io.BytesIO(b'{"ok": true, "result": {"message_id": 2}}')
+        if method == "getMe":
+            me = {"id": int(token.split(":")[0]), "is_bot": True, "username": "noust_sandbox_bot"}
+            return io.BytesIO(json.dumps({"ok": True, "result": me}).encode("utf-8"))
+        if method == "getChat":
+            chat = {"id": asked["chat_id"], "type": "supergroup", "title": "Noust alerts"}
+            if group is not None and group["is_forum"]:
+                chat["is_forum"] = True
+            return io.BytesIO(json.dumps({"ok": True, "result": chat}).encode("utf-8"))
+        if method == "getChatMember":
+            member: dict[str, Any] = {
+                "status": (group or {}).get("status", "member"),
+                "user": {"id": asked["user_id"]},
+            }
+            if member["status"] == "administrator":
+                member["can_manage_topics"] = bool((group or {}).get("can_manage_topics"))
+            return io.BytesIO(json.dumps({"ok": True, "result": member}).encode("utf-8"))
+        if method == "createForumTopic":
+            if group is None or not group["is_forum"]:
+                raise refuse(url, 400, "Bad Request", "Bad Request: the chat is not a forum")
+            if not group["can_manage_topics"]:
+                raise refuse(
+                    url, 400, "Bad Request", "Bad Request: not enough rights to create a topic"
+                )
+            number = max(group["topics"] | {1}) + 1
+            group["topics"].add(number)
+            created = {"message_thread_id": number, "name": asked["name"], "icon_color": 7322096}
+            return io.BytesIO(json.dumps({"ok": True, "result": created}).encode("utf-8"))
+        if method == "sendMessage":
+            thread = asked.get("message_thread_id")
+            if (
+                group is not None
+                and group["is_forum"]
+                and thread is not None
+                and thread not in group["topics"]
+            ):
+                raise refuse(url, 400, "Bad Request", "Bad Request: message thread not found")
+            TELEGRAM_SENT.append(len(TELEGRAM_SENT) + 100)
+            return io.BytesIO(
+                json.dumps({"ok": True, "result": {"message_id": TELEGRAM_SENT[-1]}}).encode(
+                    "utf-8"
+                )
+            )
         raise refuse(url, 404, "Not Found", "Not Found")
 
-    build = config_api._build_notifier
+    def modelled(build: Any) -> Any:
+        """Wrap a notifier builder so that what it builds answers the Bot API from the model."""
 
-    def build_notifier() -> Any:
-        notifier = build()
-        opener = notifier._opener
+        def build_notifier() -> Any:
+            notifier = build()
+            opener = notifier._opener
 
-        def open_or_answer(request: Any, timeout: float | None = None) -> Any:
-            if str(request.full_url).startswith(api):
-                return answer(request)
-            return opener(request, timeout=timeout)
+            def open_or_answer(request: Any, timeout: float | None = None) -> Any:
+                if str(request.full_url).startswith(api):
+                    return answer(request)
+                return opener(request, timeout=timeout)
 
-        notifier._opener = open_or_answer
-        return notifier
+            notifier._opener = open_or_answer
+            return notifier
+
+        return build_notifier
 
     notifier_module._require_public_destination = require_public_destination  # type: ignore[assignment]
-    config_api._build_notifier = build_notifier
+    # The test button and the finder of chats build their notifier in the configuration's router; the
+    # topics a group is asked to create, in the notifications router. Both reach the model.
+    config_api._build_notifier = modelled(config_api._build_notifier)
+    notifications_api._notifier = modelled(notifications_api._notifier)

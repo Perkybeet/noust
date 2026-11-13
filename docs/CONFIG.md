@@ -311,6 +311,9 @@ How the console's terminal behaves. `docs/terminal.md` explains what each limit 
 | `notifications.channels.discord.mention_user_id` | empty | A Discord user to ping in the same cases, in addition to the role. |
 | `notifications.channels.telegram.bot_token` | empty | The bot's token (a secret). |
 | `notifications.channels.telegram.chat_id` | empty | The chat: an integer id (a group's is negative) or `@channelname`. |
+| `notifications.channels.telegram.topics` | empty | A topic of the forum group for each subject of the messages: `deploys`, `alerts`, `backups`, `security`, `system` (`noust notify events` lists the subject of each event). A subject with no number goes to the next place below. Written by the console, `noust notify channel set telegram --topic deploys=12` or `noust notify telegram-topics --create`, which has Noust create the topics. See [notifications.md](notifications.md#keeping-messages-together). |
+| `notifications.channels.telegram.threads` | empty | A topic for one event, by its name (`backup_failed: 9`). It wins over `topics`. |
+| `notifications.channels.telegram.thread_id` | empty | One topic for the whole channel; the last place before the group's general thread. |
 | `notifications.channels.email.enabled` | `false` | Send notifications by email, through the `monitor.smtp.*` account to `monitor.email_recipients`. |
 | `notifications.channels.pushover.user_key` | empty | The Pushover user (or group) key (a secret). |
 | `notifications.channels.pushover.app_token` | empty | The Pushover application's token (a secret). Both are form fields of the request, never part of its URL. |

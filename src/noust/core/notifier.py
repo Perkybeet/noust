@@ -40,11 +40,15 @@ The types and what each one receives:
   is sent once more as plain text.
 - **telegram** - Bot API ``sendMessage`` in HTML, the console link as a button,
   silent unless it needs attention; retried once as plain text if Telegram
-  refuses the markup. A forum supergroup's topic (``thread_id``, or one per
-  event in ``threads``) keeps deploys, backups and alerts apart.
+  refuses the markup. A forum supergroup's topics keep the subjects apart (``topics``, one per
+  subject: deploys, alerts, backups, security, system; ``thread_id`` for one topic, ``threads``
+  for one event), and a recovery is posted as a reply to the message of its failure. A topic
+  Telegram refuses does not lose the alert: it goes to the general thread and the channel is
+  marked (:mod:`noust.core.notifications.topic_notes`).
 - **email** - delegates to :class:`noust.monitor.email_notifier.EmailNotifier`,
   so there is exactly one SMTP implementation and one email layout (the
-  monitor's observation report uses it too).
+  monitor's observation report uses it too). What has a way back is one
+  conversation: the same subject, and ``In-Reply-To`` to the first message.
 - **pushover**, **ntfy**, **gotify**, **teams** - push services and Microsoft
   Teams (a Workflows webhook): one POST each, built in
   :mod:`noust.core.notifier_requests`, with the credentials in a form field or
@@ -102,7 +106,6 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 import sqlite3
 import time
 import urllib.request
@@ -116,16 +119,19 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import Request
 
-from noust.core import audit, outbound
+from noust.core import audit, outbound, telegram_bot
 from noust.core.background import BackgroundQueue
 from noust.core.config import Config
 from noust.core.exceptions import EmailRefused, NoustError
-from noust.core.messages import Locale
+from noust.core.messages import Locale, message
 from noust.core.notification_ledger import Delivery, DeliveryLedger, backoff
 from noust.core.notification_placement import store_placement
+from noust.core.notification_state import NotificationState
+from noust.core.notifications import grouping
 from noust.core.notifications.composers import compose_test, server_fact
 from noust.core.notifications.composers_ops import compose_digest
 from noust.core.notifications.context import NotificationContext
+from noust.core.notifications.conversations import Conversations, Root, chat_fingerprint
 from noust.core.notifications.excerpt import make_excerpt
 from noust.core.notifications.instances import (
     TYPE_NAMES,
@@ -150,6 +156,7 @@ from noust.core.notifications.routing import (
     Routing,
     decide,
 )
+from noust.core.notifications.topic_notes import TopicNotes
 from noust.core.notifier_requests import (
     MAX_REPLY_BYTES,
     USER_AGENT,
@@ -225,40 +232,11 @@ __all__ = [
 #: further instance of one of them (see :mod:`noust.core.notifications.instances`).
 CHANNELS: tuple[str, ...] = TYPE_NAMES
 
-#: ``<bot id>:<secret>``, the only shape the Bot API issues. The token becomes
-#: part of the request path, so anything else is refused before it can reshape
-#: the URL. Always applied with ``fullmatch``: ``$`` also matches just before a
-#: trailing newline, which let a token ending in a line break through.
-_TELEGRAM_TOKEN_RE = re.compile(r"[0-9]+:[A-Za-z0-9_-]+")
+_TELEGRAM_API = telegram_bot.API_ROOT
 
-_TELEGRAM_API = "https://api.telegram.org"
-
-
-def validate_telegram_bot_token(value: str) -> str:
-    """
-    Check that a value is, in full, the shape of a Bot API token.
-
-    The one rule for a token's shape: the settings endpoint applies it on
-    save, and the notifier again before the token becomes part of a URL, for
-    a value written some other way.
-
-    Args:
-        value: The bot token.
-
-    Returns:
-        The value, unchanged.
-
-    Raises:
-        ValueError: When it is not ``<digits>:<secret>`` from its first
-            character to its last. The value itself is never quoted: it is a
-            credential.
-    """
-    if not _TELEGRAM_TOKEN_RE.fullmatch(value):
-        raise ValueError(
-            "notifications.channels.telegram.bot_token does not look like a "
-            "Telegram bot token (expected <digits>:<secret>)"
-        )
-    return value
+#: The one rule for a bot token's shape lives with the Bot API's other rules
+#: (:mod:`noust.core.telegram_bot`); the settings endpoint and the tests import it from here.
+validate_telegram_bot_token = telegram_bot.validate_bot_token
 
 
 _REDACTED = "***"
@@ -348,35 +326,6 @@ def _recipients(value: Any) -> list[str]:
     if not isinstance(value, (list, tuple)):
         return []
     return [str(item).strip() for item in value if str(item).strip()]
-
-
-def _telegram_thread(settings: Mapping[str, Any], kind: str) -> int | None:
-    """
-    Pick the forum topic a Telegram message is posted in.
-
-    Args:
-        settings: The Telegram channel's settings.
-        kind: The event kind being sent.
-
-    Returns:
-        The topic of that event (``threads``), else the channel's ``thread_id``,
-        else None (the chat's general thread). A value that is not a topic
-        number (a hand edit) is ignored: the alert matters more than its place.
-    """
-    threads = settings.get("threads")
-    for candidate in (
-        threads.get(kind) if isinstance(threads, Mapping) else None,
-        settings.get("thread_id"),
-    ):
-        if candidate in (None, ""):
-            continue
-        try:
-            number = int(str(candidate).strip())
-        except ValueError:
-            continue
-        if number > 0:
-            return number
-    return None
 
 
 def _setting_hint(instance: ChannelInstance) -> str:
@@ -768,6 +717,8 @@ def _telegram_request(
     *,
     plain: bool = False,
     thread_id: int | None = None,
+    notice: str | None = None,
+    reply_to: int | None = None,
 ) -> Request:
     """
     Build the Bot API ``sendMessage`` POST.
@@ -778,6 +729,8 @@ def _telegram_request(
         notification: The notification to deliver.
         plain: Send without markup, for the retry after Telegram refused it.
         thread_id: The forum topic to post in; the chat's general one when None.
+        notice: A line of Noust's own at the end of the message.
+        reply_to: The id of the message this one answers, in the same chat.
 
     Returns:
         The request.
@@ -787,11 +740,18 @@ def _telegram_request(
             chat id does not look like one Telegram would recognise. Neither
             is ever included in the message.
     """
-    validate_telegram_bot_token(bot_token)
+    url = telegram_bot.method_url(bot_token, "sendMessage")
     chat_id = validate_telegram_chat_id(chat_id)
-    url = f"{_TELEGRAM_API}/bot{bot_token}/sendMessage"
     return _json_request(
-        url, telegram.render(notification, chat_id, plain=plain, thread_id=thread_id)
+        url,
+        telegram.render(
+            notification,
+            chat_id,
+            plain=plain,
+            thread_id=thread_id,
+            notice=notice,
+            reply_to=reply_to,
+        ),
     )
 
 
@@ -932,6 +892,42 @@ def _parse_telegram_chats(payload: Any) -> list[TelegramChat]:
             username=chat.get("username"),
         )
     return list(seen.values())
+
+
+#: How many times one Telegram message is tried at most: each retry removes one thing Telegram
+#: refused (the markup, the topic), so this is more than the things there are to remove.
+_TELEGRAM_ATTEMPTS = 4
+
+
+@dataclass(frozen=True)
+class _Attempt:
+    """
+    What one try at a Telegram message is made of.
+
+    Attributes:
+        plain: Without markup.
+        thread: The forum topic it is posted in; None for the general thread.
+        notice: A line of Noust's own at its end.
+        reply_to: The message it answers.
+    """
+
+    plain: bool = False
+    thread: int | None = None
+    notice: str | None = None
+    reply_to: int | None = None
+
+
+def _message_number(root: Root | None) -> int | None:
+    """
+    Args:
+        root: The message a notification answers, if there is one.
+
+    Returns:
+        Its Telegram message id, or None.
+    """
+    if root is None or not root.ref.isdigit():
+        return None
+    return int(root.ref)
 
 
 class Notifier:
@@ -1084,7 +1080,7 @@ class Notifier:
         if planned is None or planned.action == "trigger":
             return routing, notification
         judged = notification
-        opening = pagerduty.opening_kinds(notification)
+        opening = grouping.opening_kinds(notification)
         for kind in opening:
             wanted = routing.events.get(kind)
             if wanted is None:
@@ -1140,6 +1136,54 @@ class Notifier:
             return f"Channel {name} is not configured; set {_setting_hint(instance)} first."
         return None
 
+    def channel(self, name: str) -> ChannelInstance | None:
+        """
+        Args:
+            name: A channel instance's name.
+
+        Returns:
+            The channel as the configuration has it, or None when there is none of that name.
+        """
+        channels: dict[str, Any] = self._settings().get("channels") or {}
+        return next((i for i in resolve_instances(channels) if i.name == name), None)
+
+    def telegram_call(
+        self, instance: ChannelInstance, method: str, payload: Mapping[str, Any]
+    ) -> Any:
+        """
+        Call one method of the Bot API as a Telegram channel's bot.
+
+        The one way anything but a message (the check of a group, the creation of a topic) reaches
+        Telegram: through the same door as every delivery, so the deadline and the guard against
+        private destinations are not a decision a new caller has to remember.
+
+        Args:
+            instance: The Telegram channel whose bot calls.
+            method: The method (``getChat``, ``createForumTopic``).
+            payload: Its parameters.
+
+        Returns:
+            The call's ``result``; None when the answer is not the Bot API's own shape.
+
+        Raises:
+            TelegramRefused: Telegram answered with an HTTP error, with its own description.
+            TelegramUnreachable: The call could not be made or answered, with the credentials
+                taken out of the reason.
+            ValueError: When the channel's token does not have the Bot API's shape.
+        """
+        channels: dict[str, Any] = self._settings().get("channels") or {}
+        url = telegram_bot.method_url(str(instance.settings.get("bot_token") or ""), method)
+        request = _json_request(url, dict(payload))
+        try:
+            body = self._send(request)
+        except HTTPError as exc:
+            said = _telegram_error_description(exc) or str(exc.reason)
+            raise telegram_bot.TelegramRefused(exc.code, _scrub(said, channels)) from exc
+        except _DELIVERY_ERRORS as exc:
+            reason = _scrub(_describe_error(exc, include_body=False), channels)
+            raise telegram_bot.TelegramUnreachable(reason) from exc
+        return telegram_bot.result(body)
+
     def list_telegram_chats(self, name: str = "telegram") -> list[TelegramChat]:
         """
         List the chats a configured Telegram bot has seen.
@@ -1176,7 +1220,7 @@ class Notifier:
             raise ValueError(f"notifications.channels.{name}.bot_token must be set first.")
         validate_telegram_bot_token(bot_token)
 
-        url = f"{_TELEGRAM_API}/bot{bot_token}/getUpdates"
+        url = telegram_bot.method_url(bot_token, "getUpdates")
         _require_public_destination(url, self._config)
         request = Request(url, headers={"User-Agent": USER_AGENT})
         with self._opener(request, timeout=NOTIFY_TIMEOUT) as response:
@@ -1635,6 +1679,8 @@ class Notifier:
         """
         if instance.type == "email":
             return self._send_email(notification, instance)
+        if instance.type == "telegram":
+            return self._send_telegram(instance, notification)
 
         request = self._request_for(instance, notification)
         if request is None:
@@ -1648,19 +1694,23 @@ class Notifier:
             self._send(retry)
         return True
 
-    def _send(self, request: Request) -> None:
+    def _send(self, request: Request) -> bytes:
         """
         Send one request, behind the SSRF guard.
 
         Args:
             request: The request to send.
 
+        Returns:
+            The start of the answer's body: what a delivery may need to remember of it (the id of
+            the message Telegram says it posted).
+
         Raises:
             OSError: When the endpoint is unreachable or rejects it.
             ValueError: When the destination resolves inside a forbidden
                 network.
         """
-        send_guarded(request, self._config, self._opener)
+        return send_guarded(request, self._config, self._opener)
 
     def _plain_retry(
         self,
@@ -1669,12 +1719,12 @@ class Notifier:
         notification: Notification,
     ) -> Request | None:
         """
-        Build the one retry a chat deserves when it refuses the formatting.
+        Build the one retry a webhook chat deserves when it refuses the embed.
 
-        A message whose entities Telegram cannot parse is answered with 400
-        ``can't parse entities``, and an embed Discord does not accept with a
-        400 ``Invalid Form Body``. An alert must not be lost to a formatting
-        quirk, so it is sent once more, as plain text.
+        An embed Discord does not accept is answered with a 400 ``Invalid Form
+        Body``. An alert must not be lost to a formatting quirk, so it is sent
+        once more, as plain text. (Telegram's retries are
+        :meth:`_telegram_retry`, which has more to work around.)
 
         Args:
             instance: The channel that failed.
@@ -1692,18 +1742,205 @@ class Notifier:
                 _discord_mention(settings),
                 plain=True,
             )
-        if instance.type != "telegram" or error.code != 400:
-            return None
-        description = _telegram_error_description(error) or ""
-        if "can't parse entities" not in description.lower():
-            return None
-        return _telegram_request(
-            str(settings.get("bot_token") or ""),
-            str(settings.get("chat_id") or ""),
-            notification,
-            plain=True,
-            thread_id=_telegram_thread(settings, notification.kind),
+        return None
+
+    # -- Telegram: the topics and what to do when one is gone --------------------------------
+
+    def _send_telegram(self, instance: ChannelInstance, notification: Notification) -> bool:
+        """
+        Deliver one notification through a Telegram channel, in its topic.
+
+        The alert matters more than its place: a message Telegram refuses for its markup is sent
+        again as plain text, and one it refuses because its topic is gone (deleted, closed, the
+        group stopped being a forum) is sent again in the general thread, with a line that says
+        which topic failed, and the channel is marked so the console can say so too.
+
+        Args:
+            instance: The Telegram channel.
+            notification: The notification to deliver.
+
+        Returns:
+            True when a message went out, False when the channel has no token or no chat.
+
+        Raises:
+            HTTPError: When Telegram refuses the message for a reason none of the retries changes.
+            ValueError: When the token or the chat id is malformed.
+            OSError: When Telegram cannot be reached.
+        """
+        settings = instance.settings
+        bot_token = str(settings.get("bot_token") or "")
+        chat_id = str(settings.get("chat_id") or "")
+        if not bot_token or not chat_id:
+            return False
+        topic = grouping.topic_for(settings, notification.kind)
+        thread = topic.number if topic is not None else None
+        chat = chat_fingerprint(chat_id)
+        root = self._conversations_do(
+            Conversations.root, instance.name, notification, chat=chat, thread=thread
         )
+        attempt = _Attempt(thread=thread, reply_to=_message_number(root))
+        for _ in range(_TELEGRAM_ATTEMPTS):
+            request = _telegram_request(
+                bot_token,
+                chat_id,
+                notification,
+                plain=attempt.plain,
+                thread_id=attempt.thread,
+                notice=attempt.notice,
+                reply_to=attempt.reply_to,
+            )
+            try:
+                body = self._send(request)
+            except HTTPError as exc:
+                retry = self._telegram_retry(instance, exc, notification, attempt, topic)
+                if retry is None:
+                    raise
+                attempt = retry
+                continue
+            if topic is not None and attempt.thread == topic.number:
+                self._notes_do(TopicNotes.worked, instance.name, topic.number)
+            # What was posted is remembered so the next message about the same thing answers it.
+            # An answer that could not be made (the root is gone) leaves nothing to answer, so
+            # what was posted instead is the new root.
+            self._conversations_do(
+                Conversations.sent,
+                instance.name,
+                notification,
+                str(posted) if (posted := telegram_bot.message_id(body)) else None,
+                chat=chat,
+                thread=attempt.thread,
+            )
+            return True
+        raise RuntimeError("unreachable: every refusal worked around removes one thing")
+
+    def _telegram_retry(
+        self,
+        instance: ChannelInstance,
+        error: HTTPError,
+        notification: Notification,
+        attempt: _Attempt,
+        topic: grouping.Topic | None,
+    ) -> _Attempt | None:
+        """
+        Decide what to change in a message Telegram refused with ``400``.
+
+        Each refusal is worked around by removing the one thing it is about, once: the markup, the
+        topic. Whatever else it is (the chat is not found, the token is wrong) is no business of
+        a retry and fails as it always did.
+
+        Args:
+            instance: The channel.
+            error: What Telegram answered.
+            notification: What was being delivered.
+            attempt: What was just tried.
+            topic: The topic the channel chose for the event, if any.
+
+        Returns:
+            The next attempt, or None when this refusal cannot be worked around.
+        """
+        if error.code != 400:
+            return None
+        description = _telegram_error_description(error)
+        refused = telegram_bot.refusal_of(description)
+        if refused is telegram_bot.Refusal.MARKUP and not attempt.plain:
+            return replace(attempt, plain=True)
+        if refused is telegram_bot.Refusal.REPLY and attempt.reply_to is not None:
+            # The message it answers is gone: send it on its own, and forget what it answered.
+            self._conversations_do(Conversations.forget, instance.name, notification)
+            return replace(attempt, reply_to=None)
+        if (
+            refused is telegram_bot.Refusal.TOPIC
+            and topic is not None
+            and attempt.thread is not None
+        ):
+            number = topic.number
+            say = self._notes_do(
+                TopicNotes.lost,
+                instance.name,
+                number,
+                topic.subject,
+                description or "",
+                default=True,
+            )
+            logger.warning(
+                "Telegram channel %s: topic %d does not take messages; the message goes to the "
+                "general thread",
+                instance.name,
+                number,
+            )
+            notice = message("topic.lost", notification.locale, topic=number) if say else None
+            # An answer is made in the topic of what it answers: without the topic there is none.
+            return replace(attempt, thread=None, reply_to=None, notice=notice)
+        return None
+
+    def topic_notes(self) -> TopicNotes | None:
+        """
+        Returns:
+            The marks of the channels' topics, or None when this notifier records nothing (a
+            one-shot caller with no store) or the store cannot be opened.
+        """
+        ledger = self._open_ledger()
+        if ledger is None:
+            return None
+        clock = self._clock
+        return TopicNotes(
+            NotificationState(ledger.store, clock=lambda: clock().timestamp()),
+            clock=lambda: clock().timestamp(),
+        )
+
+    def conversations(self) -> Conversations | None:
+        """
+        Returns:
+            The memory of the conversations of the channels, or None when this notifier records
+            nothing (then nothing is answered, and nothing fails).
+        """
+        ledger = self._open_ledger()
+        if ledger is None:
+            return None
+        clock = self._clock
+        return Conversations(
+            NotificationState(ledger.store, clock=lambda: clock().timestamp()),
+            clock=lambda: clock().timestamp(),
+        )
+
+    def _conversations_do(self, action: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+        """
+        Use the memory of the conversations; a memory that cannot be read or written never costs
+        the delivery, only its grouping.
+
+        Args:
+            action: The method of :class:`Conversations` to call.
+            args: Its arguments after the memory itself.
+            kwargs: Its keyword arguments.
+
+        Returns:
+            The action's result, or None when there is no memory or it failed (and was logged).
+        """
+        try:
+            memory = self.conversations()
+            return action(memory, *args, **kwargs) if memory is not None else None
+        except _LEDGER_ERRORS as exc:
+            logger.warning("The conversations of the channels could not be used: %s", exc)
+            return None
+
+    def _notes_do(self, action: Callable[..., Any], *args: Any, default: Any = None) -> Any:
+        """
+        Run a write to the marks; a mark that cannot be written never costs the delivery.
+
+        Args:
+            action: The method of :class:`TopicNotes` to call.
+            args: Its arguments after the marks themselves.
+            default: What to answer when there are none, or they cannot be written.
+
+        Returns:
+            The action's result, or the default.
+        """
+        try:
+            notes = self.topic_notes()
+            return action(notes, *args) if notes is not None else default
+        except _LEDGER_ERRORS as exc:
+            logger.warning("The channel's topics could not be noted: %s", exc)
+            return default
 
     def _request_for(self, instance: ChannelInstance, notification: Notification) -> Request | None:
         """
@@ -1721,17 +1958,6 @@ class Notifier:
         """
         settings = instance.settings
         kind = instance.type
-        if kind == "telegram":
-            bot_token = str(settings.get("bot_token") or "")
-            chat_id = str(settings.get("chat_id") or "")
-            if not bot_token or not chat_id:
-                return None
-            return _telegram_request(
-                bot_token,
-                chat_id,
-                notification,
-                thread_id=_telegram_thread(settings, notification.kind),
-            )
         if kind == "matrix":
             homeserver = str(settings.get("homeserver") or "")
             room_id = str(settings.get("room_id") or "")
@@ -1812,8 +2038,14 @@ class Notifier:
             return False
         # One SMTP implementation and one email layout: the transport renders
         # the notification itself, the same way for an event and for the
-        # monitor's observation report.
-        notifier.send_notification(notification)
+        # monitor's observation report. A recovery answers its failure: the first message about
+        # a thing is its root, and its Message-ID is the notification's own id.
+        root = self._conversations_do(Conversations.root, instance.name, notification)
+        if root is not None:
+            notifier.send_notification(notification, in_reply_to=root.ref)
+        else:
+            notifier.send_notification(notification)
+        self._conversations_do(Conversations.sent, instance.name, notification, notification.id)
         return True
 
 
@@ -1927,7 +2159,7 @@ def fresh_config() -> Config:
         return Config()
 
 
-def send_guarded(request: Request, config: Config, opener: Opener | None = None) -> None:
+def send_guarded(request: Request, config: Config, opener: Opener | None = None) -> bytes:
     """
     Send one request behind the SSRF guard: the one sender of the notifier.
 
@@ -1942,6 +2174,11 @@ def send_guarded(request: Request, config: Config, opener: Opener | None = None)
         opener: Replacement for the default opener; tests inject one so the
             suite never opens a socket.
 
+    Returns:
+        The start of the answer's body (at most :data:`MAX_REPLY_BYTES`): most callers have no use
+        for it, and the ones that need the id of what they sent have it here, in the one place
+        every channel's request passes through.
+
     Raises:
         OSError: When the endpoint is unreachable or rejects the request.
         ValueError: When the destination resolves inside a forbidden network,
@@ -1950,15 +2187,18 @@ def send_guarded(request: Request, config: Config, opener: Opener | None = None)
     _require_public_destination(request.full_url, config)
     send = opener or guarded_opener(config)
     # urlopen raises HTTPError for any non-2xx answer, so reaching the answer
-    # means the endpoint accepted the message. Only a request that says its
-    # service reports a refusal in a success answer has that answer read.
+    # means the endpoint accepted the message. The start of the body is read for what a delivery
+    # may remember of it, and judged when the request says its service reports a refusal in a
+    # success answer.
     response = send(request, timeout=NOTIFY_TIMEOUT)
     try:
+        body = bytes(response.read(MAX_REPLY_BYTES) or b"")
         check = getattr(request, "check_reply", None)
         if check is not None:
-            check(response.read(MAX_REPLY_BYTES))
+            check(body)
     finally:
         response.close()
+    return body
 
 
 def guarded_opener(config: Config) -> Opener:

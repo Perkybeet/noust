@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-1253 operations.
+1254 operations.
 
 ## Access
 
@@ -1076,6 +1076,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/notifications/channels` | List Channels | `settings.read` |  |  |
 | PUT | `/api/notifications/channels/{name}` | Save Channel | `settings.manage` | yes |  |
 | DELETE | `/api/notifications/channels/{name}` | Remove Channel | `settings.manage` | yes |  |
+| POST | `/api/notifications/channels/{name}/topics` | Create Topics | `settings.manage` | yes |  |
 | GET | `/api/notifications/console-url` | Get Console Url | `settings.read` |  |  |
 | PUT | `/api/notifications/console-url` | Set Console Url | `settings.manage` | yes |  |
 | GET | `/api/notifications/deliveries` | List Deliveries | `settings.read` |  |  |

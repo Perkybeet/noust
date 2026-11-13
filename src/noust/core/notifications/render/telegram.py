@@ -187,7 +187,13 @@ def _plain(n: Notification, excerpt: Excerpt | None, facts: tuple[Fact, ...], ca
 
 
 def render(
-    n: Notification, chat_id: str, *, plain: bool = False, thread_id: int | None = None
+    n: Notification,
+    chat_id: str,
+    *,
+    plain: bool = False,
+    thread_id: int | None = None,
+    notice: str | None = None,
+    reply_to: int | None = None,
 ) -> dict[str, Any]:
     """
     Render a notification as a ``sendMessage`` body.
@@ -199,6 +205,11 @@ def render(
             the entities.
         thread_id: The topic of a forum supergroup to post in
             (``message_thread_id``); the chat's general thread when None.
+        notice: A line of Noust's own at the end of the message (the topic it was meant for is
+            gone). The excerpt gives way for it, like for any other part.
+        reply_to: The id of the message this one answers, in the same chat: the recovery of a
+            failure, the end of a deploy. Telegram refuses it when that message is gone, and the
+            notifier then sends this one again on its own.
 
     Returns:
         The JSON body.
@@ -209,10 +220,12 @@ def render(
         n,
         lambda excerpt, facts, cap: build(n, excerpt, facts, cap),
         size,
-        TEXT_BUDGET,
+        TEXT_BUDGET - (len(notice) + 2 if notice else 0),
         excerpt_lines=EXCERPT_LINES,
         excerpt_chars=EXCERPT_CHARS,
     )
+    if notice:
+        text += f"\n\n{notice}" if plain else f"\n\n<i>{escape(notice)}</i>"
     payload: dict[str, Any] = {
         "chat_id": chat_id,
         "text": text,
@@ -221,6 +234,8 @@ def render(
     }
     if thread_id is not None:
         payload["message_thread_id"] = thread_id
+    if reply_to is not None:
+        payload["reply_parameters"] = {"message_id": reply_to}
     if not plain:
         payload["parse_mode"] = "HTML"
         link = n.console_link

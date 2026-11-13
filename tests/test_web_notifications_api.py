@@ -300,6 +300,7 @@ class TestEvents:
             "kind": "deploy_failed",
             "default_on": True,
             "enabled": True,
+            "subject": "deploys",
         }
         assert items["cron_success"]["default_on"] is False
         assert {"alert_firing", "backup_missing", "os_patches", "token_expiring"} <= set(items)

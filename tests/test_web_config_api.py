@@ -1516,6 +1516,41 @@ class TestTelegramSettings:
         assert config.get("notifications.channels.telegram.bot_token") == "110201543:AAHtoken"
         assert config.get("notifications.channels.telegram.chat_id") == "42"
 
+    def test_put_keeps_where_the_channel_posts_and_what_it_hears(
+        self, client: TestClient, config_path: Path
+    ) -> None:
+        # Changing the bot or the chat is not a reason to forget the topics somebody set up (or had
+        # Noust create), nor the events and route of the channel.
+        config = Config()
+        config.set(
+            "notifications.channels.telegram",
+            {
+                "bot_token": "110201543:AAHtoken",
+                "chat_id": "-1002003004005",
+                "thread_id": 7,
+                "threads": {"backup_failed": 9},
+                "topics": {"deploys": 11, "alerts": 12},
+                "events": {"deploy_started": True},
+                "route": {"min_severity": "failed"},
+            },
+        )
+        assert config.save() is True
+        Config.reset_instance()
+
+        response = client.put(
+            "/api/config/notifications/telegram",
+            json={"bot_token": "", "chat_id": "-1009998887776"},
+        )
+
+        assert response.status_code == 200, response.text
+        block = Config().get("notifications.channels.telegram")
+        assert block["chat_id"] == "-1009998887776"
+        assert block["bot_token"] == "110201543:AAHtoken"
+        assert block["topics"] == {"deploys": 11, "alerts": 12}
+        assert (block["thread_id"], block["threads"]) == (7, {"backup_failed": 9})
+        assert block["events"] == {"deploy_started": True}
+        assert block["route"] == {"min_severity": "failed"}
+
     def test_a_chat_id_missing_its_minus_sign_is_refused_with_a_hint(
         self, client: TestClient, config_path: Path
     ) -> None:

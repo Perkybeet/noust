@@ -19,7 +19,7 @@ A channel is a place a message can go. There are thirteen types:
 | `webhook` | `webhook_url`, optionally `secret` and `webhook_headers` | JSON, signed with HMAC-SHA256 in `X-Noust-Signature` when a secret is set; `webhook_headers` adds the receiver's own headers |
 | `slack` | `webhook_url` | An incoming webhook |
 | `discord` | `webhook_url` | `mention_role_id` and `mention_user_id` ping someone on failures |
-| `telegram` | `bot_token`, `chat_id` | `thread_id` posts to a topic of a forum group; `threads` gives each event its own topic |
+| `telegram` | `bot_token`, `chat_id` | `topics` posts each subject in a topic of a forum group, `thread_id` posts everything in one, `threads` gives one event its own: see [Keeping messages together](#keeping-messages-together) |
 | `email` | `recipients` | Through the SMTP account of the monitor |
 | `pushover` | `user_key`, `app_token`, optionally `device` | Push to a phone |
 | `ntfy` | `webhook_url` ending in the topic, optionally `token` | ntfy.sh or your own server |
@@ -187,6 +187,107 @@ notifications:
       summary: {at: "08:00", timezone: Europe/Madrid, below: warning, days: [mon, tue, wed, thu, fri]}
       events: {deploy_started: false}
 ```
+
+## Keeping messages together
+
+A server that deploys, backs up and watches itself says a lot, and a chat that gets all of it in one
+line is a chat nobody reads. Three things keep the messages of one thing together; each works only
+where the channel can do it, and the console offers a channel only what it can do, and says why when it
+cannot.
+
+### Topics in a Telegram group
+
+A group with topics turned on keeps conversations apart. Noust gives each **subject** a topic of its
+own: deploys, alerts, backups, security and system. A subject is what an event is about, one table
+shared by every channel (`noust notify events` lists each event with its subject):
+
+| Subject | Events |
+|---|---|
+| `deploys` | a deploy started, succeeded, failed, was rolled back or had a hook fail |
+| `alerts` | an application unreachable or recovered, a unit that failed, an alert rule, a probe, a scheduled task, a server of the fleet that went quiet, an application the kernel killed, a container that restarts in a loop |
+| `backups` | a backup that failed, was missing or worked, a destination that stopped answering, a restore |
+| `security` | a changed host key, a release that fixes a vulnerability, a token about to expire, an approval asked or decided, a change to the firewall or SSH that was undone |
+| `system` | a disk over its limit, a reboot, a cleanup, a certificate or a domain about to expire, patches waiting, outdated recipes |
+
+A Telegram channel posts each message in the first of these that has a number: the topic of **its
+event** (`threads`, for one event only), else the topic of **its subject** (`topics`), else the one
+topic of the channel (`thread_id`), else the group's general thread.
+
+```bash
+noust notify channel set telegram --topic deploys=12 --topic alerts=13   # by hand
+noust notify channel set telegram --topic deploys=                       # this subject goes to the general thread
+noust notify channel set telegram --clear-topics
+noust notify telegram-topics                                             # what each subject has
+noust notify telegram-topics --create                                    # have Noust create the missing ones
+```
+
+In the console it is the channel's Routing drawer, under **Where it is posted**: the general thread,
+one topic, or a topic per subject.
+
+**Noust creates the topics.** `noust notify telegram-topics --create`, or the "Create the missing
+topics" button, asks the group through the channel's own bot (`getChat`, `getChatMember`,
+`createForumTopic`), creates the topic of each subject that has none, called "Noust: deploys" and so
+on in the language of the notifications, and saves the numbers. It is a request somebody makes: nothing
+is asked of Telegram until the button is pressed. Asking again creates only what is missing, never one
+twice, and what was made before a refusal is kept. When the group cannot take them it says why, with
+Telegram's own words:
+
+- **The group does not have topics turned on.** Only the group's owner can: in Telegram open the group,
+  Edit, Topics, and switch them on.
+- **The bot may not manage topics.** In the group, make the bot an administrator with the right to
+  *Manage topics* (the group's owner already has it).
+- **The bot is not in the group**, or Telegram cannot find the chat: add the bot as an administrator and
+  check the chat ID.
+
+**A topic that is gone does not lose the alert.** A topic that was deleted or closed, or of a group that
+stopped being a forum, is refused by Telegram. Noust then sends the message once more in the general
+thread, with a line that says which topic failed (once an hour for each topic, not in every message),
+and marks the channel: the console says in the channel's row which topic stopped taking messages, since
+when and what Telegram said, until it works again or the topics are set again. "Create it again" makes a
+new topic for the subject (`noust notify telegram-topics --create --recreate`).
+
+One topic per project or per environment is also possible today, with several Telegram channels and a
+route each (`noust notify channel set tg-shop --type telegram --route-project shop --set thread_id=12`).
+
+### A recovery answers its failure
+
+Noust keeps the id of the message it posted (the reply to the send says it) and puts the next message
+about the same thing as a **reply** to it, in the same topic: "Recovered" as the answer to
+"Unreachable", the end of a deploy as the answer to its start (with `deploy_started` on). The rule is
+short. The first message about a thing, since it was last fine, is its root. Every later one answers the
+root. A message that says it is fine again answers it and closes the conversation, so the next problem
+is a new one. A thing is one application, one unit, one disk, one deploy of one application on one
+server (the same key the pager uses for its incident).
+
+It never costs an alert: a root that is gone (Telegram refuses a reply to a deleted message), that was
+posted in another chat or another topic, that is more than a week old, or that was never remembered
+(a restored server, a notifier with no store) simply leaves the message to go on its own. The memory is
+a small value in the store per channel and thing: a message id, the topic and a short fingerprint of the
+chat; never the chat's ID, the bot's token or an address.
+
+### Mail in one conversation
+
+Every message about one thing has **the same subject**, `[Noust] Application: shop.example.com (web-1)`
+or `[Noust] Deploy: shop.example.com (web-1)`: the noun of the thing and not how it went, because Gmail
+breaks a conversation off when the subject changes and a failure and its recovery used to be two. The
+state is the first line of the body. The later messages carry `In-Reply-To` and `References` pointing at
+the first, also through Resend, Postmark, Brevo and Amazon SES; a provider that gives the message an id of
+its own may not honour the reference, and the stable subject keeps the conversation in the clients that
+thread by it. What has no way back (a certificate about to expire, patches waiting) keeps the subject
+that says how it went, and filters on `[Noust]` and on `X-Noust-Event` work as they did.
+
+### What each channel can do
+
+| Channel | Topics | Replies | Why not |
+|---|---|---|---|
+| Telegram | by subject, one, or general | yes | |
+| Email | | one conversation | |
+| PagerDuty | | | Already one incident for each thing: a recovery resolves the incident its failure opened |
+| Slack, Mattermost | | | The incoming webhook never says the id of the message it posted, so it cannot be answered or given a thread (a bot could; it is not offered yet) |
+| Microsoft Teams, Lark | | | A Workflows webhook and a custom bot cannot answer a message |
+| Pushover, Gotify | | | Each message is delivered on its own |
+| Webhook | | | The receiver gets the event, the code and the application of every message, and decides how to group them |
+| Discord, Matrix, ntfy | | | Not yet |
 
 ## A team's own channels
 

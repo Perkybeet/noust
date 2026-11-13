@@ -47,6 +47,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from noust.core.notifications import grouping
 from noust.core.notifications.model import EVENT_KINDS, Notification
 from noust.core.notifications.render import pagerduty, webhook
 from noust.core.notifications.routing import Flood, QuietHours, Route, Routing, Summary
@@ -166,6 +167,7 @@ TYPES: dict[str, ChannelType] = {
                 ChannelField("chat_id", False, True),
                 ChannelField("thread_id"),
                 ChannelField("threads"),
+                ChannelField("topics"),
             ),
         ),
         ChannelType("email", (ChannelField("recipients"),), default_enabled=False),
@@ -388,6 +390,17 @@ def _check_type_settings(kind: str, block: Mapping[str, Any], where: str) -> Non
                 if event not in EVENT_KINDS:
                     raise ValueError(f"{where}.threads has no event {event!r}")
                 _thread(number, f"{where}.threads.{event}")
+        topics = block.get("topics")
+        if topics not in (None, ""):
+            if not isinstance(topics, Mapping):
+                raise ValueError(f"{where}.topics must map a subject to a topic number")
+            for subject, number in topics.items():
+                if subject not in grouping.SUBJECTS:
+                    raise ValueError(
+                        f"{where}.topics has no subject {subject!r}; "
+                        f"the subjects are: {', '.join(grouping.SUBJECTS)}"
+                    )
+                _thread(number, f"{where}.topics.{subject}")
     elif kind == "discord":
         for key, what in (
             ("mention_role_id", "a Discord role id"),

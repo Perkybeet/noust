@@ -1891,6 +1891,7 @@ ChannelModel = TypedDict("ChannelModel", {
     "events": NotRequired[dict[str, bool]],
     "flood": NotRequired[Union[dict[str, Any], None]],
     "name": Required[str],
+    "notices": NotRequired[list["NoticeModel"]],
     "quiet": NotRequired[Union[dict[str, Any], None]],
     "route": NotRequired[dict[str, Any]],
     "settings": NotRequired[dict[str, Any]],
@@ -1905,6 +1906,7 @@ ChannelRef = TypedDict("ChannelRef", {
 })
 
 ChannelTypeModel = TypedDict("ChannelTypeModel", {
+    "grouping": Required["GroupingModel"],
     "keys": Required[list["ChannelFieldModel"]],
     "name": Required[str],
 })
@@ -4605,12 +4607,14 @@ ErrorResponse = TypedDict("ErrorResponse", {
 
 EventListResponse = TypedDict("EventListResponse", {
     "items": Required[list["EventModel"]],
+    "subjects": NotRequired[list[str]],
 })
 
 EventModel = TypedDict("EventModel", {
     "default_on": Required[bool],
     "enabled": Required[bool],
     "kind": Required[str],
+    "subject": NotRequired[Union[str, None]],
 })
 
 ExceptionCreate = TypedDict("ExceptionCreate", {
@@ -5391,6 +5395,12 @@ GroupOut = TypedDict("GroupOut", {
     "full_path": Required[str],
     "id": Required[int],
     "name": NotRequired[Union[str, None]],
+})
+
+GroupingModel = TypedDict("GroupingModel", {
+    "reason": NotRequired[Union[str, None]],
+    "replies": Required[bool],
+    "topics": Required[bool],
 })
 
 GuideModel = TypedDict("GuideModel", {
@@ -7155,6 +7165,14 @@ NoticeAcceptance = TypedDict("NoticeAcceptance", {
 NoticeInfo = TypedDict("NoticeInfo", {
     "text": Required[str],
     "version": Required[str],
+})
+
+NoticeModel = TypedDict("NoticeModel", {
+    "at": NotRequired[float],
+    "code": Required[str],
+    "reason": NotRequired[str],
+    "subject": NotRequired[Union[str, None]],
+    "topic": Required[int],
 })
 
 NotificationTestResult = TypedDict("NotificationTestResult", {
@@ -11768,6 +11786,19 @@ ToolInfo = TypedDict("ToolInfo", {
     "permission": Required[str],
     "read_only": Required[bool],
     "title": Required[str],
+})
+
+TopicsBody = TypedDict("TopicsBody", {
+    "recreate": NotRequired[bool],
+})
+
+TopicsResultModel = TypedDict("TopicsResultModel", {
+    "created": NotRequired[dict[str, int]],
+    "detail": NotRequired[Union[str, None]],
+    "failed": NotRequired[list[str]],
+    "kept": NotRequired[dict[str, int]],
+    "problem": NotRequired[Union[str, None]],
+    "topics": NotRequired[dict[str, int]],
 })
 
 TotalsOut = TypedDict("TotalsOut", {

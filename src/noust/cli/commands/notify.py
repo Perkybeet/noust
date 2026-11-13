@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import sqlite3
 import sys
 from typing import Any
 
@@ -28,13 +29,18 @@ import click
 
 from noust.cli.app import Context, NoustGroup, global_flags, json_option, pass_context
 from noust.core.config import Config
-from noust.core.exceptions import NoustError
+from noust.core.exceptions import NoustError, ValidationError
 from noust.core.notification_channels import ChannelAdmin, ChannelView, event_catalog
 from noust.core.notification_ledger import STATES, DeliveryLedger
+from noust.core.notification_state import NotificationState
+from noust.core.notifications import grouping
+from noust.core.notifications.grouping import as_topic_number
 from noust.core.notifications.instances import TYPES
 from noust.core.notifications.routing import QUIET_ALLOW, SEVERITIES
 from noust.core.notifications.team_channels import TeamChannels
+from noust.core.notifications.topic_notes import TopicNote, TopicNotes
 from noust.core.notifier import Notifier, fresh_config
+from noust.core.telegram_topics import TelegramTopics
 
 _ROUTE_LISTS = {
     "route_apps": "apps",
@@ -165,6 +171,38 @@ def _kv(pairs: tuple[str, ...], what: str) -> dict[str, str]:
     return found
 
 
+def _topics(pairs: tuple[str, ...], clear: bool, existing: ChannelView | None) -> dict[str, Any]:
+    """
+    Work out the topic of each subject a command leaves a Telegram channel with.
+
+    Args:
+        pairs: ``SUBJECT=NUMBER`` strings; an empty number stops a subject having a topic.
+        clear: Forget every topic first.
+        existing: The channel as it is now, or None for a new one.
+
+    Returns:
+        The channel's ``topics`` after the change: what it had, less what was cleared, with what
+        the command says. A subject that does not exist is the configuration's to refuse, in the
+        same words as the console's.
+
+    Raises:
+        click.UsageError: When a number is not a whole positive one.
+    """
+    stored = existing.settings.get("topics") if existing is not None else None
+    found: dict[str, Any] = {} if clear or not isinstance(stored, dict) else dict(stored)
+    for subject, number in _kv(pairs, "--topic").items():
+        text = number.strip()
+        if not text:
+            found.pop(subject, None)
+        elif text.isdigit() and int(text) > 0:
+            found[subject] = int(text)
+        else:
+            raise click.UsageError(
+                f"--topic {subject}= must be a topic number (a whole number from 1), not {number!r}"
+            )
+    return found
+
+
 def _secrets(secret_keys: tuple[str, ...], stdin_key: str | None) -> dict[str, str]:
     """
     Read the credentials a command was asked to set.
@@ -201,6 +239,15 @@ def channel_group() -> None:
     metavar="KEY=VALUE",
     help="A setting of the type (chat_id, device, mention_role_id...). Not a credential.",
 )
+@click.option(
+    "--topic",
+    "topics",
+    multiple=True,
+    metavar="SUBJECT=NUMBER",
+    help="Telegram: post this subject (deploys, alerts, backups, security or system) in this topic "
+    "of the forum group; an empty NUMBER stops it having one.",
+)
+@click.option("--clear-topics", is_flag=True, help="Telegram: forget every topic of a subject.")
 @click.option(
     "--secret",
     "secret_keys",
@@ -308,6 +355,8 @@ def channel_set(
     type_: str | None,
     enabled: bool | None,
     settings: tuple[str, ...],
+    topics: tuple[str, ...],
+    clear_topics: bool,
     secret_keys: tuple[str, ...],
     stdin_key: str | None,
     events: tuple[str, ...],
@@ -363,6 +412,8 @@ def channel_set(
             "(asked hidden) or --secret-stdin, never an argument"
         )
     values.update(_secrets(secret_keys, stdin_key))
+    if topics or clear_topics:
+        values["topics"] = _topics(topics, clear_topics, existing)
 
     switches: dict[str, bool] | None = None
     if events or clear_events:
@@ -493,10 +544,11 @@ def events_command(ctx: Context) -> None:
         click.echo(json.dumps(items))
         return
     ctx.logger.table(
-        ["Event", "On by default", "On now"],
+        ["Event", "Subject", "On by default", "On now"],
         [
             [
                 item["kind"],
+                item["subject"] or "-",
                 "yes" if item["default_on"] else "no",
                 "yes" if item["enabled"] else "no",
             ]
@@ -620,3 +672,195 @@ def telegram_chats_command(ctx: Context, channel: str) -> None:
     for chat in chats:
         label = chat.title or (f"@{chat.username}" if chat.username else "(no name)")
         ctx.logger.info(f"{chat.id}\t{chat.type}\t{label}")
+
+
+#: What to do about each reason topics could not be created, in the words of the command line.
+_TOPIC_FIXES = {
+    "not_forum": (
+        "The group does not have topics turned on. Only the group's owner can: open the group's "
+        "settings in Telegram, choose Topics and switch them on. Then run this again."
+    ),
+    "not_member": ("The bot is not in the group. Add it as an administrator, then run this again."),
+    "no_right": (
+        "The bot may not manage topics. In the group, make the bot an administrator with the "
+        "right to 'Manage topics', then run this again."
+    ),
+    "chat_unreachable": (
+        "Telegram could not find the chat. Check the chat ID and that the bot is in the group."
+    ),
+    "unreachable": "Telegram could not be reached. Try again in a moment.",
+    "refused": "Telegram refused to create a topic. The topics made so far are saved.",
+}
+
+
+def _telegram_channel(name: str, admin: ChannelAdmin) -> ChannelView:
+    """
+    Args:
+        name: A channel's name.
+        admin: The channel admin.
+
+    Returns:
+        The channel, when it is a Telegram one.
+
+    Raises:
+        NoustError: When there is no such channel, or it is not a Telegram one.
+    """
+    view = admin.get(name)
+    if view is None:
+        raise ValidationError(
+            f"There is no notification channel named {name!r}",
+            details="'noust notify list' shows the channels.",
+        )
+    if view.type != "telegram":
+        raise ValidationError(
+            f"{name!r} is not a Telegram channel", details="Only a Telegram group has topics."
+        )
+    return view
+
+
+def _lost_topics(name: str, view: ChannelView) -> list[TopicNote]:
+    """
+    Args:
+        name: The channel.
+        view: The channel as it is shown.
+
+    Returns:
+        The topics it still posts in that stopped taking messages; empty when they cannot be read.
+    """
+    try:
+        return TopicNotes(NotificationState()).standing(name, view.settings)
+    except (sqlite3.Error, OSError, NoustError):
+        return []
+
+
+@cli.command("telegram-topics", read_only=lambda params: not params.get("create"))
+@click.option(
+    "--channel",
+    default="telegram",
+    show_default=True,
+    help="The Telegram channel whose group is asked.",
+)
+@click.option(
+    "--create",
+    is_flag=True,
+    help="Create in the group the topics the subjects are missing, with the channel's bot, and "
+    "save their numbers.",
+)
+@click.option(
+    "--recreate",
+    is_flag=True,
+    help="With --create, also make anew a topic that stopped taking messages.",
+)
+@global_flags
+@json_option("Print the topics as JSON.")
+@pass_context
+def telegram_topics_command(ctx: Context, channel: str, create: bool, recreate: bool) -> None:
+    """
+    Show the topic of each subject, or create the ones that are missing.
+
+    A Telegram group with topics turned on keeps conversations apart. Noust posts each subject
+    (deploys, alerts, backups, security, system) in a topic of its own once the channel has one:
+    set it with 'noust notify channel set telegram --topic deploys=12', or let Noust create the
+    topics with --create. Creating asks Telegram, with the channel's bot, whether the group has
+    topics and whether the bot may manage them, and says what to change when it does not; asking
+    again makes only what is missing.
+
+    Listing asks nothing of Telegram.
+    """
+    admin = ChannelAdmin()
+    try:
+        view = _telegram_channel(channel, admin)
+        if create:
+            _create_topics(ctx, channel, admin, recreate)
+            return
+    except NoustError as exc:
+        ctx.logger.error(exc.message, details=exc.details)
+        raise SystemExit(1) from exc
+
+    stored = view.settings.get("topics")
+    numbers = {
+        subject: as_topic_number(stored.get(subject)) if isinstance(stored, dict) else None
+        for subject in grouping.SUBJECTS
+    }
+    lost = {note.topic: note for note in _lost_topics(channel, view)}
+    if ctx.json_output:
+        click.echo(
+            json.dumps(
+                {
+                    "channel": channel,
+                    "subjects": [
+                        {
+                            "subject": subject,
+                            "topic": numbers[subject],
+                            "events": list(grouping.kinds_of(subject)),
+                            "lost": numbers[subject] in lost,
+                        }
+                        for subject in grouping.SUBJECTS
+                    ],
+                    "notices": [
+                        {"topic": n.topic, "subject": n.subject, "reason": n.reason}
+                        for n in lost.values()
+                    ],
+                }
+            )
+        )
+        return
+    ctx.logger.table(
+        ["Subject", "Topic", "Covers"],
+        [
+            [
+                subject,
+                (str(numbers[subject]) + (" (lost)" if numbers[subject] in lost else ""))
+                if numbers[subject] is not None
+                else "-",
+                ", ".join(grouping.kinds_of(subject)),
+            ]
+            for subject in grouping.SUBJECTS
+        ],
+    )
+    for note in lost.values():
+        ctx.logger.warning(
+            f"Topic {note.topic} stopped taking messages; what was meant for it goes to the "
+            f"general thread. Telegram said: {note.reason}"
+        )
+
+
+def _create_topics(ctx: Context, channel: str, admin: ChannelAdmin, recreate: bool) -> None:
+    """
+    Create the topics a channel is missing and report what happened.
+
+    Args:
+        ctx: The command's context.
+        channel: The Telegram channel.
+        admin: The channel admin, whose configuration receives the numbers.
+        recreate: Also make anew a topic that stopped taking messages.
+
+    Raises:
+        SystemExit: With 1 when it could not create every topic, or could not save them.
+        NoustError: When the channel has no bot or chat yet.
+    """
+    if ctx.dry_run:
+        ctx.logger.info(
+            "Would ask Telegram whether the group has topics and whether the bot may manage "
+            "them, then create the topics that are missing. Nothing was asked."
+        )
+        return
+    result = TelegramTopics(Notifier(Config())).create(channel, admin, recreate=recreate)
+    if result.created and not _save(ctx, admin):
+        raise SystemExit(1)
+    if ctx.json_output:
+        click.echo(json.dumps({"channel": channel, **result.to_dict()}))
+    else:
+        for subject, number in result.created.items():
+            ctx.logger.success(f"Created the topic for {subject}: {number}.")
+        for subject in result.kept:
+            ctx.logger.info(f"{subject} already has a topic.")
+    if result.problem is not None:
+        ctx.logger.error(_TOPIC_FIXES[result.problem], details=result.detail or "")
+        raise SystemExit(1)
+    if not ctx.json_output:
+        ctx.logger.success(
+            "Every subject has a topic."
+            if result.created
+            else "Nothing to create: every subject has a topic."
+        )

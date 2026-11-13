@@ -11092,7 +11092,7 @@
         "type": "object"
       },
       "ChannelModel": {
-        "description": "One notification channel, without its credentials.\n\nAttributes:\n    name: What the channel is called.\n    type: One of the types (``slack``, ``pushover``...).\n    enabled: Whether it is on.\n    configured: Whether it has what its type needs to deliver.\n    default: It is the default channel of its type: it cannot be removed,\n        only emptied.\n    settings: The type's own settings; a credential reads ``***`` when one\n        is stored and an empty string when none is.\n    events: This channel's own switch per event (those it does not name\n        follow ``notifications.events``).\n    route: What it is limited to (applications, projects, environments,\n        tags, a minimum severity).\n    quiet: When it stays silent, or null for never.\n    flood: The most it says in a stretch of time (``max`` messages in\n        ``minutes``), or null for no cap; what passes it arrives later as\n        one message.\n    summary: What waits for a periodic summary (``at``, ``timezone``,\n        ``below``, ``days``), or null for none.\n    team: The slug of the team that keeps it (``/api/teams/{team}/notifications``),\n        or null for the server's own.",
+        "description": "One notification channel, without its credentials.\n\nAttributes:\n    name: What the channel is called.\n    type: One of the types (``slack``, ``pushover``...).\n    enabled: Whether it is on.\n    configured: Whether it has what its type needs to deliver.\n    default: It is the default channel of its type: it cannot be removed,\n        only emptied.\n    settings: The type's own settings; a credential reads ``***`` when one\n        is stored and an empty string when none is.\n    events: This channel's own switch per event (those it does not name\n        follow ``notifications.events``).\n    route: What it is limited to (applications, projects, environments,\n        tags, a minimum severity).\n    quiet: When it stays silent, or null for never.\n    flood: The most it says in a stretch of time (``max`` messages in\n        ``minutes``), or null for no cap; what passes it arrives later as\n        one message.\n    summary: What waits for a periodic summary (``at``, ``timezone``,\n        ``below``, ``days``), or null for none.\n    team: The slug of the team that keeps it (``/api/teams/{team}/notifications``),\n        or null for the server's own.\n    notices: What it has to say about how it is working (a topic that stopped taking\n        messages); empty when there is nothing.",
         "properties": {
           "configured": {
             "title": "Configured",
@@ -11128,6 +11128,13 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "notices": {
+            "items": {
+              "$ref": "#/components/schemas/NoticeModel"
+            },
+            "title": "Notices",
+            "type": "array"
           },
           "quiet": {
             "anyOf": [
@@ -11209,8 +11216,11 @@
         "type": "object"
       },
       "ChannelTypeModel": {
-        "description": "One kind of channel Noust can deliver through.\n\nAttributes:\n    name: The type's name.\n    keys: Its settings.",
+        "description": "One kind of channel Noust can deliver through.\n\nAttributes:\n    name: The type's name.\n    keys: Its settings.\n    grouping: What it can do to keep messages together.",
         "properties": {
+          "grouping": {
+            "$ref": "#/components/schemas/GroupingModel"
+          },
           "keys": {
             "items": {
               "$ref": "#/components/schemas/ChannelFieldModel"
@@ -11225,7 +11235,8 @@
         },
         "required": [
           "name",
-          "keys"
+          "keys",
+          "grouping"
         ],
         "title": "ChannelTypeModel",
         "type": "object"
@@ -26801,13 +26812,20 @@
         "type": "object"
       },
       "EventListResponse": {
-        "description": "The events.\n\nAttributes:\n    items: Every event kind.",
+        "description": "The events.\n\nAttributes:\n    items: Every event kind.\n    subjects: What the events are about, in the order the console offers them: each is the\n        ``subject`` of some of the ``items``, and a chat can give each a topic.",
         "properties": {
           "items": {
             "items": {
               "$ref": "#/components/schemas/EventModel"
             },
             "title": "Items",
+            "type": "array"
+          },
+          "subjects": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Subjects",
             "type": "array"
           }
         },
@@ -26818,7 +26836,7 @@
         "type": "object"
       },
       "EventModel": {
-        "description": "One event a channel may be switched for.\n\nAttributes:\n    kind: Its name.\n    default_on: Whether it is on when nothing says otherwise.\n    enabled: Whether the server-wide switch has it on now.",
+        "description": "One event a channel may be switched for.\n\nAttributes:\n    kind: Its name.\n    default_on: Whether it is on when nothing says otherwise.\n    enabled: Whether the server-wide switch has it on now.\n    subject: What it is about (``deploys``, ``alerts``, ``backups``, ``security``,\n        ``system``): the topic a chat gives it.",
         "properties": {
           "default_on": {
             "title": "Default On",
@@ -26831,6 +26849,17 @@
           "kind": {
             "title": "Kind",
             "type": "string"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject"
           }
         },
         "required": [
@@ -31155,6 +31184,36 @@
           "full_path"
         ],
         "title": "GroupOut",
+        "type": "object"
+      },
+      "GroupingModel": {
+        "description": "What a channel type can do to keep messages together.\n\nAttributes:\n    topics: A chat that gives each subject a topic of its own (a forum group).\n    replies: A recovery can be put as the answer to its failure.\n    reason: When it can do neither, why, as a code the console words (``incoming_webhook``:\n        the webhook never says the id of the message it posts, so it cannot be answered).",
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "replies": {
+            "title": "Replies",
+            "type": "boolean"
+          },
+          "topics": {
+            "title": "Topics",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "topics",
+          "replies"
+        ],
+        "title": "GroupingModel",
         "type": "object"
       },
       "GuideModel": {
@@ -41082,6 +41141,46 @@
           "version"
         ],
         "title": "NoticeInfo",
+        "type": "object"
+      },
+      "NoticeModel": {
+        "description": "Something a channel has to say about how it is working.\n\nAttributes:\n    code: What it is: ``topic_lost`` (a topic of a Telegram group stopped taking messages, and\n        what was meant for it went to the general thread).\n    topic: The topic's number in the group.\n    subject: The subject it was the topic of, when it was one.\n    reason: What the destination answered, in its own words.\n    at: When it was first refused, epoch seconds.",
+        "properties": {
+          "at": {
+            "default": 0.0,
+            "title": "At",
+            "type": "number"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject"
+          },
+          "topic": {
+            "title": "Topic",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code",
+          "topic"
+        ],
+        "title": "NoticeModel",
         "type": "object"
       },
       "NotificationTestResult": {
@@ -68158,6 +68257,75 @@
           "description"
         ],
         "title": "ToolInfo",
+        "type": "object"
+      },
+      "TopicsBody": {
+        "description": "What to ask when creating the topics of a Telegram group.\n\nAttributes:\n    recreate: Also make a new topic for a subject whose topic stopped taking messages.",
+        "properties": {
+          "recreate": {
+            "default": false,
+            "title": "Recreate",
+            "type": "boolean"
+          }
+        },
+        "title": "TopicsBody",
+        "type": "object"
+      },
+      "TopicsResultModel": {
+        "description": "What creating the topics did.\n\nAttributes:\n    created: The subjects that got a topic now, with its number.\n    kept: The subjects that already had one, with its number.\n    failed: The subjects that have none after this.\n    problem: Why it stopped (``not_forum``, ``not_member``, ``no_right``, ``chat_unreachable``,\n        ``unreachable``, ``refused``), or null when every subject has a topic.\n    detail: What Telegram said, in its own words, when it was Telegram who said it.\n    topics: The topic of every subject that has one now.",
+        "properties": {
+          "created": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Created",
+            "type": "object"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "failed": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Failed",
+            "type": "array"
+          },
+          "kept": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Kept",
+            "type": "object"
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Problem"
+          },
+          "topics": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Topics",
+            "type": "object"
+          }
+        },
+        "title": "TopicsResultModel",
         "type": "object"
       },
       "TotalsOut": {
@@ -123147,6 +123315,61 @@
           }
         },
         "summary": "Save Channel",
+        "tags": [
+          "Notifications"
+        ],
+        "x-noust-permission": "settings.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/notifications/channels/{name}/topics": {
+      "post": {
+        "description": "Create the topics of a Telegram channel's group that its subjects are missing.\n\nThe one request here that asks something of Telegram besides a message, and it is a button\nsomebody pushes: nothing is asked until then. The bot the channel already has checks the\ngroup (does it have topics, may the bot manage them), makes the topics that are missing and\ntheir numbers are saved into the channel. A group that cannot take them is an answer, not an\nerror: it says why, in Telegram's own words where Telegram said it. Asking again makes only\nwhat is missing.\n\nArgs:\n    name: The Telegram channel.\n    body: Whether to also make anew the topics that stopped taking messages.\n    request: The incoming request.\n    session: The elevated session.\n\nReturns:\n    What was made, what was there and why it stopped, if it did.\n\nRaises:\n    ValidationError: 400 when there is no such channel, it is not a Telegram one, or it has\n        no bot token or chat yet.",
+        "operationId": "create_topics_api_notifications_channels__name__topics_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TopicsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopicsResultModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Topics",
         "tags": [
           "Notifications"
         ],

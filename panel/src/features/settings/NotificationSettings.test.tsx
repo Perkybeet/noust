@@ -100,6 +100,7 @@ interface ChannelView {
   quiet: Record<string, unknown> | null;
   flood: Record<string, unknown> | null;
   summary: Record<string, unknown> | null;
+  notices?: { code: string; topic: number; subject: string | null; reason: string; at: number }[];
 }
 
 function channelView(name: string, extra: Partial<ChannelView> = {}): ChannelView {
@@ -109,10 +110,41 @@ function channelView(name: string, extra: Partial<ChannelView> = {}): ChannelVie
 /** GET /api/notifications/channels: the nine defaults (Slack, Webhook and Telegram set up), then whatever else is given. */
 function channelsBody(extra: ChannelView[] = [], overrides: Record<string, Partial<ChannelView>> = {}) {
   const defaults = CHANNEL_TYPES.map((type) => channelView(type, { configured: ["webhook", "slack", "telegram"].includes(type), ...overrides[type] }));
-  return { items: [...defaults, ...extra], types: CHANNEL_TYPES.map((name) => ({ name, keys: [] })), enabled: false };
+  return { items: [...defaults, ...extra], types: CHANNEL_TYPES.map((name) => ({ name, keys: [], grouping: groupingOf(name) })), enabled: false };
+}
+
+/** What each type can do to keep messages together, as GET /api/notifications/channels says it. */
+function groupingOf(type: string): { topics: boolean; replies: boolean; reason: string | null } {
+  if (type === "telegram") return { topics: true, replies: true, reason: null };
+  if (type === "email") return { topics: false, replies: true, reason: null };
+  if (type === "slack" || type === "mattermost") return { topics: false, replies: false, reason: "incoming_webhook" };
+  if (type === "pagerduty") return { topics: false, replies: false, reason: "incidents" };
+  return { topics: false, replies: false, reason: "not_yet" };
 }
 
 const NO_DELIVERIES = { items: [], counts: {} };
+
+/** GET /api/notifications/events: a few real events of each subject, and the subjects in the order the console offers them. */
+const EVENTS_BODY = {
+  items: [
+    ["deploy_failed", "deploys"],
+    ["deploy_rolled_back", "deploys"],
+    ["deploy_success", "deploys"],
+    ["deploy_started", "deploys"],
+    ["unit_failed", "alerts"],
+    ["app_unreachable", "alerts"],
+    ["app_recovered", "alerts"],
+    ["alert_firing", "alerts"],
+    ["backup_failed", "backups"],
+    ["restore_failed", "backups"],
+    ["node_host_key_changed", "security"],
+    ["approval_requested", "security"],
+    ["disk_threshold", "system"],
+    ["cert_expiring", "system"],
+    ["server_rebooted", "system"],
+  ].map(([kind, subject]) => ({ kind, subject, default_on: kind !== "deploy_started", enabled: kind !== "deploy_started" })),
+  subjects: ["deploys", "alerts", "backups", "security", "system"],
+};
 
 function notificationsBackend(
   options: {
@@ -167,6 +199,7 @@ function notificationsBackend(
     "PUT /api/config/email-api": () => needsElevation() ?? json(200, { message: "Email provider configuration updated" }),
     "GET /api/notifications/channels": () => json(200, { ...base, items: [...held.values()] }),
     "GET /api/notifications/deliveries": () => json(200, options.deliveries ?? NO_DELIVERIES),
+    "GET /api/notifications/events": () => json(200, EVENTS_BODY),
     ...Object.fromEntries([...CHANNEL_TYPES, "slack-staging", "oncall"].map(putChannel)),
     "PUT /api/config/smtp": () => needsElevation() ?? json(200, { message: "SMTP configuration updated" }),
     "PUT /api/config/notifications/telegram": () => needsElevation() ?? json(200, { message: "Telegram configuration updated" }),
@@ -279,6 +312,18 @@ describe("Settings > Notifications", () => {
 
     await user.click(within(row("Webhook")).getByRole("button", { name: "Send test to Webhook" }));
     expect(await within(row("Webhook")).findByText("Sent a test message. Check that it arrived.")).toBeInTheDocument();
+  });
+
+  it("reads the channels again after a test, since a test is how a channel learns that a topic of its group is gone", async () => {
+    const backend = notificationsBackend();
+    const { user } = renderConsole("/settings/notifications");
+    await screen.findByRole("switch", { name: /Send notifications/ });
+    const before = backend.callsTo("GET /api/notifications/channels").length;
+    await user.click(within(row("Webhook")).getByRole("button", { name: "Send test to Webhook" }));
+    await within(row("Webhook")).findByText("Sent a test message. Check that it arrived.");
+    await waitFor(() => {
+      expect(backend.callsTo("GET /api/notifications/channels").length).toBeGreaterThan(before);
+    });
   });
 
   it("sets up a webhook in its drawer with a generated signing secret, keeping the URL it was not given", { timeout: 20_000 }, async () => {
@@ -944,5 +989,206 @@ describe("Settings > Notifications", () => {
     expect(screen.getByText("Qué se envía")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Servidores que gestionas/ })).toBeInTheDocument();
     await expectNoAxeViolations(container);
+  });
+});
+
+describe("Settings > Notifications, keeping messages together", () => {
+  /** The Telegram channel as the server holds it, changed by what the test does to the group. */
+  function telegramChannel(extra: Partial<ChannelView> = {}): ChannelView {
+    return channelView("telegram", { configured: true, settings: { bot_token: "***", chat_id: "-1001234567890", thread_id: "", threads: "", topics: "" }, ...extra });
+  }
+
+  /** A server that holds one Telegram channel, and answers creating its topics as the test says. */
+  function groupBackend(options: { channel?: ChannelView; create?: (recreate: boolean) => Record<string, unknown> } = {}) {
+    let channel = options.channel ?? telegramChannel();
+    const base = channelsBody([], {});
+    const backend = notificationsBackend({
+      config: configBody({ enabled: true }),
+      routes: {
+        "GET /api/notifications/channels": () => json(200, { ...base, items: base.items.map((item) => (item.name === "telegram" ? channel : item)) }),
+        "POST /api/notifications/channels/telegram/topics": (call) => {
+          const recreate = (call.body as { recreate: boolean }).recreate;
+          const result = options.create?.(recreate) ?? { created: {}, kept: {}, failed: [], problem: null, detail: null, topics: {} };
+          const topics = result["topics"] as Record<string, number>;
+          if (Object.keys(topics).length > 0) channel = { ...channel, settings: { ...channel.settings, topics } };
+          return json(200, result);
+        },
+        "PUT /api/notifications/channels/telegram": (call) => {
+          const settings = (call.body as { settings?: Record<string, unknown> }).settings ?? {};
+          channel = { ...channel, settings: { ...channel.settings, ...settings } };
+          return json(200, channel);
+        },
+      },
+    });
+    return backend;
+  }
+
+  async function openTelegram(user: ReturnType<typeof renderConsole>["user"]): Promise<HTMLElement> {
+    await screen.findByRole("switch", { name: /Send notifications/ });
+    await user.click(within(row("Telegram")).getByRole("button", { name: "Routing for Telegram" }));
+    return screen.findByRole("dialog", { name: "Routing for Telegram" });
+  }
+
+  const ALL_FIVE = { deploys: 21, alerts: 22, backups: 23, security: 24, system: 25 };
+
+  it("offers a Telegram channel the general thread, one topic or a topic for each subject, and says what each does", { timeout: 30_000 }, async () => {
+    groupBackend();
+    const { user } = renderConsole("/settings/notifications");
+    const drawer = await openTelegram(user);
+
+    expect(within(drawer).getByRole("heading", { name: "Where it is posted" })).toBeInTheDocument();
+    const choice = within(drawer).getByRole("radiogroup", { name: "Where this channel posts" });
+    expect(within(choice).getByRole("radio", { name: "General thread" })).toBeChecked();
+    expect(within(drawer).getByText("Every message goes to the group's general thread.")).toBeInTheDocument();
+    expect(within(drawer).queryByRole("textbox", { name: /Topic number/ })).toBeNull();
+
+    await user.click(within(choice).getByRole("radio", { name: "One topic" }));
+    expect(within(drawer).getByRole("textbox", { name: /Topic number/ })).toBeInTheDocument();
+    expect(within(drawer).getByText("Every message goes to the same topic.")).toBeInTheDocument();
+
+    await user.click(within(choice).getByRole("radio", { name: "A topic per subject" }));
+    // One field for each subject, with what it covers under its name.
+    for (const subject of ["Deploys", "Alerts", "Backups", "Security", "System"]) {
+      expect(await within(drawer).findByRole("textbox", { name: new RegExp(`^${subject}`) })).toBeInTheDocument();
+    }
+    expect(within(drawer).getByText(/^Deploy failed, Deploy rolled back, Deploy finished and 1 more/)).toBeInTheDocument();
+    expect(within(drawer).getByText("Each subject goes to its own topic. A subject with no number goes to the general thread.")).toBeInTheDocument();
+  });
+
+  it("writes the topic of each subject through the channel, and no topic of the whole channel", { timeout: 30_000 }, async () => {
+    const backend = groupBackend();
+    const { user } = renderConsole("/settings/notifications");
+    const drawer = await openTelegram(user);
+    await user.click(within(drawer).getByRole("radio", { name: "A topic per subject" }));
+    await user.type(await within(drawer).findByRole("textbox", { name: /^Deploys/ }), "11");
+    await user.type(within(drawer).getByRole("textbox", { name: /^Backups/ }), "13");
+    await user.click(within(drawer).getByRole("button", { name: "Save" }));
+    await waitFor(() => {
+      expect(backend.callsTo("PUT /api/notifications/channels/telegram")).toHaveLength(1);
+    });
+    expect(backend.callsTo("PUT /api/notifications/channels/telegram").at(-1)?.body).toMatchObject({ settings: { thread_id: "", topics: { deploys: 11, backups: 13 } } });
+    await user.click(within(drawer).getByRole("button", { name: "Done" }));
+    expect(await within(row("Telegram")).findByText("A topic for each subject")).toBeInTheDocument();
+  });
+
+  it("says a topic that is not a number where it is, and does not send it", { timeout: 30_000 }, async () => {
+    const backend = groupBackend();
+    const { user } = renderConsole("/settings/notifications");
+    const drawer = await openTelegram(user);
+    await user.click(within(drawer).getByRole("radio", { name: "One topic" }));
+    await user.type(within(drawer).getByRole("textbox", { name: /Topic number/ }), "twelve");
+    expect(within(drawer).getByText("Use the topic's number, such as 12.")).toBeInTheDocument();
+    await user.click(within(drawer).getByRole("button", { name: "Save" }));
+    expect(backend.callsTo("PUT /api/notifications/channels/telegram")).toHaveLength(0);
+    expect(within(drawer).getByRole("textbox", { name: /Topic number/ })).toHaveFocus();
+  });
+
+  it("creates the missing topics when asked, and shows the numbers it saved", { timeout: 30_000 }, async () => {
+    const backend = groupBackend({ create: () => ({ created: ALL_FIVE, kept: {}, failed: [], problem: null, detail: null, topics: ALL_FIVE }) });
+    const { user } = renderConsole("/settings/notifications");
+    const drawer = await openTelegram(user);
+    await user.click(within(drawer).getByRole("radio", { name: "A topic per subject" }));
+    // A number typed and not saved is a change: what is asked of the group is asked of what is saved.
+    const deploys = await within(drawer).findByRole("textbox", { name: /^Deploys/ });
+    await user.type(deploys, "11");
+    expect(within(drawer).getByRole("button", { name: "Create the missing topics" })).toBeDisabled();
+    expect(within(drawer).getByText("Save your changes first.")).toBeInTheDocument();
+    await user.clear(deploys);
+    await waitFor(() => {
+      expect(within(drawer).getByRole("button", { name: "Create the missing topics" })).toBeEnabled();
+    });
+    expect(within(drawer).getByText(/Nothing is asked until you press it/)).toBeInTheDocument();
+    expect(backend.callsTo("POST /api/notifications/channels/telegram/topics")).toHaveLength(0);
+
+    await user.click(within(drawer).getByRole("button", { name: "Create the missing topics" }));
+    expect(await within(drawer).findByText("Created 5 topics.")).toBeInTheDocument();
+    expect(backend.callsTo("POST /api/notifications/channels/telegram/topics").at(-1)?.body).toEqual({ recreate: false });
+    await waitFor(() => {
+      expect(within(drawer).getByRole("textbox", { name: /^Deploys/ })).toHaveValue("21");
+    });
+    expect(within(drawer).getByRole("textbox", { name: /^System/ })).toHaveValue("25");
+  });
+
+  it("says what is missing when the group cannot take the topics, with Telegram's own words and the way out", { timeout: 30_000 }, async () => {
+    groupBackend({
+      channel: telegramChannel({ settings: { bot_token: "***", chat_id: "-1001234567890", thread_id: "", threads: "", topics: { deploys: 21 } } }),
+      create: () => ({ created: {}, kept: { deploys: 21 }, failed: ["alerts", "backups", "security", "system"], problem: "not_forum", detail: null, topics: { deploys: 21 } }),
+    });
+    const { user } = renderConsole("/settings/notifications");
+    const drawer = await openTelegram(user);
+    await user.click(await within(drawer).findByRole("button", { name: "Create the missing topics" }));
+    expect(await within(drawer).findByText("The group does not have topics turned on")).toBeInTheDocument();
+    expect(within(drawer).getByText(/Only the group's owner can turn them on/)).toBeInTheDocument();
+  });
+
+  it("shows what Telegram said, verbatim, when it refuses, and what was made before", { timeout: 30_000 }, async () => {
+    groupBackend({
+      channel: telegramChannel({ settings: { bot_token: "***", chat_id: "-1001234567890", thread_id: "", threads: "", topics: { deploys: 21 } } }),
+      create: () => ({
+        created: { alerts: 22 },
+        kept: { deploys: 21 },
+        failed: ["backups", "security", "system"],
+        problem: "refused",
+        detail: "Too Many Requests: retry after 3",
+        topics: { deploys: 21, alerts: 22 },
+      }),
+    });
+    const { user } = renderConsole("/settings/notifications");
+    const drawer = await openTelegram(user);
+    await user.click(await within(drawer).findByRole("button", { name: "Create the missing topics" }));
+    expect(await within(drawer).findByText("Telegram refused to create a topic")).toBeInTheDocument();
+    expect(within(drawer).getByText("Too Many Requests: retry after 3")).toBeInTheDocument();
+    expect(within(drawer).getByText("Created 1 topic before it stopped.")).toBeInTheDocument();
+    expect(within(drawer).getByText("Still without a topic: Backups, Security, System.")).toBeInTheDocument();
+  });
+
+  it("says in the row, and in the drawer, that a topic stopped taking messages, and makes it again on request", { timeout: 30_000 }, async () => {
+    const lost = { code: "topic_lost", topic: 21, subject: "deploys", reason: "Bad Request: message thread not found", at: Date.now() / 1000 - 3_600 };
+    const backend = groupBackend({
+      channel: telegramChannel({ settings: { bot_token: "***", chat_id: "-1001234567890", thread_id: "", threads: "", topics: { deploys: 21, alerts: 22 } }, notices: [lost] }),
+      create: () => ({ created: { deploys: 31 }, kept: { alerts: 22 }, failed: [], problem: null, detail: null, topics: { deploys: 31, alerts: 22 } }),
+    });
+    const { user } = renderConsole("/settings/notifications");
+    await screen.findByRole("switch", { name: /Send notifications/ });
+    expect(await within(row("Telegram")).findByText("Topic 21 does not take messages")).toBeInTheDocument();
+    await user.click(within(row("Telegram")).getByRole("button", { name: "Routing for Telegram" }));
+    const drawer = await screen.findByRole("dialog", { name: "Routing for Telegram" });
+    expect(within(drawer).getByText("The topic of Deploys, number 21, no longer takes messages")).toBeInTheDocument();
+    expect(within(drawer).getByText("Bad Request: message thread not found")).toBeInTheDocument();
+    await user.click(within(drawer).getByRole("button", { name: "Create it again" }));
+    await waitFor(() => {
+      expect(backend.callsTo("POST /api/notifications/channels/telegram/topics").at(-1)?.body).toEqual({ recreate: true });
+    });
+  });
+
+  it("does not offer the topics to a channel that has none, and says why", { timeout: 30_000 }, async () => {
+    groupBackend();
+    const { user } = renderConsole("/settings/notifications");
+    await screen.findByRole("switch", { name: /Send notifications/ });
+    await user.click(within(row("Slack")).getByRole("button", { name: "Routing for Slack" }));
+    const slack = await screen.findByRole("dialog", { name: "Routing for Slack" });
+    expect(within(slack).getByRole("heading", { name: "Keeping messages together" })).toBeInTheDocument();
+    expect(within(slack).getByText(/posts through an incoming webhook, which never says the id of the message it posted/)).toBeInTheDocument();
+    expect(within(slack).queryByRole("radiogroup", { name: "Where this channel posts" })).toBeNull();
+    expect(within(slack).queryByRole("button", { name: "Create the missing topics" })).toBeNull();
+  });
+
+  it("says what a pager does about it", { timeout: 30_000 }, async () => {
+    notificationsBackend({
+      config: configBody({ enabled: true, channels: { slack: { webhook_url: "***" }, pagerduty: { routing_key: "***", region: "us" } } }),
+    });
+    const { user } = renderConsole("/settings/notifications");
+    await screen.findByRole("switch", { name: /Send notifications/ });
+    await user.click(within(row("PagerDuty")).getByRole("button", { name: "Routing for PagerDuty" }));
+    const drawer = await screen.findByRole("dialog", { name: "Routing for PagerDuty" });
+    expect(within(drawer).getByText(/already keeps one incident for each thing/)).toBeInTheDocument();
+  });
+
+  it("passes axe with the topics open, in both languages", { timeout: 30_000 }, async () => {
+    groupBackend({ channel: telegramChannel({ settings: { bot_token: "***", chat_id: "-1001234567890", thread_id: "", threads: "", topics: { deploys: 21 } } }) });
+    const { user } = renderConsole("/settings/notifications");
+    const drawer = await openTelegram(user);
+    await within(drawer).findByRole("textbox", { name: /^Deploys/ });
+    await expectNoAxeViolations(drawer);
   });
 });
