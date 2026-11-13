@@ -926,6 +926,18 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("passkeys", "registration_options"): ("POST", "/api/auth/passkeys/registration/options", "self", False),
     ("passkeys", "rename_passkey"): ("PATCH", "/api/auth/passkeys/{passkey_id}", "self", False),
     ("passkeys", "remove_passkey"): ("DELETE", "/api/auth/passkeys/{passkey_id}", "self", False),
+    ("plans", "plan_app_delete"): ("POST", "/api/apps/{domain}/delete/plan", "apps.read", False),
+    ("plans", "plan_app_rollback"): ("POST", "/api/apps/{domain}/deployments/{deployment_id}/rollback/plan", "apps.read", False),
+    ("plans", "plan_app_domain_add"): ("POST", "/api/apps/{domain}/domains/plan", "apps.read", False),
+    ("plans", "plan_app_domain_remove"): ("POST", "/api/apps/{domain}/domains/{name}/plan", "apps.read", False),
+    ("plans", "plan_app_limits"): ("POST", "/api/apps/{domain}/limits/plan", "apps.read", False),
+    ("plans", "plan_app_migration"): ("POST", "/api/apps/{domain}/migrate/plan", "apps.read", False),
+    ("plans", "plan_app_restart"): ("POST", "/api/apps/{domain}/restart/plan", "apps.read", False),
+    ("plans", "plan_app_start"): ("POST", "/api/apps/{domain}/start/plan", "apps.read", False),
+    ("plans", "plan_app_stop"): ("POST", "/api/apps/{domain}/stop/plan", "apps.read", False),
+    ("plans", "plan_app_update"): ("POST", "/api/apps/{domain}/update/plan", "apps.read", False),
+    ("plans", "plan_certificate_renewal"): ("POST", "/api/certs/{domain}/renew/plan", "apps.read", False),
+    ("plans", "plan_docker_cleanup_route"): ("POST", "/api/docker/cleanup/plan", "docker.read", False),
     ("previews", "list_previews"): ("GET", "/api/apps/{domain}/previews", "apps.read", False),
     ("previews", "create_preview"): ("POST", "/api/apps/{domain}/previews", "apps.deploy", True),
     ("previews", "get_preview_dns"): ("GET", "/api/apps/{domain}/previews/dns", "apps.read", False),
@@ -8789,6 +8801,110 @@ class Passkeys:
 
 
 
+class Plans:
+    """Plans: 12 operations."""
+
+    def __init__(self, call: Call) -> None:
+        self._call = call
+
+    def plan_app_delete(self, domain: str, *, body: Union["DeletePlanRequest", None] = None) -> "PlanOutModel":
+        """POST /api/apps/{domain}/delete/plan
+
+        Plan App Delete
+
+        Needs: permission `apps.read`."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/delete/plan", query=None, body=body)
+
+    def plan_app_rollback(self, domain: str, deployment_id: int | str, *, body: Union["RollbackPlanRequest", None] = None) -> "PlanOutModel":
+        """POST /api/apps/{domain}/deployments/{deployment_id}/rollback/plan
+
+        Plan App Rollback
+
+        Needs: permission `apps.read`."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/deployments/{quote(str(deployment_id), safe='')}/rollback/plan", query=None, body=body)
+
+    def plan_app_domain_add(self, domain: str, body: "DomainPlanRequest") -> "PlanOutModel":
+        """POST /api/apps/{domain}/domains/plan
+
+        Plan App Domain Add
+
+        Needs: permission `apps.read`."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/domains/plan", query=None, body=body)
+
+    def plan_app_domain_remove(self, domain: str, name: str) -> "PlanOutModel":
+        """POST /api/apps/{domain}/domains/{name}/plan
+
+        Plan App Domain Remove
+
+        Needs: permission `apps.read`."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/domains/{quote(str(name), safe='')}/plan", query=None, body=None)
+
+    def plan_app_limits(self, domain: str, body: "LimitsPlanRequest") -> "PlanOutModel":
+        """POST /api/apps/{domain}/limits/plan
+
+        Plan App Limits
+
+        Needs: permission `apps.read`."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/limits/plan", query=None, body=body)
+
+    def plan_app_migration(self, domain: str, *, body: Union["MigratePlanRequest", None] = None) -> "PlanOutModel":
+        """POST /api/apps/{domain}/migrate/plan
+
+        Plan App Migration
+
+        Needs: permission `apps.read`."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/migrate/plan", query=None, body=body)
+
+    def plan_app_restart(self, domain: str) -> "PlanOutModel":
+        """POST /api/apps/{domain}/restart/plan
+
+        Plan App Restart
+
+        Needs: permission `apps.read`."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/restart/plan", query=None, body=None)
+
+    def plan_app_start(self, domain: str) -> "PlanOutModel":
+        """POST /api/apps/{domain}/start/plan
+
+        Plan App Start
+
+        Needs: permission `apps.read`."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/start/plan", query=None, body=None)
+
+    def plan_app_stop(self, domain: str) -> "PlanOutModel":
+        """POST /api/apps/{domain}/stop/plan
+
+        Plan App Stop
+
+        Needs: permission `apps.read`."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/stop/plan", query=None, body=None)
+
+    def plan_app_update(self, domain: str, *, body: Union["UpdatePlanRequest", None] = None) -> "PlanOutModel":
+        """POST /api/apps/{domain}/update/plan
+
+        Plan App Update
+
+        Needs: permission `apps.read`."""
+        return self._call("POST", f"/api/apps/{quote(str(domain), safe='')}/update/plan", query=None, body=body)
+
+    def plan_certificate_renewal(self, domain: str, *, body: Union["RenewPlanRequest", None] = None) -> "PlanOutModel":
+        """POST /api/certs/{domain}/renew/plan
+
+        Plan Certificate Renewal
+
+        Needs: permission `apps.read`."""
+        return self._call("POST", f"/api/certs/{quote(str(domain), safe='')}/renew/plan", query=None, body=body)
+
+    def plan_docker_cleanup_route(self, body: "DockerCleanupRequest") -> "PlanOutModel":
+        """POST /api/docker/cleanup/plan
+
+        Plan Docker Cleanup Route
+
+        Needs: permission `docker.read`."""
+        return self._call("POST", "/api/docker/cleanup/plan", query=None, body=body)
+
+
+
 class Previews:
     """Previews: 17 operations."""
 
@@ -11779,6 +11895,7 @@ class Api:
     other: Other
     overview: Overview
     passkeys: Passkeys
+    plans: Plans
     previews: Previews
     probes: Probes
     recipes: Recipes
@@ -11846,6 +11963,7 @@ class Api:
         self.other = Other(call)
         self.overview = Overview(call)
         self.passkeys = Passkeys(call)
+        self.plans = Plans(call)
         self.previews = Previews(call)
         self.probes = Probes(call)
         self.recipes = Recipes(call)

@@ -8389,6 +8389,7 @@ Arguments: `domain`
 | `--remove-volumes` | Also remove the Docker volumes of a Compose stack or a container application: they hold its data, so they are never removed unless asked for. |  |
 | `--remove-databases` | Also drop the databases that belong to the application and that no other application uses, each after a last dump. Never unless asked for; one it merely uses is kept. |  |
 | `--remove-adopted-directory` | Also remove the application's directory when it is outside Noust's apps directory (an adopted stack). Name it exactly; without this it is kept. |  |
+| `--plan` | Print what the deletion would remove and what it would leave, and do nothing. |  |
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
@@ -16655,6 +16656,7 @@ Arguments: `domain`
 | `--no-cache` | Build from scratch: empty the build cache first, install the dependencies again instead of taking them from the release that serves, and build images without their layer cache. Rebuilds what is live even when there is nothing new. |  |
 | `--during-freeze` | Deploy although deploys are frozen for the application (noust deploy freeze). A person's decision, recorded in the audit trail. |  |
 | `--build-only` | Build the release and leave it waiting, not serving: nothing is activated, no hook runs and nothing restarts. Make it serve later, without building it again, with 'noust releases promote'. Only for an application on the releases layout. |  |
+| `--plan` | Print what the update would run and change, and what it cannot know, and do nothing. The same as the console's 'See what it will do'. |  |
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |

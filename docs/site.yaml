@@ -328,6 +328,11 @@ tabs:
             slug: guides/releases/deploys
             type: guide
             summary: Zero downtime by default, the deploy queue, cancelling a build, rebuilding a commit, which branch an update builds, and the deploy history.
+          - source: docs/plans.md
+            slug: guides/plans
+            title: See what it will do
+            type: guide
+            summary: "The plan of an operation before you apply it: the commands in order, the files and their diff, what Noust found out, what it does not know and what it will ask for; in the console, on the terminal and in the API."
           - source: docs/releases-health-check.md
             slug: guides/releases/health-check
             type: guide

@@ -29,11 +29,10 @@ from noust.core.operation_classes import (
     Unclassified,
     classify,
 )
+from noust.core.plans.registry import PLAN_EXTENSION
 
 __all__ = ["OperationHit", "OperationIndex", "plan_of"]
 
-#: The extension that says which operation shows what a change would do before it is made.
-PLAN_EXTENSION = "x-noust-plan"
 
 _MAX_DESCRIPTION = 400
 

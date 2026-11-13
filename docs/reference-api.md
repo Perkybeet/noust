@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-1241 operations.
+1253 operations.
 
 ## Access
 
@@ -1119,6 +1119,23 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/auth/passkeys/registration/options` | Registration Options | `self` |  |  |
 | PATCH | `/api/auth/passkeys/{passkey_id}` | Rename Passkey | `self` |  |  |
 | DELETE | `/api/auth/passkeys/{passkey_id}` | Remove Passkey | `self` |  |  |
+
+## Plans
+
+| Method | Path | What it does | Permission | Sudo | Approval |
+|---|---|---|---|---|---|
+| POST | `/api/apps/{domain}/delete/plan` | Plan App Delete | `apps.read` |  |  |
+| POST | `/api/apps/{domain}/deployments/{deployment_id}/rollback/plan` | Plan App Rollback | `apps.read` |  |  |
+| POST | `/api/apps/{domain}/domains/plan` | Plan App Domain Add | `apps.read` |  |  |
+| POST | `/api/apps/{domain}/domains/{name}/plan` | Plan App Domain Remove | `apps.read` |  |  |
+| POST | `/api/apps/{domain}/limits/plan` | Plan App Limits | `apps.read` |  |  |
+| POST | `/api/apps/{domain}/migrate/plan` | Plan App Migration | `apps.read` |  |  |
+| POST | `/api/apps/{domain}/restart/plan` | Plan App Restart | `apps.read` |  |  |
+| POST | `/api/apps/{domain}/start/plan` | Plan App Start | `apps.read` |  |  |
+| POST | `/api/apps/{domain}/stop/plan` | Plan App Stop | `apps.read` |  |  |
+| POST | `/api/apps/{domain}/update/plan` | Plan App Update | `apps.read` |  |  |
+| POST | `/api/certs/{domain}/renew/plan` | Plan Certificate Renewal | `apps.read` |  |  |
+| POST | `/api/docker/cleanup/plan` | Plan Docker Cleanup Route | `docker.read` |  |  |
 
 ## Previews
 

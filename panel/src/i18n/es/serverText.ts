@@ -2006,6 +2006,197 @@ export const serverText: Catalog<typeof en> = {
     sites_reload: { text: "Recargar los sitios del servidor web" },
     waf_install: { text: "Instalar el cortafuegos de aplicaciones web" },
   },
+  plans: {
+    blocked: {
+      refused: {
+        text: "Lo rechazaría: {reason}",
+        hint: "{fix}",
+      },
+      refused_plain: {
+        text: "Lo rechazaría: {reason}",
+      },
+      nothing_new: {
+        text: "{branch} no tiene nada nuevo desde {live}, que es lo que está en marcha",
+        hint: "Actualizar con «forzar» vuelve a compilar la misma versión, lo que tiene sentido si cambió el entorno o las dependencias, o si la última compilación falló.",
+      },
+      busy: {
+        text: "{operation} se está ejecutando en {domain} desde {since}",
+        hint: "Espera a que acabe, o míralo en las tareas, y vuelve a preguntar.",
+      },
+    },
+    confirm: {
+      frozen: {
+        text: "Los despliegues de {domain} están congelados hasta {until}: {reason}",
+      },
+      frozen_open: {
+        text: "Los despliegues de {domain} están congelados hasta que alguien lo levante: {reason}",
+      },
+      schema_changed: {
+        text: "Volver a {target} de {domain} pasa por {count} despliegues que cambiaron el esquema de la base de datos: {deployments}",
+        hint: "Noust devuelve el código, nunca la base de datos: el código antiguo funcionará con el esquema que dejaron esos despliegues. Restaura antes la base de datos desde una copia, o confirma que el código antiguo funciona con el esquema nuevo.",
+      },
+    },
+    update: {
+      release: {
+        text: "Compila {domain} desde {branch} como una versión nueva y pasa a ella cuando responde a la comprobación de arranque. La versión que sirve ahora se queda en disco para volver a ella.",
+      },
+      in_place: {
+        text: "Trae {branch} al directorio desde el que corre {domain}, lo compila ahí y lo reinicia tras la comprobación de arranque. Lo que estaba compilado se sustituye por la compilación nueva.",
+      },
+      exact: {
+        text: "Despliega {what} de {domain} y pasa a ello cuando responde a la comprobación de arranque.",
+      },
+      containers: {
+        text: "Vuelve a descargar las imágenes de {domain} y recrea los contenedores que cambiaron, con una comprobación de arranque tras otra.",
+      },
+    },
+    rollback: {
+      instant: {
+        text: "Vuelve {domain} a la versión {release}, que ya está en disco, sin compilar nada. Si no responde a la comprobación de arranque, vuelve a servir la versión {previous}.",
+      },
+      rebuild: {
+        text: "Vuelve a compilar la versión {commit} de {domain} donde corre y la reinicia tras la comprobación de arranque.",
+      },
+      unavailable: {
+        text: "Ahora no se puede volver al despliegue {deployment} de {domain}",
+      },
+      snapshot: {
+        text: "Restaura los ficheros de {domain} desde la copia {backup} tras hacer una copia de seguridad previa, la compila de nuevo y la reinicia tras la comprobación de arranque.",
+      },
+    },
+    found: {
+      upstream_new: {
+        text: "{branch} ha avanzado: {domain} corre {live} y el repositorio está en {remote}",
+      },
+      database_stays: {
+        text: "La base de datos no vuelve atrás: Noust devuelve el código y nunca los datos",
+      },
+      serving_now: {
+        text: "Ahora sirve la versión {release}",
+      },
+      delete_files_kept: {
+        text: "El directorio de {domain} se queda en disco: los ficheros solo se borran si lo pides",
+      },
+      delete_certificate_kept: {
+        text: "El certificado de {domain} se queda: solo se borra si lo pides",
+      },
+      delete_volumes_kept: {
+        text: "Los volúmenes de Docker de {domain} se quedan, con sus datos: solo se borran si lo pides",
+      },
+      delete_database_kept: {
+        text: "La base de datos {database} se queda: una base de datos solo se elimina si lo pides, y nunca si la usa otra aplicación",
+      },
+      delete_database_dropped: {
+        text: "La base de datos {database} se elimina tras una última copia",
+      },
+      migrate_persistent: {
+        text: "{count} rutas pasan al directorio compartido y se quedan allí",
+      },
+      migrate_untracked: {
+        text: "{count} ficheros que git no sigue se quedan solo en la primera versión",
+      },
+      migrate_warning: {
+        text: "{warning}",
+      },
+    },
+    unknown: {
+      build: {
+        text: "Qué órdenes de instalación y compilación se ejecutan, si pasan y cuánto tardan: salen de los ficheros y guiones del propio repositorio, que un plan no descarga ni ejecuta",
+      },
+      new_code: {
+        text: "Qué cambia el código nuevo: si pide variables nuevas, ejecuta una migración o altera el esquema de la base de datos está en código que aún no se ha descargado",
+      },
+      health: {
+        text: "Si la versión nueva responde a la comprobación de arranque ({check}): todavía no existe. Si no responde, vuelve la versión que sirve ahora",
+      },
+      health_older: {
+        text: "Si la versión anterior sigue respondiendo a la comprobación de arranque ({check}) con lo que la aplicación guarda ahora. Si no responde, vuelve la versión que sirve ahora",
+      },
+      rebuild: {
+        text: "Si volver a compilar la versión {commit} funciona: es el guion del propio repositorio, y un plan no lo ejecuta",
+      },
+      readback: {
+        text: "Un plan no guarda lo que la operación va anotando por el camino, así que un paso que lo vuelve a leer (un sitio que lista un nombre recién añadido) se enseña como está ahora",
+      },
+      stopped: {
+        text: "El plan acaba aquí: lo que sigue depende de lo que habrían producido los pasos anteriores. La operación dijo: {reason}",
+      },
+      remote: {
+        text: "Qué versiones entrarían: no se pudo preguntar al repositorio a tiempo ({reason})",
+      },
+      health_limits: {
+        text: "Si la aplicación responde a la comprobación de arranque ({check}) con los límites nuevos. Si no responde, vuelven los límites de antes",
+      },
+      authority: {
+        text: "Si la autoridad de certificación acepta la renovación de {domain}: comprueba desde internet que el nombre apunta a este servidor, y un plan no se lo pregunta",
+      },
+      dns: {
+        text: "Si {name} apunta a este servidor: eso lo dice el DNS, y la autoridad de certificación lo necesita",
+      },
+      service_health: {
+        text: "Si {domain} responde cuando ya corre: nada lo comprueba después, como sí hace una actualización",
+      },
+      docker_owner: {
+        text: "Si algo ajeno a Noust espera lo que se elimina: Noust juzga de quién es cada cosa, no quién la necesita",
+      },
+      migrate_steps: {
+        text: "Las órdenes del traslado no se simulan una a una: un ensayo dice qué movería y qué reescribiría, y la comprobación de arranque con la estructura nueva es lo único que no puede preguntar",
+      },
+      probes_skipped: {
+        text: "No se hicieron {count} consultas al servidor porque el plan se quedó sin tiempo: lo que depende de ellas puede ser distinto",
+      },
+    },
+    limits: {
+      restart: {
+        text: "Da a {domain} estos límites (memoria {memory}, CPU {cpu}, tareas {tasks}) reescribiendo su unidad y reiniciándolo tras la comprobación de arranque. Si no responde con ellos, vuelven los límites de antes.",
+      },
+      no_restart: {
+        text: "Da a {domain} estos límites (memoria {memory}, CPU {cpu}, tareas {tasks}) reescribiendo su unidad. Los procesos que corren ahora conservan los límites con los que arrancaron hasta que se reinicie.",
+      },
+    },
+    cert: {
+      renew: {
+        text: "Pide a la autoridad de certificación que renueve el certificado de {domain} con certbot, que solo lo hace si está cerca de caducar, y recarga el servidor web cuando se renueva.",
+      },
+      renew_forced: {
+        text: "Pide a la autoridad de certificación que renueve el certificado de {domain} con certbot aunque no esté cerca de caducar, y recarga el servidor web cuando se renueva.",
+      },
+    },
+    domain: {
+      add: {
+        text: "Hace que {domain} responda también en {name}: anota el nombre, reescribe el sitio y recarga el servidor web. Si el sitio sirve TLS, ampliar el certificado es otra tarea aparte.",
+      },
+      remove: {
+        text: "Hace que {domain} deje de responder en {name}: reescribe el sitio y recarga el servidor web. El certificado se deja como está y no se revoca nada.",
+      },
+    },
+    delete: {
+      app: {
+        text: "Borra {domain}: su servicio, su sitio y su registro desaparecen.",
+      },
+    },
+    service: {
+      restart: {
+        text: "Reinicia {domain}: su servicio se para y vuelve a arrancar, así que puede no responder unos segundos.",
+      },
+      stop: {
+        text: "Para {domain}: no responde hasta que alguien lo arranque otra vez. Sus ficheros y sus datos se quedan.",
+      },
+      start: {
+        text: "Arranca el servicio de {domain}.",
+      },
+    },
+    docker: {
+      cleanup: {
+        text: "Elimina las {count} cosas que se eligieron en el plan de la limpieza, cada una a través de la puerta que vuelve a juzgar de quién es. No toca nada más.",
+      },
+    },
+    migrate: {
+      app: {
+        text: "Pasa {domain} a versiones: la unidad se para mientras se mueve el árbol, la primera versión ({release}) se hace con lo que hay en disco y la aplicación tiene que responder a la comprobación de arranque con la estructura nueva, o todo vuelve a su sitio.",
+      },
+    },
+  },
   power_checks: {
     jobs_running: { text: "En marcha ahora: {jobs}" },
     jobs_idle: { text: "No hay nada en marcha" },

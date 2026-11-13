@@ -244,6 +244,47 @@ class TestInvestigating:
         assert "Unknown tool" in on.requests()[1].body["messages"][-1]["content"]  # type: ignore[index]
 
 
+class TestWhatAProposalWouldDo:
+    """The pair: a proposal carries the plan its operation publishes, and goes on without it."""
+
+    CALL = Reply.call(
+        "call_operation",
+        {
+            "method": "PATCH",
+            "path": "/api/apps/{domain}/limits",
+            "parameters": {"domain": SHOP},
+            "body": {"memory_max_mb": 512},
+        },
+    )
+
+    def test_a_proposal_carries_what_the_change_would_do(self, runner: Any, on: Lab) -> None:
+        on.model.script(self.CALL, Reply.say("I propose raising the limit to 512 MB."))
+
+        turn = on.ask(on.conversation(), "Raise the memory limit of shop to 512 MB")
+
+        [proposal] = turn["proposals"]
+        plan = proposal["plan"]
+        assert plan is not None
+        # The operation's own rehearsal, in the one shape every plan has: what it would run and
+        # what it does not know, and nothing was run to say it.
+        assert {"effect", "commands", "unknown"} <= set(plan)
+        assert on.bridge.calls == [] and on.restarts == []
+        assert not [call for call in runner.calls if "restart" in call or "daemon-reload" in call]
+
+    def test_a_plan_that_cannot_be_read_does_not_stop_the_turn(self, on: Lab) -> None:
+        # With nothing to answer the plan's looks at the machine, the plan's route raises instead of
+        # answering: the proposal is still the exact call, and the turn ends as it would.
+        on.model.script(self.CALL, Reply.say("I propose raising the limit to 512 MB."))
+
+        turn = on.ask(on.conversation(), "Raise the memory limit of shop to 512 MB")
+
+        [proposal] = turn["proposals"]
+        assert turn["state"] == "done"
+        assert proposal["plan"] is None
+        assert proposal["call"]["body"] == {"memory_max_mb": 512}
+        assert on.bridge.raised == [("POST", f"/api/apps/{SHOP}/limits/plan")]
+
+
 class TestProposing:
     def test_a_change_that_asks_for_sudo_mode_is_prepared_and_not_made(self, on: Lab) -> None:
         on.model.script(
@@ -273,8 +314,10 @@ class TestProposing:
         assert proposal["why"]["code"] == "assistant.proposal.why.needs_sudo"
         assert proposal["environment"] == "production"
         assert len(proposal["fingerprint"]) == 64
-        # Nothing was made: the loop never called the route.
+        # Nothing was made: the loop never called the route. What it asked for is what the change
+        # would do, to show it before the person approves.
         assert on.bridge.calls == []
+        assert on.bridge.plans == [("POST", f"/api/apps/{SHOP}/limits/plan")]
         # What the model is told: it is not done.
         told = on.requests()[1].body["messages"][-1]["content"]  # type: ignore[index]
         assert told.startswith("Proposed, NOT done")

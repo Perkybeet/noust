@@ -30,6 +30,7 @@ from fastapi.dependencies.models import Dependant
 from fastapi.routing import APIRoute
 
 from noust import __version__
+from noust.core.plans.registry import PLAN_EXTENSION, PLANNED
 from noust.web.api.deps import NoustErrorRoute, require_elevated
 from noust.web.auth import require_auth
 from noust.web.permissions.enforce import annotate_permissions
@@ -163,6 +164,34 @@ def annotate_approval(schema: dict[str, Any], routes: list[Any]) -> dict[str, An
     return schema
 
 
+def annotate_plans(schema: dict[str, Any]) -> dict[str, Any]:
+    """
+    Mark every operation that has a plan with where the plan is.
+
+    The registry (:mod:`noust.core.plans.registry`) lists the operations and the route of each plan;
+    this says it in the operation itself, so the console and the built-in assistant know whether an
+    operation has a "See what it will do" from the schema alone, as they know whether it needs sudo
+    mode. A central reads it from each node's schema: a node that has no plan for an operation does
+    not say so, and the console does not offer one there.
+
+    Args:
+        schema: The OpenAPI document. Modified in place.
+
+    Returns:
+        The same document.
+    """
+    paths: dict[str, Any] = schema.get("paths", {})
+    for planned in PLANNED:
+        operation = paths.get(planned.path, {}).get(planned.method.lower())
+        if isinstance(operation, dict):
+            operation[PLAN_EXTENSION] = {
+                "method": planned.plan_method,
+                "path": planned.plan_path,
+                "operation": planned.key,
+            }
+    return schema
+
+
 def annotate_version(schema: dict[str, Any]) -> dict[str, Any]:
     """
     Say which API the document describes and which release serves it.
@@ -191,7 +220,7 @@ def annotate_version(schema: dict[str, Any]) -> dict[str, Any]:
 
 def install_openapi(app: FastAPI) -> None:
     """
-    Make ``app.openapi()`` carry the version, elevation, permission and approval extensions.
+    Make ``app.openapi()`` carry the version, elevation, permission, approval and plan extensions.
 
     Wrapped rather than rebuilt so the document stays FastAPI's own, cached
     exactly as FastAPI caches it, whoever asks: this route, the export
@@ -220,9 +249,13 @@ def install_openapi(app: FastAPI) -> None:
             # changed (``app.openapi_schema = None``), and then a new one.
             if schema is not annotated:
                 annotate_version(
-                    annotate_approval(
-                        annotate_permissions(annotate_elevation(schema, app.routes), app.routes),
-                        app.routes,
+                    annotate_plans(
+                        annotate_approval(
+                            annotate_permissions(
+                                annotate_elevation(schema, app.routes), app.routes
+                            ),
+                            app.routes,
+                        )
                     )
                 )
                 annotated = schema

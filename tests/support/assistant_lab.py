@@ -14,6 +14,7 @@ carries **only the assistant's token**, never the person's session, as the serve
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -25,6 +26,8 @@ from fastapi.testclient import TestClient
 from noust.core.accounts import AuthPolicy, passwords
 from noust.core.assistant.records import Proposals, Turns
 from noust.core.fs import get_fs
+from noust.core.plans.registry import plan_routes
+from noust.core.runner import get_runner
 from noust.core.store import NoustStore
 from noust.core.teams import Scope, TeamStore
 from noust.web.api import apps as apps_api
@@ -45,12 +48,33 @@ BETA = "beta.example.com"
 GOOD_PROBE = Reply.call("get_status", {"service": "probe"})
 
 
+def _is_a_plan(method: str, path: str) -> bool:
+    """
+    Args:
+        method: A call's method.
+        path: Its path, parameters in place.
+
+    Returns:
+        Whether it is one of the routes the registry of plans lists: what an operation would do,
+        read without doing it.
+    """
+    return any(
+        verb == method.upper()
+        and re.fullmatch(re.sub(r"\{[^/{}]+\}", "[^/]+", template), path) is not None
+        for verb, template in plan_routes()
+    )
+
+
 class ClientBridge:
     """The API, called with a bearer token and nothing else, as the loop calls it."""
 
     def __init__(self, client: TestClient) -> None:
         self.client = client
+        #: What reached the API, in order, without the reads of what a proposal would do.
         self.calls: list[tuple[str, str]] = []
+        #: The plans read: a plan is asked with a POST and changes nothing, so it is not a change.
+        self.plans: list[tuple[str, str]] = []
+        self.raised: list[tuple[str, str]] = []
 
     def call(
         self,
@@ -62,7 +86,7 @@ class ClientBridge:
         body: Any = None,
         request_id: str | None = None,
     ) -> GatewayResponse:
-        self.calls.append((method, path))
+        (self.plans if _is_a_plan(method, path) else self.calls).append((method, path))
         headers = {"Authorization": f"Bearer {token}"}
         if request_id:
             headers["X-Noust-Request-Id"] = request_id
@@ -73,6 +97,25 @@ class ClientBridge:
             body=response.content,
         )
 
+    def attempt(
+        self,
+        method: str,
+        path: str,
+        *,
+        token: str,
+        query: Sequence[tuple[str, str]] = (),
+        body: Any = None,
+        request_id: str | None = None,
+    ) -> GatewayResponse | None:
+        try:
+            return self.call(
+                method, path, token=token, query=query, body=body, request_id=request_id
+            )
+        except Exception:
+            # What the real bridge does with a route that raises instead of answering.
+            self.raised.append((method, path))
+            return None
+
 
 class FakeServices:
     """What the machine answers about a unit: its journal and that it can be restarted."""
@@ -81,6 +124,21 @@ class FakeServices:
 
     def __init__(self, verbose: bool = False) -> None:
         pass
+
+    def _systemctl(self, verb: str, name: str) -> bool:
+        # Through the runner, as the real one does: in a plan that is the rehearsal's own, which
+        # writes the order down and runs nothing.
+        get_runner().run(["systemctl", verb, f"{name}.service"], timeout=30)
+        return True
+
+    def restart(self, name: str) -> bool:
+        return self._systemctl("restart", name)
+
+    def stop(self, name: str) -> bool:
+        return self._systemctl("stop", name)
+
+    def start(self, name: str) -> bool:
+        return self._systemctl("start", name)
 
     def logs(self, name: str, lines: int = 100) -> str:
         return FakeServices.journal

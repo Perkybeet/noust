@@ -161,3 +161,21 @@ class TestTheDocumentation:
         docs = DocIndex([tmp_path / "nowhere"])
         assert docs.available is False
         assert docs.search("anything") == []
+
+
+def test_the_plan_the_assistant_reads_is_the_one_each_operation_really_publishes() -> None:
+    # The pair, end to end: what the API's own document says of every operation that has a plan
+    # (the one registry of them) is what a proposal is given to show before a person approves.
+    import json
+    from pathlib import Path
+
+    from noust.core.assistant.opsearch import plan_of
+    from noust.core.plans.registry import PLANNED
+
+    document = json.loads(
+        (Path(__file__).resolve().parent.parent / "panel" / "openapi.json").read_text("utf-8")
+    )
+    assert PLANNED
+    for planned in PLANNED:
+        operation = document["paths"][planned.path][planned.method.lower()]
+        assert plan_of(operation) == f"{planned.plan_method} {planned.plan_path}", planned.key

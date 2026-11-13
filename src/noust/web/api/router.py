@@ -133,6 +133,9 @@ from noust.web.api.openapi import router as openapi_router
 from noust.web.api.operations import router as operations_router
 from noust.web.api.overview import router as overview_router
 from noust.web.api.passkeys import router as passkeys_router
+from noust.web.api.plans import certs_router as certs_plans_router
+from noust.web.api.plans import docker_router as docker_plans_router
+from noust.web.api.plans import router as plans_router
 from noust.web.api.previews import router as previews_router
 from noust.web.api.private_access import networks_router as private_networks_router
 from noust.web.api.private_access import router as private_access_router
@@ -338,6 +341,10 @@ router.include_router(diagnose_router, prefix="/apps", tags=["Applications"])
 # Same composition: deployments.py's actions on one deployment are under
 # "/{domain}/deployments/{id}/", which apps.py does not define.
 router.include_router(deployment_actions_router, prefix="/apps", tags=["Deployments"])
+# "See what it will do" (item 183): the plan of an operation, under the application it is about.
+router.include_router(plans_router, prefix="/apps", tags=["Plans"])
+router.include_router(certs_plans_router, prefix="/certs", tags=["Plans"])
+router.include_router(docker_plans_router, prefix="/docker", tags=["Plans"])
 # Same composition: domains.py owns only paths under "/{domain}/domains".
 router.include_router(domains_router, prefix="/apps", tags=["Domains"])
 # domains.py's second router: a DNS check with no application yet, for the

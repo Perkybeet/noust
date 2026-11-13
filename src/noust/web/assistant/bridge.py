@@ -19,6 +19,8 @@ a network is held to it again and the allowed-hosts check sees the same host.
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
+import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol
@@ -29,6 +31,8 @@ from noust.web.auth import get_client_ip, is_secure_request
 from noust.web.mcp.gateway import GatewayResponse, call_api
 
 __all__ = ["ApiBridge", "LoopBridge"]
+
+logger = logging.getLogger(__name__)
 
 #: The longest one call of the API may take.
 CALL_TIMEOUT = 120.0
@@ -60,6 +64,32 @@ class ApiBridge(Protocol):
 
         Returns:
             What the API answered.
+        """
+        ...
+
+    def attempt(
+        self,
+        method: str,
+        path: str,
+        *,
+        token: str,
+        query: Sequence[tuple[str, str]] = (),
+        body: Any = None,
+        request_id: str | None = None,
+    ) -> GatewayResponse | None:
+        """
+        Make one call the turn can go on without.
+
+        Args:
+            method: The HTTP method.
+            path: The route, from ``/api`` on, parameters in place.
+            token: The assistant's token for the conversation.
+            query: The query pairs.
+            body: A JSON body, or None.
+            request_id: What the audit trail joins what the call records by.
+
+        Returns:
+            What the API answered; None when the route raised instead of answering.
         """
         ...
 
@@ -127,7 +157,70 @@ class LoopBridge:
         Returns:
             What the API answered.
         """
-        pending = asyncio.run_coroutine_threadsafe(
+        return self._submit(method, path, token, query, body, request_id).result(
+            timeout=CALL_TIMEOUT
+        )
+
+    def attempt(
+        self,
+        method: str,
+        path: str,
+        *,
+        token: str,
+        query: Sequence[tuple[str, str]] = (),
+        body: Any = None,
+        request_id: str | None = None,
+    ) -> GatewayResponse | None:
+        """
+        Make one call a turn can go on without, such as reading what a proposal would do.
+
+        A route that fails answers 500 through the error contract; one that raises past it is a fault of
+        that route, and a turn is not where it is paid for: it is written down with its traceback, and
+        the turn goes on without what the call would have said.
+
+        Args:
+            method: The HTTP method.
+            path: The route, from ``/api`` on.
+            token: The assistant's token.
+            query: The query pairs.
+            body: A JSON body, or None.
+            request_id: The correlation identifier of the call.
+
+        Returns:
+            What the API answered; None when the call raised instead of answering.
+
+        Raises:
+            TimeoutError: The call did not end in time.
+        """
+        pending = self._submit(method, path, token, query, body, request_id)
+        fault = pending.exception(timeout=CALL_TIMEOUT)
+        if fault is not None:
+            logger.error("%s %s raised instead of answering", method, path, exc_info=fault)
+            return None
+        return pending.result()
+
+    def _submit(
+        self,
+        method: str,
+        path: str,
+        token: str,
+        query: Sequence[tuple[str, str]],
+        body: Any,
+        request_id: str | None,
+    ) -> concurrent.futures.Future[GatewayResponse]:
+        """
+        Args:
+            method: The HTTP method.
+            path: The route, from ``/api`` on.
+            token: The assistant's token.
+            query: The query pairs.
+            body: A JSON body, or None.
+            request_id: The correlation identifier of the call.
+
+        Returns:
+            The call, handed to the application's event loop.
+        """
+        return asyncio.run_coroutine_threadsafe(
             call_api(
                 self.app,
                 method,
@@ -143,7 +236,6 @@ class LoopBridge:
             ),
             self.loop,
         )
-        return pending.result(timeout=CALL_TIMEOUT)
 
 
 def _mapping(pairs: Sequence[tuple[str, str]]) -> Mapping[str, str]:

@@ -92,7 +92,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import IO, Any, Literal
 
-from noust.core import paths
+from noust.core import paths, rehearsal_scope
 from noust.core.exceptions import ConfigError, NoustError
 from noust.core.fd_wait import wait_readable
 
@@ -4411,7 +4411,7 @@ def get_runner() -> CommandRunner:
     global _default_runner
     if _default_runner is None:
         _default_runner = SubprocessRunner()
-    return _default_runner
+    return rehearsal_scope.current_runner() or _default_runner
 
 
 def set_runner(runner: CommandRunner | None) -> None:

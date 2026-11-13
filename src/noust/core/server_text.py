@@ -2304,6 +2304,192 @@ CATALOG: dict[str, str] = {
     "assistant.turn.failed.hint": "Ask again. If it happens every time, the log of the console says why.",
     "assistant.turn.too_long": "This answer took longer than {minutes} minutes, so the assistant stopped",
     "assistant.turn.too_long.hint": "Ask again with a narrower question, or look at it by hand.",
+    # -- What an operation would do, before it does it (noust.core.plans, noust.deployers.plans).
+    # What would stop it: the reason is the operation's own sentence, said as it said it.
+    "plans.blocked.refused": "It would be refused: {reason}",
+    "plans.blocked.refused.hint": "{fix}",
+    "plans.blocked.refused_plain": "It would be refused: {reason}",
+    "plans.blocked.nothing_new": "{branch} has nothing new since {live}, which is live",
+    "plans.blocked.nothing_new.hint": (
+        "Updating with force rebuilds the same commit, which makes sense when the environment or "
+        "the dependencies changed, or when the last build broke."
+    ),
+    "plans.blocked.busy": "{operation} is running on {domain} since {since}",
+    "plans.blocked.busy.hint": "Wait for it to end, or look at it in the jobs, and ask again.",
+    # What it will ask for when it is applied.
+    "plans.confirm.frozen": "Deploys of {domain} are frozen until {until}: {reason}",
+    "plans.confirm.frozen_open": "Deploys of {domain} are frozen until somebody lifts it: {reason}",
+    "plans.confirm.schema_changed": (
+        "Going back to {target} of {domain} passes {count} deployments that changed the database "
+        "schema: {deployments}"
+    ),
+    "plans.confirm.schema_changed.hint": (
+        "Noust puts the code back, never the database: the older code runs against the schema "
+        "those deployments left. Restore the database from a backup first, or confirm that the "
+        "older code works with the new schema."
+    ),
+    # What it would do, for whoever looks.
+    "plans.update.release": (
+        "Builds {domain} from {branch} as a new release and switches to it once it answers the "
+        "startup check. The release that serves now stays on disk to go back to."
+    ),
+    "plans.update.in_place": (
+        "Pulls {branch} into the directory {domain} runs from, rebuilds it there and restarts it "
+        "behind the startup check. What was built before is replaced by the new build."
+    ),
+    "plans.update.exact": (
+        "Deploys {what} of {domain} and switches to it once it answers the startup check."
+    ),
+    "plans.update.containers": (
+        "Pulls the images of {domain} again and recreates the containers that changed, one "
+        "startup check after the other."
+    ),
+    "plans.rollback.instant": (
+        "Switches {domain} back to release {release}, which is already on disk, without building "
+        "anything. If it does not answer the startup check, release {previous} serves again."
+    ),
+    "plans.rollback.rebuild": (
+        "Builds commit {commit} of {domain} again where it runs and restarts it behind the "
+        "startup check."
+    ),
+    "plans.rollback.unavailable": (
+        "Going back to deployment {deployment} of {domain} is not possible now"
+    ),
+    "plans.rollback.snapshot": (
+        "Restores the files of {domain} from backup {backup} after taking a safety backup, "
+        "rebuilds it and restarts it behind the startup check."
+    ),
+    # What the plan found out by looking.
+    "plans.found.upstream_new": (
+        "{branch} has moved on: {domain} runs {live} and the repository is at {remote}"
+    ),
+    "plans.found.database_stays": (
+        "The database does not go back: Noust puts code back and never data"
+    ),
+    "plans.found.serving_now": "Release {release} serves now",
+    # What the plan does not know.
+    "plans.unknown.build": (
+        "Which install and build commands run, whether they pass and how long they take: they come "
+        "from the repository's own files and scripts, which making a plan does not fetch or run"
+    ),
+    "plans.unknown.new_code": (
+        "What the new code changes: whether it asks for new variables, runs a migration or alters "
+        "the database schema is in code that has not been fetched"
+    ),
+    "plans.unknown.health": (
+        "Whether the new version answers the startup check ({check}): it does not exist yet. If it "
+        "does not, the version that serves now comes back"
+    ),
+    "plans.unknown.health_older": (
+        "Whether the older version still answers the startup check ({check}) with what the "
+        "application holds now. If it does not, the version that serves now comes back"
+    ),
+    "plans.unknown.rebuild": (
+        "Whether building commit {commit} again passes: it is the repository's own script, and "
+        "making a plan does not run it"
+    ),
+    "plans.unknown.readback": (
+        "A plan does not keep what the operation records along the way, so a step that reads it "
+        "back (a site that lists a name just added) is shown as it is now"
+    ),
+    "plans.unknown.stopped": (
+        "The plan ends here: what follows depends on what the earlier steps would have produced. "
+        "The operation said: {reason}"
+    ),
+    "plans.unknown.remote": (
+        "Which commits would come in: the repository could not be asked in time ({reason})"
+    ),
+    "plans.limits.restart": (
+        "Gives {domain} these limits (memory {memory}, CPU {cpu}, tasks {tasks}) by rewriting its "
+        "unit and restarting it behind the startup check. If it does not answer under them, the "
+        "old limits come back."
+    ),
+    "plans.limits.no_restart": (
+        "Gives {domain} these limits (memory {memory}, CPU {cpu}, tasks {tasks}) by rewriting its "
+        "unit. The processes that run now keep the limits they started with until it restarts."
+    ),
+    "plans.cert.renew": (
+        "Asks the certificate authority to renew the certificate of {domain} with certbot, which "
+        "does it only when it is near its expiry, and reloads the web server when it is renewed."
+    ),
+    "plans.cert.renew_forced": (
+        "Asks the certificate authority to renew the certificate of {domain} with certbot even "
+        "though it is not near its expiry, and reloads the web server when it is renewed."
+    ),
+    "plans.domain.add": (
+        "Makes {domain} answer on {name} as well: it records the name, rewrites the site and "
+        "reloads the web server. If the site serves TLS, extending the certificate is a job of "
+        "its own."
+    ),
+    "plans.domain.remove": (
+        "Stops {domain} answering on {name}: it rewrites the site and reloads the web server. The "
+        "certificate is left alone and nothing is revoked."
+    ),
+    "plans.delete.app": "Deletes {domain}: its service, its site and its record go.",
+    "plans.service.restart": (
+        "Restarts {domain}: its service stops and starts again, so it may not answer for a few "
+        "seconds."
+    ),
+    "plans.service.stop": (
+        "Stops {domain}: it does not answer until somebody starts it again. Its files and data "
+        "stay."
+    ),
+    "plans.service.start": "Starts the service of {domain}.",
+    "plans.found.delete_files_kept": (
+        "The directory of {domain} stays on disk: files are only removed when asked for"
+    ),
+    "plans.found.delete_certificate_kept": (
+        "The certificate of {domain} stays: it is only removed when asked for"
+    ),
+    "plans.found.delete_volumes_kept": (
+        "The Docker volumes of {domain} stay, with its data: they are only removed when asked for"
+    ),
+    "plans.found.delete_database_kept": (
+        "The database {database} stays: a database is only dropped when asked for, and never when "
+        "another application uses it"
+    ),
+    "plans.found.delete_database_dropped": "The database {database} is dropped after a last dump",
+    "plans.unknown.health_limits": (
+        "Whether the application answers the startup check ({check}) under the new limits. If it "
+        "does not, the old limits come back"
+    ),
+    "plans.unknown.authority": (
+        "Whether the certificate authority accepts the renewal of {domain}: it checks from the "
+        "internet that the name points to this server, and a plan does not ask it"
+    ),
+    "plans.unknown.dns": (
+        "Whether {name} points to this server: the DNS answers that, and the certificate "
+        "authority needs it"
+    ),
+    "plans.unknown.service_health": (
+        "Whether {domain} answers once it runs: nothing checks it afterwards, as an update does"
+    ),
+    "plans.docker.cleanup": (
+        "Removes the {count} things that were chosen from the plan of the cleanup, each through the "
+        "gate that judges whose it is once more. It touches nothing else."
+    ),
+    "plans.migrate.app": (
+        "Moves {domain} onto releases: the unit is stopped while the tree moves, the first release "
+        "({release}) is made from what is on disk, and the application must answer the health "
+        "check on the new layout, or everything is put back."
+    ),
+    "plans.found.migrate_persistent": "{count} paths move to the shared directory and stay there",
+    "plans.found.migrate_untracked": (
+        "{count} files that git does not track stay in the first release only"
+    ),
+    "plans.found.migrate_warning": "{warning}",
+    "plans.unknown.docker_owner": (
+        "Whether something outside Noust waits for what goes: Noust judges whose each thing is, "
+        "not who needs it"
+    ),
+    "plans.unknown.migrate_steps": (
+        "The commands of the move are not simulated one by one: a rehearsal says what it would move "
+        "and rewrite, and the startup check on the new layout is the one thing it cannot ask"
+    ),
+    "plans.unknown.probes_skipped": (
+        "{count} looks at the server were not made because the plan ran out of time: what "
+        "depends on them may differ"
+    ),
 }
 
 

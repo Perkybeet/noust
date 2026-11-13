@@ -561,6 +561,7 @@ class HealthGate:
             delay=self._delay,
             on_attempt=self._note_attempt,
             within=self._within,
+            describe=check.describe(),
         )
         if healthy:
             return True, ""

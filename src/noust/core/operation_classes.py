@@ -39,6 +39,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from noust.core.permission_catalog import ALL_PERMISSIONS, PUBLIC, Permission
+from noust.core.plans.registry import plan_routes
 
 READ = "read"
 ACTION = "action"
@@ -187,6 +188,10 @@ READS_BY_POST: dict[tuple[str, str], str] = {
     ("POST", "/api/sites/{domain}/structure"): "Parses a site's configuration into its structure.",
     ("POST", "/api/streams/plan"): "Plans a change and says what it would do.",
 }
+
+#: What every plan of an operation is (item 183): the routes listed in :mod:`noust.core.plans.registry`
+#: read what the operation would change, and are never an action whatever the verb.
+READS_BY_POST.update(dict.fromkeys(plan_routes(), "Plans an operation and says what it would do."))
 
 #: A route of a read permission whose body can make it a write is judged, when it does, by the permission
 #: of the write. Keyed by the four-eyes rule that spots that body (:mod:`noust.core.accounts.approvals`).

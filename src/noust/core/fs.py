@@ -32,6 +32,8 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from pathlib import Path
 
+from noust.core import rehearsal_scope
+
 #: Mode for anything that holds a credential: config, tokens, .env files,
 #: database dumps and the store.
 SECRET_MODE = 0o600
@@ -602,7 +604,9 @@ _default_fs: FileSystem | None = None
 
 def get_fs() -> FileSystem:
     """
-    Return the process-wide filesystem, creating the real one on first use.
+    Return the filesystem of the rehearsal this context is inside, else the process-wide one.
+
+    The process-wide one is created, real, on first use.
 
     Returns:
         The active filesystem.
@@ -610,7 +614,7 @@ def get_fs() -> FileSystem:
     global _default_fs
     if _default_fs is None:
         _default_fs = RealFileSystem()
-    return _default_fs
+    return rehearsal_scope.current_filesystem() or _default_fs
 
 
 def set_fs(filesystem: FileSystem | None) -> None:

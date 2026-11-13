@@ -3028,6 +3028,14 @@ DeclarationResponse = TypedDict("DeclarationResponse", {
     "domain": Required[str],
 })
 
+DeletePlanRequest = TypedDict("DeletePlanRequest", {
+    "remove_adopted_directory": NotRequired[Union[str, None]],
+    "remove_databases": NotRequired[bool],
+    "remove_files": NotRequired[bool],
+    "remove_ssl": NotRequired[bool],
+    "remove_volumes": NotRequired[bool],
+})
+
 DeleteRequest = TypedDict("DeleteRequest", {
     "domain": Required[str],
     "remove_adopted_directory": NotRequired[Union[str, None]],
@@ -4158,6 +4166,17 @@ DomainCertificateRequest = TypedDict("DomainCertificateRequest", {
 
 DomainEnabledRequest = TypedDict("DomainEnabledRequest", {
     "enabled": Required[bool],
+})
+
+DomainPlanRequest = TypedDict("DomainPlanRequest", {
+    "certificate": NotRequired[Union[str, None]],
+    "challenge": NotRequired[Union[str, None]],
+    "dns": NotRequired[bool],
+    "dns_provider": NotRequired[Union[str, None]],
+    "domain": Required[str],
+    "force": NotRequired[bool],
+    "kind": NotRequired[str],
+    "port": NotRequired[Union[int, None]],
 })
 
 DomainPortRequest = TypedDict("DomainPortRequest", {
@@ -6309,6 +6328,13 @@ LimitValuesResponse = TypedDict("LimitValuesResponse", {
     "tasks": NotRequired[Union[int, None]],
 })
 
+LimitsPlanRequest = TypedDict("LimitsPlanRequest", {
+    "cpu_quota_percent": NotRequired[Union[int, None]],
+    "memory_max_mb": NotRequired[Union[int, None]],
+    "restart": NotRequired[bool],
+    "tasks_max": NotRequired[Union[int, None]],
+})
+
 LimitsResponse = TypedDict("LimitsResponse", {
     "cpu_quota_percent": NotRequired[Union[int, None]],
     "domain": Required[str],
@@ -6719,6 +6745,10 @@ MetricsResponse = TypedDict("MetricsResponse", {
     "process_count": Required[int],
     "swap_percent": Required[float],
     "uptime_seconds": Required[float],
+})
+
+MigratePlanRequest = TypedDict("MigratePlanRequest", {
+    "persist": NotRequired[Union[list[str], None]],
 })
 
 MigratePlanResponse = TypedDict("MigratePlanResponse", {
@@ -7541,6 +7571,39 @@ PlacementStatusOut = TypedDict("PlacementStatusOut", {
     "servers": Required[list["ServerStatusOut"]],
 })
 
+PlanCommandOut = TypedDict("PlanCommandOut", {
+    "argv": Required[list[str]],
+    "check": NotRequired[bool],
+    "cwd": NotRequired[Union[str, None]],
+    "probe": Required[bool],
+    "runs_as": NotRequired[Union[str, None]],
+    "seconds": NotRequired[Union[float, None]],
+    "step": NotRequired[Union[str, None]],
+    "text": Required[str],
+    "writes_to": NotRequired[Union[str, None]],
+})
+
+PlanConfirmationOut = TypedDict("PlanConfirmationOut", {
+    "field": Required[str],
+    "kind": Required[str],
+    "sentence": Required["PlanSentence"],
+})
+
+PlanDiffLineOut = TypedDict("PlanDiffLineOut", {
+    "kind": Required[Literal["same", "add", "del"]],
+    "text": Required[str],
+})
+
+PlanFileOut = TypedDict("PlanFileOut", {
+    "change": Required[str],
+    "destination": NotRequired[Union[str, None]],
+    "lines": NotRequired[list["PlanDiffLineOut"]],
+    "path": Required[str],
+    "reason": NotRequired[Union[str, None]],
+    "shown": Required[str],
+    "truncated": NotRequired[bool],
+})
+
 PlanInfo = TypedDict("PlanInfo", {
     "disable": Required[list[str]],
     "effects": Required[list["EffectInfo"]],
@@ -7551,8 +7614,42 @@ PlanInfo = TypedDict("PlanInfo", {
     "warnings": Required[list["WarningInfo"]],
 })
 
+PlanNeedsOut = TypedDict("PlanNeedsOut", {
+    "approval": NotRequired[bool],
+    "confirmations": NotRequired[list["PlanConfirmationOut"]],
+    "elevation": NotRequired[bool],
+})
+
+PlanOutModel = TypedDict("PlanOutModel", {
+    "asked_remote": NotRequired[bool],
+    "blocked": NotRequired[Union["PlanSentence", None]],
+    "commands": NotRequired[list["PlanCommandOut"]],
+    "effect": Required["PlanSentence"],
+    "files": NotRequired[list["PlanFileOut"]],
+    "findings": NotRequired[list["PlanSentence"]],
+    "needs": NotRequired["PlanNeedsOut"],
+    "omitted": NotRequired[int],
+    "operation": Required[str],
+    "steps": NotRequired[list["PlanStepOut"]],
+    "subject": NotRequired[Union[str, None]],
+    "unknown": NotRequired[list["PlanSentence"]],
+})
+
 PlanRequest = TypedDict("PlanRequest", {
     "manifest": Required[str],
+})
+
+PlanSentence = TypedDict("PlanSentence", {
+    "code": Required[str],
+    "hint": NotRequired[Union[str, None]],
+    "params": NotRequired[dict[str, Union[bool, int, float, str]]],
+    "text": Required[str],
+})
+
+PlanStepOut = TypedDict("PlanStepOut", {
+    "commands": NotRequired[list[int]],
+    "key": Required[str],
+    "title": Required[str],
 })
 
 PlannedChange = TypedDict("PlannedChange", {
@@ -9102,6 +9199,10 @@ RenewCertRequest = TypedDict("RenewCertRequest", {
     "force": NotRequired[bool],
 })
 
+RenewPlanRequest = TypedDict("RenewPlanRequest", {
+    "force": NotRequired[bool],
+})
+
 ReplicaConfirmRequest = TypedDict("ReplicaConfirmRequest", {
     "confirm": NotRequired[bool],
 })
@@ -9421,6 +9522,10 @@ RolesReviewRole = TypedDict("RolesReviewRole", {
     "name": Required[str],
     "protected": Required[bool],
     "running": NotRequired[list[str]],
+})
+
+RollbackPlanRequest = TypedDict("RollbackPlanRequest", {
+    "schema_changed_ok": NotRequired[bool],
 })
 
 RollbackPointOut = TypedDict("RollbackPointOut", {
@@ -12082,6 +12187,16 @@ UpdateManyResponse = TypedDict("UpdateManyResponse", {
     "message": Required[str],
     "queued": Required[int],
     "skipped": Required[int],
+})
+
+UpdatePlanRequest = TypedDict("UpdatePlanRequest", {
+    "commit": NotRequired[Union[str, None]],
+    "force": NotRequired[bool],
+    "frozen_ok": NotRequired[bool],
+    "image_tag": NotRequired[Union[str, None]],
+    "no_cache": NotRequired[bool],
+    "pull_request": NotRequired[Union[int, None]],
+    "tag": NotRequired[Union[str, None]],
 })
 
 UpdateRequest = TypedDict("UpdateRequest", {

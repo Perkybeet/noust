@@ -1,6 +1,6 @@
 # Deploys: without downtime, in a queue, from the right commit
 
-Part of [Releases](releases.md).
+Part of [Releases](releases.md). Before an update or a rollback, [see what it will do](plans.md).
 
 ## Zero downtime by default
 

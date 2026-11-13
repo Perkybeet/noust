@@ -47,6 +47,7 @@ AREAS: dict[str, str] = {
     "console": "the console as a program: the machine it is developed on, how it is published, its headers and its proxies",
     "central": "a central as a machine: its role, what it can do, its container image, deploying on it and what it runs on a schedule",
     "assistant": "the built-in assistant: its provider, its limits, what it masks, its token, its conversations and its floor",
+    "plans": "what an operation would do before it does it: the rehearsal that makes a plan, the plan of each operation and the list of those that have one",
 }
 
 

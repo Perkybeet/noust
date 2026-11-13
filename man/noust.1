@@ -9187,6 +9187,9 @@ Also drop the databases that belong to the application and that no other applica
 .B \-\-remove\-adopted\-directory
 Also remove the application's directory when it is outside Noust's apps directory (an adopted stack). Name it exactly; without this it is kept.
 .TP
+.B \-\-plan
+Print what the deletion would remove and what it would leave, and do nothing.
+.TP
 .B \-v, \-\-verbose
 Show the detail of each step.
 .TP
@@ -17246,6 +17249,9 @@ Deploy although deploys are frozen for the application (noust deploy freeze). A 
 .TP
 .B \-\-build\-only
 Build the release and leave it waiting, not serving: nothing is activated, no hook runs and nothing restarts. Make it serve later, without building it again, with 'noust releases promote'. Only for an application on the releases layout.
+.TP
+.B \-\-plan
+Print what the update would run and change, and what it cannot know, and do nothing. The same as the console's 'See what it will do'.
 .TP
 .B \-v, \-\-verbose
 Show the detail of each step.

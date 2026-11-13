@@ -1859,6 +1859,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/delete/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan App Delete
+         * @description Say what deleting an application would delete and what it would leave, without doing it.
+         *
+         *     Args:
+         *         domain: The application's domain.
+         *         request: The request.
+         *         session: The authenticated session or token.
+         *         body: What to remove besides the application itself; nothing else by default.
+         *
+         *     Returns:
+         *         The plan: what it would stop, remove and rewrite, and in its findings what stays.
+         */
+        post: operations["plan_app_delete_api_apps__domain__delete_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/deletion": {
         parameters: {
             query?: never;
@@ -2200,6 +2229,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/deployments/{deployment_id}/rollback/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan App Rollback
+         * @description Say what going back to a deployment would do, without doing it.
+         *
+         *     Which version serves again and how (a release already on disk, a commit built again, a backup
+         *     restored), that the database does not go back and whether going back passes a migration, which
+         *     applying it will ask to confirm.
+         *
+         *     Args:
+         *         domain: The application's domain.
+         *         deployment_id: The deployment to go back to.
+         *         request: The request.
+         *         session: The authenticated session or token.
+         *         body: Accepted and ignored: the plan says what has to be confirmed.
+         *
+         *     Returns:
+         *         The plan; one that cannot be gone back to says why in ``blocked``.
+         */
+        post: operations["plan_app_rollback_api_apps__domain__deployments__deployment_id__rollback_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/diagnose": {
         parameters: {
             query?: never;
@@ -2474,6 +2537,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/domains/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan App Domain Add
+         * @description Say what making an application answer on another name would do, without doing it.
+         *
+         *     Args:
+         *         domain: The application's primary domain.
+         *         body: The name and how, as ``POST /api/apps/{domain}/domains`` takes them.
+         *         request: The request.
+         *         session: The authenticated session or token.
+         *
+         *     Returns:
+         *         The plan: the site it would rewrite and the web server it would reload.
+         */
+        post: operations["plan_app_domain_add_api_apps__domain__domains_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/domains/{name}": {
         parameters: {
             query?: never;
@@ -2603,6 +2695,35 @@ export interface paths {
          */
         put: operations["put_domain_enabled_api_apps__domain__domains__name__enabled_put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/domains/{name}/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan App Domain Remove
+         * @description Say what stopping an application answering on a name would do, without doing it.
+         *
+         *     Args:
+         *         domain: The application's primary domain.
+         *         name: The alias or redirect to remove.
+         *         request: The request.
+         *         session: The authenticated session or token.
+         *
+         *     Returns:
+         *         The plan: the site it would rewrite and the web server it would reload.
+         */
+        post: operations["plan_app_domain_remove_api_apps__domain__domains__name__plan_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3654,6 +3775,38 @@ export interface paths {
         patch: operations["update_app_limits_api_apps__domain__limits_patch"];
         trace?: never;
     };
+    "/api/apps/{domain}/limits/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan App Limits
+         * @description Say what giving an application these limits would do, without doing it.
+         *
+         *     Args:
+         *         domain: The application's domain.
+         *         body: The limits, as ``PATCH /api/apps/{domain}/limits`` takes them.
+         *         request: The request.
+         *         session: The authenticated session or token.
+         *
+         *     Returns:
+         *         The plan: the unit it would rewrite, with the diff of the file, and the restart when asked.
+         *
+         *     Raises:
+         *         ValidationError: A limit is out of range (400, with the range).
+         */
+        post: operations["plan_app_limits_api_apps__domain__limits_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/logs": {
         parameters: {
             query?: never;
@@ -3793,7 +3946,27 @@ export interface paths {
          */
         get: operations["get_migration_plan_api_apps__domain__migrate_plan_get"];
         put?: never;
-        post?: never;
+        /**
+         * Plan App Migration
+         * @description Say what moving an application onto releases would do, in the one shape of every plan.
+         *
+         *     ``GET /api/apps/{domain}/migrate/plan`` keeps its own answer, the paths and the rewrites of the
+         *     move; this is the same plan as the operation's rehearsal says it, with what it cannot know.
+         *
+         *     Args:
+         *         domain: The application's domain.
+         *         request: The request.
+         *         session: The authenticated session or token.
+         *         body: Paths to keep in ``shared/``, when the detection is not wanted.
+         *
+         *     Returns:
+         *         The plan.
+         *
+         *     Raises:
+         *         HTTPException: 409 when the application is on releases already.
+         *         ValidationError: A path is not inside the application.
+         */
+        post: operations["plan_app_migration_api_apps__domain__migrate_plan_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5864,6 +6037,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/restart/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan App Restart
+         * @description Say what restarting an application would do, without doing it.
+         *
+         *     Args:
+         *         domain: The application's domain.
+         *         request: The request.
+         *         session: The authenticated session or token.
+         *
+         *     Returns:
+         *         The plan: the units it would restart and the commands to do it.
+         */
+        post: operations["plan_app_restart_api_apps__domain__restart_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/restore-drills": {
         parameters: {
             query?: never;
@@ -6547,6 +6748,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/start/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan App Start
+         * @description Say what starting an application would do, without doing it.
+         *
+         *     Args:
+         *         domain: The application's domain.
+         *         request: The request.
+         *         session: The authenticated session or token.
+         *
+         *     Returns:
+         *         The plan: the units it would start and the commands to do it.
+         */
+        post: operations["plan_app_start_api_apps__domain__start_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/stop": {
         parameters: {
             query?: never;
@@ -6568,6 +6797,34 @@ export interface paths {
          *         The action outcome.
          */
         post: operations["stop_app_api_apps__domain__stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/stop/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan App Stop
+         * @description Say what stopping an application would do, without doing it.
+         *
+         *     Args:
+         *         domain: The application's domain.
+         *         request: The request.
+         *         session: The authenticated session or token.
+         *
+         *     Returns:
+         *         The plan: the units it would stop and the commands to do it.
+         */
+        post: operations["plan_app_stop_api_apps__domain__stop_plan_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6804,6 +7061,44 @@ export interface paths {
          *         HTTPException: 404 when the application is unknown.
          */
         delete: operations["delete_update_schedule_api_apps__domain__update_schedule_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/update/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan App Update
+         * @description Say what updating an application would do, without doing it.
+         *
+         *     The commands in the order they would run, the files they would write and the diff of each, what
+         *     is serving now and what has come in upstream (``git ls-remote``: nothing is downloaded, and it
+         *     has a deadline), what applying it will ask to confirm and, said as such, what a plan cannot
+         *     know: whether the build passes, how long it takes and what the new code changes.
+         *
+         *     Args:
+         *         domain: The application's domain.
+         *         request: The request.
+         *         session: The authenticated session or token.
+         *         body: What the update would be asked to do; an empty body is an update of the branch.
+         *
+         *     Returns:
+         *         The plan.
+         *
+         *     Raises:
+         *         ValidationError: A field the plan does not cover (``image_tag``, ``pull_request``) was
+         *             given.
+         */
+        post: operations["plan_app_update_api_apps__domain__update_plan_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -12793,6 +13088,39 @@ export interface paths {
          *         HTTPException: 404 when no such certificate exists.
          */
         post: operations["renew_certificate_api_certs__domain__renew_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/certs/{domain}/renew/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan Certificate Renewal
+         * @description Say what renewing a certificate would do, without doing it.
+         *
+         *     Args:
+         *         domain: The certificate's name.
+         *         request: The request.
+         *         session: The authenticated session or token.
+         *         body: Renewal options, as ``POST /api/certs/{domain}/renew`` takes them.
+         *
+         *     Returns:
+         *         The plan: the ``certbot`` commands it would run. Whether the authority accepts the renewal
+         *         is said as what a plan cannot know.
+         *
+         *     Raises:
+         *         HTTPException: 404 when no such certificate exists.
+         */
+        post: operations["plan_certificate_renewal_api_certs__domain__renew_plan_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19554,7 +19882,22 @@ export interface paths {
          */
         get: operations["get_cleanup_plan_api_docker_cleanup_plan_get"];
         put?: never;
-        post?: never;
+        /**
+         * Plan Docker Cleanup Route
+         * @description Say what applying a cleanup plan, as it was shown, would run, without running it.
+         *
+         *     ``GET /api/docker/cleanup/plan`` says what would go and what stays; this says which commands
+         *     removing what was chosen would run, through the gate that judges whose each thing is.
+         *
+         *     Args:
+         *         body: The token of the plan that was shown, the ids chosen and the volume names typed.
+         *         request: The request.
+         *         session: The authenticated session or token.
+         *
+         *     Returns:
+         *         The plan; a plan that is no longer the one that was shown says it would be refused.
+         */
+        post: operations["plan_docker_cleanup_route_api_docker_cleanup_plan_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -44604,6 +44947,41 @@ export interface components {
             domain: string;
         };
         /**
+         * DeletePlanRequest
+         * @description The query parameters of ``DELETE /api/apps/{domain}`` and the body of ``POST /api/jobs/delete``.
+         */
+        DeletePlanRequest: {
+            /**
+             * Remove Adopted Directory
+             * @description The directory of an adopted stack, named to remove it
+             */
+            remove_adopted_directory?: string | null;
+            /**
+             * Remove Databases
+             * @description Also drop its own databases
+             * @default false
+             */
+            remove_databases: boolean;
+            /**
+             * Remove Files
+             * @description Also remove the application directory
+             * @default false
+             */
+            remove_files: boolean;
+            /**
+             * Remove Ssl
+             * @description Also remove its certificate
+             * @default false
+             */
+            remove_ssl: boolean;
+            /**
+             * Remove Volumes
+             * @description Also remove its Docker volumes
+             * @default false
+             */
+            remove_volumes: boolean;
+        };
+        /**
          * DeleteRequest
          * @description Request to delete an application.
          */
@@ -48452,6 +48830,41 @@ export interface components {
         DomainEnabledRequest: {
             /** Enabled */
             enabled: boolean;
+        };
+        /**
+         * DomainPlanRequest
+         * @description The body of ``POST /api/apps/{domain}/domains``; ``domain`` is the name to add.
+         */
+        DomainPlanRequest: {
+            /** Certificate */
+            certificate?: string | null;
+            /** Challenge */
+            challenge?: string | null;
+            /**
+             * Dns
+             * @default true
+             */
+            dns: boolean;
+            /** Dns Provider */
+            dns_provider?: string | null;
+            /**
+             * Domain
+             * @description The name to add
+             */
+            domain: string;
+            /**
+             * Force
+             * @default false
+             */
+            force: boolean;
+            /**
+             * Kind
+             * @description alias or redirect
+             * @default alias
+             */
+            kind: string;
+            /** Port */
+            port?: number | null;
         };
         /**
          * DomainPortRequest
@@ -54879,6 +55292,33 @@ export interface components {
             tasks?: number | null;
         };
         /**
+         * LimitsPlanRequest
+         * @description The body of ``PATCH /api/apps/{domain}/limits``: the three limits, set together.
+         */
+        LimitsPlanRequest: {
+            /**
+             * Cpu Quota Percent
+             * @description CPUQuota; null: no limit
+             */
+            cpu_quota_percent?: number | null;
+            /**
+             * Memory Max Mb
+             * @description MemoryMax, in MB; null: no limit
+             */
+            memory_max_mb?: number | null;
+            /**
+             * Restart
+             * @description Restart now, behind the health check
+             * @default false
+             */
+            restart: boolean;
+            /**
+             * Tasks Max
+             * @description TasksMax; null: no limit
+             */
+            tasks_max?: number | null;
+        };
+        /**
          * LimitsResponse
          * @description The limits an application has now.
          *
@@ -56088,6 +56528,17 @@ export interface components {
             swap_percent: number;
             /** Uptime Seconds */
             uptime_seconds: number;
+        };
+        /**
+         * MigratePlanRequest
+         * @description The body of ``POST /api/apps/{domain}/migrate``.
+         */
+        MigratePlanRequest: {
+            /**
+             * Persist
+             * @description Paths to keep in shared/, relative to the application. Omitted: what git does not track, or the usual upload directories
+             */
+            persist?: string[] | null;
         };
         /**
          * MigratePlanResponse
@@ -58535,6 +58986,113 @@ export interface components {
             servers: components["schemas"]["ServerStatusOut"][];
         };
         /**
+         * PlanCommandOut
+         * @description One command of a plan, as it would run.
+         *
+         *     Attributes:
+         *         argv: The argument vector, redacted: no secret is in it.
+         *         text: The command as it would be typed.
+         *         probe: It only looks.
+         *         cwd: The directory it runs in, when it is not the process's.
+         *         runs_as: The account it runs as, or ``sandbox:<account>``.
+         *         step: The key of its step, when the operation has steps.
+         *         writes_to: The file whose content it captures (a dump).
+         *         check: Not a process: a check Noust asks itself of the application after the change. The
+         *             plan does not ask it.
+         *         seconds: The longest a check waits.
+         */
+        PlanCommandOut: {
+            /** Argv */
+            argv: string[];
+            /**
+             * Check
+             * @default false
+             */
+            check: boolean;
+            /** Cwd */
+            cwd?: string | null;
+            /** Probe */
+            probe: boolean;
+            /** Runs As */
+            runs_as?: string | null;
+            /** Seconds */
+            seconds?: number | null;
+            /** Step */
+            step?: string | null;
+            /** Text */
+            text: string;
+            /** Writes To */
+            writes_to?: string | null;
+        };
+        /**
+         * PlanConfirmationOut
+         * @description Something the operation asks to confirm before it goes ahead.
+         *
+         *     Attributes:
+         *         kind: ``schema_changed`` or ``frozen``.
+         *         sentence: What is confirmed.
+         *         field: The field of the request that gives the confirmation.
+         */
+        PlanConfirmationOut: {
+            /** Field */
+            field: string;
+            /** Kind */
+            kind: string;
+            sentence: components["schemas"]["PlanSentence"];
+        };
+        /**
+         * PlanDiffLineOut
+         * @description One line of a file's change.
+         *
+         *     Attributes:
+         *         kind: ``same`` (context), ``add`` or ``del``.
+         *         text: The line, masked; for a file of variables, only a name.
+         */
+        PlanDiffLineOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "same" | "add" | "del";
+            /** Text */
+            text: string;
+        };
+        /**
+         * PlanFileOut
+         * @description One path the operation would change.
+         *
+         *     Attributes:
+         *         path: Where.
+         *         change: ``create``, ``modify``, ``delete``, ``move``, ``copy``, ``link``, ``mkdir`` or
+         *             ``meta`` (its mode or owner).
+         *         shown: What ``lines`` is: ``diff`` of the text, ``names`` of the variables (a file of
+         *             variables never shows a value) or ``none``.
+         *         lines: The change, when it is shown.
+         *         truncated: The change is longer than what is shown.
+         *         reason: Why nothing is shown, when nothing is: ``secret``, ``binary``, ``large`` or
+         *             ``unreadable``.
+         *         destination: The other end of a move, a copy or a link.
+         */
+        PlanFileOut: {
+            /** Change */
+            change: string;
+            /** Destination */
+            destination?: string | null;
+            /** Lines */
+            lines?: components["schemas"]["PlanDiffLineOut"][];
+            /** Path */
+            path: string;
+            /** Reason */
+            reason?: string | null;
+            /** Shown */
+            shown: string;
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
+        };
+        /**
          * PlanInfo
          * @description What a change would do, before it is made.
          *
@@ -58566,6 +59124,80 @@ export interface components {
             warnings: components["schemas"]["WarningInfo"][];
         };
         /**
+         * PlanNeedsOut
+         * @description What applying the operation asks of whoever applies it.
+         *
+         *     Attributes:
+         *         elevation: Sudo mode, which a plan never asks for.
+         *         approval: A second person approves the call.
+         *         confirmations: What the request itself confirms.
+         */
+        PlanNeedsOut: {
+            /**
+             * Approval
+             * @default false
+             */
+            approval: boolean;
+            /** Confirmations */
+            confirmations?: components["schemas"]["PlanConfirmationOut"][];
+            /**
+             * Elevation
+             * @default false
+             */
+            elevation: boolean;
+        };
+        /**
+         * PlanOutModel
+         * @description What an operation would do, before it does it.
+         *
+         *     Nothing was executed to make it: a command that only looks was asked, in order that the plan
+         *     does not report fiction, and nothing else.
+         *
+         *     Attributes:
+         *         operation: Which operation (``app.update``).
+         *         subject: What it is done to.
+         *         effect: What changes, in a sentence.
+         *         commands: What would run, in order, probes included.
+         *         files: What would change on disk.
+         *         steps: The phases, when the operation has them.
+         *         findings: What the plan found out by looking.
+         *         unknown: What the plan does not know, as sentences. A plan is a statement of what Noust
+         *             would do and of what it cannot promise.
+         *         needs: What applying it asks for.
+         *         blocked: Why it would be refused now, when it would.
+         *         asked_remote: It asked a repository or a registry, over the network and within a deadline.
+         *         omitted: How many commands and files were left out for the plan's size.
+         */
+        PlanOutModel: {
+            /**
+             * Asked Remote
+             * @default false
+             */
+            asked_remote: boolean;
+            blocked?: components["schemas"]["PlanSentence"] | null;
+            /** Commands */
+            commands?: components["schemas"]["PlanCommandOut"][];
+            effect: components["schemas"]["PlanSentence"];
+            /** Files */
+            files?: components["schemas"]["PlanFileOut"][];
+            /** Findings */
+            findings?: components["schemas"]["PlanSentence"][];
+            needs?: components["schemas"]["PlanNeedsOut"];
+            /**
+             * Omitted
+             * @default 0
+             */
+            omitted: number;
+            /** Operation */
+            operation: string;
+            /** Steps */
+            steps?: components["schemas"]["PlanStepOut"][];
+            /** Subject */
+            subject?: string | null;
+            /** Unknown */
+            unknown?: components["schemas"]["PlanSentence"][];
+        };
+        /**
          * PlanRequest
          * @description Request to preview a manifest.
          */
@@ -58575,6 +59207,44 @@ export interface components {
              * @description The manifest, as YAML or JSON
              */
             manifest: string;
+        };
+        /**
+         * PlanSentence
+         * @description A sentence of a plan: a code and its values for the console to say in its language, beside the
+         *     English that the command line and a client with no catalog show.
+         *
+         *     Attributes:
+         *         text: The sentence in English.
+         *         hint: How to fix it in English, when the sentence has a fix.
+         */
+        PlanSentence: {
+            /** Code */
+            code: string;
+            /** Hint */
+            hint?: string | null;
+            /** Params */
+            params?: {
+                [key: string]: boolean | number | string;
+            };
+            /** Text */
+            text: string;
+        };
+        /**
+         * PlanStepOut
+         * @description A phase the operation announces, with its commands.
+         *
+         *     Attributes:
+         *         key: Its position in the operation.
+         *         title: What the operation calls it, as it says it while it runs.
+         *         commands: Which of the plan's commands belong to it, by position.
+         */
+        PlanStepOut: {
+            /** Commands */
+            commands?: number[];
+            /** Key */
+            key: string;
+            /** Title */
+            title: string;
         };
         /**
          * PlannedChange
@@ -63527,6 +64197,18 @@ export interface components {
             force: boolean;
         };
         /**
+         * RenewPlanRequest
+         * @description The body of ``POST /api/certs/{domain}/renew``.
+         */
+        RenewPlanRequest: {
+            /**
+             * Force
+             * @description Renew although it is not near its expiry
+             * @default false
+             */
+            force: boolean;
+        };
+        /**
          * ReplicaConfirmRequest
          * @description The operator's acceptance of a promotion.
          *
@@ -64578,6 +65260,21 @@ export interface components {
             protected: boolean;
             /** Running */
             running?: string[];
+        };
+        /**
+         * RollbackPlanRequest
+         * @description The body of ``POST /api/apps/{domain}/deployments/{deployment_id}/rollback``.
+         *
+         *     ``schema_changed_ok`` is accepted and ignored: the plan says whether going back passes a
+         *     migration, and applying it asks for that confirmation.
+         */
+        RollbackPlanRequest: {
+            /**
+             * Schema Changed Ok
+             * @description Accepted and ignored: see above
+             * @default false
+             */
+            schema_changed_ok: boolean;
         };
         /**
          * RollbackPointOut
@@ -72936,6 +73633,54 @@ export interface components {
             skipped: number;
         };
         /**
+         * UpdatePlanRequest
+         * @description What an update would be asked to do: the body of ``POST /api/jobs/update`` and of
+         *     ``POST /api/apps/{domain}/deploy`` without the application, which is in the path.
+         *
+         *     A field the plan does not use (``frozen_ok``: the plan always says whether a freeze has to be
+         *     confirmed) is accepted and ignored, so the operation's own body can be sent as it is.
+         */
+        UpdatePlanRequest: {
+            /**
+             * Commit
+             * @description Deploy exactly this commit
+             */
+            commit?: string | null;
+            /**
+             * Force
+             * @description Rebuild even when the branch has nothing new
+             * @default false
+             */
+            force: boolean;
+            /**
+             * Frozen Ok
+             * @description Accepted and ignored: see above
+             * @default false
+             */
+            frozen_ok: boolean;
+            /**
+             * Image Tag
+             * @description Not planned yet: a plan that is given one is refused
+             */
+            image_tag?: string | null;
+            /**
+             * No Cache
+             * @description Build from scratch; implies force
+             * @default false
+             */
+            no_cache: boolean;
+            /**
+             * Pull Request
+             * @description Not planned yet: a plan that is given one is refused
+             */
+            pull_request?: number | null;
+            /**
+             * Tag
+             * @description Deploy the commit this tag points at
+             */
+            tag?: string | null;
+        };
+        /**
          * UpdateRequest
          * @description Request to update an application.
          */
@@ -79621,6 +80366,41 @@ export interface operations {
             };
         };
     };
+    plan_app_delete_api_apps__domain__delete_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DeletePlanRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOutModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_deletion_plan_api_apps__domain__deletion_get: {
         parameters: {
             query?: never;
@@ -79984,6 +80764,42 @@ export interface operations {
             };
         };
     };
+    plan_app_rollback_api_apps__domain__deployments__deployment_id__rollback_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                deployment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RollbackPlanRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOutModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     diagnose_app_api_apps__domain__diagnose_get: {
         parameters: {
             query?: never;
@@ -80314,6 +81130,41 @@ export interface operations {
             };
         };
     };
+    plan_app_domain_add_api_apps__domain__domains_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DomainPlanRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOutModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     delete_domain_api_apps__domain__domains__name__delete: {
         parameters: {
             query?: never;
@@ -80437,6 +81288,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AppDomainChange"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_app_domain_remove_api_apps__domain__domains__name__plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOutModel"];
                 };
             };
             /** @description Validation Error */
@@ -81624,6 +82507,41 @@ export interface operations {
             };
         };
     };
+    plan_app_limits_api_apps__domain__limits_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LimitsPlanRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOutModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_app_logs_api_apps__domain__logs_get: {
         parameters: {
             query?: {
@@ -81745,6 +82663,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MigrationPlanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_app_migration_api_apps__domain__migrate_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["MigratePlanRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOutModel"];
                 };
             };
             /** @description Validation Error */
@@ -84204,6 +85157,37 @@ export interface operations {
             };
         };
     };
+    plan_app_restart_api_apps__domain__restart_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOutModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_drills_api_apps__domain__restore_drills_get: {
         parameters: {
             query?: {
@@ -84965,6 +85949,37 @@ export interface operations {
             };
         };
     };
+    plan_app_start_api_apps__domain__start_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOutModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     stop_app_api_apps__domain__stop_post: {
         parameters: {
             query?: never;
@@ -84983,6 +85998,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AppActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_app_stop_api_apps__domain__stop_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOutModel"];
                 };
             };
             /** @description Validation Error */
@@ -85283,6 +86329,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UpdateScheduleOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_app_update_api_apps__domain__update_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["UpdatePlanRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOutModel"];
                 };
             };
             /** @description Validation Error */
@@ -91336,6 +92417,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_certificate_renewal_api_certs__domain__renew_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RenewPlanRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOutModel"];
                 };
             };
             /** @description Validation Error */
@@ -99001,6 +100117,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DockerCleanupPlanOut"];
+                };
+            };
+        };
+    };
+    plan_docker_cleanup_route_api_docker_cleanup_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DockerCleanupRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOutModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

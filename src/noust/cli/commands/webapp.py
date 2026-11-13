@@ -2691,6 +2691,14 @@ def restart(ctx: Context, domain: str) -> None:
     "runs and nothing restarts. Make it serve later, without building it again, with "
     "'noust releases promote'. Only for an application on the releases layout.",
 )
+@click.option(
+    "--plan",
+    "show_plan",
+    is_flag=True,
+    default=False,
+    help="Print what the update would run and change, and what it cannot know, and do nothing. "
+    "The same as the console's 'See what it will do'.",
+)
 @global_flags
 @pass_context
 def update(
@@ -2706,6 +2714,7 @@ def update(
     no_cache: bool,
     during_freeze: bool,
     build_only: bool,
+    show_plan: bool,
 ) -> None:
     """
     Pull the latest code, rebuild and restart an application.
@@ -2732,6 +2741,14 @@ def update(
         raise click.UsageError(
             "--build-only builds the branch or a --commit: not with --tag or -s."
         )
+    if show_plan:
+        if source is not None or branch is not None or build_only:
+            raise click.UsageError("--plan covers the update of the branch, --commit and --tag.")
+        from noust.cli.plan_output import show
+        from noust.deployers.plans.update import plan_update
+
+        show(plan_update(domain, force=force, no_cache=no_cache, commit=commit, tag=tag))
+        return
     _exit(
         _update_app(
             domain,
@@ -2777,6 +2794,13 @@ def update(
     help="Also remove the application's directory when it is outside Noust's apps directory "
     "(an adopted stack). Name it exactly; without this it is kept.",
 )
+@click.option(
+    "--plan",
+    "show_plan",
+    is_flag=True,
+    default=False,
+    help="Print what the deletion would remove and what it would leave, and do nothing.",
+)
 @global_flags
 @pass_context
 def delete(
@@ -2788,6 +2812,7 @@ def delete(
     remove_volumes: bool,
     remove_databases: bool,
     remove_adopted_directory: str | None,
+    show_plan: bool,
 ) -> None:
     """
     Delete an application and everything deployed with it.
@@ -2802,6 +2827,21 @@ def delete(
     --remove-adopted-directory names it. A site adopted with 'noust app
     adopt-site' is only forgotten: its unit, site, certificate and files stay.
     """
+    if show_plan:
+        from noust.cli.plan_output import show
+        from noust.deployers.plans.delete import plan_delete
+
+        show(
+            plan_delete(
+                domain,
+                remove_files=not keep_files,
+                remove_ssl=not keep_certificate,
+                remove_volumes=remove_volumes,
+                remove_databases=remove_databases,
+                remove_adopted_directory=remove_adopted_directory,
+            )
+        )
+        return
     _exit(
         _delete_app(
             domain,

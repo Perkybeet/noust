@@ -76,3 +76,36 @@ def test_the_assistants_bridge_says_it_is_the_assistant() -> None:
 @pytest.mark.parametrize("header", ["noust-assistant", "noust-assistant/1", "noust-mcp"])
 def test_what_noust_calls_itself_is_never_listed_as_a_client_of_a_credential(header: str) -> None:
     assert parse_user_agent(header) is None
+
+
+def raising_app(scope: dict[str, Any], receive: Any, send: Any) -> Any:
+    async def app() -> None:
+        raise LookupError("a fault of the route")
+
+    return app()
+
+
+def test_a_call_the_turn_can_go_on_without_says_nothing_when_its_route_raises(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # Reading what a proposal would do is such a call: a route that raises instead of answering is
+    # written down with what it raised, and the turn is handed nothing rather than the fault.
+    seen: list[dict[bytes, bytes]] = []
+    loop = asyncio.new_event_loop()
+    thread = threading.Thread(target=loop.run_forever, daemon=True)
+    thread.start()
+    try:
+        broken = LoopBridge(app=raising_app, loop=loop, client_host="127.0.0.1", host="h")
+        with caplog.at_level("ERROR", logger="noust.web.assistant.bridge"):
+            assert broken.attempt("POST", "/api/x/plan", token="noust_example_token") is None
+        with pytest.raises(LookupError):
+            broken.call("POST", "/api/x/plan", token="noust_example_token")
+        whole = LoopBridge(app=recording_app(seen), loop=loop, client_host="127.0.0.1", host="h")
+        answer = whole.attempt("GET", "/api/x", token="noust_example_token")
+        assert answer is not None and answer.status == 200
+    finally:
+        loop.call_soon_threadsafe(loop.stop)
+        thread.join(timeout=5)
+        loop.close()
+    [record] = [r for r in caplog.records if "raised instead of answering" in r.getMessage()]
+    assert record.exc_info is not None and record.exc_info[0] is LookupError

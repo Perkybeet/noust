@@ -14,7 +14,7 @@ from email.message import Message
 from typing import IO
 from urllib.error import HTTPError, URLError
 
-from noust.core import tls_policy
+from noust.core import rehearsal_scope, tls_policy
 from noust.core.runner import CommandResult
 
 #: A local HTTP request that has not answered in this long is not going to.
@@ -148,6 +148,19 @@ def _poll(
     return False
 
 
+def _waits(retries: int, delay: float, within: float | None) -> float:
+    """
+    Args:
+        retries: Most attempts a poll makes.
+        delay: Seconds between them.
+        within: The wall-clock time the poll may take, when it is bounded by time.
+
+    Returns:
+        The longest the poll waits for an answer, which is what a plan says.
+    """
+    return within if within is not None else retries * delay
+
+
 def wait_until_healthy(
     url: str,
     *,
@@ -186,8 +199,12 @@ def wait_until_healthy(
             connection is still to the URL's own address.
 
     Returns:
-        True when the endpoint answered as required.
+        True when the endpoint answered as required. Inside a plan there is no application to ask
+        (the release it would ask about was never built): the request is kept, in its place among
+        the commands, and the answer is yes.
     """
+    if rehearsal_scope.note_check((method, url), seconds=_waits(retries, delay, within)):
+        return True
     opener = _probe_opener(url, follow_redirects=accept is None)
     # A plain URL is what every probe has always been; a Request only where
     # the check asks for another method or a host name.
@@ -243,6 +260,7 @@ def wait_until_command_succeeds(
     within: float | None = None,
     clock: Callable[[], float] | None = None,
     sleep: Callable[[float], None] | None = None,
+    describe: str = "command check",
 ) -> bool:
     """
     Run a command until it exits 0, the attempts run out or time is up.
@@ -259,10 +277,14 @@ def wait_until_command_succeeds(
         within: Seconds of wall-clock time the whole poll may take.
         clock: Monotonic time source; :func:`time.monotonic` when None.
         sleep: How to pause; :func:`time.sleep` when None.
+        describe: What the check is, as a plan says it.
 
     Returns:
-        True when the command succeeded.
+        True when the command succeeded. Inside a plan the command is not run, as with
+        :func:`wait_until_healthy`.
     """
+    if rehearsal_scope.note_check((describe,), seconds=_waits(retries, delay, within)):
+        return True
     counted = 0
 
     def attempt(probe_timeout: float) -> bool:

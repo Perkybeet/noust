@@ -1273,8 +1273,10 @@ class TurnRunner:
         if prepared.server:
             path = proxy_path(prepared.server, path)
         assert self.token is not None  # noqa: S101 - set before any tool runs
+        # A plan is what a proposal shows when it has one: a proposal without it is still the exact
+        # call, so nothing that goes wrong reading a plan stops the turn.
         try:
-            response = self.ctx.bridge.call(
+            response = self.ctx.bridge.attempt(
                 method,
                 path,
                 token=self.token.token,
@@ -1283,6 +1285,8 @@ class TurnRunner:
             )
         except (OSError, RuntimeError, TimeoutError) as exc:
             logger.info("The plan of %s could not be read: %s", prepared.template, exc)
+            return None
+        if response is None:
             return None
         decoded = response.json()
         if response.status >= 400 or not isinstance(decoded, dict):

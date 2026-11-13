@@ -17894,6 +17894,49 @@
         "title": "DeclarationResponse",
         "type": "object"
       },
+      "DeletePlanRequest": {
+        "description": "The query parameters of ``DELETE /api/apps/{domain}`` and the body of ``POST /api/jobs/delete``.",
+        "properties": {
+          "remove_adopted_directory": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The directory of an adopted stack, named to remove it",
+            "title": "Remove Adopted Directory"
+          },
+          "remove_databases": {
+            "default": false,
+            "description": "Also drop its own databases",
+            "title": "Remove Databases",
+            "type": "boolean"
+          },
+          "remove_files": {
+            "default": false,
+            "description": "Also remove the application directory",
+            "title": "Remove Files",
+            "type": "boolean"
+          },
+          "remove_ssl": {
+            "default": false,
+            "description": "Also remove its certificate",
+            "title": "Remove Ssl",
+            "type": "boolean"
+          },
+          "remove_volumes": {
+            "default": false,
+            "description": "Also remove its Docker volumes",
+            "title": "Remove Volumes",
+            "type": "boolean"
+          }
+        },
+        "title": "DeletePlanRequest",
+        "type": "object"
+      },
       "DeleteRequest": {
         "description": "Request to delete an application.",
         "properties": {
@@ -24290,6 +24333,81 @@
           "enabled"
         ],
         "title": "DomainEnabledRequest",
+        "type": "object"
+      },
+      "DomainPlanRequest": {
+        "description": "The body of ``POST /api/apps/{domain}/domains``; ``domain`` is the name to add.",
+        "properties": {
+          "certificate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certificate"
+          },
+          "challenge": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Challenge"
+          },
+          "dns": {
+            "default": true,
+            "title": "Dns",
+            "type": "boolean"
+          },
+          "dns_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dns Provider"
+          },
+          "domain": {
+            "description": "The name to add",
+            "title": "Domain",
+            "type": "string"
+          },
+          "force": {
+            "default": false,
+            "title": "Force",
+            "type": "boolean"
+          },
+          "kind": {
+            "default": "alias",
+            "description": "alias or redirect",
+            "title": "Kind",
+            "type": "string"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          }
+        },
+        "required": [
+          "domain"
+        ],
+        "title": "DomainPlanRequest",
         "type": "object"
       },
       "DomainPortRequest": {
@@ -36271,6 +36389,55 @@
         "title": "LimitValuesResponse",
         "type": "object"
       },
+      "LimitsPlanRequest": {
+        "description": "The body of ``PATCH /api/apps/{domain}/limits``: the three limits, set together.",
+        "properties": {
+          "cpu_quota_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "CPUQuota; null: no limit",
+            "title": "Cpu Quota Percent"
+          },
+          "memory_max_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "MemoryMax, in MB; null: no limit",
+            "title": "Memory Max Mb"
+          },
+          "restart": {
+            "default": false,
+            "description": "Restart now, behind the health check",
+            "title": "Restart",
+            "type": "boolean"
+          },
+          "tasks_max": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "TasksMax; null: no limit",
+            "title": "Tasks Max"
+          }
+        },
+        "title": "LimitsPlanRequest",
+        "type": "object"
+      },
       "LimitsResponse": {
         "description": "The limits an application has now.\n\nAttributes:\n    domain: The application's domain.\n    memory_max_mb: Memory limit in MB, or None.\n    cpu_quota_percent: CPU quota in percent of one CPU, or None.\n    tasks_max: Task limit, or None.\n    units: The units rewritten.\n    restarted: Whether they were restarted.\n    restart_required: Whether the running processes still have the old\n        limits until they are restarted.",
         "properties": {
@@ -38555,6 +38722,28 @@
           "uptime_seconds"
         ],
         "title": "MetricsResponse",
+        "type": "object"
+      },
+      "MigratePlanRequest": {
+        "description": "The body of ``POST /api/apps/{domain}/migrate``.",
+        "properties": {
+          "persist": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Paths to keep in shared/, relative to the application. Omitted: what git does not track, or the usual upload directories",
+            "title": "Persist"
+          }
+        },
+        "title": "MigratePlanRequest",
         "type": "object"
       },
       "MigratePlanResponse": {
@@ -43237,6 +43426,199 @@
         "title": "PlacementStatusOut",
         "type": "object"
       },
+      "PlanCommandOut": {
+        "description": "One command of a plan, as it would run.\n\nAttributes:\n    argv: The argument vector, redacted: no secret is in it.\n    text: The command as it would be typed.\n    probe: It only looks.\n    cwd: The directory it runs in, when it is not the process's.\n    runs_as: The account it runs as, or ``sandbox:<account>``.\n    step: The key of its step, when the operation has steps.\n    writes_to: The file whose content it captures (a dump).\n    check: Not a process: a check Noust asks itself of the application after the change. The\n        plan does not ask it.\n    seconds: The longest a check waits.",
+        "properties": {
+          "argv": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Argv",
+            "type": "array"
+          },
+          "check": {
+            "default": false,
+            "title": "Check",
+            "type": "boolean"
+          },
+          "cwd": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cwd"
+          },
+          "probe": {
+            "title": "Probe",
+            "type": "boolean"
+          },
+          "runs_as": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runs As"
+          },
+          "seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seconds"
+          },
+          "step": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "writes_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Writes To"
+          }
+        },
+        "required": [
+          "argv",
+          "text",
+          "probe"
+        ],
+        "title": "PlanCommandOut",
+        "type": "object"
+      },
+      "PlanConfirmationOut": {
+        "description": "Something the operation asks to confirm before it goes ahead.\n\nAttributes:\n    kind: ``schema_changed`` or ``frozen``.\n    sentence: What is confirmed.\n    field: The field of the request that gives the confirmation.",
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "sentence": {
+            "$ref": "#/components/schemas/PlanSentence"
+          }
+        },
+        "required": [
+          "kind",
+          "sentence",
+          "field"
+        ],
+        "title": "PlanConfirmationOut",
+        "type": "object"
+      },
+      "PlanDiffLineOut": {
+        "description": "One line of a file's change.\n\nAttributes:\n    kind: ``same`` (context), ``add`` or ``del``.\n    text: The line, masked; for a file of variables, only a name.",
+        "properties": {
+          "kind": {
+            "enum": [
+              "same",
+              "add",
+              "del"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "text"
+        ],
+        "title": "PlanDiffLineOut",
+        "type": "object"
+      },
+      "PlanFileOut": {
+        "description": "One path the operation would change.\n\nAttributes:\n    path: Where.\n    change: ``create``, ``modify``, ``delete``, ``move``, ``copy``, ``link``, ``mkdir`` or\n        ``meta`` (its mode or owner).\n    shown: What ``lines`` is: ``diff`` of the text, ``names`` of the variables (a file of\n        variables never shows a value) or ``none``.\n    lines: The change, when it is shown.\n    truncated: The change is longer than what is shown.\n    reason: Why nothing is shown, when nothing is: ``secret``, ``binary``, ``large`` or\n        ``unreadable``.\n    destination: The other end of a move, a copy or a link.",
+        "properties": {
+          "change": {
+            "title": "Change",
+            "type": "string"
+          },
+          "destination": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Destination"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/PlanDiffLineOut"
+            },
+            "maxItems": 200,
+            "title": "Lines",
+            "type": "array"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "shown": {
+            "title": "Shown",
+            "type": "string"
+          },
+          "truncated": {
+            "default": false,
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "path",
+          "change",
+          "shown"
+        ],
+        "title": "PlanFileOut",
+        "type": "object"
+      },
       "PlanInfo": {
         "description": "What a change would do, before it is made.\n\nAttributes:\n    enable: Frameworks that will be turned on.\n    disable: Frameworks that will be turned off.\n    settings: Control to the value its setting will hold.\n    enabled_after: The frameworks on afterwards.\n    effects: The controls whose value in force changes.\n    loosens: Whether anything protects less afterwards, which asks sudo mode.\n    warnings: What a person must acknowledge.",
         "properties": {
@@ -43297,6 +43679,123 @@
         "title": "PlanInfo",
         "type": "object"
       },
+      "PlanNeedsOut": {
+        "description": "What applying the operation asks of whoever applies it.\n\nAttributes:\n    elevation: Sudo mode, which a plan never asks for.\n    approval: A second person approves the call.\n    confirmations: What the request itself confirms.",
+        "properties": {
+          "approval": {
+            "default": false,
+            "title": "Approval",
+            "type": "boolean"
+          },
+          "confirmations": {
+            "items": {
+              "$ref": "#/components/schemas/PlanConfirmationOut"
+            },
+            "maxItems": 10,
+            "title": "Confirmations",
+            "type": "array"
+          },
+          "elevation": {
+            "default": false,
+            "title": "Elevation",
+            "type": "boolean"
+          }
+        },
+        "title": "PlanNeedsOut",
+        "type": "object"
+      },
+      "PlanOutModel": {
+        "description": "What an operation would do, before it does it.\n\nNothing was executed to make it: a command that only looks was asked, in order that the plan\ndoes not report fiction, and nothing else.\n\nAttributes:\n    operation: Which operation (``app.update``).\n    subject: What it is done to.\n    effect: What changes, in a sentence.\n    commands: What would run, in order, probes included.\n    files: What would change on disk.\n    steps: The phases, when the operation has them.\n    findings: What the plan found out by looking.\n    unknown: What the plan does not know, as sentences. A plan is a statement of what Noust\n        would do and of what it cannot promise.\n    needs: What applying it asks for.\n    blocked: Why it would be refused now, when it would.\n    asked_remote: It asked a repository or a registry, over the network and within a deadline.\n    omitted: How many commands and files were left out for the plan's size.",
+        "properties": {
+          "asked_remote": {
+            "default": false,
+            "title": "Asked Remote",
+            "type": "boolean"
+          },
+          "blocked": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlanSentence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "commands": {
+            "items": {
+              "$ref": "#/components/schemas/PlanCommandOut"
+            },
+            "maxItems": 400,
+            "title": "Commands",
+            "type": "array"
+          },
+          "effect": {
+            "$ref": "#/components/schemas/PlanSentence"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/PlanFileOut"
+            },
+            "maxItems": 200,
+            "title": "Files",
+            "type": "array"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/PlanSentence"
+            },
+            "maxItems": 50,
+            "title": "Findings",
+            "type": "array"
+          },
+          "needs": {
+            "$ref": "#/components/schemas/PlanNeedsOut"
+          },
+          "omitted": {
+            "default": 0,
+            "title": "Omitted",
+            "type": "integer"
+          },
+          "operation": {
+            "title": "Operation",
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/PlanStepOut"
+            },
+            "maxItems": 100,
+            "title": "Steps",
+            "type": "array"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject"
+          },
+          "unknown": {
+            "items": {
+              "$ref": "#/components/schemas/PlanSentence"
+            },
+            "maxItems": 50,
+            "title": "Unknown",
+            "type": "array"
+          }
+        },
+        "required": [
+          "operation",
+          "effect"
+        ],
+        "title": "PlanOutModel",
+        "type": "object"
+      },
       "PlanRequest": {
         "description": "Request to preview a manifest.",
         "properties": {
@@ -43311,6 +43810,83 @@
           "manifest"
         ],
         "title": "PlanRequest",
+        "type": "object"
+      },
+      "PlanSentence": {
+        "description": "A sentence of a plan: a code and its values for the console to say in its language, beside the\nEnglish that the command line and a client with no catalog show.\n\nAttributes:\n    text: The sentence in English.\n    hint: How to fix it in English, when the sentence has a fix.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "params": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Params",
+            "type": "object"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "text"
+        ],
+        "title": "PlanSentence",
+        "type": "object"
+      },
+      "PlanStepOut": {
+        "description": "A phase the operation announces, with its commands.\n\nAttributes:\n    key: Its position in the operation.\n    title: What the operation calls it, as it says it while it runs.\n    commands: Which of the plan's commands belong to it, by position.",
+        "properties": {
+          "commands": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 400,
+            "title": "Commands",
+            "type": "array"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "title"
+        ],
+        "title": "PlanStepOut",
         "type": "object"
       },
       "PlannedChange": {
@@ -52533,6 +53109,19 @@
         "title": "RenewCertRequest",
         "type": "object"
       },
+      "RenewPlanRequest": {
+        "description": "The body of ``POST /api/certs/{domain}/renew``.",
+        "properties": {
+          "force": {
+            "default": false,
+            "description": "Renew although it is not near its expiry",
+            "title": "Force",
+            "type": "boolean"
+          }
+        },
+        "title": "RenewPlanRequest",
+        "type": "object"
+      },
       "ReplicaConfirmRequest": {
         "description": "The operator's acceptance of a promotion.\n\nAttributes:\n    confirm: The operator accepts that this replica stops following its primary.",
         "properties": {
@@ -54220,6 +54809,19 @@
           "joins_duties"
         ],
         "title": "RolesReviewRole",
+        "type": "object"
+      },
+      "RollbackPlanRequest": {
+        "description": "The body of ``POST /api/apps/{domain}/deployments/{deployment_id}/rollback``.\n\n``schema_changed_ok`` is accepted and ignored: the plan says whether going back passes a\nmigration, and applying it asks for that confirmation.",
+        "properties": {
+          "schema_changed_ok": {
+            "default": false,
+            "description": "Accepted and ignored: see above",
+            "title": "Schema Changed Ok",
+            "type": "boolean"
+          }
+        },
+        "title": "RollbackPlanRequest",
         "type": "object"
       },
       "RollbackPointOut": {
@@ -70018,6 +70620,79 @@
         "title": "UpdateManyResponse",
         "type": "object"
       },
+      "UpdatePlanRequest": {
+        "description": "What an update would be asked to do: the body of ``POST /api/jobs/update`` and of\n``POST /api/apps/{domain}/deploy`` without the application, which is in the path.\n\nA field the plan does not use (``frozen_ok``: the plan always says whether a freeze has to be\nconfirmed) is accepted and ignored, so the operation's own body can be sent as it is.",
+        "properties": {
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Deploy exactly this commit",
+            "title": "Commit"
+          },
+          "force": {
+            "default": false,
+            "description": "Rebuild even when the branch has nothing new",
+            "title": "Force",
+            "type": "boolean"
+          },
+          "frozen_ok": {
+            "default": false,
+            "description": "Accepted and ignored: see above",
+            "title": "Frozen Ok",
+            "type": "boolean"
+          },
+          "image_tag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Not planned yet: a plan that is given one is refused",
+            "title": "Image Tag"
+          },
+          "no_cache": {
+            "default": false,
+            "description": "Build from scratch; implies force",
+            "title": "No Cache",
+            "type": "boolean"
+          },
+          "pull_request": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Not planned yet: a plan that is given one is refused",
+            "title": "Pull Request"
+          },
+          "tag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Deploy the commit this tag points at",
+            "title": "Tag"
+          }
+        },
+        "title": "UpdatePlanRequest",
+        "type": "object"
+      },
       "UpdateRequest": {
         "description": "Request to update an application.",
         "properties": {
@@ -80073,6 +80748,11 @@
           "Applications"
         ],
         "x-noust-permission": "apps.manage",
+        "x-noust-plan": {
+          "method": "POST",
+          "operation": "app.delete",
+          "path": "/api/apps/{domain}/delete/plan"
+        },
         "x-noust-requires-elevation": true
       },
       "get": {
@@ -81870,6 +82550,67 @@
         "x-noust-permission": "secrets.reveal"
       }
     },
+    "/api/apps/{domain}/delete/plan": {
+      "post": {
+        "description": "Say what deleting an application would delete and what it would leave, without doing it.\n\nArgs:\n    domain: The application's domain.\n    request: The request.\n    session: The authenticated session or token.\n    body: What to remove besides the application itself; nothing else by default.\n\nReturns:\n    The plan: what it would stop, remove and rewrite, and in its findings what stays.",
+        "operationId": "plan_app_delete_api_apps__domain__delete_plan_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/DeletePlanRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanOutModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan App Delete",
+        "tags": [
+          "Plans"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
     "/api/apps/{domain}/deletion": {
       "get": {
         "description": "Say what deleting an application would touch. Changes nothing.\n\nThe volumes and the databases hold data, so the dialog that confirms a deletion shows them\nand lets the operator choose; this is what it shows: the same list the deletion walks.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The directory, whether it has Docker volumes, and each database with what would become\n    of it.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
@@ -81972,7 +82713,12 @@
         "tags": [
           "Applications"
         ],
-        "x-noust-permission": "apps.deploy"
+        "x-noust-permission": "apps.deploy",
+        "x-noust-plan": {
+          "method": "POST",
+          "operation": "app.update",
+          "path": "/api/apps/{domain}/update/plan"
+        }
       }
     },
     "/api/apps/{domain}/deploy-key": {
@@ -82436,7 +83182,82 @@
         "tags": [
           "Deployments"
         ],
-        "x-noust-permission": "apps.deploy"
+        "x-noust-permission": "apps.deploy",
+        "x-noust-plan": {
+          "method": "POST",
+          "operation": "app.rollback",
+          "path": "/api/apps/{domain}/deployments/{deployment_id}/rollback/plan"
+        }
+      }
+    },
+    "/api/apps/{domain}/deployments/{deployment_id}/rollback/plan": {
+      "post": {
+        "description": "Say what going back to a deployment would do, without doing it.\n\nWhich version serves again and how (a release already on disk, a commit built again, a backup\nrestored), that the database does not go back and whether going back passes a migration, which\napplying it will ask to confirm.\n\nArgs:\n    domain: The application's domain.\n    deployment_id: The deployment to go back to.\n    request: The request.\n    session: The authenticated session or token.\n    body: Accepted and ignored: the plan says what has to be confirmed.\n\nReturns:\n    The plan; one that cannot be gone back to says why in ``blocked``.",
+        "operationId": "plan_app_rollback_api_apps__domain__deployments__deployment_id__rollback_plan_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "deployment_id",
+            "required": true,
+            "schema": {
+              "title": "Deployment Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RollbackPlanRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanOutModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan App Rollback",
+        "tags": [
+          "Plans"
+        ],
+        "x-noust-permission": "apps.read"
       }
     },
     "/api/apps/{domain}/diagnose": {
@@ -82867,7 +83688,12 @@
         "tags": [
           "Domains"
         ],
-        "x-noust-permission": "apps.manage"
+        "x-noust-permission": "apps.manage",
+        "x-noust-plan": {
+          "method": "POST",
+          "operation": "app.domain.add",
+          "path": "/api/apps/{domain}/domains/plan"
+        }
       }
     },
     "/api/apps/{domain}/domains/canonical": {
@@ -82924,6 +83750,60 @@
         "x-noust-permission": "apps.manage"
       }
     },
+    "/api/apps/{domain}/domains/plan": {
+      "post": {
+        "description": "Say what making an application answer on another name would do, without doing it.\n\nArgs:\n    domain: The application's primary domain.\n    body: The name and how, as ``POST /api/apps/{domain}/domains`` takes them.\n    request: The request.\n    session: The authenticated session or token.\n\nReturns:\n    The plan: the site it would rewrite and the web server it would reload.",
+        "operationId": "plan_app_domain_add_api_apps__domain__domains_plan_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainPlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanOutModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan App Domain Add",
+        "tags": [
+          "Plans"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
     "/api/apps/{domain}/domains/{name}": {
       "delete": {
         "description": "Stop an application answering on a domain.\n\nThe site is re-rendered and reloaded before this returns. The certificate\nis left alone and nothing is revoked.\n\nArgs:\n    domain: The application's primary domain.\n    name: The alias or redirect to remove.\n    session: Authenticated and elevated session, injected.\n\nReturns:\n    The application's domains afterwards.",
@@ -82975,6 +83855,11 @@
           "Domains"
         ],
         "x-noust-permission": "apps.manage",
+        "x-noust-plan": {
+          "method": "POST",
+          "operation": "app.domain.remove",
+          "path": "/api/apps/{domain}/domains/{name}/plan"
+        },
         "x-noust-requires-elevation": true
       }
     },
@@ -83155,6 +84040,59 @@
           "Domains"
         ],
         "x-noust-permission": "apps.manage"
+      }
+    },
+    "/api/apps/{domain}/domains/{name}/plan": {
+      "post": {
+        "description": "Say what stopping an application answering on a name would do, without doing it.\n\nArgs:\n    domain: The application's primary domain.\n    name: The alias or redirect to remove.\n    request: The request.\n    session: The authenticated session or token.\n\nReturns:\n    The plan: the site it would rewrite and the web server it would reload.",
+        "operationId": "plan_app_domain_remove_api_apps__domain__domains__name__plan_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanOutModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan App Domain Remove",
+        "tags": [
+          "Plans"
+        ],
+        "x-noust-permission": "apps.read"
       }
     },
     "/api/apps/{domain}/domains/{name}/port": {
@@ -85008,7 +85946,66 @@
           "Applications"
         ],
         "x-noust-permission": "apps.manage",
+        "x-noust-plan": {
+          "method": "POST",
+          "operation": "app.limits",
+          "path": "/api/apps/{domain}/limits/plan"
+        },
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/limits/plan": {
+      "post": {
+        "description": "Say what giving an application these limits would do, without doing it.\n\nArgs:\n    domain: The application's domain.\n    body: The limits, as ``PATCH /api/apps/{domain}/limits`` takes them.\n    request: The request.\n    session: The authenticated session or token.\n\nReturns:\n    The plan: the unit it would rewrite, with the diff of the file, and the restart when asked.\n\nRaises:\n    ValidationError: A limit is out of range (400, with the range).",
+        "operationId": "plan_app_limits_api_apps__domain__limits_plan_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LimitsPlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanOutModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan App Limits",
+        "tags": [
+          "Plans"
+        ],
+        "x-noust-permission": "apps.read"
       }
     },
     "/api/apps/{domain}/logs": {
@@ -85182,6 +86179,11 @@
           "Applications"
         ],
         "x-noust-permission": "apps.manage",
+        "x-noust-plan": {
+          "method": "POST",
+          "operation": "app.migrate",
+          "path": "/api/apps/{domain}/migrate/plan"
+        },
         "x-noust-requires-elevation": true
       }
     },
@@ -85244,6 +86246,65 @@
         "summary": "Get Migration Plan",
         "tags": [
           "Applications"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "post": {
+        "description": "Say what moving an application onto releases would do, in the one shape of every plan.\n\n``GET /api/apps/{domain}/migrate/plan`` keeps its own answer, the paths and the rewrites of the\nmove; this is the same plan as the operation's rehearsal says it, with what it cannot know.\n\nArgs:\n    domain: The application's domain.\n    request: The request.\n    session: The authenticated session or token.\n    body: Paths to keep in ``shared/``, when the detection is not wanted.\n\nReturns:\n    The plan.\n\nRaises:\n    HTTPException: 409 when the application is on releases already.\n    ValidationError: A path is not inside the application.",
+        "operationId": "plan_app_migration_api_apps__domain__migrate_plan_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/MigratePlanRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanOutModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan App Migration",
+        "tags": [
+          "Plans"
         ],
         "x-noust-permission": "apps.read"
       }
@@ -89124,7 +90185,56 @@
         "tags": [
           "Applications"
         ],
-        "x-noust-permission": "apps.operate"
+        "x-noust-permission": "apps.operate",
+        "x-noust-plan": {
+          "method": "POST",
+          "operation": "app.restart",
+          "path": "/api/apps/{domain}/restart/plan"
+        }
+      }
+    },
+    "/api/apps/{domain}/restart/plan": {
+      "post": {
+        "description": "Say what restarting an application would do, without doing it.\n\nArgs:\n    domain: The application's domain.\n    request: The request.\n    session: The authenticated session or token.\n\nReturns:\n    The plan: the units it would restart and the commands to do it.",
+        "operationId": "plan_app_restart_api_apps__domain__restart_plan_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanOutModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan App Restart",
+        "tags": [
+          "Plans"
+        ],
+        "x-noust-permission": "apps.read"
       }
     },
     "/api/apps/{domain}/restore-drills": {
@@ -90301,7 +91411,56 @@
         "tags": [
           "Applications"
         ],
-        "x-noust-permission": "apps.operate"
+        "x-noust-permission": "apps.operate",
+        "x-noust-plan": {
+          "method": "POST",
+          "operation": "app.start",
+          "path": "/api/apps/{domain}/start/plan"
+        }
+      }
+    },
+    "/api/apps/{domain}/start/plan": {
+      "post": {
+        "description": "Say what starting an application would do, without doing it.\n\nArgs:\n    domain: The application's domain.\n    request: The request.\n    session: The authenticated session or token.\n\nReturns:\n    The plan: the units it would start and the commands to do it.",
+        "operationId": "plan_app_start_api_apps__domain__start_plan_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanOutModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan App Start",
+        "tags": [
+          "Plans"
+        ],
+        "x-noust-permission": "apps.read"
       }
     },
     "/api/apps/{domain}/stop": {
@@ -90345,7 +91504,56 @@
         "tags": [
           "Applications"
         ],
-        "x-noust-permission": "apps.operate"
+        "x-noust-permission": "apps.operate",
+        "x-noust-plan": {
+          "method": "POST",
+          "operation": "app.stop",
+          "path": "/api/apps/{domain}/stop/plan"
+        }
+      }
+    },
+    "/api/apps/{domain}/stop/plan": {
+      "post": {
+        "description": "Say what stopping an application would do, without doing it.\n\nArgs:\n    domain: The application's domain.\n    request: The request.\n    session: The authenticated session or token.\n\nReturns:\n    The plan: the units it would stop and the commands to do it.",
+        "operationId": "plan_app_stop_api_apps__domain__stop_plan_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanOutModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan App Stop",
+        "tags": [
+          "Plans"
+        ],
+        "x-noust-permission": "apps.read"
       }
     },
     "/api/apps/{domain}/tags": {
@@ -90808,6 +92016,67 @@
           "Applications"
         ],
         "x-noust-permission": "apps.manage"
+      }
+    },
+    "/api/apps/{domain}/update/plan": {
+      "post": {
+        "description": "Say what updating an application would do, without doing it.\n\nThe commands in the order they would run, the files they would write and the diff of each, what\nis serving now and what has come in upstream (``git ls-remote``: nothing is downloaded, and it\nhas a deadline), what applying it will ask to confirm and, said as such, what a plan cannot\nknow: whether the build passes, how long it takes and what the new code changes.\n\nArgs:\n    domain: The application's domain.\n    request: The request.\n    session: The authenticated session or token.\n    body: What the update would be asked to do; an empty body is an update of the branch.\n\nReturns:\n    The plan.\n\nRaises:\n    ValidationError: A field the plan does not cover (``image_tag``, ``pull_request``) was\n        given.",
+        "operationId": "plan_app_update_api_apps__domain__update_plan_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/UpdatePlanRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanOutModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan App Update",
+        "tags": [
+          "Plans"
+        ],
+        "x-noust-permission": "apps.read"
       }
     },
     "/api/apps/{domain}/waf": {
@@ -99845,7 +101114,73 @@
         "tags": [
           "Certificates"
         ],
-        "x-noust-permission": "apps.operate"
+        "x-noust-permission": "apps.operate",
+        "x-noust-plan": {
+          "method": "POST",
+          "operation": "cert.renew",
+          "path": "/api/certs/{domain}/renew/plan"
+        }
+      }
+    },
+    "/api/certs/{domain}/renew/plan": {
+      "post": {
+        "description": "Say what renewing a certificate would do, without doing it.\n\nArgs:\n    domain: The certificate's name.\n    request: The request.\n    session: The authenticated session or token.\n    body: Renewal options, as ``POST /api/certs/{domain}/renew`` takes them.\n\nReturns:\n    The plan: the ``certbot`` commands it would run. Whether the authority accepts the renewal\n    is said as what a plan cannot know.\n\nRaises:\n    HTTPException: 404 when no such certificate exists.",
+        "operationId": "plan_certificate_renewal_api_certs__domain__renew_plan_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RenewPlanRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanOutModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan Certificate Renewal",
+        "tags": [
+          "Plans"
+        ],
+        "x-noust-permission": "apps.read"
       }
     },
     "/api/certs/{domain}/revoke": {
@@ -111673,6 +113008,11 @@
           "Docker"
         ],
         "x-noust-permission": "docker.manage",
+        "x-noust-plan": {
+          "method": "POST",
+          "operation": "docker.cleanup",
+          "path": "/api/docker/cleanup/plan"
+        },
         "x-noust-requires-approval": {
           "action": "docker.remove",
           "kind": "infrastructure",
@@ -111700,6 +113040,47 @@
         "summary": "Get Cleanup Plan",
         "tags": [
           "Docker"
+        ],
+        "x-noust-permission": "docker.read"
+      },
+      "post": {
+        "description": "Say what applying a cleanup plan, as it was shown, would run, without running it.\n\n``GET /api/docker/cleanup/plan`` says what would go and what stays; this says which commands\nremoving what was chosen would run, through the gate that judges whose each thing is.\n\nArgs:\n    body: The token of the plan that was shown, the ids chosen and the volume names typed.\n    request: The request.\n    session: The authenticated session or token.\n\nReturns:\n    The plan; a plan that is no longer the one that was shown says it would be refused.",
+        "operationId": "plan_docker_cleanup_route_api_docker_cleanup_plan_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DockerCleanupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanOutModel"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan Docker Cleanup Route",
+        "tags": [
+          "Plans"
         ],
         "x-noust-permission": "docker.read"
       }
@@ -119051,6 +120432,11 @@
           "jobs"
         ],
         "x-noust-permission": "apps.manage",
+        "x-noust-plan": {
+          "method": "POST",
+          "operation": "app.delete",
+          "path": "/api/apps/{domain}/delete/plan"
+        },
         "x-noust-requires-elevation": true
       }
     },
@@ -119163,7 +120549,12 @@
           "Jobs",
           "jobs"
         ],
-        "x-noust-permission": "apps.deploy"
+        "x-noust-permission": "apps.deploy",
+        "x-noust-plan": {
+          "method": "POST",
+          "operation": "app.update",
+          "path": "/api/apps/{domain}/update/plan"
+        }
       }
     },
     "/api/jobs/update-many": {

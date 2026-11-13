@@ -2017,6 +2017,197 @@ export const serverText = {
     sites_reload: { text: "Reload the web server's sites" },
     waf_install: { text: "Install the web application firewall" },
   },
+  plans: {
+    blocked: {
+      refused: {
+        text: "It would be refused: {reason}",
+        hint: "{fix}",
+      },
+      refused_plain: {
+        text: "It would be refused: {reason}",
+      },
+      nothing_new: {
+        text: "{branch} has nothing new since {live}, which is live",
+        hint: "Updating with force rebuilds the same commit, which makes sense when the environment or the dependencies changed, or when the last build broke.",
+      },
+      busy: {
+        text: "{operation} is running on {domain} since {since}",
+        hint: "Wait for it to end, or look at it in the jobs, and ask again.",
+      },
+    },
+    confirm: {
+      frozen: {
+        text: "Deploys of {domain} are frozen until {until}: {reason}",
+      },
+      frozen_open: {
+        text: "Deploys of {domain} are frozen until somebody lifts it: {reason}",
+      },
+      schema_changed: {
+        text: "Going back to {target} of {domain} passes {count} deployments that changed the database schema: {deployments}",
+        hint: "Noust puts the code back, never the database: the older code runs against the schema those deployments left. Restore the database from a backup first, or confirm that the older code works with the new schema.",
+      },
+    },
+    update: {
+      release: {
+        text: "Builds {domain} from {branch} as a new release and switches to it once it answers the startup check. The release that serves now stays on disk to go back to.",
+      },
+      in_place: {
+        text: "Pulls {branch} into the directory {domain} runs from, rebuilds it there and restarts it behind the startup check. What was built before is replaced by the new build.",
+      },
+      exact: {
+        text: "Deploys {what} of {domain} and switches to it once it answers the startup check.",
+      },
+      containers: {
+        text: "Pulls the images of {domain} again and recreates the containers that changed, one startup check after the other.",
+      },
+    },
+    rollback: {
+      instant: {
+        text: "Switches {domain} back to release {release}, which is already on disk, without building anything. If it does not answer the startup check, release {previous} serves again.",
+      },
+      rebuild: {
+        text: "Builds commit {commit} of {domain} again where it runs and restarts it behind the startup check.",
+      },
+      unavailable: {
+        text: "Going back to deployment {deployment} of {domain} is not possible now",
+      },
+      snapshot: {
+        text: "Restores the files of {domain} from backup {backup} after taking a safety backup, rebuilds it and restarts it behind the startup check.",
+      },
+    },
+    found: {
+      upstream_new: {
+        text: "{branch} has moved on: {domain} runs {live} and the repository is at {remote}",
+      },
+      database_stays: {
+        text: "The database does not go back: Noust puts code back and never data",
+      },
+      serving_now: {
+        text: "Release {release} serves now",
+      },
+      delete_files_kept: {
+        text: "The directory of {domain} stays on disk: files are only removed when asked for",
+      },
+      delete_certificate_kept: {
+        text: "The certificate of {domain} stays: it is only removed when asked for",
+      },
+      delete_volumes_kept: {
+        text: "The Docker volumes of {domain} stay, with its data: they are only removed when asked for",
+      },
+      delete_database_kept: {
+        text: "The database {database} stays: a database is only dropped when asked for, and never when another application uses it",
+      },
+      delete_database_dropped: {
+        text: "The database {database} is dropped after a last dump",
+      },
+      migrate_persistent: {
+        text: "{count} paths move to the shared directory and stay there",
+      },
+      migrate_untracked: {
+        text: "{count} files that git does not track stay in the first release only",
+      },
+      migrate_warning: {
+        text: "{warning}",
+      },
+    },
+    unknown: {
+      build: {
+        text: "Which install and build commands run, whether they pass and how long they take: they come from the repository's own files and scripts, which making a plan does not fetch or run",
+      },
+      new_code: {
+        text: "What the new code changes: whether it asks for new variables, runs a migration or alters the database schema is in code that has not been fetched",
+      },
+      health: {
+        text: "Whether the new version answers the startup check ({check}): it does not exist yet. If it does not, the version that serves now comes back",
+      },
+      health_older: {
+        text: "Whether the older version still answers the startup check ({check}) with what the application holds now. If it does not, the version that serves now comes back",
+      },
+      rebuild: {
+        text: "Whether building commit {commit} again passes: it is the repository's own script, and making a plan does not run it",
+      },
+      readback: {
+        text: "A plan does not keep what the operation records along the way, so a step that reads it back (a site that lists a name just added) is shown as it is now",
+      },
+      stopped: {
+        text: "The plan ends here: what follows depends on what the earlier steps would have produced. The operation said: {reason}",
+      },
+      remote: {
+        text: "Which commits would come in: the repository could not be asked in time ({reason})",
+      },
+      health_limits: {
+        text: "Whether the application answers the startup check ({check}) under the new limits. If it does not, the old limits come back",
+      },
+      authority: {
+        text: "Whether the certificate authority accepts the renewal of {domain}: it checks from the internet that the name points to this server, and a plan does not ask it",
+      },
+      dns: {
+        text: "Whether {name} points to this server: the DNS answers that, and the certificate authority needs it",
+      },
+      service_health: {
+        text: "Whether {domain} answers once it runs: nothing checks it afterwards, as an update does",
+      },
+      docker_owner: {
+        text: "Whether something outside Noust waits for what goes: Noust judges whose each thing is, not who needs it",
+      },
+      migrate_steps: {
+        text: "The commands of the move are not simulated one by one: a rehearsal says what it would move and rewrite, and the startup check on the new layout is the one thing it cannot ask",
+      },
+      probes_skipped: {
+        text: "{count} looks at the server were not made because the plan ran out of time: what depends on them may differ",
+      },
+    },
+    limits: {
+      restart: {
+        text: "Gives {domain} these limits (memory {memory}, CPU {cpu}, tasks {tasks}) by rewriting its unit and restarting it behind the startup check. If it does not answer under them, the old limits come back.",
+      },
+      no_restart: {
+        text: "Gives {domain} these limits (memory {memory}, CPU {cpu}, tasks {tasks}) by rewriting its unit. The processes that run now keep the limits they started with until it restarts.",
+      },
+    },
+    cert: {
+      renew: {
+        text: "Asks the certificate authority to renew the certificate of {domain} with certbot, which does it only when it is near its expiry, and reloads the web server when it is renewed.",
+      },
+      renew_forced: {
+        text: "Asks the certificate authority to renew the certificate of {domain} with certbot even though it is not near its expiry, and reloads the web server when it is renewed.",
+      },
+    },
+    domain: {
+      add: {
+        text: "Makes {domain} answer on {name} as well: it records the name, rewrites the site and reloads the web server. If the site serves TLS, extending the certificate is a job of its own.",
+      },
+      remove: {
+        text: "Stops {domain} answering on {name}: it rewrites the site and reloads the web server. The certificate is left alone and nothing is revoked.",
+      },
+    },
+    delete: {
+      app: {
+        text: "Deletes {domain}: its service, its site and its record go.",
+      },
+    },
+    service: {
+      restart: {
+        text: "Restarts {domain}: its service stops and starts again, so it may not answer for a few seconds.",
+      },
+      stop: {
+        text: "Stops {domain}: it does not answer until somebody starts it again. Its files and data stay.",
+      },
+      start: {
+        text: "Starts the service of {domain}.",
+      },
+    },
+    docker: {
+      cleanup: {
+        text: "Removes the {count} things that were chosen from the plan of the cleanup, each through the gate that judges whose it is once more. It touches nothing else.",
+      },
+    },
+    migrate: {
+      app: {
+        text: "Moves {domain} onto releases: the unit is stopped while the tree moves, the first release ({release}) is made from what is on disk, and the application must answer the startup check on the new layout, or everything is put back.",
+      },
+    },
+  },
   power_checks: {
     jobs_running: { text: "Running now: {jobs}" },
     jobs_idle: { text: "Nothing is running" },
