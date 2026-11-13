@@ -33,11 +33,20 @@ from noust.core import sealing
 from noust.core.exceptions import ConfigError, NoustError
 from noust.core.secrets import secrets_dir
 from noust.web.api.deps import CodedText, NoustErrorRoute, require_elevated
-from noust.web.auth import actor_label, get_audit_logger, get_client_ip, record_auth_failure
+from noust.web.auth import (
+    actor_label,
+    get_audit_logger,
+    get_client_ip,
+    record_auth_failure,
+    require_auth,
+)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(route_class=NoustErrorRoute)
+
+#: Whoever asks is signed in: every route says so itself, beside the permission declared for it.
+Session = Annotated[dict[str, Any], Depends(require_auth)]
 
 #: The path unlock attempts are audited and counted under.
 UNLOCK_RESOURCE = "/api/central/unlock"
@@ -300,7 +309,7 @@ class DeployHereReport(BaseModel):
 
 
 @router.post("/container-host/check", response_model=DeployHereReport)
-def check_container_host() -> DeployHereReport:
+def check_container_host(session: Session) -> DeployHereReport:
     """
     Check that this central can deploy on its machine's Docker, and say what to change.
 
@@ -310,6 +319,9 @@ def check_container_host() -> DeployHereReport:
     starts a container, both removed), and a GET never does; the console asks it when a person opens
     the page and not on every load. Who may ask is the route's permission, declared in
     :mod:`noust.web.permissions.routes_central` and enforced for every route at once.
+
+    Args:
+        session: The authenticated session.
 
     Returns:
         The report.
@@ -356,13 +368,16 @@ class ScheduledTaskOut(BaseModel):
 
 
 @router.get("/schedule", response_model=list[ScheduledTaskOut])
-def central_schedule() -> list[ScheduledTaskOut]:
+def central_schedule(session: Session) -> list[ScheduledTaskOut]:
     """
     List what the central schedules itself and how each task stands. Changes nothing.
 
     On a machine with systemd the timers are systemd's and this is what the central would run were
     there none: the same rows, read. On a container host (a hub told to deploy containers here) it is
     what runs, and what came due while the central was off says so in ``missed``.
+
+    Args:
+        session: The authenticated session.
 
     Returns:
         Every task, by key.

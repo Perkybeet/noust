@@ -480,6 +480,7 @@ class TestTheCentral:
 
         from noust.web.api import central as central_api
         from noust.web.api.deps import install_error_handlers
+        from noust.web.auth import require_auth
 
         volume_policy(store)
         monkeypatch.setattr(
@@ -492,6 +493,8 @@ class TestTheCentral:
         app = FastAPI()
         install_error_handlers(app)
         app.include_router(central_api.router, prefix="/api/central")
+        # The route asks for a session of its own; who may read it is another test's.
+        app.dependency_overrides[require_auth] = lambda: {"username": "alice", "permissions": []}
 
         body = TestClient(app).get("/api/central/schedule").json()
 
