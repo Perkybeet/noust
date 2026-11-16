@@ -1209,13 +1209,25 @@ export const serverText = {
       text: "{feature}: not available here, which deploys containers and nothing else",
       hint: "This central deploys containers on its machine's Docker (central.deploy_here = containers). {feature} needs systemd or a web server on the machine, which a container does not have. Deploy it on a server of your fleet instead: pick the server in the console, or run the command against a node.",
     },
+    hub_only: {
+      text: "{feature}: only a central that is a hub has this, and this Noust is a server",
+      hint: "A server deploys on its own machine without being asked. Deploying on the machine's Docker is for a hub, the central in a container, which deploys nothing until it is told to.",
+    },
     hub_role: {
       text: "{feature}: not available on this central, which is a hub",
       hint: "A hub (central.role = hub) manages other servers and deploys nothing itself. Pick the server in the console, or run the command against a node. On a machine that should also deploy, set '{command}'; a container cannot, it has no nginx or systemd.",
     },
+    needs_host: {
+      text: "This Noust runs in a container, so it sees the container and not the server",
+      hint: "The processes, the disks and the packages it could show are those of its own container, which are not the server's. Pick the server in the console to see its own.",
+    },
     needs_journal: {
       text: "This machine has no journal to read",
       hint: "Noust reads the system's log from journald (journalctl), which is not here.",
+    },
+    needs_package_manager: {
+      text: "This machine has no package manager Noust can drive",
+      hint: "Noust lists and applies updates with apt, dnf or zypper, and none of them is here.",
     },
     needs_root: {
       text: "Noust does not run as root on this machine",
@@ -1271,6 +1283,10 @@ export const serverText = {
       single: { text: "Set up Noust DNS on 1 server" },
       several: { text: "Set up Noust DNS on {count} servers" },
     },
+    docker_images_check: {
+      single: { text: "Look for new versions of the images in use on 1 server" },
+      several: { text: "Look for new versions of the images in use on {count} servers" },
+    },
     index_refresh: {
       single: { text: "Refresh package lists on 1 server" },
       several: { text: "Refresh package lists on {count} servers" },
@@ -1279,6 +1295,7 @@ export const serverText = {
       single: { text: "Update Noust on 1 server" },
       several: { text: "Update Noust on {count} servers" },
     },
+    options_object: { text: "The options of a fleet action are an object" },
     os_updates: {
       single: { text: "Apply operating system updates on 1 server" },
       several: { text: "Apply operating system updates on {count} servers" },

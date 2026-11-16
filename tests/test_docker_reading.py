@@ -276,6 +276,60 @@ class TestVolumeSizes:
         assert reading.parse_volume_sizes("") == {}
 
 
+class TestTheRangesOfNetworks:
+    def test_the_subnet_and_the_gateway_of_each_range_are_read_by_the_networks_id(self) -> None:
+        text = "\n".join(
+            [
+                json.dumps(
+                    {
+                        "id": SHA,
+                        "ranges": [
+                            {"Subnet": "172.18.0.0/16", "Gateway": "172.18.0.1"},
+                            {"Subnet": "fd00:1::/64", "Gateway": "fd00:1::1"},
+                        ],
+                    }
+                ),
+                json.dumps({"id": "b" * 64, "ranges": None}),
+                json.dumps({"id": "c" * 64, "ranges": [{"Gateway": "10.0.0.1"}]}),
+                "not json",
+            ]
+        )
+
+        found = reading.parse_network_ranges(text)
+
+        assert [(r.subnet, r.gateway) for r in found[SHA]] == [
+            ("172.18.0.0/16", "172.18.0.1"),
+            ("fd00:1::/64", "fd00:1::1"),
+        ]
+        # A network with no range says none, and what is not a range is not one.
+        assert found["b" * 64] == () and found["c" * 64] == ()
+
+    def test_they_are_asked_in_one_process_and_what_was_typed_never_reaches_the_command(
+        self,
+    ) -> None:
+        runner = FakeRunner()
+        runner.script(["docker", "network", "inspect"], stdout="")
+
+        reading.network_ranges(runner, [SHA, "b" * 64, "--all", "x; rm -rf /", SHA])
+
+        (call,) = runner.calls
+        assert call == (
+            "docker",
+            "network",
+            "inspect",
+            "--format",
+            reading.NETWORK_RANGES_FORMAT,
+            SHA,
+            "b" * 64,
+        )
+
+    def test_nobody_is_asked_when_there_are_no_networks(self) -> None:
+        runner = FakeRunner()
+
+        assert reading.network_ranges(runner, []) == {}
+        assert runner.calls == []
+
+
 class TestWhenDockerCannotBeAsked:
     def test_no_docker_is_said_as_such(self) -> None:
         runner = FakeRunner().only_knows("systemctl")

@@ -25,6 +25,7 @@ export const NAS_ON: Readonly<Record<TableKey, boolean>> = {
   database_backups: false,
   database_instances: true,
   databases: false,
+  deploy_here: true,
   dns_accounts: true,
   dns_records: true,
   docker_zone: true,
@@ -55,9 +56,13 @@ export const NAS_ON: Readonly<Record<TableKey, boolean>> = {
   software: false,
   status_page: false,
   system_clock: false,
+  system_files: false,
   system_logs: false,
+  system_processes: false,
+  system_updates: false,
   tunnels: true,
   volume_backups: true,
+  zero_downtime: false,
 };
 
 /** What the machine decides and no role does: a container has no systemd, no journal, no root and, here, no Docker of its own to show. */

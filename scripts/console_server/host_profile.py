@@ -39,6 +39,8 @@ class HostProfile:
             the VPS's own (Server > Software reads it).
         systemd: It was booted with systemd, and keeps a journal.
         root: Noust runs as root on it.
+        disks: What it mounts, as ``(mount point, device, type, bytes, bytes used)``; None for the
+            VPS's own (Server > Files reads it).
     """
 
     name: str
@@ -46,6 +48,7 @@ class HostProfile:
     packages: tuple[tuple[str, str], ...] | None
     systemd: bool
     root: bool
+    disks: tuple[tuple[str, str, str, int, int], ...] | None = None
 
 
 #: What python:3.12-slim-bookworm plus the central image's apt-get has on its path: the image's own
@@ -121,6 +124,14 @@ _CONTAINER_PACKAGES = (
     ("ca-certificates", "20230311"),
 )
 
+#: What the central's container mounts: the image's own layer and the volume its data lives in, which is
+#: the NAS's (a disk of the machine is not something a container sees).
+_GIB = 1024**3
+_CONTAINER_DISKS = (
+    ("/", "overlay", "overlay", 58 * _GIB, int(21.4 * _GIB)),
+    ("/data", "/dev/md0", "ext4", 1800 * _GIB, int(612.0 * _GIB)),
+)
+
 #: The default: the Ubuntu VPS the sandbox has always been, administered by root.
 SERVER = HostProfile("server", programs=None, packages=None, systemd=True, root=True)
 
@@ -131,6 +142,7 @@ CONTAINER = HostProfile(
     packages=_CONTAINER_PACKAGES,
     systemd=False,
     root=False,
+    disks=_CONTAINER_DISKS,
 )
 
 PROFILES: dict[str, HostProfile] = {profile.name: profile for profile in (SERVER, CONTAINER)}

@@ -176,6 +176,13 @@ READS_BY_POST: dict[tuple[str, str], str] = {
     ("POST", "/api/databases/query/export"): "Exports the rows a read-mode statement returns.",
     (
         "POST",
+        "/api/docker/stacks/{name}/bring/preview",
+    ): (
+        "Says what bringing a stack to Noust would register: the one command it runs is Compose's rehearsal "
+        "(up --dry-run), and nothing is registered, written or started."
+    ),
+    (
+        "POST",
         "/api/manifest/plan",
     ): "Plans a manifest against the server and says what would change.",
     ("POST", "/api/nodes/{node}/test"): "Tries the connection to a server of the fleet.",

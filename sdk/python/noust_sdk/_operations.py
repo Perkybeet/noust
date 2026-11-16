@@ -253,7 +253,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("assistant", "probe"): ("POST", "/api/assistant/probe", "settings.manage", False),
     ("assistant", "get_settings"): ("GET", "/api/assistant/settings", "settings.read", False),
     ("assistant", "put_settings"): ("PUT", "/api/assistant/settings", "settings.manage", True),
-    ("assistant", "usage"): ("GET", "/api/assistant/usage", "assistant.use", False),
+    ("assistant", "usage"): ("GET", "/api/assistant/usage", "settings.read", False),
     ("audit", "list_audit_entries"): ("GET", "/api/audit", "audit.read", False),
     ("audit", "audit_catalog"): ("GET", "/api/audit/events", "audit.read", False),
     ("audit", "export_audit_log"): ("GET", "/api/audit/export", "audit.read", False),
@@ -657,6 +657,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("docker", "apply_cleanup"): ("POST", "/api/docker/cleanup", "docker.manage", True),
     ("docker", "get_cleanup_plan"): ("GET", "/api/docker/cleanup/plan", "docker.read", False),
     ("docker", "list_containers"): ("GET", "/api/docker/containers", "docker.read", False),
+    ("docker", "get_containers_usage"): ("GET", "/api/docker/containers/stats", "docker.read", False),
     ("docker", "get_container"): ("GET", "/api/docker/containers/{ref}", "docker.read", False),
     ("docker", "remove_container"): ("DELETE", "/api/docker/containers/{ref}", "docker.manage", True),
     ("docker", "get_container_logs"): ("GET", "/api/docker/containers/{ref}/logs", "docker.read", False),
@@ -676,6 +677,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("docker", "list_stacks"): ("GET", "/api/docker/stacks", "docker.read", False),
     ("docker", "get_stack"): ("GET", "/api/docker/stacks/{name}", "docker.read", False),
     ("docker", "bring_stack"): ("POST", "/api/docker/stacks/{name}/bring", "docker.manage", True),
+    ("docker", "preview_bring"): ("POST", "/api/docker/stacks/{name}/bring/preview", "docker.read", False),
     ("docker", "get_compose"): ("GET", "/api/docker/stacks/{name}/compose", "secrets.reveal", False),
     ("docker", "save_compose"): ("PUT", "/api/docker/stacks/{name}/compose", "docker.manage", True),
     ("docker", "check_compose"): ("POST", "/api/docker/stacks/{name}/compose/check", "docker.manage", False),
@@ -753,6 +755,7 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("fleet", "transfer_database"): ("POST", "/api/fleet/databases/transfer", "fleet.manage", False),
     ("fleet", "fleet_dns"): ("GET", "/api/fleet/dns", "fleet.read", False),
     ("fleet", "set_up_cluster"): ("POST", "/api/fleet/dns/cluster", "fleet.manage", False),
+    ("fleet", "check_images"): ("POST", "/api/fleet/docker/images/check", "docker.manage", False),
     ("fleet", "enroll_server"): ("POST", "/api/fleet/enroll", "fleet.manage", True),
     ("fleet", "scan_host_key"): ("POST", "/api/fleet/enroll/host-key", "fleet.manage", False),
     ("fleet", "list_jobs"): ("GET", "/api/fleet/jobs", "fleet.read", False),
@@ -3099,7 +3102,7 @@ class Assistant:
 
         Usage
 
-        Needs: permission `assistant.use`."""
+        Needs: permission `settings.read`."""
         return self._call("GET", "/api/assistant/usage", query={"conversation": conversation}, body=None)
 
 
@@ -6457,7 +6460,7 @@ class Deployments:
 
 
 class Docker:
-    """Docker: 35 operations."""
+    """Docker: 37 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -6485,6 +6488,14 @@ class Docker:
 
         Needs: permission `docker.read`."""
         return self._call("GET", "/api/docker/containers", query={"offset": offset, "limit": limit, "owner": owner, "app": app, "state": state, "project": project, "search": search}, body=None)
+
+    def get_containers_usage(self) -> "DockerContainersUsageOut":
+        """GET /api/docker/containers/stats
+
+        Get Containers Usage
+
+        Needs: permission `docker.read`."""
+        return self._call("GET", "/api/docker/containers/stats", query=None, body=None)
 
     def get_container(self, ref: str) -> "DockerContainerDetailOut":
         """GET /api/docker/containers/{ref}
@@ -6637,6 +6648,14 @@ class Docker:
 
         Needs: permission `docker.manage`, sudo mode."""
         return self._call("POST", f"/api/docker/stacks/{quote(str(name), safe='')}/bring", query=None, body=body)
+
+    def preview_bring(self, name: str, body: "DockerBringPreviewRequest") -> "DockerBringOut":
+        """POST /api/docker/stacks/{name}/bring/preview
+
+        Preview Bring
+
+        Needs: permission `docker.read`."""
+        return self._call("POST", f"/api/docker/stacks/{quote(str(name), safe='')}/bring/preview", query=None, body=body)
 
     def get_compose(self, name: str) -> "DockerComposeOut":
         """GET /api/docker/stacks/{name}/compose
@@ -7001,7 +7020,7 @@ class Domains:
 
 
 class Fleet:
-    """Fleet: 77 operations."""
+    """Fleet: 78 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -7277,6 +7296,14 @@ class Fleet:
 
         Needs: permission `fleet.manage`."""
         return self._call("POST", "/api/fleet/dns/cluster", query=None, body=body)
+
+    def check_images(self, body: "DockerFleetCheckIn") -> "NoustWebApiFleetActionOut":
+        """POST /api/fleet/docker/images/check
+
+        Check Images
+
+        Needs: permission `docker.manage`."""
+        return self._call("POST", "/api/fleet/docker/images/check", query=None, body=body)
 
     def enroll_server(self, body: "EnrollBody") -> "JobAcceptedResponse":
         """POST /api/fleet/enroll

@@ -32,7 +32,11 @@ CHANGES = sorted(
 def _values(what: str) -> dict[str, str]:
     import string
 
-    names = {name for _, name, _, _ in string.Formatter().parse(ACCESS_MESSAGES[f"change.{what}"]["en"]) if name}
+    names = {
+        name
+        for _, name, _, _ in string.Formatter().parse(ACCESS_MESSAGES[f"change.{what}"]["en"])
+        if name
+    }
     return {name: f"<{name}>" for name in names}
 
 
@@ -52,8 +56,9 @@ def test_the_console_says_each_change_in_the_words_of_the_notification(what: str
     said = sentences_of(CONSOLE_CATALOGS["Spanish"])
 
     assert said[f"access_changes.{what}"] == ACCESS_MESSAGES[f"change.{what}"]["es"]
-    assert sentences_of(CONSOLE_CATALOGS["English"])[f"access_changes.{what}"] == (
-        ACCESS_MESSAGES[f"change.{what}"]["en"]
+    assert (
+        sentences_of(CONSOLE_CATALOGS["English"])[f"access_changes.{what}"]
+        == (ACCESS_MESSAGES[f"change.{what}"]["en"])
     )
 
 
@@ -87,9 +92,10 @@ def test_the_api_sends_the_change_as_a_code_and_its_values_beside_its_title() ->
     ).model_dump()
 
     assert shown["title"] == "Allow 5432/tcp from 10.0.4.12/32"
-    assert shown["title_coded"] == say(
-        "access_changes.firewall_allow", port="5432/tcp", source="10.0.4.12/32"
-    ).to_dict()
+    assert (
+        shown["title_coded"]
+        == say("access_changes.firewall_allow", port="5432/tcp", source="10.0.4.12/32").to_dict()
+    )
 
 
 def test_the_api_sends_no_code_for_a_change_recorded_before_the_ledger_kept_one() -> None:

@@ -26,6 +26,7 @@ __all__ = [
     "Container",
     "Image",
     "Network",
+    "NetworkRange",
     "ObjectKind",
     "Owner",
     "OwnerKind",
@@ -274,6 +275,20 @@ class Volume:
 
 
 @dataclass(frozen=True)
+class NetworkRange:
+    """
+    One address range of a network and the gateway it is reached through.
+
+    Attributes:
+        subnet: The range, as Docker says it (``172.18.0.0/16``).
+        gateway: The address of the gateway in it; empty when Docker gave none.
+    """
+
+    subnet: str
+    gateway: str = ""
+
+
+@dataclass(frozen=True)
 class Network:
     """
     A network.
@@ -287,6 +302,8 @@ class Network:
         project: Its ``com.docker.compose.project`` label.
         created: When it was made, as Docker prints it.
         containers: The names of the containers on it.
+        ranges: Its address ranges and their gateways, when they were asked for (a listing that is only
+            counted does not ask Docker to describe each network); empty for a network with none.
         owner: Whose it is.
     """
 
@@ -298,6 +315,7 @@ class Network:
     project: str = ""
     created: str = ""
     containers: tuple[str, ...] = ()
+    ranges: tuple[NetworkRange, ...] = ()
     owner: Owner = NOBODY
 
     @property

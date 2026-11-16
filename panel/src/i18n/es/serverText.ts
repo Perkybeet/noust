@@ -1198,13 +1198,25 @@ export const serverText: Catalog<typeof en> = {
       text: "{feature}: no disponible aquí, donde solo se despliegan contenedores",
       hint: "Esta central despliega contenedores en el Docker de su máquina (central.deploy_here = containers). {feature} necesita systemd o un servidor web en la máquina, y un contenedor no los tiene. Despliégalo en un servidor de tu flota: elige el servidor en la consola o ejecuta la orden contra un nodo.",
     },
+    hub_only: {
+      text: "{feature}: solo lo tiene una central que es un hub, y este Noust es un servidor",
+      hint: "Un servidor despliega en su propia máquina sin que nadie se lo pida. Desplegar en el Docker de la máquina es cosa de un hub, la central en un contenedor, que no despliega nada hasta que se le dice.",
+    },
     hub_role: {
       text: "{feature}: no disponible en esta central, que es un hub",
       hint: "Un hub (central.role = hub) gestiona otros servidores y no despliega nada por sí mismo. Elige el servidor en la consola o ejecuta la orden contra un nodo. En una máquina que también deba desplegar, ejecuta '{command}'; un contenedor no puede, no tiene nginx ni systemd.",
     },
+    needs_host: {
+      text: "Este Noust corre en un contenedor, así que ve el contenedor y no el servidor",
+      hint: "Los procesos, los discos y los paquetes que podría enseñar son los de su propio contenedor, no los del servidor. Elige el servidor en la consola para ver los suyos.",
+    },
     needs_journal: {
       text: "Esta máquina no tiene diario que leer",
       hint: "Noust lee el registro del sistema en journald (journalctl), que aquí no está.",
+    },
+    needs_package_manager: {
+      text: "Esta máquina no tiene un gestor de paquetes que Noust sepa manejar",
+      hint: "Noust lista y aplica las actualizaciones con apt, dnf o zypper, y aquí no hay ninguno.",
     },
     needs_root: {
       text: "Noust no se ejecuta como root en esta máquina",
@@ -1260,6 +1272,10 @@ export const serverText: Catalog<typeof en> = {
       single: { text: "Configurar el DNS de Noust en 1 servidor" },
       several: { text: "Configurar el DNS de Noust en {count} servidores" },
     },
+    docker_images_check: {
+      single: { text: "Buscar versiones nuevas de las imágenes en uso en 1 servidor" },
+      several: { text: "Buscar versiones nuevas de las imágenes en uso en {count} servidores" },
+    },
     index_refresh: {
       single: { text: "Recargar las listas de paquetes en 1 servidor" },
       several: { text: "Recargar las listas de paquetes en {count} servidores" },
@@ -1268,6 +1284,7 @@ export const serverText: Catalog<typeof en> = {
       single: { text: "Actualizar Noust en 1 servidor" },
       several: { text: "Actualizar Noust en {count} servidores" },
     },
+    options_object: { text: "Las opciones de una acción de flota son un objeto" },
     os_updates: {
       single: { text: "Aplicar actualizaciones del sistema en 1 servidor" },
       several: { text: "Aplicar actualizaciones del sistema en {count} servidores" },

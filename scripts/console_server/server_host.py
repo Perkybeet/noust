@@ -146,6 +146,16 @@ Inst nginx [1.24.0-2ubuntu7] (1.24.0-2ubuntu7.1 Ubuntu:24.04/noble-updates [amd6
 Inst python3-urllib3 [2.0.7-1] (2.0.7-1ubuntu0.1 Ubuntu:24.04/noble-updates [all])
 """
 
+#: ``apt-get -s upgrade`` in the central's image: nothing is pending.
+_CONTAINER_APT_NOTHING = """NOTE: This is only a simulation!
+      apt-get needs root privileges for real execution.
+Reading package lists...
+Building dependency tree...
+Reading state information...
+Calculating upgrade...
+0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.
+"""
+
 #: ``apt-get -s full-upgrade``: the same, plus what was kept back and the kernel it retires.
 _SERVER_APT_FULL = (
     _SERVER_APT_UPGRADE.replace(
@@ -291,14 +301,18 @@ class ServerHost:
             # journal the system's logs are searched in: a container has neither.
             (self.root / "run/systemd/system").mkdir(parents=True, exist_ok=True)
             (self.root / "var/log/journal").mkdir(parents=True, exist_ok=True)
-        self.write(
-            "/var/run/reboot-required", "*** System restart required ***\n", age=timedelta(days=9)
-        )
-        self.write(
-            "/var/run/reboot-required.pkgs",
-            "linux-image-6.8.0-45-generic\nlibc6\n",
-            age=timedelta(days=9),
-        )
+        if self.profile.systemd:
+            # A kernel that is waiting for a reboot is the machine's: a container has no kernel of its own.
+            self.write(
+                "/var/run/reboot-required",
+                "*** System restart required ***\n",
+                age=timedelta(days=9),
+            )
+            self.write(
+                "/var/run/reboot-required.pkgs",
+                "linux-image-6.8.0-45-generic\nlibc6\n",
+                age=timedelta(days=9),
+            )
         self.write("/var/lib/apt/periodic/update-success-stamp", age=timedelta(hours=3))
         for directory in (
             "var/lib/apt/lists",
@@ -417,6 +431,9 @@ class ServerHost:
         if program == "systemctl" and rest[:1] == ("is-active",) and "fail2ban.service" in rest:
             return ok("active\n")
         if program == "apt-get" and "-s" in rest:
+            if not self.profile.systemd:
+                # The image was built from the current lists of its release: nothing to update in it.
+                return ok(_CONTAINER_APT_NOTHING)
             return ok(
                 _SERVER_APT_FULL
                 if "full-upgrade" in rest or "dist-upgrade" in rest
@@ -817,6 +834,12 @@ def model_server_host(
             ("/srv", "/dev/vdb", "xfs", 40 * gib, 35.1 * gib, 20_971_520, 20_100_000),
             ("/boot", "/dev/vda16", "ext4", 881 * 1024**2, 118 * 1024**2, 58_496, 58_100),
         ]
+        if profile.disks is not None:
+            # The inodes of a disk this size: one for every 16 KiB, a tenth of them used.
+            rows = [
+                (mount, device, fstype, total, used, total // 16384, total // 16384 * 9 // 10)
+                for mount, device, fstype, total, used in profile.disks
+            ]
         found = []
         for mount_point, device, fstype, total, used, inodes, inodes_free in rows:
             percent = round(used / total * 100, 1)

@@ -351,6 +351,88 @@ class TestTheContainers:
         ]
 
 
+class TestWhatEveryContainerUsesInOneReading:
+    """The list of containers draws the processor and the memory of each row (item 189)."""
+
+    def usage(self, docker: DockerWorld, who: str = "admin") -> dict:
+        response = docker.get(who, "/containers/stats")
+        assert response.status_code == 200, response.text
+        return response.json()
+
+    def test_every_container_is_given_its_reading_or_the_reason_there_is_none(
+        self, docker: DockerWorld
+    ) -> None:
+        body = self.usage(docker)
+
+        rows = by_name(body["items"])
+        assert set(rows) == {"acme-web-1", "globex-web-1", "portainer", "api-loop", "adminer"}
+        mine = rows["acme-web-1"]
+        assert mine["id"] == full_id("acme-web-1")
+        assert mine["usage"]["available"] is True and mine["usage"]["reason"] == ""
+        assert mine["usage"]["cpu_percent"] == 14.5
+        assert mine["usage"]["memory_bytes"] == 212 * 2**20
+        assert (rows["api-loop"]["usage"]["available"], rows["api-loop"]["usage"]["reason"]) == (
+            False,
+            "restarting",
+        )
+        assert rows["adminer"]["usage"]["reason"] == "not_running"
+        assert rows["adminer"]["usage"]["cpu_percent"] is None
+
+    def test_docker_is_asked_once_whatever_the_number_of_containers(
+        self, docker: DockerWorld
+    ) -> None:
+        self.usage(docker)
+
+        asked = [c for c in docker.machine.calls if c[:2] == ("docker", "stats")]
+        assert asked == [("docker", "stats", "--no-stream", "--format", "{{json .}}")]
+
+    def test_a_look_a_moment_later_is_given_the_same_reading_and_says_when_it_was_taken(
+        self, docker: DockerWorld
+    ) -> None:
+        first = self.usage(docker)
+        second = self.usage(docker, "aud")
+
+        asked = [c for c in docker.machine.calls if c[:2] == ("docker", "stats")]
+        assert len(asked) == 1
+        assert first["read_at"] == second["read_at"]
+        assert first["read_at"].endswith(("Z", "+00:00"))
+
+    def test_it_is_not_taken_for_the_container_called_stats(self, docker: DockerWorld) -> None:
+        # The literal path comes before ``/containers/{ref}``: what it answers is the reading.
+        body = self.usage(docker)
+
+        assert "items" in body and "container" not in body
+
+    def test_it_is_read_with_the_permission_to_read_docker_and_is_the_machines(
+        self, docker: DockerWorld
+    ) -> None:
+        assert docker.get("aud", "/containers/stats").status_code == 200
+        for who in ("alice", "dana", "bob", "omar"):
+            response = docker.get(who, "/containers/stats")
+            assert response.status_code == 403, who
+            assert response.json()["error"] == "instance_scope_required"
+
+    def test_a_machine_without_docker_answers_with_the_doctors_words(
+        self, docker: DockerWorld
+    ) -> None:
+        docker.machine.installed = False
+
+        body = docker.get("admin", "/containers/stats").json()
+
+        assert body["available"] is False
+        assert body["engine"]["state"] == "missing"
+        assert body["items"] == []
+
+    def test_the_reading_of_a_container_is_the_one_its_own_page_gives(
+        self, docker: DockerWorld
+    ) -> None:
+        listed = by_name(self.usage(docker)["items"])["portainer"]["usage"]
+
+        alone = docker.get("admin", "/containers/portainer").json()["usage"]
+
+        assert listed == alone
+
+
 class TestOneContainerFromTheInside:
     def test_it_says_why_it_keeps_falling_as_docker_says_it(self, docker: DockerWorld) -> None:
         body = docker.get("admin", "/containers/api-loop").json()
@@ -523,6 +605,81 @@ class TestImagesVolumesAndNetworks:
         assert rows["bridge"]["builtin"] is True and rows["bridge"]["can"]["remove"] is False
         assert rows["bridge"]["containers"] == ["portainer"]
         assert rows["scratch"]["containers"] == [] and rows["scratch"]["can"]["remove"] is True
+
+    def test_an_image_says_where_it_comes_from_so_that_not_looked_is_not_built_here(
+        self, docker: DockerWorld
+    ) -> None:
+        # Portainer was pulled and adminer was built here by somebody; the world's other images are Noust's.
+        docker.machine.facts(
+            "sha256:" + "1" * 64, repo_digests=["portainer/portainer-ce@sha256:" + "e" * 64]
+        )
+        docker.machine.facts("sha256:" + "2" * 64)
+        docker.machine.facts("sha256:" + "4" * 64)
+
+        rows = {
+            (r["tags"][0] if r["tags"] else r["id"]): r
+            for r in docker.get("admin", "/images").json()["items"]
+        }
+
+        assert rows["portainer/portainer-ce:latest"]["source"] == "registry"
+        assert rows["adminer:latest"]["source"] == "built_other"
+        mine = next(r for r in rows.values() if r["owner"]["kind"] == "app")
+        assert mine["source"] == "built_noust"
+        # What none of them has is a look: every one of them is still waiting for it, or has nothing to wait for.
+        assert rows["portainer/portainer-ce:latest"]["update"]["source"] == "registry"
+        assert rows["portainer/portainer-ce:latest"]["update"]["state"] == "not_looked"
+        assert rows["adminer:latest"]["update"]["state"] == "not_looked"
+
+    def test_what_docker_did_not_describe_is_unknown_and_not_a_guess(
+        self, docker: DockerWorld
+    ) -> None:
+        rows = docker.get("admin", "/images").json()["items"]
+
+        untagged = next(r for r in rows if not r["tags"])
+        assert untagged["source"] == "unknown"
+
+    def test_the_update_of_one_image_says_it_too(self, docker: DockerWorld) -> None:
+        docker.machine.facts(
+            "sha256:" + "1" * 64, repo_digests=["portainer/portainer-ce@sha256:" + "e" * 64]
+        )
+
+        body = docker.get("admin", "/images/sha256:" + "1" * 64 + "/update").json()
+
+        assert (body["source"], body["state"]) == ("registry", "not_looked")
+
+    def test_a_volume_says_whether_it_is_in_a_copy_and_when_the_last_was(
+        self, docker: DockerWorld
+    ) -> None:
+        rows = by_name(docker.get("admin", "/volumes").json()["items"])
+
+        # Nobody of Noust copies what Noust did not make; a volume of an application says what is done for it.
+        assert rows["wiki_data"]["backup"]["state"] == "none"
+        assert rows["wiki_data"]["backup"]["last_at"] is None
+        mine = next(r for r in rows.values() if r["owner"]["kind"] == "app")
+        assert mine["backup"]["state"] == "none"
+        assert "noust backup" in mine["backup"]["via"]
+
+    def test_a_network_says_its_subnet_and_its_gateway(self, docker: DockerWorld) -> None:
+        docker.machine.network_ranges["bridge"] = [("172.17.0.0/16", "172.17.0.1")]
+        docker.machine.network_ranges["scratch"] = [
+            ("172.28.0.0/16", "172.28.0.1"),
+            ("fd00:1::/64", "fd00:1::1"),
+        ]
+
+        rows = by_name(docker.get("admin", "/networks").json()["items"])
+
+        assert rows["bridge"]["ranges"] == [{"subnet": "172.17.0.0/16", "gateway": "172.17.0.1"}]
+        assert [r["subnet"] for r in rows["scratch"]["ranges"]] == ["172.28.0.0/16", "fd00:1::/64"]
+        # A network Docker did not give an address range to has none to say.
+        assert [r["ranges"] for n, r in rows.items() if n not in ("bridge", "scratch")] == [[]]
+
+    def test_the_networks_of_a_page_are_described_by_docker_in_one_process(
+        self, docker: DockerWorld
+    ) -> None:
+        docker.get("admin", "/networks")
+
+        described = [c for c in docker.machine.calls if c[:3] == ("docker", "network", "inspect")]
+        assert len(described) == 1
 
     def test_each_listing_is_paged(self, docker: DockerWorld) -> None:
         for path in ("/images", "/volumes", "/networks", "/stacks"):

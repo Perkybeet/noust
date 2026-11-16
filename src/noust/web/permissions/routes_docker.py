@@ -26,6 +26,7 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/docker/stacks"): Permission.DOCKER_READ,
     ("GET", "/api/docker/stacks/{name}"): Permission.DOCKER_READ,
     ("GET", "/api/docker/containers"): Permission.DOCKER_READ,
+    ("GET", "/api/docker/containers/stats"): Permission.DOCKER_READ,
     ("GET", "/api/docker/containers/{ref}"): Permission.DOCKER_READ,
     ("GET", "/api/docker/containers/{ref}/logs"): Permission.DOCKER_READ,
     ("GET", "/api/docker/images"): Permission.DOCKER_READ,
@@ -59,10 +60,17 @@ ROUTES: dict[tuple[str, str], str] = {
     ),
     # Bringing a stack to Noust registers an application and a unit that runs as root.
     ("POST", "/api/docker/stacks/{name}/bring"): Permission.DOCKER_MANAGE,
+    # Looking at what it would do changes nothing: the one command that runs is Compose's rehearsal
+    # (``up --dry-run``), which a dry run lets through, so it is read like the rest of the zone and the
+    # sudo mode is asked when it is applied.
+    ("POST", "/api/docker/stacks/{name}/bring/preview"): Permission.DOCKER_READ,
     # New versions of the images in use: what they are is read; asking the registries (with the accounts
     # Noust keeps) and updating through the application are the administrator's.
     ("GET", "/api/docker/images/{image_id}/update"): Permission.DOCKER_READ,
     ("POST", "/api/docker/images/check"): Permission.DOCKER_MANAGE,
+    # The same look asked of every server of the fleet through its tunnel: what changing Docker is, and
+    # each server holds the operator to its own ceiling.
+    ("POST", "/api/fleet/docker/images/check"): Permission.DOCKER_MANAGE,
     ("POST", "/api/docker/images/{image_id}/update"): Permission.DOCKER_MANAGE,
     # The zone of every server of the fleet at once: a view asks each server what its own page asks.
     ("GET", "/api/views/docker/summary"): Permission.DOCKER_READ,

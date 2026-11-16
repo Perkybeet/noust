@@ -159,6 +159,97 @@ class TestReading:
         assert (found["editable"], found["why_code"]) == (False, "not_compose")
 
 
+class TestThereIsNothingToReadIsNotAConflict:
+    """A stack that has no history of its own answers 200 with an empty list and says why (item 189)."""
+
+    def test_the_versions_of_a_stack_nobody_made_are_none_and_it_says_to_bring_it_first(
+        self, docker: DockerWorld
+    ) -> None:
+        docker.machine.box(
+            "nextcloud-app-1", project="nextcloud", working_dir="/opt/stacks/nextcloud"
+        )
+
+        response = docker.get("admin", "/stacks/nextcloud/compose/versions")
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert (body["items"], body["editable"], body["why_code"]) == ([], False, "bring_first")
+        assert "noust docker stack bring nextcloud" in body["why"]
+
+    def test_the_versions_of_an_application_that_is_not_a_compose_stack_are_none(
+        self, docker: DockerWorld
+    ) -> None:
+        from noust.core.docker import names
+        from tests.support.docker_web import ACME
+
+        project = names.project_of_directory(ACME)
+        docker.machine.boxes["acme-web-1"].project = project
+
+        body = docker.get("admin", f"/stacks/{project}/compose/versions").json()
+
+        assert (body["items"], body["editable"], body["why_code"]) == ([], False, "not_compose")
+
+    def test_the_versions_of_what_noust_runs_for_itself_are_none_and_say_whose_it_is(
+        self, docker: DockerWorld
+    ) -> None:
+        docker.machine.box(
+            "noust-buildkit",
+            image="moby/buildkit:buildx-stable-1",
+            helper="buildkit",
+            project="buildkit",
+            working_dir="/var/lib/noust/buildkit",
+        )
+
+        response = docker.get("admin", "/stacks/buildkit/compose/versions")
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert (body["items"], body["editable"], body["why_code"]) == ([], False, "owned")
+        assert body["why"]
+
+    def test_reading_the_document_of_what_noust_runs_for_itself_says_it_is_not_edited(
+        self, docker: DockerWorld
+    ) -> None:
+        docker.machine.box(
+            "noust-buildkit",
+            image="moby/buildkit:buildx-stable-1",
+            helper="buildkit",
+            project="buildkit",
+            working_dir="/var/lib/noust/buildkit",
+        )
+
+        response = docker.get("admin", "/stacks/buildkit/compose")
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert (body["editable"], body["why_code"], body["text"]) == (False, "owned", None)
+
+    def test_the_stack_that_noust_keeps_says_it_is_edited_and_has_no_reason(
+        self, docker: DockerWorld
+    ) -> None:
+        body = docker.get("admin", f"/stacks/{PROJECT}/compose/versions").json()
+
+        assert (body["items"], body["editable"], body["why_code"], body["why"]) == (
+            [],
+            True,
+            "",
+            "",
+        )
+
+    def test_a_stack_that_is_not_there_is_still_not_there(self, docker: DockerWorld) -> None:
+        assert docker.get("admin", "/stacks/nothing/compose/versions").status_code == 404
+
+    def test_the_list_is_read_with_the_permission_to_read_docker_and_no_secret_is_revealed(
+        self, docker: DockerWorld
+    ) -> None:
+        docker.machine.box(
+            "nextcloud-app-1", project="nextcloud", working_dir="/opt/stacks/nextcloud"
+        )
+
+        assert docker.get("aud", "/stacks/nextcloud/compose/versions").status_code == 200
+        assert docker.get("alice", "/stacks/nextcloud/compose/versions").status_code == 403
+
+
 class TestJudging:
     def test_it_says_what_would_change_and_writes_nothing(self, docker: DockerWorld) -> None:
         response = docker.send(

@@ -133,6 +133,7 @@ __all__ = [
     "VolumeBackupManager",
     "VolumeBackupMetadata",
     "VolumeBackupNotFound",
+    "VolumeCover",
     "VolumePolicyView",
     "VolumeTarget",
 ]
@@ -394,6 +395,30 @@ class VolumePolicyView:
             ]
             data.update(stored)
         return data
+
+
+@dataclass(frozen=True)
+class VolumeCover:
+    """
+    What is done to keep a named volume of an application's stack.
+
+    Attributes:
+        state: ``scheduled`` (a schedule that is on takes it), ``copied`` (it has been copied and no schedule
+            takes it) or ``none``.
+        last_at: When the newest copy that holds it was taken, ISO 8601; None when there is none.
+        via: The command that takes a copy of it now.
+    """
+
+    state: str
+    last_at: str | None
+    via: str
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Returns:
+            Every field.
+        """
+        return {"state": self.state, "last_at": self.last_at, "via": self.via}
 
 
 class VolumeBackupNotFound(BackupError):
@@ -707,6 +732,52 @@ class VolumeBackupManager:
                     "encrypted": bool(record and record.encrypted),
                 }
         return VolumePolicyView(domain, policy, timer, states)
+
+    def cover(self, domain: str, volumes: Sequence[str]) -> dict[str, VolumeCover]:
+        """
+        Say what is done to keep each named volume of an application's stack, and when it was last copied.
+
+        What the Docker zone draws for a volume. It is read from what this manager keeps and nothing is
+        asked of Docker: the application's policy for its data (a schedule that is on and names the volume,
+        or names no target, which is all of them), the copies of a volume taken on their own, and the
+        application backups that carried the stack's volumes.
+
+        Args:
+            domain: The application that owns the volumes.
+            volumes: The names of its volumes, as Docker lists them.
+
+        Returns:
+            For each name, what is done for it. An application that is not there has nothing done.
+        """
+        policy = None
+        last: dict[str, str] = {}
+        if self.store.get_app(domain) is not None:
+            policy = self.records.policy(domain)
+            names = set(volumes)
+            for copy in self.list_backups(domain):
+                if copy.kind == "docker" and copy.source in names:
+                    last[copy.source] = max(last.get(copy.source, ""), copy.created_at)
+            for backup in BackupManager(runner=self._runner, fs=self._fs).list_backups(
+                domain=domain
+            ):
+                for entry in backup.docker_volume_backups:
+                    name = str(entry.get("volume", ""))
+                    if name in names:
+                        last[name] = max(last.get(name, ""), backup.created_at)
+        found: dict[str, VolumeCover] = {}
+        for name in volumes:
+            scheduled = (
+                policy is not None
+                and policy.enabled
+                and (not policy.targets or f"volume:{name}" in policy.targets)
+            )
+            state = "scheduled" if scheduled else "copied" if name in last else "none"
+            found[name] = VolumeCover(
+                state,
+                last.get(name),
+                f"noust backup volumes create {domain} --target volume:{name}",
+            )
+        return found
 
     def list_policies(self) -> list[VolumePolicyView]:
         """

@@ -15,7 +15,10 @@ With it on, the central deploys what needs only Docker:
 
 - applications that run as a container (a Dockerfile, an image from a registry, or Railpack),
 - Docker Compose stacks, and the catalogue's recipes (435 of the 440 are Compose stacks),
-- database engines in containers,
+- database engines in containers: the Databases area lists the engines Noust runs, their databases and their
+  users, and makes, copies and restores them. It says that there is no PostgreSQL of the machine's own (the table's
+  sentence, `system` in the answers of `/api/databases/servers`, `/databases` and `/engines`) and never offers to
+  install one with a package manager the NAS does not have,
 - updates with the health check and the way back, stopping, deleting, logs and a console,
 - copies of volumes and of the databases of a stack,
 - the stacks the NAS already runs, brought to Noust without touching them,
@@ -26,7 +29,8 @@ With it on, the central deploys what needs only Docker:
 Everything that needs systemd or a web server on the machine stays where it is, and the console does
 not offer it here: applications that run natively (Node.js, Python, PHP and the rest of the
 types), domains and certificates of Noust, preview environments, an application's scheduled tasks,
-the zero-downtime relay, and the machine's own services, firewall and clock. Where a server of your
+the zero-downtime relay, and the machine's own services, firewall and clock. What shows the machine itself (the
+processes, the disks and the updates of Server) is not offered either: in a container they would be the container's. Where a server of your
 fleet has them, they are one click away from this central's console. What the console does not offer
 the commands refuse in the same words: *"Domains: not available here, which deploys containers and
 nothing else"*.

@@ -338,14 +338,32 @@ class TestProposing:
         # assistant's token and shown beside the call, masked; the model's words never are the plan.
         document = on.app.openapi()
         document["paths"]["/api/apps/{domain}/restart"]["post"]["x-noust-plan"] = {
+            "method": "POST",
+            "path": "/api/apps/{domain}/restart/plan",
+        }
+        on.model.script(Reply.call("restart_application", {"domain": SHOP}), Reply.say("proposed"))
+        turn = on.ask(on.conversation(), "restart shop")
+        [proposal] = turn["proposals"]
+        # The plan is the one answer every plan has (``PlanOutModel``), whole: the schema names its parts.
+        assert proposal["plan"] is not None and proposal["plan"]["operation"] == "app.restart"
+        assert {"commands", "files", "steps", "findings", "unknown", "needs"} <= set(
+            proposal["plan"]
+        )
+        assert on.restarts == []
+
+    def test_something_that_is_not_a_plan_is_not_shown_as_one(self, on: Lab) -> None:
+        # What a route of another shape answers is not the simulation of an operation: the proposal still
+        # carries the exact call, and shows no plan instead of a loose object the console cannot draw.
+        document = on.app.openapi()
+        document["paths"]["/api/apps/{domain}/restart"]["post"]["x-noust-plan"] = {
             "method": "GET",
             "path": "/api/apps/{domain}",
         }
         on.model.script(Reply.call("restart_application", {"domain": SHOP}), Reply.say("proposed"))
         turn = on.ask(on.conversation(), "restart shop")
         [proposal] = turn["proposals"]
-        assert proposal["plan"] is not None and proposal["plan"]["domain"] == SHOP
-        assert ("GET", f"/api/apps/{SHOP}") in on.bridge.calls
+        assert proposal["plan"] is None
+        assert proposal["call"]["path"] == f"/api/apps/{SHOP}/restart"
         assert on.restarts == []
 
     def test_where_the_policy_says_alone_it_is_done_and_written_down(self, on: Lab) -> None:

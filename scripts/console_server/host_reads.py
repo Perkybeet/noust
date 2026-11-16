@@ -26,6 +26,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+from .host_profile import SERVER, HostProfile
 from .machine import Unit
 
 #: The kernel the modelled VPS runs: the one ``/var/run/reboot-required``, the journal's first
@@ -171,15 +172,69 @@ _BASE = (
 )
 
 
-def modelled_processes(units: dict[str, Unit]) -> list[ModelledProcess]:
+#: What the central's container runs: tini, the console, and the SSH tunnels it keeps to its servers. An
+#: account that is not root runs all of it, and nothing of the machine it is on is in this list.
+_CONTAINER_PROCESSES = (
+    ModelledProcess(
+        1, "tini", "noust", ("/usr/bin/tini", "--", "noust", "web", "serve"), 0.0, 0.8, None
+    ),
+    ModelledProcess(
+        7,
+        "python3",
+        "noust",
+        ("/usr/local/bin/python3", "-m", "noust", "web", "serve"),
+        1.4,
+        118.2,
+        None,
+    ),
+    ModelledProcess(
+        31,
+        "ssh",
+        "noust",
+        (
+            "/usr/bin/ssh",
+            "-N",
+            "-L",
+            "127.0.0.1:18401:127.0.0.1:8080",
+            "noust-tunnel@fra-1.example.net",
+        ),
+        0.0,
+        5.9,
+        None,
+    ),
+    ModelledProcess(
+        32,
+        "ssh",
+        "noust",
+        (
+            "/usr/bin/ssh",
+            "-N",
+            "-L",
+            "127.0.0.1:18402:127.0.0.1:8080",
+            "noust-tunnel@ams-1.example.net",
+        ),
+        0.0,
+        5.8,
+        None,
+    ),
+)
+
+
+def modelled_processes(
+    units: dict[str, Unit], profile: HostProfile = SERVER
+) -> list[ModelledProcess]:
     """
     Args:
         units: The runner's unit model, whose running applications have each a process.
+        profile: Which machine this is. A container runs its own few processes and nothing else: its
+            applications are Docker's, and no unit of the VPS is its.
 
     Returns:
-        What the modelled VPS runs: its services and one process for each application of Noust
-        that is up, under the pid ``systemctl show`` answers for it.
+        What the modelled machine runs: for the VPS its services and one process for each application of
+        Noust that is up, under the pid ``systemctl show`` answers for it.
     """
+    if not profile.systemd:
+        return list(_CONTAINER_PROCESSES)
     found = list(_BASE)
     for name, unit in sorted(units.items()):
         if not unit.managed or unit.active != "active" or not unit.pid or name.startswith("noust-"):
@@ -204,11 +259,18 @@ def modelled_processes(units: dict[str, Unit]) -> list[ModelledProcess]:
 class _Psutil(types.ModuleType):
     """``psutil`` as the modelled VPS answers it; whatever it does not model is the real module's."""
 
-    def __init__(self, real: Any, processes: list[ModelledProcess], cpu_percent: float) -> None:
+    def __init__(
+        self,
+        real: Any,
+        processes: list[ModelledProcess],
+        cpu_percent: float,
+        disks: tuple[tuple[str, str, str, int, int], ...] = _DISKS,
+    ) -> None:
         super().__init__("psutil")
         self._real = real
         self._processes = processes
         self._cpu_percent = cpu_percent
+        self._disks = disks
         self._boot = time.time() - _UPTIME
 
     def __getattr__(self, name: str) -> Any:
@@ -257,18 +319,18 @@ class _Psutil(types.ModuleType):
         """The disks of the modelled VPS."""
         return [
             SimpleNamespace(device=device, mountpoint=mount, fstype=fstype, opts="rw")
-            for mount, device, fstype, _total, _used in _DISKS
+            for mount, device, fstype, _total, _used in self._disks
         ]
 
     def disk_usage(self, path: str) -> Any:
         """What the modelled disk that holds ``path`` holds."""
         holds = [
             row
-            for row in _DISKS
+            for row in self._disks
             if str(path) == row[0] or str(path).startswith(row[0].rstrip("/") + "/")
         ]
         mount, _device, _fstype, total, used = max(
-            holds, key=lambda row: len(row[0]), default=_DISKS[0]
+            holds, key=lambda row: len(row[0]), default=self._disks[0]
         )
         return SimpleNamespace(
             total=total, used=used, free=total - used, percent=round(used / total * 100, 1)
@@ -328,9 +390,10 @@ def model_host_reads(
     units: dict[str, Unit],
     cpu_percent: float = 12.0,
     domains: Mapping[str, str] | None = None,
+    profile: HostProfile = SERVER,
 ) -> None:
     """
-    Answer from the modelled VPS what the code reads from the machine it runs on.
+    Answer from the modelled machine what the code reads from the machine it runs on.
 
     Args:
         host_root: The modelled host's root (:class:`.server_host.ServerHost`'s), where the cgroup
@@ -340,6 +403,8 @@ def model_host_reads(
         units: The runner's unit model.
         cpu_percent: The processor load the top bar holds.
         domains: Each unit's application, whose memory and CPU are read from the model too.
+        profile: Which machine this is (``--host-profile``): the VPS, or the central's container,
+            whose processes and disks are the container's.
     """
     # Global, as ``os.getloadavg`` is patched: nothing else in this process needs the real values.
     os.uname = lambda: modelled_uname(hostname)  # type: ignore[assignment]
@@ -349,8 +414,10 @@ def model_host_reads(
 
     import psutil as real_psutil
 
-    processes = modelled_processes(units)
-    proxy = _Psutil(real_psutil, processes, cpu_percent)
+    processes = modelled_processes(units, profile)
+    proxy = _Psutil(
+        real_psutil, processes, cpu_percent, profile.disks if profile.disks is not None else _DISKS
+    )
     sys.modules["psutil"] = proxy
     # What imported it before this ran holds the real module: the metrics the monitor reads.
     import noust.monitor.metrics as metrics_module

@@ -155,7 +155,7 @@ function ApprovalDrawer({ approval, onClose }: { approval: Approval; onClose: ()
             mono: false,
             copy: false as const,
           },
-          ...((approval.needs ?? []).length > 0 ? [{ label: t("callerPolicy.queue.needs"), value: (approval.needs ?? []).join(", "), copy: false as const }] : []),
+          ...(approval.needs.length > 0 ? [{ label: t("callerPolicy.queue.needs"), value: approval.needs.join(", "), copy: false as const }] : []),
         ]
       : []),
     { label: t("approvals.fields.reason"), value: approval.reason ?? t("approvals.table.noReason"), mono: false, copy: false },

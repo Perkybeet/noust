@@ -10,8 +10,10 @@ what to show a hub), and the two agreed only by luck. Now a function is a **key*
 :data:`FEATURES`, and the table says what it needs:
 
 - the **server role** (:attr:`Need.ROLE`): this Noust deploys here (``central.role = server``); a
-  hub refuses it, and
-- a **fact of the machine**: systemd, a web server, Docker, root, the journal
+  hub refuses it, or the **hub role** (:attr:`Need.HUB`), which is what the page that turns on
+  deploying on the machine's Docker is, and a server refuses, and
+- a **fact of the machine**: systemd, a web server, Docker, root, the journal, a package manager,
+  and whether this is the machine itself and not a container's view of it
   (:class:`noust.central.machine.MachineFacts`).
 
 The guard (:func:`noust.central.require_server_role`) takes its decision and its words from here, and
@@ -66,6 +68,7 @@ __all__ = [
     "availability",
     "containers_refusal",
     "feature",
+    "hub_only_refusal",
     "hub_refusal",
     "published",
 ]
@@ -83,27 +86,38 @@ class Need(str, Enum):
 
     Attributes:
         ROLE: This Noust deploys here: ``central.role`` is ``server``.
+        HUB: This Noust is a hub, the central that deploys nothing itself until it is told to
+            (``central.role`` is ``hub``). Not a fact of the machine: the role, read the other way.
         SYSTEMD: The machine was booted with systemd.
+        HOST: Noust runs on the machine itself and not in a container image, which is what decides
+            whether the processes, the disks and the packages it shows are the server's.
         WEB_SERVER: nginx or Apache is installed.
         DOCKER: Noust can use the machine's Docker.
         ROOT: Noust runs as root.
         JOURNAL: ``journalctl`` is there.
+        PACKAGE_MANAGER: A package manager Noust drives (apt, dnf, zypper) on a system that
+            changes in place.
     """
 
     ROLE = "role"
+    HUB = "hub"
     SYSTEMD = "systemd"
+    HOST = "host"
     WEB_SERVER = "web_server"
     DOCKER = "docker"
     ROOT = "root"
     JOURNAL = "journal"
+    PACKAGE_MANAGER = "package_manager"
 
 
 #: The sentence for each need of the machine that is missing. Docker is said by the engine's doctor.
 _MISSING: dict[Need, str] = {
     Need.SYSTEMD: "features.needs_systemd",
+    Need.HOST: "features.needs_host",
     Need.WEB_SERVER: "features.needs_web_server",
     Need.ROOT: "features.needs_root",
     Need.JOURNAL: "features.needs_journal",
+    Need.PACKAGE_MANAGER: "features.needs_package_manager",
 }
 
 
@@ -203,6 +217,10 @@ FEATURES: dict[str, Feature] = _table(
         (_SERVER, Need.SYSTEMD, Need.WEB_SERVER, Need.ROOT),
     ),
     Feature("importing_applications", "Importing applications", (_SERVER,)),
+    # Blue/green for a service and the relay for a Compose stack both move an nginx upstream between two
+    # instances, so what they ask of the machine is a web server and the units that keep the instances: a
+    # container host has no site to move traffic through, and says so in the words of the others.
+    Feature("zero_downtime", "Zero-downtime switching", (_SERVER, Need.SYSTEMD, *_WEB)),
     # The catalogue's recipes are Compose stacks but five, and those five are native: the
     # deployer of a native application refuses them in its own words (native_deploy).
     Feature("recipes", "Recipes", (_SERVER,), on_containers=_DOCKER_ONLY),
@@ -268,6 +286,20 @@ FEATURES: dict[str, Feature] = _table(
     Feature("root_shell", "A root shell", (Need.ROOT,), guarded=False),
     Feature("server_security", "Server security", (Need.SYSTEMD, Need.ROOT), guarded=False),
     Feature("firewall", "The firewall", (Need.SYSTEMD, Need.ROOT), guarded=False),
+    # What the pages of the machine show is read from the machine Noust runs on, so in the central's image
+    # (a container with no systemd) they would show the image's processes, its overlay disk and its
+    # packages, which are nobody's. The host is told apart as everywhere else here, by systemd.
+    Feature("system_processes", "The server's processes", (Need.HOST,), guarded=False),
+    Feature("system_files", "The server's files and folders", (Need.HOST,), guarded=False),
+    Feature(
+        "system_updates",
+        "System updates",
+        (Need.HOST, Need.PACKAGE_MANAGER, Need.ROOT),
+        guarded=False,
+    ),
+    # -- Deploying where the central runs: the page that checks it, and where it is turned on. A hub's, and
+    # a server says why it has nothing to turn on. Docker is not asked: the page is where it is checked.
+    Feature("deploy_here", "Deploying on this machine's Docker", (Need.HUB,), guarded=False),
     # -- The Docker zone of the console: what runs in the machine's Docker and whose it is. Docker
     # is all it asks, so a hub with Docker at hand has it whether or not it deploys here, and no
     # manager refuses it by role.
@@ -324,6 +356,19 @@ def containers_refusal(item: Feature) -> ServerText:
     return say("features.containers_only", feature=item.label)
 
 
+def hub_only_refusal(item: Feature) -> ServerText:
+    """
+    Say why a server does not have a function that is a hub's.
+
+    Args:
+        item: The function.
+
+    Returns:
+        The sentence the session publishes.
+    """
+    return say("features.hub_only", feature=item.label)
+
+
 def _missing(need: Need, facts: MachineFacts) -> ServerText:
     """
     Args:
@@ -331,11 +376,13 @@ def _missing(need: Need, facts: MachineFacts) -> ServerText:
         facts: What the machine has.
 
     Returns:
-        Why it matters: the doctor's sentence for Docker, and the one named in :data:`_MISSING`
-        for the rest.
+        Why it matters: the doctor's sentence for Docker, the platform's for a package manager that
+        cannot update, and the one named in :data:`_MISSING` for the rest.
     """
     if need is Need.DOCKER:
         return facts.docker_problem or say("docker.engine.missing", command="noust setup init")
+    if need is Need.PACKAGE_MANAGER and facts.package_manager_problem is not None:
+        return facts.package_manager_problem
     return say(_MISSING[need])
 
 
@@ -372,6 +419,9 @@ def availability(
         if need is Need.ROLE:
             if role != "server":
                 return Availability(False, hub_refusal(item))
+        elif need is Need.HUB:
+            if role != "hub":
+                return Availability(False, hub_only_refusal(item))
         elif not getattr(facts, need.value):
             return Availability(False, _missing(need, facts))
     return Availability(True)

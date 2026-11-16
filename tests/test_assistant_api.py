@@ -288,13 +288,64 @@ class TestUsage:
         ).json()
         assert document["conversation"] is None
 
-    def test_a_viewer_does_not_see_it(self, world: World) -> None:
+    def test_whoever_reads_the_settings_sees_what_it_cost_without_using_it(
+        self, world: World
+    ) -> None:
+        # The month's spending is the server's, like the settings it is held to: whoever reads one reads the
+        # other, though they never talk to the assistant.
+        UsageMeter(Limits(), {}, "USD").record_step("someone-elses", 999, "tiny", Usage(500, 50))
+
         response = world.client.get("/api/assistant/usage", headers=world.people["aud"].headers)
+
+        assert response.status_code == 200, response.text
+        document = response.json()
+        assert document["month"]["steps"] == 1
+        assert document["limits"]["spend_per_month"] == 20.0
+        assert document["currency"] == "USD"
+
+    def test_it_opens_nothing_else_not_what_the_caller_made_it_do_nor_a_conversation(
+        self, world: World
+    ) -> None:
+        omar = get_token_manager().accounts.find("omar")
+        chat = Conversations().create(omar.id)
+
+        asked = world.client.get(
+            "/api/assistant/usage",
+            headers=world.people["aud"].headers,
+            params={"conversation": chat.id},
+        )
+        plain = world.client.get("/api/assistant/usage", headers=world.people["aud"].headers)
+
+        # Naming a conversation is reaching for the assistant itself: it asks for the permission to use it.
+        assert asked.status_code == 403
+        assert asked.json()["error"] == "permission_denied"
+        assert plain.json()["conversation"] is None
+        assert plain.json()["actions_last_hour"] is None
+
+    def test_the_callers_own_numbers_are_still_for_whoever_uses_it(self, world: World) -> None:
+        document = world.client.get(
+            "/api/assistant/usage", headers=world.people["omar"].headers
+        ).json()
+
+        assert document["actions_last_hour"] == 0
+
+    def test_nobody_without_the_permission_to_read_the_settings_sees_it(self, world: World) -> None:
+        # A person of one team, whose role holds neither this nor the permission to use the assistant.
+        response = world.client.get("/api/assistant/usage", headers=world.people["alice"].headers)
+
         assert response.status_code == 403
 
-    def test_the_master_token_is_not_a_person(self, world: World) -> None:
-        response = world.client.get("/api/assistant/usage", headers=world.master)
-        assert response.status_code in (400, 403)
+    def test_the_master_token_reads_the_month_and_is_not_a_person_for_the_rest(
+        self, world: World
+    ) -> None:
+        month = world.client.get("/api/assistant/usage", headers=world.master)
+        chat = world.client.get(
+            "/api/assistant/usage", headers=world.master, params={"conversation": "x" * 32}
+        )
+
+        assert month.status_code == 200, month.text
+        assert month.json()["actions_last_hour"] is None
+        assert chat.status_code in (400, 403)
 
 
 class TestConversations:
@@ -401,6 +452,46 @@ class TestWhatTheSessionSays:
         seen = response.json()["assistant"]
         assert seen["can_use"] is False
         assert seen["reason"]["code"] == "assistant.unavailable.account"
+
+    def test_the_reason_is_always_one_of_a_closed_list_and_never_a_word_the_console_guesses(
+        self, world: World, model: ScriptedModel
+    ) -> None:
+        from noust.web.api.assistant_session import ASSISTANT_REASONS
+
+        reasons = {session_of(world, "omar")["reason"]["code"]}
+        turn_on(world, model)
+        reasons.add(session_of(world, "aud")["reason"]["code"])
+        reasons.add(
+            world.client.get("/api/auth/session", headers=world.master).json()["assistant"][
+                "reason"
+            ]["code"]
+        )
+
+        assert reasons == set(ASSISTANT_REASONS)
+
+    def test_the_assistant_is_one_answer_of_the_session_and_not_a_function_of_the_table(
+        self, world: World, model: ScriptedModel
+    ) -> None:
+        from noust.central.features import FEATURES
+
+        # What the table of functions says is what the machine and the role can do. The assistant needs
+        # neither: it talks to a provider and calls the API as the person, on a hub as anywhere, so its
+        # one answer is ``assistant`` of the session, typed, with its reason (and never a literal of a
+        # function that is not there).
+        turn_on(world, model)
+        session = world.client.get("/api/auth/session", headers=admin(world)).json()
+
+        assert "assistant" not in FEATURES
+        assert "assistant" not in (session["central"].get("features") or {})
+        assert set(session["assistant"]) == {
+            "enabled",
+            "can_use",
+            "tools",
+            "reason",
+            "model",
+            "location",
+            "mask_personal",
+        }
 
     def test_on_a_hub_it_is_offered_as_anywhere_else(
         self, world: World, model: ScriptedModel

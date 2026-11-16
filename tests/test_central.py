@@ -115,10 +115,16 @@ class TestRole:
         assert refused["reason"]["text"] == caught.value.message
         assert refused["reason"]["hint"] == caught.value.details
 
-    def test_a_server_on_an_ordinary_machine_can_do_everything(self) -> None:
+    def test_a_server_on_an_ordinary_machine_can_do_everything_but_what_is_a_hubs(self) -> None:
         features = central.central_info()["features"]
 
-        assert all(entry == {"available": True, "reason": None} for entry in features.values())
+        assert {key for key, entry in features.items() if not entry["available"]} == {"deploy_here"}
+        assert features["deploy_here"]["reason"]["code"] == "features.hub_only"
+        assert all(
+            entry == {"available": True, "reason": None}
+            for key, entry in features.items()
+            if key != "deploy_here"
+        )
 
     def test_a_hub_keeps_its_own_machines_functions(self, hub: None) -> None:
         features = central.central_info()["features"]

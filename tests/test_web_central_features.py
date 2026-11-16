@@ -62,11 +62,20 @@ def features_of(client: TestClient) -> dict[str, Any]:
 
 
 class TestTheSessionSaysWhatWorksHere:
-    def test_a_server_on_an_ordinary_machine_can_do_everything(self, client: TestClient) -> None:
+    def test_a_server_on_an_ordinary_machine_can_do_everything_but_what_is_a_hubs(
+        self, client: TestClient
+    ) -> None:
         features = features_of(client)
 
         assert set(features) == set(FEATURES)
-        assert all(entry == {"available": True, "reason": None} for entry in features.values())
+        # The page that turns on deploying on the machine's Docker is a hub's: a server says why not.
+        assert features["deploy_here"]["available"] is False
+        assert features["deploy_here"]["reason"]["code"] == "features.hub_only"
+        assert all(
+            entry == {"available": True, "reason": None}
+            for key, entry in features.items()
+            if key != "deploy_here"
+        )
 
     def test_a_hub_says_why_with_the_words_of_the_refusal_its_managers_give(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch

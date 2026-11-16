@@ -79,6 +79,7 @@ __all__ = [
     "ServiceLine",
     "StackEditor",
     "Staged",
+    "VersionList",
     "VersionView",
 ]
 
@@ -443,6 +444,44 @@ class VersionView:
     diff_against: str = "current"
 
 
+@dataclass(frozen=True)
+class VersionList:
+    """
+    The versions of a stack's document, or why it has none to list.
+
+    A stack whose document is somebody else's has no history of Noust's to read, and that is not a conflict:
+    the list is empty and says whose the document is, the way :class:`ComposeView` does.
+
+    Attributes:
+        items: The versions, newest first, without their text.
+        editable: Whether Noust keeps this stack's document, so that the history is its own.
+        why_code: When it does not: ``repository``, ``recipe``, ``generated``, ``bring_first``, ``no_file``,
+            ``not_compose`` or ``owned`` (a database engine's or Noust's own); empty when it does.
+        why: The same in a sentence that says where the document is changed; empty when it does.
+    """
+
+    items: list[StackVersion]
+    editable: bool = True
+    why_code: str = ""
+    why: str = ""
+
+
+#: The code of the stack a database engine or Noust itself keeps: its document is Noust's own.
+OWNED = "owned"
+
+
+def _because(error: DockerBlockedError | DockerOwnedError) -> tuple[str, str]:
+    """
+    Args:
+        error: What kept a stack's document from being edited.
+
+    Returns:
+        The code and the sentence that say whose the document is.
+    """
+    code = error.reason if isinstance(error, DockerBlockedError) else OWNED
+    return code, f"{error.message}. {error.details}".strip()
+
+
 def _normal(text: str) -> str:
     """
     Args:
@@ -709,16 +748,11 @@ class StackEditor:
         """
         try:
             target = self._target(stack)
-        except DockerBlockedError as blocked:
+        except (DockerBlockedError, DockerOwnedError) as refused:
             project, _ = self._gate.project(stack)
             domain = project.owner.subject if project.owner.kind is OwnerKind.APP else None
-            return ComposeView(
-                stack=stack,
-                domain=domain,
-                editable=False,
-                why_code=blocked.reason,
-                why=f"{blocked.message}. {blocked.details}".strip(),
-            )
+            code, why = _because(refused)
+            return ComposeView(stack=stack, domain=domain, editable=False, why_code=code, why=why)
         text = self._current(target)
         audit.record(
             "apps.compose.document",
@@ -1154,6 +1188,29 @@ class StackEditor:
             DockerBlockedError: It has no document to edit here.
         """
         return self.history.versions(self._target(stack).app.domain)
+
+    def history_of(self, stack: str) -> VersionList:
+        """
+        Read the versions of a stack's document, or say why there is no history of Noust's to read.
+
+        A stack that is not Noust's, one that is not a Compose stack, one whose document is a repository's, a
+        recipe's or generated, and one a database engine or Noust itself keeps all have an empty history, and
+        that is an answer and not a conflict.
+
+        Args:
+            stack: The Compose project.
+
+        Returns:
+            The versions, newest first and without their text, or the reason there are none to list.
+
+        Raises:
+            DockerNotFoundError: There is no such stack, or the principal may not see it.
+        """
+        try:
+            return VersionList(self.versions(stack))
+        except (DockerBlockedError, DockerOwnedError) as refused:
+            code, why = _because(refused)
+            return VersionList([], editable=False, why_code=code, why=why)
 
     def version(self, stack: str, number: int) -> VersionView:
         """

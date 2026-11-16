@@ -71,6 +71,7 @@ ASKS_NOTHING = {"dns_records", "dns_accounts"}
 #: What stays on the server's side of the line, with the sentence the console says for each.
 NEEDS_SYSTEMD_OR_A_WEB_SERVER = {
     "native_deploy",
+    "zero_downtime",
     "preview_environments",
     "importing_applications",
     "process_monitor",

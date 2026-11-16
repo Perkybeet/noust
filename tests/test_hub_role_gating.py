@@ -219,7 +219,7 @@ CHOKEPOINTS: list[tuple[str, str, Callable[[], Any]]] = [
     ),
     ("migrate.migrate", "Applications", _migrate),
     ("app_export.apply_import", "Importing applications", _apply_import),
-    ("bluegreen.set_zero_downtime", "Applications", _zero_downtime),
+    ("bluegreen.set_zero_downtime", "Zero-downtime switching", _zero_downtime),
     ("previews.enable_previews", "Preview environments", _previews),
     (
         "domains.add_domain",

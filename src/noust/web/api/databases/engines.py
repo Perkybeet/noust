@@ -20,8 +20,10 @@ from pydantic import BaseModel, Field
 
 from noust.core import audit
 from noust.core.exceptions import DatabaseEngineError
+from noust.managers.database.system_engines import system_engines
 from noust.managers.service_manager import ServiceManager
 from noust.web.api.auth import get_current_session
+from noust.web.api.central import FeatureState
 from noust.web.api.databases.common import (
     ActionResponse,
     SupportNoticeResponse,
@@ -112,9 +114,19 @@ class EngineCredentialsRequest(BaseModel):
 
 
 class EngineListResponse(BaseModel):
-    """Response for listing engines."""
+    """
+    Response for listing engines.
+
+    Attributes:
+        engines: The engines: the system's own where this machine has them, and the containers Noust runs.
+        system: Whether the system's own engines are something this machine has, and why not when it has
+            none (``features.containers_only`` on the central of a NAS, which runs engines in containers and
+            has no PostgreSQL of its own): the sentence the table of functions says for ``databases``, so the
+            list is the instances alone and nothing offers to install an engine.
+    """
 
     engines: list[EngineInfo]
+    system: FeatureState
 
 
 class EngineStatusResponse(BaseModel):
@@ -355,6 +367,7 @@ def list_engines(session: Annotated[dict, Depends(get_current_session)]) -> Engi
         The engines.
     """
     return EngineListResponse(
+        system=FeatureState(**system_engines()),
         engines=[
             EngineInfo(
                 name=status["engine"],
@@ -381,7 +394,7 @@ def list_engines(session: Annotated[dict, Depends(get_current_session)]) -> Engi
                 memory_limit_mb=status.get("memory_limit_mb"),
             )
             for status in service(session).engines()
-        ]
+        ],
     )
 
 

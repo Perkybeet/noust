@@ -76,6 +76,20 @@ class DockerBringRequest(BaseModel):
     accept_recreate: bool = False
 
 
+class DockerBringPreviewRequest(BaseModel):
+    """
+    Look at what bringing a stack that already runs to Noust would do.
+
+    Attributes:
+        name: What the application would be called in Noust's list; the stack's own name when absent.
+        accept_recreate: Show the plan although Compose says starting the stack the way Noust would changes what
+            runs, instead of refusing it with Compose's own words.
+    """
+
+    name: str | None = Field(default=None, max_length=253)
+    accept_recreate: bool = False
+
+
 class DockerBringRestartOut(BaseModel):
     """
     A container of the stack that a restart of the machine would leave down.
@@ -169,7 +183,7 @@ class DockerComposeOut(BaseModel):
         kind: ``document`` (Noust keeps it) or ``file`` (a file in the folder the stack runs from) when it is.
         why_code: When it is not: ``repository`` (its document is in git), ``recipe`` (the recipe's),
             ``generated`` (a container application's, written by Noust), ``bring_first`` (Noust did not make the
-            stack), ``no_file`` or ``not_compose``.
+            stack), ``no_file``, ``not_compose`` or ``owned`` (a database engine's or Noust's own stack).
         why: The same in a sentence that says where it is changed.
         text: The document, when it is edited here; reading it is a reveal and is recorded.
         path: Where it is.
@@ -385,13 +399,24 @@ class DockerComposeVersionOut(BaseModel):
 
 class DockerComposeVersionsOut(BaseModel):
     """
-    The versions of a stack's document, newest first.
+    The versions of a stack's document, newest first, or why there is no history of Noust's to read.
+
+    A stack whose document is somebody else's has nothing to list and that is not a conflict: the answer is
+    200 with no items and the reason, as :class:`DockerComposeOut` says it for the document.
 
     Attributes:
-        items: The versions, without their text.
+        items: The versions, without their text; empty when none was kept or when Noust does not keep
+            the document.
+        editable: Noust keeps this stack's document, so the history is its own.
+        why_code: When it does not: ``repository``, ``recipe``, ``generated``, ``bring_first``, ``no_file``,
+            ``not_compose`` or ``owned`` (a database engine's or Noust's own stack); empty when it does.
+        why: The same in a sentence that says where the document is changed; empty when it does.
     """
 
-    items: list[DockerComposeVersionOut] = Field(default_factory=list)
+    items: list[DockerComposeVersionOut]
+    editable: bool = True
+    why_code: str = ""
+    why: str = ""
 
 
 class DockerComposeVersionDetailOut(BaseModel):

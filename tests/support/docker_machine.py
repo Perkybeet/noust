@@ -131,6 +131,8 @@ class DockerMachine(FakeRunner):
             {"Type": "Build Cache", "TotalCount": "0", "Size": "0B", "Reclaimable": "0B"},
         ]
         self.volume_sizes: dict[str, str] = {}
+        #: The address ranges ``network inspect`` says each network has, by name: ``(subnet, gateway)``.
+        self.network_ranges: dict[str, list[tuple[str, str]]] = {}
         self.engine: dict[str, str] = {
             "version": "29.1.3",
             "api": "1.52",
@@ -330,6 +332,7 @@ class DockerMachine(FakeRunner):
             ("image", "ls"): self._image_ls,
             ("volume", "ls"): self._volume_ls,
             ("network", "ls"): self._network_ls,
+            ("network", "inspect"): self._network_inspect,
             ("system", "df"): self._system_df,
             ("run",): self._run,
             ("start",): self._start,
@@ -587,11 +590,8 @@ class DockerMachine(FakeRunner):
             return 1, "", f"Error: No such object: {missing[0]}"
         return 0, out, ""
 
-    def _stats(self, argv: tuple[str, ...]) -> tuple[int, str, str]:
-        ident = argv[-1]
-        box = next((b for b in self.boxes.values() if b.id == ident), None)
-        if box is None:
-            return 1, "", f"Error response from daemon: No such container: {ident}"
+    def _stats_row(self, box: Box) -> dict[str, str]:
+        """What ``docker stats`` prints of one container."""
         reading = box.stats or {
             "CPUPerc": "14.50%",
             "MemUsage": "212MiB / 512MiB",
@@ -600,7 +600,19 @@ class DockerMachine(FakeRunner):
             "BlockIO": "1.2MB / 0B",
             "PIDs": "12",
         }
-        return 0, json.dumps({"ID": ident[:12], "Name": box.name, **reading}), ""
+        return {"ID": box.id[:12], "Name": box.name, **reading}
+
+    def _stats(self, argv: tuple[str, ...]) -> tuple[int, str, str]:
+        # ``docker stats --no-stream --format F [ID...]``: without an id, every container that runs.
+        named = list(argv[argv.index("--format") + 2 :]) if "--format" in argv else []
+        if not named:
+            rows = [self._stats_row(b) for b in self.boxes.values() if b.state == "running"]
+            return 0, "\n".join(json.dumps(row) for row in rows), ""
+        ident = named[-1]
+        box = next((b for b in self.boxes.values() if b.id == ident), None)
+        if box is None:
+            return 1, "", f"Error response from daemon: No such container: {ident}"
+        return 0, json.dumps(self._stats_row(box)), ""
 
     def _logs(self, argv: tuple[str, ...]) -> tuple[int, str, str]:
         ident = argv[-1]
@@ -648,6 +660,23 @@ class DockerMachine(FakeRunner):
 
     def _network_ls(self, argv: tuple[str, ...]) -> tuple[int, str, str]:
         return 0, "\n".join(json.dumps(row) for row in self.networks), ""
+
+    def _network_inspect(self, argv: tuple[str, ...]) -> tuple[int, str, str]:
+        """``docker network inspect --format F ID...``: what the gate's format asks for, an object a line."""
+        wanted = list(argv[argv.index("--format") + 2 :]) if "--format" in argv else list(argv[3:])
+        rows = []
+        for row in self.networks:
+            if row["id"] not in wanted and row["id"][:12] not in wanted:
+                continue
+            ranges = self.network_ranges.get(row["name"], [])
+            rows.append(
+                {
+                    "id": row["id"],
+                    "ranges": [{"Subnet": subnet, "Gateway": gateway} for subnet, gateway in ranges]
+                    or None,
+                }
+            )
+        return 0, "\n".join(json.dumps(row) for row in rows), ""
 
     def _system_df(self, argv: tuple[str, ...]) -> tuple[int, str, str]:
         if "-v" in argv:

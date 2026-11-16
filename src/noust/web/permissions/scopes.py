@@ -352,6 +352,8 @@ RULES: tuple[Rule, ...] = (
     # in one team and holds assistant.use through their role is offered it too.
     _rule("/api/assistant/conversations", OPEN),
     _rule("/api/assistant/conversations/**", OPEN),
+    # What it cost is read by whoever uses it, in their team, and by whoever reads the settings: the second
+    # is the instance's like the settings are, which the handler holds a caller who does not use it to.
     _rule("/api/assistant/usage", OPEN),
     _rule("/api/assistant/**", INSTANCE),
     # A preview reads through the API as the caller, so every route it meets holds it to its team.

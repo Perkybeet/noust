@@ -32,7 +32,6 @@ from pydantic import BaseModel, Field
 from noust.core.audit import record as audit_record
 from noust.core.exceptions import PermissionError as NoustPermissionError
 from noust.core.server_text import say
-from noust.web.api.assistant_session import AssistantReason
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import CodedText, NoustErrorRoute, caller_account, require_elevated
 from noust.web.auth import actor_label
@@ -156,8 +155,9 @@ class AssistantSettingsIn(BaseModel):
         prices: The whole price table.
         currency: What the prices are in.
         allow_private_host: Consent that this server calls the provider's host though it is on
-            this machine or the network: the host is listed in ``security.allow_private_hosts``.
-        probe: Probe the provider after saving a change to it (the default).
+            this machine or the network: the host is listed in ``security.allow_private_hosts``. Left out, or
+            null, there is no consent (false).
+        probe: Probe the provider after saving a change to it. Left out, or null, it is probed (true).
     """
 
     enabled: bool | None = None
@@ -171,8 +171,8 @@ class AssistantSettingsIn(BaseModel):
     limits: dict[str, float] | None = None
     prices: dict[str, PriceModel] | None = None
     currency: str | None = Field(default=None, max_length=8)
-    allow_private_host: bool = False
-    probe: bool = True
+    allow_private_host: bool | None = None
+    probe: bool | None = None
 
 
 class PresetOut(BaseModel):
@@ -239,7 +239,8 @@ class UsageOut(BaseModel):
     Attributes:
         conversation: One conversation's totals, when one was asked for and is the caller's.
         month: The calendar month's totals, everyone's together.
-        actions_last_hour: The changes the assistant made for the caller in the last hour.
+        actions_last_hour: The changes the assistant made for the caller in the last hour; null for whoever
+            does not use the assistant.
         limits: The limits in force.
         currency: What spending is in.
         month_start: The first moment of the month counted (UTC).
@@ -254,7 +255,7 @@ class UsageOut(BaseModel):
     currency: str
     month_start: str
     priced_models: list[str]
-    notes: list[AssistantReason] = Field(default_factory=list)
+    notes: list[SentenceOut] = Field(default_factory=list)
 
 
 class OffOut(BaseModel):
@@ -287,6 +288,22 @@ class ConversationOut(BaseModel):
     updated_at: str
 
 
+class ToolCallOut(BaseModel):
+    """
+    A tool the model called, as it called it.
+
+    Attributes:
+        id: The call's identifier, which the message that answers it names.
+        name: The tool.
+        arguments: What it was called with, as the JSON text the model sent, with the disguised emails and
+            addresses put back.
+    """
+
+    id: str
+    name: str
+    arguments: str
+
+
 class MessageOut(BaseModel):
     """
     One message of a conversation, as its author reads it.
@@ -295,7 +312,7 @@ class MessageOut(BaseModel):
         seq: Its place, from 1.
         role: ``user``, ``assistant`` or ``tool``.
         content: The text, with the disguised emails and addresses put back.
-        tool_calls: For an assistant message that called tools: ``id``, ``name`` and ``arguments``.
+        tool_calls: For an assistant message that called tools, each call.
         tool_call_id: For a tool message, the call it answers.
         created_at: When it was written.
     """
@@ -303,7 +320,7 @@ class MessageOut(BaseModel):
     seq: int
     role: str
     content: str
-    tool_calls: list[dict[str, str]] | None = None
+    tool_calls: list[ToolCallOut] | None = None
     tool_call_id: str | None = None
     created_at: str
 
@@ -586,31 +603,59 @@ def presets(session: Annotated[dict, Depends(get_current_session)]) -> PresetsOu
 def usage(
     session: Annotated[dict, Depends(get_current_session)],
     conversation: Annotated[
-        str | None, Query(description="A conversation of the caller's, to give its totals too")
+        str | None,
+        Query(
+            description="A conversation of the caller's, to give its totals too; needs the permission to use "
+            "the assistant"
+        ),
     ] = None,
 ) -> UsageOut:
     """
     Show what the assistant cost and the limits it runs under.
+
+    What it costs is the server's, like the settings that limit it, so whoever may read the settings reads
+    it (``settings.read``) without using the assistant, as they read the settings: a person who only sees
+    some teams does not. That opens nothing else: what the caller made it do in the last hour and the totals
+    of one conversation are the assistant's, for who may use it (``assistant.use``) and, for a conversation,
+    only its author.
 
     Args:
         session: The authenticated session.
         conversation: One of the caller's conversations.
 
     Returns:
-        The month's totals (everyone's together), the conversation's when asked for and its
-        author's, what the caller made it do in the last hour, and the limits.
+        The month's totals (everyone's together) and the limits; for whoever uses the assistant also what
+        the caller made it do in the last hour, and the conversation's totals when asked for and its
+        author's.
+
+    Raises:
+        PermissionDenied: 403 when a conversation is asked for by someone who may not use the assistant, and
+            ``instance_scope_required`` when someone who does not use it and sees only some teams asks for
+            the server's spending.
+        NoustPermissionError: 403 when it is asked for as something that is not a person's account.
     """
     from noust.core.assistant.conversations import Conversations
     from noust.core.assistant.limits import UsageMeter
     from noust.core.assistant.settings import AssistantSettings
+    from noust.web.api.scope import require_instance_scope
+    from noust.web.permissions import Permission
+    from noust.web.permissions.enforce import check_permission, has_permission
 
-    account_id = _account_id(session)
+    if not has_permission(session, Permission.ASSISTANT_USE):
+        # The spending is the server's: read through the settings' permission, it is read as the settings are.
+        require_instance_scope(Permission.SETTINGS_READ)
     current = AssistantSettings().read()
-    chosen = (
-        conversation
-        if conversation is not None and Conversations().get(conversation, account_id) is not None
-        else None
-    )
+    chosen = None
+    account_id = None
+    if conversation is not None:
+        # Naming a conversation is reaching for the assistant itself, which has a permission of its own.
+        check_permission(session, Permission.ASSISTANT_USE)
+        account_id = _account_id(session)
+        if Conversations().get(conversation, account_id) is not None:
+            chosen = conversation
+    elif has_permission(session, Permission.ASSISTANT_USE):
+        account = caller_account(session)
+        account_id = int(account.id) if account is not None else None
     meter = UsageMeter(current.limits, current.prices, current.currency)
     report = meter.report(conversation_id=chosen, account_id=account_id)
     notes = []
@@ -630,7 +675,7 @@ def usage(
         currency=report.currency,
         month_start=report.month_start,
         priced_models=list(report.priced_models),
-        notes=[AssistantReason(**n.to_dict(), text=n.text, hint=n.hint) for n in notes],
+        notes=_sentences(notes),
     )
 
 
@@ -693,7 +738,10 @@ def get_conversation(
                 role=m.role,
                 content=masker.restore(m.content),
                 tool_calls=(
-                    [{**c, "arguments": masker.restore(c["arguments"])} for c in m.tool_calls]
+                    [
+                        ToolCallOut(**{**c, "arguments": masker.restore(c["arguments"])})
+                        for c in m.tool_calls
+                    ]
                     if m.tool_calls
                     else None
                 ),

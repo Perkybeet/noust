@@ -37,7 +37,9 @@ def _manager(runner: FakeRunner) -> CronManager:
 
 def test_the_preview_reports_the_instants_the_timer_will_fire_in_the_servers_zone() -> None:
     runner = FakeRunner()
-    runner.script(["systemd-analyze", "calendar", "--iterations=2", "*-*-* 02:00:00"], stdout=CET_OUTPUT)
+    runner.script(
+        ["systemd-analyze", "calendar", "--iterations=2", "*-*-* 02:00:00"], stdout=CET_OUTPUT
+    )
 
     calendar, runs = _manager(runner).preview_calendar("*-*-* 02:00:00", iterations=2)
 
@@ -46,9 +48,13 @@ def test_the_preview_reports_the_instants_the_timer_will_fire_in_the_servers_zon
     assert runs == ["2026-11-13T01:00:00+00:00", "2026-11-14T01:00:00+00:00"]
 
 
-def test_the_preview_does_not_pin_the_zone_to_utc_because_the_timer_does_not_read_it_there() -> None:
+def test_the_preview_does_not_pin_the_zone_to_utc_because_the_timer_does_not_read_it_there() -> (
+    None
+):
     runner = FakeRunner()
-    runner.script(["systemd-analyze", "calendar", "--iterations=2", "*-*-* 02:00:00"], stdout=CET_OUTPUT)
+    runner.script(
+        ["systemd-analyze", "calendar", "--iterations=2", "*-*-* 02:00:00"], stdout=CET_OUTPUT
+    )
 
     _manager(runner).preview_calendar("*-*-* 02:00:00", iterations=2)
 

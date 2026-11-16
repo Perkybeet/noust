@@ -102,6 +102,217 @@ class TestThePreview:
         assert adoption.planned[0]["path"] == folder
 
 
+class TestThePreviewAsksNoSudoMode:
+    """Looking at what bringing a stack would do changes nothing, so it is read like the rest of the zone (item 189)."""
+
+    PREVIEW = "/api/docker/stacks/nextcloud/bring/preview"
+
+    @pytest.fixture
+    def no_sudo(self) -> dict[str, str]:
+        """An administrator's token that can never be in sudo mode: it reads, it cannot change."""
+        from noust.web.server import get_token_manager
+
+        account = get_token_manager().accounts.find("root-admin")
+        issued = get_token_manager().create_api_token(
+            "no-sudo", "admin", None, owner=account, allow_elevated=False
+        )
+        return {"Authorization": f"Bearer {issued['token']}"}
+
+    def test_it_is_read_with_the_permission_to_read_docker_and_without_sudo_mode(
+        self, docker: DockerWorld, monkeypatch: pytest.MonkeyPatch, no_sudo: dict[str, str]
+    ) -> None:
+        Adoption(monkeypatch)
+
+        for headers in (no_sudo, docker.world.as_("aud")):
+            response = docker.world.client.post(self.PREVIEW, json={}, headers=headers)
+
+            assert response.status_code == 200, response.text
+            assert response.json()["adopted"] is False
+
+    def test_what_is_applied_still_asks_for_sudo_mode(
+        self, docker: DockerWorld, monkeypatch: pytest.MonkeyPatch, no_sudo: dict[str, str]
+    ) -> None:
+        adoption = Adoption(monkeypatch)
+
+        response = docker.world.client.post(
+            "/api/docker/stacks/nextcloud/bring", json={}, headers=no_sudo
+        )
+
+        assert response.status_code == 403
+        assert response.json()["error"] == "elevation_required"
+        assert adoption.adopted == []
+
+    def test_the_schema_says_it_is_a_read_so_a_central_asks_nobody_to_confirm_for_it(
+        self, docker: DockerWorld
+    ) -> None:
+        paths = docker.world.client.get(
+            "/api/openapi.json", headers=docker.world.as_("admin")
+        ).json()["paths"]
+
+        preview = paths["/api/docker/stacks/{name}/bring/preview"]["post"]
+        apply = paths["/api/docker/stacks/{name}/bring"]["post"]
+        assert preview["x-noust-permission"] == "docker.read"
+        assert "x-noust-requires-elevation" not in preview
+        assert apply["x-noust-requires-elevation"] is True
+
+    def test_a_person_of_a_team_is_refused_it_is_the_machines(
+        self, docker: DockerWorld, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        Adoption(monkeypatch)
+
+        for who in ("alice", "omar", "bob"):
+            response = docker.world.client.post(
+                self.PREVIEW, json={}, headers=docker.world.as_(who)
+            )
+            assert response.status_code == 403, who
+
+    def test_it_says_what_the_bring_one_does_with_the_same_words(
+        self, docker: DockerWorld, folder: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        Adoption(monkeypatch)
+
+        previewed = docker.send("admin", "POST", "/stacks/nextcloud/bring/preview", json={})
+        asked_by_the_old_way = docker.send(
+            "admin", "POST", "/stacks/nextcloud/bring", json={"preview": True}
+        )
+
+        assert previewed.status_code == 200, previewed.text
+        assert previewed.json() == asked_by_the_old_way.json()
+
+    def test_what_cannot_be_brought_is_refused_with_its_reason_as_a_code_and_in_no_sudo(
+        self, docker: DockerWorld, monkeypatch: pytest.MonkeyPatch, no_sudo: dict[str, str]
+    ) -> None:
+        Adoption(monkeypatch)
+        for box in docker.machine.boxes.values():
+            if box.project == "nextcloud":
+                box.working_dir = "/var/lib/portainer/compose/12"
+                box.config_files = "/var/lib/portainer/compose/12/docker-compose.yml"
+
+        response = docker.world.client.post(self.PREVIEW, json={}, headers=no_sudo)
+
+        assert response.status_code == 409
+        assert response.json()["reason"] == "no_folder"
+
+    def test_a_stack_that_is_not_there_is_not_there(
+        self, docker: DockerWorld, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        Adoption(monkeypatch)
+
+        response = docker.send("admin", "POST", "/stacks/nothing/bring/preview", json={})
+
+        assert response.status_code == 404
+
+
+class TestThePreviewChangesNothing:
+    """The preview is the rehearsal (``up --dry-run``): what the runner is given never changes anything."""
+
+    @pytest.fixture
+    def stack(self, folder: Path) -> Path:
+        (folder / "compose.yaml").write_text(
+            "services:\n  app:\n    image: nextcloud:29-apache\n"
+            "    ports:\n      - '127.0.0.1:8081:80'\n  db:\n    image: postgres:16\n"
+        )
+        return folder
+
+    def test_every_command_the_runner_is_given_only_looks_and_the_stack_is_rehearsed(
+        self, docker: DockerWorld, stack: Path
+    ) -> None:
+        from noust.core.runner import is_read_only
+
+        docker.machine.calls.clear()
+
+        response = docker.send("admin", "POST", "/stacks/nextcloud/bring/preview", json={})
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert (body["adopted"], body["deployment_id"]) == (False, None)
+        # Nothing the runner was given changes anything: every command is one a dry run lets through.
+        assert docker.machine.changes() == []
+        assert all(is_read_only(call) for call in docker.machine.calls), [
+            call for call in docker.machine.calls if not is_read_only(call)
+        ]
+        # ... and one of them is the rehearsal itself, which is the whole of the proof.
+        rehearsed = [call for call in docker.machine.calls if "--dry-run" in call]
+        assert rehearsed, docker.machine.calls
+        assert rehearsed[0][:2] == ("docker", "compose") and rehearsed[0][-1] == "--no-build"
+
+    def test_nothing_is_registered_written_or_started(
+        self, docker: DockerWorld, stack: Path
+    ) -> None:
+        from noust.core.store import get_store
+
+        before = {app.domain for app in get_store().list_apps()}
+        files = sorted(p.name for p in stack.iterdir())
+
+        docker.send("admin", "POST", "/stacks/nextcloud/bring/preview", json={})
+
+        assert {app.domain for app in get_store().list_apps()} == before
+        assert sorted(p.name for p in stack.iterdir()) == files
+        assert events("docker.bring") == []
+        assert not [c for c in docker.machine.calls if c[:2] == ("systemctl", "enable")]
+
+
+class TestThePreviewDoesNotShowSecrets:
+    """What Compose and the checkout say can carry a credential: the preview is read by whoever reads Docker."""
+
+    SOURCE = "https://deploy:hunter2hunter2@repo.example.com/org/nextcloud.git"
+
+    def test_a_credential_in_where_updates_would_come_from_is_masked(
+        self, docker: DockerWorld, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        Adoption(monkeypatch, source=self.SOURCE)
+
+        body = docker.send("aud", "POST", "/stacks/nextcloud/bring/preview", json={}).json()
+
+        assert "hunter2hunter2" not in str(body)
+        assert body["source"].startswith("https://") and "repo.example.com" in body["source"]
+
+    def test_a_credential_in_composes_own_words_is_masked_everywhere_they_are_shown(
+        self, docker: DockerWorld, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        words = f"pull access denied for {self.SOURCE}: password=hunter2hunter2"
+        Adoption(
+            monkeypatch,
+            dry_run=f" DRY-RUN MODE -  Container nextcloud-app-1  Running\n{words}",
+            changes=(f"Container nextcloud-app-1 Recreated ({words})",),
+            warnings=(f"Accepted: {words}",),
+        )
+
+        body = docker.send("aud", "POST", "/stacks/nextcloud/bring/preview", json={}).json()
+
+        assert "hunter2hunter2" not in str(body)
+        assert "DRY-RUN MODE" in body["rehearsal"] and "nextcloud-app-1" in body["rehearsal"]
+
+    def test_a_secret_the_stacks_own_env_holds_is_masked_wherever_compose_printed_it(
+        self, docker: DockerWorld, folder: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        (folder / ".env").write_text("NEXTCLOUD_ADMIN_PASSWORD=correct-horse-battery\n")
+        Adoption(monkeypatch, dry_run="invalid value: correct-horse-battery for app")
+
+        body = docker.send("aud", "POST", "/stacks/nextcloud/bring/preview", json={}).json()
+
+        assert "correct-horse-battery" not in str(body)
+
+    def test_composes_words_in_a_refusal_are_masked_too_and_stay_composes(
+        self, docker: DockerWorld, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def refuse(*args: object, **kwargs: object) -> None:
+            raise AdoptionRefusedError(
+                "Starting the stack as Noust would changes what runs",
+                details="Compose would recreate nextcloud-app-1.",
+                output=f"Container nextcloud-app-1  Recreated  pulling {self.SOURCE}",
+                changes=("Container nextcloud-app-1 Recreated",),
+            )
+
+        monkeypatch.setattr(compose_adopt, "plan_adoption", refuse)
+
+        response = docker.send("aud", "POST", "/stacks/nextcloud/bring/preview", json={})
+
+        assert response.status_code == 409
+        assert "hunter2hunter2" not in response.text
+        assert "Recreated" in response.json()["output"]
+
+
 class TestBringing:
     def test_it_registers_the_stack_as_the_application_named_and_is_on_record(
         self, docker: DockerWorld, monkeypatch: pytest.MonkeyPatch

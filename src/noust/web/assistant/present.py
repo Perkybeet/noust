@@ -64,6 +64,46 @@ def sentence_of(held: Mapping[str, Any] | None) -> dict[str, Any] | None:
         }
 
 
+def plan_of(held: Any) -> dict[str, Any] | None:
+    """
+    Args:
+        held: What the operation's plan route answered, as a proposal keeps it.
+
+    Returns:
+        It as the one answer every plan has (:class:`noust.web.api.plan_models.PlanOutModel`), whole; None when
+        there is none, or when the route answered something that is not a plan (a server of another version, a
+        route of another shape): the proposal is still the exact call, and a loose object is not drawn.
+    """
+    if not isinstance(held, Mapping):
+        return None
+    from noust.web.api.plan_models import PlanOutModel
+    from noust.web.pydantic_compat import dump_model
+
+    try:
+        return dump_model(PlanOutModel(**held))
+    except (ValueError, TypeError):
+        logger.info("What a plan route answered is not a plan, and is not shown as one")
+        return None
+
+
+def result_of(held: Any) -> str | dict[str, Any] | None:
+    """
+    Args:
+        held: What a call answered, as a proposal keeps it: words, a sentence with a code, the marker of what
+            was too long to keep, or whatever the route answered.
+
+    Returns:
+        What a card can say of it: its words, or a sentence with a code (the code, its values and the
+        English beside them); None when the answer says nothing a card can draw (the call's own body is on
+        the audit trail, not here).
+    """
+    if isinstance(held, str):
+        return held or None
+    if isinstance(held, Mapping) and held.get("code"):
+        return sentence_of(held)
+    return None
+
+
 def present_proposal(proposal: Proposal) -> dict[str, Any]:
     """
     Args:
@@ -86,8 +126,11 @@ def present_proposal(proposal: Proposal) -> dict[str, Any]:
         "environment": proposal.environment,
         "server": proposal.server,
         "facts": proposal.facts,
-        "plan": proposal.plan,
-        "needs": proposal.needs,
+        "plan": plan_of(proposal.plan),
+        "needs": {
+            "elevation": bool((proposal.needs or {}).get("elevation")),
+            "second_person": bool((proposal.needs or {}).get("second_person")),
+        },
         "call": {
             "method": proposal.method,
             "path": proposal.path,
@@ -100,7 +143,7 @@ def present_proposal(proposal: Proposal) -> dict[str, Any]:
         "decided_at": proposal.decided_at,
         "decided_by": proposal.decided_by,
         "status": proposal.status,
-        "result": proposal.result,
+        "result": result_of(proposal.result),
         "output": proposal.output,
         "approval": proposal.approval,
         "job_id": proposal.job_id,
@@ -117,6 +160,18 @@ def _step(step: Mapping[str, Any]) -> dict[str, Any]:
         It with its sentence said.
     """
     return {**step, "what": sentence_of(step.get("what"))}
+
+
+def _usage(held: Mapping[str, Any]) -> dict[str, Any]:
+    """
+    Args:
+        held: What a turn used, as it keeps it: the numbers and the notes as ``{"code", "params"}``.
+
+    Returns:
+        The same, with each note said as a sentence (the code, its values and the English beside them).
+    """
+    notes = [sentence_of(note) for note in held.get("notes") or []]
+    return {**held, "notes": [note for note in notes if note is not None]}
 
 
 def present_turn(
@@ -167,5 +222,5 @@ def present_turn(
             if turn.error and turn.error.get("code")
             else None
         ),
-        "usage": turn.usage,
+        "usage": _usage(turn.usage),
     }

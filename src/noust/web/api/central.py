@@ -88,10 +88,12 @@ class FeatureState(BaseModel):
 
     Attributes:
         available: It would work here now.
-        reason: Why it would not: ``features.hub_role`` on a hub, ``features.containers_only`` on
-            a hub that deploys containers and not this, ``features.needs_*`` for what the machine
-            lacks, and the engine's own sentences (``docker.*``) for Docker. None when
-            ``available``.
+        reason: Why it would not: ``features.hub_role`` on a hub, ``features.hub_only`` on a server
+            for what only a hub has, ``features.containers_only`` on a hub that deploys containers
+            and not this, ``features.needs_*`` for what the machine lacks (``needs_host`` for a
+            container that would show its own processes and disks as the server's), the platform's
+            own sentence for a package manager that cannot update (``host.updates_unsupported.*``)
+            and the engine's for Docker (``docker.*``). None when ``available``.
     """
 
     available: bool

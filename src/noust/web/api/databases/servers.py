@@ -29,7 +29,9 @@ from pydantic import BaseModel, Field
 from noust.core.teams import scoped_store
 from noust.managers.database.servers import DatabaseServers
 from noust.managers.database.service import DatabaseView
+from noust.managers.database.system_engines import system_engines
 from noust.web.api.auth import get_current_session
+from noust.web.api.central import FeatureState
 from noust.web.api.databases.common import service
 from noust.web.api.databases.databases import ListingProblemResponse
 from noust.web.api.deps import NoustErrorRoute
@@ -113,10 +115,14 @@ class ServerListResponse(BaseModel):
         servers: The servers: the system's engines, then the containers by key.
         problems: What could not be asked (Docker not answering, an engine that refused Noust),
             so a short list is never taken for a server with nothing in it.
+        system: Whether the system's own engines are something this machine has, and why not (the
+            sentence the table of functions says for ``databases``): the central of a NAS has the
+            containers it runs and no engine of the system, and says why instead of refusing.
     """
 
     servers: list[ServerResponse]
     problems: list[ListingProblemResponse] = Field(default_factory=list)
+    system: FeatureState
 
 
 def _servers(session: dict[str, Any]) -> DatabaseServers:
@@ -167,6 +173,7 @@ def list_servers(
     return ServerListResponse(
         servers=[ServerResponse(**server) for server in listing.servers],
         problems=[ListingProblemResponse(**problem.to_dict()) for problem in listing.problems],
+        system=FeatureState(**system_engines()),
     )
 
 

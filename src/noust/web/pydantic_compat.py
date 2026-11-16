@@ -113,9 +113,12 @@ def iso_offset_validator(*fields: str) -> Any:
     return field_validator(*fields, mode="before")(_convert)
 
 
-def bounded_list(limit: int) -> Any:
+def bounded_list(limit: int, *, required: bool = False) -> Any:
     """
     A list field, empty by default, that holds at most ``limit`` items, in this pydantic's spelling.
+
+    ``required`` is for the list a response always sends: a list with a default has no ``default`` in the
+    schema, so the console's generator draws it optional, and a field that is always there is said to be.
 
     pydantic 2 spells the bound ``max_length``; pydantic 1 reads ``max_length`` as a bound on
     strings and refuses to build a model whose list holds models ("field constraints are set but
@@ -128,12 +131,20 @@ def bounded_list(limit: int) -> Any:
 
     Args:
         limit: The most items the list may hold.
+        required: The list has no default: whoever builds the model gives it, and the schema says it is
+            always there.
 
     Returns:
         The field.
     """
     if PYDANTIC_V2:
-        return Field(default_factory=list, max_length=limit)
+        return (
+            Field(..., max_length=limit)
+            if required
+            else Field(default_factory=list, max_length=limit)
+        )
+    if required:
+        return cast(Any, Field)(..., max_items=limit)
     return cast(Any, Field)(default_factory=list, max_items=limit)
 
 

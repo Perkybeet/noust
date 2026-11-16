@@ -42,6 +42,7 @@ from typing import TYPE_CHECKING, Any
 from noust.central import features
 from noust.core.config import Config
 from noust.core.exceptions import ConfigError, NoustError
+from noust.core.server_text import ServerText
 
 if TYPE_CHECKING:
     import click
@@ -199,16 +200,37 @@ def require_server_role(feature: str, config: Config | None = None) -> None:
         KeyError: When the table has no such key, on every machine and not only
             on a hub.
     """
+    refusal = refused_by_role(feature, config)
+    if refusal is not None:
+        raise RoleError(refusal.text, details=refusal.hint or "")
+
+
+def refused_by_role(feature: str, config: Config | None = None) -> ServerText | None:
+    """
+    Say whether this Noust's role keeps it from doing a function, and why.
+
+    The one decision :func:`require_server_role` raises from, for a caller that wants to say it in
+    words instead of refusing (a listing of the machine's own databases on a machine that has none).
+
+    Args:
+        feature: The function's key in :data:`noust.central.features.FEATURES`.
+        config: The configuration; the process-wide one by default.
+
+    Returns:
+        The sentence for why not, or None when the role allows it (what the machine has is the
+        function's to say).
+
+    Raises:
+        KeyError: When the table has no such key.
+    """
     needed = features.feature(feature)
     if features.Need.ROLE not in needed.needs or not is_hub(config):
-        return
+        return None
     if is_container_host(config):
         if needed.on_containers is not None:
-            return
-        refusal = features.containers_refusal(needed)
-    else:
-        refusal = features.hub_refusal(needed)
-    raise RoleError(refusal.text, details=refusal.hint or "")
+            return None
+        return features.containers_refusal(needed)
+    return features.hub_refusal(needed)
 
 
 def refuse_command_on_hub(name: str, ctx: click.Context | None = None) -> None:

@@ -13,7 +13,7 @@ the schema has no two models of one name.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -293,6 +293,10 @@ class DockerUpdateOut(BaseModel):
         backup: The copy of the application's databases, when a database's major version moves.
         apply: It can go ahead once the person has said so.
         via: Where it is done instead, as a command, when it is not here.
+        source: Where the image comes from, which tells "nobody looked" from "there is no registry to look
+            at": ``registry`` (it was pulled), ``built_noust`` (Noust named it: an application's release or the
+            version a stack keeps to go back to), ``built_other`` (somebody built it on this machine) or
+            ``unknown``. Whatever it is, an image nobody asked the registries about is ``not_looked``.
     """
 
     image: str
@@ -316,6 +320,7 @@ class DockerUpdateOut(BaseModel):
     backup: DockerCopyOut | None = None
     apply: bool = False
     via: str = ""
+    source: Literal["registry", "built_noust", "built_other", "unknown"] = "unknown"
 
 
 class DockerImageRowOut(BaseModel):
@@ -330,6 +335,9 @@ class DockerImageRowOut(BaseModel):
         used_by: The containers made from it, running or not.
         way_back: An application keeps it to go back to: never offered as unused.
         dangling: It has no name.
+        source: Where it comes from (see :attr:`DockerUpdateOut.source`): a row that has no reference to look
+            a registry up by is waiting for a look when it is a ``registry`` image, and is never going to have
+            one when it was built here.
         owner: Whose it is.
         can: What may be done to it.
         update: What the last look at the registries found of it and what updating it would do; null when
@@ -343,6 +351,7 @@ class DockerImageRowOut(BaseModel):
     used_by: list[str] = Field(default_factory=list)
     way_back: bool = False
     dangling: bool = False
+    source: Literal["registry", "built_noust", "built_other", "unknown"] = "unknown"
     owner: DockerOwnerOut
     can: DockerCanOut
     update: DockerUpdateOut | None = None
@@ -357,6 +366,24 @@ class DockerImagesOut(DockerListOut):
     """
 
     items: list[DockerImageRowOut] = Field(default_factory=list)
+
+
+class DockerVolumeBackupOut(BaseModel):
+    """
+    Whether a volume is in a copy and when the last was, as the backup manager says it.
+
+    Attributes:
+        state: ``scheduled`` (a schedule that is on takes it), ``copied`` (it has been copied and no
+            schedule takes it) or ``none`` (it is in no copy: what Noust did not make is not copied by
+            Noust).
+        last_at: When the newest copy that holds it was taken, ISO 8601; null when there is none.
+        via: The command that takes a copy of it now; empty when there is none to give (the volume is
+            not an application's).
+    """
+
+    state: Literal["scheduled", "copied", "none"]
+    last_at: str | None = None
+    via: str = ""
 
 
 class DockerVolumeOut(BaseModel):
@@ -374,6 +401,7 @@ class DockerVolumeOut(BaseModel):
         size_bytes: Its size when measured; a listing leaves it null (``GET /volumes/sizes`` measures).
         used_by: The containers that mount it.
         anonymous: A container made it without naming it.
+        backup: Whether it is in a copy and when the last was.
         owner: Whose it is.
         can: What may be done to it.
     """
@@ -388,6 +416,7 @@ class DockerVolumeOut(BaseModel):
     size_bytes: int | None = None
     used_by: list[str] = Field(default_factory=list)
     anonymous: bool = False
+    backup: DockerVolumeBackupOut
     owner: DockerOwnerOut
     can: DockerCanOut
 
@@ -418,6 +447,19 @@ class DockerVolumeSizesOut(BaseModel):
     sizes: dict[str, int] = Field(default_factory=dict)
 
 
+class DockerNetworkRangeOut(BaseModel):
+    """
+    One address range of a network and its gateway.
+
+    Attributes:
+        subnet: The range (``172.18.0.0/16``).
+        gateway: The gateway's address in it; empty when Docker gave none.
+    """
+
+    subnet: str
+    gateway: str = ""
+
+
 class DockerNetworkOut(BaseModel):
     """
     A network.
@@ -431,6 +473,8 @@ class DockerNetworkOut(BaseModel):
         project: Its Compose project.
         created: When it was made.
         containers: The containers on it.
+        ranges: Its address ranges and the gateway of each, IPv4 first when it has both; empty for a network
+            Docker gave none (``host``, ``none``).
         builtin: Docker makes it itself and it cannot be removed.
         owner: Whose it is.
         can: What may be done to it.
@@ -444,6 +488,7 @@ class DockerNetworkOut(BaseModel):
     project: str = ""
     created: str = ""
     containers: list[str] = Field(default_factory=list)
+    ranges: list[DockerNetworkRangeOut]
     builtin: bool = False
     owner: DockerOwnerOut
     can: DockerCanOut
@@ -722,6 +767,45 @@ class DockerContainerDetailOut(BaseModel):
     restart_policy: DockerRestartPolicyOut | None = None
     cpu_limit: float | None = None
     usage: DockerUsageOut | None = None
+    can_manage: bool = False
+
+
+class DockerContainerUsageOut(BaseModel):
+    """
+    What one container uses, or why that is not known.
+
+    Attributes:
+        id: The container's full id.
+        name: Its name.
+        usage: Its reading, or the reason there is none.
+    """
+
+    id: str
+    name: str
+    usage: DockerUsageOut
+
+
+class DockerContainersUsageOut(BaseModel):
+    """
+    What every container uses, in one reading of Docker.
+
+    Docker is asked once for all of them, whatever the number, and the reading is kept for a few seconds:
+    a list of containers draws the processor and the memory of each row from this and never asks for them
+    one at a time.
+
+    Attributes:
+        available: Docker could be read.
+        engine: The doctor's report, only when it could not.
+        read_at: When Docker was asked, in ISO 8601 with its offset; null when it was not asked (nothing
+            runs, or Docker is not there).
+        items: One for each container the principal sees, by name.
+        can_manage: The one who asks may change Docker at all.
+    """
+
+    available: bool = True
+    engine: DockerEngineOut | None = None
+    read_at: str | None = None
+    items: list[DockerContainerUsageOut] = Field(default_factory=list)
     can_manage: bool = False
 
 
@@ -1014,14 +1098,23 @@ def image_out(
     """
     body = image.to_dict()
     body["owner"] = owner_out(image.owner)
-    return DockerImageRowOut(**body, dangling=not image.tags, can=can, update=update)
+    return DockerImageRowOut(
+        **body,
+        dangling=not image.tags,
+        can=can,
+        update=update,
+        source=update.source if update is not None else "unknown",
+    )
 
 
-def volume_out(volume: Volume, can: DockerCanOut) -> DockerVolumeOut:
+def volume_out(
+    volume: Volume, can: DockerCanOut, backup: DockerVolumeBackupOut | None = None
+) -> DockerVolumeOut:
     """
     Args:
         volume: A volume with its owner.
         can: What may be done to it.
+        backup: Whether it is in a copy and when the last was; in none when not said.
 
     Returns:
         Its API shape.
@@ -1031,7 +1124,12 @@ def volume_out(volume: Volume, can: DockerCanOut) -> DockerVolumeOut:
     body = volume.to_dict()
     body["owner"] = owner_out(volume.owner)
     anonymous = re.fullmatch(r"[0-9a-f]{64}", volume.name) is not None
-    return DockerVolumeOut(**body, anonymous=anonymous, can=can)
+    return DockerVolumeOut(
+        **body,
+        anonymous=anonymous,
+        can=can,
+        backup=backup if backup is not None else DockerVolumeBackupOut(state="none"),
+    )
 
 
 def network_out(network: Network, can: DockerCanOut) -> DockerNetworkOut:

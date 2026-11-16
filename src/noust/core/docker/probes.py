@@ -22,9 +22,13 @@ READ_ONLY_PROBES: tuple[tuple[object, ...], ...] = (
     ("docker", "image", "ls", "--no-trunc", "--format", "*"),
     ("docker", "volume", "ls", "--format", "*"),
     ("docker", "network", "ls", "--no-trunc", "--format", "*"),
+    # The address ranges of some networks, for any number of them.
+    ("docker", "network", "inspect", "--format", "*", ...),
     ("docker", "system", "df", "-v", "--format", "*"),
     ("docker", "system", "df", "--format", "*"),
     ("docker", "inspect", "--type", "*", "*"),
+    # What a container uses, once and without a stream: for one container or, with no id, for all of them.
+    ("docker", "stats", "--no-stream", "--format", "*", ...),
     # What state a container is in, for the connector of a tunnel (:mod:`noust.core.docker.connector`).
     ("docker", "inspect", "--type", "container", "--format", "*", "*"),
     # Asking a registry for the manifest of a tag and the config behind it downloads no layer and moves

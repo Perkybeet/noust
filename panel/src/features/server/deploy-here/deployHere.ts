@@ -61,9 +61,10 @@ export const CAN: readonly { text: PlainKey; keys: readonly Key[] }[] = [
  * What the table says works on such a machine and the console has no page for there, so that it is neither promised nor said to be refused.
  * The engines Noust runs in containers are listed on the Engines page, which asks the machine's own databases first and is refused
  * (`GET /api/databases/servers` answers 409 where `databases` is not available), so Databases is not offered on a machine that only
- * has Docker. The day the listing reads the instances alone, this goes and the engines are said.
+ * has Docker. The day the listing reads the instances alone, this goes and the engines are said. `deploy_here` is this page itself:
+ * the table says a hub has it, and a page does not list itself among what it turns on.
  */
-export const NOT_SHOWN: readonly Key[] = ["database_instances"];
+export const NOT_SHOWN: readonly Key[] = ["database_instances", "deploy_here"];
 
 /** What it does not do there, by the functions of the table that say it cannot: they need systemd or a web server, which the machine does not have. */
 export const CANNOT: readonly { text: PlainKey; keys: readonly Key[] }[] = [
@@ -71,7 +72,7 @@ export const CANNOT: readonly { text: PlainKey; keys: readonly Key[] }[] = [
   { text: "containerHost.deployHere.able.cannotSites", keys: ["domains", "sites", "certificates", "published_ports", "noust_dns", "status_page", "console_exposure"] },
   { text: "containerHost.deployHere.able.cannotPreviews", keys: ["preview_environments"] },
   { text: "containerHost.deployHere.able.cannotScheduled", keys: ["scheduled_jobs"] },
-  { text: "containerHost.deployHere.able.cannotRelay", keys: [] },
+  { text: "containerHost.deployHere.able.cannotRelay", keys: ["zero_downtime"] },
   { text: "containerHost.deployHere.able.cannotDatabases", keys: ["databases", "database_backups", "point_in_time_recovery", "public_database_access"] },
   {
     text: "containerHost.deployHere.able.cannotMachine",
@@ -91,6 +92,9 @@ export const CANNOT: readonly { text: PlainKey; keys: readonly Key[] }[] = [
       "moving_a_server",
       "restoring_a_server",
       "checking_a_moved_server",
+      "system_processes",
+      "system_files",
+      "system_updates",
     ],
   },
 ];

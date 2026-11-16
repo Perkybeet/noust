@@ -16,6 +16,8 @@ second time (rule 3): each fact is asked of the code that already knows it.
   reports, so one problem is said in the same words everywhere.
 - **root**: whether Noust runs as root.
 - **the journal**: ``journalctl`` on the path.
+- **a package manager**: the platform's own answer to whether updates can be listed and applied here
+  (:attr:`~noust.managers.server.host.Platform.updates_supported`), with its sentence for why not.
 
 Docker is the one slow fact: asking the engine takes four processes, and a daemon that hangs makes
 each of them last as long as its deadline. It is kept for :data:`TTL_DOCKER` seconds, refreshed in
@@ -70,6 +72,10 @@ class MachineFacts:
         journal: ``journalctl`` is there to read the system's log with.
         docker_problem: When ``docker`` is false, the doctor's sentence for why (no engine, no
             answer, too old, no Compose v2); None otherwise.
+        package_manager: The platform can list and apply updates here: a package manager Noust
+            drives (apt, dnf, zypper) on a system that changes in place.
+        package_manager_problem: When ``package_manager`` is false, the platform's sentence for
+            why (none installed, or the system changes through a transaction and a reboot).
     """
 
     systemd: bool
@@ -78,6 +84,23 @@ class MachineFacts:
     root: bool
     journal: bool
     docker_problem: ServerText | None = None
+    package_manager: bool = True
+    package_manager_problem: ServerText | None = None
+
+    @property
+    def host(self) -> bool:
+        """
+        Whether Noust runs on the machine itself and not in a container image.
+
+        What the pages that show the machine's own processes, disks and packages need: in the central's
+        image they would show the image's, which are nobody's business, and what tells the two apart is
+        what tells them everywhere else here, whether the machine was booted with systemd (a guest that
+        was, an LXC one, is a machine of its own and has it).
+
+        Returns:
+            True when the machine was booted with systemd.
+        """
+        return self.systemd
 
 
 def is_root() -> bool:
@@ -187,11 +210,14 @@ def read_machine_facts(
     """
     active = runner or get_runner()
     usable, problem = _docker(active)
+    platform = detect_platform(active, host)
     return MachineFacts(
-        systemd=detect_platform(active, host).systemd,
+        systemd=platform.systemd,
         web_server=_web_server(active),
         docker=usable,
         root=is_root(),
         journal=active.exists("journalctl"),
         docker_problem=problem,
+        package_manager=platform.updates_supported,
+        package_manager_problem=platform.updates_unsupported(),
     )

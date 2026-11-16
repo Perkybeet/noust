@@ -142,11 +142,10 @@ def get_compose(name: str, session: Session) -> DockerComposeOut:
 
     Returns:
         The document and where it is; or ``editable: false`` with a code and a sentence that says whose it is
-        and where it is changed.
+        and where it is changed (a database engine's or Noust's own stack included: ``owned``).
 
     Raises:
         DockerNotFoundError: 404 when there is no such stack.
-        DockerOwnedError: 409 when a database engine or Noust owns it.
     """
     gate = _gate()
     gate.require_usable(_engine(gate))
@@ -230,23 +229,28 @@ def list_compose_versions(name: str, session: Session) -> DockerComposeVersionsO
     """
     List the versions of a stack's document, newest first: who saved each, when and why. There is no text.
 
+    A stack whose document is not Noust's to keep (one nobody of Noust made, a repository's, a recipe's, a
+    generated one, a database engine's) has no history, and that is an answer: 200 with no items, ``editable``
+    false and ``why_code`` and ``why`` saying whose the document is. Only a stack that is not there is a 404.
+
     Args:
         name: The Compose project's name.
         session: The authenticated session.
 
     Returns:
-        The versions.
+        The versions, or the reason there are none to list.
 
     Raises:
         DockerNotFoundError: 404 when there is no such stack.
-        DockerBlockedError: 409 ``docker_blocked`` when its document is not edited here.
     """
     gate = _gate()
     gate.require_usable(_engine(gate))
+    found = StackEditor(gate).history_of(name)
     return DockerComposeVersionsOut(
-        items=[
-            DockerComposeVersionOut(**item.to_dict()) for item in StackEditor(gate).versions(name)
-        ]
+        items=[DockerComposeVersionOut(**item.to_dict()) for item in found.items],
+        editable=found.editable,
+        why_code=found.why_code,
+        why=found.why,
     )
 
 

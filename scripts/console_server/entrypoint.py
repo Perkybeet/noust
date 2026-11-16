@@ -33,7 +33,7 @@ from .constants import (
     OLDER_NODE_ENV,
 )
 from .databases import seed_databases
-from .docker_host import model_docker_host
+from .docker_host import model_docker_host, seed_docker_state
 from .fleet import (
     join_fleet_node,
     mount_fleet_test_seam,
@@ -201,12 +201,15 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
         # The engine the Docker zone looks at, over the applications that were just seeded.
         from noust.core.store import get_store
 
+        with contextlib.redirect_stdout(sys.stderr):
+            nextcloud = seed_docker_state(sandbox)
         model_docker_host(
             {
                 app.domain: app.app_path
                 for app in get_store(sandbox.store_file).list_apps()
                 if app.app_path
-            }
+            },
+            nextcloud,
         )
     if video:
         from .video import settle_server_host
@@ -269,7 +272,9 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
         )
     # The kernel, the processes and the disks the pages name are the modelled VPS's, never the
     # machine this script runs on.
-    model_host_reads(host.root, args.hostname or socket.gethostname(), units, cpu_held, domains)
+    model_host_reads(
+        host.root, args.hostname or socket.gethostname(), units, cpu_held, domains, host.profile
+    )
     app = create_app(config)
     token = get_token_manager().generate_master_token()
     totp_secret, backup_codes = enable_totp(args.backup_codes) if args.totp else (None, [])

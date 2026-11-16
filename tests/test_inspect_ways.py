@@ -245,6 +245,84 @@ class TestWhenTheMachineCannot:
         assert result.detected_types == ["nodejs", "container"]
 
 
+class TestAMachineThatOnlyDeploysContainers:
+    """The verdict is read from the same table as the ways: nothing native is advised where nothing native runs (item 189)."""
+
+    @pytest.fixture(autouse=True)
+    def a_container_host(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, store: NoustStore):
+        from noust.core.config import Config
+
+        monkeypatch.setattr("noust.core.config.DEFAULT_CONFIG_PATH", tmp_path / "config.yaml")
+        monkeypatch.setenv("NOUST_CENTRAL_ROLE", "hub")
+        monkeypatch.setenv("NOUST_DEPLOY_HERE", "containers")
+        Config.reset_instance()
+        # What the owner's NAS has: Docker and a checkout tool. Node is installed too, and Railpack even, to show
+        # that what is installed does not decide what a container host runs.
+        set_runner(FakeRunner().only_knows("git", "docker", "node", "npm", "railpack"))
+        facts(
+            monkeypatch,
+            MachineFacts(systemd=False, web_server=False, docker=True, root=False, journal=False),
+        )
+        yield
+        Config.reset_instance()
+
+    def test_a_node_project_with_no_dockerfile_is_not_told_to_install_anything_native(
+        self, tmp_path: Path
+    ) -> None:
+        result = inspect_source(source(tmp_path, {"package.json": NODE}))
+
+        assert result.compatible is False
+        assert result.verdict_coded is not None
+        assert result.verdict_coded.code == "how_it_runs.why.nothing_runs_here"
+        assert result.suggestion is not None
+        text = f"{result.verdict} {result.suggestion}"
+        assert "noust setup init" not in text and "Railpack" not in text
+        assert "Dockerfile" in result.suggestion
+        # The ways say the same, in the same sentence.
+        assert result.ways is not None
+        assert result.ways.why.code == "how_it_runs.why.nothing_runs_here"
+        assert result.ways.server.status == "hidden"
+
+    def test_a_node_project_with_a_dockerfile_runs_as_a_container_and_is_told_nothing_native(
+        self, tmp_path: Path
+    ) -> None:
+        result = inspect_source(
+            source(tmp_path, {"package.json": NODE, "Dockerfile": "FROM node\n"})
+        )
+
+        assert result.compatible is True
+        assert result.verdict_coded is not None
+        assert result.verdict_coded.code == "how_it_runs.why.docker_only"
+        assert "noust setup init" not in f"{result.verdict} {result.suggestion}"
+
+    def test_a_stack_noust_has_no_deployer_for_is_not_told_to_install_railpack(
+        self, tmp_path: Path
+    ) -> None:
+        from noust.core.exceptions import DeploymentError
+
+        with pytest.raises(DeploymentError) as refused:
+            inspect_source(source(tmp_path, {"Cargo.toml": CRATE}))
+
+        assert refused.value.coded is not None
+        assert refused.value.coded.code == "how_it_runs.why.nothing_runs_here"
+        said = f"{refused.value.message} {refused.value.details}"
+        assert "Railpack" not in said and "setup railpack" not in said
+
+    def test_a_node_framework_noust_has_no_deployer_for_says_it_too(self, tmp_path: Path) -> None:
+        from noust.core.exceptions import DeploymentError
+
+        files = {"package.json": json.dumps({"name": "x", "dependencies": {"@angular/core": "17"}})}
+        with pytest.raises(DeploymentError) as refused:
+            inspect_source(source(tmp_path, files))
+
+        assert refused.value.coded is not None
+        assert refused.value.coded.code in (
+            "how_it_runs.why.nothing_runs_here",
+            "inspect.package_json.no_start",
+        )
+        assert "Railpack" not in f"{refused.value.message} {refused.value.details}"
+
+
 class TestTheApiAnswer:
     def answer(self, tmp_path: Path, files: dict[str, str]) -> dict:
         result: SourceInspection = inspect_source(source(tmp_path, files))

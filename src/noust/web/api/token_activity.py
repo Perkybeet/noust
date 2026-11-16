@@ -78,7 +78,7 @@ class ActivityCredential(BaseModel):
     owner: str | None = None
     revoked: bool = False
     tokens: int = 1
-    clients: list[ApprovalClientInfo] = Field(default_factory=list)
+    clients: list[ApprovalClientInfo]
 
 
 class ActivityDeployment(BaseModel):
@@ -458,6 +458,7 @@ def _credential(record: dict[str, Any]) -> ActivityCredential:
             owner=_owner(record),
             revoked=all(item.get("revoked_at") is not None for item in tokens),
             tokens=len(tokens),
+            clients=[],
         )
     return ActivityCredential(
         id=int(record["id"]),

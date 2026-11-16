@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from noust.core.plans.diffs import MAX_DIFF_LINES
 from noust.core.plans.shape import MAX_COMMANDS, MAX_FILES, PlanOut
@@ -104,7 +104,7 @@ class PlanFileOut(BaseModel):
     path: str
     change: str
     shown: str
-    lines: list[PlanDiffLineOut] = bounded_list(MAX_DIFF_LINES)
+    lines: list[PlanDiffLineOut] = bounded_list(MAX_DIFF_LINES, required=True)
     truncated: bool = False
     reason: str | None = None
     destination: str | None = None
@@ -122,7 +122,7 @@ class PlanStepOut(BaseModel):
 
     key: str
     title: str
-    commands: list[int] = bounded_list(MAX_COMMANDS)
+    commands: list[int] = bounded_list(MAX_COMMANDS, required=True)
 
 
 class PlanConfirmationOut(BaseModel):
@@ -152,7 +152,7 @@ class PlanNeedsOut(BaseModel):
 
     elevation: bool = False
     approval: bool = False
-    confirmations: list[PlanConfirmationOut] = bounded_list(MAX_CONFIRMATIONS)
+    confirmations: list[PlanConfirmationOut] = bounded_list(MAX_CONFIRMATIONS, required=True)
 
 
 class PlanOutModel(BaseModel):
@@ -181,12 +181,12 @@ class PlanOutModel(BaseModel):
     operation: str
     subject: str | None = None
     effect: PlanSentence
-    commands: list[PlanCommandOut] = bounded_list(MAX_COMMANDS)
-    files: list[PlanFileOut] = bounded_list(MAX_FILES)
-    steps: list[PlanStepOut] = bounded_list(MAX_STEPS)
-    findings: list[PlanSentence] = bounded_list(MAX_SENTENCES)
-    unknown: list[PlanSentence] = bounded_list(MAX_SENTENCES)
-    needs: PlanNeedsOut = Field(default_factory=PlanNeedsOut)
+    commands: list[PlanCommandOut] = bounded_list(MAX_COMMANDS, required=True)
+    files: list[PlanFileOut] = bounded_list(MAX_FILES, required=True)
+    steps: list[PlanStepOut] = bounded_list(MAX_STEPS, required=True)
+    findings: list[PlanSentence] = bounded_list(MAX_SENTENCES, required=True)
+    unknown: list[PlanSentence] = bounded_list(MAX_SENTENCES, required=True)
+    needs: PlanNeedsOut
     blocked: PlanSentence | None = None
     asked_remote: bool = False
     omitted: int = 0

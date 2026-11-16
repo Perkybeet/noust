@@ -127,7 +127,7 @@ class TestTheServerThePersonChose:
         assert proposal["call"]["path"] == f"/api/nodes/{NODE}/api/apps/{OUR_APP}/restart"
         assert proposal["environment"] == "production"
         assert node[0].seen == []
-        assert {"name": "server", "value": NODE} in proposal["facts"]
+        assert {"name": "server", "value": NODE, "foreign": None} in proposal["facts"]
 
     def test_where_the_centrals_policy_says_alone_it_is_made_on_the_server(
         self, lab: Lab, node: tuple[Node, ServedNode]

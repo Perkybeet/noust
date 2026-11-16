@@ -1115,7 +1115,8 @@
         "required": [
           "id",
           "name",
-          "kind"
+          "kind",
+          "clients"
         ],
         "title": "ActivityCredential",
         "type": "object"
@@ -4575,7 +4576,8 @@
           "state",
           "requester",
           "created_at",
-          "expires_at"
+          "expires_at",
+          "needs"
         ],
         "title": "ApprovalInfo",
         "type": "object"
@@ -4832,9 +4834,14 @@
         "type": "object"
       },
       "AssistantReason": {
-        "description": "Why the assistant is not available to this caller, as a sentence with a code.\n\nAttributes:\n    text: The sentence in English, always sent.\n    hint: How to fix it in English, when the sentence has a fix.",
+        "description": "Why the assistant is not available to this caller, as a sentence with a code.\n\nAttributes:\n    code: One of :data:`ASSISTANT_REASONS`: ``assistant.unavailable.off``,\n        ``assistant.unavailable.permission`` or ``assistant.unavailable.account``.\n    text: The sentence in English, always sent.\n    hint: How to fix it in English, when the sentence has a fix.",
         "properties": {
           "code": {
+            "enum": [
+              "assistant.unavailable.off",
+              "assistant.unavailable.permission",
+              "assistant.unavailable.account"
+            ],
             "title": "Code",
             "type": "string"
           },
@@ -4882,7 +4889,7 @@
         "type": "object"
       },
       "AssistantSession": {
-        "description": "The assistant, as the session shows it.\n\nAttributes:\n    enabled: The assistant is on.\n    can_use: It is on and this caller may use it: draw it.\n    tools: The model was found to call tools, so it may investigate; False means it only\n        explains what it is shown. Meaningless unless ``enabled``.\n    reason: Why ``can_use`` is False, when it is.\n    model: The model it talks to, for the label that says it is an AI and which one. Only for\n        a caller who may use it.\n    location: Where what is said to it ends up: ``machine``, ``network``, ``eu``, ``outside``\n        or ``unknown``. Only for a caller who may use it.\n    mask_personal: Emails and addresses are disguised before they are sent. Only for a caller\n        who may use it.",
+        "description": "The assistant, as the session shows it.\n\nAttributes:\n    enabled: The assistant is on.\n    can_use: It is on and this caller may use it: draw it.\n    tools: The model was found to call tools, so it may investigate; False means it only\n        explains what it is shown. Meaningless unless ``enabled``.\n    reason: Why ``can_use`` is False, when it is: one of a closed list, so the console compares nothing\n        it has to know the spelling of.\n    model: The model it talks to, for the label that says it is an AI and which one. Only for\n        a caller who may use it.\n    location: Where what is said to it ends up: ``machine``, ``network``, ``eu``, ``outside``\n        or ``unknown``. Only for a caller who may use it.\n    mask_personal: Emails and addresses are disguised before they are sent. Only for a caller\n        who may use it.",
         "properties": {
           "can_use": {
             "default": false,
@@ -4947,12 +4954,18 @@
         "type": "object"
       },
       "AssistantSettingsIn": {
-        "description": "What to change; what is left out stays.\n\nAttributes:\n    enabled: True turns the assistant on (after a probe found the provider answering), False\n        turns it off and revokes its tokens.\n    preset: A provider preset (``GET /api/assistant/presets``): it fills the address.\n    base_url: The provider's address, up to its version.\n    model: The model's name.\n    api_key: The key; an empty text takes it away. Sealed when stored, never given back.\n    location: Where the data ends up, for a public provider the operator has a contract with.\n    flow_reason: Why a provider outside is an authorized flow.\n    mask_personal: Whether emails and addresses are disguised; only a provider of one's own\n        may have it off.\n    limits: Limits to change, by name; the others stay.\n    prices: The whole price table.\n    currency: What the prices are in.\n    allow_private_host: Consent that this server calls the provider's host though it is on\n        this machine or the network: the host is listed in ``security.allow_private_hosts``.\n    probe: Probe the provider after saving a change to it (the default).",
+        "description": "What to change; what is left out stays.\n\nAttributes:\n    enabled: True turns the assistant on (after a probe found the provider answering), False\n        turns it off and revokes its tokens.\n    preset: A provider preset (``GET /api/assistant/presets``): it fills the address.\n    base_url: The provider's address, up to its version.\n    model: The model's name.\n    api_key: The key; an empty text takes it away. Sealed when stored, never given back.\n    location: Where the data ends up, for a public provider the operator has a contract with.\n    flow_reason: Why a provider outside is an authorized flow.\n    mask_personal: Whether emails and addresses are disguised; only a provider of one's own\n        may have it off.\n    limits: Limits to change, by name; the others stay.\n    prices: The whole price table.\n    currency: What the prices are in.\n    allow_private_host: Consent that this server calls the provider's host though it is on\n        this machine or the network: the host is listed in ``security.allow_private_hosts``. Left out, or\n        null, there is no consent (false).\n    probe: Probe the provider after saving a change to it. Left out, or null, it is probed (true).",
         "properties": {
           "allow_private_host": {
-            "default": false,
-            "title": "Allow Private Host",
-            "type": "boolean"
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allow Private Host"
           },
           "api_key": {
             "anyOf": [
@@ -5089,9 +5102,15 @@
             "title": "Prices"
           },
           "probe": {
-            "default": true,
-            "title": "Probe",
-            "type": "boolean"
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Probe"
           }
         },
         "title": "AssistantSettingsIn",
@@ -14826,6 +14845,28 @@
         "title": "ConversationOut",
         "type": "object"
       },
+      "ConversationUsageOut": {
+        "description": "What a conversation has used so far.\n\nAttributes:\n    tokens: Tokens sent.\n    spend: What it cost, in the currency of the settings.\n    steps: Requests to the provider.",
+        "properties": {
+          "spend": {
+            "default": 0.0,
+            "title": "Spend",
+            "type": "number"
+          },
+          "steps": {
+            "default": 0,
+            "title": "Steps",
+            "type": "integer"
+          },
+          "tokens": {
+            "default": 0,
+            "title": "Tokens",
+            "type": "integer"
+          }
+        },
+        "title": "ConversationUsageOut",
+        "type": "object"
+      },
       "ConversionRequest": {
         "description": "The ``code`` and ``state`` GitHub's callback carried.",
         "properties": {
@@ -17565,7 +17606,7 @@
         "type": "object"
       },
       "DatabaseListResponse": {
-        "description": "Response for listing databases.\n\nAttributes:\n    problems: The engines that could not be read, so an empty list is\n        never mistaken for an engine with nothing in it.",
+        "description": "Response for listing databases.\n\nAttributes:\n    problems: The engines that could not be read, so an empty list is\n        never mistaken for an engine with nothing in it.\n    system: Whether the system's own engines are something this machine has, and why not (the sentence\n        the table of functions says for ``databases``): where it has none the databases are those of\n        the containers Noust runs.",
         "properties": {
           "databases": {
             "items": {
@@ -17581,6 +17622,9 @@
             "title": "Problems",
             "type": "array"
           },
+          "system": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
           "total": {
             "title": "Total",
             "type": "integer"
@@ -17588,7 +17632,8 @@
         },
         "required": [
           "databases",
-          "total"
+          "total",
+          "system"
         ],
         "title": "DatabaseListResponse",
         "type": "object"
@@ -21328,6 +21373,30 @@
         "title": "DockerBringOut",
         "type": "object"
       },
+      "DockerBringPreviewRequest": {
+        "description": "Look at what bringing a stack that already runs to Noust would do.\n\nAttributes:\n    name: What the application would be called in Noust's list; the stack's own name when absent.\n    accept_recreate: Show the plan although Compose says starting the stack the way Noust would changes what\n        runs, instead of refusing it with Compose's own words.",
+        "properties": {
+          "accept_recreate": {
+            "default": false,
+            "title": "Accept Recreate",
+            "type": "boolean"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 253,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "title": "DockerBringPreviewRequest",
+        "type": "object"
+      },
       "DockerBringRequest": {
         "description": "Bring a stack that already runs to Noust.\n\nAttributes:\n    name: What the application will be called in Noust's list; the stack's own name when absent. It is the\n        only thing typed: the folder and the compose file are what the stack's containers say.\n    preview: Answer what would be registered and what is not changed, and register nothing.\n    accept_recreate: Go on although Compose says starting the stack the way Noust would changes what\n        runs. It is read first; the preview shows Compose's own words.",
         "properties": {
@@ -21646,7 +21715,7 @@
         "type": "object"
       },
       "DockerComposeOut": {
-        "description": "A stack's Compose document, or why it is not edited here.\n\nAttributes:\n    stack: The Compose project.\n    domain: The application it belongs to; null for a stack nobody of Noust made.\n    editable: Whether it is edited here.\n    kind: ``document`` (Noust keeps it) or ``file`` (a file in the folder the stack runs from) when it is.\n    why_code: When it is not: ``repository`` (its document is in git), ``recipe`` (the recipe's),\n        ``generated`` (a container application's, written by Noust), ``bring_first`` (Noust did not make the\n        stack), ``no_file`` or ``not_compose``.\n    why: The same in a sentence that says where it is changed.\n    text: The document, when it is edited here; reading it is a reveal and is recorded.\n    path: Where it is.\n    version: The number of its newest version in the history; null when none was kept.",
+        "description": "A stack's Compose document, or why it is not edited here.\n\nAttributes:\n    stack: The Compose project.\n    domain: The application it belongs to; null for a stack nobody of Noust made.\n    editable: Whether it is edited here.\n    kind: ``document`` (Noust keeps it) or ``file`` (a file in the folder the stack runs from) when it is.\n    why_code: When it is not: ``repository`` (its document is in git), ``recipe`` (the recipe's),\n        ``generated`` (a container application's, written by Noust), ``bring_first`` (Noust did not make the\n        stack), ``no_file``, ``not_compose`` or ``owned`` (a database engine's or Noust's own stack).\n    why: The same in a sentence that says where it is changed.\n    text: The document, when it is edited here; reading it is a reveal and is recorded.\n    path: Where it is.\n    version: The number of its newest version in the history; null when none was kept.",
         "properties": {
           "domain": {
             "anyOf": [
@@ -21869,16 +21938,34 @@
         "type": "object"
       },
       "DockerComposeVersionsOut": {
-        "description": "The versions of a stack's document, newest first.\n\nAttributes:\n    items: The versions, without their text.",
+        "description": "The versions of a stack's document, newest first, or why there is no history of Noust's to read.\n\nA stack whose document is somebody else's has nothing to list and that is not a conflict: the answer is\n200 with no items and the reason, as :class:`DockerComposeOut` says it for the document.\n\nAttributes:\n    items: The versions, without their text; empty when none was kept or when Noust does not keep\n        the document.\n    editable: Noust keeps this stack's document, so the history is its own.\n    why_code: When it does not: ``repository``, ``recipe``, ``generated``, ``bring_first``, ``no_file``,\n        ``not_compose`` or ``owned`` (a database engine's or Noust's own stack); empty when it does.\n    why: The same in a sentence that says where the document is changed; empty when it does.",
         "properties": {
+          "editable": {
+            "default": true,
+            "title": "Editable",
+            "type": "boolean"
+          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/DockerComposeVersionOut"
             },
             "title": "Items",
             "type": "array"
+          },
+          "why": {
+            "default": "",
+            "title": "Why",
+            "type": "string"
+          },
+          "why_code": {
+            "default": "",
+            "title": "Why Code",
+            "type": "string"
           }
         },
+        "required": [
+          "items"
+        ],
         "title": "DockerComposeVersionsOut",
         "type": "object"
       },
@@ -22134,6 +22221,29 @@
         "title": "DockerContainerOut",
         "type": "object"
       },
+      "DockerContainerUsageOut": {
+        "description": "What one container uses, or why that is not known.\n\nAttributes:\n    id: The container's full id.\n    name: Its name.\n    usage: Its reading, or the reason there is none.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/DockerUsageOut"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "usage"
+        ],
+        "title": "DockerContainerUsageOut",
+        "type": "object"
+      },
       "DockerContainersOut": {
         "description": "The containers the principal sees, by name.\n\nAttributes:\n    items: The page.",
         "properties": {
@@ -22187,6 +22297,51 @@
           }
         },
         "title": "DockerContainersOut",
+        "type": "object"
+      },
+      "DockerContainersUsageOut": {
+        "description": "What every container uses, in one reading of Docker.\n\nDocker is asked once for all of them, whatever the number, and the reading is kept for a few seconds:\na list of containers draws the processor and the memory of each row from this and never asks for them\none at a time.\n\nAttributes:\n    available: Docker could be read.\n    engine: The doctor's report, only when it could not.\n    read_at: When Docker was asked, in ISO 8601 with its offset; null when it was not asked (nothing\n        runs, or Docker is not there).\n    items: One for each container the principal sees, by name.\n    can_manage: The one who asks may change Docker at all.",
+        "properties": {
+          "available": {
+            "default": true,
+            "title": "Available",
+            "type": "boolean"
+          },
+          "can_manage": {
+            "default": false,
+            "title": "Can Manage",
+            "type": "boolean"
+          },
+          "engine": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DockerEngineOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DockerContainerUsageOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "read_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read At"
+          }
+        },
+        "title": "DockerContainersUsageOut",
         "type": "object"
       },
       "DockerCopyOut": {
@@ -22489,6 +22644,38 @@
         "title": "DockerEngineOut",
         "type": "object"
       },
+      "DockerFleetCheckIn": {
+        "description": "Look for new versions of the images in use on several servers.\n\nAttributes:\n    nodes: The servers to ask; every server of the fleet when none is named and no label is given.\n    labels: Servers carrying every one of these labels are added.\n    pull: Download what moved to compare, which a Docker without buildx needs. Nothing is downloaded\n        without it.\n    plan: Only say which servers would be asked and which cannot take part.",
+        "properties": {
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "object"
+          },
+          "nodes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Nodes",
+            "type": "array"
+          },
+          "plan": {
+            "default": false,
+            "title": "Plan",
+            "type": "boolean"
+          },
+          "pull": {
+            "default": false,
+            "title": "Pull",
+            "type": "boolean"
+          }
+        },
+        "title": "DockerFleetCheckIn",
+        "type": "object"
+      },
       "DockerHealthOut": {
         "description": "A container's health check.\n\nAttributes:\n    status: ``healthy``, ``unhealthy`` or ``starting``.\n    failing_streak: How many probes in a row failed.\n    last_output: What the last probe printed, as it printed it.",
         "properties": {
@@ -22577,7 +22764,7 @@
         "type": "object"
       },
       "DockerImageRowOut": {
-        "description": "An image, once, with every name it has.\n\nAttributes:\n    id: Its id.\n    tags: ``repository:tag`` of each name; none for an image with no name.\n    created: When it was made.\n    size_bytes: Its size, when Docker said.\n    used_by: The containers made from it, running or not.\n    way_back: An application keeps it to go back to: never offered as unused.\n    dangling: It has no name.\n    owner: Whose it is.\n    can: What may be done to it.\n    update: What the last look at the registries found of it and what updating it would do; null when\n        it was not worked out (a listing that cannot ask the registries' last findings).",
+        "description": "An image, once, with every name it has.\n\nAttributes:\n    id: Its id.\n    tags: ``repository:tag`` of each name; none for an image with no name.\n    created: When it was made.\n    size_bytes: Its size, when Docker said.\n    used_by: The containers made from it, running or not.\n    way_back: An application keeps it to go back to: never offered as unused.\n    dangling: It has no name.\n    source: Where it comes from (see :attr:`DockerUpdateOut.source`): a row that has no reference to look\n        a registry up by is waiting for a look when it is a ``registry`` image, and is never going to have\n        one when it was built here.\n    owner: Whose it is.\n    can: What may be done to it.\n    update: What the last look at the registries found of it and what updating it would do; null when\n        it was not worked out (a listing that cannot ask the registries' last findings).",
         "properties": {
           "can": {
             "$ref": "#/components/schemas/DockerCanOut"
@@ -22609,6 +22796,17 @@
               }
             ],
             "title": "Size Bytes"
+          },
+          "source": {
+            "default": "unknown",
+            "enum": [
+              "registry",
+              "built_noust",
+              "built_other",
+              "unknown"
+            ],
+            "title": "Source",
+            "type": "string"
           },
           "tags": {
             "items": {
@@ -22847,7 +23045,7 @@
         "type": "object"
       },
       "DockerNetworkOut": {
-        "description": "A network.\n\nAttributes:\n    id: Its id.\n    name: Its name.\n    driver: ``bridge``, ``host``, ``overlay``...\n    scope: ``local`` or ``swarm``.\n    internal: It has no way out.\n    project: Its Compose project.\n    created: When it was made.\n    containers: The containers on it.\n    builtin: Docker makes it itself and it cannot be removed.\n    owner: Whose it is.\n    can: What may be done to it.",
+        "description": "A network.\n\nAttributes:\n    id: Its id.\n    name: Its name.\n    driver: ``bridge``, ``host``, ``overlay``...\n    scope: ``local`` or ``swarm``.\n    internal: It has no way out.\n    project: Its Compose project.\n    created: When it was made.\n    containers: The containers on it.\n    ranges: Its address ranges and the gateway of each, IPv4 first when it has both; empty for a network\n        Docker gave none (``host``, ``none``).\n    builtin: Docker makes it itself and it cannot be removed.\n    owner: Whose it is.\n    can: What may be done to it.",
         "properties": {
           "builtin": {
             "default": false,
@@ -22895,6 +23093,13 @@
             "title": "Project",
             "type": "string"
           },
+          "ranges": {
+            "items": {
+              "$ref": "#/components/schemas/DockerNetworkRangeOut"
+            },
+            "title": "Ranges",
+            "type": "array"
+          },
           "scope": {
             "default": "",
             "title": "Scope",
@@ -22904,10 +23109,30 @@
         "required": [
           "id",
           "name",
+          "ranges",
           "owner",
           "can"
         ],
         "title": "DockerNetworkOut",
+        "type": "object"
+      },
+      "DockerNetworkRangeOut": {
+        "description": "One address range of a network and its gateway.\n\nAttributes:\n    subnet: The range (``172.18.0.0/16``).\n    gateway: The gateway's address in it; empty when Docker gave none.",
+        "properties": {
+          "gateway": {
+            "default": "",
+            "title": "Gateway",
+            "type": "string"
+          },
+          "subnet": {
+            "title": "Subnet",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subnet"
+        ],
+        "title": "DockerNetworkRangeOut",
         "type": "object"
       },
       "DockerNetworksOut": {
@@ -23589,7 +23814,7 @@
         "type": "object"
       },
       "DockerUpdateOut": {
-        "description": "What updating an image does, and what the last look at the registries found of it.\n\nAttributes:\n    image: The image as the listing names it.\n    reference: The reference a registry is asked about for it; null when it has none.\n    mode: ``with_net`` (through its application, behind the health gate, the way back kept),\n        ``bring_first`` (bring its stack to Noust, then update), ``loose`` (a container on its own: not\n        updated), ``via_owner`` (a database engine's or Noust's: through its own door), ``rollback`` (a\n        version an application keeps to go back to), ``unknown`` (nothing to update to: nobody looked,\n        or the look could not tell) or ``none`` (it is current).\n    state: ``current``, ``newer``, ``unknown`` or ``not_looked``.\n    change: What the new version is to the one that runs: ``patch``, ``minor``, ``major`` or\n        ``unknown``; empty when there is none.\n    floating: The tag is one that moves (``latest``, ``stable``).\n    current_version: The version that runs, as far as the image says.\n    latest_version: The version behind the tag now.\n    latest_created: When that image was built.\n    checked_at: When the registries were asked.\n    detail: What the registry said, when the look could not tell.\n    owner: Whose the image is.\n    app: The application that is updated (``with_net``).\n    stack: The Compose project to bring to Noust (``bring_first``).\n    images: Every image that moves with the update, by reference.\n    steps: What it does, in order: ``pull``, ``copy_databases``, ``recreate_behind_health``,\n        ``keep_previous``, ``roll_back_on_failure``.\n    major: Something that moves is a new major version.\n    needs: What is missing before it can go ahead: ``verified_copy`` or ``accept_major``.\n    backup: The copy of the application's databases, when a database's major version moves.\n    apply: It can go ahead once the person has said so.\n    via: Where it is done instead, as a command, when it is not here.",
+        "description": "What updating an image does, and what the last look at the registries found of it.\n\nAttributes:\n    image: The image as the listing names it.\n    reference: The reference a registry is asked about for it; null when it has none.\n    mode: ``with_net`` (through its application, behind the health gate, the way back kept),\n        ``bring_first`` (bring its stack to Noust, then update), ``loose`` (a container on its own: not\n        updated), ``via_owner`` (a database engine's or Noust's: through its own door), ``rollback`` (a\n        version an application keeps to go back to), ``unknown`` (nothing to update to: nobody looked,\n        or the look could not tell) or ``none`` (it is current).\n    state: ``current``, ``newer``, ``unknown`` or ``not_looked``.\n    change: What the new version is to the one that runs: ``patch``, ``minor``, ``major`` or\n        ``unknown``; empty when there is none.\n    floating: The tag is one that moves (``latest``, ``stable``).\n    current_version: The version that runs, as far as the image says.\n    latest_version: The version behind the tag now.\n    latest_created: When that image was built.\n    checked_at: When the registries were asked.\n    detail: What the registry said, when the look could not tell.\n    owner: Whose the image is.\n    app: The application that is updated (``with_net``).\n    stack: The Compose project to bring to Noust (``bring_first``).\n    images: Every image that moves with the update, by reference.\n    steps: What it does, in order: ``pull``, ``copy_databases``, ``recreate_behind_health``,\n        ``keep_previous``, ``roll_back_on_failure``.\n    major: Something that moves is a new major version.\n    needs: What is missing before it can go ahead: ``verified_copy`` or ``accept_major``.\n    backup: The copy of the application's databases, when a database's major version moves.\n    apply: It can go ahead once the person has said so.\n    via: Where it is done instead, as a command, when it is not here.\n    source: Where the image comes from, which tells \"nobody looked\" from \"there is no registry to look\n        at\": ``registry`` (it was pulled), ``built_noust`` (Noust named it: an application's release or the\n        version a stack keeps to go back to), ``built_other`` (somebody built it on this machine) or\n        ``unknown``. Whatever it is, an image nobody asked the registries about is ``not_looked``.",
         "properties": {
           "app": {
             "anyOf": [
@@ -23720,6 +23945,17 @@
               }
             ],
             "title": "Reference"
+          },
+          "source": {
+            "default": "unknown",
+            "enum": [
+              "registry",
+              "built_noust",
+              "built_other",
+              "unknown"
+            ],
+            "title": "Source",
+            "type": "string"
           },
           "stack": {
             "anyOf": [
@@ -23888,13 +24124,51 @@
         "title": "DockerUsageOut",
         "type": "object"
       },
+      "DockerVolumeBackupOut": {
+        "description": "Whether a volume is in a copy and when the last was, as the backup manager says it.\n\nAttributes:\n    state: ``scheduled`` (a schedule that is on takes it), ``copied`` (it has been copied and no\n        schedule takes it) or ``none`` (it is in no copy: what Noust did not make is not copied by\n        Noust).\n    last_at: When the newest copy that holds it was taken, ISO 8601; null when there is none.\n    via: The command that takes a copy of it now; empty when there is none to give (the volume is\n        not an application's).",
+        "properties": {
+          "last_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last At"
+          },
+          "state": {
+            "enum": [
+              "scheduled",
+              "copied",
+              "none"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "via": {
+            "default": "",
+            "title": "Via",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "DockerVolumeBackupOut",
+        "type": "object"
+      },
       "DockerVolumeOut": {
-        "description": "A named volume.\n\nAttributes:\n    name: Its name.\n    driver: Its driver.\n    scope: ``local`` or ``global``.\n    mountpoint: Where Docker keeps its data on the host.\n    project: Its Compose project.\n    key: The name its compose file gave it.\n    instance: Its database-instance label.\n    size_bytes: Its size when measured; a listing leaves it null (``GET /volumes/sizes`` measures).\n    used_by: The containers that mount it.\n    anonymous: A container made it without naming it.\n    owner: Whose it is.\n    can: What may be done to it.",
+        "description": "A named volume.\n\nAttributes:\n    name: Its name.\n    driver: Its driver.\n    scope: ``local`` or ``global``.\n    mountpoint: Where Docker keeps its data on the host.\n    project: Its Compose project.\n    key: The name its compose file gave it.\n    instance: Its database-instance label.\n    size_bytes: Its size when measured; a listing leaves it null (``GET /volumes/sizes`` measures).\n    used_by: The containers that mount it.\n    anonymous: A container made it without naming it.\n    backup: Whether it is in a copy and when the last was.\n    owner: Whose it is.\n    can: What may be done to it.",
         "properties": {
           "anonymous": {
             "default": false,
             "title": "Anonymous",
             "type": "boolean"
+          },
+          "backup": {
+            "$ref": "#/components/schemas/DockerVolumeBackupOut"
           },
           "can": {
             "$ref": "#/components/schemas/DockerCanOut"
@@ -23957,6 +24231,7 @@
         },
         "required": [
           "name",
+          "backup",
           "owner",
           "can"
         ],
@@ -25744,7 +26019,7 @@
         "type": "object"
       },
       "EngineListResponse": {
-        "description": "Response for listing engines.",
+        "description": "Response for listing engines.\n\nAttributes:\n    engines: The engines: the system's own where this machine has them, and the containers Noust runs.\n    system: Whether the system's own engines are something this machine has, and why not when it has\n        none (``features.containers_only`` on the central of a NAS, which runs engines in containers and\n        has no PostgreSQL of its own): the sentence the table of functions says for ``databases``, so the\n        list is the instances alone and nothing offers to install an engine.",
         "properties": {
           "engines": {
             "items": {
@@ -25752,10 +26027,14 @@
             },
             "title": "Engines",
             "type": "array"
+          },
+          "system": {
+            "$ref": "#/components/schemas/FeatureState"
           }
         },
         "required": [
-          "engines"
+          "engines",
+          "system"
         ],
         "title": "EngineListResponse",
         "type": "object"
@@ -28134,6 +28413,89 @@
         "title": "ExtensionResponse",
         "type": "object"
       },
+      "FactForeignOut": {
+        "description": "Where a value of a call that is neither the person's nor Noust's was found.\n\nAttributes:\n    kind: ``host``, ``address``, ``url``, ``email``, ``command`` or ``value``.\n    source: The text it was found in; null when it was found in none.\n    line: Which line of it.\n    label: What that text is called, as a sentence with a code.",
+        "properties": {
+          "kind": {
+            "enum": [
+              "host",
+              "address",
+              "url",
+              "email",
+              "command",
+              "value"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "FactForeignOut",
+        "type": "object"
+      },
+      "FactOut": {
+        "description": "One value of the call a proposal makes, as the card shows it.\n\nAttributes:\n    name: Where in the call it is (``body.domain``, ``server``, ``environment``).\n    value: The value, as text and cut at 500 characters.\n    foreign: Where it was found, when it came from a text somebody else wrote: it is highlighted and\n        makes the proposal one the person decides.",
+        "properties": {
+          "foreign": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FactForeignOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "value"
+        ],
+        "title": "FactOut",
+        "type": "object"
+      },
       "Fail2banInstallRequest": {
         "description": "Install fail2ban; ``epel`` confirms enabling EPEL where it is needed.",
         "properties": {
@@ -28274,7 +28636,7 @@
         "type": "object"
       },
       "FeatureState": {
-        "description": "Whether one function of this Noust works here.\n\nAttributes:\n    available: It would work here now.\n    reason: Why it would not: ``features.hub_role`` on a hub, ``features.containers_only`` on\n        a hub that deploys containers and not this, ``features.needs_*`` for what the machine\n        lacks, and the engine's own sentences (``docker.*``) for Docker. None when\n        ``available``.",
+        "description": "Whether one function of this Noust works here.\n\nAttributes:\n    available: It would work here now.\n    reason: Why it would not: ``features.hub_role`` on a hub, ``features.hub_only`` on a server\n        for what only a hub has, ``features.containers_only`` on a hub that deploys containers\n        and not this, ``features.needs_*`` for what the machine lacks (``needs_host`` for a\n        container that would show its own processes and disks as the server's), the platform's\n        own sentence for a package manager that cannot update (``host.updates_unsupported.*``)\n        and the engine's for Docker (``docker.*``). None when ``available``.",
         "properties": {
           "available": {
             "title": "Available",
@@ -28330,6 +28692,9 @@
             "$ref": "#/components/schemas/FeatureState"
           },
           "databases": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "deploy_here": {
             "$ref": "#/components/schemas/FeatureState"
           },
           "dns_accounts": {
@@ -28422,13 +28787,25 @@
           "system_clock": {
             "$ref": "#/components/schemas/FeatureState"
           },
+          "system_files": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
           "system_logs": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "system_processes": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "system_updates": {
             "$ref": "#/components/schemas/FeatureState"
           },
           "tunnels": {
             "$ref": "#/components/schemas/FeatureState"
           },
           "volume_backups": {
+            "$ref": "#/components/schemas/FeatureState"
+          },
+          "zero_downtime": {
             "$ref": "#/components/schemas/FeatureState"
           }
         },
@@ -28440,6 +28817,7 @@
           "rollbacks",
           "preview_environments",
           "importing_applications",
+          "zero_downtime",
           "recipes",
           "application_environments",
           "application_diagnosis",
@@ -28476,6 +28854,10 @@
           "root_shell",
           "server_security",
           "firewall",
+          "system_processes",
+          "system_files",
+          "system_updates",
+          "deploy_here",
           "docker_zone"
         ],
         "title": "FeatureStates",
@@ -38527,7 +38909,7 @@
         "type": "object"
       },
       "MessageOut": {
-        "description": "One message of a conversation, as its author reads it.\n\nAttributes:\n    seq: Its place, from 1.\n    role: ``user``, ``assistant`` or ``tool``.\n    content: The text, with the disguised emails and addresses put back.\n    tool_calls: For an assistant message that called tools: ``id``, ``name`` and ``arguments``.\n    tool_call_id: For a tool message, the call it answers.\n    created_at: When it was written.",
+        "description": "One message of a conversation, as its author reads it.\n\nAttributes:\n    seq: Its place, from 1.\n    role: ``user``, ``assistant`` or ``tool``.\n    content: The text, with the disguised emails and addresses put back.\n    tool_calls: For an assistant message that called tools, each call.\n    tool_call_id: For a tool message, the call it answers.\n    created_at: When it was written.",
         "properties": {
           "content": {
             "title": "Content",
@@ -38560,10 +38942,7 @@
             "anyOf": [
               {
                 "items": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "type": "object"
+                  "$ref": "#/components/schemas/ToolCallOut"
                 },
                 "type": "array"
               },
@@ -42123,6 +42502,25 @@
         "title": "PackagesResponse",
         "type": "object"
       },
+      "PartLineOut": {
+        "description": "One line quoted as the system wrote it.\n\nAttributes:\n    n: Its number in the text.\n    text: The line, with the disguised emails and addresses put back.",
+        "properties": {
+          "n": {
+            "title": "N",
+            "type": "integer"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "n",
+          "text"
+        ],
+        "title": "PartLineOut",
+        "type": "object"
+      },
       "PartOut": {
         "description": "A piece of an answer: its words, or lines of the system quoted as the system wrote them.\n\nAttributes:\n    type: ``text`` (Markdown the console draws safely) or ``literal``.\n    text: For ``text``, the words.\n    source: For ``literal``, which text it is from (``{\"id\", \"kind\", \"label\"}``, the label a sentence).\n    lines: For ``literal``, the lines with their numbers (``{\"n\", \"text\"}``).",
         "properties": {
@@ -42130,8 +42528,7 @@
             "anyOf": [
               {
                 "items": {
-                  "additionalProperties": true,
-                  "type": "object"
+                  "$ref": "#/components/schemas/PartLineOut"
                 },
                 "type": "array"
               },
@@ -42144,14 +42541,12 @@
           "source": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/PartSourceOut"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Source"
+            ]
           },
           "text": {
             "anyOf": [
@@ -42165,6 +42560,10 @@
             "title": "Text"
           },
           "type": {
+            "enum": [
+              "text",
+              "literal"
+            ],
             "title": "Type",
             "type": "string"
           }
@@ -42173,6 +42572,29 @@
           "type"
         ],
         "title": "PartOut",
+        "type": "object"
+      },
+      "PartSourceOut": {
+        "description": "Which text a quotation is from.\n\nAttributes:\n    id: Its identifier in the turn (the ``S1`` of ``[[S1:14-15]]``).\n    kind: What it is (a log, a deployment, a diagnosis...).\n    label: What it is called, as a sentence with a code.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "$ref": "#/components/schemas/CodedText"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "label"
+        ],
+        "title": "PartSourceOut",
         "type": "object"
       },
       "PasskeyAvailability": {
@@ -43791,7 +44213,8 @@
         "required": [
           "path",
           "change",
-          "shown"
+          "shown",
+          "lines"
         ],
         "title": "PlanFileOut",
         "type": "object"
@@ -43878,6 +44301,9 @@
             "type": "boolean"
           }
         },
+        "required": [
+          "confirmations"
+        ],
         "title": "PlanNeedsOut",
         "type": "object"
       },
@@ -43968,7 +44394,13 @@
         },
         "required": [
           "operation",
-          "effect"
+          "effect",
+          "commands",
+          "files",
+          "steps",
+          "findings",
+          "unknown",
+          "needs"
         ],
         "title": "PlanOutModel",
         "type": "object"
@@ -44061,7 +44493,8 @@
         },
         "required": [
           "key",
-          "title"
+          "title",
+          "commands"
         ],
         "title": "PlanStepOut",
         "type": "object"
@@ -47314,8 +47747,25 @@
         "title": "ProofLoginOut",
         "type": "object"
       },
+      "ProposalNeedsOut": {
+        "description": "What carrying a proposal out asks of the person.\n\nAttributes:\n    elevation: Sudo mode: the call is one that asks them to confirm it is them.\n    second_person: A second person approves it.",
+        "properties": {
+          "elevation": {
+            "default": false,
+            "title": "Elevation",
+            "type": "boolean"
+          },
+          "second_person": {
+            "default": false,
+            "title": "Second Person",
+            "type": "boolean"
+          }
+        },
+        "title": "ProposalNeedsOut",
+        "type": "object"
+      },
       "ProposalOut": {
-        "description": "A call the assistant prepared for a person, or made for them where their policy says so.\n\nAttributes:\n    id: Its identifier.\n    turn: The turn it was made in.\n    tool: The tool it came from.\n    klass: How much of the decision is the person's: ``ask`` (their approval, once), ``you`` (it also asks\n        them to confirm it is them: sudo mode), ``two`` (it also waits for a second person), or ``alone``\n        (the assistant made it, as their policy lets it).\n    state: ``waiting``, ``running`` (it became a job), ``second`` (it waits for a second person),\n        ``done``, ``failed`` or ``rejected``.\n    title: What it is, as a sentence with a code.\n    effect: What the operation does, in a line, from the API's own description.\n    why: Why it is of this class, as a sentence with a code.\n    permission: What it needs.\n    environment: ``production`` or ``other``.\n    server: The server it is for, or empty.\n    facts: The values of the call, each ``{\"name\", \"value\"}`` with ``foreign`` on one that is neither the\n        person's nor Noust's (``{\"kind\", \"source\", \"line\", \"label\"}``: where it was found).\n    plan: What the operation's simulation says it would do, when it has one.\n    needs: What carrying it out asks for (``elevation``, ``second_person``).\n    call: The exact call.\n    fingerprint: The SHA-256 of the call, the one the approvals use.\n    created_at: When it was prepared.\n    decided_at: When it was decided.\n    decided_by: Who carried it out or rejected it.\n    status: The status the call got.\n    result: What came of it.\n    output: The system's own words when it failed.\n    approval: The request of a second person, when it waits for one.\n    job_id: The job it became.\n    verified: The audit trail showed the call was made.",
+        "description": "A call the assistant prepared for a person, or made for them where their policy says so.\n\nAttributes:\n    id: Its identifier.\n    turn: The turn it was made in.\n    tool: The tool it came from.\n    klass: How much of the decision is the person's: ``ask`` (their approval, once), ``you`` (it also asks\n        them to confirm it is them: sudo mode), ``two`` (it also waits for a second person), or ``alone``\n        (the assistant made it, as their policy lets it).\n    state: ``waiting``, ``running`` (it became a job), ``second`` (it waits for a second person),\n        ``done``, ``failed`` or ``rejected``.\n    title: What it is, as a sentence with a code.\n    effect: What the operation does, in a line, from the API's own description.\n    why: Why it is of this class, as a sentence with a code.\n    permission: What it needs.\n    environment: ``production`` or ``other``.\n    server: The server it is for, or empty.\n    facts: The values of the call, each ``{\"name\", \"value\"}`` with ``foreign`` on one that is neither the\n        person's nor Noust's (``{\"kind\", \"source\", \"line\", \"label\"}``: where it was found).\n    plan: What the operation's simulation says it would do, when it has one.\n    needs: What carrying it out asks for (``elevation``, ``second_person``).\n    call: The exact call.\n    fingerprint: The SHA-256 of the call, the one the approvals use.\n    created_at: When it was prepared.\n    decided_at: When it was decided.\n    decided_by: Who carried it out or rejected it.\n    status: The status the call got.\n    result: What came of it, in the words there are for it: its text, or a sentence with a code when the\n        answer was one. Null when what the call answered says nothing a card can draw.\n    output: The system's own words when it failed.\n    approval: The request of a second person, when it waits for one.\n    job_id: The job it became.\n    verified: The audit trail showed the call was made.",
         "properties": {
           "approval": {
             "anyOf": [
@@ -47369,8 +47819,7 @@
           },
           "facts": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/FactOut"
             },
             "title": "Facts",
             "type": "array"
@@ -47399,9 +47848,7 @@
             "type": "string"
           },
           "needs": {
-            "additionalProperties": true,
-            "title": "Needs",
-            "type": "object"
+            "$ref": "#/components/schemas/ProposalNeedsOut"
           },
           "output": {
             "anyOf": [
@@ -47422,16 +47869,25 @@
           "plan": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/PlanOutModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/noust__web__api__assistant__SentenceOut"
+              },
+              {
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Plan"
-          },
-          "result": {
             "title": "Result"
           },
           "server": {
@@ -47494,6 +47950,8 @@
           "tool",
           "klass",
           "state",
+          "facts",
+          "needs",
           "call",
           "fingerprint",
           "created_at"
@@ -58905,7 +59363,7 @@
         "type": "object"
       },
       "ServerListResponse": {
-        "description": "Every database server of this server.\n\nAttributes:\n    servers: The servers: the system's engines, then the containers by key.\n    problems: What could not be asked (Docker not answering, an engine that refused Noust),\n        so a short list is never taken for a server with nothing in it.",
+        "description": "Every database server of this server.\n\nAttributes:\n    servers: The servers: the system's engines, then the containers by key.\n    problems: What could not be asked (Docker not answering, an engine that refused Noust),\n        so a short list is never taken for a server with nothing in it.\n    system: Whether the system's own engines are something this machine has, and why not (the\n        sentence the table of functions says for ``databases``): the central of a NAS has the\n        containers it runs and no engine of the system, and says why instead of refusing.",
         "properties": {
           "problems": {
             "items": {
@@ -58920,10 +59378,14 @@
             },
             "title": "Servers",
             "type": "array"
+          },
+          "system": {
+            "$ref": "#/components/schemas/FeatureState"
           }
         },
         "required": [
-          "servers"
+          "servers",
+          "system"
         ],
         "title": "ServerListResponse",
         "type": "object"
@@ -65081,14 +65543,12 @@
           "size": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/StepSizeOut"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Size"
+            ]
           },
           "state": {
             "title": "State",
@@ -65115,6 +65575,31 @@
           "state"
         ],
         "title": "StepOut",
+        "type": "object"
+      },
+      "StepSizeOut": {
+        "description": "How much a step read.\n\nAttributes:\n    unit: What was counted: ``lines``, ``items``, ``chars`` or ``results``.\n    count: How many.",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "unit": {
+            "enum": [
+              "lines",
+              "items",
+              "chars",
+              "results"
+            ],
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "unit",
+          "count"
+        ],
+        "title": "StepSizeOut",
         "type": "object"
       },
       "StepsOut": {
@@ -68308,6 +68793,30 @@
         "title": "TokenPresetInfo",
         "type": "object"
       },
+      "ToolCallOut": {
+        "description": "A tool the model called, as it called it.\n\nAttributes:\n    id: The call's identifier, which the message that answers it names.\n    name: The tool.\n    arguments: What it was called with, as the JSON text the model sent, with the disguised emails and\n        addresses put back.",
+        "properties": {
+          "arguments": {
+            "title": "Arguments",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "arguments"
+        ],
+        "title": "ToolCallOut",
+        "type": "object"
+      },
       "ToolInfo": {
         "description": "One tool, as the console describes it.\n\nAttributes:\n    name: What the model calls it.\n    title: A short title.\n    group: ``inspect``, ``deploy`` or ``control``.\n    permission: The permission its route needs.\n    read_only: It changes nothing.\n    destructive: It needs ``confirm: true``.\n    description: What it does.",
         "properties": {
@@ -69180,6 +69689,67 @@
         "title": "TunnelSupportModel",
         "type": "object"
       },
+      "TurnErrorOut": {
+        "description": "What went wrong in a turn.\n\nAttributes:\n    output: The provider's own words, bounded and with the credentials masked; null when the failure was\n        not the provider's.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output"
+          },
+          "params": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Params",
+            "type": "object"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "text"
+        ],
+        "title": "TurnErrorOut",
+        "type": "object"
+      },
       "TurnIn": {
         "description": "A question.\n\nAttributes:\n    message: What the person asks.\n    page: The page it is asked from, when it is asked about one: ``{\"kind\": \"deployment\", \"id\": 14}``,\n        ``{\"kind\": \"diagnosis\", \"domain\": ...}``, ``{\"kind\": \"alert\", \"rule\": ...}`` or\n        ``{\"kind\": \"page\", \"route\": ...}``, each with an optional ``server``. Left out, nothing of\n        any page is read. Noust reads what the page shows; the model is not told to go and find it.\n    server: The server the person is looking at: a server's name, ``*`` for all of them, or left out for\n        the one the person is on (on a central that deploys nothing, all of them).\n    locale: The language the console speaks, for the language of the answer.",
         "properties": {
@@ -69249,14 +69819,12 @@
           "error": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/TurnErrorOut"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Error"
+            ]
           },
           "id": {
             "title": "Id",
@@ -69280,9 +69848,7 @@
             "type": "array"
           },
           "page": {
-            "additionalProperties": true,
-            "title": "Page",
-            "type": "object"
+            "$ref": "#/components/schemas/TurnPageOut"
           },
           "parts": {
             "items": {
@@ -69342,9 +69908,7 @@
             "type": "string"
           },
           "usage": {
-            "additionalProperties": true,
-            "title": "Usage",
-            "type": "object"
+            "$ref": "#/components/schemas/TurnUsageOut"
           },
           "warnings": {
             "items": {
@@ -69359,9 +69923,95 @@
           "seq",
           "state",
           "question",
-          "started_at"
+          "page",
+          "started_at",
+          "steps",
+          "parts",
+          "proposals",
+          "not_offered",
+          "warnings",
+          "usage"
         ],
         "title": "TurnOut",
+        "type": "object"
+      },
+      "TurnPageOut": {
+        "description": "The page a question was asked from; every field is absent for a question asked from none.\n\nAttributes:\n    kind: ``deployment``, ``diagnosis``, ``alert`` or ``page``.\n    id: The deployment, for ``deployment``.\n    domain: The application, for ``diagnosis``.\n    rule: The alert's rule, for ``alert``, when it names one.\n    route: The place in the console, for ``page``.\n    server: The server it was on, when it was on one.",
+        "properties": {
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "deployment",
+                  "diagnosis",
+                  "alert",
+                  "page"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "route": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Route"
+          },
+          "rule": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule"
+          },
+          "server": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Server"
+          }
+        },
+        "title": "TurnPageOut",
         "type": "object"
       },
       "TurnStartedOut": {
@@ -69406,6 +70056,70 @@
           "server"
         ],
         "title": "TurnStartedOut",
+        "type": "object"
+      },
+      "TurnUsageOut": {
+        "description": "What a turn used, and the conversation up to it.\n\nAttributes:\n    steps: Requests to the provider in this turn.\n    tokens: Tokens it used.\n    spend: What it cost, in the currency of the settings.\n    conversation: What the whole conversation used; null before the meter said.\n    currency: What the spending is in.\n    actions_last_hour: How many changes the assistant made for the person in the last hour.\n    notes: What to know about the numbers (no price for the model, an estimate), as sentences.",
+        "properties": {
+          "actions_last_hour": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actions Last Hour"
+          },
+          "conversation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConversationUsageOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "notes": {
+            "items": {
+              "$ref": "#/components/schemas/noust__web__api__assistant__SentenceOut"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "spend": {
+            "default": 0.0,
+            "title": "Spend",
+            "type": "number"
+          },
+          "steps": {
+            "default": 0,
+            "title": "Steps",
+            "type": "integer"
+          },
+          "tokens": {
+            "default": 0,
+            "title": "Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "notes"
+        ],
+        "title": "TurnUsageOut",
         "type": "object"
       },
       "TurnsOut": {
@@ -72109,7 +72823,7 @@
         "type": "object"
       },
       "UsageOut": {
-        "description": "What was used, and the limits it runs under.\n\nAttributes:\n    conversation: One conversation's totals, when one was asked for and is the caller's.\n    month: The calendar month's totals, everyone's together.\n    actions_last_hour: The changes the assistant made for the caller in the last hour.\n    limits: The limits in force.\n    currency: What spending is in.\n    month_start: The first moment of the month counted (UTC).\n    priced_models: The models that have a price: for any other, spending is not limited.\n    notes: What to know about the numbers (no price for the model, an estimate).",
+        "description": "What was used, and the limits it runs under.\n\nAttributes:\n    conversation: One conversation's totals, when one was asked for and is the caller's.\n    month: The calendar month's totals, everyone's together.\n    actions_last_hour: The changes the assistant made for the caller in the last hour; null for whoever\n        does not use the assistant.\n    limits: The limits in force.\n    currency: What spending is in.\n    month_start: The first moment of the month counted (UTC).\n    priced_models: The models that have a price: for any other, spending is not limited.\n    notes: What to know about the numbers (no price for the model, an estimate).",
         "properties": {
           "actions_last_hour": {
             "anyOf": [
@@ -72152,7 +72866,7 @@
           },
           "notes": {
             "items": {
-              "$ref": "#/components/schemas/AssistantReason"
+              "$ref": "#/components/schemas/noust__web__api__assistant__SentenceOut"
             },
             "title": "Notes",
             "type": "array"
@@ -93711,11 +94425,11 @@
     },
     "/api/assistant/usage": {
       "get": {
-        "description": "Show what the assistant cost and the limits it runs under.\n\nArgs:\n    session: The authenticated session.\n    conversation: One of the caller's conversations.\n\nReturns:\n    The month's totals (everyone's together), the conversation's when asked for and its\n    author's, what the caller made it do in the last hour, and the limits.",
+        "description": "Show what the assistant cost and the limits it runs under.\n\nWhat it costs is the server's, like the settings that limit it, so whoever may read the settings reads\nit (``settings.read``) without using the assistant, as they read the settings: a person who only sees\nsome teams does not. That opens nothing else: what the caller made it do in the last hour and the totals\nof one conversation are the assistant's, for who may use it (``assistant.use``) and, for a conversation,\nonly its author.\n\nArgs:\n    session: The authenticated session.\n    conversation: One of the caller's conversations.\n\nReturns:\n    The month's totals (everyone's together) and the limits; for whoever uses the assistant also what\n    the caller made it do in the last hour, and the conversation's totals when asked for and its\n    author's.\n\nRaises:\n    PermissionDenied: 403 when a conversation is asked for by someone who may not use the assistant, and\n        ``instance_scope_required`` when someone who does not use it and sees only some teams asks for\n        the server's spending.\n    NoustPermissionError: 403 when it is asked for as something that is not a person's account.",
         "operationId": "usage_api_assistant_usage_get",
         "parameters": [
           {
-            "description": "A conversation of the caller's, to give its totals too",
+            "description": "A conversation of the caller's, to give its totals too; needs the permission to use the assistant",
             "in": "query",
             "name": "conversation",
             "required": false,
@@ -93728,7 +94442,7 @@
                   "type": "null"
                 }
               ],
-              "description": "A conversation of the caller's, to give its totals too",
+              "description": "A conversation of the caller's, to give its totals too; needs the permission to use the assistant",
               "title": "Conversation"
             }
           }
@@ -93759,7 +94473,7 @@
         "tags": [
           "Assistant"
         ],
-        "x-noust-permission": "assistant.use"
+        "x-noust-permission": "settings.read"
       }
     },
     "/api/attention": {
@@ -113512,6 +114226,29 @@
         "x-noust-permission": "docker.read"
       }
     },
+    "/api/docker/containers/stats": {
+      "get": {
+        "description": "Say what every container uses, in one reading of Docker.\n\nThe list of containers draws the processor and the memory of each row, and asking for them one at a\ntime would start a process for each row. Docker is asked once, for all that run (``docker stats``\nwithout a stream), and each container is given its reading or the reason there is none: it is not\nrunning, it is restarting, it started a moment ago, or Docker did not say. The reading is kept for a few\nseconds behind the request, so ``read_at`` says how old it is. A container called ``stats`` is read at\n``/containers/{id}``: this path is the list.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    One entry for each container the principal sees, by name.",
+        "operationId": "get_containers_usage_api_docker_containers_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerContainersUsageOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Containers Usage",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.read"
+      }
+    },
     "/api/docker/containers/{ref}": {
       "delete": {
         "description": "Remove a container nobody of Noust owns. Its volumes are left where they are.\n\nArgs:\n    ref: Its name, or the id Docker shows.\n    session: The authenticated session, in sudo mode.\n    force: Remove it even if it is running.\n\nReturns:\n    What was removed.\n\nRaises:\n    DockerNotFoundError: 404 when there is none.\n    DockerOwnedError: 409 when it is somebody's.\n    DockerRefusedError: 409 when Docker refused (it is running and ``force`` was not given).",
@@ -114508,7 +115245,7 @@
     },
     "/api/docker/stacks/{name}/bring": {
       "post": {
-        "description": "Bring a stack that already runs to Noust, or say what that would do.\n\nThis is ``noust app adopt`` where the zone shows the stack: Noust registers it as it runs, and nothing\nthat runs is recreated, restarted or changed, nor is its compose file rewritten. The folder and the file\nare what the stack's containers say; the name the application will have is the only thing typed. With\n``preview`` nothing is registered and the answer is what would be: that the folder is on this server,\nwhat the rehearsed ``up`` says, the counts, what would not come back after a restart. Compose's own\nwords, when starting it the way Noust would changes something, are in ``output`` of a 409 and are not\nparaphrased. What is already Noust's, what is not on this server and a stack started from several files\nare refused first with the reason as a code (409 ``docker_blocked``). Needs the permission to change\nDocker, the one to manage applications, and sudo mode.\n\nArgs:\n    name: The Compose project's name.\n    body: The name the application will have, whether to only preview, and whether to accept a\n        rehearsal that changes something.\n    session: The authenticated session, in sudo mode.\n\nReturns:\n    What was, or would be, registered.\n\nRaises:\n    DockerNotFoundError: 404 when there is no such stack.\n    DockerOwnedError: 409 when an engine or Noust owns it.\n    DockerBlockedError: 409 ``docker_blocked`` with the reason.\n    DeploymentError: 409 when adopting is refused (Compose's rehearsal, a unit that exists).",
+        "description": "Bring a stack that already runs to Noust, or say what that would do.\n\nTo only look, without sudo mode, use ``POST .../bring/preview``: it is the same preview, read with the\npermission to read the zone. ``preview`` here is kept for who already sends it, and asks sudo mode like\nthe rest of this route.\n\nThis is ``noust app adopt`` where the zone shows the stack: Noust registers it as it runs, and nothing\nthat runs is recreated, restarted or changed, nor is its compose file rewritten. The folder and the file\nare what the stack's containers say; the name the application will have is the only thing typed. With\n``preview`` nothing is registered and the answer is what would be: that the folder is on this server,\nwhat the rehearsed ``up`` says, the counts, what would not come back after a restart. Compose's own\nwords, when starting it the way Noust would changes something, are in ``output`` of a 409 and are not\nparaphrased. What is already Noust's, what is not on this server and a stack started from several files\nare refused first with the reason as a code (409 ``docker_blocked``). Needs the permission to change\nDocker, the one to manage applications, and sudo mode.\n\nArgs:\n    name: The Compose project's name.\n    body: The name the application will have, whether to only preview, and whether to accept a\n        rehearsal that changes something.\n    session: The authenticated session, in sudo mode.\n\nReturns:\n    What was, or would be, registered.\n\nRaises:\n    DockerNotFoundError: 404 when there is no such stack.\n    DockerOwnedError: 409 when an engine or Noust owns it.\n    DockerBlockedError: 409 ``docker_blocked`` with the reason.\n    DeploymentError: 409 when adopting is refused (Compose's rehearsal, a unit that exists).",
         "operationId": "bring_stack_api_docker_stacks__name__bring_post",
         "parameters": [
           {
@@ -114564,9 +115301,66 @@
         "x-noust-requires-elevation": true
       }
     },
+    "/api/docker/stacks/{name}/bring/preview": {
+      "post": {
+        "description": "Say what bringing a stack that already runs to Noust would do, without doing it or asking to confirm.\n\nLooking changes nothing, so it is read with the permission to read the zone and asks no sudo mode:\nthe person sees what would be registered before being asked who they are, and the confirmation is asked\nwhen it is applied (``POST .../bring``). The one thing that runs is Compose's rehearsal of starting the\nstack (``up --dry-run``), which only looks, and nothing is registered, written, started or stopped. The\nwords of Compose and the address the checkout fetches from are shown with the credentials masked. What\nis already Noust's, what is not on this server and a stack started from several files are refused first\nwith the reason as a code (409 ``docker_blocked``), and Compose's own words, when starting it the way\nNoust would changes something, are in ``output`` of a 409.\n\nArgs:\n    name: The Compose project's name.\n    body: The name the application would have, and whether to show the plan though the rehearsal changes\n        something.\n    session: The authenticated session.\n\nReturns:\n    What would be registered and what is not changed.\n\nRaises:\n    DockerNotFoundError: 404 when there is no such stack.\n    DockerOwnedError: 409 when an engine or Noust owns it.\n    DockerBlockedError: 409 ``docker_blocked`` with the reason.\n    DeploymentError: 409 when adopting is refused (Compose's rehearsal, a unit that exists).",
+        "operationId": "preview_bring_api_docker_stacks__name__bring_preview_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DockerBringPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerBringOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "It cannot be brought, or starting it as Noust would changes it"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Bring",
+        "tags": [
+          "Docker"
+        ],
+        "x-noust-permission": "docker.read"
+      }
+    },
     "/api/docker/stacks/{name}/compose": {
       "get": {
-        "description": "Read the document of a stack, or say why it is not edited here.\n\nNeeds the permission that reveals secrets: a document can hold a value somebody typed into it. The read\nis recorded.\n\nArgs:\n    name: The Compose project's name.\n    session: The authenticated session.\n\nReturns:\n    The document and where it is; or ``editable: false`` with a code and a sentence that says whose it is\n    and where it is changed.\n\nRaises:\n    DockerNotFoundError: 404 when there is no such stack.\n    DockerOwnedError: 409 when a database engine or Noust owns it.",
+        "description": "Read the document of a stack, or say why it is not edited here.\n\nNeeds the permission that reveals secrets: a document can hold a value somebody typed into it. The read\nis recorded.\n\nArgs:\n    name: The Compose project's name.\n    session: The authenticated session.\n\nReturns:\n    The document and where it is; or ``editable: false`` with a code and a sentence that says whose it is\n    and where it is changed (a database engine's or Noust's own stack included: ``owned``).\n\nRaises:\n    DockerNotFoundError: 404 when there is no such stack.",
         "operationId": "get_compose_api_docker_stacks__name__compose_get",
         "parameters": [
           {
@@ -114717,7 +115511,7 @@
     },
     "/api/docker/stacks/{name}/compose/versions": {
       "get": {
-        "description": "List the versions of a stack's document, newest first: who saved each, when and why. There is no text.\n\nArgs:\n    name: The Compose project's name.\n    session: The authenticated session.\n\nReturns:\n    The versions.\n\nRaises:\n    DockerNotFoundError: 404 when there is no such stack.\n    DockerBlockedError: 409 ``docker_blocked`` when its document is not edited here.",
+        "description": "List the versions of a stack's document, newest first: who saved each, when and why. There is no text.\n\nA stack whose document is not Noust's to keep (one nobody of Noust made, a repository's, a recipe's, a\ngenerated one, a database engine's) has no history, and that is an answer: 200 with no items, ``editable``\nfalse and ``why_code`` and ``why`` saying whose the document is. Only a stack that is not there is a 404.\n\nArgs:\n    name: The Compose project's name.\n    session: The authenticated session.\n\nReturns:\n    The versions, or the reason there are none to list.\n\nRaises:\n    DockerNotFoundError: 404 when there is no such stack.",
         "operationId": "list_compose_versions_api_docker_stacks__name__compose_versions_get",
         "parameters": [
           {
@@ -117381,6 +118175,49 @@
           "Fleet"
         ],
         "x-noust-permission": "fleet.manage"
+      }
+    },
+    "/api/fleet/docker/images/check": {
+      "post": {
+        "description": "Ask every server's registries whether the images in use have a new version, as one job.\n\nEach server is asked for its own look (``POST /api/docker/images/check``) through its tunnel, as the\noperator, and its job is followed; what each found is kept in short in the record of that server (how\nmany images, how many are new and which), and the whole of it is on the server. A server that runs a\nNoust before 4.3 and one with no Docker are shown in the plan as unable to take part, not as failures.\nThe central's own Docker, when it has one, is looked at with the look of its own zone. Needs the\npermission to change Docker; sudo mode is asked when a server's own schema asks for it, and one\nconfirmation covers the job.\n\nArgs:\n    request: The request.\n    body: Which servers, and whether to download to compare.\n    session: The authenticated session.\n\nReturns:\n    The plan and, unless ``plan``, the job: its ``result`` is the state of each server as it runs.\n\nRaises:\n    ValidationError: A server is not one of this central's, or none can take part.",
+        "operationId": "check_images_api_fleet_docker_images_check_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DockerFleetCheckIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__fleet__ActionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Check Images",
+        "tags": [
+          "Fleet"
+        ],
+        "x-noust-permission": "docker.manage"
       }
     },
     "/api/fleet/enroll": {

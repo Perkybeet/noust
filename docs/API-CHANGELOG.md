@@ -27,6 +27,30 @@ against the schema of 4.2.0.
 
 ### Added
 
+- **The Docker zone, what its lists draw** (item 189). `GET /api/docker/containers/stats` (`docker.read`): every
+  container's consumption in one reading (`items[]` with `usage`, `read_at`). Each image and its update plan have
+  `source` (`registry`, `built_noust`, `built_other`, `unknown`); each volume has `backup` (`state` `scheduled`,
+  `copied` or `none`, `last_at`, `via`); each network has `ranges` (`subnet`, `gateway`).
+  `POST /api/docker/stacks/{name}/bring/preview` (`docker.read`, no sudo mode) is the preview of bringing a stack to
+  Noust, with the credentials in what Compose and the checkout say masked. `GET .../compose/versions` has
+  `editable`, `why_code` and `why`; the document of a stack a database engine or Noust keeps says `why_code: owned`.
+  `POST /api/fleet/docker/images/check` (`docker.manage`) asks every server for its look for new versions as one job.
+- **Databases on a machine that only has Docker** (items 187 and 188). `GET /api/databases/servers`,
+  `/api/databases/databases` and `/api/databases/engines` answer `200` on the central of a NAS with what there is (the
+  database containers Noust runs, their databases and their users) and carry `system`, `{available, reason}`: the
+  sentence the table of functions says for the engines of the system (`features.containers_only`), so the console
+  says why there is no PostgreSQL of the machine's own instead of offering to install one. Making an instance, a
+  database and a user, copying it and restoring it work there from end to end.
+- **Six functions of the table that the console used to derive** (item 12), each in `session.central.features` with
+  its sentence: `deploy_here` (the page that turns on deploying on the machine's Docker; a hub's, and a server says
+  `features.hub_only`), `system_processes`, `system_files` and `system_updates` (the machine's own processes, disks
+  and packages; a container image says `features.needs_host`, and updates also need a package manager and root:
+  `features.needs_package_manager`, or the platform's own sentence when it cannot update) and `zero_downtime` (blue/green
+  and the relay of a stack; refused to a container host as `features.containers_only`, and by the same guard the
+  command and the job use). What one application can (a stack has no files of this kind, a static site no
+  zero-downtime) is still read from the application: `GET /api/apps/{domain}/zero-downtime` says `eligible` and why, and
+  `GET .../files` answers `400` for a container or a stack. There is no field that says it for every ability in one
+  place yet.
 - **What a token and the built-in assistant may do alone** (`/api/config/approval-policy`). `GET` (permission
   `settings.read`) is the table: a row for each permission that changes something (`permission`, `area`,
   `description`, `key`, `changed`, `operations`) with four cells (`caller` `token` or `assistant`, `environment`
@@ -246,6 +270,12 @@ against the schema of 4.2.0.
 
 ### Changed, without breaking a client
 
+- **The listings of the Databases area on a central that deploys containers** answer `200` with what there is and
+  the reason there is no engine of the system in `system`; they answered `409` (the refusal of `databases`) before,
+  and the console had nothing to draw. A server's answer is the same plus `system: {available: true}`.
+- **The verdict of `POST /api/apps/inspect` on a machine that only has Docker** says `how_it_runs.why.nothing_runs_here`
+  for a project that would run natively (it advised `noust setup init`), and no longer names Railpack for a project it
+  cannot build; the verdict and `ways` come from the same table.
 - **The subject of an email about a thing that has a way back** is the same in every message about it
   (`[Noust] Application: shop.example.com (web-1)`, `[Noust] Deploy: ...`) and no longer carries how it went, and the
   later messages carry `In-Reply-To` and `References`. The webhook's payload does not change.

@@ -30,7 +30,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from noust.core.docker import image_sources
+from noust.core.docker import image_origin, image_sources, registry
 from noust.core.docker.errors import DockerBlockedError, DockerOwnedError
 from noust.core.docker.gate import DockerGate
 from noust.core.docker.models import Container, Image, Owner, OwnerKind
@@ -95,7 +95,8 @@ class UpdatePlan:
             not updated), ``via_owner`` (a database engine's or Noust's: through its own door),
             ``rollback`` (a version an application keeps to go back to), ``unknown`` (there is nothing to
             update to: nobody looked, or the look could not tell) or ``none`` (it is current).
-        state: What the last look found: ``current``, ``newer``, ``unknown`` or ``not_looked``.
+        state: What the last look found: ``current``, ``newer``, ``unknown`` or ``not_looked`` (nobody looked:
+            the default for everything that was not asked about, whatever its origin).
         change: What the new version is to the one that runs.
         floating: The tag is one that moves.
         current_version: The version that runs, as far as it is known.
@@ -113,6 +114,9 @@ class UpdatePlan:
         backup: The copy of the application's databases, when a database's major version moves.
         apply: Whether it can go ahead once the person has said so.
         via: Where it is done instead, as a command, when it is not here.
+        source: Where the image comes from (:data:`noust.core.docker.image_origin.SOURCES`): what has no
+            reference is "not looked at" when it came from a registry and never will be when it was built
+            here.
     """
 
     image: str
@@ -136,6 +140,7 @@ class UpdatePlan:
     backup: CopyState | None = None
     apply: bool = False
     via: str = ""
+    source: str = image_origin.UNKNOWN
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -164,6 +169,7 @@ class UpdatePlan:
             "backup": self.backup.to_dict() if self.backup else None,
             "apply": self.apply,
             "via": self.via,
+            "source": self.source,
         }
 
 
@@ -175,10 +181,12 @@ class _Machine:
     Attributes:
         containers: Every container the principal sees, with its owner.
         records: What the last look at the registries found of the images they run.
+        local: What Docker says of each of the images being planned, by id: where each came from.
     """
 
     containers: list[Container]
     records: dict[str, VersionRecord]
+    local: dict[str, registry.LocalImage]
 
 
 @dataclass(frozen=True)
@@ -252,12 +260,27 @@ class ImageUpdates:
         Returns:
             The plan of each, by image id.
         """
-        machine = _Machine(list(self._gate.containers().items), self._versions.records())
+        machine = self._look(images)
         return {image.id: self.plan(image, machine) for image in images}
+
+    def _look(self, images: Sequence[Image]) -> _Machine:
+        """
+        Args:
+            images: The images to plan.
+
+        Returns:
+            What the machine looks like now: the containers, what the registries said last, and what
+            Docker says of the images (one process for all of them).
+        """
+        return _Machine(
+            list(self._gate.containers().items),
+            self._versions.records(),
+            registry.read_local_images(self._gate.runner, [image.id for image in images]),
+        )
 
     def plan(self, image: Image, machine: _Machine | None = None) -> UpdatePlan:
         """
-        Say what updating an image would do.
+        Say what updating an image would do, and where the image comes from.
 
         Args:
             image: An image the gate listed, with its owner.
@@ -266,13 +289,25 @@ class ImageUpdates:
         Returns:
             The plan.
         """
+        machine = machine or self._look([image])
+        source = image_origin.origin_of(image, machine.local.get(image.id))
+        return _replaced(self._plan(image, machine), source=source)
+
+    def _plan(self, image: Image, machine: _Machine) -> UpdatePlan:
+        """
+        Args:
+            image: An image the gate listed, with its owner.
+            machine: What the machine looks like now.
+
+        Returns:
+            What updating it does; ``source`` is said by :meth:`plan`.
+        """
         label = image.tags[0] if image.tags else image.id
         owner = image.owner
         # What a container runs is not a way back, whatever its name is: Noust names the image of a container
         # application after its release, so the one that runs is called as the ones it keeps.
         if image.way_back and not image.used_by:
             return UpdatePlan(label, None, "rollback", "current", owner)
-        machine = machine or _Machine(list(self._gate.containers().items), self._versions.records())
         containers = machine.containers
         users = [c for c in containers if c.name in image.used_by]
         references = image_sources.registry_references(users, self.store)

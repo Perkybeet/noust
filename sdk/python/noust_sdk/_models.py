@@ -195,7 +195,7 @@ ActiveTeamRequest = TypedDict("ActiveTeamRequest", {
 })
 
 ActivityCredential = TypedDict("ActivityCredential", {
-    "clients": NotRequired[list["ApprovalClientInfo"]],
+    "clients": Required[list["ApprovalClientInfo"]],
     "id": Required[int],
     "kind": Required[str],
     "name": Required[str],
@@ -731,7 +731,7 @@ ApprovalInfo = TypedDict("ApprovalInfo", {
     "kind": Required[str],
     "method": Required[str],
     "mine": NotRequired[bool],
-    "needs": NotRequired[list[str]],
+    "needs": Required[list[str]],
     "origin": NotRequired[str],
     "owned": NotRequired[bool],
     "parameters": NotRequired[dict[str, Any]],
@@ -797,7 +797,7 @@ AppsFigure = TypedDict("AppsFigure", {
 })
 
 AssistantReason = TypedDict("AssistantReason", {
-    "code": Required[str],
+    "code": Required[Literal["assistant.unavailable.off", "assistant.unavailable.permission", "assistant.unavailable.account"]],
     "hint": NotRequired[Union[str, None]],
     "params": NotRequired[dict[str, Union[bool, int, float, str]]],
     "text": Required[str],
@@ -814,7 +814,7 @@ AssistantSession = TypedDict("AssistantSession", {
 })
 
 AssistantSettingsIn = TypedDict("AssistantSettingsIn", {
-    "allow_private_host": NotRequired[bool],
+    "allow_private_host": NotRequired[Union[bool, None]],
     "api_key": NotRequired[Union[str, None]],
     "base_url": NotRequired[Union[str, None]],
     "currency": NotRequired[Union[str, None]],
@@ -826,7 +826,7 @@ AssistantSettingsIn = TypedDict("AssistantSettingsIn", {
     "model": NotRequired[Union[str, None]],
     "preset": NotRequired[Union[str, None]],
     "prices": NotRequired[Union[dict[str, "PriceModel"], None]],
-    "probe": NotRequired[bool],
+    "probe": NotRequired[Union[bool, None]],
 })
 
 AssistantSettingsOut = TypedDict("AssistantSettingsOut", {
@@ -2534,6 +2534,12 @@ ConversationOut = TypedDict("ConversationOut", {
     "updated_at": Required[str],
 })
 
+ConversationUsageOut = TypedDict("ConversationUsageOut", {
+    "spend": NotRequired[float],
+    "steps": NotRequired[int],
+    "tokens": NotRequired[int],
+})
+
 ConversionRequest = TypedDict("ConversionRequest", {
     "code": Required[str],
     "state": Required[str],
@@ -2972,6 +2978,7 @@ DatabaseInfoResponse = TypedDict("DatabaseInfoResponse", {
 DatabaseListResponse = TypedDict("DatabaseListResponse", {
     "databases": Required[list["DatabaseInfoResponse"]],
     "problems": NotRequired[list["ListingProblemResponse"]],
+    "system": Required["FeatureState"],
     "total": Required[int],
 })
 
@@ -3594,6 +3601,11 @@ DockerBringOut = TypedDict("DockerBringOut", {
     "warnings": NotRequired[list[str]],
 })
 
+DockerBringPreviewRequest = TypedDict("DockerBringPreviewRequest", {
+    "accept_recreate": NotRequired[bool],
+    "name": NotRequired[Union[str, None]],
+})
+
 DockerBringRequest = TypedDict("DockerBringRequest", {
     "accept_recreate": NotRequired[bool],
     "name": NotRequired[Union[str, None]],
@@ -3705,7 +3717,10 @@ DockerComposeVersionOut = TypedDict("DockerComposeVersionOut", {
 })
 
 DockerComposeVersionsOut = TypedDict("DockerComposeVersionsOut", {
-    "items": NotRequired[list["DockerComposeVersionOut"]],
+    "editable": NotRequired[bool],
+    "items": Required[list["DockerComposeVersionOut"]],
+    "why": NotRequired[str],
+    "why_code": NotRequired[str],
 })
 
 DockerContainerDetailOut = TypedDict("DockerContainerDetailOut", {
@@ -3749,6 +3764,12 @@ DockerContainerOut = TypedDict("DockerContainerOut", {
     "working_dir": NotRequired[str],
 })
 
+DockerContainerUsageOut = TypedDict("DockerContainerUsageOut", {
+    "id": Required[str],
+    "name": Required[str],
+    "usage": Required["DockerUsageOut"],
+})
+
 DockerContainersOut = TypedDict("DockerContainersOut", {
     "available": NotRequired[bool],
     "can_manage": NotRequired[bool],
@@ -3757,6 +3778,14 @@ DockerContainersOut = TypedDict("DockerContainersOut", {
     "limit": NotRequired[Union[int, None]],
     "offset": NotRequired[int],
     "total": NotRequired[int],
+})
+
+DockerContainersUsageOut = TypedDict("DockerContainersUsageOut", {
+    "available": NotRequired[bool],
+    "can_manage": NotRequired[bool],
+    "engine": NotRequired[Union["DockerEngineOut", None]],
+    "items": NotRequired[list["DockerContainerUsageOut"]],
+    "read_at": NotRequired[Union[str, None]],
 })
 
 DockerCopyOut = TypedDict("DockerCopyOut", {
@@ -3820,6 +3849,13 @@ DockerEngineOut = TypedDict("DockerEngineOut", {
     "usable": Required[bool],
 })
 
+DockerFleetCheckIn = TypedDict("DockerFleetCheckIn", {
+    "labels": NotRequired[dict[str, str]],
+    "nodes": NotRequired[list[str]],
+    "plan": NotRequired[bool],
+    "pull": NotRequired[bool],
+})
+
 DockerHealthOut = TypedDict("DockerHealthOut", {
     "failing_streak": NotRequired[int],
     "last_output": NotRequired[str],
@@ -3848,6 +3884,7 @@ DockerImageRowOut = TypedDict("DockerImageRowOut", {
     "id": Required[str],
     "owner": Required["DockerOwnerOut"],
     "size_bytes": NotRequired[Union[int, None]],
+    "source": NotRequired[Literal["registry", "built_noust", "built_other", "unknown"]],
     "tags": NotRequired[list[str]],
     "update": NotRequired[Union["DockerUpdateOut", None]],
     "used_by": NotRequired[list[str]],
@@ -3907,7 +3944,13 @@ DockerNetworkOut = TypedDict("DockerNetworkOut", {
     "name": Required[str],
     "owner": Required["DockerOwnerOut"],
     "project": NotRequired[str],
+    "ranges": Required[list["DockerNetworkRangeOut"]],
     "scope": NotRequired[str],
+})
+
+DockerNetworkRangeOut = TypedDict("DockerNetworkRangeOut", {
+    "gateway": NotRequired[str],
+    "subnet": Required[str],
 })
 
 DockerNetworksOut = TypedDict("DockerNetworksOut", {
@@ -4062,6 +4105,7 @@ DockerUpdateOut = TypedDict("DockerUpdateOut", {
     "needs": NotRequired[Union[str, None]],
     "owner": Required["DockerOwnerOut"],
     "reference": NotRequired[Union[str, None]],
+    "source": NotRequired[Literal["registry", "built_noust", "built_other", "unknown"]],
     "stack": NotRequired[Union[str, None]],
     "state": Required[str],
     "steps": NotRequired[list[str]],
@@ -4086,8 +4130,15 @@ DockerUsageOut = TypedDict("DockerUsageOut", {
     "reason": NotRequired[str],
 })
 
+DockerVolumeBackupOut = TypedDict("DockerVolumeBackupOut", {
+    "last_at": NotRequired[Union[str, None]],
+    "state": Required[Literal["scheduled", "copied", "none"]],
+    "via": NotRequired[str],
+})
+
 DockerVolumeOut = TypedDict("DockerVolumeOut", {
     "anonymous": NotRequired[bool],
+    "backup": Required["DockerVolumeBackupOut"],
     "can": Required["DockerCanOut"],
     "driver": NotRequired[str],
     "instance": NotRequired[str],
@@ -4413,6 +4464,7 @@ EngineLimitsResponse = TypedDict("EngineLimitsResponse", {
 
 EngineListResponse = TypedDict("EngineListResponse", {
     "engines": Required[list["EngineInfo"]],
+    "system": Required["FeatureState"],
 })
 
 EngineLogsResponse = TypedDict("EngineLogsResponse", {
@@ -4833,6 +4885,19 @@ ExtensionResponse = TypedDict("ExtensionResponse", {
     "trusted": NotRequired[bool],
 })
 
+FactForeignOut = TypedDict("FactForeignOut", {
+    "kind": Required[Literal["host", "address", "url", "email", "command", "value"]],
+    "label": NotRequired[Union["CodedText", None]],
+    "line": NotRequired[Union[int, None]],
+    "source": NotRequired[Union[str, None]],
+})
+
+FactOut = TypedDict("FactOut", {
+    "foreign": NotRequired[Union["FactForeignOut", None]],
+    "name": Required[str],
+    "value": Required[str],
+})
+
 Fail2banInstallRequest = TypedDict("Fail2banInstallRequest", {
     "epel": NotRequired[bool],
 })
@@ -4878,6 +4943,7 @@ FeatureStates = TypedDict("FeatureStates", {
     "database_backups": Required["FeatureState"],
     "database_instances": Required["FeatureState"],
     "databases": Required["FeatureState"],
+    "deploy_here": Required["FeatureState"],
     "dns_accounts": Required["FeatureState"],
     "dns_records": Required["FeatureState"],
     "docker_zone": Required["FeatureState"],
@@ -4908,9 +4974,13 @@ FeatureStates = TypedDict("FeatureStates", {
     "software": Required["FeatureState"],
     "status_page": Required["FeatureState"],
     "system_clock": Required["FeatureState"],
+    "system_files": Required["FeatureState"],
     "system_logs": Required["FeatureState"],
+    "system_processes": Required["FeatureState"],
+    "system_updates": Required["FeatureState"],
     "tunnels": Required["FeatureState"],
     "volume_backups": Required["FeatureState"],
+    "zero_downtime": Required["FeatureState"],
 })
 
 FileActionResponse = TypedDict("FileActionResponse", {
@@ -6708,7 +6778,7 @@ MessageOut = TypedDict("MessageOut", {
     "role": Required[str],
     "seq": Required[int],
     "tool_call_id": NotRequired[Union[str, None]],
-    "tool_calls": NotRequired[Union[list[dict[str, str]], None]],
+    "tool_calls": NotRequired[Union[list["ToolCallOut"], None]],
 })
 
 MessageResponse = TypedDict("MessageResponse", {
@@ -7337,11 +7407,22 @@ PackagesResponse = TypedDict("PackagesResponse", {
     "updated_by": Required[Union[str, None]],
 })
 
+PartLineOut = TypedDict("PartLineOut", {
+    "n": Required[int],
+    "text": Required[str],
+})
+
 PartOut = TypedDict("PartOut", {
-    "lines": NotRequired[Union[list[dict[str, Any]], None]],
-    "source": NotRequired[Union[dict[str, Any], None]],
+    "lines": NotRequired[Union[list["PartLineOut"], None]],
+    "source": NotRequired[Union["PartSourceOut", None]],
     "text": NotRequired[Union[str, None]],
-    "type": Required[str],
+    "type": Required[Literal["text", "literal"]],
+})
+
+PartSourceOut = TypedDict("PartSourceOut", {
+    "id": Required[str],
+    "kind": Required[str],
+    "label": Required["CodedText"],
 })
 
 PasskeyAvailability = TypedDict("PasskeyAvailability", {
@@ -7622,7 +7703,7 @@ PlanDiffLineOut = TypedDict("PlanDiffLineOut", {
 PlanFileOut = TypedDict("PlanFileOut", {
     "change": Required[str],
     "destination": NotRequired[Union[str, None]],
-    "lines": NotRequired[list["PlanDiffLineOut"]],
+    "lines": Required[list["PlanDiffLineOut"]],
     "path": Required[str],
     "reason": NotRequired[Union[str, None]],
     "shown": Required[str],
@@ -7641,23 +7722,23 @@ PlanInfo = TypedDict("PlanInfo", {
 
 PlanNeedsOut = TypedDict("PlanNeedsOut", {
     "approval": NotRequired[bool],
-    "confirmations": NotRequired[list["PlanConfirmationOut"]],
+    "confirmations": Required[list["PlanConfirmationOut"]],
     "elevation": NotRequired[bool],
 })
 
 PlanOutModel = TypedDict("PlanOutModel", {
     "asked_remote": NotRequired[bool],
     "blocked": NotRequired[Union["PlanSentence", None]],
-    "commands": NotRequired[list["PlanCommandOut"]],
+    "commands": Required[list["PlanCommandOut"]],
     "effect": Required["PlanSentence"],
-    "files": NotRequired[list["PlanFileOut"]],
-    "findings": NotRequired[list["PlanSentence"]],
-    "needs": NotRequired["PlanNeedsOut"],
+    "files": Required[list["PlanFileOut"]],
+    "findings": Required[list["PlanSentence"]],
+    "needs": Required["PlanNeedsOut"],
     "omitted": NotRequired[int],
     "operation": Required[str],
-    "steps": NotRequired[list["PlanStepOut"]],
+    "steps": Required[list["PlanStepOut"]],
     "subject": NotRequired[Union[str, None]],
-    "unknown": NotRequired[list["PlanSentence"]],
+    "unknown": Required[list["PlanSentence"]],
 })
 
 PlanRequest = TypedDict("PlanRequest", {
@@ -7672,7 +7753,7 @@ PlanSentence = TypedDict("PlanSentence", {
 })
 
 PlanStepOut = TypedDict("PlanStepOut", {
-    "commands": NotRequired[list[int]],
+    "commands": Required[list[int]],
     "key": Required[str],
     "title": Required[str],
 })
@@ -8246,6 +8327,11 @@ ProofLoginOut = TypedDict("ProofLoginOut", {
     "user": Required[str],
 })
 
+ProposalNeedsOut = TypedDict("ProposalNeedsOut", {
+    "elevation": NotRequired[bool],
+    "second_person": NotRequired[bool],
+})
+
 ProposalOut = TypedDict("ProposalOut", {
     "approval": NotRequired[Union[int, None]],
     "call": Required["CallOut"],
@@ -8254,16 +8340,16 @@ ProposalOut = TypedDict("ProposalOut", {
     "decided_by": NotRequired[Union[str, None]],
     "effect": NotRequired[str],
     "environment": NotRequired[str],
-    "facts": NotRequired[list[dict[str, Any]]],
+    "facts": Required[list["FactOut"]],
     "fingerprint": Required[str],
     "id": Required[str],
     "job_id": NotRequired[Union[str, None]],
     "klass": Required[str],
-    "needs": NotRequired[dict[str, Any]],
+    "needs": Required["ProposalNeedsOut"],
     "output": NotRequired[Union[str, None]],
     "permission": NotRequired[str],
-    "plan": NotRequired[Union[dict[str, Any], None]],
-    "result": NotRequired[Any],
+    "plan": NotRequired[Union["PlanOutModel", None]],
+    "result": NotRequired[Union["NoustWebApiAssistantSentenceOut", str, None]],
     "server": NotRequired[str],
     "state": Required[str],
     "status": NotRequired[Union[int, None]],
@@ -10203,6 +10289,7 @@ ServerKeyResponse = TypedDict("ServerKeyResponse", {
 ServerListResponse = TypedDict("ServerListResponse", {
     "problems": NotRequired[list["ListingProblemResponse"]],
     "servers": Required[list["ServerResponse"]],
+    "system": Required["FeatureState"],
 })
 
 ServerPolicyConfig = TypedDict("ServerPolicyConfig", {
@@ -11188,10 +11275,15 @@ StepOut = TypedDict("StepOut", {
     "outside": NotRequired[bool],
     "proposal": NotRequired[Union[str, None]],
     "server": NotRequired[str],
-    "size": NotRequired[Union[dict[str, Any], None]],
+    "size": NotRequired[Union["StepSizeOut", None]],
     "state": Required[str],
     "tool": Required[str],
     "what": NotRequired[Union["NoustWebApiAssistantSentenceOut", None]],
+})
+
+StepSizeOut = TypedDict("StepSizeOut", {
+    "count": Required[int],
+    "unit": Required[Literal["lines", "items", "chars", "results"]],
 })
 
 StepsOut = TypedDict("StepsOut", {
@@ -11786,6 +11878,12 @@ TokenPresetInfo = TypedDict("TokenPresetInfo", {
     "permissions": Required[list[str]],
 })
 
+ToolCallOut = TypedDict("ToolCallOut", {
+    "arguments": Required[str],
+    "id": Required[str],
+    "name": Required[str],
+})
+
 ToolInfo = TypedDict("ToolInfo", {
     "description": Required[str],
     "destructive": Required[bool],
@@ -11951,6 +12049,14 @@ TunnelSupportModel = TypedDict("TunnelSupportModel", {
     "sealed": NotRequired[bool],
 })
 
+TurnErrorOut = TypedDict("TurnErrorOut", {
+    "code": Required[str],
+    "hint": NotRequired[Union[str, None]],
+    "output": NotRequired[Union[str, None]],
+    "params": NotRequired[dict[str, Union[bool, int, float, str]]],
+    "text": Required[str],
+})
+
 TurnIn = TypedDict("TurnIn", {
     "locale": NotRequired[Union[str, None]],
     "message": Required[str],
@@ -11960,24 +12066,33 @@ TurnIn = TypedDict("TurnIn", {
 
 TurnOut = TypedDict("TurnOut", {
     "ended_at": NotRequired[Union[str, None]],
-    "error": NotRequired[Union[dict[str, Any], None]],
+    "error": NotRequired[Union["TurnErrorOut", None]],
     "id": Required[str],
     "location": NotRequired[str],
     "model": NotRequired[str],
-    "not_offered": NotRequired[list["NotOfferedOut"]],
-    "page": NotRequired[dict[str, Any]],
-    "parts": NotRequired[list["PartOut"]],
-    "proposals": NotRequired[list["ProposalOut"]],
+    "not_offered": Required[list["NotOfferedOut"]],
+    "page": Required["TurnPageOut"],
+    "parts": Required[list["PartOut"]],
+    "proposals": Required[list["ProposalOut"]],
     "question": Required[str],
     "seq": Required[int],
     "server": NotRequired[str],
     "started_at": Required[str],
     "state": Required[str],
-    "steps": NotRequired[list["StepOut"]],
+    "steps": Required[list["StepOut"]],
     "stop": NotRequired[Union["NoustWebApiAssistantSentenceOut", None]],
     "text": NotRequired[str],
-    "usage": NotRequired[dict[str, Any]],
-    "warnings": NotRequired[list["NoustWebApiAssistantSentenceOut"]],
+    "usage": Required["TurnUsageOut"],
+    "warnings": Required[list["NoustWebApiAssistantSentenceOut"]],
+})
+
+TurnPageOut = TypedDict("TurnPageOut", {
+    "domain": NotRequired[Union[str, None]],
+    "id": NotRequired[Union[int, None]],
+    "kind": NotRequired[Union[Literal["deployment", "diagnosis", "alert", "page"], None]],
+    "route": NotRequired[Union[str, None]],
+    "rule": NotRequired[Union[str, None]],
+    "server": NotRequired[Union[str, None]],
 })
 
 TurnStartedOut = TypedDict("TurnStartedOut", {
@@ -11988,6 +12103,16 @@ TurnStartedOut = TypedDict("TurnStartedOut", {
     "server": Required[str],
     "state": Required[str],
     "turn": Required[str],
+})
+
+TurnUsageOut = TypedDict("TurnUsageOut", {
+    "actions_last_hour": NotRequired[Union[int, None]],
+    "conversation": NotRequired[Union["ConversationUsageOut", None]],
+    "currency": NotRequired[Union[str, None]],
+    "notes": Required[list["NoustWebApiAssistantSentenceOut"]],
+    "spend": NotRequired[float],
+    "steps": NotRequired[int],
+    "tokens": NotRequired[int],
 })
 
 TurnsOut = TypedDict("TurnsOut", {
@@ -12424,7 +12549,7 @@ UsageOut = TypedDict("UsageOut", {
     "limits": Required[dict[str, float]],
     "month": Required["TotalsOut"],
     "month_start": Required[str],
-    "notes": NotRequired[list["AssistantReason"]],
+    "notes": NotRequired[list["NoustWebApiAssistantSentenceOut"]],
     "priced_models": Required[list[str]],
 })
 

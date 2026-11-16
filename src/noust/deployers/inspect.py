@@ -64,6 +64,7 @@ from pathlib import Path, PurePosixPath
 from noust.core.exceptions import DeploymentError
 from noust.core.runner import CommandCancelled, cancellable, get_runner
 from noust.core.server_text import ServerText, say
+from noust.core.store import COMPOSE_BACKED_TYPES
 from noust.deployers.base import BaseDeployer
 from noust.deployers.container import RAILPACK_STACKS, ContainerDeployer
 from noust.deployers.docker_compose import COMPOSE_FILE_PRIORITY
@@ -74,7 +75,14 @@ from noust.deployers.helpers.env_manager import (
     is_secret_env_name,
 )
 from noust.deployers.helpers.package_manager import PackageManagerHelper
-from noust.deployers.how_it_runs import HowItRuns, decide, machine_here, read_tree
+from noust.deployers.how_it_runs import (
+    STATUS_YES,
+    HowItRuns,
+    Machine,
+    decide,
+    machine_here,
+    read_tree,
+)
 from noust.deployers.importers import PLATFORM_FILES, Proposal, propose
 from noust.deployers.interface import AppDeployer
 from noust.deployers.registry import DeployerRegistry, _import_deployers
@@ -585,21 +593,29 @@ def _describe(
         DeploymentError: Nothing matches; the error carries the verdict.
     """
     reading = read_tree(checkout)
+    # What this machine can run is the table's to say, once: the ways and the verdict are read from the same
+    # answer, so a verdict never advises what the ways say cannot be done here.
+    here = machine_here(get_runner())
     matched = [
         deployer_class
         for deployer_class in map(DeployerRegistry.get, reading.detected)
         if deployer_class is not None
     ]
-    if not matched and ContainerDeployer.builds_with_railpack(checkout, get_runner()):
+    if (
+        not matched
+        and here.railpack
+        and ContainerDeployer.builds_with_railpack(checkout, get_runner())
+    ):
         # No deployer of Noust's knows it, but Railpack is installed here and
         # builds it into a container.
         matched = [ContainerDeployer]
         reading = replace(reading, detected=(ContainerDeployer.APP_TYPE,))
     if not matched:
-        verdict = _unmatched_verdict(checkout, listing)
+        verdict = _unmatched_verdict(checkout, listing, here)
         raise DeploymentError(
             verdict.summary, details=verdict.suggestion or "", coded=verdict.coded
         )
+    ways = decide(reading, here)
 
     winner = matched[0]
     instance = winner(verbose=False)
@@ -643,7 +659,7 @@ def _describe(
         resolved_branch = branch or repo_info.get("branch") or ""
         commit = repo_info.get("commit") or ""
 
-    verdict = _matched_verdict(matched, checkout)
+    verdict = _matched_verdict(matched, checkout, here, ways)
     port = ContainerDeployer.inspected_port(checkout) if winner is ContainerDeployer else None
     return SourceInspection(
         app_type=winner.APP_TYPE,
@@ -662,7 +678,7 @@ def _describe(
         platform_proposal=propose(checkout),
         verdict_coded=verdict.coded,
         suggestion_coded=verdict.suggestion_coded,
-        ways=decide(reading, machine_here(get_runner())),
+        ways=ways,
     )
 
 
@@ -684,20 +700,30 @@ def _inside(text: str, checkout: Path) -> str:
 # Verdicts ------------------------------------------------------------------
 
 
-def _matched_verdict(matched: list[type[AppDeployer]], checkout: Path) -> Verdict:
+def _matched_verdict(
+    matched: list[type[AppDeployer]], checkout: Path, here: Machine, ways: HowItRuns
+) -> Verdict:
     """
     Judge a source that matched: can this server deploy it as it is?
 
     Args:
         matched: The matching types, most specific first.
         checkout: The files inspected, for what says how a container is built.
+        here: What this machine can run.
+        ways: How the source can run here (:func:`~noust.deployers.how_it_runs.decide`).
 
     Returns:
         Compatible unless a program the chosen type declares it needs
-        (``SYSTEM_DEPS``) is missing here.
+        (``SYSTEM_DEPS``) is missing here. On a machine where nothing runs directly (it only has Docker)
+        the verdict is the ways': nothing native is advised, and when nothing runs there it says what is
+        missing for it to run in a container.
     """
     winner = matched[0]
     runner = get_runner()
+    if not here.server.available and winner.APP_TYPE not in COMPOSE_BACKED_TYPES:
+        # A service of the system is not what this machine runs: what its type needs installed is not
+        # advice, and the answer is the one the ways give.
+        return _verdict(ways.container.status == STATUS_YES, ways.why)
     missing = [
         program for program in getattr(winner, "SYSTEM_DEPS", ()) if not runner.exists(program)
     ]
@@ -722,7 +748,7 @@ def _matched_verdict(matched: list[type[AppDeployer]], checkout: Path) -> Verdic
     return _verdict(True, say("inspect.can_deploy", type=winner.DISPLAY_NAME))
 
 
-def _unmatched_verdict(checkout: Path, listing: list[str]) -> Verdict:
+def _unmatched_verdict(checkout: Path, listing: list[str], here: Machine) -> Verdict:
     """
     Say why nothing matched, and what would make it deployable.
 
@@ -732,14 +758,18 @@ def _unmatched_verdict(checkout: Path, listing: list[str]) -> Verdict:
     Args:
         checkout: The files inspected.
         listing: Every file of the source.
+        here: What this machine can run. Where it deploys containers and nothing builds one without a
+            Dockerfile, a repository of a stack Noust has no deployer for is not told to install Railpack:
+            it is told what is missing for it to run in a container.
 
     Returns:
         An incompatible verdict with a suggestion.
     """
     root_files = {name for name in listing if "/" not in name}
     # Which way to a container is told, as the fix of the sentence, depends on this server.
-    railpack = get_runner().exists("railpack")
+    railpack = here.railpack
     route = _container_route(railpack)
+    nothing_builds_here = here.container_host
 
     if "turbo.json" in root_files:
         return _near_miss_monorepo(checkout, listing)
@@ -757,6 +787,8 @@ def _unmatched_verdict(checkout: Path, listing: list[str]) -> Verdict:
 
     for marker, stack in _UNSUPPORTED_STACKS:
         if marker in root_files:
+            if nothing_builds_here:
+                return _verdict(False, say("how_it_runs.why.nothing_runs_here"))
             if marker in _NATIVE_STACK_MARKERS:
                 code = (
                     "inspect.stack.no_program_with_railpack"
@@ -773,6 +805,8 @@ def _unmatched_verdict(checkout: Path, listing: list[str]) -> Verdict:
 
     dotnet = next((name for name in sorted(root_files) if name.endswith(_DOTNET_ROOT_FILES)), None)
     if dotnet:
+        if nothing_builds_here:
+            return _verdict(False, say("how_it_runs.why.nothing_runs_here"))
         code = (
             "inspect.dotnet.no_web_project_with_railpack"
             if railpack
@@ -781,7 +815,7 @@ def _unmatched_verdict(checkout: Path, listing: list[str]) -> Verdict:
         return _verdict(False, say(code, marker=dotnet, **route))
 
     if "package.json" in root_files:
-        return _unrecognised_package_json(checkout / "package.json")
+        return _unrecognised_package_json(checkout / "package.json", here)
 
     projects = _subprojects(listing)
     if projects:
@@ -861,12 +895,13 @@ def _near_miss_monorepo(checkout: Path, listing: list[str]) -> Verdict:
     return _verdict(False, said)
 
 
-def _unrecognised_package_json(package_json: Path) -> Verdict:
+def _unrecognised_package_json(package_json: Path, here: Machine) -> Verdict:
     """
     Explain why a root ``package.json`` matched no Node type.
 
     Args:
         package_json: The file.
+        here: What this machine can run.
 
     Returns:
         An incompatible verdict.
@@ -883,9 +918,11 @@ def _unrecognised_package_json(package_json: Path) -> Verdict:
     }
     for dependency, framework in _UNSUPPORTED_NODE_FRAMEWORKS:
         if dependency in dependencies:
+            if here.container_host:
+                return _verdict(False, say("how_it_runs.why.nothing_runs_here"))
             code = (
                 "inspect.stack.no_deployer_with_railpack"
-                if get_runner().exists("railpack")
+                if here.railpack
                 else "inspect.stack.no_deployer"
             )
             return _verdict(
@@ -894,7 +931,7 @@ def _unrecognised_package_json(package_json: Path) -> Verdict:
                     code,
                     stack=framework,
                     marker="package.json",
-                    **_container_route(get_runner().exists("railpack")),
+                    **_container_route(here.railpack),
                 ),
             )
     return _verdict(

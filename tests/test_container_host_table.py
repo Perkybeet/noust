@@ -61,6 +61,7 @@ EXPECTED: dict[str, str | None] = {
     "rollbacks": None,
     "preview_environments": "features.containers_only",
     "importing_applications": "features.containers_only",
+    "zero_downtime": "features.containers_only",
     "recipes": None,
     "application_environments": None,
     "application_diagnosis": "features.containers_only",
@@ -102,8 +103,14 @@ EXPECTED: dict[str, str | None] = {
     "root_shell": "features.needs_root",
     "server_security": "features.needs_systemd",
     "firewall": "features.needs_systemd",
+    # What shows the machine's own processes, disks and packages would show the image's.
+    "system_processes": "features.needs_host",
+    "system_files": "features.needs_host",
+    "system_updates": "features.needs_host",
     # -- The Docker zone: all it asks is Docker.
     "docker_zone": None,
+    # -- Deploying here: the page that checks it is the hub's, whatever the machine has.
+    "deploy_here": None,
 }
 
 #: Which walk proves each available key, by the name of the test: registered by :func:`walks`.
@@ -309,6 +316,29 @@ def test_a_container_application_is_deployed_updated_gone_back_stopped_started_a
     assert outcome.containers_stopped
     assert store.get_app(DOMAIN) is None
     assert only_the_image_s_programs(docker) == [], "asked for a program the image does not have"
+
+
+@walks("deploy_here")
+def test_the_page_that_checks_deploying_here_runs_on_the_nas_and_says_the_central_was_told(
+    nas: DockerMachine,
+) -> None:
+    from noust.central import deploy_check
+
+    seams = deploy_check.Seams(
+        socket_access=lambda path: deploy_check.SocketAccess(
+            path, is_socket=True, gid=999, group="docker", accessible=True
+        ),
+        token=lambda: "0" * 32,
+        hostname=lambda: "noust",
+    )
+
+    report = deploy_check.check_deploy_here(nas, seams=seams)
+
+    by_key = {check.key: check for check in report.checks}
+    assert {"setting", "socket", "engine"} <= set(by_key)
+    assert by_key["setting"].status == deploy_check.STATUS_OK
+    assert by_key["setting"].said.code == "deploy_here.setting.on"
+    assert only_the_image_s_programs(nas) == [], "asked for a program the image does not have"
 
 
 @walks("application_environments")

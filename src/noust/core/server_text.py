@@ -280,6 +280,11 @@ CATALOG: dict[str, str] = {
     "fleet_job.database_transfer.several": "Move a database to {count} servers",
     "fleet_job.dns_cluster.single": "Set up Noust DNS on 1 server",
     "fleet_job.dns_cluster.several": "Set up Noust DNS on {count} servers",
+    "fleet_job.docker_images_check.single": "Look for new versions of the images in use on 1 server",
+    "fleet_job.docker_images_check.several": (
+        "Look for new versions of the images in use on {count} servers"
+    ),
+    "fleet_job.options_object": "The options of a fleet action are an object",
     # -- The recipe catalogue: why a recipe is listed and cannot be installed ---------------
     "recipes.unavailable.licence": "Its licence does not let an operator run it for others",
     "recipes.unavailable.licence.hint": (
@@ -1657,10 +1662,26 @@ CATALOG: dict[str, str] = {
         "does not have. Deploy it on a server of your fleet instead: pick the server in the "
         "console, or run the command against a node."
     ),
+    # A function that is a hub's (the page that turns on deploying on the machine's Docker): a server has
+    # nothing to turn on, because it deploys on its own machine without being asked.
+    "features.hub_only": (
+        "{feature}: only a central that is a hub has this, and this Noust is a server"
+    ),
+    "features.hub_only.hint": (
+        "A server deploys on its own machine without being asked. Deploying on the machine's Docker "
+        "is for a hub, the central in a container, which deploys nothing until it is told to."
+    ),
     "features.needs_systemd": "This machine does not run systemd",
     "features.needs_systemd.hint": (
         "Noust keeps services and timers with systemd, which a container, or a system that "
         "boots another way, does not have."
+    ),
+    "features.needs_host": (
+        "This Noust runs in a container, so it sees the container and not the server"
+    ),
+    "features.needs_host.hint": (
+        "The processes, the disks and the packages it could show are those of its own container, "
+        "which are not the server's. Pick the server in the console to see its own."
     ),
     "features.needs_web_server": "There is no web server on this machine",
     "features.needs_web_server.hint": (
@@ -1669,6 +1690,10 @@ CATALOG: dict[str, str] = {
     "features.needs_root": "Noust does not run as root on this machine",
     "features.needs_root.hint": (
         "Changing the system takes root, and Noust runs here as an account that cannot."
+    ),
+    "features.needs_package_manager": "This machine has no package manager Noust can drive",
+    "features.needs_package_manager.hint": (
+        "Noust lists and applies updates with apt, dnf or zypper, and none of them is here."
     ),
     "features.needs_journal": "This machine has no journal to read",
     "features.needs_journal.hint": (

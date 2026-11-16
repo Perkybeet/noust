@@ -221,7 +221,7 @@ class ApprovalInfo(BaseModel):
     caller: str | None = None
     environment: str | None = None
     domain: str | None = None
-    needs: list[str] = Field(default_factory=list)
+    needs: list[str]
     client: ApprovalClientInfo | None = None
     credential: ApprovalCredentialInfo | None = None
     owned: bool = False

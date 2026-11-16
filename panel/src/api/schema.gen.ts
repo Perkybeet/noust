@@ -7987,13 +7987,26 @@ export interface paths {
          * Usage
          * @description Show what the assistant cost and the limits it runs under.
          *
+         *     What it costs is the server's, like the settings that limit it, so whoever may read the settings reads
+         *     it (``settings.read``) without using the assistant, as they read the settings: a person who only sees
+         *     some teams does not. That opens nothing else: what the caller made it do in the last hour and the totals
+         *     of one conversation are the assistant's, for who may use it (``assistant.use``) and, for a conversation,
+         *     only its author.
+         *
          *     Args:
          *         session: The authenticated session.
          *         conversation: One of the caller's conversations.
          *
          *     Returns:
-         *         The month's totals (everyone's together), the conversation's when asked for and its
-         *         author's, what the caller made it do in the last hour, and the limits.
+         *         The month's totals (everyone's together) and the limits; for whoever uses the assistant also what
+         *         the caller made it do in the last hour, and the conversation's totals when asked for and its
+         *         author's.
+         *
+         *     Raises:
+         *         PermissionDenied: 403 when a conversation is asked for by someone who may not use the assistant, and
+         *             ``instance_scope_required`` when someone who does not use it and sees only some teams asks for
+         *             the server's spending.
+         *         NoustPermissionError: 403 when it is asked for as something that is not a person's account.
          */
         get: operations["usage_api_assistant_usage_get"];
         put?: never;
@@ -19941,6 +19954,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/docker/containers/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Containers Usage
+         * @description Say what every container uses, in one reading of Docker.
+         *
+         *     The list of containers draws the processor and the memory of each row, and asking for them one at a
+         *     time would start a process for each row. Docker is asked once, for all that run (``docker stats``
+         *     without a stream), and each container is given its reading or the reason there is none: it is not
+         *     running, it is restarting, it started a moment ago, or Docker did not say. The reading is kept for a few
+         *     seconds behind the request, so ``read_at`` says how old it is. A container called ``stats`` is read at
+         *     ``/containers/{id}``: this path is the list.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         One entry for each container the principal sees, by name.
+         */
+        get: operations["get_containers_usage_api_docker_containers_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/docker/containers/{ref}": {
         parameters: {
             query?: never;
@@ -20525,6 +20571,10 @@ export interface paths {
          * Bring Stack
          * @description Bring a stack that already runs to Noust, or say what that would do.
          *
+         *     To only look, without sudo mode, use ``POST .../bring/preview``: it is the same preview, read with the
+         *     permission to read the zone. ``preview`` here is kept for who already sends it, and asks sudo mode like
+         *     the rest of this route.
+         *
          *     This is ``noust app adopt`` where the zone shows the stack: Noust registers it as it runs, and nothing
          *     that runs is recreated, restarted or changed, nor is its compose file rewritten. The folder and the file
          *     are what the stack's containers say; the name the application will have is the only thing typed. With
@@ -20557,6 +20607,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/docker/stacks/{name}/bring/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Bring
+         * @description Say what bringing a stack that already runs to Noust would do, without doing it or asking to confirm.
+         *
+         *     Looking changes nothing, so it is read with the permission to read the zone and asks no sudo mode:
+         *     the person sees what would be registered before being asked who they are, and the confirmation is asked
+         *     when it is applied (``POST .../bring``). The one thing that runs is Compose's rehearsal of starting the
+         *     stack (``up --dry-run``), which only looks, and nothing is registered, written, started or stopped. The
+         *     words of Compose and the address the checkout fetches from are shown with the credentials masked. What
+         *     is already Noust's, what is not on this server and a stack started from several files are refused first
+         *     with the reason as a code (409 ``docker_blocked``), and Compose's own words, when starting it the way
+         *     Noust would changes something, are in ``output`` of a 409.
+         *
+         *     Args:
+         *         name: The Compose project's name.
+         *         body: The name the application would have, and whether to show the plan though the rehearsal changes
+         *             something.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         What would be registered and what is not changed.
+         *
+         *     Raises:
+         *         DockerNotFoundError: 404 when there is no such stack.
+         *         DockerOwnedError: 409 when an engine or Noust owns it.
+         *         DockerBlockedError: 409 ``docker_blocked`` with the reason.
+         *         DeploymentError: 409 when adopting is refused (Compose's rehearsal, a unit that exists).
+         */
+        post: operations["preview_bring_api_docker_stacks__name__bring_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/docker/stacks/{name}/compose": {
         parameters: {
             query?: never;
@@ -20577,11 +20671,10 @@ export interface paths {
          *
          *     Returns:
          *         The document and where it is; or ``editable: false`` with a code and a sentence that says whose it is
-         *         and where it is changed.
+         *         and where it is changed (a database engine's or Noust's own stack included: ``owned``).
          *
          *     Raises:
          *         DockerNotFoundError: 404 when there is no such stack.
-         *         DockerOwnedError: 409 when a database engine or Noust owns it.
          */
         get: operations["get_compose_api_docker_stacks__name__compose_get"];
         /**
@@ -20669,16 +20762,19 @@ export interface paths {
          * List Compose Versions
          * @description List the versions of a stack's document, newest first: who saved each, when and why. There is no text.
          *
+         *     A stack whose document is not Noust's to keep (one nobody of Noust made, a repository's, a recipe's, a
+         *     generated one, a database engine's) has no history, and that is an answer: 200 with no items, ``editable``
+         *     false and ``why_code`` and ``why`` saying whose the document is. Only a stack that is not there is a 404.
+         *
          *     Args:
          *         name: The Compose project's name.
          *         session: The authenticated session.
          *
          *     Returns:
-         *         The versions.
+         *         The versions, or the reason there are none to list.
          *
          *     Raises:
          *         DockerNotFoundError: 404 when there is no such stack.
-         *         DockerBlockedError: 409 ``docker_blocked`` when its document is not edited here.
          */
         get: operations["list_compose_versions_api_docker_stacks__name__compose_versions_get"];
         put?: never;
@@ -22134,6 +22230,45 @@ export interface paths {
          *         ValidationError: A server is not usable, two have one name, or nothing can run (400).
          */
         post: operations["set_up_cluster_api_fleet_dns_cluster_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/docker/images/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check Images
+         * @description Ask every server's registries whether the images in use have a new version, as one job.
+         *
+         *     Each server is asked for its own look (``POST /api/docker/images/check``) through its tunnel, as the
+         *     operator, and its job is followed; what each found is kept in short in the record of that server (how
+         *     many images, how many are new and which), and the whole of it is on the server. A server that runs a
+         *     Noust before 4.3 and one with no Docker are shown in the plan as unable to take part, not as failures.
+         *     The central's own Docker, when it has one, is looked at with the look of its own zone. Needs the
+         *     permission to change Docker; sudo mode is asked when a server's own schema asks for it, and one
+         *     confirmation covers the job.
+         *
+         *     Args:
+         *         request: The request.
+         *         body: Which servers, and whether to download to compare.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The plan and, unless ``plan``, the job: its ``result`` is the state of each server as it runs.
+         *
+         *     Raises:
+         *         ValidationError: A server is not one of this central's, or none can take part.
+         */
+        post: operations["check_images_api_fleet_docker_images_check_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -35784,7 +35919,7 @@ export interface components {
          */
         ActivityCredential: {
             /** Clients */
-            clients?: components["schemas"]["ApprovalClientInfo"][];
+            clients: components["schemas"]["ApprovalClientInfo"][];
             /** Id */
             id: number;
             /** Kind */
@@ -37541,7 +37676,7 @@ export interface components {
              */
             mine: boolean;
             /** Needs */
-            needs?: string[];
+            needs: string[];
             /**
              * Origin
              * @default rule
@@ -37733,12 +37868,17 @@ export interface components {
          * @description Why the assistant is not available to this caller, as a sentence with a code.
          *
          *     Attributes:
+         *         code: One of :data:`ASSISTANT_REASONS`: ``assistant.unavailable.off``,
+         *             ``assistant.unavailable.permission`` or ``assistant.unavailable.account``.
          *         text: The sentence in English, always sent.
          *         hint: How to fix it in English, when the sentence has a fix.
          */
         AssistantReason: {
-            /** Code */
-            code: string;
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "assistant.unavailable.off" | "assistant.unavailable.permission" | "assistant.unavailable.account";
             /** Hint */
             hint?: string | null;
             /** Params */
@@ -37757,7 +37897,8 @@ export interface components {
          *         can_use: It is on and this caller may use it: draw it.
          *         tools: The model was found to call tools, so it may investigate; False means it only
          *             explains what it is shown. Meaningless unless ``enabled``.
-         *         reason: Why ``can_use`` is False, when it is.
+         *         reason: Why ``can_use`` is False, when it is: one of a closed list, so the console compares nothing
+         *             it has to know the spelling of.
          *         model: The model it talks to, for the label that says it is an AI and which one. Only for
          *             a caller who may use it.
          *         location: Where what is said to it ends up: ``machine``, ``network``, ``eu``, ``outside``
@@ -37808,15 +37949,13 @@ export interface components {
          *         prices: The whole price table.
          *         currency: What the prices are in.
          *         allow_private_host: Consent that this server calls the provider's host though it is on
-         *             this machine or the network: the host is listed in ``security.allow_private_hosts``.
-         *         probe: Probe the provider after saving a change to it (the default).
+         *             this machine or the network: the host is listed in ``security.allow_private_hosts``. Left out, or
+         *             null, there is no consent (false).
+         *         probe: Probe the provider after saving a change to it. Left out, or null, it is probed (true).
          */
         AssistantSettingsIn: {
-            /**
-             * Allow Private Host
-             * @default false
-             */
-            allow_private_host: boolean;
+            /** Allow Private Host */
+            allow_private_host?: boolean | null;
             /** Api Key */
             api_key?: string | null;
             /** Base Url */
@@ -37843,11 +37982,8 @@ export interface components {
             prices?: {
                 [key: string]: components["schemas"]["PriceModel"];
             } | null;
-            /**
-             * Probe
-             * @default true
-             */
-            probe: boolean;
+            /** Probe */
+            probe?: boolean | null;
         };
         /**
          * AssistantSettingsOut
@@ -43213,6 +43349,32 @@ export interface components {
             updated_at: string;
         };
         /**
+         * ConversationUsageOut
+         * @description What a conversation has used so far.
+         *
+         *     Attributes:
+         *         tokens: Tokens sent.
+         *         spend: What it cost, in the currency of the settings.
+         *         steps: Requests to the provider.
+         */
+        ConversationUsageOut: {
+            /**
+             * Spend
+             * @default 0
+             */
+            spend: number;
+            /**
+             * Steps
+             * @default 0
+             */
+            steps: number;
+            /**
+             * Tokens
+             * @default 0
+             */
+            tokens: number;
+        };
+        /**
          * ConversionRequest
          * @description The ``code`` and ``state`` GitHub's callback carried.
          */
@@ -44812,12 +44974,16 @@ export interface components {
          *     Attributes:
          *         problems: The engines that could not be read, so an empty list is
          *             never mistaken for an engine with nothing in it.
+         *         system: Whether the system's own engines are something this machine has, and why not (the sentence
+         *             the table of functions says for ``databases``): where it has none the databases are those of
+         *             the containers Noust runs.
          */
         DatabaseListResponse: {
             /** Databases */
             databases: components["schemas"]["DatabaseInfoResponse"][];
             /** Problems */
             problems?: components["schemas"]["ListingProblemResponse"][];
+            system: components["schemas"]["FeatureState"];
             /** Total */
             total: number;
         };
@@ -46791,6 +46957,24 @@ export interface components {
             warnings?: string[];
         };
         /**
+         * DockerBringPreviewRequest
+         * @description Look at what bringing a stack that already runs to Noust would do.
+         *
+         *     Attributes:
+         *         name: What the application would be called in Noust's list; the stack's own name when absent.
+         *         accept_recreate: Show the plan although Compose says starting the stack the way Noust would changes what
+         *             runs, instead of refusing it with Compose's own words.
+         */
+        DockerBringPreviewRequest: {
+            /**
+             * Accept Recreate
+             * @default false
+             */
+            accept_recreate: boolean;
+            /** Name */
+            name?: string | null;
+        };
+        /**
          * DockerBringRequest
          * @description Bring a stack that already runs to Noust.
          *
@@ -47061,7 +47245,7 @@ export interface components {
          *         kind: ``document`` (Noust keeps it) or ``file`` (a file in the folder the stack runs from) when it is.
          *         why_code: When it is not: ``repository`` (its document is in git), ``recipe`` (the recipe's),
          *             ``generated`` (a container application's, written by Noust), ``bring_first`` (Noust did not make the
-         *             stack), ``no_file`` or ``not_compose``.
+         *             stack), ``no_file``, ``not_compose`` or ``owned`` (a database engine's or Noust's own stack).
          *         why: The same in a sentence that says where it is changed.
          *         text: The document, when it is edited here; reading it is a reveal and is recorded.
          *         path: Where it is.
@@ -47200,14 +47384,37 @@ export interface components {
         };
         /**
          * DockerComposeVersionsOut
-         * @description The versions of a stack's document, newest first.
+         * @description The versions of a stack's document, newest first, or why there is no history of Noust's to read.
+         *
+         *     A stack whose document is somebody else's has nothing to list and that is not a conflict: the answer is
+         *     200 with no items and the reason, as :class:`DockerComposeOut` says it for the document.
          *
          *     Attributes:
-         *         items: The versions, without their text.
+         *         items: The versions, without their text; empty when none was kept or when Noust does not keep
+         *             the document.
+         *         editable: Noust keeps this stack's document, so the history is its own.
+         *         why_code: When it does not: ``repository``, ``recipe``, ``generated``, ``bring_first``, ``no_file``,
+         *             ``not_compose`` or ``owned`` (a database engine's or Noust's own stack); empty when it does.
+         *         why: The same in a sentence that says where the document is changed; empty when it does.
          */
         DockerComposeVersionsOut: {
+            /**
+             * Editable
+             * @default true
+             */
+            editable: boolean;
             /** Items */
-            items?: components["schemas"]["DockerComposeVersionOut"][];
+            items: components["schemas"]["DockerComposeVersionOut"][];
+            /**
+             * Why
+             * @default
+             */
+            why: string;
+            /**
+             * Why Code
+             * @default
+             */
+            why_code: string;
         };
         /**
          * DockerContainerDetailOut
@@ -47367,6 +47574,22 @@ export interface components {
             working_dir: string;
         };
         /**
+         * DockerContainerUsageOut
+         * @description What one container uses, or why that is not known.
+         *
+         *     Attributes:
+         *         id: The container's full id.
+         *         name: Its name.
+         *         usage: Its reading, or the reason there is none.
+         */
+        DockerContainerUsageOut: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            usage: components["schemas"]["DockerUsageOut"];
+        };
+        /**
          * DockerContainersOut
          * @description The containers the principal sees, by name.
          *
@@ -47399,6 +47622,39 @@ export interface components {
              * @default 0
              */
             total: number;
+        };
+        /**
+         * DockerContainersUsageOut
+         * @description What every container uses, in one reading of Docker.
+         *
+         *     Docker is asked once for all of them, whatever the number, and the reading is kept for a few seconds:
+         *     a list of containers draws the processor and the memory of each row from this and never asks for them
+         *     one at a time.
+         *
+         *     Attributes:
+         *         available: Docker could be read.
+         *         engine: The doctor's report, only when it could not.
+         *         read_at: When Docker was asked, in ISO 8601 with its offset; null when it was not asked (nothing
+         *             runs, or Docker is not there).
+         *         items: One for each container the principal sees, by name.
+         *         can_manage: The one who asks may change Docker at all.
+         */
+        DockerContainersUsageOut: {
+            /**
+             * Available
+             * @default true
+             */
+            available: boolean;
+            /**
+             * Can Manage
+             * @default false
+             */
+            can_manage: boolean;
+            engine?: components["schemas"]["DockerEngineOut"] | null;
+            /** Items */
+            items?: components["schemas"]["DockerContainerUsageOut"][];
+            /** Read At */
+            read_at?: string | null;
         };
         /**
          * DockerCopyOut
@@ -47661,6 +47917,35 @@ export interface components {
             usable: boolean;
         };
         /**
+         * DockerFleetCheckIn
+         * @description Look for new versions of the images in use on several servers.
+         *
+         *     Attributes:
+         *         nodes: The servers to ask; every server of the fleet when none is named and no label is given.
+         *         labels: Servers carrying every one of these labels are added.
+         *         pull: Download what moved to compare, which a Docker without buildx needs. Nothing is downloaded
+         *             without it.
+         *         plan: Only say which servers would be asked and which cannot take part.
+         */
+        DockerFleetCheckIn: {
+            /** Labels */
+            labels?: {
+                [key: string]: string;
+            };
+            /** Nodes */
+            nodes?: string[];
+            /**
+             * Plan
+             * @default false
+             */
+            plan: boolean;
+            /**
+             * Pull
+             * @default false
+             */
+            pull: boolean;
+        };
+        /**
          * DockerHealthOut
          * @description A container's health check.
          *
@@ -47735,6 +48020,9 @@ export interface components {
          *         used_by: The containers made from it, running or not.
          *         way_back: An application keeps it to go back to: never offered as unused.
          *         dangling: It has no name.
+         *         source: Where it comes from (see :attr:`DockerUpdateOut.source`): a row that has no reference to look
+         *             a registry up by is waiting for a look when it is a ``registry`` image, and is never going to have
+         *             one when it was built here.
          *         owner: Whose it is.
          *         can: What may be done to it.
          *         update: What the last look at the registries found of it and what updating it would do; null when
@@ -47757,6 +48045,12 @@ export interface components {
             owner: components["schemas"]["DockerOwnerOut"];
             /** Size Bytes */
             size_bytes?: number | null;
+            /**
+             * Source
+             * @default unknown
+             * @enum {string}
+             */
+            source: "registry" | "built_noust" | "built_other" | "unknown";
             /** Tags */
             tags?: string[];
             update?: components["schemas"]["DockerUpdateOut"] | null;
@@ -47933,6 +48227,8 @@ export interface components {
          *         project: Its Compose project.
          *         created: When it was made.
          *         containers: The containers on it.
+         *         ranges: Its address ranges and the gateway of each, IPv4 first when it has both; empty for a network
+         *             Docker gave none (``host``, ``none``).
          *         builtin: Docker makes it itself and it cannot be removed.
          *         owner: Whose it is.
          *         can: What may be done to it.
@@ -47971,11 +48267,30 @@ export interface components {
              * @default
              */
             project: string;
+            /** Ranges */
+            ranges: components["schemas"]["DockerNetworkRangeOut"][];
             /**
              * Scope
              * @default
              */
             scope: string;
+        };
+        /**
+         * DockerNetworkRangeOut
+         * @description One address range of a network and its gateway.
+         *
+         *     Attributes:
+         *         subnet: The range (``172.18.0.0/16``).
+         *         gateway: The gateway's address in it; empty when Docker gave none.
+         */
+        DockerNetworkRangeOut: {
+            /**
+             * Gateway
+             * @default
+             */
+            gateway: string;
+            /** Subnet */
+            subnet: string;
         };
         /**
          * DockerNetworksOut
@@ -48472,6 +48787,10 @@ export interface components {
          *         backup: The copy of the application's databases, when a database's major version moves.
          *         apply: It can go ahead once the person has said so.
          *         via: Where it is done instead, as a command, when it is not here.
+         *         source: Where the image comes from, which tells "nobody looked" from "there is no registry to look
+         *             at": ``registry`` (it was pulled), ``built_noust`` (Noust named it: an application's release or the
+         *             version a stack keeps to go back to), ``built_other`` (somebody built it on this machine) or
+         *             ``unknown``. Whatever it is, an image nobody asked the registries about is ``not_looked``.
          */
         DockerUpdateOut: {
             /** App */
@@ -48521,6 +48840,12 @@ export interface components {
             owner: components["schemas"]["DockerOwnerOut"];
             /** Reference */
             reference?: string | null;
+            /**
+             * Source
+             * @default unknown
+             * @enum {string}
+             */
+            source: "registry" | "built_noust" | "built_other" | "unknown";
             /** Stack */
             stack?: string | null;
             /** State */
@@ -48593,6 +48918,32 @@ export interface components {
             reason: string;
         };
         /**
+         * DockerVolumeBackupOut
+         * @description Whether a volume is in a copy and when the last was, as the backup manager says it.
+         *
+         *     Attributes:
+         *         state: ``scheduled`` (a schedule that is on takes it), ``copied`` (it has been copied and no
+         *             schedule takes it) or ``none`` (it is in no copy: what Noust did not make is not copied by
+         *             Noust).
+         *         last_at: When the newest copy that holds it was taken, ISO 8601; null when there is none.
+         *         via: The command that takes a copy of it now; empty when there is none to give (the volume is
+         *             not an application's).
+         */
+        DockerVolumeBackupOut: {
+            /** Last At */
+            last_at?: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "scheduled" | "copied" | "none";
+            /**
+             * Via
+             * @default
+             */
+            via: string;
+        };
+        /**
          * DockerVolumeOut
          * @description A named volume.
          *
@@ -48607,6 +48958,7 @@ export interface components {
          *         size_bytes: Its size when measured; a listing leaves it null (``GET /volumes/sizes`` measures).
          *         used_by: The containers that mount it.
          *         anonymous: A container made it without naming it.
+         *         backup: Whether it is in a copy and when the last was.
          *         owner: Whose it is.
          *         can: What may be done to it.
          */
@@ -48616,6 +48968,7 @@ export interface components {
              * @default false
              */
             anonymous: boolean;
+            backup: components["schemas"]["DockerVolumeBackupOut"];
             can: components["schemas"]["DockerCanOut"];
             /**
              * Driver
@@ -49635,10 +49988,18 @@ export interface components {
         /**
          * EngineListResponse
          * @description Response for listing engines.
+         *
+         *     Attributes:
+         *         engines: The engines: the system's own where this machine has them, and the containers Noust runs.
+         *         system: Whether the system's own engines are something this machine has, and why not when it has
+         *             none (``features.containers_only`` on the central of a NAS, which runs engines in containers and
+         *             has no PostgreSQL of its own): the sentence the table of functions says for ``databases``, so the
+         *             list is the instances alone and nothing offers to install an engine.
          */
         EngineListResponse: {
             /** Engines */
             engines: components["schemas"]["EngineInfo"][];
+            system: components["schemas"]["FeatureState"];
         };
         /**
          * EngineLogsResponse
@@ -50921,6 +51282,45 @@ export interface components {
             trusted: boolean;
         };
         /**
+         * FactForeignOut
+         * @description Where a value of a call that is neither the person's nor Noust's was found.
+         *
+         *     Attributes:
+         *         kind: ``host``, ``address``, ``url``, ``email``, ``command`` or ``value``.
+         *         source: The text it was found in; null when it was found in none.
+         *         line: Which line of it.
+         *         label: What that text is called, as a sentence with a code.
+         */
+        FactForeignOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "host" | "address" | "url" | "email" | "command" | "value";
+            label?: components["schemas"]["CodedText"] | null;
+            /** Line */
+            line?: number | null;
+            /** Source */
+            source?: string | null;
+        };
+        /**
+         * FactOut
+         * @description One value of the call a proposal makes, as the card shows it.
+         *
+         *     Attributes:
+         *         name: Where in the call it is (``body.domain``, ``server``, ``environment``).
+         *         value: The value, as text and cut at 500 characters.
+         *         foreign: Where it was found, when it came from a text somebody else wrote: it is highlighted and
+         *             makes the proposal one the person decides.
+         */
+        FactOut: {
+            foreign?: components["schemas"]["FactForeignOut"] | null;
+            /** Name */
+            name: string;
+            /** Value */
+            value: string;
+        };
+        /**
          * Fail2banInstallRequest
          * @description Install fail2ban; ``epel`` confirms enabling EPEL where it is needed.
          */
@@ -51009,10 +51409,12 @@ export interface components {
          *
          *     Attributes:
          *         available: It would work here now.
-         *         reason: Why it would not: ``features.hub_role`` on a hub, ``features.containers_only`` on
-         *             a hub that deploys containers and not this, ``features.needs_*`` for what the machine
-         *             lacks, and the engine's own sentences (``docker.*``) for Docker. None when
-         *             ``available``.
+         *         reason: Why it would not: ``features.hub_role`` on a hub, ``features.hub_only`` on a server
+         *             for what only a hub has, ``features.containers_only`` on a hub that deploys containers
+         *             and not this, ``features.needs_*`` for what the machine lacks (``needs_host`` for a
+         *             container that would show its own processes and disks as the server's), the platform's
+         *             own sentence for a package manager that cannot update (``host.updates_unsupported.*``)
+         *             and the engine's for Docker (``docker.*``). None when ``available``.
          */
         FeatureState: {
             /** Available */
@@ -51032,6 +51434,7 @@ export interface components {
             database_backups: components["schemas"]["FeatureState"];
             database_instances: components["schemas"]["FeatureState"];
             databases: components["schemas"]["FeatureState"];
+            deploy_here: components["schemas"]["FeatureState"];
             dns_accounts: components["schemas"]["FeatureState"];
             dns_records: components["schemas"]["FeatureState"];
             docker_zone: components["schemas"]["FeatureState"];
@@ -51062,9 +51465,13 @@ export interface components {
             software: components["schemas"]["FeatureState"];
             status_page: components["schemas"]["FeatureState"];
             system_clock: components["schemas"]["FeatureState"];
+            system_files: components["schemas"]["FeatureState"];
             system_logs: components["schemas"]["FeatureState"];
+            system_processes: components["schemas"]["FeatureState"];
+            system_updates: components["schemas"]["FeatureState"];
             tunnels: components["schemas"]["FeatureState"];
             volume_backups: components["schemas"]["FeatureState"];
+            zero_downtime: components["schemas"]["FeatureState"];
         };
         /**
          * FileActionResponse
@@ -56457,7 +56864,7 @@ export interface components {
          *         seq: Its place, from 1.
          *         role: ``user``, ``assistant`` or ``tool``.
          *         content: The text, with the disguised emails and addresses put back.
-         *         tool_calls: For an assistant message that called tools: ``id``, ``name`` and ``arguments``.
+         *         tool_calls: For an assistant message that called tools, each call.
          *         tool_call_id: For a tool message, the call it answers.
          *         created_at: When it was written.
          */
@@ -56473,9 +56880,7 @@ export interface components {
             /** Tool Call Id */
             tool_call_id?: string | null;
             /** Tool Calls */
-            tool_calls?: {
-                [key: string]: string;
-            }[] | null;
+            tool_calls?: components["schemas"]["ToolCallOut"][] | null;
         };
         /**
          * MessageResponse
@@ -58326,6 +58731,20 @@ export interface components {
             updated_by: string | null;
         };
         /**
+         * PartLineOut
+         * @description One line quoted as the system wrote it.
+         *
+         *     Attributes:
+         *         n: Its number in the text.
+         *         text: The line, with the disguised emails and addresses put back.
+         */
+        PartLineOut: {
+            /** N */
+            n: number;
+            /** Text */
+            text: string;
+        };
+        /**
          * PartOut
          * @description A piece of an answer: its words, or lines of the system quoted as the system wrote them.
          *
@@ -58337,17 +58756,31 @@ export interface components {
          */
         PartOut: {
             /** Lines */
-            lines?: {
-                [key: string]: unknown;
-            }[] | null;
-            /** Source */
-            source?: {
-                [key: string]: unknown;
-            } | null;
+            lines?: components["schemas"]["PartLineOut"][] | null;
+            source?: components["schemas"]["PartSourceOut"] | null;
             /** Text */
             text?: string | null;
-            /** Type */
-            type: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "text" | "literal";
+        };
+        /**
+         * PartSourceOut
+         * @description Which text a quotation is from.
+         *
+         *     Attributes:
+         *         id: Its identifier in the turn (the ``S1`` of ``[[S1:14-15]]``).
+         *         kind: What it is (a log, a deployment, a diagnosis...).
+         *         label: What it is called, as a sentence with a code.
+         */
+        PartSourceOut: {
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            label: components["schemas"]["CodedText"];
         };
         /**
          * PasskeyAvailability
@@ -59206,7 +59639,7 @@ export interface components {
             /** Destination */
             destination?: string | null;
             /** Lines */
-            lines?: components["schemas"]["PlanDiffLineOut"][];
+            lines: components["schemas"]["PlanDiffLineOut"][];
             /** Path */
             path: string;
             /** Reason */
@@ -59266,7 +59699,7 @@ export interface components {
              */
             approval: boolean;
             /** Confirmations */
-            confirmations?: components["schemas"]["PlanConfirmationOut"][];
+            confirmations: components["schemas"]["PlanConfirmationOut"][];
             /**
              * Elevation
              * @default false
@@ -59303,13 +59736,13 @@ export interface components {
             asked_remote: boolean;
             blocked?: components["schemas"]["PlanSentence"] | null;
             /** Commands */
-            commands?: components["schemas"]["PlanCommandOut"][];
+            commands: components["schemas"]["PlanCommandOut"][];
             effect: components["schemas"]["PlanSentence"];
             /** Files */
-            files?: components["schemas"]["PlanFileOut"][];
+            files: components["schemas"]["PlanFileOut"][];
             /** Findings */
-            findings?: components["schemas"]["PlanSentence"][];
-            needs?: components["schemas"]["PlanNeedsOut"];
+            findings: components["schemas"]["PlanSentence"][];
+            needs: components["schemas"]["PlanNeedsOut"];
             /**
              * Omitted
              * @default 0
@@ -59318,11 +59751,11 @@ export interface components {
             /** Operation */
             operation: string;
             /** Steps */
-            steps?: components["schemas"]["PlanStepOut"][];
+            steps: components["schemas"]["PlanStepOut"][];
             /** Subject */
             subject?: string | null;
             /** Unknown */
-            unknown?: components["schemas"]["PlanSentence"][];
+            unknown: components["schemas"]["PlanSentence"][];
         };
         /**
          * PlanRequest
@@ -59367,7 +59800,7 @@ export interface components {
          */
         PlanStepOut: {
             /** Commands */
-            commands?: number[];
+            commands: number[];
             /** Key */
             key: string;
             /** Title */
@@ -61192,6 +61625,26 @@ export interface components {
             user: string;
         };
         /**
+         * ProposalNeedsOut
+         * @description What carrying a proposal out asks of the person.
+         *
+         *     Attributes:
+         *         elevation: Sudo mode: the call is one that asks them to confirm it is them.
+         *         second_person: A second person approves it.
+         */
+        ProposalNeedsOut: {
+            /**
+             * Elevation
+             * @default false
+             */
+            elevation: boolean;
+            /**
+             * Second Person
+             * @default false
+             */
+            second_person: boolean;
+        };
+        /**
          * ProposalOut
          * @description A call the assistant prepared for a person, or made for them where their policy says so.
          *
@@ -61220,7 +61673,8 @@ export interface components {
          *         decided_at: When it was decided.
          *         decided_by: Who carried it out or rejected it.
          *         status: The status the call got.
-         *         result: What came of it.
+         *         result: What came of it, in the words there are for it: its text, or a sentence with a code when the
+         *             answer was one. Null when what the call answered says nothing a card can draw.
          *         output: The system's own words when it failed.
          *         approval: The request of a second person, when it waits for one.
          *         job_id: The job it became.
@@ -61247,9 +61701,7 @@ export interface components {
              */
             environment: string;
             /** Facts */
-            facts?: {
-                [key: string]: unknown;
-            }[];
+            facts: components["schemas"]["FactOut"][];
             /** Fingerprint */
             fingerprint: string;
             /** Id */
@@ -61258,10 +61710,7 @@ export interface components {
             job_id?: string | null;
             /** Klass */
             klass: string;
-            /** Needs */
-            needs?: {
-                [key: string]: unknown;
-            };
+            needs: components["schemas"]["ProposalNeedsOut"];
             /** Output */
             output?: string | null;
             /**
@@ -61269,12 +61718,9 @@ export interface components {
              * @default
              */
             permission: string;
-            /** Plan */
-            plan?: {
-                [key: string]: unknown;
-            } | null;
+            plan?: components["schemas"]["PlanOutModel"] | null;
             /** Result */
-            result?: unknown;
+            result?: components["schemas"]["noust__web__api__assistant__SentenceOut"] | string | null;
             /**
              * Server
              * @default
@@ -67499,12 +67945,16 @@ export interface components {
          *         servers: The servers: the system's engines, then the containers by key.
          *         problems: What could not be asked (Docker not answering, an engine that refused Noust),
          *             so a short list is never taken for a server with nothing in it.
+         *         system: Whether the system's own engines are something this machine has, and why not (the
+         *             sentence the table of functions says for ``databases``): the central of a NAS has the
+         *             containers it runs and no engine of the system, and says why instead of refusing.
          */
         ServerListResponse: {
             /** Problems */
             problems?: components["schemas"]["ListingProblemResponse"][];
             /** Servers */
             servers: components["schemas"]["ServerResponse"][];
+            system: components["schemas"]["FeatureState"];
         };
         /**
          * ServerPolicyConfig
@@ -70749,15 +71199,29 @@ export interface components {
              * @default
              */
             server: string;
-            /** Size */
-            size?: {
-                [key: string]: unknown;
-            } | null;
+            size?: components["schemas"]["StepSizeOut"] | null;
             /** State */
             state: string;
             /** Tool */
             tool: string;
             what?: components["schemas"]["noust__web__api__assistant__SentenceOut"] | null;
+        };
+        /**
+         * StepSizeOut
+         * @description How much a step read.
+         *
+         *     Attributes:
+         *         unit: What was counted: ``lines``, ``items``, ``chars`` or ``results``.
+         *         count: How many.
+         */
+        StepSizeOut: {
+            /** Count */
+            count: number;
+            /**
+             * Unit
+             * @enum {string}
+             */
+            unit: "lines" | "items" | "chars" | "results";
         };
         /**
          * StepsOut
@@ -72397,6 +72861,24 @@ export interface components {
             permissions: string[];
         };
         /**
+         * ToolCallOut
+         * @description A tool the model called, as it called it.
+         *
+         *     Attributes:
+         *         id: The call's identifier, which the message that answers it names.
+         *         name: The tool.
+         *         arguments: What it was called with, as the JSON text the model sent, with the disguised emails and
+         *             addresses put back.
+         */
+        ToolCallOut: {
+            /** Arguments */
+            arguments: string;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /**
          * ToolInfo
          * @description One tool, as the console describes it.
          *
@@ -72878,6 +73360,28 @@ export interface components {
             sealed: boolean;
         };
         /**
+         * TurnErrorOut
+         * @description What went wrong in a turn.
+         *
+         *     Attributes:
+         *         output: The provider's own words, bounded and with the credentials masked; null when the failure was
+         *             not the provider's.
+         */
+        TurnErrorOut: {
+            /** Code */
+            code: string;
+            /** Hint */
+            hint?: string | null;
+            /** Output */
+            output?: string | null;
+            /** Params */
+            params?: {
+                [key: string]: boolean | number | string;
+            };
+            /** Text */
+            text: string;
+        };
+        /**
          * TurnIn
          * @description A question.
          *
@@ -72932,10 +73436,7 @@ export interface components {
         TurnOut: {
             /** Ended At */
             ended_at?: string | null;
-            /** Error */
-            error?: {
-                [key: string]: unknown;
-            } | null;
+            error?: components["schemas"]["TurnErrorOut"] | null;
             /** Id */
             id: string;
             /**
@@ -72949,15 +73450,12 @@ export interface components {
              */
             model: string;
             /** Not Offered */
-            not_offered?: components["schemas"]["NotOfferedOut"][];
-            /** Page */
-            page?: {
-                [key: string]: unknown;
-            };
+            not_offered: components["schemas"]["NotOfferedOut"][];
+            page: components["schemas"]["TurnPageOut"];
             /** Parts */
-            parts?: components["schemas"]["PartOut"][];
+            parts: components["schemas"]["PartOut"][];
             /** Proposals */
-            proposals?: components["schemas"]["ProposalOut"][];
+            proposals: components["schemas"]["ProposalOut"][];
             /** Question */
             question: string;
             /** Seq */
@@ -72972,19 +73470,42 @@ export interface components {
             /** State */
             state: string;
             /** Steps */
-            steps?: components["schemas"]["StepOut"][];
+            steps: components["schemas"]["StepOut"][];
             stop?: components["schemas"]["noust__web__api__assistant__SentenceOut"] | null;
             /**
              * Text
              * @default
              */
             text: string;
-            /** Usage */
-            usage?: {
-                [key: string]: unknown;
-            };
+            usage: components["schemas"]["TurnUsageOut"];
             /** Warnings */
-            warnings?: components["schemas"]["noust__web__api__assistant__SentenceOut"][];
+            warnings: components["schemas"]["noust__web__api__assistant__SentenceOut"][];
+        };
+        /**
+         * TurnPageOut
+         * @description The page a question was asked from; every field is absent for a question asked from none.
+         *
+         *     Attributes:
+         *         kind: ``deployment``, ``diagnosis``, ``alert`` or ``page``.
+         *         id: The deployment, for ``deployment``.
+         *         domain: The application, for ``diagnosis``.
+         *         rule: The alert's rule, for ``alert``, when it names one.
+         *         route: The place in the console, for ``page``.
+         *         server: The server it was on, when it was on one.
+         */
+        TurnPageOut: {
+            /** Domain */
+            domain?: string | null;
+            /** Id */
+            id?: number | null;
+            /** Kind */
+            kind?: ("deployment" | "diagnosis" | "alert" | "page") | null;
+            /** Route */
+            route?: string | null;
+            /** Rule */
+            rule?: string | null;
+            /** Server */
+            server?: string | null;
         };
         /**
          * TurnStartedOut
@@ -73014,6 +73535,43 @@ export interface components {
             state: string;
             /** Turn */
             turn: string;
+        };
+        /**
+         * TurnUsageOut
+         * @description What a turn used, and the conversation up to it.
+         *
+         *     Attributes:
+         *         steps: Requests to the provider in this turn.
+         *         tokens: Tokens it used.
+         *         spend: What it cost, in the currency of the settings.
+         *         conversation: What the whole conversation used; null before the meter said.
+         *         currency: What the spending is in.
+         *         actions_last_hour: How many changes the assistant made for the person in the last hour.
+         *         notes: What to know about the numbers (no price for the model, an estimate), as sentences.
+         */
+        TurnUsageOut: {
+            /** Actions Last Hour */
+            actions_last_hour?: number | null;
+            conversation?: components["schemas"]["ConversationUsageOut"] | null;
+            /** Currency */
+            currency?: string | null;
+            /** Notes */
+            notes: components["schemas"]["noust__web__api__assistant__SentenceOut"][];
+            /**
+             * Spend
+             * @default 0
+             */
+            spend: number;
+            /**
+             * Steps
+             * @default 0
+             */
+            steps: number;
+            /**
+             * Tokens
+             * @default 0
+             */
+            tokens: number;
         };
         /**
          * TurnsOut
@@ -74356,7 +74914,8 @@ export interface components {
          *     Attributes:
          *         conversation: One conversation's totals, when one was asked for and is the caller's.
          *         month: The calendar month's totals, everyone's together.
-         *         actions_last_hour: The changes the assistant made for the caller in the last hour.
+         *         actions_last_hour: The changes the assistant made for the caller in the last hour; null for whoever
+         *             does not use the assistant.
          *         limits: The limits in force.
          *         currency: What spending is in.
          *         month_start: The first moment of the month counted (UTC).
@@ -74377,7 +74936,7 @@ export interface components {
             /** Month Start */
             month_start: string;
             /** Notes */
-            notes?: components["schemas"]["AssistantReason"][];
+            notes?: components["schemas"]["noust__web__api__assistant__SentenceOut"][];
             /** Priced Models */
             priced_models: string[];
         };
@@ -87468,7 +88027,7 @@ export interface operations {
     usage_api_assistant_usage_get: {
         parameters: {
             query?: {
-                /** @description A conversation of the caller's, to give its totals too */
+                /** @description A conversation of the caller's, to give its totals too; needs the permission to use the assistant */
                 conversation?: string | null;
             };
             header?: never;
@@ -100380,6 +100939,26 @@ export interface operations {
             };
         };
     };
+    get_containers_usage_api_docker_containers_stats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DockerContainersUsageOut"];
+                };
+            };
+        };
+    };
     get_container_api_docker_containers__ref__get: {
         parameters: {
             query?: never;
@@ -100965,6 +101544,48 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["DockerBringRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DockerBringOut"];
+                };
+            };
+            /** @description It cannot be brought, or starting it as Noust would changes it */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_bring_api_docker_stacks__name__bring_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DockerBringPreviewRequest"];
             };
         };
         responses: {
@@ -102740,6 +103361,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["AuthDnsClusterIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__fleet__ActionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_images_api_fleet_docker_images_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DockerFleetCheckIn"];
             };
         };
         responses: {

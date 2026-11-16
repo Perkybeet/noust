@@ -16,7 +16,6 @@ import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Notice } from "../../../components/ui/Notice";
 import { OBJECT_ICONS, VERB_ICONS } from "../../../components/ui/objectIcons";
-import { ServerText } from "../../../components/ui/ServerText";
 import { SkeletonCard } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { TextLink } from "../../../components/ui/TextLink";
@@ -147,11 +146,7 @@ export function AssistantSettingsPage({ step, onStep }: { step: Step | undefined
   const t = useT();
   useDocumentTitle(t("assistantSettings.documentTitle"), 1);
   const query = useQuery(assistantSettingsQuery());
-  const session = useQuery(sessionQuery());
   const canManage = useCan("settings.manage");
-  // A central that deploys nothing itself cannot turn it on: the session says so with the sentence of why, and it is said as it is.
-  const hubReason = session.data?.assistant?.reason?.code === "features.hub_role" ? session.data.assistant.reason : null;
-  const cannotHere = hubReason !== null;
   return (
     <>
       {query.data !== undefined ? (
@@ -161,12 +156,12 @@ export function AssistantSettingsPage({ step, onStep }: { step: Step | undefined
       ) : null}
       {query.data !== undefined && !query.data.enabled && step === undefined ? (
         <SettingsPrimaryAction>
-          {canManage && !cannotHere ? (
+          {canManage ? (
             <Link to="/settings/assistant" search={{ step: "model" }} className={buttonClassName("primary", "md")}>
               {t("assistantSettings.off.turnOn")}
             </Link>
           ) : (
-            <GuardedButton permission="settings.manage" variant="primary" {...(hubReason !== null ? { unavailable: <ServerText coded={hubReason} text={hubReason.text} /> } : {})}>
+            <GuardedButton permission="settings.manage" variant="primary">
               {t("assistantSettings.off.turnOn")}
             </GuardedButton>
           )}

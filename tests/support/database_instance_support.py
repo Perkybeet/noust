@@ -69,6 +69,8 @@ class DockerHost(FakeRunner):
         self.health: dict[str, list[str]] = {}
         #: The PostgreSQL databases ``psql`` finds, with their owner.
         self.databases: dict[str, str] = {"appdb": "app"}
+        #: The PostgreSQL roles ``psql`` finds (the superuser, the owner of ``appdb``, and what is made).
+        self.roles: set[str] = {"postgres", "app"}
         #: What any other ``docker exec`` prints (a MySQL or Redis client, a dump).
         self.exec_stdout = ""
         self.exec_fails = False
@@ -272,6 +274,24 @@ class DockerHost(FakeRunner):
             return ""
         if "FROM pg_database d JOIN pg_roles" in sql:
             return "".join(f"{name}|UTF8|8192|{owner}\n" for name, owner in self.databases.items())
+        role = re.search(r'CREATE ROLE "?([\w-]+)"? WITH', sql)
+        if role:
+            self.roles.add(role.group(1))
+            return ""
+        wanted = re.search(r"FROM pg_roles WHERE rolname = '([^']+)'", sql)
+        if wanted:
+            return "1\n" if wanted.group(1) in self.roles else ""
+        if (
+            "SELECT rolname FROM pg_catalog.pg_roles" in sql
+            or "SELECT rolname FROM pg_roles" in sql
+        ):
+            return "".join(f"{name}\n" for name in sorted(self.roles))
+        if "FROM pg_roles r CROSS JOIN pg_database d" in sql:
+            connect = ",".join(sorted(self.databases))
+            return "".join(
+                f"{name}|{'t' if name == 'postgres' else 'f'}|f|f|{connect}\n"
+                for name in sorted(self.roles)
+            )
         return ""
 
     def _inspect(self, command: tuple[str, ...], result: CommandResult) -> CommandResult:

@@ -21,15 +21,16 @@ What the routes add is HTTP:
 - **Every row says what it may be offered**, by the judgement an action goes through, for whoever asks.
 - **A cleanup is a plan** that is shown, and applied as a job with the token it was shown with.
 
-Literal paths (``summary``, ``engine``, ``restart-loss``, ``volumes/sizes``, ``cleanup``) come before
-the parametrised ones.
+Literal paths (``summary``, ``engine``, ``restart-loss``, ``containers/stats``, ``volumes/sizes``,
+``cleanup``) come before the parametrised ones.
 """
 
 from __future__ import annotations
 
 import functools
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
+from datetime import datetime, timezone
 from typing import Annotated, Any, TypeVar, cast
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -37,13 +38,16 @@ from pydantic import BaseModel
 
 from noust.central import machine
 from noust.core import audit
+from noust.core.docker import stats
 from noust.core.docker.engine import EngineReport
 from noust.core.docker.errors import DockerOwnedError, DockerUnavailableError
 from noust.core.docker.gate import DockerGate
-from noust.core.docker.models import Container, OwnerKind
+from noust.core.docker.models import Container, OwnerKind, Volume
 from noust.core.exceptions import DockerError, ValidationError
+from noust.core.timeutil import to_iso_offset
 from noust.managers.docker_image_versions import ImageVersions
 from noust.managers.docker_updates import ImageUpdates
+from noust.managers.volume_backups import VolumeBackupManager
 from noust.terminal.targets import KIND_CONTAINER
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, require_elevated
@@ -56,6 +60,8 @@ from noust.web.api.docker_models import (
     DockerCleanupRequest,
     DockerContainerDetailOut,
     DockerContainersOut,
+    DockerContainersUsageOut,
+    DockerContainerUsageOut,
     DockerDiskOut,
     DockerEngineOut,
     DockerImagesOut,
@@ -73,6 +79,7 @@ from noust.web.api.docker_models import (
     DockerSummaryOut,
     DockerTouchesOut,
     DockerUsageOut,
+    DockerVolumeBackupOut,
     DockerVolumeSizesOut,
     DockerVolumesOut,
     DockerWhyOut,
@@ -104,8 +111,9 @@ Elevated = Annotated[dict[str, Any], Depends(require_elevated)]
 
 
 def reset_engine_cache() -> None:
-    """Forget what the doctor said: the next request asks the engine again."""
+    """Forget what the doctor said and what the containers used: the next request asks Docker again."""
     machine.reset_machine_facts()
+    stats.forget_readings()
 
 
 def _gate() -> DockerGate:
@@ -235,6 +243,31 @@ def _list_head(model: type[DockerListOut], report: EngineReport, manage: bool) -
     """
     del model
     return {"available": False, "engine": engine_out(report), "can_manage": manage}
+
+
+def _volume_covers(volumes: Sequence[Volume]) -> dict[str, DockerVolumeBackupOut]:
+    """
+    Ask the backup manager whether each volume of an application is in a copy, and when the last was.
+
+    What is done to keep an application's data is the backup manager's to say, from what it keeps: Docker
+    is not asked. A volume that is not an application's is in no copy Noust takes.
+
+    Args:
+        volumes: The volumes of a page, each with its owner.
+
+    Returns:
+        What is done for each volume that is an application's, by name.
+    """
+    by_app: dict[str, list[str]] = {}
+    for volume in volumes:
+        if volume.owner.kind is OwnerKind.APP:
+            by_app.setdefault(volume.owner.subject, []).append(volume.name)
+    manager = VolumeBackupManager()
+    return {
+        name: DockerVolumeBackupOut(**cover.to_dict())
+        for domain, names in by_app.items()
+        for name, cover in manager.cover(domain, names).items()
+    }
 
 
 # ----------------------------------------------------------------------------- summary and engine
@@ -462,6 +495,47 @@ def list_containers(
     )
 
 
+@router.get("/containers/stats", response_model=DockerContainersUsageOut)
+@_says_unavailable(DockerContainersUsageOut)
+def get_containers_usage(session: Session) -> DockerContainersUsageOut:
+    """
+    Say what every container uses, in one reading of Docker.
+
+    The list of containers draws the processor and the memory of each row, and asking for them one at a
+    time would start a process for each row. Docker is asked once, for all that run (``docker stats``
+    without a stream), and each container is given its reading or the reason there is none: it is not
+    running, it is restarting, it started a moment ago, or Docker did not say. The reading is kept for a few
+    seconds behind the request, so ``read_at`` says how old it is. A container called ``stats`` is read at
+    ``/containers/{id}``: this path is the list.
+
+    Args:
+        session: The authenticated session.
+
+    Returns:
+        One entry for each container the principal sees, by name.
+    """
+    gate = _gate()
+    report = _engine(gate)
+    manage = _may_manage(session)
+    if not report.usable:
+        return DockerContainersUsageOut(
+            available=False, engine=engine_out(report), can_manage=manage
+        )
+    found = gate.containers_usage()
+    return DockerContainersUsageOut(
+        read_at=to_iso_offset(datetime.fromtimestamp(found.read_at, tz=timezone.utc)),
+        items=[
+            DockerContainerUsageOut(
+                id=item.container.id,
+                name=item.container.name,
+                usage=DockerUsageOut(**item.usage.to_dict()),
+            )
+            for item in found.items
+        ],
+        can_manage=manage,
+    )
+
+
 @router.get("/containers/{ref}", response_model=DockerContainerDetailOut)
 @_says_unavailable(DockerContainerDetailOut)
 def get_container(ref: str, session: Session) -> DockerContainerDetailOut:
@@ -633,12 +707,13 @@ def list_volumes(
     if not report.usable:
         return DockerVolumesOut(**_list_head(DockerVolumesOut, report, manage))
     page = gate.volumes(offset=offset, limit=limit, owner=_owner_kind(owner), search=search)
+    covers = _volume_covers(page.items)
     return DockerVolumesOut(
         total=page.total,
         offset=page.offset,
         limit=page.limit,
         can_manage=manage,
-        items=[volume_out(v, _can(gate, v, session)) for v in page.items],
+        items=[volume_out(v, _can(gate, v, session), covers.get(v.name)) for v in page.items],
     )
 
 
@@ -699,7 +774,9 @@ def list_networks(
     manage = _may_manage(session)
     if not report.usable:
         return DockerNetworksOut(**_list_head(DockerNetworksOut, report, manage))
-    page = gate.networks(offset=offset, limit=limit, owner=_owner_kind(owner), search=search)
+    page = gate.networks(
+        offset=offset, limit=limit, owner=_owner_kind(owner), search=search, ranges=True
+    )
     return DockerNetworksOut(
         total=page.total,
         offset=page.offset,

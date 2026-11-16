@@ -170,3 +170,84 @@ class TestWhatTheSessionSaysOfEachMachine:
         for key in ("system_clock", "system_logs", "root_shell", "server_security", "power"):
             assert published[key]["available"] is False, key
         assert published["system_logs"]["reason"]["code"] == "features.needs_journal"
+
+
+class TestWhatTheModelAnswersAsEachMachine:
+    """
+    The pages of the machine (processes, disks, updates) are read from the machine Noust runs on, and
+    in the central's container that is the container: not the VPS's nginx, postgres and sshd, not a
+    kernel waiting for a reboot, not eight packages to update (item 12).
+    """
+
+    def test_the_vps_runs_what_a_server_runs_and_the_container_runs_its_own_few(self) -> None:
+        from scripts.console_server.host_reads import modelled_processes
+
+        vps = {process.name for process in modelled_processes({}, host_profile.SERVER)}
+        container = modelled_processes({}, host_profile.CONTAINER)
+
+        assert {"systemd", "nginx", "postgres", "sshd"} <= vps
+        names = {process.name for process in container}
+        assert names == {"tini", "python3", "ssh"}
+        assert [process.pid for process in container][:1] == [1]
+        # The account that is not root runs what the image runs, and nothing of the machine's.
+        assert {process.user for process in container} == {"noust"}
+        assert all(process.unit is None for process in container)
+
+    def test_the_applications_of_a_container_host_are_in_docker_and_not_among_its_processes(
+        self,
+    ) -> None:
+        from scripts.console_server.host_reads import modelled_processes
+        from scripts.console_server.machine import Unit
+
+        units = {"shop-example-com": Unit(active="active", pid=2101)}
+
+        names = {process.name for process in modelled_processes(units, host_profile.CONTAINER)}
+
+        assert "node" not in names
+
+    def test_the_container_has_no_kernel_waiting_for_a_reboot(self, tmp_path: Path) -> None:
+        vps = modelled_host(tmp_path / "vps", host_profile.SERVER)
+        container = modelled_host(tmp_path / "container", host_profile.CONTAINER)
+
+        assert (vps.root / "var/run/reboot-required").is_file()
+        assert not (container.root / "var/run/reboot-required").exists()
+        assert not (container.root / "var/run/reboot-required.pkgs").exists()
+
+    def test_its_package_manager_finds_nothing_to_update_in_the_image(self, tmp_path: Path) -> None:
+        vps = modelled_host(tmp_path / "vps", host_profile.SERVER)
+        container = modelled_host(tmp_path / "container", host_profile.CONTAINER)
+
+        asked = ("apt-get", "-s", "upgrade")
+        assert "8 upgraded" in vps.answer(asked).stdout
+        nothing = container.answer(asked).stdout
+        assert "0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded." in nothing
+        assert "Inst " not in nothing
+
+    def test_its_disk_is_the_images_and_the_volume_it_was_given(self) -> None:
+        container = host_profile.CONTAINER.disks
+
+        assert container is not None
+        assert [row[0] for row in container] == ["/", "/data"]
+        assert host_profile.SERVER.disks is None
+
+    def test_what_the_session_says_of_it_is_read_from_this_and_offers_none_of_it(
+        self, tmp_path: Path
+    ) -> None:
+        facts = TestWhatTheSessionSaysOfEachMachine().facts(tmp_path, host_profile.CONTAINER)
+
+        published = features.published(role="hub", facts=facts, deploy_here="containers")
+
+        for key in ("system_processes", "system_files", "system_updates", "zero_downtime"):
+            assert published[key]["available"] is False, key
+        for key in ("system_processes", "system_files", "system_updates"):
+            assert published[key]["reason"]["code"] == "features.needs_host", key
+        assert published["deploy_here"]["available"] is True
+
+    def test_the_vps_offers_its_processes_its_files_and_its_updates(self, tmp_path: Path) -> None:
+        facts = TestWhatTheSessionSaysOfEachMachine().facts(tmp_path, host_profile.SERVER)
+
+        published = features.published(role="server", facts=facts)
+
+        for key in ("system_processes", "system_files", "system_updates"):
+            assert published[key]["available"] is True, key
+        assert published["deploy_here"]["available"] is False

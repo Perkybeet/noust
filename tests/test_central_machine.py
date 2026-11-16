@@ -23,7 +23,7 @@ from noust.central import machine
 from noust.central.machine import MachineFacts, read_machine_facts, reset_machine_facts
 from noust.core.runner import FakeRunner
 from noust.managers.server.facts import FactCache
-from noust.managers.server.host import HostPaths
+from noust.managers.server.host import HostPaths, reset_platform_cache
 
 VERSION = json.dumps(
     {
@@ -80,7 +80,7 @@ class TestAServer:
         self, host: HostPaths, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(machine, "check_root", lambda: True)
-        runner = docker_runner("nginx", "journalctl")
+        runner = docker_runner("nginx", "journalctl", "apt-get")
 
         facts = read_machine_facts(runner, host=host)
 
@@ -230,3 +230,54 @@ class TestTheRootFact:
         assert machine.is_root() is True
         monkeypatch.setattr("noust.core.utils.os.geteuid", lambda: 10001)
         assert machine.is_root() is False
+
+
+class TestTheMachineItselfAndItsPackageManager:
+    """What the pages of the machine (its processes, its disks, its updates) need to be its own."""
+
+    def test_a_machine_booted_with_systemd_is_the_machine_and_a_container_image_is_not(
+        self, host: HostPaths, tmp_path: Path
+    ) -> None:
+        assert read_machine_facts(docker_runner(), host=host).host is True
+
+        reset_machine_facts()
+        reset_platform_cache()
+        image = read_machine_facts(
+            FakeRunner().only_knows("git"), host=HostPaths(root=tmp_path / "image")
+        )
+
+        assert image.host is False
+        assert image.host == image.systemd
+
+    def test_a_package_manager_that_updates_is_one_the_platform_says_it_can_drive(
+        self, host: HostPaths
+    ) -> None:
+        facts = read_machine_facts(docker_runner("apt-get"), host=host)
+
+        assert facts.package_manager is True
+        assert facts.package_manager_problem is None
+
+    def test_a_container_image_has_apt_and_it_is_the_images_which_the_host_fact_answers_for(
+        self, tmp_path: Path
+    ) -> None:
+        # The central's image is Debian: apt is there, and it would update the image, not the NAS.
+        facts = read_machine_facts(
+            FakeRunner().only_knows("apt-get", "git"), host=HostPaths(root=tmp_path)
+        )
+
+        assert facts.package_manager is True
+        assert facts.host is False
+
+    def test_a_machine_with_none_says_why_in_the_platforms_words(self, host: HostPaths) -> None:
+        facts = read_machine_facts(docker_runner(), host=host)
+
+        assert facts.package_manager is False
+        assert facts.package_manager_problem is not None
+        assert facts.package_manager_problem.code == "host.updates_unsupported.no_manager"
+
+    def test_one_that_changes_through_a_transaction_says_so(self, host: HostPaths) -> None:
+        facts = read_machine_facts(docker_runner("zypper", "transactional-update"), host=host)
+
+        assert facts.package_manager is False
+        assert facts.package_manager_problem is not None
+        assert facts.package_manager_problem.code == "host.updates_unsupported.transactional"

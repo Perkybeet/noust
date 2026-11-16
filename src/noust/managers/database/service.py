@@ -123,7 +123,7 @@ from noust.managers.database.linking import (
     restore_app_env,
 )
 from noust.managers.database.records import DatabaseLink, DatabaseRecords, default_env_var
-from noust.managers.database.registry import DatabaseRegistry, get_db_manager
+from noust.managers.database.registry import DatabaseRegistry, get_db_manager, host_engines
 from noust.managers.database.scope import SCOPE_DATABASE, Exclusions
 from noust.managers.database.settings import SettingsOutcome, SettingsReport, settings_for
 from noust.managers.database.tls_links import check_link_tls, client_options, extra_variables
@@ -933,9 +933,9 @@ class DatabaseService:
         One manager per engine of the host.
 
         Returns:
-            The managers, in registry order.
+            The managers, in registry order; none where the role runs no engine of the system.
         """
-        names = self._engine_names() if self._engine_names else DatabaseRegistry.list_engines()
+        names = host_engines(self._engine_names, DatabaseRegistry.list_engines)
         managers = [
             self._resolve(name) if self._resolve else get_db_manager(name) for name in names
         ]

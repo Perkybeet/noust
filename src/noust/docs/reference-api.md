@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-1254 operations.
+1257 operations.
 
 ## Access
 
@@ -251,7 +251,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/assistant/probe` | Probe | `settings.manage` |  |  |
 | GET | `/api/assistant/settings` | Get Settings | `settings.read` |  |  |
 | PUT | `/api/assistant/settings` | Put Settings | `settings.manage` | yes |  |
-| GET | `/api/assistant/usage` | Usage | `assistant.use` |  |  |
+| GET | `/api/assistant/usage` | Usage | `settings.read` |  |  |
 
 ## Audit
 
@@ -755,6 +755,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/docker/cleanup` | Apply Cleanup | `docker.manage` | yes | yes |
 | GET | `/api/docker/cleanup/plan` | Get Cleanup Plan | `docker.read` |  |  |
 | GET | `/api/docker/containers` | List Containers | `docker.read` |  |  |
+| GET | `/api/docker/containers/stats` | Get Containers Usage | `docker.read` |  |  |
 | GET | `/api/docker/containers/{ref}` | Get Container | `docker.read` |  |  |
 | DELETE | `/api/docker/containers/{ref}` | Remove Container | `docker.manage` | yes | yes |
 | GET | `/api/docker/containers/{ref}/logs` | Get Container Logs | `docker.read` |  |  |
@@ -774,6 +775,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | GET | `/api/docker/stacks` | List Stacks | `docker.read` |  |  |
 | GET | `/api/docker/stacks/{name}` | Get Stack | `docker.read` |  |  |
 | POST | `/api/docker/stacks/{name}/bring` | Bring Stack | `docker.manage` | yes |  |
+| POST | `/api/docker/stacks/{name}/bring/preview` | Preview Bring | `docker.read` |  |  |
 | GET | `/api/docker/stacks/{name}/compose` | Get Compose | `secrets.reveal` |  |  |
 | PUT | `/api/docker/stacks/{name}/compose` | Save Compose | `docker.manage` | yes |  |
 | POST | `/api/docker/stacks/{name}/compose/check` | Check Compose | `docker.manage` |  |  |
@@ -861,6 +863,7 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/fleet/databases/transfer` | Transfer Database | `fleet.manage` |  |  |
 | GET | `/api/fleet/dns` | Fleet Dns | `fleet.read` |  |  |
 | POST | `/api/fleet/dns/cluster` | Set Up Cluster | `fleet.manage` |  |  |
+| POST | `/api/fleet/docker/images/check` | Check Images | `docker.manage` |  |  |
 | POST | `/api/fleet/enroll` | Enroll Server | `fleet.manage` | yes | yes |
 | POST | `/api/fleet/enroll/host-key` | Scan Host Key | `fleet.manage` |  |  |
 | GET | `/api/fleet/jobs` | List Jobs | `fleet.read` |  |  |

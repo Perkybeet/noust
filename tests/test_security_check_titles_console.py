@@ -26,7 +26,11 @@ ROOT = Path(__file__).resolve().parents[1] / "panel" / "src"
 def _table() -> dict[str, str]:
     """The check id to the console's catalog key, as ``features/server/security/data.ts`` writes it."""
     source = (ROOT / "features" / "server" / "security" / "data.ts").read_text(encoding="utf-8")
-    return dict(re.findall(r'^\s+"([a-z0-9_.]+)": "(server\.checks\.titles\.[A-Za-z0-9]+)",$', source, flags=re.M))
+    return dict(
+        re.findall(
+            r'^\s+"([a-z0-9_.]+)": "(server\.checks\.titles\.[A-Za-z0-9]+)",$', source, flags=re.M
+        )
+    )
 
 
 def test_every_check_of_the_server_has_a_title_in_the_console() -> None:
@@ -38,7 +42,14 @@ def test_every_title_the_console_points_at_is_written_in_both_languages(language
     source = (ROOT / "i18n" / language / "server.ts").read_text(encoding="utf-8")
     written = set(re.findall(r"^\s+([A-Za-z0-9]+): \"", source, flags=re.M))
 
-    assert sorted(key.rsplit(".", 1)[1] for key in _table().values() if key.rsplit(".", 1)[1] not in written) == []
+    assert (
+        sorted(
+            key.rsplit(".", 1)[1]
+            for key in _table().values()
+            if key.rsplit(".", 1)[1] not in written
+        )
+        == []
+    )
 
 
 def test_the_english_title_is_the_one_the_server_says() -> None:

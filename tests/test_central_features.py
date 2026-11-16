@@ -125,11 +125,14 @@ class TestTheTableIsClosed:
     def test_what_a_feature_needs_comes_from_a_closed_list(self) -> None:
         assert {need.value for need in Need} == {
             "role",
+            "hub",
             "systemd",
+            "host",
             "web_server",
             "docker",
             "root",
             "journal",
+            "package_manager",
         }
         for feature in FEATURES.values():
             assert feature.needs, (
@@ -223,9 +226,12 @@ class TestWhatTheMachineNeedsIsWhatTheFunctionNeeds:
 
 
 class TestWhatIsAvailable:
-    def test_a_server_with_everything_can_do_everything(self) -> None:
-        for key in FEATURES:
+    def test_a_server_with_everything_can_do_everything_but_what_only_a_hub_has(self) -> None:
+        for key, feature in FEATURES.items():
             answer = features.availability(key, role="server", facts=EVERYTHING)
+            if Need.HUB in feature.needs:
+                assert not answer.available, key
+                continue
             assert answer.available, key
             assert answer.reason is None, key
 
@@ -366,3 +372,121 @@ class TestTheGuardReadsTheTable:
     def test_a_typo_is_found_on_a_server_too(self) -> None:
         with pytest.raises(KeyError, match="aplications"):
             central.require_server_role("aplications")
+
+
+#: A machine that is a container image with a package manager of its own, run as root.
+CONTAINER_AS_ROOT = MachineFacts(
+    systemd=False, web_server=False, docker=True, root=True, journal=False
+)
+
+
+class TestTheKeysTheConsoleStoppedDeriving:
+    """
+    What the console used to work out by itself (from ``deploy_here``, from the kind of machine) or
+    offered and then failed (item 12): each is a key with the sentence for why not.
+    """
+
+    def test_the_page_that_turns_on_docker_deployment_is_a_hubs_and_a_server_says_why_not(
+        self,
+    ) -> None:
+        for facts in (EVERYTHING, NAS_CONTAINER):
+            assert features.availability("deploy_here", role="hub", facts=facts).available
+
+        answer = features.availability("deploy_here", role="server", facts=EVERYTHING)
+
+        assert not answer.available
+        assert answer.reason is not None
+        assert answer.reason.code == "features.hub_only"
+        assert answer.reason.params == {"feature": "Deploying on this machine's Docker"}
+
+    def test_a_hub_that_deploys_containers_still_has_the_page_that_checks_it(self) -> None:
+        answer = features.availability(
+            "deploy_here", role="hub", facts=NAS_CONTAINER, deploy_here=features.CONTAINERS
+        )
+
+        assert answer.available
+
+    @pytest.mark.parametrize("key", ["system_processes", "system_files"])
+    def test_what_shows_the_machines_own_processes_and_disks_needs_to_be_on_the_machine(
+        self, key: str
+    ) -> None:
+        assert Need.ROLE not in FEATURES[key].needs
+        assert not FEATURES[key].guarded
+        assert features.availability(key, role="hub", facts=EVERYTHING).available
+        # A container image sees its own processes and its own disk, which are not the server's.
+        for facts in (NAS_CONTAINER, CONTAINER_AS_ROOT):
+            answer = features.availability(key, role="hub", facts=facts)
+            assert not answer.available, key
+            assert answer.reason is not None
+            assert answer.reason.code == "features.needs_host", key
+
+    def test_updates_need_the_machine_a_package_manager_and_root_in_that_order(self) -> None:
+        assert features.availability("system_updates", role="hub", facts=EVERYTHING).available
+
+        for facts, code in (
+            (NAS_CONTAINER, "features.needs_host"),
+            (CONTAINER_AS_ROOT, "features.needs_host"),
+            (
+                MachineFacts(
+                    systemd=True,
+                    web_server=True,
+                    docker=True,
+                    root=True,
+                    journal=True,
+                    package_manager=False,
+                ),
+                "features.needs_package_manager",
+            ),
+            (
+                MachineFacts(systemd=True, web_server=True, docker=True, root=False, journal=True),
+                "features.needs_root",
+            ),
+        ):
+            answer = features.availability("system_updates", role="server", facts=facts)
+            assert not answer.available
+            assert answer.reason is not None
+            assert answer.reason.code == code
+
+    def test_a_package_manager_that_cannot_update_says_why_in_the_words_of_the_platform(
+        self,
+    ) -> None:
+        from noust.core.server_text import say
+
+        problem = say("host.updates_unsupported.transactional")
+        facts = MachineFacts(
+            systemd=True,
+            web_server=True,
+            docker=True,
+            root=True,
+            journal=True,
+            package_manager=False,
+            package_manager_problem=problem,
+        )
+
+        answer = features.availability("system_updates", role="server", facts=facts)
+
+        assert answer.reason == problem
+
+    def test_zero_downtime_needs_the_role_a_web_server_and_systemd_and_a_container_host_has_none(
+        self,
+    ) -> None:
+        feature = FEATURES["zero_downtime"]
+
+        assert feature.guarded
+        assert feature.on_containers is None
+        assert features.availability("zero_downtime", role="server", facts=EVERYTHING).available
+        no_web = MachineFacts(systemd=True, web_server=False, docker=True, root=True, journal=True)
+        answer = features.availability("zero_downtime", role="server", facts=no_web)
+        assert answer.reason is not None
+        assert answer.reason.code == "features.needs_web_server"
+        answer = features.availability(
+            "zero_downtime", role="hub", facts=EVERYTHING, deploy_here=features.CONTAINERS
+        )
+        assert answer.reason is not None
+        assert answer.reason.code == "features.containers_only"
+
+    def test_switching_an_application_to_zero_downtime_is_refused_by_the_same_guard(
+        self, hub: None
+    ) -> None:
+        with pytest.raises(central.RoleError):
+            central.require_server_role("zero_downtime")

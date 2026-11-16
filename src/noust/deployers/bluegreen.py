@@ -1775,7 +1775,7 @@ def set_zero_downtime(
         DeploymentError: A step failed; the application serves as it did.
         AppBusyError: Another operation is running on the application.
     """
-    require_server_role("applications")
+    require_server_role("zero_downtime")
     log = logger if logger is not None else Logger()
     store = get_store()
     domain = validate_domain(domain)

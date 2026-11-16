@@ -25,7 +25,9 @@ from noust.managers.database.adoption import adopt_database
 from noust.managers.database.choice import new_database_engine
 from noust.managers.database.registry import DatabaseRegistry
 from noust.managers.database.service import DatabaseView
+from noust.managers.database.system_engines import system_engines
 from noust.web.api.auth import get_current_session
+from noust.web.api.central import FeatureState
 from noust.web.api.databases import jobs
 from noust.web.api.databases.common import (
     ActionResponse,
@@ -74,11 +76,15 @@ class DatabaseListResponse(BaseModel):
     Attributes:
         problems: The engines that could not be read, so an empty list is
             never mistaken for an engine with nothing in it.
+        system: Whether the system's own engines are something this machine has, and why not (the sentence
+            the table of functions says for ``databases``): where it has none the databases are those of
+            the containers Noust runs.
     """
 
     databases: list[DatabaseInfoResponse]
     total: int
     problems: list[ListingProblemResponse] = Field(default_factory=list)
+    system: FeatureState
 
 
 class CreateDatabaseRequest(BaseModel):
@@ -379,6 +385,7 @@ def list_databases(
         databases=rows,
         total=len(views),
         problems=[ListingProblemResponse(**problem.to_dict()) for problem in listing.problems],
+        system=FeatureState(**system_engines()),
     )
 
 

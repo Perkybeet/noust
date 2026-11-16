@@ -28,11 +28,11 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 from noust.core.docker.errors import DockerUnavailableError
-from noust.core.docker.models import Container, Image, Network, Volume
+from noust.core.docker.models import Container, Image, Network, NetworkRange, Volume
 from noust.core.runner import CommandResult, CommandRunner
 
 __all__ = [
@@ -47,9 +47,11 @@ __all__ = [
     "list_images",
     "list_networks",
     "list_volumes",
+    "network_ranges",
     "parse_containers",
     "parse_disk_usage",
     "parse_images",
+    "parse_network_ranges",
     "parse_networks",
     "parse_size",
     "parse_volume_sizes",
@@ -113,6 +115,15 @@ NETWORK_FORMAT = (
     '"internal":{{json .Internal}},"created":{{json .CreatedAt}},'
     f'"project":{_label(COMPOSE_PROJECT)}}}'
 )
+
+#: What ``docker network inspect`` is asked to print: the id and the address ranges, and none of the
+#: containers, options and labels the whole inspection holds.
+NETWORK_RANGES_FORMAT = '{"id":{{json .ID}},"ranges":{{json .IPAM.Config}}}'
+
+#: The networks asked about in one process.
+MAX_NETWORK_IDS = 200
+
+_NETWORK_ID = re.compile(r"[0-9a-f]{12,64}")
 
 _SIZE = re.compile(r"\s*([\d.]+)\s*([kKMGTP]?B)\b")
 _UNITS = {"B": 1, "KB": 1000, "MB": 1000**2, "GB": 1000**3, "TB": 1000**4, "PB": 1000**5}
@@ -304,6 +315,65 @@ def parse_networks(text: str) -> list[Network]:
         for row in _objects(text)
         if _text(row, "id") and _text(row, "name")
     ]
+
+
+def parse_network_ranges(text: str) -> dict[str, tuple[NetworkRange, ...]]:
+    """
+    Read the output of ``docker network inspect`` written with :data:`NETWORK_RANGES_FORMAT`.
+
+    Args:
+        text: The output.
+
+    Returns:
+        The address ranges of each network, by id. A network Docker gave no range to has none, and what is
+        not a range is left out.
+    """
+    found: dict[str, tuple[NetworkRange, ...]] = {}
+    for row in _objects(text):
+        identifier = _text(row, "id")
+        if not identifier:
+            continue
+        configured = row.get("ranges")
+        found[identifier] = tuple(
+            NetworkRange(_text(entry, "Subnet"), _text(entry, "Gateway"))
+            for entry in (configured if isinstance(configured, list) else [])
+            if isinstance(entry, dict) and _text(entry, "Subnet")
+        )
+    return found
+
+
+def network_ranges(
+    runner: CommandRunner, ids: Sequence[str], *, timeout: int = DOCKER_TIMEOUT
+) -> dict[str, tuple[NetworkRange, ...]]:
+    """
+    Ask Docker for the address ranges and gateways of some networks, in one process.
+
+    Args:
+        runner: Runs it.
+        ids: Network ids as Docker listed them. Anything that is not an id is dropped: what a person typed
+            never reaches a command.
+        timeout: Seconds Docker has.
+
+    Returns:
+        The ranges by id. Docker not answering is networks with no ranges said: a list that is drawn
+        without the addresses is better than one that is not drawn.
+    """
+    wanted = [ident for ident in dict.fromkeys(ids) if _NETWORK_ID.fullmatch(ident)]
+    found: dict[str, tuple[NetworkRange, ...]] = {}
+    for start in range(0, len(wanted), MAX_NETWORK_IDS):
+        result = runner.run(
+            [
+                "docker",
+                "network",
+                "inspect",
+                "--format",
+                NETWORK_RANGES_FORMAT,
+                *wanted[start : start + MAX_NETWORK_IDS],
+            ],
+            timeout=timeout,
+        )
+        found.update(parse_network_ranges(result.stdout))
+    return found
 
 
 def parse_volume_sizes(text: str) -> dict[str, int]:

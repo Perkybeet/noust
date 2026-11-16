@@ -9,6 +9,7 @@ Provides registration and lookup of database engine managers.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import TYPE_CHECKING, ClassVar
 
 from noust.managers.database.base import BaseDatabaseManager
@@ -147,6 +148,29 @@ class DatabaseRegistry:
             if manager and manager.is_installed():
                 installed.append(manager)
         return installed
+
+
+def host_engines(
+    injected: Callable[[], list[str]] | None, registered: Callable[[], list[str]]
+) -> list[str]:
+    """
+    List the engines of the system this Noust runs.
+
+    Args:
+        injected: The names a caller fixed (a service built around a few engines); they win.
+        registered: Where the registry's own names come from.
+
+    Returns:
+        The injected names, or the registered engines, or none where this Noust's role does not run the
+        system's own databases: the central of a NAS drives the containers it makes through Docker and
+        has no PostgreSQL of its own, and says so with the table's sentence
+        (:mod:`noust.managers.database.system_engines`) instead of listing engines it lacks.
+    """
+    if injected is not None:
+        return injected()
+    from noust import central
+
+    return [] if central.refused_by_role("databases") is not None else registered()
 
 
 def get_db_manager(engine: str, verbose: bool = False) -> BaseDatabaseManager | None:

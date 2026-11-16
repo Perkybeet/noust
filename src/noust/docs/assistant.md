@@ -242,6 +242,21 @@ Using it is the permission **`assistant.use`**, which the administrator and oper
 role** does in this version: the spending and the flow of data are the server's. On a server upgraded from 4.2
 a role nobody edited has it by itself, and one you edited is offered it, which you take or leave.
 
+**What it costs is read with the settings.** `GET /api/assistant/usage` needs `settings.read`, not `assistant.use`:
+whoever manages the settings without using the assistant sees the month's spending and the limits it runs under,
+as they see the rest of the settings (a person who only sees some teams does not). It opens nothing else. What
+the assistant made it do for the person in the last hour, and the totals of one conversation (`?conversation=`,
+which asks for `assistant.use` and is its author's alone), are the assistant's.
+
+**How the console knows whether to offer it.** One answer, typed: `assistant` of `GET /api/auth/session`
+(`enabled`, `can_use`, `tools`, `reason`, `model`, `location`, `mask_personal`). When it is not offered, `reason`
+is a sentence whose code is one of three: `assistant.unavailable.off` (nobody turned it on),
+`assistant.unavailable.permission` (the person's role does not let them use it) and `assistant.unavailable.account`
+(the caller is not a person's account: the master token, a central). The assistant is not a row of the table of
+functions (`features` of the session says what the role and the machine can do, and the assistant needs neither:
+it talks to a provider and calls the API as the person, so a central that deploys nothing offers it like any other
+Noust).
+
 ## Limits
 
 Always there, with a number: none can be removed, only changed (`settings.manage`, in sudo mode).
@@ -302,7 +317,7 @@ authorized flow with its reason recorded** (`--flow-reason`). It is off by defau
 | `noust assistant status\|configure\|enable\|disable\|probe\|usage\|ask` | The command line. The key by standard input (`--key-stdin`) or `NOUST_ASSISTANT_API_KEY`, never as an argument. |
 | `GET /api/assistant/settings`, `PUT /api/assistant/settings` | What is chosen, without the key; changing it needs `settings.manage` and sudo mode. |
 | `POST /api/assistant/probe`, `POST /api/assistant/off` | The probe; turning it off. |
-| `GET /api/assistant/usage`, `GET /api/assistant/presets` | What it cost; the providers by name. |
+| `GET /api/assistant/usage`, `GET /api/assistant/presets` | What it cost (`settings.read`; what the person made it do and a conversation's totals need `assistant.use`); the providers by name. |
 | `GET /api/assistant/conversations`, `GET`/`DELETE` `.../{id}` | A person's own conversations. |
 | `POST /api/assistant/conversations`, `POST .../{id}/turns`, `GET .../{id}/turns`, `POST .../turns/{turn}/cancel` | Begin a conversation; ask (`202`, and the answer arrives as the `assistant` event of `/events`); read what each turn did; stop one. |
 | `GET .../{id}/proposals`, `POST .../proposals/{id}/outcome`, `POST .../proposals/{id}/reject` | The calls it prepared; say what came of one the person carried out (the audit trail has to show it); reject one. |

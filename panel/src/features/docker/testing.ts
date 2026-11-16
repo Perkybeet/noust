@@ -111,6 +111,7 @@ export function volume(name: string, owner: DockerOwner, more: Partial<DockerVol
     size_bytes: 3_650_722_201,
     used_by: [],
     anonymous: false,
+    backup: { state: "none", via: "" },
     owner,
     can: owner.kind === "nobody" ? CAN_ALL : CAN_OWNED,
     ...more,
@@ -118,11 +119,11 @@ export function volume(name: string, owner: DockerOwner, more: Partial<DockerVol
 }
 
 export function image(id: string, tags: string[], owner: DockerOwner, more: Partial<DockerImage> = {}): DockerImage {
-  return { id, tags, created: "2026-11-01T10:00:00Z", size_bytes: 400_000_000, used_by: [], way_back: false, dangling: tags.length === 0, owner, can: owner.kind === "nobody" ? CAN_ALL : CAN_OWNED, update: null, ...more };
+  return { id, tags, created: "2026-11-01T10:00:00Z", size_bytes: 400_000_000, used_by: [], way_back: false, dangling: tags.length === 0, source: "registry", owner, can: owner.kind === "nobody" ? CAN_ALL : CAN_OWNED, update: null, ...more };
 }
 
 export function network(name: string, owner: DockerOwner, more: Partial<DockerNetwork> = {}): DockerNetwork {
-  return { id: name.padEnd(12, "0"), name, driver: "bridge", scope: "local", internal: false, project: owner.project, created: "2026-11-01T10:00:00Z", containers: [], builtin: false, owner, can: owner.kind === "nobody" ? CAN_ALL : CAN_OWNED, ...more };
+  return { id: name.padEnd(12, "0"), name, driver: "bridge", scope: "local", internal: false, project: owner.project, created: "2026-11-01T10:00:00Z", containers: [], builtin: false, ranges: [], owner, can: owner.kind === "nobody" ? CAN_ALL : CAN_OWNED, ...more };
 }
 
 export function stack(name: string, owner: DockerOwner, more: Partial<DockerStack> = {}): DockerStack {

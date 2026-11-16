@@ -650,6 +650,7 @@ class DockerGate:
         limit: int | None = None,
         owner: OwnerKind | None = None,
         search: str | None = None,
+        ranges: bool = False,
     ) -> Page[Network]:
         """
         List the networks the principal sees, with the containers on each.
@@ -660,6 +661,8 @@ class DockerGate:
             owner: Only those of this kind of owner.
             search: Only those whose name or the name of a container on it contains this text, any
                 case.
+            ranges: Give each network of the page its address ranges and gateways: one more question to
+                Docker for all of them, because the listing does not say them.
 
         Returns:
             The page, by name.
@@ -672,7 +675,13 @@ class DockerGate:
         found = _cut(
             self._networks_of(owned, index), owner, search, lambda n: [n.name, *n.containers]
         )
-        return _page(found, offset, limit)
+        page = _page(found, offset, limit)
+        if not ranges or not page.items:
+            return page
+        described = reading.network_ranges(self.runner, [n.id for n in page.items])
+        return replace(
+            page, items=tuple(replace(n, ranges=described.get(n.id, ())) for n in page.items)
+        )
 
     def _networks_of(self, owned: Sequence[Container], index: OwnerIndex) -> list[Network]:
         """
@@ -1050,6 +1059,46 @@ class DockerGate:
         if state.problem or not container.running:
             last = self._lines(container, WHY_LINES, timestamps=False)
         return ContainerDetail(container, state, seen, usage, last, recent)
+
+    def containers_usage(self) -> stats.UsageList:
+        """
+        Say what every container the principal sees uses, in one reading of Docker.
+
+        The list of containers draws the processor and the memory of each row. Docker is asked once for
+        all of them (:func:`noust.core.docker.stats.read_rows`, kept for a few seconds), and each container
+        is given its reading or the reason there is none, with the limit it has of its own: what Docker
+        prints as the limit of one that has none is the machine's memory.
+
+        Returns:
+            One entry for each container, by name, and when Docker was asked. Containers the principal may
+            not see are not in it, and their readings are not given to it.
+
+        Raises:
+            DockerUnavailableError: Docker cannot be asked.
+        """
+        owned, _index = self._look()
+        visible = sorted((c for c in owned if self._visible(c.owner)), key=lambda c: c.name)
+        read_at, rows = (
+            stats.read_rows(self.runner, clock=self._clock)
+            if any(c.state == "running" for c in owned)
+            else (self._clock(), [])
+        )
+        now = self._clock()
+        seen = inspect.read_inspect(self.runner, [c.id for c in visible if c.state == "running"])
+        items = []
+        for container in visible:
+            inspected = seen.get(container.id)
+            uptime = None
+            if inspected and inspected.started_at and container.state == "running":
+                uptime = now - inspected.started_at.timestamp()
+            usage = stats.usage_of(
+                container,
+                rows,
+                memory_limited=(inspected.memory_limit_bytes is not None) if inspected else None,
+                uptime_seconds=uptime,
+            )
+            items.append(stats.ContainerUsage(container, usage))
+        return stats.UsageList(tuple(items), read_at)
 
     def _masked(self, container: Container, seen: inspect.Inspected) -> inspect.Inspected:
         """

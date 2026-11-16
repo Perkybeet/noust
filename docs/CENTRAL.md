@@ -20,7 +20,10 @@ role and/or a fact of the machine (systemd, a web server, Docker, root, the jour
 the console's choice of what to offer both read it: the session (`GET /api/auth/session`, `central.features`)
 says for every function whether it works here and, when it does not, why, in a sentence with a code. A hub in a
 container has none of the machine's facts either, so the machine's own pages (its clock, its system log, its
-root shell, its firewall) are not offered there; a hub on a VPS keeps them.
+root shell, its firewall) are not offered there; a hub on a VPS keeps them. The same goes for what shows the
+machine's own processes, disks and packages (`system_processes`, `system_files`, `system_updates`): in a
+container they would be the container's, so they are offered when Noust runs on the machine itself, and
+`deploy_here` is the page that checks and explains deploying on the machine's Docker, which only a hub has.
 
 The console's own fleet pages (a central's, never a plain server's: **All servers** in the scope
 selector) show every server it manages side by side - whether it answers, what it runs, what needs

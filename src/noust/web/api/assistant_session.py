@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel
 
@@ -27,15 +27,36 @@ from noust.web.permissions import Permission
 logger = logging.getLogger(__name__)
 
 
+#: Why the assistant is not offered to a caller, the whole list. The console reads the code to decide what to
+#: draw, so it is one of these and never a word it has to guess: ``off`` (nobody turned it on), ``permission``
+#: (the caller's role does not let them use it) and ``account`` (the caller is not a person's account: the
+#: master token, a central). It is not a row of the table of functions (:mod:`noust.central.features`): that
+#: table says what the role and the machine can do, and the assistant needs neither. It talks to a provider
+#: and calls the API as the person, so a central that deploys nothing offers it like any other Noust, and its
+#: one answer is this one, in the session.
+ASSISTANT_REASONS = (
+    "assistant.unavailable.off",
+    "assistant.unavailable.permission",
+    "assistant.unavailable.account",
+)
+
+
 class AssistantReason(CodedText):
     """
     Why the assistant is not available to this caller, as a sentence with a code.
 
     Attributes:
+        code: One of :data:`ASSISTANT_REASONS`: ``assistant.unavailable.off``,
+            ``assistant.unavailable.permission`` or ``assistant.unavailable.account``.
         text: The sentence in English, always sent.
         hint: How to fix it in English, when the sentence has a fix.
     """
 
+    code: Literal[
+        "assistant.unavailable.off",
+        "assistant.unavailable.permission",
+        "assistant.unavailable.account",
+    ]
     text: str
     hint: str | None = None
 
@@ -49,7 +70,8 @@ class AssistantSession(BaseModel):
         can_use: It is on and this caller may use it: draw it.
         tools: The model was found to call tools, so it may investigate; False means it only
             explains what it is shown. Meaningless unless ``enabled``.
-        reason: Why ``can_use`` is False, when it is.
+        reason: Why ``can_use`` is False, when it is: one of a closed list, so the console compares nothing
+            it has to know the spelling of.
         model: The model it talks to, for the label that says it is an AI and which one. Only for
             a caller who may use it.
         location: Where what is said to it ends up: ``machine``, ``network``, ``eu``, ``outside``

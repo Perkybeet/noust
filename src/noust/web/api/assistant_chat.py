@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
@@ -38,8 +38,19 @@ from noust.core.exceptions import PermissionError as NoustPermissionError
 from noust.core.exceptions import ValidationError
 from noust.core.server_text import say
 from noust.web.api.assistant import ConversationOut, SentenceOut, _account_id
+from noust.web.api.assistant_models import (
+    FactOut,
+    PartLineOut,
+    PartSourceOut,
+    ProposalNeedsOut,
+    StepSizeOut,
+    TurnErrorOut,
+    TurnPageOut,
+    TurnUsageOut,
+)
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute, caller_account
+from noust.web.api.plan_models import PlanOutModel
 from noust.web.auth import actor_label
 from noust.web.permissions.principal import actor_of, permissions_of, scope_of
 
@@ -129,7 +140,7 @@ class StepOut(BaseModel):
     server: str = ""
     state: str
     outside: bool = False
-    size: dict[str, Any] | None = None
+    size: StepSizeOut | None = None
     masked: int | None = None
     error: str | None = None
     proposal: str | None = None
@@ -146,10 +157,10 @@ class PartOut(BaseModel):
         lines: For ``literal``, the lines with their numbers (``{"n", "text"}``).
     """
 
-    type: str
+    type: Literal["text", "literal"]
     text: str | None = None
-    source: dict[str, Any] | None = None
-    lines: list[dict[str, Any]] | None = None
+    source: PartSourceOut | None = None
+    lines: list[PartLineOut] | None = None
 
 
 class CallOut(BaseModel):
@@ -201,7 +212,8 @@ class ProposalOut(BaseModel):
         decided_at: When it was decided.
         decided_by: Who carried it out or rejected it.
         status: The status the call got.
-        result: What came of it.
+        result: What came of it, in the words there are for it: its text, or a sentence with a code when the
+            answer was one. Null when what the call answered says nothing a card can draw.
         output: The system's own words when it failed.
         approval: The request of a second person, when it waits for one.
         job_id: The job it became.
@@ -219,16 +231,16 @@ class ProposalOut(BaseModel):
     permission: str = ""
     environment: str = "production"
     server: str = ""
-    facts: list[dict[str, Any]] = Field(default_factory=list)
-    plan: dict[str, Any] | None = None
-    needs: dict[str, Any] = Field(default_factory=dict)
+    facts: list[FactOut]
+    plan: PlanOutModel | None = None
+    needs: ProposalNeedsOut
     call: CallOut
     fingerprint: str
     created_at: str
     decided_at: str | None = None
     decided_by: str | None = None
     status: int | None = None
-    result: Any = None
+    result: SentenceOut | str | None = None
     output: str | None = None
     approval: int | None = None
     job_id: str | None = None
@@ -281,21 +293,21 @@ class TurnOut(BaseModel):
     seq: int
     state: str
     question: str
-    page: dict[str, Any] = Field(default_factory=dict)
+    page: TurnPageOut
     server: str = ""
     model: str = ""
     location: str = "unknown"
     started_at: str
     ended_at: str | None = None
-    steps: list[StepOut] = Field(default_factory=list)
+    steps: list[StepOut]
     text: str = ""
-    parts: list[PartOut] = Field(default_factory=list)
-    proposals: list[ProposalOut] = Field(default_factory=list)
-    not_offered: list[NotOfferedOut] = Field(default_factory=list)
-    warnings: list[SentenceOut] = Field(default_factory=list)
+    parts: list[PartOut]
+    proposals: list[ProposalOut]
+    not_offered: list[NotOfferedOut]
+    warnings: list[SentenceOut]
     stop: SentenceOut | None = None
-    error: dict[str, Any] | None = None
-    usage: dict[str, Any] = Field(default_factory=dict)
+    error: TurnErrorOut | None = None
+    usage: TurnUsageOut
 
 
 class TurnsOut(BaseModel):

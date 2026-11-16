@@ -94,7 +94,40 @@ says what it checked (the folder is on this server, the rehearsed `docker compos
 how many containers, jobs that already ended, volumes and networks it has, and what would not come back after a
 restart. It is refused first, with the reason, for a stack that is already Noust's, one whose folder is not on this
 server (Portainer keeps its stacks in its own volume), one started from several compose files, and a name that is
-taken. Compose's own words, when starting it the way Noust would changes something, are shown as they are.
+taken. Compose's own words, when starting it the way Noust would changes something, are shown as they are, with
+the credentials in them masked (Noust's own, the secrets the stack's own `.env` holds and whatever has the shape of
+one), and so is the address the checkout would fetch from, which can carry the credential its owner cloned with.
+
+Looking changes nothing, so it asks no sudo mode: `POST /api/docker/stacks/{name}/bring/preview` is read with the
+permission to read the zone, and the one command it runs is Compose's rehearsal (`up --dry-run`), which only
+looks. The confirmation is asked when it is applied (`POST .../bring`, which keeps its `preview` flag for whoever
+already sends it, and asks sudo mode like the rest of that route).
+
+## What the lists draw
+
+- **What each container uses**, in one call: `GET /api/docker/containers/stats` gives every container its
+  processor and memory (and network, disk and processes) from a single `docker stats` without a stream, or the
+  reason there is none (it is not running, it is restarting, it started a moment ago, Docker did not say). The
+  memory limit is the container's own: what Docker prints for one that has none is the machine's memory, which is
+  not a limit. The reading is kept for a few seconds behind the request and says when it was taken (`read_at`).
+  With a server of a fleet it is the same route through the central's proxy.
+- **Where an image comes from**: `source` of each image and of its update plan, one of `registry`, `built_noust`,
+  `built_other` and `unknown`. An image nobody has asked the registries about is `not_looked`, whatever its
+  origin; one that came from no registry is not waiting for a look it will never have.
+- **Whether a volume is in a copy**: `backup` of each volume says `scheduled` (a schedule that is on takes it),
+  `copied` (it has been copied and no schedule takes it) or `none`, with when the newest copy that holds it was
+  taken and the command that takes one. It is read from the backup manager (its policies, its copies and the
+  application backups that carried the stack's volumes), never from Docker.
+- **A network's addresses**: `ranges` of each network, the subnet and the gateway of each range.
+- **A stack Noust does not keep the document of** has no history to list: `GET .../compose/versions` answers 200
+  with no items, `editable: false` and the reason (`why_code`, `why`), the way the document already did.
+
+## Looking for new versions on every server
+
+`POST /api/fleet/docker/images/check` (permission `docker.manage`) asks every server of the fleet for its own look
+through its tunnel and puts what they found side by side, as one job with a record per server: how many images each
+looked at, how many have a new version and which. A server before 4.3 and one with no Docker are shown in the
+plan (`"plan": true`) as unable to take part, not as failures. Sudo mode is what each server's own schema asks.
 
 ## Editing the Compose of a stack
 

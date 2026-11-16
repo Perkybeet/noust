@@ -17,13 +17,19 @@ containers, jobs, volumes and networks the stack has, and what would not come ba
 cannot be adopted is said first and in plain words: a folder that is not on this server (Portainer keeps
 its stacks inside its volume), a stack started from several files (adopting takes one), a stack that is
 already Noust's, and a name an application already has.
+
+What is said is read by whoever reads Docker, and it is words that programs wrote: Compose's output for the
+rehearsal, what it said when it refused, and where the checkout would fetch from (an address can carry the
+credential its owner cloned with). Every one of them is shown with the credentials masked: Noust's own, the
+secrets the stack's own ``.env`` holds and whatever has the shape of one. The adoption itself is given the
+real plan and the real address; only what is shown is masked, and here, where every door gets it from.
 """
 
 from __future__ import annotations
 
 import os
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -31,10 +37,12 @@ from noust.core.docker.errors import DockerBlockedError, DockerOwnedError
 from noust.core.docker.gate import DockerGate
 from noust.core.docker.models import ComposeProject, OwnerKind
 from noust.core.exceptions import DomainError
+from noust.core.redact import Scrubber, scrubber_for
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import DeploymentTrigger, NoustStore, get_store
 from noust.deployers import compose_adopt
-from noust.deployers.compose_adopt import AdoptionPlan
+from noust.deployers.compose_adopt import AdoptionPlan, AdoptionRefusedError
+from noust.deployers.helpers.env_manager import EnvManager
 from noust.validators.domain import validate_domain
 
 __all__ = ["Bringing", "RestartWarning", "StackBringer", "proposed_name"]
@@ -205,14 +213,7 @@ class StackBringer:
             DeploymentError: Adopting is refused for another reason; the error says which.
         """
         project, path, relative, domain = self._prepare(stack, name)
-        plan = compose_adopt.plan_adoption(
-            domain,
-            path,
-            compose_file=relative,
-            accept_recreate=accept_recreate,
-            runner=self.runner,
-            store=self.store,
-        )
+        plan = self._planned(domain, path, relative, accept_recreate)
         return self._described(project, plan)
 
     def bring(
@@ -245,14 +246,7 @@ class StackBringer:
             DeploymentError: Adopting is refused for another reason.
         """
         project, path, relative, domain = self._prepare(stack, name)
-        plan = compose_adopt.plan_adoption(
-            domain,
-            path,
-            compose_file=relative,
-            accept_recreate=accept_recreate,
-            runner=self.runner,
-            store=self.store,
-        )
+        plan = self._planned(domain, path, relative, accept_recreate)
         done = compose_adopt.adopt(
             plan, trigger=trigger, job_id=job_id, runner=self.runner, store=self.store
         )
@@ -260,6 +254,54 @@ class StackBringer:
         described.adopted = done.adopted
         described.deployment_id = done.deployment_id
         return described
+
+    def _planned(
+        self, domain: str, path: Path, relative: str | None, accept_recreate: bool
+    ) -> AdoptionPlan:
+        """
+        Ask the adoption what registering the stack would do, which changes nothing.
+
+        Args:
+            domain: The name the application will have.
+            path: The directory the stack runs from.
+            relative: Its compose file relative to the directory.
+            accept_recreate: Go on although the rehearsal says something would change.
+
+        Returns:
+            The plan.
+
+        Raises:
+            AdoptionRefusedError: Compose's rehearsal failed or would change something; what it said is
+                masked, for it is shown to whoever reads Docker.
+            DeploymentError: Adopting is refused for another reason.
+        """
+        try:
+            return compose_adopt.plan_adoption(
+                domain,
+                path,
+                compose_file=relative,
+                accept_recreate=accept_recreate,
+                runner=self.runner,
+                store=self.store,
+            )
+        except AdoptionRefusedError as refused:
+            scrub = self._scrubber(path)
+            refused.output = scrub.scrub(refused.output) if refused.output else refused.output
+            refused.changes = tuple(scrub.scrub(line) for line in refused.changes)
+            raise
+
+    @staticmethod
+    def _scrubber(folder: Path) -> Scrubber:
+        """
+        Args:
+            folder: The directory the stack runs from.
+
+        Returns:
+            What masks the credentials in words about the stack: Noust's own, the secrets of the stack's
+            ``.env`` (Compose resolves the document with it, and an error can print a value) and whatever
+            has the shape of one.
+        """
+        return scrubber_for(None, env=EnvManager().read_env_file(folder / ".env"))
 
     # -- what is found ---------------------------------------------------------------------
 
@@ -378,6 +420,15 @@ class StackBringer:
         volumes = [v for v in self._gate.volumes().items if v.project == project.name]
         networks = [n for n in self._gate.networks().items if n.project == project.name]
         lost = [item for item in self._gate.restart_loss() if item.project == project.name]
+        scrub = self._scrubber(plan.app_path).scrub
+        # What is shown is masked; the plan the adoption was given is untouched, and so is where it fetches from.
+        shown = replace(
+            plan,
+            dry_run=scrub(plan.dry_run),
+            source=scrub(plan.source),
+            changes=tuple(scrub(line) for line in plan.changes),
+            warnings=tuple(scrub(line) for line in plan.warnings),
+        )
         return Bringing(
             stack=project.name,
             name=plan.domain,
@@ -389,8 +440,8 @@ class StackBringer:
                 "volumes": len(volumes),
                 "networks": len(networks),
             },
-            recreates=list(plan.changes),
-            warnings=list(plan.warnings),
+            recreates=list(shown.changes),
+            warnings=list(shown.warnings),
             restart_loss=[RestartWarning(item.name, item.policy, item.why) for item in lost],
-            plan=plan,
+            plan=shown,
         )

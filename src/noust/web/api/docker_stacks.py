@@ -23,8 +23,13 @@ from noust.core.store import DeploymentTrigger
 from noust.deployers.compose_adopt import AdoptionRefusedError
 from noust.managers.docker_bring import StackBringer
 from noust.web.api.deps import NoustErrorRoute, error_response
-from noust.web.api.docker import Elevated, _acted, _engine, _gate
-from noust.web.api.docker_change_models import DockerBringOut, DockerBringRequest, bring_out
+from noust.web.api.docker import Elevated, Session, _acted, _engine, _gate
+from noust.web.api.docker_change_models import (
+    DockerBringOut,
+    DockerBringPreviewRequest,
+    DockerBringRequest,
+    bring_out,
+)
 from noust.web.api.docker_models import DockerActionOut
 from noust.web.permissions import Permission
 from noust.web.permissions.enforce import check_permission
@@ -97,6 +102,66 @@ def restart_stack(name: str, session: Elevated) -> DockerActionOut:
     )
 
 
+def _refused(exc: AdoptionRefusedError) -> JSONResponse:
+    """
+    Args:
+        exc: Compose's rehearsal said starting the stack the way Noust would changes it, or failed.
+
+    Returns:
+        A 409 with Compose's own words (already masked by the one that brings stacks) and what to do.
+    """
+    # Not a failure of the server: the stack is not in the state the request assumed, and Compose's
+    # words say how.
+    refused: JSONResponse = error_response(exc)
+    refused.status_code = 409
+    return refused
+
+
+@router.post(
+    "/stacks/{name}/bring/preview",
+    response_model=DockerBringOut,
+    responses={
+        409: {"description": "It cannot be brought, or starting it as Noust would changes it"}
+    },
+)
+def preview_bring(name: str, body: DockerBringPreviewRequest, session: Session) -> Any:
+    """
+    Say what bringing a stack that already runs to Noust would do, without doing it or asking to confirm.
+
+    Looking changes nothing, so it is read with the permission to read the zone and asks no sudo mode:
+    the person sees what would be registered before being asked who they are, and the confirmation is asked
+    when it is applied (``POST .../bring``). The one thing that runs is Compose's rehearsal of starting the
+    stack (``up --dry-run``), which only looks, and nothing is registered, written, started or stopped. The
+    words of Compose and the address the checkout fetches from are shown with the credentials masked. What
+    is already Noust's, what is not on this server and a stack started from several files are refused first
+    with the reason as a code (409 ``docker_blocked``), and Compose's own words, when starting it the way
+    Noust would changes something, are in ``output`` of a 409.
+
+    Args:
+        name: The Compose project's name.
+        body: The name the application would have, and whether to show the plan though the rehearsal changes
+            something.
+        session: The authenticated session.
+
+    Returns:
+        What would be registered and what is not changed.
+
+    Raises:
+        DockerNotFoundError: 404 when there is no such stack.
+        DockerOwnedError: 409 when an engine or Noust owns it.
+        DockerBlockedError: 409 ``docker_blocked`` with the reason.
+        DeploymentError: 409 when adopting is refused (Compose's rehearsal, a unit that exists).
+    """
+    gate = _gate()
+    gate.require_usable(_engine(gate))
+    try:
+        return bring_out(
+            StackBringer(gate).preview(name, name=body.name, accept_recreate=body.accept_recreate)
+        )
+    except AdoptionRefusedError as exc:
+        return _refused(exc)
+
+
 @router.post(
     "/stacks/{name}/bring",
     response_model=DockerBringOut,
@@ -107,6 +172,10 @@ def restart_stack(name: str, session: Elevated) -> DockerActionOut:
 def bring_stack(name: str, body: DockerBringRequest, session: Elevated) -> Any:
     """
     Bring a stack that already runs to Noust, or say what that would do.
+
+    To only look, without sudo mode, use ``POST .../bring/preview``: it is the same preview, read with the
+    permission to read the zone. ``preview`` here is kept for who already sends it, and asks sudo mode like
+    the rest of this route.
 
     This is ``noust app adopt`` where the zone shows the stack: Noust registers it as it runs, and nothing
     that runs is recreated, restarted or changed, nor is its compose file rewritten. The folder and the file
@@ -149,11 +218,7 @@ def bring_stack(name: str, body: DockerBringRequest, session: Elevated) -> Any:
             trigger=DeploymentTrigger.PANEL.value,
         )
     except AdoptionRefusedError as exc:
-        # Not a failure of the server: the stack is not in the state the request assumed, and Compose's
-        # words say how.
-        refused: JSONResponse = error_response(exc)
-        refused.status_code = 409
-        return refused
+        return _refused(exc)
     audit.record(
         "docker.bring",
         actor=audit_actor(session),
