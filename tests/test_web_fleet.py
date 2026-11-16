@@ -150,6 +150,7 @@ class TestActions:
             "database_transfer",
             "settings_apply",
             "dns_cluster",
+            "docker_images_check",
         }
 
     def test_a_plan_runs_nothing(self, client, central):

@@ -117,7 +117,7 @@ def _check_options(options: Any) -> dict[str, Any]:
         ValidationError: An option that is not one, or ``pull`` that is not true or false.
     """
     if not isinstance(options, dict):
-        raise ValidationError.from_text(say("fleet_job.options_object"), field="options")
+        raise ValidationError.from_text(say("fleet.options_object"), field="options")
     return _options({"pull": (bool, False)})(options)
 
 

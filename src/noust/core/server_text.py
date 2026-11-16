@@ -248,6 +248,7 @@ CATALOG: dict[str, str] = {
         "{command}. Then run 'noust setup doctor' there: it says whether the console's unit still "
         "has the limit from before 4.3 (1024 files)."
     ),
+    "fleet.options_object": "The options of a fleet action are an object",
     # -- A fleet job's title (noust.core.fleet_job_titles): the name its console job carries ----
     # One sentence for one server and one for several, because the plural of "server" is not a
     # suffix in every language. The job's name is this text, so the console, a notice and the
@@ -284,7 +285,6 @@ CATALOG: dict[str, str] = {
     "fleet_job.docker_images_check.several": (
         "Look for new versions of the images in use on {count} servers"
     ),
-    "fleet_job.options_object": "The options of a fleet action are an object",
     # -- The recipe catalogue: why a recipe is listed and cannot be installed ---------------
     "recipes.unavailable.licence": "Its licence does not let an operator run it for others",
     "recipes.unavailable.licence.hint": (

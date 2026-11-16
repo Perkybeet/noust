@@ -1236,6 +1236,7 @@ export const serverText: Catalog<typeof en> = {
       text: "{node} se quedó sin descriptores de archivo",
       hint: "Su consola no puede abrir un archivo ni un socket hasta que se liberen algunos. En {node}, ejecuta: {command}. Después ejecuta 'noust setup doctor' allí: dice si la unidad de la consola aún tiene el límite de antes de la 4.3 (1024 archivos).",
     },
+    options_object: { text: "Las opciones de una acción de flota son un objeto" },
     refused: {
       permission: {
         text: "Tu rol {role} no tiene el permiso {permission} en estos servidores",
@@ -1284,7 +1285,6 @@ export const serverText: Catalog<typeof en> = {
       single: { text: "Actualizar Noust en 1 servidor" },
       several: { text: "Actualizar Noust en {count} servidores" },
     },
-    options_object: { text: "Las opciones de una acción de flota son un objeto" },
     os_updates: {
       single: { text: "Aplicar actualizaciones del sistema en 1 servidor" },
       several: { text: "Aplicar actualizaciones del sistema en {count} servidores" },

@@ -1247,6 +1247,7 @@ export const serverText = {
       text: "{node} ran out of file descriptors",
       hint: "Its console cannot open a file or a socket until some are freed. On {node}, run: {command}. Then run 'noust setup doctor' there: it says whether the console's unit still has the limit from before 4.3 (1024 files).",
     },
+    options_object: { text: "The options of a fleet action are an object" },
     refused: {
       permission: {
         text: "Your role {role} does not hold the permission {permission} on these servers",
@@ -1295,7 +1296,6 @@ export const serverText = {
       single: { text: "Update Noust on 1 server" },
       several: { text: "Update Noust on {count} servers" },
     },
-    options_object: { text: "The options of a fleet action are an object" },
     os_updates: {
       single: { text: "Apply operating system updates on 1 server" },
       several: { text: "Apply operating system updates on {count} servers" },
