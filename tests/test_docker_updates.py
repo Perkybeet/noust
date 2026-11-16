@@ -98,11 +98,12 @@ def updates(
     *,
     scope: Scope | None = None,
     sees: set[str] | None = None,
+    registered: Registry = REGISTRY,
 ) -> ImageUpdates:
     gate = DockerGate(
         box,
         store=store,
-        registry=lambda: REGISTRY,
+        registry=lambda: registered,
         scope=scope,
         sees_app=(lambda domain: domain in sees) if sees is not None else None,
         disk=lambda path: None,
@@ -357,6 +358,64 @@ class TestWhenThereIsNothingToUpdateTo:
         box.image("9", "shop-example-com-web", "noust-20261101-100000-abc1234")
 
         plan = updates(box, store).plan_for("shop-example-com-web:noust-20261101-100000-abc1234")
+
+        assert plan.mode == "rollback"
+
+
+class TestAContainerApplicationFromARegistry:
+    """Noust names the image such an application runs after the application and its release."""
+
+    BOX = "/var/www/apps/box-example-com"
+    RELEASE = "20261112-101500-abc1234"
+
+    def running(self, store: NoustStore) -> tuple[DockerMachine, Registry]:
+        from noust.core.container_store import ContainerSettings, ContainerStore
+
+        store.create_app(App(domain="box.example.com", app_type="container", app_path=self.BOX))
+        ContainerStore(store).save(
+            "box.example.com",
+            ContainerSettings(method="image", image="ghcr.io/acme/box:2"),
+            actor=None,  # type: ignore[arg-type]
+        )
+        box = DockerMachine()
+        box.image("9", "noust-box-example-com", self.RELEASE)
+        box.box(
+            "box-example-com-app-1",
+            image=f"noust-box-example-com:{self.RELEASE}",
+            project="box-example-com",
+            working_dir=self.BOX,
+            policy="unless-stopped",
+        )
+        registered = Registry(apps=(AppRecord("box.example.com", self.BOX),), engines=())
+        return box, registered
+
+    def test_the_image_it_runs_is_updated_through_it_and_not_taken_for_a_way_back(
+        self, store: NoustStore
+    ) -> None:
+        # Seen on a real central (Docker 24.0.2): every image of an application whose name is a release's was
+        # planned as "a version it keeps to go back to", the one it runs included, so the one application that
+        # runs an image from a registry could never be offered the update its registry had.
+        box, registered = self.running(store)
+        save(store, record("ghcr.io/acme/box:2"))
+
+        plan = updates(box, store, registered=registered).plan_for(
+            f"noust-box-example-com:{self.RELEASE}"
+        )
+
+        assert plan.mode == "with_net"
+        assert plan.app == "box.example.com"
+        assert plan.reference == "ghcr.io/acme/box:2"
+        assert plan.apply
+
+    def test_the_same_image_when_nothing_runs_it_is_still_a_way_back(
+        self, store: NoustStore
+    ) -> None:
+        box, registered = self.running(store)
+        box.boxes.clear()
+
+        plan = updates(box, store, registered=registered).plan_for(
+            f"noust-box-example-com:{self.RELEASE}"
+        )
 
         assert plan.mode == "rollback"
 

@@ -325,6 +325,17 @@ tests/integration/toolchains_run.py   the JVM, .NET, Elixir, Deno, Go, Rust, Rai
 tests/integration/forge_run.py        a real Gitea and a real Forgejo: a deployment's commit status, a
                             preview's pull request comment and the signed webhooks the receiver reads
                             (docs/sources.md); one loopback port, `noust-test-w6x-*`, not part of pytest
+tests/integration/docker_run.py       everything Noust does with Docker, against real engines of three ages
+                            (20.10, 24.0.2 kept in /volume1/@docker as a Synology keeps it, 29.x), each the
+                            official Docker-in-Docker image in a container of its own with its own Compose beside
+                            the ones Noust admits: the door's readings, owners, a container from the inside, the
+                            cleanup, the guard of privileges over what Compose resolves, versions of images asked
+                            of a registry with and without buildx, Compose documents on the standard input, and the
+                            central's image run in each engine as a NAS runs it (pre-flight, a recipe, a port
+                            held, a stack brought in, an edit of its Compose, a scheduled copy of a volume).
+                            Scenarios run inside the engine (`docker_inside*.py`) or as the central's image
+                            (`docker_central*.py`); the results are `tests/integration/results/docker-engines.json`;
+                            `noust-test-w3rd-*`, one engine at a time through `noust-docker`, not part of pytest
 packaging/install.sh        the one-line installer (POSIX sh, shellcheck-clean), published with a
                             signed SHA256SUMS; its platform table is generated, never edited
 ```
@@ -672,6 +683,8 @@ python tests/integration/run.py --reuse <container> --skip-image-build --scenari
                                                          # again, in the kept container, in seconds
 python tests/integration/run.py --upgrade-from-3.3       # 3.3.1 with every legacy name -> this tree
 python tests/integration/run.py --install-matrix         # the installer on each release (network)
+python tests/integration/docker_run.py                   # Docker's door, zone and changes on three real engines
+python tests/integration/docker_run.py --engine e24 --scenario precheck --keep   # one, leaving the engine
 ```
 
 The console needs Node 22 (the major in `panel/.nvmrc`); CI runs every one of these:

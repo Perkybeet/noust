@@ -19,6 +19,7 @@ memory; a newer one is a change of this line, made on purpose.
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
@@ -31,6 +32,8 @@ __all__ = [
     "docker_archive_argv",
     "docker_merge_argv",
     "docker_restore_argv",
+    "handed_archive_argv",
+    "handed_to",
 ]
 
 #: The image every copy and restore of a volume runs in (Alpine 3.24, read on 2026-11-12).
@@ -44,7 +47,29 @@ HELPER_LABEL_ARGS = ["--label", f"{HELPER_LABEL}=volume-backup"]
 DOCKER_VOLUME_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$")
 
 
-def docker_archive_argv(volume: str, directory: Path, filename: str) -> list[str]:
+#: A user and a group, as numbers.
+_OWNER = re.compile(r"[0-9]+:[0-9]+")
+
+
+def handed_to() -> str | None:
+    """
+    Say who a file a helper container writes should be handed to.
+
+    The helper runs as root in its container, so what it writes into a folder of the machine is root's. On a
+    server Noust is root too and there is nothing to hand over; the central of a NAS is an unprivileged user
+    (uid 10001) that must still be able to give the archive its mode and read it back.
+
+    Returns:
+        ``uid:gid`` of this process when it is not root; None when it is.
+    """
+    if os.geteuid() == 0:
+        return None
+    return f"{os.geteuid()}:{os.getegid()}"
+
+
+def docker_archive_argv(
+    volume: str, directory: Path, filename: str, *, owner: str | None = None
+) -> list[str]:
     """
     Build the command that tars a Docker volume into a file of a host directory.
 
@@ -55,11 +80,17 @@ def docker_archive_argv(volume: str, directory: Path, filename: str) -> list[str
         volume: The volume's name.
         directory: The host directory the archive is written in.
         filename: The archive's name there.
+        owner: ``uid:gid`` the archive is handed to once it is written (:func:`handed_to`); the helper's own
+            (root) when None.
 
     Returns:
-        The argv.
+        The argv. With an owner, the helper runs a shell script of fixed text and the archive's name and the
+        owner are its parameters, never part of it.
+
+    Raises:
+        ValueError: The owner is not two numbers.
     """
-    return [
+    head = [
         "docker",
         "run",
         "--rm",
@@ -69,13 +100,38 @@ def docker_archive_argv(volume: str, directory: Path, filename: str) -> list[str
         f"{directory}:/backup",
         *HELPER_LABEL_ARGS,
         HELPER_IMAGE,
-        "tar",
-        "czf",
-        f"/backup/{filename}",
-        "-C",
-        "/data",
-        ".",
     ]
+    if owner is None:
+        return [*head, "tar", "czf", f"/backup/{filename}", "-C", "/data", "."]
+    if not _OWNER.fullmatch(owner):
+        raise ValueError(f"{owner!r} is not a user and a group number")
+    return [
+        *head,
+        "sh",
+        "-c",
+        'tar czf "/backup/$1" -C /data . && chown "$2" "/backup/$1"',
+        "sh",
+        filename,
+        owner,
+    ]
+
+
+def handed_archive_argv(volume: str, directory: Path, filename: str) -> list[str]:
+    """
+    Build the command that tars a volume and hands the archive to whoever runs this process.
+
+    Every caller that keeps the archive asks for this one, so none forgets that the helper container is
+    root and a central that is not could not give the file its mode.
+
+    Args:
+        volume: The volume's name.
+        directory: The host directory the archive is written in.
+        filename: The archive's name there.
+
+    Returns:
+        The argv of :func:`docker_archive_argv`, with the owner :func:`handed_to` says.
+    """
+    return docker_archive_argv(volume, directory, filename, owner=handed_to())
 
 
 def docker_restore_argv(volume: str, directory: Path, filename: str) -> list[str]:

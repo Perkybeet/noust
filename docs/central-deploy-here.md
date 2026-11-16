@@ -88,9 +88,11 @@ services:
     stop_grace_period: 20s
 ```
 
-The image carries Docker's command line (28.5.2) and Compose (2.40.3), each fixed by the sum of its file in the
-build (`packaging/container/install_docker_client.py` says why these two), so nothing is installed on the NAS: the
-image is the same one whether it deploys here or not, and without the socket and the setting they do nothing.
+The image carries Docker's command line (29.9.3), Compose (5.7.1) and buildx (0.39.0), each fixed by the sum of its
+file in the build (`packaging/container/install_docker_client.py` says why these three), so nothing is installed on the
+NAS: the image is the same one whether it deploys here or not, and without the socket and the setting they do nothing.
+They talk to the engine of a Synology (Docker 24.0.2), to Debian's 20.10 and to the 29.x of a UGREEN alike: the client
+negotiates the API down to what the engine speaks.
 
 Why the folder is mounted at the same path: when the central tells Docker to mount
 `./data` of a stack, **Docker resolves the path on the NAS, not inside the central's container**. If
@@ -127,6 +129,13 @@ that deploys here:
   A stack in a folder the central does not see is refused before anything is tried, with the line to add
   for that folder. The central runs as user 10001: the compose file, the `.env` and the folder must be
   readable by it (a group, an ACL, or the owner), and it says which one is not.
+- **A stack that another Compose started is refused the first time, and says which.** Compose keeps a hash
+  of each service's configuration in a label of the container, and the Compose in the central's image reads the
+  same file to another hash than the one the NAS's own (Synology's Container Manager, the Compose you use at its
+  shell) did, so every container of the stack looks changed to it and starting the stack would recreate it. It is
+  refused with the versions of both ("These containers were made by Docker Compose 2.19.1 and this is Compose
+  5.7.1"), and nothing is touched. Bring the stack up once with the central's own Compose, which recreates its
+  containers, or bring it with `--accept-recreate` knowing they restart; after that the two agree.
 - **No unit is written, and no site is looked for.** What keeps the stack alive after the NAS restarts is
   Docker, by the restart policy of its containers, and what reaches it is the port its own file publishes.
   A container whose policy would not bring it back (`no`, `on-failure`, or stopped under `unless-stopped`) is

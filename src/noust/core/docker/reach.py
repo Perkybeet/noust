@@ -25,10 +25,10 @@ there is no other, the default bridge, on which a central started with Docker's 
 from __future__ import annotations
 
 import json
-import re
 import socket
 from typing import Any
 
+from noust.core.docker import names
 from noust.core.exceptions import DockerError
 from noust.core.runner import CommandRunner
 
@@ -53,12 +53,6 @@ MODE_FORMAT = "{{.HostConfig.NetworkMode}}"
 
 #: Seconds a question to Docker gets.
 _TIMEOUT = 30
-
-#: Where Docker keeps the files of a container, which a container sees as its own ``/etc/hostname``.
-_CONTAINER_FILES = re.compile(r"/containers/([0-9a-f]{64})/")
-
-#: What Docker names a container by default: the first twelve characters of its identifier.
-_SHORT_ID = re.compile(r"[0-9a-f]{12}")
 
 #: The networks that are not one a person made.
 _DEFAULTS = frozenset({"bridge", "host", "none"})
@@ -87,11 +81,11 @@ def own_container_id(*, mountinfo: str | None = None, hostname: str | None = Non
                 mountinfo = handle.read()
         except OSError:
             mountinfo = ""
-    found = _CONTAINER_FILES.search(mountinfo)
+    found = names.CONTAINER_FILES.search(mountinfo)
     if found:
         return found.group(1)
     name = hostname if hostname is not None else socket.gethostname()
-    return name if _SHORT_ID.fullmatch(name) else None
+    return name if names.SHORT_CONTAINER_ID.fullmatch(name) else None
 
 
 def _inspect(runner: CommandRunner, container: str, template: str) -> str:

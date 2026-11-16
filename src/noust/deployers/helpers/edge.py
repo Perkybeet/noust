@@ -65,12 +65,14 @@ FIRST_PORT = 8081
 #: What a machine's name may be made of, as a URL's host.
 _HOST = re.compile(r"[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?")
 
-#: How Docker says that the machine's port is taken (``Bind for 0.0.0.0:8081 failed: port is already
-#: allocated``) and how the userland proxy says it (``listen tcp4 0.0.0.0:443: bind: address already in
-#: use``).
+#: How Docker says that the machine's port is taken: another container has it (``Bind for 0.0.0.0:8081 failed:
+#: port is already allocated``), the userland proxy of 20.10 to 24 when a process has it (``listen tcp4 0.0.0.0:443:
+#: bind: address already in use``) and Docker 29 for the same (``failed to bind host port 0.0.0.0:8081/tcp:
+#: address already in use``).
 _TAKEN = re.compile(
     r"Bind for \S*?:(\d+) failed: port is already allocated"
     r"|listen tcp[46]? \S*?:(\d+): bind: address already in use"
+    r"|failed to bind host port \S*?:(\d+)/(?:tcp|udp|sctp): address already in use"
 )
 
 
@@ -242,7 +244,7 @@ def port_taken(said: str) -> int | None:
     found = _TAKEN.search(said)
     if found is None:
         return None
-    return int(found.group(1) or found.group(2))
+    return int(found.group(1) or found.group(2) or found.group(3))
 
 
 def propose_port(taken: int, runner: CommandRunner | None = None) -> int | None:

@@ -5,8 +5,10 @@
 The Docker client the central's image carries, and the sums that fix it.
 
 The central deploys containers on its machine's Docker when it is asked to, with the ``docker`` program and
-Compose's plugin, so the image has both. They are fetched in a build stage of their own by
-``packaging/container/install_docker_client.py`` and the final image copies two files out of it. What is held
+Compose's plugin, so the image has both, and buildx, which ``docker build`` and the question of what a tag is now ask of
+a registry need (Docker's own ``docker build`` is BuildKit's, and says so when the plugin is missing). They are
+fetched in a build stage of their own by ``packaging/container/install_docker_client.py`` and the final image copies
+three files out of it. What is held
 here is that a file is written only when its sum is the pinned one (so a release replaced upstream, or a
 download altered on the way, fails the build), that both processors Noust publishes for are pinned, and that
 the image is still what it was: an unprivileged hub that deploys nothing unless it is asked twice.
@@ -58,16 +60,16 @@ class TestThePins:
         self, pins: ModuleType
     ) -> None:
         assert set(pins.PINS) == {"x86_64", "aarch64"}
-        for name, docker_sum, compose_sum in pins.PINS.values():
+        for name, docker_sum, compose_sum, buildx_sum in pins.PINS.values():
             assert name in ("x86_64", "aarch64")
-            assert re.fullmatch(r"[0-9a-f]{64}", docker_sum)
-            assert re.fullmatch(r"[0-9a-f]{64}", compose_sum)
+            for found in (docker_sum, compose_sum, buildx_sum):
+                assert re.fullmatch(r"[0-9a-f]{64}", found)
 
     def test_each_file_has_its_own_sum_and_none_is_shared_by_two(self, pins: ModuleType) -> None:
         sums = [
             value
-            for _, docker_sum, compose_sum in pins.PINS.values()
-            for value in (docker_sum, compose_sum)
+            for _, docker_sum, compose_sum, buildx_sum in pins.PINS.values()
+            for value in (docker_sum, compose_sum, buildx_sum)
         ]
 
         assert len(set(sums)) == len(sums)
@@ -77,10 +79,18 @@ class TestThePins:
     ) -> None:
         docker = pins.DOCKER_URL.format(arch="x86_64", version=pins.DOCKER_VERSION)
         compose = pins.COMPOSE_URL.format(arch="aarch64", version=pins.COMPOSE_VERSION)
+        buildx = pins.BUILDX_URL.format(arch="arm64", version=pins.BUILDX_VERSION)
 
-        assert docker == "https://download.docker.com/linux/static/stable/x86_64/docker-28.5.2.tgz"
+        assert docker == (
+            f"https://download.docker.com/linux/static/stable/x86_64/docker-{pins.DOCKER_VERSION}.tgz"
+        )
         assert compose == (
-            "https://github.com/docker/compose/releases/download/v2.40.3/docker-compose-linux-aarch64"
+            "https://github.com/docker/compose/releases/download/"
+            f"v{pins.COMPOSE_VERSION}/docker-compose-linux-aarch64"
+        )
+        assert buildx == (
+            "https://github.com/docker/buildx/releases/download/"
+            f"v{pins.BUILDX_VERSION}/buildx-v{pins.BUILDX_VERSION}.linux-arm64"
         )
 
     def test_a_download_that_is_not_https_is_refused_before_anything_is_asked(
@@ -94,25 +104,30 @@ class TestWhatIsWritten:
     @pytest.fixture
     def machine(self, pins: ModuleType, monkeypatch: pytest.MonkeyPatch) -> dict[str, bytes]:
         """A processor whose pins are the sums of the files this test serves."""
-        program, plugin = b"docker program", b"compose plugin"
+        program, plugin, builder = b"docker program", b"compose plugin", b"buildx plugin"
         package = package_with(program)
-        monkeypatch.setitem(pins.PINS, "x86_64", ("x86_64", sha(package), sha(plugin)))
-        return {"program": program, "plugin": plugin, "package": package}
+        monkeypatch.setitem(
+            pins.PINS, "x86_64", ("x86_64", sha(package), sha(plugin), sha(builder))
+        )
+        return {"program": program, "plugin": plugin, "package": package, "buildx": builder}
 
     def serve(self, pins: ModuleType, files: dict[str, bytes]) -> object:
         def fetch(url: str) -> bytes:
-            return files["package"] if url.endswith(".tgz") else files["plugin"]
+            if url.endswith(".tgz"):
+                return files["package"]
+            return files["buildx"] if "buildx" in url else files["plugin"]
 
         return fetch
 
-    def test_both_programs_are_written_executable_when_the_files_are_the_pinned_ones(
+    def test_the_three_programs_are_written_executable_when_the_files_are_the_pinned_ones(
         self, pins: ModuleType, machine: dict[str, bytes], tmp_path: Path
     ) -> None:
         written = pins.install(tmp_path, "x86_64", self.serve(pins, machine))
 
-        assert [path.name for path in written] == ["docker", "docker-compose"]
+        assert [path.name for path in written] == ["docker", "docker-compose", "docker-buildx"]
         assert (tmp_path / "docker").read_bytes() == machine["program"]
         assert (tmp_path / "docker-compose").read_bytes() == machine["plugin"]
+        assert (tmp_path / "docker-buildx").read_bytes() == machine["buildx"]
         assert all(path.stat().st_mode & 0o111 == 0o111 for path in written)
 
     def test_a_file_that_is_not_the_pinned_one_writes_nothing_and_names_both_sums(
@@ -137,10 +152,20 @@ class TestWhatIsWritten:
             entry.size = 1
             archive.addfile(entry, io.BytesIO(b"x"))
         empty, plugin = buffer.getvalue(), b"plugin"
-        monkeypatch.setitem(pins.PINS, "x86_64", ("x86_64", sha(empty), sha(plugin)))
+        monkeypatch.setitem(pins.PINS, "x86_64", ("x86_64", sha(empty), sha(plugin), sha(plugin)))
 
         with pytest.raises((pins.PinError, KeyError)):
             pins.install(tmp_path, "x86_64", lambda url: empty if url.endswith(".tgz") else plugin)
+
+    def test_a_buildx_that_was_swapped_upstream_writes_nothing_too(
+        self, pins: ModuleType, machine: dict[str, bytes], tmp_path: Path
+    ) -> None:
+        replaced = {**machine, "buildx": b"a buildx that was swapped upstream"}
+
+        with pytest.raises(pins.PinError, match="buildx-v"):
+            pins.install(tmp_path, "x86_64", self.serve(pins, replaced))
+
+        assert list(tmp_path.iterdir()) == []
 
     def test_a_processor_that_has_no_pin_is_said_with_the_ones_that_do(
         self, pins: ModuleType, tmp_path: Path
@@ -189,7 +214,7 @@ class TestTheImage:
         assert "install_docker_client.py /out" in builder
         assert "apt-get" not in builder and "curl" not in builder and "wget" not in builder
 
-    def test_the_final_image_copies_two_files_out_of_it_and_installs_nothing_else(
+    def test_the_final_image_copies_three_files_out_of_it_and_installs_nothing_else(
         self, stages: dict[str, list[str]]
     ) -> None:
         copies = [line for line in stages["final"] if "--from=docker-client" in line]
@@ -198,6 +223,8 @@ class TestTheImage:
             "COPY --from=docker-client /out/docker /usr/local/bin/docker",
             "COPY --from=docker-client /out/docker-compose "
             "/usr/local/lib/docker/cli-plugins/docker-compose",
+            "COPY --from=docker-client /out/docker-buildx "
+            "/usr/local/lib/docker/cli-plugins/docker-buildx",
         ]
         installs = [line for line in stages["final"] if "apt-get install" in line]
         assert len(installs) == 1 and "docker" not in installs[0]

@@ -106,7 +106,7 @@ from noust.core.sealing import SealError
 from noust.core.store import AppType, get_store
 from noust.core.utils import domain_to_app_name
 from noust.managers.app_identity import ensure_service_account
-from noust.managers.docker_volumes import docker_archive_argv, docker_merge_argv
+from noust.managers.docker_volumes import docker_merge_argv, handed_archive_argv
 from noust.managers.retention import select_expired
 from noust.managers.service_manager import ServiceManager
 from noust.managers.source_manager import SourceError, extract_archive, git_tree_owner
@@ -3894,7 +3894,7 @@ class BackupManager:
 
             target = destination / filename
             result = self._exec(
-                docker_archive_argv(vol_name, destination, filename), timeout=_DOCKER_TIMEOUT
+                handed_archive_argv(vol_name, destination, filename), timeout=_DOCKER_TIMEOUT
             )
 
             if not result.success:

@@ -266,6 +266,39 @@ class TestAPlanThatChanged:
         assert machine.changes() == []
 
 
+class TestWhatAPruneSays:
+    """Docker says what a prune freed in two ways, and a cleanup reads both."""
+
+    @pytest.mark.parametrize(
+        ("said", "freed"),
+        [
+            # ``docker image prune`` and the classic builder.
+            ("Deleted Images:\nuntagged: x\n\nTotal reclaimed space: 6.1GB\n", 6_100_000_000),
+            ("Total reclaimed space: 0B\n", 0),
+            # ``docker builder prune`` on Docker 24.0.2, as it printed it: BuildKit's own summary line.
+            ("Total:\t0B\n", 0),
+            (
+                "ID\t\t\t\t\t\tRECLAIMABLE\tSIZE\t\tLAST ACCESSED\n"
+                "wi2q5xk6c3y3vykk1ixjtbvxv\ttrue\t\t1.887kB\t\t4 minutes ago\n"
+                "Total:\t1.887kB\n",
+                1_887,
+            ),
+            ("Total:  312.4MB\n", 312_400_000),
+        ],
+    )
+    def test_the_space_it_freed_is_read_whichever_way_docker_says_it(
+        self, said: str, freed: int
+    ) -> None:
+        from noust.core.docker.cleanup import parse_reclaimed
+
+        assert parse_reclaimed(said) == freed
+
+    def test_a_prune_that_says_nothing_of_space_is_none(self) -> None:
+        from noust.core.docker.cleanup import parse_reclaimed
+
+        assert parse_reclaimed("nothing to prune\n") is None
+
+
 class TestApplyingIt:
     def apply(
         self, machine: DockerMachine, kinds: set[str], *, confirm: dict[str, str] | None = None

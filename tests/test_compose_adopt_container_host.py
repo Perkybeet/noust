@@ -16,6 +16,7 @@ would not come back after the NAS restarts, which Noust does not change because 
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -250,6 +251,25 @@ def test_a_folder_the_central_s_user_cannot_read_is_said_before_compose_is_asked
 
     assert "cannot read" in caught.value.message
     assert "docker-compose.prod.yml" in caught.value.message
+    assert not any("--dry-run" in call for call in docker.calls)
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root opens any folder")
+def test_a_folder_the_central_s_user_cannot_even_open_is_said_and_not_a_traceback(
+    a_container_host: None, root: Path, docker: Docker, store: NoustStore
+) -> None:
+    # What the NAS gave it: a shared folder whose mode is 700 for somebody else. Looking for the compose file in it
+    # is what failed first, with a bare PermissionError, on a real engine (Docker 24.0.2, the central as uid 10001).
+    root.chmod(0o000)
+    try:
+        with pytest.raises(DeploymentError) as caught:
+            compose_adopt.plan_adoption(DOMAIN, root)
+    finally:
+        root.chmod(0o755)
+
+    assert "cannot read" in caught.value.message
+    assert str(root) in caught.value.message
+    assert "ACL" in (caught.value.details or "")
     assert not any("--dry-run" in call for call in docker.calls)
 
 

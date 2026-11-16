@@ -146,9 +146,21 @@ class TestAPortTheMachineUses:
                 "Error response from daemon: listen tcp6 [::]:9000: bind: address already in use",
                 9000,
             ),
+            # Docker 29.9.3, a process of the machine holding the port, as `docker run -p 18301:8080` said it.
+            (
+                "docker: Error response from daemon: failed to set up container networking: driver failed "
+                "programming external connectivity on endpoint pedantic_engelbart "
+                "(7f8ba1b353206e7b44b98748376b8f224155f9cca2600a6b81146d059759a781): "
+                "failed to bind host port 0.0.0.0:18301/tcp: address already in use",
+                18301,
+            ),
+            (
+                "failed to bind host port [::]:8081/tcp: address already in use",
+                8081,
+            ),
         ],
     )
-    def test_docker_s_two_wordings_are_read(self, said: str, port: int) -> None:
+    def test_docker_s_wordings_are_read(self, said: str, port: int) -> None:
         assert edges.port_taken(said) == port
 
     def test_anything_else_is_not_a_port_problem(self) -> None:

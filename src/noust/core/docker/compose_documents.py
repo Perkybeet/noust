@@ -22,6 +22,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from noust.core.docker.engine import ADOPTION_COMPOSE, compose_version
 from noust.core.runner import CommandRunner
 
 __all__ = ["REHEARSE_TIMEOUT", "RESOLVE_TIMEOUT", "rehearse_document", "resolve_document"]
@@ -118,4 +119,19 @@ def rehearse_document(
         timeout=REHEARSE_TIMEOUT,
     )
     output = "\n".join(part for part in (result.stdout.strip(), result.stderr.strip()) if part)
-    return result.success, output
+    if result.success:
+        return True, output
+    version = compose_version(runner)
+    if version and version < ADOPTION_COMPOSE:
+        # Before 2.20 there is no ``up --dry-run``, and Compose 2.19.1 answered the flag with a complaint about a
+        # project name: the age of the Compose is what the person needs to hear, and what it said follows it.
+        first = next(
+            (line.strip() for line in output.splitlines() if line.strip()), "it said nothing"
+        )
+        needed = ".".join(str(number) for number in ADOPTION_COMPOSE)
+        shown = ".".join(str(number) for number in version)
+        output = (
+            f"Docker Compose {shown} cannot rehearse what a change would do: that needs Compose {needed} "
+            f"or later. It said: {first}\n{output}"
+        )
+    return False, output

@@ -20,9 +20,11 @@
 # means the image is exactly the release and does not depend on PyPI having
 # published it first.
 
-# The two programs that talk to Docker are fetched in a stage of their own, each one
-# pinned by the SHA-256 of its file (install_docker_client.py says which versions and why),
-# and the final image copies out the two files: nothing of the download reaches it.
+# The programs that talk to Docker (its command line, Compose's plugin and buildx's, which
+# `docker build` and the check for a new version of an image need) are fetched in a stage of
+# their own, each one pinned by the SHA-256 of its file (install_docker_client.py says which
+# versions and why), and the final image copies out the three files: nothing of the download
+# reaches it.
 FROM python:3.12-slim-bookworm AS docker-client
 COPY install_docker_client.py /tmp/install_docker_client.py
 RUN python3 /tmp/install_docker_client.py /out
@@ -68,10 +70,11 @@ RUN pip install --no-cache-dir --no-compile --upgrade pip \
 COPY dist/install.sh /usr/share/noust/install.sh
 RUN chmod 0644 /usr/share/noust/install.sh
 
-# Docker's command line and the Compose plugin, where the program looks for plugins. They talk to the
-# machine's Docker through its socket only when the compose file mounts one.
+# Docker's command line and the Compose and buildx plugins, where the program looks for plugins. They
+# talk to the machine's Docker through its socket only when the compose file mounts one.
 COPY --from=docker-client /out/docker /usr/local/bin/docker
 COPY --from=docker-client /out/docker-compose /usr/local/lib/docker/cli-plugins/docker-compose
+COPY --from=docker-client /out/docker-buildx /usr/local/lib/docker/cli-plugins/docker-buildx
 
 # An unprivileged user owns everything the central keeps. Nothing it does
 # needs root: it listens on an unprivileged port and only dials out. What it deploys

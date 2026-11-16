@@ -2292,7 +2292,7 @@ def health_gate_for(
         # A pool in the shared PHP-FPM, not a unit: reloaded and asked over
         # FastCGI, with the same path, expectation and timeout.
         return php_health_gate_for_app(app, log)
-    services = ServiceManager()
+    services = supervision.service_control(ServiceManager)
     if app.app_type == AppType.MONOREPO.value:
         workspaces = sorted(
             (s for s in store.list_services() if app.id is not None and s.app_id == app.id),

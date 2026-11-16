@@ -56,7 +56,9 @@ ORDER = ("container", "image", "network", "volume", "cache")
 #: What the name of a volume nobody named looks like.
 _ANONYMOUS = re.compile(r"[0-9a-f]{64}")
 
-_RECLAIMED = re.compile(r"Total reclaimed space:\s*([\d.]+\s*[kKMGTP]?B)")
+#: How a prune ends: ``Total reclaimed space: 6.1GB`` (``docker image prune``, the classic builder) or, from
+#: ``docker builder prune`` on a Docker whose builder is BuildKit (24.0.2 prints it), ``Total:`` and a tab.
+_RECLAIMED = re.compile(r"^Total(?: reclaimed space)?:\s*([\d.]+\s*[kKMGTP]?B)\s*$", re.MULTILINE)
 
 
 @dataclass(frozen=True)
@@ -218,8 +220,8 @@ def parse_reclaimed(text: str) -> int | None:
     """
     from noust.core.docker.reading import parse_size
 
-    found = _RECLAIMED.search(text)
-    return parse_size(found.group(1)) if found else None
+    found = _RECLAIMED.findall(text)
+    return parse_size(found[-1]) if found else None
 
 
 def _label(image: Image) -> str:

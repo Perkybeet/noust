@@ -610,16 +610,34 @@ class DockerMachine(FakeRunner):
         return 0, box.log, ""
 
     def _events(self, argv: tuple[str, ...]) -> tuple[int, str, str]:
+        # What a restart policy leaves in Docker's events (seen on Docker 20.10, 24.0.2 and 29): the container's
+        # first start, then a death and a start for each time Docker brought it back. Only ``docker restart``,
+        # which a person types, adds a ``restart`` event.
+        def event(box: Box, action: str, **attributes: str) -> str:
+            return json.dumps(
+                {
+                    "status": action,
+                    "id": box.id,
+                    "from": box.image,
+                    "Type": "container",
+                    "Action": action,
+                    "Actor": {
+                        "ID": box.id,
+                        "Attributes": {"image": box.image, "name": box.name, **attributes},
+                    },
+                    "scope": "local",
+                    "time": 1_700_000_000,
+                    "timeNano": 1_700_000_000_000_000_000,
+                }
+            )
+
         lines = []
         for box in self.boxes.values():
+            if box.restarts_recent:
+                lines.append(event(box, "start"))
             for _ in range(box.restarts_recent):
-                event = {
-                    "Type": "container",
-                    "Action": "restart",
-                    "Actor": {"ID": box.id, "Attributes": {"name": box.name}},
-                    "time": 1_700_000_000,
-                }
-                lines.append(json.dumps(event))
+                lines.append(event(box, "die", exitCode="1"))
+                lines.append(event(box, "start"))
         return 0, "\n".join(lines), ""
 
     def _image_ls(self, argv: tuple[str, ...]) -> tuple[int, str, str]:

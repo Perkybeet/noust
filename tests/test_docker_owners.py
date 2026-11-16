@@ -347,6 +347,30 @@ class TestWhatTheStoreRegistered:
         finally:
             NoustStore.reset_instance()
 
+    @pytest.mark.parametrize(
+        "line",
+        [
+            # What a real central saw on Docker 24.0.2 whose data lives in a volume (the root of the file system the
+            # mount comes from is not ``/var/lib/docker``): the path of the files of the container, whatever it is.
+            "1228 1217 8:64 /data/docker/volumes/engine-lib/_data/containers/{id}/hostname /etc/hostname "
+            "ro,relatime - ext4 /dev/sde rw",
+            # A Synology keeps Docker in ``/volume1/@docker``: there is no ``/docker/`` in it.
+            "1228 1217 0:51 /@docker/containers/{id}/hostname /etc/hostname rw,relatime - btrfs /dev/mapper/vg rw",
+            "1228 1217 0:51 /var/lib/docker/containers/{id}/resolv.conf /etc/resolv.conf rw - ext4 /dev/sda1 rw",
+        ],
+    )
+    def test_the_container_is_found_in_whatever_folder_docker_keeps_its_files(
+        self, line: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        from noust.core.docker import owners
+
+        # With a host name of its own (no short id to fall back on): the files are the only way to know.
+        monkeypatch.setenv("HOSTNAME", "nas-central")
+        mountinfo = tmp_path / "mountinfo"
+        mountinfo.write_text(line.format(id="f" * 64) + "\n")
+
+        assert owners.own_container_ids(mountinfo) == frozenset({"f" * 64})
+
     @pytest.mark.parametrize("own", [{}, {"HOSTNAME": "0123456789ab"}])
     def test_the_container_noust_runs_in_is_read_from_where_it_runs(
         self, own: dict[str, str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path

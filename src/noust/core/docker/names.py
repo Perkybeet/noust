@@ -20,11 +20,13 @@ import re
 from noust.core import legacy_names, paths
 
 __all__ = [
+    "CONTAINER_FILES",
     "IMAGE_PREFIX",
     "LEGACY_PREVIOUS_TAG",
     "PREVIOUS_TAG",
     "PREVIOUS_TAGS",
     "RELEASE_ID",
+    "SHORT_CONTAINER_ID",
     "TAG_PREFIX",
     "image_repository",
     "image_tag",
@@ -40,6 +42,17 @@ __all__ = [
     "repository_name",
     "tunnel_container",
 ]
+
+# -- Which container Noust runs in -----------------------------------------------------------------
+
+#: Where Docker keeps the files of a container, which that container sees as its own ``/etc/hostname``,
+#: ``/etc/hosts`` and ``/etc/resolv.conf``: ``<Docker's folder>/containers/<id>/hostname``. Docker's folder is
+#: wherever the engine was told to keep it (a Synology's is ``/volume1/@docker``, and when it is a volume the path
+#: ``mountinfo`` shows does not hold ``docker`` at all), so only what is after it is asked for.
+CONTAINER_FILES = re.compile(r"/containers/([0-9a-f]{64})/")
+
+#: What Docker names a container by default: the first twelve characters of its identifier.
+SHORT_CONTAINER_ID = re.compile(r"[0-9a-f]{12}")
 
 # -- The images an application keeps to go back to -------------------------------------------------
 

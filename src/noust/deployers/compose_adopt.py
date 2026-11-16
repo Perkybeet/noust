@@ -54,6 +54,7 @@ from noust.core import audit, paths
 from noust.core.applock import app_lock
 from noust.core.config import Config
 from noust.core.deploy_events import operation
+from noust.core.docker.engine import compose_version, version_tuple
 from noust.core.docker.gate import DockerGate
 from noust.core.exceptions import DeploymentError, NoustError, ServiceError
 from noust.core.fs import is_rehearsal
@@ -85,6 +86,7 @@ from noust.validators.names import resolve_within, validate_filename
 
 #: The labels Compose puts on every container it creates.
 PROJECT_LABEL = "com.docker.compose.project"
+COMPOSE_VERSION_LABEL = "com.docker.compose.version"
 CONFIG_FILES_LABEL = "com.docker.compose.project.config_files"
 WORKING_DIR_LABEL = "com.docker.compose.project.working_dir"
 
@@ -97,6 +99,7 @@ _PS_FORMAT = "\t".join(
         f'{{{{.Label "{PROJECT_LABEL}"}}}}',
         f'{{{{.Label "{CONFIG_FILES_LABEL}"}}}}',
         f'{{{{.Label "{WORKING_DIR_LABEL}"}}}}',
+        f'{{{{.Label "{COMPOSE_VERSION_LABEL}"}}}}',
     )
 )
 
@@ -166,6 +169,7 @@ class StackContainer:
         project: Its Compose project.
         config_files: The compose files it was made from, as Compose recorded them.
         working_dir: The project directory Compose recorded.
+        compose_version: The version of Compose that made it, as Compose recorded it; empty when it did not.
     """
 
     id: str
@@ -174,6 +178,7 @@ class StackContainer:
     project: str
     config_files: tuple[str, ...]
     working_dir: str
+    compose_version: str = ""
 
 
 #: The two things that can keep an adopted stack alive: a unit of systemd on a server, and Docker's own
@@ -334,9 +339,11 @@ def parse_containers(stdout: str) -> list[StackContainer]:
     found: list[StackContainer] = []
     for line in stdout.splitlines():
         parts = line.split("\t")
-        if len(parts) != 6 or not parts[0].strip() or not parts[3].strip():
+        if len(parts) not in (6, 7) or not parts[0].strip() or not parts[3].strip():
             continue
-        container_id, name, state, project, files, working_dir = (p.strip() for p in parts)
+        container_id, name, state, project, files, working_dir, *made_by = (
+            p.strip() for p in parts
+        )
         found.append(
             StackContainer(
                 id=container_id,
@@ -345,6 +352,7 @@ def parse_containers(stdout: str) -> list[StackContainer]:
                 project=project,
                 config_files=tuple(f.strip() for f in files.split(",") if f.strip()),
                 working_dir=working_dir,
+                compose_version=made_by[0] if made_by else "",
             )
         )
     return found
@@ -793,6 +801,10 @@ def plan_adoption(
         domain, source or str(path), app_path=path, compose_file=compose_file, port=port
     )
     deployer._is_new_deployment = False
+    docker_keeps_it = keeps_alive_with_docker()
+    if docker_keeps_it:
+        # First of all: looking for the compose file in a folder that cannot be opened is a bare PermissionError.
+        _require_readable(path, None)
     deployer._discover_compose_file()
     # The host privilege guard runs below, once the containers say whether
     # the stack really runs as this file says.
@@ -800,7 +812,6 @@ def plan_adoption(
     compose_path = deployer._compose_file_path()
     claim_deploy_target(path, domain=domain, existing=None, replace=False, adopt=True)
 
-    docker_keeps_it = keeps_alive_with_docker()
     if docker_keeps_it:
         _require_readable(path, compose_path)
     else:
@@ -853,7 +864,12 @@ def plan_adoption(
             "project is the name Compose gives it, and the rehearsal below creates everything."
         )
 
-    dry_run, changes = rehearse_up(deployer, project, accept_recreate=accept_recreate)
+    dry_run, changes = rehearse_up(
+        deployer,
+        project,
+        accept_recreate=accept_recreate,
+        started_by=tuple(sorted({c.compose_version for c in containers if c.compose_version})),
+    )
     guard_running_stack(
         deployer,
         running=any(c.state == "running" for c in containers),
@@ -927,7 +943,7 @@ def plan_adoption(
     )
 
 
-def _require_readable(folder: Path, compose_path: Path) -> None:
+def _require_readable(folder: Path, compose_path: Path | None) -> None:
     """
     Refuse a stack whose files the central's own user cannot read, before Compose is asked.
 
@@ -938,14 +954,14 @@ def _require_readable(folder: Path, compose_path: Path) -> None:
 
     Args:
         folder: The directory the stack runs from.
-        compose_path: Its compose file.
+        compose_path: Its compose file; None before it is known, when only the folder can be judged.
 
     Raises:
         DeploymentError: The folder, the compose file or the ``.env`` cannot be read by this user.
     """
     uid, gid = os.getuid(), os.getgid()
     for target in (folder, compose_path, folder / ".env"):
-        if not target.exists():
+        if target is None or not target.exists():
             continue
         needed = os.R_OK | os.X_OK if target.is_dir() else os.R_OK
         if os.access(target, needed):
@@ -1052,6 +1068,34 @@ def guard_running_stack(
     )
 
 
+def _another_compose(runner: CommandRunner, started_by: Sequence[str]) -> str:
+    """
+    Say when the containers were made by another Compose than the one asked now.
+
+    A stack started by the machine's own Compose (a NAS's Container Manager, a person at its shell) and read by the
+    Compose that is in this image comes out as changed in every container, whatever the file says, because Compose
+    keeps a hash of each service's configuration in a label and another version does not read a service to the same
+    hash. The rehearsal cannot tell that from a real change, so the sentence says what the labels say.
+
+    Args:
+        runner: Asks Docker for the version of its Compose.
+        started_by: The versions of Compose that made the containers.
+
+    Returns:
+        A sentence that ends with a space, or nothing when the Compose is the same or it is not known.
+    """
+    current = compose_version(runner)
+    other = [version for version in started_by if version_tuple(version) != current]
+    if not current or not other:
+        return ""
+    shown = ".".join(str(number) for number in current)
+    return (
+        f"These containers were made by Docker Compose {', '.join(other)} and this is Compose {shown}: another "
+        "version does not read a service to the same configuration hash, so it takes containers for changed "
+        "that are not. "
+    )
+
+
 def rehearse_up(
     deployer: DockerComposeDeployer,
     project: str | None,
@@ -1059,6 +1103,7 @@ def rehearse_up(
     accept_recreate: bool,
     action: str = "Adopting",
     retry: str = "adopt",
+    started_by: Sequence[str] = (),
 ) -> tuple[str, tuple[str, ...]]:
     """
     Ask Compose what ``up`` would do to the stack, and refuse what changes it.
@@ -1075,6 +1120,7 @@ def rehearse_up(
             (``Adopting``).
         retry: The command, as a verb, that takes ``--accept-recreate``
             (``adopt``).
+        started_by: The versions of Compose that made the containers that run, when they said.
 
     Returns:
         Compose's output and the lines that would change something.
@@ -1102,7 +1148,9 @@ def rehearse_up(
             f"Starting {deployer.domain}'s stack as Noust would changes what runs",
             details="Compose would create, recreate or remove: "
             + "; ".join(changes)
-            + ". The running containers differ from the compose file (another project, "
+            + ". "
+            + _another_compose(deployer.runner, started_by)
+            + "The running containers differ from the compose file (another project, "
             "file, profile or environment). Bring the stack up the way it is meant to run, "
             f"or {retry} with --accept-recreate (accept_recreate in the API) to accept it.",
             output=output,

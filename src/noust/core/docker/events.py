@@ -6,8 +6,13 @@ What Docker did lately: how many times it restarted each container in the last m
 
 A container's ``RestartCount`` is its whole life: one that restarted forty times last month is not
 falling today. What says a container keeps falling is how often Docker restarted it in the last ten
-minutes, and Docker keeps that: ``docker events`` over a window, asked for restarts only. The window is
-given as two timestamps, which is the form every Docker that Noust supports reads.
+minutes, and Docker keeps that: ``docker events`` over a window. The window is given as two timestamps, which
+is the form every Docker that Noust supports reads.
+
+**A restart is a death followed by a start.** Docker has an event called ``restart``, and asking for it
+finds nothing of what matters: it is only emitted by ``docker restart``, which a person types. A container whose
+restart policy brings it back leaves ``die`` and ``start`` and no ``restart`` (seen on Docker 20.10, 24.0.2 and 29),
+so a loop that asked for restarts counted none. What is counted is the starts that follow a death.
 """
 
 from __future__ import annotations
@@ -32,6 +37,10 @@ def recent_restarts(
     """
     Count the restarts Docker made in a window that ends now.
 
+    A restart is a ``start`` that comes after a ``die`` of the same container, whoever brought it back (its
+    restart policy, or a person), so one is never counted twice; a container that died and is waiting out
+    Docker's back-off has not restarted yet.
+
     Args:
         runner: Runs the question.
         minutes: How far back to look.
@@ -55,7 +64,9 @@ def recent_restarts(
             "--filter",
             "type=container",
             "--filter",
-            "event=restart",
+            "event=die",
+            "--filter",
+            "event=start",
             "--format",
             "{{json .}}",
         ],
@@ -64,13 +75,23 @@ def recent_restarts(
     if not result.success:
         return {}
     counts: dict[str, int] = {}
+    fallen: set[str] = set()
+    # Docker prints the events of a window in the order they happened.
     for line in result.stdout.splitlines():
         try:
             event = json.loads(line)
         except ValueError:
             continue
-        actor = event.get("Actor") if isinstance(event, dict) else None
+        if not isinstance(event, dict):
+            continue
+        actor = event.get("Actor")
         ident = actor.get("ID") if isinstance(actor, dict) else None
-        if isinstance(ident, str) and ident:
+        action = event.get("Action") or event.get("status")
+        if not isinstance(ident, str) or not ident:
+            continue
+        if action == "die":
+            fallen.add(ident)
+        elif action == "start" and ident in fallen:
+            fallen.discard(ident)
             counts[ident] = counts.get(ident, 0) + 1
     return counts

@@ -243,6 +243,42 @@ def test_an_up_that_would_recreate_something_is_refused_with_its_output(
     assert docker.mutating() == []
 
 
+def test_an_up_that_would_recreate_what_another_compose_started_says_which_compose(
+    root: Path, docker: Docker, web: NginxManager, store: NoustStore, units: Path
+) -> None:
+    from noust.deployers.compose_adopt import AdoptionRefusedError
+
+    # Seen on a real central (Docker 24.0.2): a stack the machine's own Compose (2.19.1) started was refused, and the
+    # sentence blamed the project, the file, a profile or the environment. What differed was the Compose: another
+    # version reads the same stack to another configuration hash, and sees every container as changed.
+    docker.dry_run = RECREATES
+    docker.containers = [(*row, "2.19.1") for row in docker.containers]
+    docker.script(["docker", "compose", "version"], stdout="Docker Compose version v2.40.3\n")
+
+    with pytest.raises(AdoptionRefusedError) as raised:
+        adopt(root, web)
+
+    assert "2.19.1" in raised.value.details and "2.40.3" in raised.value.details
+    assert "--accept-recreate" in raised.value.details
+    assert docker.mutating() == []
+
+
+def test_the_same_compose_is_not_blamed_when_something_really_changed(
+    root: Path, docker: Docker, web: NginxManager, store: NoustStore, units: Path
+) -> None:
+    from noust.deployers.compose_adopt import AdoptionRefusedError
+
+    docker.dry_run = RECREATES
+    docker.containers = [(*row, "2.40.3") for row in docker.containers]
+    docker.script(["docker", "compose", "version"], stdout="Docker Compose version v2.40.3\n")
+
+    with pytest.raises(AdoptionRefusedError) as raised:
+        adopt(root, web)
+
+    assert "2.19" not in raised.value.details
+    assert "another project, file, profile or environment" in raised.value.details
+
+
 def test_accepting_the_recreate_adopts_and_says_so(
     root: Path, docker: Docker, web: NginxManager, store: NoustStore, units: Path
 ) -> None:

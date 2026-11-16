@@ -70,7 +70,7 @@ from noust.deployers.helpers import edge as edges
 from noust.deployers.helpers.env_manager import EnvManager
 from noust.deployers.helpers.package_manager import SUPPORTED_PACKAGE_MANAGERS
 from noust.deployers.helpers.php_fpm import is_php_fpm
-from noust.deployers.how_it_runs import FORM_CONTAINER, FORMS, run_as_conflict
+from noust.deployers.how_it_runs import FORM_CONTAINER, FORM_SERVER, FORMS, run_as_conflict
 from noust.deployers.lifecycle import (
     NOTHING_NEW_HINT,
     AppUpdate,
@@ -95,7 +95,7 @@ from noust.managers.nginx_manager import NginxManager
 from noust.managers.port_claims import PortClaims
 from noust.managers.service_manager import ResourceLimits, ServiceManager
 from noust.managers.source_manager import SourceManager
-from noust.managers.supervision import service_control
+from noust.managers.supervision import keeps_alive_with_docker, service_control
 from noust.recipes import RecipeError, get_recipe
 from noust.recipes.deploy import (
     finish_recipe,
@@ -359,6 +359,17 @@ def _create_app(
     if app_type == "auto" and run_as == FORM_CONTAINER:
         # A container needs Docker, not the Node.js that a source nobody has read yet is assumed to need.
         readiness_type = "container"
+    if keeps_alive_with_docker():
+        # A machine that deploys containers and nothing else (the central of a NAS): running directly is
+        # refused in the words of the table of functions, and not with a Node.js nobody asked for and advice
+        # for a server; what is not typed is a container until the source says otherwise (the deployer then
+        # refuses a native source in the same words).
+        if run_as == FORM_SERVER or (app_type != "auto" and not is_compose_backed(app_type)):
+            from noust.central import require_server_role
+
+            require_server_role("native_deploy")
+        elif app_type == "auto":
+            readiness_type = "container"
 
     can_deploy, missing, warnings = check_deployment_ready(
         app_type=readiness_type,

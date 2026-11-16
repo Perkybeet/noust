@@ -34,6 +34,7 @@ from typing import Any
 
 from noust.core.docker import names as docker_names
 from noust.core.docker import reading as docker_reading
+from noust.core.docker.cleanup import parse_reclaimed
 from noust.core.docker.errors import DockerUnavailableError
 from noust.core.docker.gate import DockerGate
 from noust.core.docker.models import NOBODY, Image
@@ -1384,7 +1385,7 @@ def _positive(value: Any, name: str) -> int:
 
 def _reclaimed(lines: list[str]) -> int | None:
     """
-    Read ``Total reclaimed space: 6.1GB`` from a Docker prune.
+    Read what a Docker prune freed, in either of the ways Docker says it.
 
     Args:
         lines: The prune's output.
@@ -1392,7 +1393,4 @@ def _reclaimed(lines: list[str]) -> int | None:
     Returns:
         Bytes, or None when Docker did not say.
     """
-    for line in reversed(lines):
-        if "reclaimed space" in line.lower():
-            return parse_docker_size(line.rsplit(":", 1)[-1])
-    return None
+    return parse_reclaimed("\n".join(lines))

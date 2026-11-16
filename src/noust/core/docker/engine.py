@@ -46,6 +46,7 @@ __all__ = [
     "EngineReport",
     "SocketInfo",
     "compose_answers",
+    "compose_version",
     "daemon_answers",
     "diagnose",
     "read_engine",
@@ -411,6 +412,22 @@ def read_engine(
         os=str(info_raw.get("OperatingSystem") or ""),
         error="" if reachable else _first_line(answer.stderr or answer.stdout),
     )
+
+
+def compose_version(runner: CommandRunner, *, timeout: int = PROBE_TIMEOUT) -> tuple[int, ...]:
+    """
+    Ask which version of Compose (the plugin) there is.
+
+    Args:
+        runner: Runs the question.
+        timeout: Seconds it has.
+
+    Returns:
+        Its version as numbers; empty when there is no plugin or it did not say.
+    """
+    answer = runner.run(["docker", "compose", "version"], timeout=timeout)
+    found = _COMPOSE.search(answer.stdout) if answer.success else None
+    return version_tuple(found.group(1)) if found else ()
 
 
 def compose_answers(runner: CommandRunner, *, timeout: int = PROBE_TIMEOUT) -> bool:

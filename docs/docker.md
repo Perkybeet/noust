@@ -50,7 +50,11 @@ noust docker images update status.example.com/image   # an image of an applicati
 ```
 
 What belongs to an application is updated by the application's update (`noust update`): the health gate, and
-the images it keeps to go back to. Every image of it that has a new version moves with the update, and the plan
+the images it keeps to go back to. An application that runs an image from a registry (`noust create --image`)
+runs it under a name of its own, `noust-<application>:<release>`, so that every release can be gone back to:
+that is the image the zone lists with the new version when its registry has one, and updating it is the
+application's update. The ones it keeps beside it are the versions it goes back to, and are not offered as
+updates. Every image of it that has a new version moves with the update, and the plan
 says which before it starts. What is not an application's is not updated blind:
 
 - **A stack Noust did not create** is brought to Noust first (below), which changes nothing of what runs.

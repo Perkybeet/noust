@@ -509,6 +509,33 @@ class TestJudgingADocument:
         assert found.effects is None
         assert any("pull access denied" in warning for warning in found.warnings)
 
+    def test_a_compose_without_dry_run_says_so_and_not_what_it_makes_of_the_flag(
+        self, edit: StackEditor, box: DockerMachine
+    ) -> None:
+        # Compose 2.19.1 (the one Docker 24.0.2's image carries) has no ``up --dry-run``, and what it printed for the
+        # flag was a complaint about a project name, which says nothing about what is wrong.
+        box.engine["compose"] = "2.19.1"
+        box.dry_run_failure = "invalid name , name needs to start with a letter and may not contain symbols, except ._-"
+
+        found = edit.check(PROJECT, NEWER)
+
+        assert found.valid is True
+        assert found.effects is None
+        assert any(
+            "2.19.1" in warning and "2.20" in warning and "invalid name" in warning
+            for warning in found.warnings
+        )
+
+    def test_a_compose_that_has_dry_run_and_fails_for_another_reason_is_not_blamed_on_its_age(
+        self, edit: StackEditor, box: DockerMachine
+    ) -> None:
+        box.engine["compose"] = "2.40.3"
+        box.dry_run_failure = "service web: pull access denied for private/thing"
+
+        found = edit.check(PROJECT, NEWER)
+
+        assert not any("2.20" in warning for warning in found.warnings)
+
     def test_the_text_goes_to_compose_on_its_standard_input_and_to_nothing_else(
         self, edit: StackEditor, box: DockerMachine
     ) -> None:

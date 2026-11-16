@@ -268,7 +268,9 @@ class ImageUpdates:
         """
         label = image.tags[0] if image.tags else image.id
         owner = image.owner
-        if image.way_back:
+        # What a container runs is not a way back, whatever its name is: Noust names the image of a container
+        # application after its release, so the one that runs is called as the ones it keeps.
+        if image.way_back and not image.used_by:
             return UpdatePlan(label, None, "rollback", "current", owner)
         machine = machine or _Machine(list(self._gate.containers().items), self._versions.records())
         containers = machine.containers

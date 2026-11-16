@@ -21,6 +21,7 @@ here, each from a way this goes wrong.
 
 from __future__ import annotations
 
+import json
 import re
 from datetime import datetime, timezone
 
@@ -369,7 +370,7 @@ class TestRestartsOfTheLastMinutes:
 
         assert found == {full_id("api-1"): 6, full_id("db-1"): 1}
 
-    def test_the_window_is_given_to_docker_as_two_timestamps_and_only_restarts_are_asked_for(
+    def test_the_window_is_given_to_docker_as_two_timestamps_and_only_deaths_and_starts_are_asked_for(
         self,
     ) -> None:
         machine = DockerMachine()
@@ -387,11 +388,88 @@ class TestRestartsOfTheLastMinutes:
                 "--filter",
                 "type=container",
                 "--filter",
-                "event=restart",
+                "event=die",
+                "--filter",
+                "event=start",
                 "--format",
                 "{{json .}}",
             )
         ]
+
+    def test_a_restart_policy_is_counted_by_what_docker_really_prints_for_it(self) -> None:
+        # Docker 24.0.2, a container with ``--restart always`` whose process exits at once: a ``create``, a
+        # ``start``, then a ``die`` and a ``start`` for every time Docker brought it back. There is no ``restart``
+        # event: that one is only emitted by ``docker restart``, which is not a loop.
+        ident = "a" * 64
+        other = "b" * 64
+
+        def line(action: str, who: str, **attributes: str) -> str:
+            return json.dumps(
+                {
+                    "status": action,
+                    "id": who,
+                    "from": "busybox:1.36",
+                    "Type": "container",
+                    "Action": action,
+                    "Actor": {
+                        "ID": who,
+                        "Attributes": {"image": "busybox:1.36", "name": "n", **attributes},
+                    },
+                    "scope": "local",
+                    "time": 1_700_000_100,
+                    "timeNano": 1_700_000_100_000_000_000,
+                }
+            )
+
+        machine = DockerMachine()
+        machine.script(
+            ["docker", "events"],
+            stdout="\n".join(
+                [
+                    line("start", ident),
+                    line("die", ident, exitCode="1"),
+                    line("start", ident),
+                    line("die", ident, exitCode="1"),
+                    line("start", ident),
+                    line("die", ident, exitCode="1"),
+                    line("start", ident),
+                    line("die", ident, exitCode="1"),
+                    # One that started once and is still up: no restart.
+                    line("start", other),
+                ]
+            ),
+        )
+
+        found = events.recent_restarts(machine, minutes=10, now=1_700_000_600)
+
+        assert found == {ident: 3}
+
+    def test_a_death_with_no_start_after_it_is_not_yet_a_restart(self) -> None:
+        # The container is waiting out Docker's back-off: it died and has not been started again.
+        ident = "c" * 64
+        machine = DockerMachine()
+        machine.script(
+            ["docker", "events"],
+            stdout=json.dumps(
+                {"Action": "die", "Actor": {"ID": ident, "Attributes": {"exitCode": "1"}}}
+            ),
+        )
+
+        assert events.recent_restarts(machine, minutes=10, now=1_700_000_600) == {}
+
+    def test_what_a_person_restarts_by_hand_is_one_restart(self) -> None:
+        # ``docker restart``: kill, die, start, restart. Only deaths and starts are asked for, so it is one.
+        ident = "d" * 64
+        machine = DockerMachine()
+        machine.script(
+            ["docker", "events"],
+            stdout="\n".join(
+                json.dumps({"Action": action, "Actor": {"ID": ident, "Attributes": {}}})
+                for action in ("die", "start")
+            ),
+        )
+
+        assert events.recent_restarts(machine, minutes=10, now=1_700_000_600) == {ident: 1}
 
     def test_docker_not_saying_is_no_count_and_not_an_error(self) -> None:
         machine = DockerMachine()

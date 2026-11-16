@@ -103,3 +103,59 @@ def test_no_command_of_the_package_runs_a_bare_alpine() -> None:
 
 def test_the_module_says_where_the_pin_was_read_from() -> None:
     assert "database_pins.py" in (docker_volumes.__doc__ or "")
+
+
+def test_an_archive_is_handed_to_whoever_asked_for_it_when_that_is_not_root() -> None:
+    # Seen on a real central (Docker 24.0.2): the helper container is root, so the archive of a volume was root's,
+    # and the central, which is user 10001, failed to give it its mode ("Operation not permitted") and so never
+    # kept a scheduled copy of a volume.
+    argv = docker_archive_argv("v", Path("/b"), "v.tar.gz", owner="10001:10001")
+
+    assert argv[-5:-3] == ["sh", "-c"] or argv[argv.index("sh") + 1] == "-c"
+    script = argv[argv.index("-c") + 1]
+    assert script == 'tar czf "/backup/$1" -C /data . && chown "$2" "/backup/$1"'
+    assert argv[-3:] == ["sh", "v.tar.gz", "10001:10001"]
+    # The name and the owner are parameters of the shell, never part of its script.
+    assert "v.tar.gz" not in script and "10001" not in script
+
+
+def test_the_owner_is_a_user_and_a_group_number_and_nothing_a_shell_could_read() -> None:
+    import pytest
+
+    for bad in ("root", "1;rm -rf /", "10001", "10001:", ":10001", "-1:5"):
+        with pytest.raises(ValueError):
+            docker_archive_argv("v", Path("/b"), "v.tar.gz", owner=bad)
+
+
+def test_a_server_as_root_asks_for_the_archive_exactly_as_it_always_did(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from noust.managers import docker_volumes
+
+    monkeypatch.setattr(docker_volumes.os, "geteuid", lambda: 0)
+
+    assert docker_volumes.handed_to() is None
+    assert docker_archive_argv("v", Path("/b"), "v.tar.gz", owner=docker_volumes.handed_to())[
+        -5:
+    ] == ["czf", "/backup/v.tar.gz", "-C", "/data", "."]
+
+
+def test_the_central_as_an_unprivileged_user_is_the_owner_of_what_it_asks_for(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from noust.managers import docker_volumes
+
+    monkeypatch.setattr(docker_volumes.os, "geteuid", lambda: 10001)
+    monkeypatch.setattr(docker_volumes.os, "getegid", lambda: 10002)
+
+    assert docker_volumes.handed_to() == "10001:10002"
+
+
+def test_the_archive_every_caller_keeps_is_handed_to_the_account_that_runs_it(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from noust.managers import docker_volumes
+
+    monkeypatch.setattr(docker_volumes.os, "geteuid", lambda: 10001)
+    monkeypatch.setattr(docker_volumes.os, "getegid", lambda: 10001)
+    unprivileged = docker_volumes.handed_archive_argv("v", Path("/b"), "v.tar.gz")
+
+    monkeypatch.setattr(docker_volumes.os, "geteuid", lambda: 0)
+    root = docker_volumes.handed_archive_argv("v", Path("/b"), "v.tar.gz")
+
+    assert unprivileged[-3:] == ["sh", "v.tar.gz", "10001:10001"]
+    assert root == docker_archive_argv("v", Path("/b"), "v.tar.gz")

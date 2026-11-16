@@ -20,6 +20,7 @@ from typing import Any
 import pytest
 from click.testing import CliRunner
 
+from noust.central import RoleError
 from noust.central.machine import MachineFacts
 from noust.cli.commands import webapp
 from noust.core.exceptions import DeploymentError
@@ -336,3 +337,56 @@ class TestTheCommand:
 
         # A container needs Docker; what runs directly was always checked as Node.js until detected.
         assert asked == ["container", "nodejs"]
+
+
+class TestAMachineThatDeploysContainersAndNothingElse:
+    """The central of a NAS that was given the machine's Docker (``central.deploy_here: containers``)."""
+
+    @pytest.fixture(autouse=True)
+    def a_nas(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Any:
+        from noust.core.config import Config
+
+        monkeypatch.setattr("noust.core.config.DEFAULT_CONFIG_PATH", tmp_path / "config.yaml")
+        monkeypatch.setenv("NOUST_CENTRAL_ROLE", "hub")
+        monkeypatch.setenv("NOUST_DEPLOY_HERE", "containers")
+        Config.reset_instance()
+        yield
+        Config.reset_instance()
+
+    def test_running_directly_is_refused_in_the_words_of_the_table_not_with_advice_for_a_server(
+        self, cli_runner: CliRunner, deployer: DeployerSpy
+    ) -> None:
+        # Seen on a real central (Docker 24.0.2): ``--run-as server`` answered that Node.js was missing and to run
+        # ``sudo noust setup init``, which is advice for a server and a requirement nobody had asked for.
+        result = create(cli_runner, "--run-as", "server")
+
+        assert result.exit_code != 0
+        assert isinstance(result.exception, RoleError)
+        assert "deploys containers and nothing else" in str(result.exception)
+        assert "setup init" not in result.output
+        assert "Node.js" not in result.output
+
+    def test_a_native_type_asked_by_name_is_refused_the_same_way(
+        self, cli_runner: CliRunner, deployer: DeployerSpy
+    ) -> None:
+        result = create(cli_runner, "--type", "nodejs")
+
+        assert result.exit_code != 0
+        assert isinstance(result.exception, RoleError)
+        assert "deploys containers and nothing else" in str(result.exception)
+        assert "setup init" not in result.output
+
+    def test_what_is_not_typed_is_checked_for_docker_and_not_for_a_node_nobody_asked_for(
+        self, cli_runner: CliRunner, monkeypatch: pytest.MonkeyPatch, deployer: DeployerSpy
+    ) -> None:
+        asked: list[str] = []
+        monkeypatch.setattr(
+            webapp,
+            "check_deployment_ready",
+            lambda app_type, **_: asked.append(app_type) or (True, [], []),
+        )
+
+        create(cli_runner)
+        create(cli_runner, "--type", "docker-compose")
+
+        assert asked == ["container", "docker-compose"]

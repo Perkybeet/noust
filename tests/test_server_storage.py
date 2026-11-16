@@ -463,6 +463,18 @@ class TestDockerCleanup:
         assert result.freed_bytes == 6_100_000_000
         assert ("docker", "builder", "prune", "-f", "--filter", "until=168h") in runner.calls
 
+    def test_the_space_buildkit_reports_is_read_too(self, host) -> None:
+        # Docker 24.0.2's ``docker builder prune`` ends with ``Total:`` and a tab, not "Total reclaimed space".
+        runner = FakeRunner()
+        runner.script(
+            ["docker", "builder", "prune"],
+            stdout="ID\t\tRECLAIMABLE\tSIZE\t\tLAST ACCESSED\nabc\ttrue\t\t2.5MB\t\t4 minutes ago\nTotal:\t2.5MB\n",
+        )
+
+        result = _manager(runner, host).cleanup("docker-build-cache", confirm=True)
+
+        assert result.freed_bytes == 2_500_000
+
     def test_dangling_images_are_pruned_without_dash_a(self, host) -> None:
         runner = FakeRunner()
 

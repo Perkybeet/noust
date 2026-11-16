@@ -275,6 +275,8 @@ class TestCreate:
             )
         )
         monkeypatch.setattr(BackupManager, "docker_volumes", lambda self, domain: ["stack_pgdata"])
+        # A server: Noust is root, and the helper's archive is its own already.
+        monkeypatch.setattr("noust.managers.docker_volumes.os.geteuid", lambda: 0)
 
         def tar_it(argv: list[str]) -> None:
             # What the container does: an archive appears in the mounted directory.
@@ -296,6 +298,44 @@ class TestCreate:
         assert docker[:6] == ("docker", "run", "--rm", "-v", "stack_pgdata:/data:ro", "-v")
         assert docker[-5:] == ("czf", f"/backup/{entry.id}.tar.gz", "-C", "/data", ".")
         assert entry.kind == "docker" and entry.size_bytes == len(b"archive")
+
+    def test_on_a_central_that_is_not_root_the_archive_is_handed_to_it(
+        self,
+        manager: VolumeBackupManager,
+        runner: RcloneRunner,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        get_store().create_app(
+            App(
+                domain="stack.example.com",
+                app_type="docker-compose",
+                app_path=str(tmp_path / "apps" / "stack-example-com"),
+                layout="inplace",
+            )
+        )
+        monkeypatch.setattr(BackupManager, "docker_volumes", lambda self, domain: ["stack_pgdata"])
+        monkeypatch.setattr("noust.managers.docker_volumes.os.geteuid", lambda: 10001)
+        monkeypatch.setattr("noust.managers.docker_volumes.os.getegid", lambda: 10001)
+
+        def tar_it(argv: list[str]) -> None:
+            directory = Path(argv[argv.index("-v", argv.index("-v") + 1) + 1].split(":")[0])
+            (directory / argv[-2]).write_bytes(b"archive")
+
+        original = runner.run
+
+        def run(argv, **kwargs):
+            if argv[:3] == ["docker", "run", "--rm"]:
+                tar_it(list(argv))
+            return original(argv, **kwargs)
+
+        monkeypatch.setattr(runner, "run", run)
+
+        (entry,) = manager.create("stack.example.com", targets=["volume:stack_pgdata"])
+
+        docker = next(c for c in runner.calls if c[0] == "docker")
+        assert docker[-3:] == ("sh", f"{entry.id}.tar.gz", "10001:10001")
+        assert 'chown "$2"' in docker[-4]
 
 
 # =========================================================== staying still
@@ -611,6 +651,7 @@ class TestRestore:
             )
         )
         monkeypatch.setattr(BackupManager, "docker_volumes", lambda self, domain: ["stack_pgdata"])
+        monkeypatch.setattr("noust.managers.docker_volumes.os.geteuid", lambda: 0)
         original = runner.run
 
         def run(argv, **kwargs):

@@ -104,8 +104,8 @@ from noust.managers.backup_scheduler import BackupScheduler, validate_calendar, 
 from noust.managers.backup_timer_options import validate_options
 from noust.managers.docker_volumes import (
     DOCKER_VOLUME_NAME,
-    docker_archive_argv,
     docker_restore_argv,
+    handed_archive_argv,
 )
 from noust.managers.retention import (
     check_gigabytes,
@@ -1190,7 +1190,8 @@ class VolumeBackupManager:
             BackupError: When Docker fails or writes nothing.
         """
         result = self.runner.run(
-            docker_archive_argv(volume, directory, filename), timeout=_DOCKER_TIMEOUT
+            handed_archive_argv(volume, directory, filename),
+            timeout=_DOCKER_TIMEOUT,
         )
         if not result.success:
             raise BackupError(

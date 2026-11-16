@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import os
 import posixpath
-import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
@@ -54,9 +53,6 @@ __all__ = [
     "own_container_ids",
     "registry_from_store",
 ]
-
-_CONTAINER_ID_IN_MOUNTS = re.compile(r"/docker/containers/([0-9a-f]{64})/")
-_SHORT_ID = re.compile(r"[0-9a-f]{12}")
 
 
 @dataclass(frozen=True)
@@ -119,9 +115,9 @@ def own_container_ids(mountinfo: Path = Path("/proc/self/mountinfo")) -> frozens
         text = mountinfo.read_text(encoding="utf-8", errors="replace")
     except OSError:
         text = ""
-    found.update(_CONTAINER_ID_IN_MOUNTS.findall(text))
+    found.update(names.CONTAINER_FILES.findall(text))
     hostname = os.environ.get("HOSTNAME", "")
-    if _SHORT_ID.fullmatch(hostname):
+    if names.SHORT_CONTAINER_ID.fullmatch(hostname):
         found.add(hostname)
     return frozenset(found)
 

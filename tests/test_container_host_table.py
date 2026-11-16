@@ -623,6 +623,31 @@ def test_a_stack_that_is_being_deployed_is_started_by_its_own_project_before_it_
         units.start("another-example-com")
 
 
+def test_the_gate_that_puts_a_stack_back_restarts_it_with_docker_and_not_with_a_unit(
+    store: NoustStore, nas: DockerMachine
+) -> None:
+    from noust.core.logger import Logger
+    from noust.core.store import App
+    from noust.deployers import lifecycle
+    from noust.deployers.compose_supervisor import ComposeSupervisor
+
+    # Seen on a real central (Docker 24.0.2): a Compose edit whose document did not start was meant to put the
+    # stack back, and the gate that does it asked systemd, which this machine has not: the answer was "Services: not
+    # available here", and the stack kept running the document that failed.
+    app = store.create_app(
+        App(
+            domain="shop.example.com",
+            app_type="container",
+            app_path="/volume1/docker/noust/apps/shop-example-com",
+            port=8081,
+        )
+    )
+
+    gate = lifecycle.health_gate_for(app, store, Logger())
+
+    assert isinstance(gate._services, ComposeSupervisor)
+
+
 def test_every_function_a_container_host_offers_was_walked() -> None:
     offered = {key for key, code in EXPECTED.items() if code is None}
 
