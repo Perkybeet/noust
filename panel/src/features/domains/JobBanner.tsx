@@ -3,6 +3,7 @@ import type { FollowedJob } from "../../api/queries/jobs";
 import { JobProgress } from "../../components/page/JobProgress";
 import { useT } from "../../i18n";
 
+import { jobFailure } from "../../lib/errors";
 export interface JobWords {
   /** While it runs: "Extending the certificate to shop.example.com". */
   running: string;
@@ -33,7 +34,7 @@ export function JobBanner({ followed, words }: { followed: FollowedJob; words: J
     <JobProgress
       state="failed"
       title={words.failed}
-      error={{ detail: job.error ?? (job.status === "cancelled" ? t("domains.jobBanner.jobCancelled") : t("domains.jobBanner.jobFailedNoReason")) }}
+      error={jobFailure(job, job.status === "cancelled" ? t("domains.jobBanner.jobCancelled") : t("domains.jobBanner.jobFailedNoReason"))}
       {...(words.hint !== undefined ? { hint: words.hint } : {})}
       onDismiss={followed.dismiss}
     />

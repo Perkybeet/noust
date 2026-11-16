@@ -83,6 +83,11 @@ export const cloud: Catalog<typeof en> = {
   },
 
   scripts: {
+    builtinDescription: {
+      swap_2g: "Crea un archivo de intercambio de 2 GB cuando el servidor no tiene swap (los planes pequeños se quedan sin memoria al compilar).",
+      base_packages: "Instala las herramientas que un operador necesita primero: curl, git, htop, unzip.",
+      unattended_security_updates: "Debian y Ubuntu: instala las actualizaciones de seguridad por sí solo. No reinicia nunca.",
+    },
     title: "Scripts de arranque",
     description: "Lo que ejecuta una máquina nueva la primera vez que arranca, después de la parte de Noust. Los eliges al crear un servidor.",
     loadingLabel: "los scripts de arranque",

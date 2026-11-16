@@ -44,6 +44,7 @@ from noust.core.backup_files import BackupKeys, ResealOutcome, inventory, is_sea
 from noust.core.exceptions import BackupError, NoustError
 from noust.core.fs import FileSystem
 from noust.core.runner import CommandRunner
+from noust.core.server_text import say
 
 __all__ = ["SealExisting", "SealItem", "SealReport", "encryption_status"]
 
@@ -347,11 +348,7 @@ class SealExisting:
                 with, and sealing the existing ones is the second step after the first.
         """
         if not self.keys.enabled():
-            raise BackupError(
-                "Backups are not sealed on this server",
-                details="Turn sealing on first: noust backup encryption enable. Then seal what "
-                "is already there with: noust backup encryption seal-existing",
-            )
+            raise BackupError.from_text(say("backup_sealing.backups_sealed_server"))
         report = SealReport()
 
         def add(item: SealItem) -> None:

@@ -57,6 +57,7 @@ from noust.core.exceptions import (
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem, get_fs
 from noust.core.notifications.context import NotificationContext
 from noust.core.notifications.model import Notification
+from noust.core.server_text import say
 from noust.core.store import NoustStore
 from noust.managers.backup_destination_files import DestinationFileManager, file_sha256
 from noust.managers.backup_failures import record_failure
@@ -179,17 +180,17 @@ def remote_engine_folder(engine: str) -> str:
     if is_instance_key(engine):
         parse_instance_key(engine)
     if not _ENGINE_NAME.fullmatch(engine.partition("@")[0]):
-        raise ValidationError(
-            f"Not a database engine Noust keeps dumps of: {engine!r}",
-            details="An engine is lower-case letters and digits, as 'noust db engines' lists it.",
-            field="engine",
+        raise ValidationError.from_text(
+            say("backups.database_engine_noust_keeps", engine=f"{engine!r}"), field="engine"
         )
     name = storage_name(engine)
     if len(name) > _MAX_FOLDER_NAME:
-        raise ValidationError(
-            f"The key {engine!r} is too long to be the name of a folder on a destination",
-            details=f"A folder's name is at most {_MAX_FOLDER_NAME} characters; rename the "
-            "Compose project or the container.",
+        raise ValidationError.from_text(
+            say(
+                "backups.key_too_long_name",
+                engine=f"{engine!r}",
+                max_folder_name=str(_MAX_FOLDER_NAME),
+            ),
             field="engine",
         )
     return f"{REMOTE_ROOT}/{name}"
@@ -736,10 +737,8 @@ class DatabaseBackups:
             ValidationError: When there is no such destination.
         """
         if not name or self.destinations.get(name) is None:
-            raise ValidationError(
-                f"Backup destination {name!r} does not exist",
-                details="Create it first with: noust backup destination add",
-                field="destination",
+            raise ValidationError.from_text(
+                say("backups.backup_destination_exist", name=f"{name!r}"), field="destination"
             )
         return name
 
@@ -763,13 +762,13 @@ class DatabaseBackups:
         for entry in destinations:
             name = str(entry.get("name") or "")
             if not name or self.destinations.get(name) is None:
-                raise ValidationError(
-                    f"Backup destination {name!r} does not exist",
-                    details="Create it first with: noust backup destination add",
-                    field="destinations",
+                raise ValidationError.from_text(
+                    say("backups.backup_destination_exist", name=f"{name!r}"), field="destinations"
                 )
             if name in seen:
-                raise ValidationError(f"Destination {name!r} is listed twice", field="destinations")
+                raise ValidationError.from_text(
+                    say("backups.destination_listed_twice", name=f"{name!r}"), field="destinations"
+                )
             seen.add(name)
             checked.append(
                 {
@@ -857,16 +856,12 @@ class DatabaseBackups:
         name = self.policy_name(manager, database)
         scope = SCOPE_ALL if name == ALL_DATABASES else SCOPE_DATABASE
         if scope == SCOPE_ALL and manager.engine_type == "redis":
-            raise ValidationError(
-                "A Redis policy already covers the whole instance",
-                details="A snapshot is every slot at once: give the policy any database of the "
-                "instance, such as 0.",
-                field="database",
+            raise ValidationError.from_text(
+                say("backups.redis_policy_already_covers"), field="database"
             )
         if scope == SCOPE_DATABASE and not manager.database_exists(name):
-            raise DatabaseNotFoundError(
-                f"Database '{name}' does not exist",
-                details=f"List them with: noust db list --engine {engine_name}",
+            raise DatabaseNotFoundError.from_text(
+                say("backups.database_exist", engine_name=str(engine_name), name=str(name))
             )
         left_out = exclusions or Exclusions()
         left_out.check_for(manager.engine_type, scope=scope)
@@ -878,25 +873,22 @@ class DatabaseBackups:
         if dump_format is not None and (
             manager.engine_type != "postgresql" or dump_format not in _POLICY_FORMATS
         ):
-            raise ValidationError(
-                f"Dump format {dump_format!r} is not available for {manager.DISPLAY_NAME}",
-                details="PostgreSQL takes custom, plain or tar; every other engine has one format.",
+            raise ValidationError.from_text(
+                say(
+                    "backups.dump_format_available",
+                    display_name=str(manager.DISPLAY_NAME),
+                    dump_format=f"{dump_format!r}",
+                ),
                 field="dump_format",
             )
         if verify_restore and manager.engine_type == "redis":
-            raise ValidationError(
-                "A Redis snapshot cannot be test-restored",
-                details="Restoring one replaces every key of the instance, so it cannot be "
-                "tried on the side. Noust checks it with redis-check-rdb instead.",
-                field="verify_restore",
+            raise ValidationError.from_text(
+                say("backups.redis_snapshot_test_restored"), field="verify_restore"
             )
         checked = self._validated_destinations(destinations or [])
         if remote_only and not checked:
-            raise ValidationError(
-                "A policy that keeps nothing on this server needs a destination",
-                details="Name at least one destination to send the dumps to (--to NAME), or "
-                "keep the dumps here.",
-                field="remote_only",
+            raise ValidationError.from_text(
+                say("backups.policy_keeps_nothing_server"), field="remote_only"
             )
 
         if enabled:
@@ -1017,10 +1009,7 @@ class DatabaseBackups:
         for view in self.list_dumps(canonical):
             if view.info.path == path:
                 return view
-        raise DatabaseNotFoundError(
-            f"Backup not found: {file_name}",
-            details="List the dumps with: noust db backups",
-        )
+        raise DatabaseNotFoundError.from_text(say("backups.backup_found", file_name=file_name))
 
     def dump(
         self,
@@ -1062,9 +1051,13 @@ class DatabaseBackups:
         try:
             digest = file_sha256(info.path)
         except OSError as exc:
-            raise DatabaseBackupError(
-                f"The dump {info.path.name} was reported taken but cannot be read",
-                details=f"{exc}. Check the permissions and the space of {info.path.parent}.",
+            raise DatabaseBackupError.from_text(
+                say(
+                    "backups.dump_reported_taken_read",
+                    exc=str(exc),
+                    name=str(info.path.name),
+                    parent=str(info.path.parent),
+                )
             ) from exc
         record = self.records.save_dump(
             DumpRecord(
@@ -1080,12 +1073,13 @@ class DatabaseBackups:
         if verify:
             view = self._check(view)
             if view.record and view.record.verify_status == STATUS_FAILED:
-                raise DumpFailedItsCheck(
-                    f"The dump {info.path.name} was taken but failed its check",
-                    details=(
-                        f"{view.record.verify_detail}\n\nThe file is kept at {info.path}. "
-                        "Take another dump, and delete this one with: noust db backup-delete"
-                    ),
+                raise DumpFailedItsCheck.from_text(
+                    say(
+                        "backups.dump_taken_failed_check",
+                        name=str(info.path.name),
+                        path=str(info.path),
+                        verify_detail=str(view.record.verify_detail),
+                    )
                 )
         return view
 
@@ -1174,10 +1168,7 @@ class DatabaseBackups:
         """
         manager = self.service.running(view.info.engine)
         if manager.engine_type == "redis":
-            raise DatabaseBackupError(
-                "A Redis snapshot cannot be test-restored",
-                details="It would replace every key of the instance.",
-            )
+            raise DatabaseBackupError.from_text(say("backups.redis_snapshot_test_restored_2"))
         result = restore_test(manager, view.info.path)
         record = view.record or DumpRecord(engine=manager.ENGINE_NAME, file_name=view.name)
         record.restore_tested_at = now()
@@ -1292,9 +1283,15 @@ class DatabaseBackups:
             view = self._check(view)
         record = view.record
         if record is None or record.verify_status != STATUS_OK:
-            raise DatabaseBackupError(
-                f"{file_name} failed its check and was not sent to {destination}",
-                details=(record.verify_detail if record else "") or "It could not be checked.",
+            raise DatabaseBackupError.from_text(
+                say(
+                    "backups.failed_check_sent",
+                    destination=destination,
+                    file_name=file_name,
+                    value=str(
+                        (record.verify_detail if record else "") or "It could not be checked." or ""
+                    ),
+                )
             )
         database = self._database_of(view)
         folder = remote_folder(view.info.engine, database)
@@ -1529,9 +1526,13 @@ class DatabaseBackups:
             )
             outcome = check_dump(manager, path)
             if not outcome.ok:
-                raise DatabaseBackupError(
-                    f"{file_name} from {destination} failed its check; nothing was restored",
-                    details=outcome.detail,
+                raise DatabaseBackupError.from_text(
+                    say(
+                        "backups.failed_check_nothing_restored",
+                        destination=destination,
+                        detail=str(outcome.detail or ""),
+                        file_name=file_name,
+                    )
                 )
             # Matched to the checksum recorded when Noust sent it, and read by the engine.
             return self.restore_file(
@@ -1570,10 +1571,7 @@ class DatabaseBackups:
         """
         manager = self.service.running(engine)
         if manager.engine_type == "redis":
-            raise ValidationError(
-                "Redis cannot restore as a new database",
-                details="A snapshot replaces every key of the instance.",
-            )
+            raise ValidationError.from_text(say("backups.redis_restore_new_database"))
         base = manager.validate_database_name(database)
         match = re.search(r"(\d{8})_\d{6}", file_name or "")
         stamp = match.group(1) if match else datetime.now().strftime("%Y%m%d")
@@ -1633,10 +1631,8 @@ class DatabaseBackups:
         """
         manager = self.service.manager(engine)
         if new_name is not None and manager.engine_type == "redis":
-            raise ValidationError(
-                "Redis cannot restore as a new database",
-                details="A snapshot replaces every key of the instance.",
-                field="new_name",
+            raise ValidationError.from_text(
+                say("backups.redis_restore_new_database"), field="new_name"
             )
         canonical = manager.ENGINE_NAME
         if as_superuser:
@@ -1698,9 +1694,8 @@ class DatabaseBackups:
             ConfirmationRequired: When the warning was not accepted.
         """
         if manager.engine_type != "postgresql":
-            raise ValidationError(
-                f"{manager.DISPLAY_NAME} has no superuser load to ask for",
-                details="Only PostgreSQL loads a dump as the database's owner by default.",
+            raise ValidationError.from_text(
+                say("backups.superuser_load_ask", display_name=str(manager.DISPLAY_NAME)),
                 field="as_superuser",
             )
         if not confirmed:
@@ -1851,9 +1846,10 @@ class DatabaseBackups:
                 dumped is kept either way.
         """
         if origin not in RUN_ORIGINS:
-            raise ValidationError(
-                f"A backup run cannot have the origin {origin!r}",
-                details=f"Use one of: {', '.join(RUN_ORIGINS)}.",
+            raise ValidationError.from_text(
+                say(
+                    "backups.backup_run_origin", items=", ".join(RUN_ORIGINS), origin=f"{origin!r}"
+                ),
                 field="origin",
             )
         # Not ``running()``: an engine that is down is a failed run to announce, and the
@@ -2039,9 +2035,12 @@ class DatabaseBackups:
                 view = self._restore_test(view)
                 result["dump"] = view.to_dict()
                 if view.record and view.record.restore_test_status == STATUS_FAILED:
-                    raise DumpFailedItsCheck(
-                        f"The dump {view.name} did not restore into a temporary database",
-                        details=view.record.restore_test_detail or "",
+                    raise DumpFailedItsCheck.from_text(
+                        say(
+                            "backups.dump_restore_into_temporary",
+                            name=str(view.name),
+                            value=str(view.record.restore_test_detail or "" or ""),
+                        )
                     )
                 result["restore_test"] = view.record.restore_test_status if view.record else None
         except NoustError as exc:
@@ -2258,9 +2257,7 @@ def _limit(value: Any, ceiling: int, field_name: str) -> int | None:
     if value is None:
         return None
     if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= ceiling:
-        raise ValidationError(
-            f"{field_name} must be a whole number from 1 to {ceiling}",
-            details="Leave it empty for no limit.",
-            field=field_name,
+        raise ValidationError.from_text(
+            say("backups.whole_number_1", ceiling=ceiling, field_name=field_name), field=field_name
         )
     return int(value)

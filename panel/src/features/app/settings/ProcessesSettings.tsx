@@ -74,7 +74,7 @@ async function setCopies(
     queryKey: appKeys.detail(domain),
     exact: true,
   });
-  if (job.status !== "completed") throw new JobFailedError(job.error ?? "");
+  if (job.status !== "completed") throw JobFailedError.of(job);
 }
 
 function CopiesList({ domain, status }: { domain: string; status: Replicas }) {

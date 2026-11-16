@@ -24,6 +24,7 @@ import { jobStep } from "../app/useAppJob";
 import { outputLines } from "./output";
 import { terminalStatusQuery, useHasPermission } from "./queries";
 
+import { jobFailure } from "../../lib/errors";
 /** How often the output of a command that is still running is read again. */
 const OUTPUT_POLL_MS = 1500;
 
@@ -222,7 +223,7 @@ export function ExecPanel({ domain }: { domain: string }) {
                 : t("terminal.exec.queuedTitle", { domain })
             }
             step={jobStep(job)}
-            {...(job.error ? { error: { detail: job.error } } : {})}
+            {...(job.error ? { error: jobFailure(job) } : {})}
             {...(code !== null ? { description: t("terminal.exec.exitStatus", { code }) } : {})}
             action={
               <TextLink to="/activity" size="ui">

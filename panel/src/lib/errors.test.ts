@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { ApiError } from "../api/errors";
 import { loadCatalog } from "../i18n";
-import { describeError } from "./errors";
+import { describeError, jobFailure } from "./errors";
 
 describe("describeError", () => {
   it("keeps the API's hint and detail apart", () => {
@@ -10,6 +10,7 @@ describe("describeError", () => {
       hint: "Check the logs.",
       detail: "Job failed.",
       output: null,
+      own: false,
     });
   });
 
@@ -18,11 +19,12 @@ describe("describeError", () => {
       hint: null,
       detail: "nginx: [emerg] unknown directive",
       output: null,
+      own: false,
     });
   });
 
   it("stringifies anything else", () => {
-    expect(describeError("boom")).toEqual({ hint: null, detail: "boom", output: null });
+    expect(describeError("boom")).toEqual({ hint: null, detail: "boom", output: null, own: false });
   });
 
   it("carries a failing tool's own output apart from the one-line detail", () => {
@@ -37,6 +39,7 @@ describe("describeError", () => {
       hint: null,
       detail: 'ERROR: syntax error at or near "SELCT"',
       output: 'psql:query.sql:1: ERROR:  syntax error at or near "SELCT"\nLINE 1: SELCT * FROM apps;\n        ^',
+      own: false,
     });
   });
 
@@ -79,6 +82,7 @@ describe("describeError", () => {
       detail: "nginx no está instalado",
       hint: "Instálalo con: apt install nginx",
       output: null,
+      own: true,
     });
   });
 
@@ -93,11 +97,37 @@ describe("describeError", () => {
       coded: { code: "streams.support.config_unreadable", params: {} },
     });
 
-    expect(describeError(newer)).toEqual({ detail: "Something new.", hint: "Do the new thing.", output: null });
+    expect(describeError(newer)).toEqual({ detail: "Something new.", hint: "Do the new thing.", output: null, own: false });
     expect(describeError(output)).toEqual({
       detail: "nginx no puede leer su propia configuración",
       hint: "nginx: [emerg] unexpected end of file",
       output: null,
+      own: true,
     });
+  });
+
+  it("says the failure of a job in this console's language from its code, and shows what the failing program printed as it came", async () => {
+    await loadCatalog("es");
+    const { setLocale } = await import("../app/locale");
+    await setLocale("es");
+    const failed = jobFailure({
+      error: "Application not found: shop.example.com\n  Details: Run 'noust list' to see what is deployed.\n\nnginx: [emerg] unexpected end",
+      error_coded: { code: "apps.not_found", params: { domain: "shop.example.com" } },
+      error_output: "nginx: [emerg] unexpected end",
+    });
+
+    expect(describeError(failed)).toEqual({
+      detail: "No se encuentra la aplicación shop.example.com",
+      hint: "Ejecuta 'noust list' para ver qué hay desplegado.",
+      output: "nginx: [emerg] unexpected end",
+      own: true,
+    });
+  });
+
+  it("shows a job's error as the job said it when the server gave it no code", () => {
+    const failed = jobFailure({ error: "Something nobody coded", error_coded: null, error_output: null });
+
+    expect(describeError(failed)).toEqual({ detail: "Something nobody coded", hint: null, output: null, own: false });
+    expect(jobFailure({ error: null }, "No reason was given")).toEqual({ detail: "No reason was given", coded: null, output: null });
   });
 });

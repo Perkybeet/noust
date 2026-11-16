@@ -10,7 +10,7 @@ import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import type { Account } from "../accounts/api";
 import { rolesOf } from "./AccountRolesDialog";
-import { effectivePermissions, groupPermissions, roleLabel } from "./roleModel";
+import { areaLabel, effectivePermissions, groupPermissions, permissionText, roleLabel } from "./roleModel";
 
 /**
  * What a person can do, from all their roles together, and which role gives each permission: the answer to
@@ -53,16 +53,14 @@ export function PermissionsDrawer({ account, onClose }: { account: Account; onCl
               <p className="text-13 text-fg-muted">{account.owner ? t("roles.account.owner") : t("roles.account.permissionTotal", { count: granted.length })}</p>
               {granted.length === 0 ? <p className="text-13 text-fg-muted">{t("roles.account.noPermissions")}</p> : null}
               {groups.map((group) => (
-                <Subsection key={group.area} title={group.area}>
+                <Subsection key={group.area} title={areaLabel(t, group.area)}>
                   <ul className="flex flex-col gap-2">
                     {group.permissions.map((permission) => {
                       const givers = (from.get(permission) ?? []).map(labelOf);
                       return (
                         <li key={permission} className="flex min-w-0 flex-col gap-0.5">
                           <Mono tone="default">{permission}</Mono>
-                          <span className="text-12 text-fg-muted" translate="no">
-                            {data.permissions[permission] ?? ""}
-                          </span>
+                          <span className="text-12 text-fg-muted">{permissionText(t, permission, data.permissions[permission] ?? "")}</span>
                           {held.length > 1 ? <span className="text-12 text-fg-faint">{t("roles.account.givenBy", { roles: givers.join(", ") })}</span> : null}
                         </li>
                       );

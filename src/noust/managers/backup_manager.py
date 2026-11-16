@@ -57,7 +57,6 @@ from __future__ import annotations
 import contextlib
 import fnmatch
 import hashlib
-import hmac
 import json
 import logging
 import os
@@ -91,7 +90,6 @@ from noust.core.config import DEFAULT_BACKUP_DIR as _DEFAULT_BACKUP_DIR
 from noust.core.config import Config, resolve_backup_directory
 from noust.core.exceptions import (
     BackupError,
-    ConfigError,
     DatabaseError,
     DeploymentError,
     NoustError,
@@ -102,10 +100,11 @@ from noust.core.exceptions import (
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, DryRunFileSystem, FileSystem, get_fs
 from noust.core.logger import Logger
 from noust.core.runner import DEFAULT_TIMEOUT, CommandResult, CommandRunner, get_runner
-from noust.core.sealing import SealError
+from noust.core.server_text import say
 from noust.core.store import AppType, get_store
 from noust.core.utils import domain_to_app_name
 from noust.managers.app_identity import ensure_service_account
+from noust.managers.backup_sidecar import sidecar_mac_state, sign_sidecar
 from noust.managers.docker_volumes import docker_merge_argv, handed_archive_argv
 from noust.managers.retention import select_expired
 from noust.managers.service_manager import ServiceManager
@@ -450,119 +449,6 @@ class BackupMetadata:
                 return "just now"
         except ValueError:
             return "unknown"
-
-
-#: The secret that signs every sidecar this server writes (ENS G12, mp.si.2).
-#: In the secret store, not beside the backups: whoever can write the backup
-#: directory, or the remote it is copied to, cannot forge a sidecar.
-SIDECAR_KEY_SECRET = "backups/sidecar-mac-key"  # noqa: S105 - a secret's name
-
-#: The fields a sidecar's MAC does not cover: the MAC itself.
-_MAC_FIELDS = ("mac", "mac_key_id")
-
-
-def _sidecar_key(*, create: bool) -> bytes | None:
-    """
-    Read the sidecar key, creating it when asked and missing.
-
-    Args:
-        create: Create a key when there is none.
-
-    Returns:
-        The key; None when there is none, or it cannot be read now (a sealed
-        store that is locked), in which case the reason is logged.
-    """
-    from noust.core.secrets import SecretStore
-
-    secrets_store = SecretStore()
-    try:
-        text = secrets_store.read(SIDECAR_KEY_SECRET)
-        if text is None and create:
-            text = os.urandom(32).hex()
-            secrets_store.write(SIDECAR_KEY_SECRET, text)
-    except (SealError, ConfigError, OSError) as exc:
-        Logger(verbose=False).warning(f"The key that signs backup metadata cannot be used: {exc}")
-        return None
-    if not text:
-        return None
-    try:
-        return bytes.fromhex(text.strip())
-    except ValueError:
-        Logger(verbose=False).warning(f"{SIDECAR_KEY_SECRET} does not hold a key")
-        return None
-
-
-def _key_id(key: bytes) -> str:
-    """
-    Args:
-        key: A sidecar key.
-
-    Returns:
-        A short public name for it, so a sidecar says which key signed it.
-    """
-    return hashlib.sha256(b"noust-backup-sidecar-key\0" + key).hexdigest()[:16]
-
-
-def _sidecar_mac(key: bytes, data: dict[str, Any]) -> str:
-    """
-    Args:
-        key: The sidecar key.
-        data: The sidecar's fields.
-
-    Returns:
-        HMAC-SHA256 over every field but the MAC's own, canonically encoded.
-    """
-    payload = json.dumps(
-        {name: value for name, value in data.items() if name not in _MAC_FIELDS},
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode("utf-8")
-    return hmac.new(key, b"noust-backup-sidecar:v1\0" + payload, hashlib.sha256).hexdigest()
-
-
-def sign_sidecar(data: dict[str, Any]) -> dict[str, Any]:
-    """
-    Add the MAC to a sidecar's fields.
-
-    The MAC covers the archive's checksum, so the archive is authenticated
-    with it: a sidecar and archive replaced together on the backup storage
-    no longer verify. Without a usable key (a locked sealed store) the
-    sidecar is written unsigned rather than the backup lost; ``verify`` says
-    so.
-
-    Args:
-        data: The sidecar's fields.
-
-    Returns:
-        The fields, with ``mac`` and ``mac_key_id``.
-    """
-    key = _sidecar_key(create=True)
-    if key is None:
-        return {**data, "mac": None, "mac_key_id": None}
-    return {**data, "mac": _sidecar_mac(key, data), "mac_key_id": _key_id(key)}
-
-
-def sidecar_mac_state(data: dict[str, Any]) -> str:
-    """
-    Check a sidecar's MAC.
-
-    Args:
-        data: The sidecar as read from its file, every field.
-
-    Returns:
-        ``valid``; ``invalid`` (it was changed); ``unsigned`` (from before
-        3.1); ``other_key`` (another server signed it); ``no_key`` (the key
-        cannot be read here).
-    """
-    mac, key_id = data.get("mac"), data.get("mac_key_id")
-    if not mac:
-        return "unsigned"
-    key = _sidecar_key(create=False)
-    if key is None:
-        return "no_key"
-    if key_id != _key_id(key):
-        return "other_key"
-    return "valid" if hmac.compare_digest(_sidecar_mac(key, data), str(mac)) else "invalid"
 
 
 #: What a verification says for each MAC state that is not ``valid``.
@@ -921,9 +807,12 @@ class BackupManager:
             # directory, and make_dir only sets the mode on what it creates.
             self.fs.chmod(self.backup_dir, SECRET_DIR_MODE)
         except OSError as exc:
-            raise BackupError(
-                f"Failed to create backup directory: {self.backup_dir}",
-                details=f"{exc}. Noust must run as root.",
+            raise BackupError.from_text(
+                say(
+                    "backup_manager.failed_create_backup_directory",
+                    backup_dir=str(self.backup_dir),
+                    exc=str(exc),
+                )
             ) from exc
 
     def _app_row(self, domain: str) -> Any | None:
@@ -1047,7 +936,9 @@ class BackupManager:
                 for chunk in iter(lambda: handle.read(1024 * 1024), b""):
                     sha256.update(chunk)
         except OSError as exc:
-            raise BackupError(f"Cannot read {file_path}", details=str(exc)) from exc
+            raise BackupError.from_text(
+                say("backup_manager.read", exc=str(str(exc) or ""), file_path=str(file_path))
+            ) from exc
         return sha256.hexdigest()
 
     def _get_git_info(self, app_path: Path) -> tuple[str | None, str | None]:
@@ -1294,9 +1185,12 @@ class BackupManager:
                 )
         except (tarfile.TarError, OSError) as exc:
             self.fs.remove(destination)
-            raise BackupError(
-                f"Failed to create backup archive for {app_name}",
-                details=str(exc),
+            raise BackupError.from_text(
+                say(
+                    "backup_manager.failed_create_backup_archive",
+                    app_name=app_name,
+                    exc=str(str(exc) or ""),
+                )
             ) from exc
 
     def _add_tree(
@@ -1547,24 +1441,18 @@ class BackupManager:
             ValidationError: See :meth:`create`.
         """
         if schemas:
-            raise BackupError(
-                "Per-schema dumps cannot be placed inside a self-contained backup",
-                details="Back up the whole database, or dump the schema on its own with "
-                "pg_dump --schema.",
-            )
+            raise BackupError.from_text(say("backup_manager.per_schema_dumps_placed"))
 
         app_name = validate_app_name(domain_to_app_name(domain))
         if legacy_archive.is_payload_dir(app_name):
-            raise BackupError(
-                f"Application name '{app_name}' is reserved inside a backup archive",
-                details="Rename the deployment; this name collides with the archive payload.",
+            raise BackupError.from_text(
+                say("backup_manager.application_name_reserved_inside", app_name=str(app_name))
             )
 
         app_path = self._app_path(domain, app_name)
         if not app_path.exists():
-            raise BackupError(
-                f"Application not found: {domain}",
-                details=f"Nothing to back up at {app_path}.",
+            raise BackupError.from_text(
+                say("backup_manager.application_found", app_path=str(app_path), domain=domain)
             )
 
         self._ensure_backup_dir()
@@ -1573,9 +1461,12 @@ class BackupManager:
             self.fs.make_dir(app_backup_dir, mode=SECRET_DIR_MODE)
             self.fs.chmod(app_backup_dir, SECRET_DIR_MODE)
         except OSError as exc:
-            raise BackupError(
-                f"Failed to create backup directory: {app_backup_dir}",
-                details=str(exc),
+            raise BackupError.from_text(
+                say(
+                    "backup_manager.failed_create_backup_directory_2",
+                    app_backup_dir=str(app_backup_dir),
+                    exc=str(str(exc) or ""),
+                )
             ) from exc
 
         backup_id = self._generate_backup_id(domain)
@@ -1693,9 +1584,12 @@ class BackupManager:
                 self.fs.chmod(backup_file, SECRET_MODE)
             except OSError as exc:
                 self.fs.remove(backup_file)
-                raise BackupError(
-                    f"Failed to store backup archive: {backup_file}",
-                    details=str(exc),
+                raise BackupError.from_text(
+                    say(
+                        "backup_manager.failed_store_backup_archive",
+                        backup_file=str(backup_file),
+                        exc=str(str(exc) or ""),
+                    )
                 ) from exc
 
         metadata = BackupMetadata(
@@ -1728,9 +1622,12 @@ class BackupManager:
             self.fs.write_text(metadata_file, self._sidecar_text(metadata), mode=SECRET_MODE)
         except OSError as exc:
             self.fs.remove(backup_file)
-            raise BackupError(
-                f"Failed to write backup metadata: {metadata_file}",
-                details=str(exc),
+            raise BackupError.from_text(
+                say(
+                    "backup_manager.failed_write_backup_metadata",
+                    exc=str(str(exc) or ""),
+                    metadata_file=str(metadata_file),
+                )
             ) from exc
 
         if retention_count is not None or retention_days is not None or retention_bytes:
@@ -1987,9 +1884,8 @@ class BackupManager:
         try:
             self.fs.write_text(sidecar, self._sidecar_text(backup), mode=SECRET_MODE)
         except OSError as exc:
-            raise BackupError(
-                f"Could not write the metadata of {backup.id} after sealing it",
-                details=f"{exc}. Seal the existing backups again: it repairs this.",
+            raise BackupError.from_text(
+                say("backup_manager.write_metadata_after_sealing", exc=str(exc), id=str(backup.id))
             ) from exc
 
     def checksum_of(self, path: Path) -> str:
@@ -2058,17 +1954,13 @@ class BackupManager:
         require_server_role("application_backups")
         metadata = self.get_backup(backup_id)
         if not metadata:
-            raise BackupError(
-                f"Backup not found: {backup_id}",
-                details="Run 'noust backup list' to see the backups Noust knows about.",
-            )
+            raise BackupError.from_text(say("backup_manager.backup_found", backup_id=backup_id))
 
         source_app_name = domain_to_app_name(metadata.domain)
         backup_file = self._get_app_backup_dir(source_app_name) / f"{backup_id}.tar.gz"
         if not backup_file.is_file():
-            raise BackupError(
-                f"Backup file not found: {backup_file}",
-                details="The metadata is there but the archive is not.",
+            raise BackupError.from_text(
+                say("backup_manager.backup_file_found", backup_file=str(backup_file))
             )
 
         return self.restore_archive(
@@ -2204,9 +2096,8 @@ class BackupManager:
         require_server_role("application_backups")
         archive = Path(archive)
         if not archive.is_file():
-            raise BackupError(
-                f"Backup archive not found: {archive}",
-                details="Pass the path of a .tar.gz written by 'noust backup create'.",
+            raise BackupError.from_text(
+                say("backup_manager.backup_archive_found", archive=str(archive))
             )
 
         # One decrypted copy for the whole restore when the archive is sealed: the checks below
@@ -2215,10 +2106,8 @@ class BackupManager:
             if expected_checksum:
                 self.logger.debug("Verifying backup checksum")
                 if self._calculate_checksum(archive) != expected_checksum:
-                    raise BackupError(
-                        f"Backup checksum mismatch: {archive.name}",
-                        details="The archive does not match the checksum recorded when it was "
-                        "created. Restoring it would restore corrupted data.",
+                    raise BackupError.from_text(
+                        say("backup_manager.backup_checksum_mismatch", name=str(archive.name))
                     )
 
             # Resolved before the lock, which is keyed on it, and before anything
@@ -2303,9 +2192,8 @@ class BackupManager:
         try:
             app_name = validate_app_name(domain_to_app_name(domain))
         except ValidationError as exc:
-            raise BackupError(
-                f"Cannot restore into {domain!r}",
-                details=f"{exc}. The target domain does not yield a usable directory name.",
+            raise BackupError.from_text(
+                say("backup_manager.restore_into", domain=f"{domain!r}", exc=str(exc))
             ) from exc
         app_path = self._app_path(domain, app_name)
 
@@ -2314,11 +2202,8 @@ class BackupManager:
             # the application and the disk exactly as they were.
             carried = self._stack_entries(self._read_manifest_in_place(archive), fallback)
             if carried:
-                raise BackupError(
-                    f"Restoring the database of {domain} needs the application stopped",
-                    details="The dump replaces what the database holds, under an application "
-                    "that would still be writing to it. A restore stops the application "
-                    f"itself; if it was asked not to, stop it first: noust stop {domain}",
+                raise BackupError.from_text(
+                    say("backup_manager.restoring_database_needs_application", domain=domain)
                 )
 
         # Before anything is unpacked or replaced, so a refusal leaves the application as it was:
@@ -2334,9 +2219,13 @@ class BackupManager:
         try:
             self.fs.make_dir(workspace, mode=SECRET_DIR_MODE)
         except OSError as exc:
-            raise BackupError(
-                f"Could not create a restore workspace beside {app_path}",
-                details=f"{exc}. Free space or fix permissions under {app_path.parent}.",
+            raise BackupError.from_text(
+                say(
+                    "backup_manager.create_restore_workspace_beside",
+                    app_path=str(app_path),
+                    exc=str(exc),
+                    parent=str(app_path.parent),
+                )
             ) from exc
 
         swapped = False
@@ -2353,9 +2242,12 @@ class BackupManager:
                         max_total_bytes=self.max_bytes,
                     )
             except SourceError as exc:
-                raise BackupError(
-                    f"Refusing to restore {archive.name}",
-                    details=str(exc),
+                raise BackupError.from_text(
+                    say(
+                        "backup_manager.refusing_restore",
+                        exc=str(str(exc) or ""),
+                        name=str(archive.name),
+                    )
                 ) from exc
 
             manifest = self._read_manifest(extracted)
@@ -2505,10 +2397,8 @@ class BackupManager:
         try:
             host = stack_host_for(domain, app_path, runner=self.runner, verbose=self.verbose)
         except StackBackupError as exc:
-            raise BackupError(
-                f"Cannot put back the databases of {domain}: {exc.message}",
-                details="The databases are restored through the stack's compose file, which the "
-                "restored tree must have.",
+            raise BackupError.from_text(
+                say("backup_manager.put_back_databases", domain=domain, message=str(exc.message)),
                 output=exc.output,
             ) from exc
         self.logger.info(f"Restoring {len(dumps)} database(s) of the stack")
@@ -2541,9 +2431,11 @@ class BackupManager:
         for entry in self._stack_entries(manifest, fallback):
             database = StackDatabase.from_entry(entry["stack"])
             if database is None:
-                raise BackupError(
-                    "The backup describes a database this version cannot restore",
-                    details=f"Entry: {entry['stack']!r}. Restore it with the version that took it.",
+                raise BackupError.from_text(
+                    say(
+                        "backup_manager.backup_describes_database_version",
+                        entry=f"{entry['stack']!r}",
+                    )
                 )
             dumps.append((database, self._resolve_payload_file(extracted, entry, database.label)))
         if dumps:
@@ -2573,32 +2465,28 @@ class BackupManager:
         require_server_role("application_backups")
         metadata = self.get_backup(backup_id)
         if not metadata:
-            raise BackupError(
-                f"Backup not found: {backup_id}",
-                details="Run 'noust backup list' to see the backups Noust knows about.",
-            )
+            raise BackupError.from_text(say("backup_manager.backup_found", backup_id=backup_id))
         app_name = domain_to_app_name(metadata.domain)
         archive = self._get_app_backup_dir(app_name) / f"{backup_id}.tar.gz"
         if not archive.is_file():
-            raise BackupError(
-                f"Backup file not found: {archive}",
-                details="The metadata is there but the archive is not.",
+            raise BackupError.from_text(
+                say("backup_manager.backup_file_found_2", archive=str(archive))
             )
         entries = self._stack_entries(self._read_manifest_in_place(archive), metadata)
         if not entries:
-            raise BackupError(
-                f"Backup {backup_id} holds no copy of a database of the stack",
-                details="Only a backup taken before an update of a Docker Compose application, or "
-                "with --include-databases, does. 'noust backup list' shows the others.",
+            raise BackupError.from_text(
+                say("backup_manager.backup_holds_copy_database", backup_id=backup_id)
             )
 
         databases: list[StackDatabase] = []
         for entry in entries:
             database = StackDatabase.from_entry(entry["stack"])
             if database is None:
-                raise BackupError(
-                    "The backup describes a database this version cannot restore",
-                    details=f"Entry: {entry['stack']!r}. Restore it with the version that took it.",
+                raise BackupError.from_text(
+                    say(
+                        "backup_manager.backup_describes_database_version",
+                        entry=f"{entry['stack']!r}",
+                    )
                 )
             databases.append(database)
 
@@ -2847,15 +2735,11 @@ class BackupManager:
                 with source:
                     data = json.loads(source.read().decode("utf-8"))
         except (tarfile.TarError, OSError, EOFError, ValueError, UnicodeDecodeError) as exc:
-            raise BackupError(
-                f"Cannot read {archive.name}",
-                details=f"{exc}. The archive is corrupted or was not written by Noust.",
+            raise BackupError.from_text(
+                say("backup_manager.read_2", exc=str(exc), name=str(archive.name))
             ) from exc
         if not isinstance(data, dict):
-            raise BackupError(
-                "Backup manifest is not an object",
-                details="The archive was not written by Noust.",
-            )
+            raise BackupError.from_text(say("backup_manager.backup_manifest_object"))
         return data
 
     def _warn_about_missing_environment(self, app_path: Path) -> None:
@@ -2934,13 +2818,13 @@ class BackupManager:
                 # to. A restore that cannot protect what is already running
                 # must not destroy it: refusing costs the operator a retry,
                 # continuing costs them the application.
-                raise BackupError(
-                    f"Refusing to restore over {app_path}: the current state could not be "
-                    "copied aside first",
-                    details=(
-                        f"{exc}. Free space or fix permissions under {workspace.parent}, or "
-                        f"move {app_path} out of the way yourself and restore again."
-                    ),
+                raise BackupError.from_text(
+                    say(
+                        "backup_manager.refusing_restore_over_current",
+                        app_path=str(app_path),
+                        exc=str(exc),
+                        parent=str(workspace.parent),
+                    )
                 ) from exc
 
         try:
@@ -2959,9 +2843,12 @@ class BackupManager:
                 except OSError as rollback_error:
                     self.logger.error(f"Rollback failed: {rollback_error}")
                     self.logger.error(f"The previous tree is still at {safety_copy}")
-            raise BackupError(
-                f"Failed to restore files into {app_path}",
-                details=str(exc),
+            raise BackupError.from_text(
+                say(
+                    "backup_manager.failed_restore_files_into",
+                    app_path=str(app_path),
+                    exc=str(str(exc) or ""),
+                )
             ) from exc
 
     def _carry_over(self, previous: Path, app_path: Path, names: Sequence[str]) -> None:
@@ -3011,15 +2898,11 @@ class BackupManager:
         try:
             data = json.loads(manifest_file.read_text())
         except (OSError, ValueError) as exc:
-            raise BackupError(
-                "Backup manifest is unreadable",
-                details=f"{exc}. The archive is corrupted or was not written by Noust.",
+            raise BackupError.from_text(
+                say("backup_manager.backup_manifest_unreadable", exc=str(exc))
             ) from exc
         if not isinstance(data, dict):
-            raise BackupError(
-                "Backup manifest is not an object",
-                details="The archive was not written by Noust.",
-            )
+            raise BackupError.from_text(say("backup_manager.backup_manifest_object"))
         return data
 
     @staticmethod
@@ -3042,10 +2925,7 @@ class BackupManager:
         """
         domain = (manifest or {}).get("domain") or (fallback.domain if fallback else None)
         if not domain or not isinstance(domain, str):
-            raise BackupError(
-                "This archive does not say which application it belongs to",
-                details="Pass --target-domain to restore it explicitly.",
-            )
+            raise BackupError.from_text(say("backup_manager.archive_say_application_belongs"))
         return domain
 
     def _locate_app_root(
@@ -3078,9 +2958,12 @@ class BackupManager:
             try:
                 root = resolve_within(extracted, name)
             except (ValidationError, SecurityError) as exc:
-                raise BackupError(
-                    f"Backup names an application root outside the archive: {name!r}",
-                    details=str(exc),
+                raise BackupError.from_text(
+                    say(
+                        "backup_manager.backup_names_application_root",
+                        exc=str(str(exc) or ""),
+                        name=f"{name!r}",
+                    )
                 ) from exc
             if root.is_dir():
                 return root
@@ -3093,9 +2976,11 @@ class BackupManager:
         if len(directories) == 1:
             return directories[0]
 
-        raise BackupError(
-            "Backup archive does not contain a single application directory",
-            details=f"Found: {sorted(entry.name for entry in directories) or 'nothing'}.",
+        raise BackupError.from_text(
+            say(
+                "backup_manager.backup_archive_contain_single",
+                value=str(sorted(entry.name for entry in directories) or "nothing"),
+            )
         )
 
     # -- deletion and retention ------------------------------------------
@@ -3188,10 +3073,7 @@ class BackupManager:
         """
         metadata = self.get_backup(backup_id)
         if not metadata:
-            raise BackupError(
-                f"Backup not found: {backup_id}",
-                details="Run 'noust backup list' to see the backups Noust knows about.",
-            )
+            raise BackupError.from_text(say("backup_manager.backup_found", backup_id=backup_id))
 
         app_backup_dir = self._get_app_backup_dir(domain_to_app_name(metadata.domain))
 
@@ -3435,17 +3317,17 @@ class BackupManager:
             from noust.managers.database.instances import engine_of, storage_name
             from noust.managers.database.service import DatabaseService
         except ImportError as exc:
-            raise BackupError(
-                "Database backup requested but the database managers are unavailable",
-                details=f"{exc}. Install the database extras or drop --include-databases.",
+            raise BackupError.from_text(
+                say("backup_manager.database_backup_requested_database", exc=str(exc))
             ) from exc
 
         try:
             app = get_store().get_app(domain)
         except (NoustError, sqlite3.Error) as exc:
-            raise BackupError(
-                f"Could not read the application record for {domain}",
-                details=str(exc),
+            raise BackupError.from_text(
+                say(
+                    "backup_manager.read_application_record", domain=domain, exc=str(str(exc) or "")
+                )
             ) from exc
 
         if not app or not app.id:
@@ -3476,18 +3358,23 @@ class BackupManager:
             try:
                 manager = service.manager(engine)
             except DatabaseError as exc:
-                raise BackupError(
-                    f"No manager available for database engine: {engine}",
-                    details=(
-                        f"Database '{name}' is registered for {domain} but cannot be "
-                        f"dumped: {exc.message}. {exc.details or ''}"
-                    ).strip(),
+                raise BackupError.from_text(
+                    say(
+                        "backup_manager.manager_available_database_engine",
+                        engine=str(engine),
+                        value=str(
+                            (
+                                f"Database '{name}' is registered for {domain} but cannot be "
+                                f"dumped: {exc.message}. {exc.details or ''}"
+                            ).strip()
+                            or ""
+                        ),
+                    )
                 ) from exc
 
             if not manager.is_installed():
-                raise BackupError(
-                    f"{engine} is not installed, cannot back up '{name}'",
-                    details=f"Install {engine} or run the backup without --include-databases.",
+                raise BackupError.from_text(
+                    say("backup_manager.installed_back_up", engine=str(engine), name=str(name))
                 )
 
             suffix = getattr(manager, "BACKUP_SUFFIX", ".dump")
@@ -3502,9 +3389,13 @@ class BackupManager:
             try:
                 info = manager.backup(database=name, output_path=target, compress=True, **kwargs)
             except (DatabaseError, OSError) as exc:
-                raise BackupError(
-                    f"Failed to back up {engine} database '{name}'",
-                    details=str(exc),
+                raise BackupError.from_text(
+                    say(
+                        "backup_manager.failed_back_up_database",
+                        engine=str(engine),
+                        exc=str(str(exc) or ""),
+                        name=str(name),
+                    )
                 ) from exc
 
             written = Path(info.path)
@@ -3514,9 +3405,13 @@ class BackupManager:
                 self.fs.move(written, target)
 
             if not target.is_file():
-                raise BackupError(
-                    f"Dump of '{name}' did not reach the backup archive",
-                    details=f"{engine} reported success but {target} does not exist.",
+                raise BackupError.from_text(
+                    say(
+                        "backup_manager.dump_reach_backup_archive",
+                        engine=str(engine),
+                        name=str(name),
+                        target=str(target),
+                    )
                 )
 
             dumps.append(
@@ -3740,15 +3635,17 @@ class BackupManager:
             try:
                 path = resolve_within(extracted, relative)
             except (ValidationError, SecurityError) as exc:
-                raise BackupError(
-                    f"Backup entry for {label} points outside the archive",
-                    details=str(exc),
+                raise BackupError.from_text(
+                    say(
+                        "backup_manager.backup_entry_points_outside",
+                        exc=str(str(exc) or ""),
+                        label=label,
+                    )
                 ) from exc
             if path.is_file():
                 return path
-            raise BackupError(
-                f"Backup claims a {label} it does not carry: {relative}",
-                details="The archive is incomplete; do not trust it as a backup.",
+            raise BackupError.from_text(
+                say("backup_manager.backup_claims_carry", label=label, relative=str(relative))
             )
 
         # A 1.x archive kept its dumps outside. Restoring one is only possible
@@ -3761,9 +3658,8 @@ class BackupManager:
             )
             return Path(external)
 
-        raise BackupError(
-            f"Backup lists a {label} that cannot be found",
-            details=f"Recorded location: {external or 'none'}.",
+        raise BackupError.from_text(
+            say("backup_manager.backup_lists_found", label=label, value=str(external or "none"))
         )
 
     def _restore_databases(
@@ -3825,9 +3721,8 @@ class BackupManager:
             from noust.managers.database.base import OWN_DUMP_OPTIONS
             from noust.managers.database.service import DatabaseService
         except ImportError as exc:
-            raise BackupError(
-                "This backup contains databases but the database managers are unavailable",
-                details=f"{exc}. Install the database extras before restoring.",
+            raise BackupError.from_text(
+                say("backup_manager.backup_contains_databases_database", exc=str(exc))
             ) from exc
 
         self.logger.info(f"Restoring {len(entries)} database(s)")
@@ -3844,18 +3739,29 @@ class BackupManager:
             try:
                 manager = service.manager(engine)
             except DatabaseError as exc:
-                raise BackupError(
-                    f"No manager available for database engine: {engine}",
-                    details=f"Cannot restore database '{name}': {exc.message}. {exc.details or ''}".strip(),
+                raise BackupError.from_text(
+                    say(
+                        "backup_manager.manager_available_database_engine",
+                        engine=str(engine),
+                        value=str(
+                            f"Cannot restore database '{name}': {exc.message}. {exc.details or ''}".strip()
+                            or ""
+                        ),
+                    )
                 ) from exc
 
             try:
                 # The dump this backup took of the database, as it was.
                 manager.restore(database=name, backup_path=dump_path, **OWN_DUMP_OPTIONS)
             except (DatabaseError, OSError) as exc:
-                raise BackupError(
-                    f"Failed to restore {engine} database '{name}' from {dump_path.name}",
-                    details=str(exc),
+                raise BackupError.from_text(
+                    say(
+                        "backup_manager.failed_restore_database",
+                        engine=str(engine),
+                        exc=str(str(exc) or ""),
+                        name=str(name),
+                        name2=str(dump_path.name),
+                    )
                 ) from exc
 
             self.logger.info(f"  Restored {engine} database: {name}")
@@ -4001,9 +3907,12 @@ class BackupManager:
             )
 
             if not result.success:
-                raise BackupError(
-                    f"Failed to restore Docker volume: {volume}",
-                    details=result.stderr,
+                raise BackupError.from_text(
+                    say(
+                        "backup_manager.failed_restore_docker_volume",
+                        stderr=str(result.stderr or ""),
+                        volume=str(volume),
+                    )
                 )
 
             self.logger.info(f"  Restored Docker volume: {volume}")
@@ -4311,25 +4220,30 @@ class BackupManager:
         """
         metadata = self.get_backup(backup_id)
         if metadata is None:
-            raise BackupError(
-                f"Backup not found: {backup_id}",
-                details="Run 'noust backup list' to see the backups Noust knows about.",
-            )
+            raise BackupError.from_text(say("backup_manager.backup_found", backup_id=backup_id))
         archive = self.local_files(metadata)[0]
         if not archive.is_file():
-            raise BackupError(f"Backup file not found: {archive}")
+            raise BackupError.from_text(
+                say("backup_manager.backup_file_found_3", archive=str(archive))
+            )
         try:
             with open_backup(archive) as readable, tarfile.open(readable, "r:gz") as handle:
                 declared = sum(member.size for member in handle.getmembers() if member.isfile())
         except (tarfile.TarError, OSError, EOFError) as exc:
-            raise BackupError(f"Archive is corrupted: {exc}") from exc
+            raise BackupError.from_text(
+                say("backup_manager.archive_corrupted", exc=str(exc))
+            ) from exc
         workspace = Path(tempfile.gettempdir())
         free = shutil.disk_usage(workspace).free
         if declared and free < declared * 1.1:
-            raise BackupError(
-                f"Unpacking {backup_id} needs about {declared} bytes under {workspace} and only "
-                f"{free} are free",
-                details="Free some space, or point TMPDIR at a larger filesystem.",
+            raise BackupError.from_text(
+                say(
+                    "backup_manager.unpacking_needs_about_bytes",
+                    backup_id=backup_id,
+                    declared=str(declared),
+                    free=str(free),
+                    workspace=str(workspace),
+                )
             )
         with tempfile.TemporaryDirectory(prefix="noust-drill-") as scratch:
             extracted = Path(scratch) / "extracted"
@@ -4343,9 +4257,8 @@ class BackupManager:
                         max_total_bytes=self.max_bytes,
                     )
             except SourceError as exc:
-                raise BackupError(
-                    f"Archive cannot be restored: {exc}",
-                    details="It would be refused by a restore too.",
+                raise BackupError.from_text(
+                    say("backup_manager.archive_restored", exc=str(exc))
                 ) from exc
             manifest = self._read_manifest(extracted)
             dumps = [
@@ -4534,14 +4447,10 @@ class BackupManager:
         require_server_role("application_backups")
         source = Path(source).absolute()
         if not source.is_dir():
-            raise BackupError(
-                f"Not a directory: {source}",
-                details="Pass the directory holding the misplaced <app>/ backup directories.",
-            )
+            raise BackupError.from_text(say("backup_manager.directory", source=str(source)))
         if source.resolve() == self.backup_dir.resolve():
-            raise BackupError(
-                f"{source} is already the backup directory",
-                details="Pass the directory the backups were written to by mistake.",
+            raise BackupError.from_text(
+                say("backup_manager.already_backup_directory", source=str(source))
             )
 
         report = BackupImportReport(

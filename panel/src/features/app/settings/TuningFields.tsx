@@ -89,7 +89,7 @@ export function useTuningPart(domain: string, tuning: UnitTuning | undefined, gr
       void queryClient.invalidateQueries({ queryKey: runtimeKeys.tuning(domain) });
       void queryClient.invalidateQueries({ queryKey: runtimeKeys.pending(domain) });
       void queryClient.invalidateQueries({ queryKey: appKeys.detail(domain), exact: true });
-      if (job.status !== "completed") throw new JobFailedError(job.error ?? t("runtime.tuning.jobFailed"));
+      if (job.status !== "completed") throw JobFailedError.of(job, t("runtime.tuning.jobFailed"));
     },
     onSuccess: () => {
       setSubmitted(false);

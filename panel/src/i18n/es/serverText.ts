@@ -2708,6 +2708,62 @@ export const serverText: Catalog<typeof en> = {
         text: "la política de limpieza está desactivada",
       },
     },
+    docker_image_rm_failed: {
+      text: "'docker image rm {ref}' falló",
+      hint: "No se cambió nada más. Debajo está la salida de la propia herramienta.",
+    },
+    docker_installed_system: {
+      text: "Docker no está instalado en este sistema",
+    },
+    failed_exit_code: {
+      text: "'{items}' falló (código de salida {exit_code})",
+      hint: "No se cambió nada más. Debajo está la salida de la propia herramienta.",
+    },
+    give_size_age_both: {
+      text: "Indica un tamaño o una antigüedad, no ambos",
+      hint: "Usa size_mb o days.",
+    },
+    image_list_unused_images: {
+      text: "Esa imagen no está en la lista de imágenes sin usar",
+      hint: "Puede que la use un contenedor, o que ya no exista.",
+    },
+    image_list_unused_images_2: {
+      text: "Esa imagen no está en la lista de imágenes sin usar: es una versión {value} a la que se puede volver",
+      hint: "Noust nunca la ofrece para quitarla. Una aplicación conserva menos versiones con: noust releases keep",
+    },
+    name_image_id: {
+      text: "Nombra la imagen por su id",
+      hint: "Usa un id de la lista de imágenes sin usar.",
+    },
+    package_cache_clean_system: {
+      text: "No hay caché de paquetes que limpiar en este sistema",
+      hint: "{value}",
+    },
+    positive_whole_number: {
+      text: "{name} debe ser un número entero positivo",
+      hint: "Se recibió {value}.",
+    },
+    psutil_installed_disks_listed: {
+      text: "psutil no está instalado, así que no se pueden listar los discos",
+      hint: "Instala el extra web: pip install 'noust[web]'.",
+    },
+    unknown_cleanup_action: {
+      text: "Acción de limpieza desconocida: {action}",
+      hint: "Usa una de estas: {items}.",
+    },
+    cleanup_deletes: {
+      text: "'{action}' elimina algo que quizá quieras recuperar",
+      hint: "{effect}",
+    },
+    backups_summary: {
+      text: "{count} copias de seguridad; su retención es un ajuste de las copias",
+    },
+    reduce_to: {
+      text: "Reducirlo a {megabytes} MB",
+    },
+    releases_over_keep: {
+      text: "{apps} aplicación(es) conservan más releases de las que tienen configuradas",
+    },
   },
   streams: {
     firewall: {
@@ -2918,6 +2974,2638 @@ export const serverText: Catalog<typeof en> = {
     zero_downtime: {
       text: "{domain} funciona en modo sin cortes, que solo admite nginx",
       hint: "Apaga antes el modo y planifica el cambio de nuevo: {command}",
+    },
+  },
+  apps: {
+    not_found: {
+      text: "No se encuentra la aplicación {domain}",
+      hint: "Ejecuta 'noust list' para ver qué hay desplegado.",
+    },
+    not_found_here: {
+      text: "No se encuentra la aplicación {domain}",
+      hint: "No hay nada desplegado en {app_path}. Despliégala con: noust create -d {domain}",
+    },
+    not_found_bare: {
+      text: "No se encuentra la aplicación {domain}",
+    },
+    not_found_to_delete: {
+      text: "No se encuentra la aplicación {domain}",
+      hint: "No hay nada que eliminar; comprueba el dominio exacto con 'noust list'.",
+    },
+  },
+  access_api: {
+    no_such_binding: {
+      text: "No hay ninguna asignación de acceso con id {binding_id} en {slug}",
+      hint: "Consúltalas con GET /api/teams/<team>/access.",
+    },
+  },
+  access_change: {
+    already_resolved: {
+      text: "El cambio {change_id} ya no está pendiente ({status})",
+      hint: "Solo se puede confirmar un cambio pendiente.",
+    },
+    bad_id: {
+      text: "Se rechaza el identificador de cambio pendiente {id}",
+    },
+    bad_status: {
+      text: "Se rechaza el estado de cambio pendiente {status}",
+    },
+    busy: {
+      text: "Otro cambio de SSH o del cortafuegos se está aplicando todavía",
+      hint: "Espera a que termine y vuelve a intentarlo.",
+    },
+    no_timer: {
+      text: "Noust no pudo armar el temporizador que deshace este cambio, así que no lo hizo",
+      hint: "Un cambio de SSH o del cortafuegos solo se hace cuando puede deshacerse solo. Comprueba que systemd está en marcha (systemctl is-system-running).",
+    },
+    not_permanent: {
+      text: "El cambio {change_id} no pudo hacerse permanente y se deshizo",
+    },
+    restore_refused: {
+      text: "Se rechaza restaurar {path}: Noust nunca escribe ahí",
+    },
+    too_late: {
+      text: "Demasiado tarde: el cambio {change_id} se está deshaciendo ahora mismo",
+      hint: "Su ventana de confirmación terminó. Vuelve a aplicarlo si todavía lo quieres.",
+    },
+    undo_refused: {
+      text: "Se rechaza ejecutar {argv} para deshacer un cambio",
+    },
+    unknown: {
+      text: "No hay ningún cambio pendiente {change_id}",
+    },
+    unknown_listed: {
+      text: "No hay ningún cambio pendiente {change_id}",
+      hint: "Consúltalos con 'noust server security pending'.",
+    },
+    waiting_for_confirmation: {
+      text: "Otro cambio está esperando confirmación (cambio {id})",
+      hint: "Confírmalo o revierte antes: solo se puede deshacer con seguridad un cambio a la vez.",
+    },
+    not_applied: {
+      text: "No se aplicó: {title}",
+      hint: "{reasons}",
+    },
+    record_damaged: {
+      text: "Un registro de cambio pendiente está dañado",
+    },
+    record_damaged_named: {
+      text: "El registro del cambio {change_id} está dañado",
+    },
+  },
+  firewall: {
+    allow_only_unconfirmed: {
+      text: "Solo una regla de permitir se hace sin ventana de confirmación",
+      hint: "Denegar un puerto puede dejarte sin SSH, así que espera a que lo confirmes.",
+    },
+    bad_action: {
+      text: "La acción de una regla es allow o deny",
+    },
+    bad_port: {
+      text: "Un puerto es un número del 1 al 65535",
+    },
+    bad_protocol: {
+      text: "Un protocolo es tcp, udp o any",
+    },
+    bad_source: {
+      text: "«{source}» no es una dirección ni una red",
+    },
+    keeps_ssh_open: {
+      text: "Se rechaza eliminar la regla que deja que todo el mundo llegue al puerto {port} ({what})",
+      hint: "Con la política por defecto denegando, nadie podría abrir una sesión SSH nueva, tampoco el túnel de la central. Añade antes la regla que quieres y elimina después esta.",
+    },
+    no_changeable_firewall: {
+      text: "Noust cambia reglas de ufw y de firewalld, y aquí no se usa ninguno",
+      hint: "Instala un cortafuegos que Noust pueda cambiar: {value}; las reglas de nftables y de iptables solo se leen.",
+    },
+    no_such_rule: {
+      text: "No hay ninguna regla de cortafuegos {rule_id}",
+      hint: "Consulta las reglas con 'noust server security firewall status'.",
+    },
+    not_active: {
+      text: "{backend} no está activo",
+    },
+    not_permanent: {
+      text: "El cortafuegos no pudo hacer permanente «{title}», así que se deshizo",
+    },
+    origin_needs_one_port: {
+      text: "Noust cambia el origen de una regla de un solo puerto, y «{spec}» no lo es",
+      hint: "Para esta, añade la regla que quieres y elimina después esta.",
+    },
+    port_in_use: {
+      text: "Se rechaza aplicar «{action}» al puerto {port}: {what} escucha ahí",
+      hint: "Cerrarlo podría cortar las sesiones SSH abiertas ahora y el túnel de una central. Para limitar quién llega, permite las direcciones que usas y deja que la política por defecto cierre el resto.",
+    },
+    read_only: {
+      text: "Este cortafuegos se abrió solo para leer",
+    },
+    refused: {
+      text: "El cortafuegos rechazó «{items}»",
+    },
+    refused_undone: {
+      text: "El cortafuegos rechazó «{items}», así que se deshizo el cambio",
+    },
+    rule_already_admits: {
+      text: "La regla ya admite desde {value}",
+    },
+    rule_covers_more: {
+      text: "La regla «{spec}» cubre más que el puerto {port}",
+      hint: "Elimínala por separado en las reglas del cortafuegos y añade las que quieras para cada puerto.",
+    },
+    rule_exists: {
+      text: "Ya hay una regla para {proto} puerto {port} desde {value}",
+      hint: "Elimina la regla que no quieras o elige otro origen.",
+    },
+    rule_other_port: {
+      text: "La regla «{spec}» no es del puerto {port}",
+      hint: "Solo se sustituye por la nueva una regla que permite el puerto que se abre.",
+    },
+    state_unreadable: {
+      text: "No se pudo leer el estado del cortafuegos",
+    },
+    turns_on_ufw_only: {
+      text: "Noust solo activa ufw",
+      hint: "Para firewalld, permite SSH en la zona por defecto con 'firewall-offline-cmd --add-service=ssh', luego 'systemctl enable --now firewalld', sin cerrar esta sesión.",
+    },
+    ufw_active: {
+      text: "ufw ya está activo",
+    },
+    origin_cuts_ssh: {
+      text: "Se rechaza cambiar quién llega al puerto {port} ({what}) a {origin}",
+      hint: "Cortaría las sesiones SSH abiertas ahora ({sessions}) y podría dejar fuera el túnel de una central. Elige una red que incluya la dirección desde la que estás conectado, o añade antes la regla que quieres y elimina esta cuando hayas comprobado que funciona.",
+    },
+    origin_locks_out: {
+      text: "Se rechaza cambiar quién llega al puerto {port} ({what}) a {origin}",
+      hint: "No dejaría a nadie con acceso para abrir una sesión SSH nueva ni para llegar a la consola: la política por defecto deniega y nada más los admite.",
+    },
+  },
+  security: {
+    bad_ip: {
+      text: "{address} no es una dirección IP",
+    },
+    fail2ban_not_running: {
+      text: "fail2ban no está en marcha",
+      hint: "Instálalo primero: noust server security fail2ban install",
+    },
+    no_nginx_log: {
+      text: "nginx no está instalado aquí, así que no hay registro que vigilar",
+    },
+    no_such_check: {
+      text: "No existe la comprobación {check_id}",
+    },
+    no_such_fix: {
+      text: "No hay ninguna corrección automática {action}",
+    },
+    no_such_operation: {
+      text: "No existe la operación de seguridad {operation}",
+    },
+    nothing_to_fix: {
+      text: "La comprobación {check_id} no tiene nada que corregir",
+      hint: "Vuelve a ejecutar las comprobaciones: puede que ya se haya superado.",
+    },
+    no_automatic_fix: {
+      text: "La comprobación {check_id} no tiene aquí una corrección automática",
+      hint: "{steps}",
+    },
+    no_fail2ban_here: {
+      text: "Noust no puede instalar fail2ban aquí",
+      hint: "{install_hint}",
+    },
+  },
+  security_api: {
+    bad_date: {
+      text: "{text} no es una fecha",
+      hint: "Usa 2026-12-31 o 2026-12-31T18:00:00Z.",
+    },
+    no_accepted_risk: {
+      text: "No hay ningún riesgo aceptado para {check_id}",
+    },
+    no_such_ssh_fix: {
+      text: "No existe la corrección de SSH {fix}",
+    },
+  },
+  ssh: {
+    already_resolved: {
+      text: "El cambio {change_id} ya no está pendiente ({status})",
+    },
+    config_rejected: {
+      text: "sshd rechazó la configuración nueva, así que no se cambió nada",
+      hint: "Sus propias palabras van debajo.",
+    },
+    keys_of_root_only: {
+      text: "Noust gestiona las claves de root y de las cuentas que pueden llegar a serlo; {user} no es una de ellas",
+      hint: "Cuentas: {value}.",
+    },
+    login_history_unreadable: {
+      text: "Noust no puede leer el historial de accesos de sshd, así que no puede ver una sesión nueva",
+      hint: "{error}. El cambio se deshace solo a las {deadline}; para conservarlo, hazlo a mano mientras otra sesión sigue abierta.",
+    },
+    no_effect_undone: {
+      text: "El cambio no surtió efecto, así que se deshizo",
+      hint: "sshd usa el primer valor que lee. Mueve o quita la línea que gana y vuelve a aplicar:\n{items}",
+    },
+    no_new_login: {
+      text: "Ninguna sesión SSH nueva desde el cambio",
+      hint: "Mantén abierta esta sesión, abre una sesión SSH NUEVA en este servidor y confirma otra vez cuando haya entrado. Si no puede entrar, no hagas nada: el cambio se deshace solo a las {deadline}.",
+    },
+    no_such_fix: {
+      text: "No existe la corrección de SSH {name}",
+      hint: "Usa una de estas: {items}.",
+    },
+    no_such_key: {
+      text: "{user} no tiene la clave {fingerprint}",
+      hint: "Consulta las claves con 'noust server security ssh keys'.",
+    },
+    nothing_to_do: {
+      text: "Nada que hacer: sshd ya usa {items}",
+    },
+    reload_failed_undone: {
+      text: "sshd no pudo recargarse, así que se deshizo el cambio",
+    },
+    key_removal_refused: {
+      text: "Se rechaza quitar {fingerprint} de {user}",
+      hint: "{blockers}\nFuerza la acción solo si estás seguro (--force).",
+    },
+    no_authorized_keys: {
+      text: "sshd no lee ningún archivo authorized_keys para {user}",
+      hint: "{reason}",
+    },
+  },
+  sshd: {
+    dropin_not_noust: {
+      text: "{dropin} existe y no lo escribió Noust",
+      hint: "Noust guarda sus ajustes de sshd solo en ese archivo. Mueve lo que contiene a otro archivo de /etc/ssh/sshd_config.d/ y vuelve a intentarlo.",
+    },
+    keyword_refused: {
+      text: "Noust no escribe la palabra clave de sshd {keyword}",
+    },
+    no_effective_config: {
+      text: "sshd no informó de su configuración efectiva",
+      hint: "Ejecuta 'sshd -T' como root para ver por qué; un sshd que no puede mostrar su configuración tampoco aceptaría recargarla.",
+    },
+    not_under_systemd: {
+      text: "sshd no se ejecuta bajo systemd, así que Noust no puede recargarlo",
+      hint: "Inícialo (systemctl start ssh, o sshd en RHEL y SUSE) y vuelve a intentarlo.",
+    },
+    symlink_refused: {
+      text: "Se rechaza usar {path}: es un enlace simbólico",
+      hint: "Noust escribe este archivo él mismo; quita el enlace y vuelve a intentarlo.",
+    },
+    value_refused: {
+      text: "Se rechaza el valor {value} para {name}",
+    },
+    cannot_read: {
+      text: "No se puede leer {path}",
+    },
+  },
+  access_changes: {
+    firewall_allow: {
+      text: "Permitir {port} desde {source}",
+    },
+    firewall_allow_any: {
+      text: "Permitir {port} desde cualquier origen",
+    },
+    firewall_allow_any_replacing: {
+      text: "Permitir {port} desde cualquier origen y eliminar {rules}",
+    },
+    firewall_allow_replacing: {
+      text: "Permitir {port} desde {source} y eliminar {rules}",
+    },
+    firewall_delete: {
+      text: "Eliminar la regla «{rule}» del cortafuegos",
+    },
+    firewall_deny: {
+      text: "Denegar {port} desde {source}",
+    },
+    firewall_deny_any: {
+      text: "Denegar {port} desde cualquier origen",
+    },
+    firewall_deny_any_replacing: {
+      text: "Denegar {port} desde cualquier origen y eliminar {rules}",
+    },
+    firewall_deny_replacing: {
+      text: "Denegar {port} desde {source} y eliminar {rules}",
+    },
+    firewall_disable: {
+      text: "Desactivar ufw",
+    },
+    firewall_enable: {
+      text: "Activar ufw, denegando la entrada por defecto",
+    },
+    firewall_source: {
+      text: "Cambiar el origen de {port} de {old} a {source}",
+    },
+    firewall_source_from_any: {
+      text: "Cambiar el origen de {port} de cualquier origen a {source}",
+    },
+    firewall_source_to_any: {
+      text: "Cambiar el origen de {port} de {old} a cualquier origen",
+    },
+    firewall_stop: {
+      text: "Detener firewalld",
+    },
+    ssh_disable_passwords: {
+      text: "Desactivar el acceso por contraseña en SSH",
+    },
+    ssh_no_empty_passwords: {
+      text: "Rechazar los accesos con una contraseña vacía",
+    },
+    ssh_root_no: {
+      text: "Rechazar los accesos de root por SSH",
+    },
+    ssh_root_prohibit_password: {
+      text: "Permitir que root entre por SSH solo con una clave",
+    },
+    ssh_sensible_defaults: {
+      text: "Aplicar límites razonables a SSH",
+    },
+    ssh_verbose_logging: {
+      text: "Registrar la huella de la clave en cada acceso por SSH",
+    },
+  },
+  accounts_api: {
+    exception_force_id: {
+      text: "No hay ninguna excepción en vigor con id {exception_id}",
+    },
+    own_account_change_person: {
+      text: "No puedes cambiar la persona de tu propia cuenta",
+      hint: "Otro administrador puede hacerlo, o root con 'noust user'.",
+    },
+    own_account_change_role: {
+      text: "No puedes cambiar el rol de tu propia cuenta",
+      hint: "Otro administrador puede hacerlo, o root con 'noust user'.",
+    },
+    own_account_disable: {
+      text: "No puedes desactivar tu propia cuenta",
+      hint: "Otro administrador puede hacerlo, o root con 'noust user'.",
+    },
+    own_account_enable: {
+      text: "No puedes activar tu propia cuenta",
+      hint: "Otro administrador puede hacerlo, o root con 'noust user'.",
+    },
+    own_account_remove: {
+      text: "No puedes quitar tu propia cuenta",
+      hint: "Otro administrador puede hacerlo, o root con 'noust user'.",
+    },
+    own_account_reset_second_factor: {
+      text: "No puedes restablecer el segundo factor de tu propia cuenta",
+      hint: "Otro administrador puede hacerlo, o root con 'noust user'.",
+    },
+    own_account_unlock: {
+      text: "No puedes desbloquear tu propia cuenta",
+      hint: "Otro administrador puede hacerlo, o root con 'noust user'.",
+    },
+  },
+  accounts_model: {
+    e_mail_address: {
+      text: "No es una dirección de correo: {value}",
+      hint: "Usa una dirección como maria@example.com.",
+    },
+    invalid_display_name: {
+      text: "El nombre para mostrar no es válido",
+      hint: "Usa como máximo {max_display_name} caracteres imprimibles.",
+    },
+    invalid_person_reference: {
+      text: "La referencia de la persona no es válida",
+      hint: "Usa como máximo {max_person_ref} caracteres imprimibles, como un correo.",
+    },
+    invalid_username: {
+      text: "El nombre de usuario no es válido: {value}",
+      hint: "Usa de 2 a 64 letras minúsculas, dígitos, '.', '-' o '_', empezando por una letra o un dígito, como 'maria' o 'maria.adm'.",
+    },
+    unknown_role: {
+      text: "Rol desconocido: {value}",
+      hint: "Usa uno de estos: {items}.",
+    },
+    username_reserved: {
+      text: "El nombre de usuario {name} está reservado",
+      hint: "Ya nombra algo en el registro de auditoría. Elige otro.",
+    },
+  },
+  auth_files: {
+    create_noust_web_state: {
+      text: "No se puede crear el directorio de estado web de Noust {path}",
+      hint: "El panel web guarda ahí su clave de firma, las sesiones y el registro de auditoría. Créalo como root con 'install -d -m 700 {path}', o indica al panel un lugar con permiso de escritura con {state_dir_env}=/ruta/al/directorio.",
+    },
+    look: {
+      text: "No se puede buscar {path}",
+      hint: "El panel web guarda sus credenciales donde solo su propietario puede leerlas. Ejecútalo como root, o apunta {state_dir_env} a un directorio tuyo.",
+    },
+    write: {
+      text: "No se puede escribir {path}",
+      hint: "Ejecuta el panel web como root, o apunta {state_dir_env} a un directorio del que sea propietario el usuario actual.",
+    },
+  },
+  auth_records: {
+    address_network: {
+      text: "No es una dirección ni una red: {entry}",
+      hint: "Usa direcciones o CIDR, como 203.0.113.7 o 10.0.0.0/8.",
+    },
+  },
+  auth_scopes: {
+    credential_scope_requires_issue: {
+      text: "El alcance de esta credencial es «{granted}», y {method} {path} exige «{required}». Emite un token con el alcance adecuado en Ajustes, o con POST /api/auth/tokens.",
+    },
+  },
+  auth_sessions: {
+    open_web_session_database: {
+      text: "No se puede abrir la base de datos de sesiones web {path}",
+      hint: "Ejecuta el panel web como root, o apunta {state_dir_env} a un directorio del que sea propietario el usuario actual.",
+    },
+  },
+  local_login: {
+    list_usernames: {
+      text: "{setting_exempt} debe ser una lista de nombres de usuario",
+      hint: "Se recibió {value}.",
+    },
+    most_accounts_keep_their: {
+      text: "Como máximo {max_exempt} cuentas conservan su contraseña",
+      hint: "La lista de emergencia debe ser corta.",
+    },
+    sign_password_passkey_turned: {
+      text: "El inicio de sesión con contraseña o con llave de acceso está desactivado en este servidor",
+      hint: "Usa el inicio de sesión con el proveedor de identidad de tu organización.",
+    },
+    nobody_cutting_link: {
+      text: "Cortar este vínculo dejaría este servidor sin nadie que pueda administrarlo",
+      hint: "Vincula antes a un administrador o a un responsable de seguridad con un proveedor de identidad activo ('noust auth oidc link'), o nombra una cuenta de emergencia que conserve su contraseña ('noust auth local-login exempt add NOMBRE').",
+    },
+    nobody_disabling_directory: {
+      text: "Desactivar el directorio {name} dejaría este servidor sin nadie que pueda administrarlo",
+      hint: "Vincula antes a un administrador o a un responsable de seguridad con un proveedor de identidad activo ('noust auth oidc link'), o nombra una cuenta de emergencia que conserve su contraseña ('noust auth local-login exempt add NOMBRE').",
+    },
+    nobody_disabling_provider: {
+      text: "Desactivar el proveedor {name} dejaría este servidor sin nadie que pueda administrarlo",
+      hint: "Vincula antes a un administrador o a un responsable de seguridad con un proveedor de identidad activo ('noust auth oidc link'), o nombra una cuenta de emergencia que conserve su contraseña ('noust auth local-login exempt add NOMBRE').",
+    },
+    nobody_removing_directory: {
+      text: "Quitar el directorio {name} dejaría este servidor sin nadie que pueda administrarlo",
+      hint: "Vincula antes a un administrador o a un responsable de seguridad con un proveedor de identidad activo ('noust auth oidc link'), o nombra una cuenta de emergencia que conserve su contraseña ('noust auth local-login exempt add NOMBRE').",
+    },
+    nobody_removing_provider: {
+      text: "Quitar el proveedor {name} dejaría este servidor sin nadie que pueda administrarlo",
+      hint: "Vincula antes a un administrador o a un responsable de seguridad con un proveedor de identidad activo ('noust auth oidc link'), o nombra una cuenta de emergencia que conserve su contraseña ('noust auth local-login exempt add NOMBRE').",
+    },
+    nobody_this_change: {
+      text: "Este cambio dejaría este servidor sin nadie que pueda administrarlo",
+      hint: "Vincula antes a un administrador o a un responsable de seguridad con un proveedor de identidad activo ('noust auth oidc link'), o nombra una cuenta de emergencia que conserve su contraseña ('noust auth local-login exempt add NOMBRE').",
+    },
+    nobody_turning_off: {
+      text: "Desactivar el inicio de sesión con contraseña dejaría este servidor sin nadie que pueda administrarlo",
+      hint: "Vincula antes a un administrador o a un responsable de seguridad con un proveedor de identidad activo ('noust auth oidc link'), o nombra una cuenta de emergencia que conserve su contraseña ('noust auth local-login exempt add NOMBRE').",
+    },
+  },
+  passkeys: {
+    already_passkeys_account: {
+      text: "Esta cuenta ya tiene {max_passkeys_per_owner} llaves de acceso",
+      hint: "Quita una que ya no uses antes de añadir otra.",
+    },
+    invalid_passkey_name: {
+      text: "El nombre de la llave de acceso no es válido",
+      hint: "Usa de 1 a {max_name_length} caracteres imprimibles, como 'Portátil de la oficina'.",
+    },
+    passkey_already_registered: {
+      text: "Esta llave de acceso ya está registrada aquí",
+      hint: "Cada llave de acceso se añade una sola vez; prueba con otro autenticador.",
+    },
+    passkey_id: {
+      text: "No tienes ninguna llave de acceso con id {passkey_id}",
+      hint: "Consulta las tuyas con GET /api/auth/passkeys.",
+    },
+    passkey_id_2: {
+      text: "No hay ninguna llave de acceso con id {passkey_id}",
+      hint: "Consúltalas con 'noust passkey list'.",
+    },
+    passkey_saved: {
+      text: "No se guardó la llave de acceso",
+      hint: "Vuelve a intentarlo.",
+    },
+    passkey_second_factor: {
+      text: "Esta llave de acceso es tu único segundo factor",
+      hint: "Añade antes otra llave de acceso u otro autenticador. Si perdiste los demás, pide a un responsable de seguridad que restablezca tu segundo factor.",
+    },
+    server_accepts_passkeys_bound: {
+      text: "Este servidor solo acepta llaves de acceso ligadas a un dispositivo, y esta puede estar sincronizada",
+      hint: "Usa una llave de seguridad o un autenticador ligado al dispositivo, o permite las llaves de acceso sincronizadas con web.passkeys.allow_synced.",
+    },
+    bad_rp_id: {
+      text: "web.passkeys.rp_id no es un nombre de host: {rp_id}",
+      hint: "Ponle el nombre de la consola, como noust.example.com, o quítalo.",
+    },
+    host_mismatch: {
+      text: "Las llaves de acceso de esta consola pertenecen a {chosen}, y se ha abierto como {host}",
+      hint: "Ábrela en {chosen} (o en un nombre bajo él), o cambia web.passkeys.rp_id.",
+    },
+    insecure: {
+      text: "Las llaves de acceso necesitan HTTPS en un nombre distinto de localhost",
+      hint: "Los navegadores solo ofrecen llaves de acceso por HTTPS o en http://localhost. Sirve {host} con un certificado que el navegador reconozca, o llega a este servidor por un túnel SSH en http://localhost:<puerto>.",
+    },
+    ip_address_name: {
+      text: "Las llaves de acceso no funcionan desde una dirección como {host}",
+      hint: "Los navegadores solo ofrecen llaves de acceso a un sitio con nombre. Dale a esta consola un nombre con un certificado que el navegador reconozca, o llega a este servidor por un túnel SSH en http://localhost:<puerto>.",
+    },
+    ip_address_open: {
+      text: "Las llaves de acceso no funcionan desde una dirección como {host}",
+      hint: "Los navegadores solo ofrecen llaves de acceso a un sitio con nombre. Abre {public} en su lugar, o llega a este servidor por un túnel SSH en http://localhost:<puerto>.",
+    },
+    library_missing: {
+      text: "Las llaves de acceso necesitan una biblioteca que este servidor no tiene",
+      hint: "{install}",
+    },
+    no_host: {
+      text: "Esta petición no indica un host al que se puedan ligar las llaves de acceso",
+      hint: "Abre la consola por su nombre, como https://noust.example.com.",
+    },
+    session_required: {
+      text: "Las llaves de acceso se gestionan desde una sesión de navegador con sesión iniciada",
+      hint: "Inicia sesión en la consola desde un navegador; los tokens no pueden tener llaves de acceso.",
+    },
+  },
+  passwords: {
+    password_contains_server_name: {
+      text: "La contraseña contiene el nombre de este servidor",
+      hint: "Usa una frase de paso que no incluya el nombre de la máquina.",
+    },
+    password_contains_username: {
+      text: "La contraseña contiene el nombre de usuario",
+      hint: "Usa una frase de paso que no incluya el nombre de la cuenta.",
+    },
+    password_longer_characters: {
+      text: "La contraseña tiene más de {max_password_length} caracteres",
+      hint: "Usa una frase de paso más corta.",
+    },
+    password_repeats_too_few: {
+      text: "La contraseña repite muy pocos caracteres distintos",
+      hint: "Usa una frase de paso con más variedad.",
+    },
+    password_shorter_characters: {
+      text: "La contraseña tiene menos de {min_length} caracteres",
+      hint: "Usa una frase de paso más larga: varias palabras sin relación se recuerdan con facilidad.",
+    },
+  },
+  session: {
+    authentication_system_initialized: {
+      text: "El sistema de autenticación no está inicializado",
+    },
+    missing_invalid_csrf_token: {
+      text: "Falta el token CSRF o no es válido. Envía el valor de la cookie {csrf_cookie_name} en la cabecera {csrf_header_name}, o autentícate con un token Bearer.",
+    },
+  },
+  signin: {
+    account_password_credential: {
+      text: "Solo una cuenta tiene contraseña; esta credencial no es una cuenta.",
+    },
+    account_second_factor_turned: {
+      text: "El segundo factor de una cuenta no se puede desactivar",
+      hint: "Toda cuenta conserva uno. Para sustituirlo, pide a un responsable de seguridad que lo restablezca.",
+    },
+    active_session_matches_prefix: {
+      text: "Ninguna sesión activa coincide con ese prefijo. Puede que haya caducado.",
+    },
+    address_network_use_203: {
+      text: "No es una dirección ni una red: {exc}. Usa 203.0.113.7 o 10.0.0.0/8.",
+    },
+    api_token_id: {
+      text: "No hay ningún token de API con id {token_id}",
+    },
+    api_token_issue_api: {
+      text: "Un token de API no puede emitir tokens de API.",
+    },
+    central_fleet_token_restricted: {
+      text: "El token de flota de una central no está restringido aquí; quita el servidor en su lugar.",
+    },
+    central_fleet_token_revokes: {
+      text: "Aquí solo el token de flota de una central se revoca a sí mismo; revoca los demás en Ajustes.",
+    },
+    code_accepted_scan_qr: {
+      text: "No se aceptó ese código. Escanea el QR de nuevo e introduce un código nuevo.",
+    },
+    code_accepted_two_factor: {
+      text: "No se aceptó ese código. La verificación en dos pasos sigue activada.",
+    },
+    credential_browser_session_other: {
+      text: "Esta credencial no es una sesión del navegador; no hay otra sesión que dejar abierta.",
+    },
+    credential_list_api_tokens: {
+      text: "Esta credencial no puede listar los tokens de API.",
+    },
+    person_accepts_notice_credential: {
+      text: "Solo una persona acepta el aviso; esta credencial no lo es.",
+    },
+    sudo_mode_asks_account: {
+      text: "El modo sudo pide la contraseña de la cuenta, y esta cuenta no tiene",
+      hint: "Inicia sesión con su proveedor de identidad. Dale una contraseña, que solo guardará para esto: 'noust user invite NOMBRE' deja que su propietario la ponga, con su autenticador.",
+    },
+    sudo_mode_needs_second: {
+      text: "El modo sudo necesita un segundo factor, y esta cuenta no tiene ninguno",
+      hint: "Registra antes un autenticador: POST /api/auth/2fa/enroll.",
+    },
+    credentials_refused: {
+      text: "El usuario o la contraseña no son correctos",
+      hint: "Comprueba el usuario, la contraseña y el código, y vuelve a intentarlo.",
+    },
+    enter_code: {
+      text: "Introduce un código de tu autenticador o un código de respaldo.",
+    },
+    expired: {
+      text: "Este inicio de sesión ha caducado. Vuelve a empezar con tu usuario y tu contraseña.",
+    },
+    expired_provider: {
+      text: "Este inicio de sesión ha caducado. Vuelve a empezar con tu proveedor.",
+    },
+    invalid_credentials: {
+      text: "El usuario o la contraseña no son correctos.",
+    },
+    invalid_directory_login: {
+      text: "El usuario o la contraseña no son correctos.",
+    },
+    invalid_token: {
+      text: "El token no es correcto.",
+    },
+    invalid_totp: {
+      text: "El código de verificación no es correcto.",
+    },
+    second_factor_code: {
+      text: "La verificación en dos pasos está activada. Incluye {field}.",
+    },
+    second_factor_either: {
+      text: "La verificación en dos pasos está activada. Incluye {field} o usa una llave de acceso: POST {where}.",
+    },
+    second_factor_passkey: {
+      text: "Este inicio de sesión tiene ahora una llave de acceso. Úsala: POST {where}.",
+    },
+    locked_out: {
+      text: "Demasiados intentos fallidos. Bloqueado durante {seconds} segundos.",
+    },
+    reset_unavailable: {
+      text: "Este servidor no restablece contraseñas por correo.",
+      hint: "Pide una invitación nueva a un responsable de seguridad.",
+    },
+  },
+  token_activity: {
+    intervention_token: {
+      text: "No hay ninguna intervención {n} de este token",
+    },
+    needs_deploy: {
+      text: "Esto necesita el permiso '{permission}' en {domain}",
+      hint: "Pídeselo a un administrador de su equipo.",
+    },
+    schema_changed: {
+      text: "Volver atrás pasa por un despliegue que cambió el esquema de la base de datos, en {apps}",
+      hint: "Noust devuelve el código, nunca la base de datos: confírmalo para esas aplicaciones (schema_changed_ok) o déjalas fuera.",
+    },
+    undo_unavailable: {
+      text: "Ninguna de las aplicaciones pedidas se puede dejar como estaba.",
+      hint: "Consulta con GET el plan de esta intervención para ver por qué no se puede cada una.",
+    },
+  },
+  tokens: {
+    api_token_named_already: {
+      text: "Ya existe un token de API llamado {cleaned}",
+      hint: "Los nombres son únicos, también entre los tokens revocados, para que una línea de auditoría que nombre uno nombre siempre una sola cosa. Elige otro nombre.",
+    },
+    api_token_names_1: {
+      text: "Los nombres de los tokens de API tienen de 1 a 64 caracteres",
+      hint: "Pon al token el nombre de lo que lo va a usar, como 'ci-deploy'.",
+    },
+    api_tokens_act_sudo: {
+      text: "Los tokens de API no pueden actuar en modo sudo en este servidor",
+      hint: "Haz lo que necesite confirmación desde la consola, como una persona.",
+    },
+    api_tokens_last_most: {
+      text: "Los tokens de API duran como máximo {token_max_days} días en este servidor",
+      hint: "Pide {longest} horas o menos y emite uno nuevo entonces. Un marco de cumplimiento lo exige: noust compliance status.",
+    },
+    assistant_token_acts_person: {
+      text: "El token del asistente actúa por una persona y nunca en modo sudo",
+      hint: "Emítelo para una cuenta, sin allow_elevated: lo que necesita la confirmación de una persona lo hace esa persona, en la consola.",
+    },
+    fleet_token_issued: {
+      text: "Aquí no se puede emitir un token de flota",
+      hint: "Los tokens de flota se crean en este servidor con 'noust fleet authorize --central-key CLAVE --name <central>', que también instala la clave SSH restringida de la central y muestra el código de unión para ella.",
+    },
+    prefix_matches_sessions: {
+      text: "El prefijo {candidate} coincide con {count} sesiones",
+      hint: "Envía más caracteres del id de la sesión para que coincida exactamente una.",
+    },
+    reach: {
+      text: "{username} no tiene acceso a ese {kind}",
+      hint: "Un token ligado a un ámbito solo lo puede emitir quien tiene un rol en él: dale antes uno a la cuenta ('noust access grant').",
+    },
+    read_two_factor_state: {
+      text: "No se puede leer el archivo de estado de la verificación en dos pasos {path}",
+      hint: "Ejecuta el panel web como el usuario que es su propietario, o elimina el archivo para desactivar a propósito la verificación en dos pasos.",
+    },
+    read_web_signing_key: {
+      text: "No se puede leer la clave de firma web {secret_file}",
+      hint: "El panel web debe ejecutarse como el usuario que es propietario de la clave. Ejecútalo como root, o apunta {state_dir_env} a un directorio tuyo.",
+    },
+    server_api_token_belongs: {
+      text: "En este servidor un token de API pertenece a una cuenta",
+      hint: "Emítelo con la sesión de esa cuenta, o desde la línea de órdenes con 'noust token create NOMBRE --owner USUARIO'.",
+    },
+    session_id_prefix: {
+      text: "No es un prefijo de id de sesión: {prefix}",
+      hint: "Los prefijos son los primeros caracteres de un id de sesión como los lista GET /api/auth/sessions: hexadecimales, al menos seis.",
+    },
+    session_using: {
+      text: "Esa es la sesión que estás usando",
+      hint: "Revocar la sesión actual desde aquí dejaría al navegador con cookies muertas. Usa Cerrar sesión, o POST /api/auth/logout.",
+    },
+    token_bound_team_project: {
+      text: "Un token ligado a un equipo, proyecto o entorno pertenece a una cuenta",
+      hint: "Emítelo con la sesión de esa cuenta, o con '--owner USUARIO'.",
+    },
+    token_expiry_positive_number: {
+      text: "La caducidad del token debe ser un número positivo de horas",
+      hint: "Omítela por completo para un token que solo muere al revocarlo.",
+    },
+    token_hold_more_owner: {
+      text: "Un token no puede tener más permisos que su propietario: {items}",
+      hint: "El rol {role} no los tiene; déjalos fuera.",
+    },
+    token_hold_more_owner_2: {
+      text: "Un token no puede tener más permisos que su propietario: {items}",
+      hint: "Quien lo emite no los tiene; déjalos fuera.",
+    },
+    token_takes_preset_list: {
+      text: "Un token toma un preajuste o una lista de permisos, no ambos",
+      hint: "Indica solo el preajuste, o nombra tú los permisos.",
+    },
+    two_factor_authentication_already: {
+      text: "La verificación en dos pasos ya está activada",
+      hint: "Desactívala con un código actual antes de registrar un autenticador nuevo.",
+    },
+    two_factor_authentication_enabled: {
+      text: "La verificación en dos pasos no está activada",
+      hint: "No hay nada que desactivar. Regístrala antes en Ajustes.",
+    },
+    two_factor_authentication_enabled_2: {
+      text: "La verificación en dos pasos no está activada",
+      hint: "No hay nada que regenerar. Regístrala antes en Ajustes.",
+    },
+    two_factor_enrolment_progress: {
+      text: "No hay ningún registro de verificación en dos pasos en curso",
+      hint: "Empieza uno antes: POST /api/auth/2fa/enroll, o Activar en Ajustes.",
+    },
+    two_factor_state_file: {
+      text: "El archivo de estado de la verificación en dos pasos {path} está dañado",
+      hint: "Noust se niega a adivinar si estaba activada. Restaura el archivo desde una copia, o elimínalo con 'rm {path}' para desactivar a propósito el segundo factor.",
+    },
+    unknown_api_token_scope: {
+      text: "Alcance de token de API desconocido: {scope}",
+      hint: "Usa uno de estos: {items}.",
+    },
+    unknown_caller_api_token: {
+      text: "Llamador desconocido para un token de API: {caller}",
+      hint: "Usa uno de estos: {items}, o ninguno.",
+    },
+    unknown_permissions: {
+      text: "Permisos desconocidos: {items}",
+      hint: "GET /api/auth/roles lista todos los permisos que existen.",
+    },
+    web_signing_key_exists: {
+      text: "La clave de firma web {secret_file} existe pero está vacía",
+      hint: "Noust se niega a inventar una clave nueva en silencio, porque eso cierra la sesión de todos los operadores y oculta lo que truncó el archivo. Restaura el archivo desde una copia, o elimínalo con 'rm {secret_file}' para empezar de cero, lo que revoca todas las sesiones existentes a propósito.",
+    },
+    whoever_governs_accounts_issue: {
+      text: "Solo quien gobierna las cuentas puede emitir un token de API que actúe en modo sudo",
+      hint: "Pide a un administrador que lo emita, o emite el token sin allow_elevated y haz lo que necesite confirmación desde la consola, como una persona.",
+    },
+  },
+  webauthn: {
+    passkeys_need_cryptography_library: {
+      text: "Las llaves de acceso necesitan la biblioteca cryptography, que no está instalada aquí",
+      hint: "Instala python3-cryptography (python311-cryptography en openSUSE Leap), o pip install 'noust[web]', y reinicia noust-web. Python dijo: {exc}",
+    },
+  },
+  team_access: {
+    governs_members: {
+      text: "{role_name} gobierna a los miembros de un equipo, y el ámbito «{kind}» no los tiene",
+      hint: "Da 'admin' en el ámbito «{kind}», o {role_name} en el equipo.",
+    },
+    name_environment: {
+      text: "Indica el entorno",
+      hint: "Pon el slug del entorno (environment=SLUG).",
+    },
+    name_project: {
+      text: "Indica el proyecto",
+      hint: "Pon el slug del proyecto (project=SLUG).",
+    },
+    name_team: {
+      text: "Indica el equipo",
+      hint: "Pon el slug del equipo (team=SLUG).",
+    },
+    no_such_account: {
+      text: "No hay ninguna cuenta llamada {username}",
+      hint: "Consulta las cuentas con 'noust user list', o invita a la persona.",
+    },
+    no_such_role: {
+      text: "No hay ningún rol llamado {role}",
+      hint: "Consúltalos con 'noust access role list'.",
+    },
+    role_not_ownable: {
+      text: "El rol {role_name} no tiene nada que pueda tener el ámbito «{kind}»",
+      hint: "Un equipo, un proyecto o un entorno pueden tener permisos sobre sus aplicaciones, bases de datos y copias de seguridad; este rol no tiene ninguno de ellos.",
+    },
+  },
+  app_deploy_api: {
+    application_found: {
+      text: "No se encuentra la aplicación {validated}",
+    },
+    applications_more_call_deploys: {
+      text: "{count} aplicaciones son más de las que despliega una llamada ({max_batch})",
+      hint: "Divide la lista en varias llamadas.",
+    },
+    commit_tag_both_name: {
+      text: "Un commit y un tag indican a la vez qué desplegar",
+      hint: "Indica solo uno.",
+    },
+    image_tag_version_deploy: {
+      text: "La etiqueta de una imagen es la versión que se despliega: un commit o un tag no valen",
+      hint: "Despliega la etiqueta de la imagen, o un commit del repositorio, pero no ambos.",
+    },
+    pull_request_number_1: {
+      text: "El número de un pull request es 1 o más",
+      hint: "Indica el número que muestra el servidor de código.",
+    },
+    pull_request_preview_rebuilt: {
+      text: "Una vista previa de un pull request se recompila desde su rama: {others} no se aplica",
+      hint: "Pide solo la vista previa, o despliega la aplicación.",
+    },
+    run_image_registry: {
+      text: "{domain} no ejecuta una imagen de un registro",
+      hint: "Una etiqueta de imagen solo tiene sentido en una aplicación desplegada con --image. Despliega las demás por commit o tag.",
+    },
+  },
+  appdir_releases: {
+    active_release_roll_back: {
+      text: "No hay ninguna release activa desde la que volver atrás",
+      hint: "{current_link} no apunta a ninguna release. {value} Indica explícitamente la que quieres activar.",
+    },
+    claim_release_directory: {
+      text: "No se pudo reservar un directorio de release en {releases_dir}",
+      hint: "Ya estaban usados {max_name_attempts} nombres para {stamp}. Busca un proceso desbocado que cree releases y vuelve a intentarlo.",
+    },
+    commit_id: {
+      text: "{commit} no es un id de commit",
+      hint: "Pasa el hash completo o abreviado de `git rev-parse HEAD`, o None para un origen que no es un checkout de git.",
+    },
+    instance_zero_downtime_application: {
+      text: "{color} no es una instancia de una aplicación sin cortes",
+      hint: "Las instancias son blue y green.",
+    },
+    keep_releases: {
+      text: "No se pueden conservar {keep} releases",
+      hint: "Conserva al menos 1 release. Una release es el código de la aplicación; podarlas todas no dejaría nada que ejecutar ni a lo que volver.",
+    },
+    persistent_path_path_inside: {
+      text: "La ruta persistente {raw} no es una ruta dentro de la aplicación",
+      hint: "Las rutas persistentes son relativas a la raíz de la aplicación, como 'storage' o 'public/uploads', y no pueden ser absolutas ni contener '..'.",
+    },
+    plain_directory: {
+      text: "{colors_dir} no es un directorio normal",
+      hint: "Un enlace simbólico o un archivo ahí haría que Noust escribiera en otro sitio. Quítalo; Noust vuelve a crear el directorio.",
+    },
+    point_release: {
+      text: "No se pudo apuntar {current_link} a la release {release_id}",
+      hint: "{error}. No cambió nada: {value}",
+    },
+    real_directory_release_link: {
+      text: "{current_link} es un directorio real, no un enlace a una release",
+      hint: "Esta aplicación no usa la disposición por releases. Migra la aplicación explícitamente antes de activar releases.",
+    },
+    real_directory_release_link_2: {
+      text: "{workers_link} es un directorio real, no un enlace a una release",
+      hint: "Noust guarda ahí solo un enlace. Saca lo que contiene; Noust vuelve a crear el enlace.",
+    },
+    refusing_create_plain_directory: {
+      text: "Se rechaza crear {shared}: {blocked} no es un directorio normal",
+      hint: "Un enlace simbólico o un archivo en {blocked} haría que Noust creara {path} fuera de {shared_dir}. Sustitúyelo por un directorio, o crea tú la ruta compartida.",
+    },
+    refusing_write_symlink: {
+      text: "Se rechaza escribir {env_file}: es un enlace simbólico",
+      hint: "Quita el enlace; Noust escribe él mismo el puerto de cada instancia.",
+    },
+    release: {
+      text: "{release} no es una release de {app_path}",
+      hint: "Las releases son directorios de {releases_dir} con nombres como 20260925-143012-a1b2c3d, creados por un despliegue.",
+    },
+    point_instance: {
+      text: "No se pudo apuntar la instancia {color} a la release {release_id}",
+      hint: "{error}",
+    },
+    point_workers: {
+      text: "No se pudo apuntar {workers_link} a la release {release_id}",
+      hint: "{error}",
+    },
+    release_missing: {
+      text: "La release {release_id} no existe",
+      hint: "{available}",
+    },
+  },
+  deploy_commands: {
+    pre_flight_checks_failed: {
+      text: "Fallaron las comprobaciones previas",
+      hint: "Se encontraron estos problemas:\n{details}",
+    },
+  },
+  deploy_hooks: {
+    deploy_hooks_declared_applications: {
+      text: "Los hooks de despliegue se declaran en {where}, y las aplicaciones {app_type} no los tienen",
+      hint: "{reason}. Quítalos{value}, o despliega el proyecto con el tipo que los ejecuta.",
+    },
+    hook_names_service_application: {
+      text: "El hook nombra el servicio {service}, y una aplicación {app_type} no tiene servicios",
+      hint: "'service' es para los stacks de Docker Compose. Quítalo para ejecutar el hook en el árbol propio de la aplicación.",
+    },
+    hook_workdir_directory_inside: {
+      text: "El workdir del hook {workdir} no es un directorio dentro de la aplicación",
+      hint: "Indica un directorio del repositorio, relativo a su raíz.",
+    },
+    could_not_run_detail: {
+      text: "No se pudo ejecutar el hook {phase} «{command}»: {reason}",
+      hint: "{details}\n\n{output}",
+    },
+    post_could_not_run: {
+      text: "No se pudo ejecutar el hook {phase} «{command}»: {reason}",
+      hint: "La versión nueva está sirviendo; solo falló el hook. Ejecútalo de nuevo a mano, o arréglalo para el próximo despliegue; su salida está arriba y en el registro del despliegue.\n\n{output}",
+    },
+    post_exited: {
+      text: "El hook {phase} «{command}» terminó con el código {exit_code}",
+      hint: "La versión nueva está sirviendo; solo falló el hook. Ejecútalo de nuevo a mano, o arréglalo para el próximo despliegue; su salida está arriba y en el registro del despliegue.\n\n{output}",
+    },
+    post_timed_out: {
+      text: "El hook {phase} «{command}» agotó sus {seconds} segundos",
+      hint: "La versión nueva está sirviendo; solo falló el hook. Ejecútalo de nuevo a mano, o arréglalo para el próximo despliegue; su salida está arriba y en el registro del despliegue.\n\n{output}",
+    },
+    pre_could_not_run: {
+      text: "No se pudo ejecutar el hook {phase} «{command}»: {reason}",
+      hint: "No se cambió nada: lo que servía antes sigue sirviendo. Arregla el hook o lo que comprueba, y vuelve a desplegar; su salida está arriba y en el registro del despliegue.\n\n{output}",
+    },
+    pre_exited: {
+      text: "El hook {phase} «{command}» terminó con el código {exit_code}",
+      hint: "No se cambió nada: lo que servía antes sigue sirviendo. Arregla el hook o lo que comprueba, y vuelve a desplegar; su salida está arriba y en el registro del despliegue.\n\n{output}",
+    },
+    pre_timed_out: {
+      text: "El hook {phase} «{command}» agotó sus {seconds} segundos",
+      hint: "No se cambió nada: lo que servía antes sigue sirviendo. Arregla el hook o lo que comprueba, y vuelve a desplegar; su salida está arriba y en el registro del despliegue.\n\n{output}",
+    },
+  },
+  deploy_release: {
+    release_built: {
+      text: "No se está compilando ninguna release",
+      hint: "El paso de obtención prepara la release; tiene que ejecutarse antes.",
+    },
+  },
+  deploy_site_service: {
+    active_release_serve: {
+      text: "{domain} no tiene ninguna release activa que servir",
+      hint: "Compila una antes: noust update {domain}",
+    },
+    build_start_names_none: {
+      text: "build.start nombra {program}, que no está en ninguna de las herramientas del proyecto, ni en el runtime fijado ni en los directorios del sistema",
+      hint: "Instálalo donde el servicio pueda ejecutarlo, o nombra el programa por su ruta en el proyecto (./bin/server).",
+    },
+    deployer_configured: {
+      text: "El despliegue no se ha configurado",
+      hint: "Llama a configure(domain=DOMINIO, source=ORIGEN) antes de deploy().",
+    },
+    runs_blue_green_needs: {
+      text: "{domain} funciona en blue/green, que necesita el sitio proxy; esta release usa la plantilla {template}",
+      hint: "Un noust.nginx.yaml da al sitio rutas propias, que las dos instancias no pueden compartir. Quítalo, o apaga antes el modo: noust app zero-downtime {domain} off",
+    },
+    runs_blue_green_serve: {
+      text: "{domain} funciona en blue/green, que no puede servir un proyecto desde el subdirectorio {base}",
+      hint: "Las dos instancias se ejecutan desde la raíz de su release. Apaga el modo (noust app zero-downtime {domain} off), o mueve el proyecto a la raíz del repositorio.",
+    },
+  },
+  deploy_update: {
+    release_layout: {
+      text: "{domain} no usa la disposición por releases",
+      hint: "Solo una aplicación que compila releases puede compilar una sin servirla: noust app migrate {domain}",
+    },
+    release_layout_2: {
+      text: "{domain} no usa la disposición por releases",
+      hint: "Una release solo se puede promover a una aplicación que compila releases.",
+    },
+  },
+  deployments_api: {
+    deployment_record_id: {
+      text: "El registro del despliegue no tiene id",
+      hint: "Esto no debería pasar con una fila leída del almacén.",
+    },
+    not_found: {
+      text: "No se encuentra el despliegue {deployment_id}",
+    },
+    not_found_of: {
+      text: "No se encuentra el despliegue {deployment_id} de {domain}",
+    },
+    no_commit: {
+      text: "El despliegue {deployment_id} no registró ningún commit que recompilar",
+      hint: "Su origen no es un repositorio git. Actualiza la aplicación para volver a compilar su origen.",
+    },
+  },
+  health_gate: {
+    command_health_check_needs: {
+      text: "Una comprobación de arranque por comando necesita la aplicación en la que se ejecuta",
+      hint: "Es un fallo de Noust, no de la comprobación: informa de él.",
+    },
+  },
+  jobs_api: {
+    applications_request_updates_most: {
+      text: "Son {count} aplicaciones; una petición actualiza como máximo {max_group}",
+      hint: "Redúcelo a un proyecto o a un entorno.",
+    },
+    invalid_job_id: {
+      text: "El id de tarea no es válido: {job_id}",
+      hint: "Los ids de tarea son hexadecimales, tal como se devolvieron al poner la tarea en cola.",
+    },
+    not_found: {
+      text: "No se encuentra la tarea {job_id}",
+    },
+    not_found_validated: {
+      text: "No se encuentra la tarea {validated}",
+    },
+    say_applications: {
+      text: "Indica qué aplicaciones",
+      hint: "Nombra un equipo, un proyecto, un entorno, una etiqueta o los dominios que actualizar.",
+    },
+    unknown_job_status: {
+      text: "Estado de tarea desconocido: {status}",
+      hint: "Usa uno de estos: {items}.",
+    },
+  },
+  lifecycle: {
+    active_release_restart_under: {
+      text: "{domain} no tiene ninguna release activa que reiniciar con los límites nuevos",
+      hint: "Compila una antes: noust update {domain}",
+    },
+    active_release_roll_back: {
+      text: "No hay ninguna release activa desde la que volver atrás",
+      hint: "Indica la release que quieres activar: noust releases list <dominio>.",
+    },
+    adopted_site_noust_never: {
+      text: "{domain} es un sitio adoptado: Noust nunca elimina sus archivos",
+      hint: "Eliminarlo solo hace que Noust lo olvide. Quita tú el directorio si debe desaparecer.",
+    },
+    applications_deploy_single_commit: {
+      text: "Las aplicaciones {app_type} no pueden desplegar un único commit",
+      hint: "Actualiza {domain} desde su rama: noust update {domain}",
+    },
+    branch_pinned_application_follows: {
+      text: "{domain} tiene una rama fijada, y una aplicación sigue una rama o tags, no ambas cosas",
+      hint: "Quita antes la rama fijada: noust app branch {domain} --unpin",
+    },
+    commit_names_exactly_deploy: {
+      text: "Un commit indica exactamente qué desplegar; un origen o una rama no se aplican",
+      hint: "Ejecuta 'noust update {domain} --commit {commit}' o una actualización desde un origen o una rama, no ambas cosas.",
+    },
+    container_application: {
+      text: "{domain} no es una aplicación en contenedor",
+    },
+    deployed_git_deploy: {
+      text: "{domain} no se despliega desde git; no hay {value} que desplegar",
+      hint: "Su origen es {fetch_from}. Vuelve a compilarla desde ahí: noust update {domain}",
+    },
+    deployed_git_tags_follow: {
+      text: "{domain} no se despliega desde git, así que no tiene tags que seguir",
+      hint: "Solo una aplicación cuyo origen es un repositorio git puede seguir tags.",
+    },
+    deployed_place_releases: {
+      text: "{domain} se despliega en su sitio y no tiene releases",
+      hint: "Vuelve a una copia con 'noust rollback {domain}', o pásala a releases con 'noust app migrate {domain}'.",
+    },
+    deployment_found: {
+      text: "No se encuentra el despliegue {deployment_id} de {domain}",
+      hint: "Consulta el historial de la aplicación: GET /api/deployments?domain={domain}",
+    },
+    directory: {
+      text: "{named} no es el directorio de {domain}",
+      hint: "Su directorio es {app_path}; indica exactamente ese para eliminarlo.",
+    },
+    follows_tags_branch_pin: {
+      text: "{domain} sigue tags ({value}), así que no tiene rama que fijar",
+      hint: "Deja antes de seguir tags: noust app follow-tags {domain} --off",
+    },
+    follows_tags_branch_update: {
+      text: "{domain} sigue tags ({pattern}), así que no tiene rama desde la que actualizar",
+      hint: "Deja antes de seguir tags: noust app follow-tags {domain} --off. Para desplegar un tag exacto, noust update {domain} --tag TAG.",
+    },
+    follows_tags_deployed_git: {
+      text: "{domain} sigue tags pero no se despliega desde git",
+      hint: "Deja de seguirlos: noust app follow-tags {domain} --off",
+    },
+    git_checkout_deploy: {
+      text: "{domain} no es un checkout de git; no hay {value} que desplegar",
+      hint: "Una aplicación desplegada desde un directorio o un archivo comprimido se recompila desde su origen: noust update {domain}",
+    },
+    image_registry_source_fetch: {
+      text: "{domain} es una imagen de un registro: no tiene un origen del que obtener el código",
+      hint: "Cambia la imagen con: noust app container set {domain} --image REFERENCIA, y actualiza.",
+    },
+    image_release_longer_server: {
+      text: "La imagen de la release {release_id} ya no está en este servidor",
+      hint: "Se podó o nunca se compiló aquí: recompila su commit (noust update {domain} --commit COMMIT).",
+    },
+    keep_releases_images: {
+      text: "{domain} no conserva sus releases como imágenes",
+    },
+    naming_directory_remove_contradicts: {
+      text: "Indicar un directorio que eliminar contradice conservar los archivos",
+      hint: "Quita --keep-files (remove_files=false en la API) o el directorio.",
+    },
+    older_deployed: {
+      text: "{tag} es anterior a {deployed}, que es lo desplegado",
+      hint: "Una actualización nunca retrocede. Para volver a una versión anterior usa 'noust rollback {domain}', que pregunta antes cuando la base de datos cambió; para recompilar un commit exacto, 'noust update {domain} --commit SHA'.",
+    },
+    recorded_source_build_release: {
+      text: "{domain} no tiene un origen registrado desde el que compilar una release",
+      hint: "Indica uno explícitamente: noust update {domain} --source <URL de git o ruta>",
+    },
+    release_built_served: {
+      text: "La release {id} se compiló y todavía no ha servido",
+      hint: "Cambiar a ella desde aquí se saltaría sus hooks previos al despliegue y sus migraciones. Promuévela en su lugar: noust releases promote {domain} {id}",
+    },
+    release_exist: {
+      text: "La release {release_id} no existe",
+      hint: "Releases, de la más reciente a la más antigua: {ids}.",
+    },
+    release_exist_2: {
+      text: "La release {release_id} no existe",
+      hint: "Releases en disco, de la más reciente a la más antigua: {ids}.",
+    },
+    release_oldest_image_nothing: {
+      text: "La release {id} es la más antigua con imagen; no hay nada anterior a lo que volver",
+      hint: "Las imágenes más antiguas se podaron o nunca existieron. Despliega un commit que sepas que funciona, o restaura una copia de seguridad.",
+    },
+    release_oldest_nothing_earlier: {
+      text: "La release {id} es la más antigua; no hay nada anterior a lo que volver",
+      hint: "Las releases más antiguas se podaron o nunca existieron. Despliega un commit que sepas que funciona, o restaura una copia de seguridad.",
+    },
+    releases_layout_applications_support: {
+      text: "{domain} usa la disposición por releases, que las aplicaciones {app_type} no admiten",
+      hint: "Actualízala con el tipo con el que se creó.",
+    },
+    remote_tag_matching: {
+      text: "El remoto no tiene ningún tag que coincida con {pattern}",
+      hint: "Sube un tag que coincida, o cambia lo que sigue {domain}: noust app follow-tags {domain} PATRÓN",
+    },
+    runs_docker_containers_unit: {
+      text: "{domain} se ejecuta en contenedores de Docker, a los que no llegan los límites de su unidad",
+      hint: "Define deploy.resources.limits para cada servicio del archivo compose.",
+    },
+    runs_docker_containers_unit_2: {
+      text: "{domain} se ejecuta en contenedores de Docker, a los que no llega la política de parada de su unidad",
+      hint: "Define stop_grace_period para cada servicio del archivo compose.",
+    },
+    runs_php_fpm_every: {
+      text: "{domain} se ejecuta en el PHP-FPM que comparten todas las aplicaciones PHP; no se puede dar una cuota de CPU solo a su pool",
+      hint: "Deja fuera el límite de CPU: se aplican su límite de memoria y su límite de tareas (los workers del pool).",
+    },
+    runs_php_fpm_every_2: {
+      text: "{domain} se ejecuta en el PHP-FPM que comparten todas las aplicaciones PHP, que no se detiene con el suyo",
+      hint: "process_control_timeout de PHP-FPM es un ajuste del servidor.",
+    },
+    static_site_nothing_answers: {
+      text: "{domain} es un sitio estático; nada responde HTTP por él salvo el servidor web",
+      hint: "Su comprobación de arranque es que el directorio que sirve tenga un index.html.",
+    },
+    static_site_process_own: {
+      text: "{domain} es un sitio estático; no se ejecuta un proceso propio que pueda {purpose}",
+      hint: "El servidor web lo sirve directamente desde el disco.",
+    },
+    tag_names_exactly_deploy: {
+      text: "Un tag indica exactamente qué desplegar; un commit, un origen o una rama no se aplican",
+      hint: "Ejecuta 'noust update {domain} --tag {tag}' o una actualización desde un commit, un origen o una rama, no ambas cosas.",
+    },
+    limits_unanswered_back: {
+      text: "{domain} no respondió con los límites nuevos; se han puesto los anteriores",
+      hint: "{evidence}",
+    },
+    limits_unanswered_dead: {
+      text: "{domain} no respondió con los límites nuevos; se han puesto los anteriores, pero tampoco responde",
+      hint: "{evidence}",
+    },
+    limits_unanswered_restored: {
+      text: "{domain} no respondió con los límites nuevos; los anteriores han vuelto a funcionar",
+      hint: "{evidence}",
+    },
+  },
+  migrate: {
+    applications_use_release_layout: {
+      text: "Las aplicaciones {value} todavía no pueden usar la disposición por releases",
+      hint: "{domain} sigue actualizándose en su sitio, que es lo que ha hecho siempre.",
+    },
+    directory: {
+      text: "{root} no es un directorio",
+      hint: "Actualiza la aplicación antes de migrarla.",
+    },
+    git_list_untracked: {
+      text: "git no pudo listar lo que no está bajo seguimiento en {root}",
+      hint: "{value}\nIndica en su lugar las rutas que conservar con --persist.",
+    },
+    held_before_migration_after: {
+      text: "{root} contenía {before} antes de la migración y {after} después",
+      hint: "Cada archivo debe seguir ahí, en la release o en shared/. Se deshizo la migración.",
+    },
+    inside: {
+      text: "{path} está dentro de {other}",
+      hint: "Indica solo la externa; todo lo que hay bajo ella se mueve con ella.",
+    },
+    keep_shared_symlink_file: {
+      text: "No se puede conservar {path} en shared/: {value} es un enlace simbólico o un archivo",
+      hint: "Solo los directorios y archivos reales se mueven a shared/. Resuelve el enlace o deja la ruta fuera de --persist.",
+    },
+    link_into_release: {
+      text: "No se pudo enlazar {items} en la release {name}",
+      hint: "Todavía hay algo en la release donde debe ir el enlace.",
+    },
+    move_shared_symlink: {
+      text: "No se puede mover {path} a shared/: {value} es un enlace simbólico",
+      hint: "No se movió nada. Planifica de nuevo.",
+    },
+    move_something_already: {
+      text: "No se puede mover {source} a {destination}: ya hay algo ahí",
+      hint: "No se sobrescribió nada. Aparta lo que hay y vuelve a intentarlo.",
+    },
+    need_persist: {
+      text: "{raw} no necesita --persist",
+      hint: "Noust lo conserva en la raíz de la aplicación, junto a releases/.",
+    },
+    need_persist_2: {
+      text: "{raw} no necesita --persist",
+      hint: "El .env siempre se mueve a shared/, y cada release lo enlaza.",
+    },
+    plan: {
+      text: "El plan es de {domain} en {app_path}, no de {domain2} en {root}",
+      hint: "Planifica de nuevo y migra con el plan nuevo.",
+    },
+    pointed_release_already: {
+      text: "{value} ya apuntaba a una release",
+      hint: "Una aplicación en su sitio no tiene ninguna. Revisa el directorio a mano.",
+    },
+    release_layout_already: {
+      text: "{domain} ya usa la disposición por releases",
+      hint: "No hay nada que migrar. Consulta sus releases con: noust releases list {domain}",
+    },
+    sqlite_database_outside_paths: {
+      text: "Bases de datos SQLite fuera de las rutas indicadas con --persist: {items}",
+      hint: "Una base de datos que queda en la primera release no está en la siguiente: el próximo despliegue empezaría con una base de datos vacía. Indica cada una, o el directorio que la contiene, también: {items2}",
+    },
+    failed_undone: {
+      text: "La migración de {domain} falló y se deshizo: {error}",
+      hint: "{journal}",
+    },
+    gate_failed_back: {
+      text: "{domain} no superó su comprobación de arranque con la disposición por releases; se volvió a la disposición en su sitio",
+      hint: "{evidence}",
+    },
+  },
+  fail2ban: {
+    installing_failed: {
+      text: "Falló la instalación: {items}",
+    },
+    lift_failed: {
+      text: "fail2ban no levantó el bloqueo de {ip} en {name}",
+    },
+    logs_not_read: {
+      text: "fail2ban no leyó los registros de los sitios nuevos",
+    },
+    no_nginx_filter: {
+      text: "Este fail2ban no tiene filtro para nginx",
+      hint: "Faltan: {items}. Actualiza fail2ban.",
+    },
+    no_such_jail: {
+      text: "No existe el jail de fail2ban {jail}",
+      hint: "Jails: {value}.",
+    },
+    not_banned: {
+      text: "{ip} no está bloqueada por ningún jail",
+    },
+    not_running: {
+      text: "fail2ban no está en marcha",
+    },
+    jail_refused_back: {
+      text: "fail2ban no aceptó el jail sshd ({argv}), así que se devolvió {jail} a como estaba",
+    },
+    needs_epel: {
+      text: "En este sistema fail2ban viene de EPEL",
+      hint: "EPEL es un repositorio de terceros mantenido por Fedora. Confirma que se puede activar para instalar fail2ban desde él.",
+    },
+    never_answered_back: {
+      text: "fail2ban nunca respondió después de iniciarse, así que se devolvió {jail} a como estaba",
+      hint: "Mira por qué no arrancó: journalctl -u fail2ban",
+    },
+    no_ban_action_back: {
+      text: "fail2ban dejó el jail sshd sin acción de bloqueo, así que se devolvió {jail} a como estaba",
+    },
+    web_jails_refused_back: {
+      text: "fail2ban no aceptó los jails de nginx ({argv}), así que se devolvió {jail} a como estaba",
+    },
+    web_no_ban_action_back: {
+      text: "fail2ban dejó un jail de nginx sin acción de bloqueo, así que se devolvió {jail} a como estaba",
+    },
+  },
+  risks: {
+    acceptance_end_future: {
+      text: "La aceptación debe terminar en el futuro",
+    },
+    reason_most_characters: {
+      text: "El motivo tiene como máximo {high} caracteres",
+    },
+    risk_accepted_days_most: {
+      text: "Un riesgo se acepta como máximo durante {max_accept_days} días; vuelve a aceptarlo entonces",
+    },
+    say_why_risk_acceptable: {
+      text: "Explica por qué el riesgo es aceptable, en {low} a {high} caracteres",
+    },
+  },
+  ssh_keys: {
+    key_damaged_key_base64: {
+      text: "La clave está dañada: su contenido no está en base64",
+    },
+    public_key_damaged: {
+      text: "La clave pública está dañada",
+      hint: "Su clave no contiene el tipo que declara la línea; copia la línea de nuevo.",
+    },
+    public_key_line_openssh: {
+      text: "La clave pública no es una línea de una clave pública de OpenSSH",
+      hint: "Pega todo el contenido de tu archivo .pub, en una sola línea.",
+    },
+    public_key_type_noust: {
+      text: "El tipo de la clave pública no es uno de los que Noust añade",
+      hint: "Usa una clave ed25519 (ssh-keygen -t ed25519), o ECDSA o RSA de al menos {min_rsa_bits} bits. Aquí no se admiten opciones como from= o command=.",
+    },
+    rsa_key_bits_too: {
+      text: "La clave RSA tiene {bits} bits, que es demasiado poco",
+      hint: "Usa al menos {min_rsa_bits} bits, o una clave ed25519.",
+    },
+  },
+  backup: {
+    hold_readable_archive: {
+      text: "{name} no contiene un archivo legible: {message}",
+      hint: "{details}",
+    },
+    readable_manifest: {
+      text: "{name} no tiene un manifiesto legible: {exc}",
+    },
+  },
+  backup_collection: {
+    central_says_copies_server: {
+      text: "Solo una central dice qué copias de este servidor guarda",
+      hint: "Haz esta llamada con el token de flota que una central tiene para este servidor.",
+    },
+    file_went_away_changed: {
+      text: "El archivo desapareció o cambió desde que se listó",
+    },
+    server_lets_copy_leave: {
+      text: "Este servidor solo deja salir una copia cifrada, y esta no lo está",
+      hint: "El perfil ens-medium (o backup.encryption: required) lo rechaza. Cifra las copias aquí: noust backup encryption enable, y después noust backup encryption seal-existing.",
+    },
+    server_lists_such_copy: {
+      text: "Este servidor no lista ningún archivo de copia así",
+    },
+    unknown_kind_copy: {
+      text: "Tipo de copia desconocido: {unknown}",
+      hint: "Los tipos son: {items}.",
+    },
+  },
+  backup_collection_store: {
+    central_say_holds_copies: {
+      text: "Una central puede decir que guarda como máximo {max_held} copias de un servidor",
+    },
+    copy: {
+      text: "No es una copia: {kind} {item_id}",
+      hint: "Una copia se nombra por su tipo y el identificador que dio la lista.",
+    },
+    invalid_central_name: {
+      text: "El nombre de la central no es válido: {value}",
+      hint: "Una central se nombra como su token de flota: letras minúsculas, dígitos y '-'.",
+    },
+    sha_256: {
+      text: "No es un SHA-256: {sha256}",
+      hint: "Son 64 dígitos hexadecimales.",
+    },
+  },
+  backup_destination_files: {
+    checksum_mismatch_after_downloading: {
+      text: "La suma de comprobación no coincide tras descargar {name} de {destination_name}",
+      hint: "El archivo descargado no coincide con el resumen registrado al enviarlo. Restaurarlo restauraría datos dañados. No se restauró nada.",
+    },
+    download_produce_file: {
+      text: "La descarga de {name} no produjo ningún archivo en {destination}",
+    },
+    failed_download: {
+      text: "No se pudo descargar {name} de {destination_name}",
+      hint: "{value}",
+    },
+    failed_remove_destination: {
+      text: "No se pudo quitar {victim} del destino",
+      hint: "{value}",
+    },
+    failed_upload: {
+      text: "No se pudo subir {name} a {destination_name}",
+      hint: "{value}",
+    },
+    invalid_file_name: {
+      text: "El nombre de archivo no es válido: {name}",
+      hint: "Un volcado se nombra solo por su nombre de archivo.",
+    },
+    invalid_file_name_2: {
+      text: "El nombre de archivo no es válido: {name}",
+      hint: "Un archivo se nombra solo por su nombre.",
+    },
+    invalid_folder_destination: {
+      text: "La carpeta del destino no es válida: {folder}",
+      hint: "Una carpeta se compone de nombres con letras, dígitos, '_', '$', '-' y '.' (nunca al principio).",
+    },
+    is_not_on: {
+      text: "{name} no está en {destination_name}",
+      hint: "Se buscó en {target_dir}.",
+    },
+    metadata_downloaded_describes_another: {
+      text: "Los metadatos descargados para {name} describen otro archivo",
+      hint: "Nombra {value}. No se restauró nada.",
+    },
+    metadata_json_object: {
+      text: "Los metadatos de {name} no son un objeto JSON",
+    },
+    read_metadata: {
+      text: "No se pudieron leer los metadatos en {target_dir}",
+      hint: "{value}",
+    },
+    read_metadata_2: {
+      text: "No se pudieron leer los metadatos de {name}",
+      hint: "{value}",
+    },
+    send_file: {
+      text: "No se puede enviar {local}: no es un archivo",
+    },
+    size_mismatch_after_downloading: {
+      text: "El tamaño no coincide tras descargar {name}",
+      hint: "El destino guarda {expected} bytes.",
+    },
+    size_mismatch_after_uploading: {
+      text: "El tamaño no coincide tras subir {name}",
+      hint: "Se enviaron {count} bytes; el destino informa de {size}.",
+    },
+    upload_reach_destination: {
+      text: "La subida de {name} no llegó al destino",
+      hint: "No aparecía en él justo después de copiarse.",
+    },
+    uploaded_verified_retention_applied: {
+      text: "{name} se subió a {destination_name} y se verificó, pero no se pudo aplicar allí la retención",
+      hint: "{value}",
+    },
+  },
+  backup_destinations: {
+    backup_archive_found: {
+      text: "No se encuentra el archivo de copia: {archive_path}",
+    },
+    backup_destination_already_exists: {
+      text: "El destino de copias ya existe: {validated_name}",
+    },
+    backup_destination_changed_reached: {
+      text: "El destino de copias {name} no se cambió: no se pudo llegar a él con los ajustes nuevos",
+      hint: "{value}",
+    },
+    backup_destination_encrypted: {
+      text: "El destino de copias {name} no está cifrado",
+      hint: "No hay ninguna clave de cifrado que mostrar.",
+    },
+    backup_destination_encrypted_backups: {
+      text: "El destino de copias {name} está cifrado: las copias ya enviadas solo se pueden leer con su clave",
+      hint: "Quitarlo elimina la única copia que Noust tiene de esa clave. Ejecuta 'noust backup destination show-key {name2}', guarda lo que imprime y quítalo después confirmando que la clave se guardó (key_saved=true en la API).",
+    },
+    backup_destination_marked_encrypted: {
+      text: "El destino de copias {name} está marcado como cifrado pero no tiene clave de cifrado",
+      hint: "Créalo de nuevo, o desactiva el cifrado: un remoto crypt sin contraseña no se puede usar.",
+    },
+    backup_destination_saved_reached: {
+      text: "El destino de copias {validated_name} no se guardó: no se pudo llegar a él",
+      hint: "{value}",
+    },
+    backup_destination_used_schedule: {
+      text: "El destino de copias {name} lo usan {count} programaciones: {items}",
+      hint: "Usa --force para quitarlo y retirar la referencia de esas programaciones.",
+    },
+    backup_metadata_found: {
+      text: "No se encuentran los metadatos de la copia: {metadata_path}",
+    },
+    backup_says_belongs: {
+      text: "La copia {backup_id} de {destination_name} dice que pertenece a {recorded_domain}, no a {app_name}",
+      hint: "Una copia se restaura desde la carpeta de la aplicación de la que se tomó, y sus metadatos deciden adónde va una restauración sin destino, así que los dos deben coincidir. No se restauró nada.",
+    },
+    checksum_mismatch_after_downloading: {
+      text: "La suma de comprobación no coincide tras descargar {backup_id} de {destination_name}",
+      hint: "El archivo descargado no coincide con la suma registrada al crearlo. Restaurarlo restauraría datos dañados.",
+    },
+    determine_application_belongs_pass: {
+      text: "No se puede determinar a qué aplicación pertenece {validated_id}; indica app_name.",
+    },
+    download_produce_file: {
+      text: "La descarga de {name} no produjo ningún archivo en {destination_path}",
+    },
+    downloaded_metadata_incomplete: {
+      text: "Los metadatos descargados de {backup_id} están incompletos",
+      hint: "{exc}",
+    },
+    downloaded_metadata_json_object: {
+      text: "Los metadatos descargados de {backup_id} no son un objeto JSON",
+    },
+    downloaded_metadata_unreadable: {
+      text: "Los metadatos descargados de {backup_id} no se pueden leer",
+      hint: "{exc}",
+    },
+    encrypted_backups_leave_server: {
+      text: "{name} no está cifrado, y las copias solo salen de este servidor cifradas",
+      hint: "El perfil de seguridad ens-medium (o backup.encryption: required) rechaza las subidas sin cifrar. Cífralo: noust backup destination update {name} --encrypt, y guarda su clave: noust backup destination show-key {name}.",
+    },
+    encryption_key_given_destination: {
+      text: "Se dio una clave de cifrado para un destino que no está cifrado",
+      hint: "Añádela con el cifrado activado (--encrypt) para usar una clave existente.",
+    },
+    encryption_key_json_object: {
+      text: "La clave de cifrado debe ser un objeto JSON",
+    },
+    encryption_key_password: {
+      text: "La clave de cifrado no tiene password",
+      hint: "Hacen falta las dos frases de paso que imprimió 'noust backup destination show-key'.",
+    },
+    encryption_key_password2: {
+      text: "La clave de cifrado no tiene password2",
+      hint: "Hacen falta las dos frases de paso que imprimió 'noust backup destination show-key': password2 es la sal, y sin ella nada se descifra.",
+    },
+    encryption_key_valid_json: {
+      text: "La clave de cifrado no es JSON válido",
+      hint: "{exc}",
+    },
+    encryption_keys_missing: {
+      text: "Faltan las claves de cifrado de {name}",
+      hint: "El destino está marcado como cifrado pero no se encontraron sus claves; las copias escritas en él no se pueden descifrar sin ellas.",
+    },
+    enough_space_download: {
+      text: "No hay espacio suficiente para descargar {archive_name}",
+      hint: "El archivo ocupa {size} bytes y {staging_dir} tiene {free} bytes libres (más {staging_headroom} bytes de reserva). Libera antes algo de espacio ahí; no se descargó nada.",
+    },
+    failed_remove_destination_during: {
+      text: "No se pudo quitar {backup_id}{suffix} del destino durante la retención",
+      hint: "{value}",
+    },
+    found_destination: {
+      text: "No se encontró {archive_name} en el destino",
+      hint: "Se buscó en {target_dir}. Mira lo que hay con 'noust backup remote-list'.",
+    },
+    hash_mismatch_after_uploading: {
+      text: "El hash no coincide tras subir {name}",
+      hint: "{hash_name} difiere entre el archivo local y el destino.",
+    },
+    invalid_application_name: {
+      text: "El nombre de la aplicación no es válido: {app_name}",
+      hint: "El nombre de una aplicación es un único segmento de ruta: letras, dígitos, '.', '_' y '-'.",
+    },
+    invalid_backup_destination_name: {
+      text: "El nombre del destino de copias no es válido: {name}",
+      hint: "Usa de 1 a 32 caracteres: letras minúsculas, dígitos y '-', empezando por una letra o un dígito. El nombre también pasa a ser el de un remoto de rclone.",
+    },
+    list: {
+      text: "No se pudo listar {target_dir}",
+      hint: "{value}",
+    },
+    metadata_downloaded_describes_another: {
+      text: "Los metadatos descargados como {metadata_name} describen otra copia",
+      hint: "Nombra {value}. No se restauró nada.",
+    },
+    missing_required_field_backend: {
+      text: "Falta el campo obligatorio {key} del backend {backend}",
+      hint: "{value}",
+    },
+    must_be_not: {
+      text: "{label} debe ser {items}, no {raw}",
+      hint: "{value}",
+    },
+    name_bucket_destination_writes: {
+      text: "Indica el bucket en el que escribe este destino",
+      hint: "La carpeta de un almacén de objetos empieza por su bucket: --field path=BUCKET/noust-backups. Noust no crea buckets.",
+    },
+    rclone_obscure_password: {
+      text: "rclone no pudo ofuscar una contraseña",
+      hint: "{value}",
+    },
+    rclone_required_backup_destinations: {
+      text: "Los destinos de copias necesitan rclone",
+      hint: "{value}",
+    },
+    rclone_returned_invalid_json: {
+      text: "rclone devolvió un JSON no válido al listar {target_dir}",
+      hint: "{exc}",
+    },
+    reach_backup_destination: {
+      text: "No se pudo llegar al destino de copias {name}",
+      hint: "{value}",
+    },
+    reach_backup_destination_2: {
+      text: "No se pudo llegar al destino de copias {name}",
+      hint: "{said}",
+    },
+    reach_backup_destination_bucket: {
+      text: "No se pudo llegar al destino de copias {name}: el bucket {bucket} no existe",
+      hint: "{value}",
+    },
+    read_backup_metadata: {
+      text: "No se pudieron leer los metadatos de copia en {target_dir}",
+      hint: "{value}",
+    },
+    read_encryption_key: {
+      text: "No se pudo leer una clave de cifrado",
+      hint: "Da lo que imprimió 'noust backup destination show-key NOMBRE': sus líneas 'password:' y 'password2:', su salida --json, o las dos frases de paso en dos líneas.",
+    },
+    read_verify_upload: {
+      text: "No se pudo leer {local_file} para verificar su subida",
+      hint: "{exc}. Puede que la copia local se borrara mientras se enviaba.",
+    },
+    refusing_backup_destination_host: {
+      text: "Se rechaza el host del destino de copias {host}: {exc}",
+      hint: "{details}",
+    },
+    size_mismatch_after_uploading: {
+      text: "El tamaño no coincide tras subir {name}",
+      hint: "El archivo local tiene {local_size} bytes; el destino informa de {remote_size}.",
+    },
+    such_backup_destination: {
+      text: "No existe el destino de copias {name}",
+      hint: "Ejecuta 'noust backup destination list' para ver los destinos que Noust conoce.",
+    },
+    unknown_backup_destination_backend: {
+      text: "Backend de destino de copias desconocido: {backend}",
+      hint: "Usa uno de estos: {items}.",
+    },
+    unknown_field_backend: {
+      text: "Campos desconocidos para el backend {backend}: {items}",
+      hint: "Campos válidos: {items2}.",
+    },
+    uploaded_verified_retention_applied: {
+      text: "{id} se subió a {destination_name} y se verificó, pero no se pudo aplicar allí la retención",
+      hint: "{value}",
+    },
+    valid_b2_bucket_6: {
+      text: "{label} no es válido: un bucket de B2 tiene de 6 a 50 caracteres",
+    },
+    valid_b2_bucket_uses: {
+      text: "{label} no es válido: un bucket de B2 usa letras, dígitos y guiones",
+    },
+    valid_b2_reserves_names: {
+      text: "{label} no es válido: B2 reserva los nombres que empiezan por b2-",
+    },
+    valid_bucket_name_3: {
+      text: "{label} no es válido: el nombre de un bucket tiene de 3 a 63 caracteres",
+    },
+    valid_bucket_name_ip: {
+      text: "{label} no es válido: el nombre de un bucket no es una dirección IP",
+    },
+    valid_bucket_name_starts: {
+      text: "{label} no es válido: el nombre de un bucket empieza y termina por una letra o un dígito",
+    },
+    valid_bucket_name_two: {
+      text: "{label} no es válido: el nombre de un bucket no tiene dos puntos seguidos",
+    },
+    valid_bucket_name_uses: {
+      text: "{label} no es válido: el nombre de un bucket usa letras minúsculas, dígitos, guiones y {value}",
+    },
+    valid_container_3_63: {
+      text: "{label} no es válido: un contenedor tiene de 3 a 63 caracteres",
+    },
+    valid_container_name_uses: {
+      text: "{label} no es válido: el nombre de un contenedor usa letras minúsculas, dígitos y guiones sueltos, y empieza y termina por una letra o un dígito",
+    },
+  },
+  backup_encryption: {
+    backups_sealed_server: {
+      text: "Las copias no están selladas en este servidor",
+      hint: "Activa antes el sellado: noust backup encryption enable, o POST /api/backups/encryption/enable.",
+    },
+  },
+  backup_failures: {
+    backup_failure_found: {
+      text: "No se encuentra el fallo de copia: {failure_id}",
+    },
+  },
+  backup_files: {
+    backups_sealed_key_missing: {
+      text: "Las copias deben sellarse pero falta la clave",
+      hint: "El secreto {key_prefix}/{key_id} ya no está. Deja de sellar (noust backup encryption disable) o crea una clave nueva (noust backup encryption rotate); la copia quedó como estaba.",
+    },
+    backups_sealed_key_rotate: {
+      text: "Las copias no están selladas: no hay ninguna clave que rotar",
+      hint: "Activa antes el sellado: noust backup encryption enable.",
+    },
+    id_key: {
+      text: "{key_id} no es el id de una clave",
+      hint: "El id de una clave son ocho dígitos hexadecimales en minúscula, tal como lo nombra el error de una copia que no se abre.",
+    },
+    key_current: {
+      text: "Ninguna clave es la vigente",
+      hint: "Sella antes las copias: noust backup encryption enable.",
+    },
+    open: {
+      text: "{name} no se abre",
+      hint: "{value}",
+    },
+    seal: {
+      text: "No se pudo sellar {name}",
+      hint: "{value}. La copia quedó como estaba.",
+    },
+    sealed_server_hold_key: {
+      text: "{name} está sellada y este servidor no tiene su clave",
+      hint: "Se selló con la clave {value}. Devuelve la clave con 'noust backup encryption import-key {value2}' (el valor que imprimió 'noust backup encryption show-key' cuando se creó, guardado en otro sitio), o restaura desde una copia que no esté sellada.",
+    },
+    server_already_holds_key: {
+      text: "Este servidor ya tiene una clave {key_id} con otro valor",
+      hint: "No se sustituyó nada. Comprueba el id y el valor que guardaste.",
+    },
+    server_holds_such_key: {
+      text: "Este servidor no tiene esa clave",
+      hint: "Lista las claves que tiene con: noust backup encryption status.",
+    },
+    too_short_key: {
+      text: "Eso es demasiado corto para ser una clave",
+      hint: "Las claves tienen {passphrase_length} caracteres; esto tiene {count}.",
+    },
+  },
+  backup_manager: {
+    already_backup_directory: {
+      text: "{source} ya es el directorio de copias",
+      hint: "Pasa el directorio en el que se escribieron las copias por error.",
+    },
+    application_found: {
+      text: "No se encuentra la aplicación {domain}",
+      hint: "No hay nada que copiar en {app_path}.",
+    },
+    application_name_reserved_inside: {
+      text: "El nombre de aplicación '{app_name}' está reservado dentro de un archivo de copia",
+      hint: "Cambia el nombre del despliegue; este nombre choca con el contenido del archivo.",
+    },
+    archive_corrupted: {
+      text: "El archivo está dañado: {exc}",
+    },
+    archive_restored: {
+      text: "El archivo no se puede restaurar: {exc}",
+      hint: "Una restauración también lo rechazaría.",
+    },
+    archive_say_application_belongs: {
+      text: "Este archivo no dice a qué aplicación pertenece",
+      hint: "Indica --target-domain para restaurarlo explícitamente.",
+    },
+    backup_archive_contain_single: {
+      text: "El archivo de copia no contiene un único directorio de aplicación",
+      hint: "Se encontró: {value}.",
+    },
+    backup_archive_found: {
+      text: "No se encuentra el archivo de copia: {archive}",
+      hint: "Indica la ruta de un .tar.gz escrito por 'noust backup create'.",
+    },
+    backup_checksum_mismatch: {
+      text: "La suma de comprobación de la copia no coincide: {name}",
+      hint: "El archivo no coincide con la suma registrada al crearlo. Restaurarlo restauraría datos dañados.",
+    },
+    backup_claims_carry: {
+      text: "La copia declara un {label} que no contiene: {relative}",
+      hint: "El archivo está incompleto; no te fíes de él como copia.",
+    },
+    backup_contains_databases_database: {
+      text: "Esta copia contiene bases de datos pero los gestores de bases de datos no están disponibles",
+      hint: "{exc}. Instala los extras de bases de datos antes de restaurar.",
+    },
+    backup_describes_database_version: {
+      text: "La copia describe una base de datos que esta versión no puede restaurar",
+      hint: "Entrada: {entry}. Restáurala con la versión que la tomó.",
+    },
+    backup_entry_points_outside: {
+      text: "La entrada de la copia para {label} apunta fuera del archivo",
+      hint: "{exc}",
+    },
+    backup_file_found: {
+      text: "No se encuentra el archivo de copia: {backup_file}",
+      hint: "Los metadatos están, pero el archivo no.",
+    },
+    backup_file_found_2: {
+      text: "No se encuentra el archivo de copia: {archive}",
+      hint: "Los metadatos están, pero el archivo no.",
+    },
+    backup_file_found_3: {
+      text: "No se encuentra el archivo de copia: {archive}",
+    },
+    backup_found: {
+      text: "No se encuentra la copia: {backup_id}",
+      hint: "Ejecuta 'noust backup list' para ver las copias que Noust conoce.",
+    },
+    backup_holds_copy_database: {
+      text: "La copia {backup_id} no contiene ninguna copia de una base de datos del stack",
+      hint: "Solo la contiene una copia tomada antes de actualizar una aplicación de Docker Compose, o con --include-databases. 'noust backup list' muestra las demás.",
+    },
+    backup_lists_found: {
+      text: "La copia lista un {label} que no se encuentra",
+      hint: "Ubicación registrada: {value}.",
+    },
+    backup_manifest_object: {
+      text: "El manifiesto de la copia no es un objeto",
+      hint: "Noust no escribió el archivo.",
+    },
+    backup_manifest_unreadable: {
+      text: "El manifiesto de la copia no se puede leer",
+      hint: "{exc}. El archivo está dañado o no lo escribió Noust.",
+    },
+    backup_names_application_root: {
+      text: "La copia nombra una raíz de aplicación fuera del archivo: {name}",
+      hint: "{exc}",
+    },
+    create_restore_workspace_beside: {
+      text: "No se pudo crear un espacio de restauración junto a {app_path}",
+      hint: "{exc}. Libera espacio o arregla los permisos bajo {parent}.",
+    },
+    database_backup_requested_database: {
+      text: "Se pidió una copia de bases de datos pero los gestores de bases de datos no están disponibles",
+      hint: "{exc}. Instala los extras de bases de datos o quita --include-databases.",
+    },
+    directory: {
+      text: "No es un directorio: {source}",
+      hint: "Pasa el directorio que contiene los directorios de copia <app>/ mal colocados.",
+    },
+    dump_reach_backup_archive: {
+      text: "El volcado de '{name}' no llegó al archivo de copia",
+      hint: "{engine} informó de que fue bien pero {target} no existe.",
+    },
+    failed_back_up_database: {
+      text: "No se pudo copiar la base de datos {engine} '{name}'",
+      hint: "{exc}",
+    },
+    failed_create_backup_archive: {
+      text: "No se pudo crear el archivo de copia de {app_name}",
+      hint: "{exc}",
+    },
+    failed_create_backup_directory: {
+      text: "No se pudo crear el directorio de copias: {backup_dir}",
+      hint: "{exc}. Noust debe ejecutarse como root.",
+    },
+    failed_create_backup_directory_2: {
+      text: "No se pudo crear el directorio de copias: {app_backup_dir}",
+      hint: "{exc}",
+    },
+    failed_restore_database: {
+      text: "No se pudo restaurar la base de datos {engine} '{name}' desde {name2}",
+      hint: "{exc}",
+    },
+    failed_restore_docker_volume: {
+      text: "No se pudo restaurar el volumen de Docker: {volume}",
+      hint: "{stderr}",
+    },
+    failed_restore_files_into: {
+      text: "No se pudieron restaurar los archivos en {app_path}",
+      hint: "{exc}",
+    },
+    failed_store_backup_archive: {
+      text: "No se pudo guardar el archivo de copia: {backup_file}",
+      hint: "{exc}",
+    },
+    failed_write_backup_metadata: {
+      text: "No se pudieron escribir los metadatos de la copia: {metadata_file}",
+      hint: "{exc}",
+    },
+    installed_back_up: {
+      text: "{engine} no está instalado, no se puede copiar '{name}'",
+      hint: "Instala {engine} o haz la copia sin --include-databases.",
+    },
+    manager_available_database_engine: {
+      text: "No hay gestor disponible para el motor de bases de datos: {engine}",
+      hint: "{value}",
+    },
+    per_schema_dumps_placed: {
+      text: "Los volcados por esquema no se pueden colocar dentro de una copia autocontenida",
+      hint: "Copia la base de datos entera, o vuelca el esquema por separado con pg_dump --schema.",
+    },
+    put_back_databases: {
+      text: "No se pueden devolver las bases de datos de {domain}: {message}",
+      hint: "Las bases de datos se restauran con el archivo compose del stack, que el árbol restaurado debe tener.",
+    },
+    read: {
+      text: "No se puede leer {file_path}",
+      hint: "{exc}",
+    },
+    read_2: {
+      text: "No se puede leer {name}",
+      hint: "{exc}. El archivo está dañado o no lo escribió Noust.",
+    },
+    read_application_record: {
+      text: "No se pudo leer el registro de la aplicación {domain}",
+      hint: "{exc}",
+    },
+    refusing_restore: {
+      text: "Se rechaza restaurar {name}",
+      hint: "{exc}",
+    },
+    refusing_restore_over_current: {
+      text: "Se rechaza restaurar sobre {app_path}: antes no se pudo apartar una copia del estado actual",
+      hint: "{exc}. Libera espacio o arregla los permisos bajo {parent}, o aparta tú {app_path} y restaura de nuevo.",
+    },
+    restore_into: {
+      text: "No se puede restaurar en {domain}",
+      hint: "{exc}. El dominio de destino no da un nombre de directorio utilizable.",
+    },
+    restoring_database_needs_application: {
+      text: "Restaurar la base de datos de {domain} necesita la aplicación detenida",
+      hint: "El volcado sustituye lo que contiene la base de datos, bajo una aplicación que seguiría escribiendo en ella. Una restauración detiene la aplicación por sí misma; si se pidió que no lo hiciera, detenla antes: noust stop {domain}",
+    },
+    unpacking_needs_about_bytes: {
+      text: "Descomprimir {backup_id} necesita unos {declared} bytes en {workspace} y solo hay {free} libres",
+      hint: "Libera espacio, o apunta TMPDIR a un sistema de archivos mayor.",
+    },
+    write_metadata_after_sealing: {
+      text: "No se pudieron escribir los metadatos de {id} tras sellarla",
+      hint: "{exc}. Vuelve a sellar las copias existentes: lo repara.",
+    },
+  },
+  backup_priority: {
+    backup_io_class: {
+      text: "backup.io_class debe ser uno de estos: {items}",
+      hint: "Es {io_class}. Cámbialo con: noust config set backup.io_class idle",
+    },
+    whole_number: {
+      text: "{key} debe ser un número entero de {low} a {high}",
+      hint: "Es {value}. Cámbialo con: noust config set {key} VALOR",
+    },
+  },
+  backup_records: {
+    policy_stored: {
+      text: "No se puede guardar una política {scope} para {db_name}",
+      hint: "Solo se guarda bajo {all_databases} una política que cubra todas las bases de datos, y siempre lo es.",
+    },
+  },
+  backup_return: {
+    bundle_noust_own_state: {
+      text: "{file_name} no es un paquete del estado propio de Noust",
+    },
+    bundle_noust_own_state_2: {
+      text: "{file_name} no es un paquete del estado propio de Noust: {exc}",
+      hint: "No se puso nada en la carpeta de los paquetes.",
+    },
+    copy_application_data_needs: {
+      text: "Una copia de los datos de una aplicación necesita los metadatos que dicen qué es",
+      hint: "La central guarda el archivo sin su complemento, así que no se sabe qué contiene ni adónde va. No se restauró nada.",
+    },
+    data: {
+      text: "{file_name} son los datos de {domain}, no de {wanted}",
+      hint: "Restáuralo en la aplicación a la que pertenece.",
+    },
+    metadata_match_mac_nothing: {
+      text: "Los metadatos de {file_name} no coinciden con su MAC; no se restauró nada",
+    },
+    metadata_read: {
+      text: "Los metadatos de {file_name} no se pueden leer: {exc}",
+      hint: "No se restauró nada.",
+    },
+    say_application_backup_goes: {
+      text: "Indica en qué aplicación vuelve la copia",
+      hint: "La copia no nombra ninguna: da su dominio.",
+    },
+    say_database_dump_loaded: {
+      text: "Indica en qué base de datos se carga el volcado",
+      hint: "La copia no nombra ni su motor ni su base de datos: dalos.",
+    },
+    server_already_bundle_called: {
+      text: "Este servidor ya tiene un paquete llamado {file_name}",
+      hint: "No se sustituyó nada.",
+    },
+    unknown_kind_copy: {
+      text: "Tipo de copia desconocido: {kind}",
+    },
+  },
+  backup_returns: {
+    chunk_most_bytes: {
+      text: "Aquí un fragmento puede tener como máximo {chunk_bytes} bytes",
+      hint: "Divide el archivo.",
+    },
+    copy_finished_arriving: {
+      text: "La copia no ha terminado de llegar",
+      hint: "Han llegado {received} de {size} bytes. Envía el resto y completa la subida.",
+    },
+  },
+  backup_scheduler: {
+    backup_schedule_empty_too: {
+      text: "La programación de copias está vacía o es demasiado larga",
+      hint: "Usa un alias ({items}) o una expresión de calendario.",
+    },
+    backup_taken_sent: {
+      text: "La copia de {domain} se hizo pero no se pudo enviar a: {items}",
+      hint: "Se conservó la copia local.\n{items2}",
+    },
+    exists_database_backup_timer: {
+      text: "{name} existe y no es un temporizador de copias de bases de datos",
+      hint: "Otro temporizador ya tiene este nombre; quítalo o cambia el nombre de la aplicación que lo posee antes de programar esta base de datos.",
+    },
+    exists_timer_noust_wrote: {
+      text: "{name} existe y no es un temporizador que Noust escribió para {what}",
+      hint: "Otro temporizador ya tiene este nombre; quítalo o cambia el nombre de la aplicación que lo posee antes de programar esto.",
+    },
+    failed_enable_timer_timer: {
+      text: "No se pudo activar el temporizador: {timer_name}.timer",
+      hint: "{value}",
+    },
+    failed_enable_timer_timer_2: {
+      text: "No se pudo activar el temporizador: {unit}.timer",
+      hint: "{value}",
+    },
+    failed_render_systemd_template: {
+      text: "No se pudo generar la plantilla de systemd: {template_name}",
+      hint: "{exc}. Puede que la instalación de Noust esté incompleta.",
+    },
+    failed_write_unit_file: {
+      text: "No se pudo escribir el archivo de unidad: {path}",
+      hint: "{exc}. Noust debe ejecutarse como root para gestionar unidades de systemd.",
+    },
+    invalid_backup_schedule: {
+      text: "La programación de copias no es válida: {calendar}",
+      hint: "Una expresión de calendario solo puede contener letras, dígitos y '*-/,:. '.",
+    },
+    schedule: {
+      text: "No se puede programar {what}",
+      hint: "{exc}. Un archivo de unidad se genera a partir de estos valores, así que se limitan a caracteres que no pueden convertirse en una directiva de systemd.",
+    },
+    schedule_backup_application: {
+      text: "No se puede programar una copia para esta aplicación",
+      hint: "{exc}. Un archivo de unidad se genera a partir de estos valores, así que se limitan a caracteres que no pueden convertirse en una directiva de systemd.",
+    },
+    schedule_backups_application: {
+      text: "No se pueden programar copias para esta aplicación",
+      hint: "{exc}",
+    },
+    schedule_backups_database: {
+      text: "No se pueden programar copias para esta base de datos",
+      hint: "{exc}. Un archivo de unidad se genera a partir del nombre de la base de datos, así que se limita a caracteres que no pueden convertirse en una directiva de systemd.",
+    },
+    schedule_keeps_nothing_server: {
+      text: "Una programación que no conserva nada en este servidor necesita un destino",
+      hint: "Indica al menos un destino al que enviar las copias (--destination NOMBRE), o conserva las copias aquí.",
+    },
+    scheduled_backup_failed_verification: {
+      text: "La copia programada de {domain} no superó su verificación y no se envió",
+      hint: "{problem}. Ejecuta 'noust backup verify {id}' para ver el informe completo.",
+    },
+  },
+  backup_schedules: {
+    backup_schedule: {
+      text: "No hay programación de copias para {validated}",
+    },
+    domain_path_request_body: {
+      text: "El dominio de la ruta y el del cuerpo de la petición deben coincidir.",
+    },
+  },
+  backup_sealing: {
+    backups_sealed_server: {
+      text: "Las copias no están selladas en este servidor",
+      hint: "Activa antes el sellado: noust backup encryption enable. Después sella lo que ya hay con: noust backup encryption seal-existing",
+    },
+  },
+  backup_timer_options: {
+    time_limit: {
+      text: "{text} no es un límite de tiempo",
+      hint: "Usa un número entero de segundos, o un número con s, m, h o d: 90m, 2h, 1d.",
+    },
+    time_limit_1_minute: {
+      text: "Un límite de tiempo va de 1 minuto a 7 días",
+      hint: "Se recibieron {seconds} segundos. Usa 90m, 2h o 3600; déjalo vacío para no poner límite.",
+    },
+    time_limit_number: {
+      text: "Un límite de tiempo es un número",
+    },
+    time_zone_server_knows: {
+      text: "{name} no es una zona horaria que este servidor conozca",
+      hint: "Usa un nombre de la base de datos de zonas, como Europe/Madrid, America/Argentina/Buenos_Aires o UTC (timedatectl list-timezones las lista).",
+    },
+  },
+  backup_verify: {
+    decompressed: {
+      text: "{name} no se pudo descomprimir",
+      hint: "gzip -dc informó de que fue bien pero no escribió ningún archivo.",
+    },
+    valid_gzip_file: {
+      text: "{name} no es un archivo gzip válido",
+      hint: "{value}",
+    },
+  },
+  backups: {
+    backup_destination_exist: {
+      text: "El destino de copias {name} no existe",
+      hint: "Créalo antes con: noust backup destination add",
+    },
+    backup_found: {
+      text: "No se encuentra la copia: {file_name}",
+      hint: "Lista los volcados con: noust db backups",
+    },
+    backup_found_2: {
+      text: "No se encuentra la copia: {validated}",
+    },
+    backup_run_origin: {
+      text: "Una ejecución de copia no puede tener el origen {origin}",
+      hint: "Usa uno de estos: {items}.",
+    },
+    database_engine_noust_keeps: {
+      text: "No es un motor de bases de datos del que Noust guarde volcados: {engine}",
+      hint: "Un motor son letras minúsculas y dígitos, como lo lista 'noust db engines'.",
+    },
+    database_exist: {
+      text: "La base de datos '{name}' no existe",
+      hint: "Lista las que hay con: noust db list --engine {engine_name}",
+    },
+    database_needed_delete_copy: {
+      text: "Hace falta una base de datos para eliminar una copia de un destino",
+      hint: "Indica la base de datos de la que es el volcado: su carpeta allí es la de la base de datos.",
+    },
+    destination_listed_twice: {
+      text: "El destino {name} está listado dos veces",
+    },
+    dump_format_available: {
+      text: "El formato de volcado {dump_format} no está disponible para {display_name}",
+      hint: "PostgreSQL admite custom, plain o tar; los demás motores tienen un solo formato.",
+    },
+    dump_reported_taken_read: {
+      text: "El volcado {name} se dio por tomado pero no se puede leer",
+      hint: "{exc}. Comprueba los permisos y el espacio de {parent}.",
+    },
+    dump_restore_into_temporary: {
+      text: "El volcado {name} no se restauró en una base de datos temporal",
+      hint: "{value}",
+    },
+    dump_taken_failed_check: {
+      text: "El volcado {name} se tomó pero no superó su comprobación",
+      hint: "{verify_detail}\n\nEl archivo se conserva en {path}. Toma otro volcado y elimina este con: noust db backup-delete",
+    },
+    failed_check: {
+      text: "{backup_name} no superó su comprobación",
+      hint: "{value}",
+    },
+    failed_check_nothing_restored: {
+      text: "{file_name} de {destination} no superó su comprobación; no se restauró nada",
+      hint: "{detail}",
+    },
+    failed_check_sent: {
+      text: "{file_name} no superó su comprobación y no se envió a {destination}",
+      hint: "{value}",
+    },
+    key_too_long_name: {
+      text: "La clave {engine} es demasiado larga para ser el nombre de una carpeta en un destino",
+      hint: "El nombre de una carpeta tiene como máximo {max_folder_name} caracteres; cambia el nombre del proyecto de Compose o del contenedor.",
+    },
+    policy_keeps_nothing_server: {
+      text: "Una política que no conserva nada en este servidor necesita un destino",
+      hint: "Indica al menos un destino al que enviar los volcados (--to NOMBRE), o conserva los volcados aquí.",
+    },
+    redis_policy_already_covers: {
+      text: "Una política de Redis ya cubre toda la instancia",
+      hint: "Una instantánea son todos los slots a la vez: da a la política cualquier base de datos de la instancia, como la 0.",
+    },
+    redis_restore_new_database: {
+      text: "Redis no puede restaurar como una base de datos nueva",
+      hint: "Una instantánea sustituye todas las claves de la instancia.",
+    },
+    redis_snapshot_test_restored: {
+      text: "Una instantánea de Redis no se puede restaurar como prueba",
+      hint: "Restaurar una sustituye todas las claves de la instancia, así que no se puede probar aparte. Noust la comprueba con redis-check-rdb.",
+    },
+    redis_snapshot_test_restored_2: {
+      text: "Una instantánea de Redis no se puede restaurar como prueba",
+      hint: "Sustituiría todas las claves de la instancia.",
+    },
+    restore_into_temporary_database: {
+      text: "{backup_name} no se restauró en una base de datos temporal",
+      hint: "{value}",
+    },
+    superuser_load_ask: {
+      text: "{display_name} no tiene una carga como superusuario que pedir",
+      hint: "Solo PostgreSQL carga por defecto un volcado como el propietario de la base de datos.",
+    },
+    whole_number_1: {
+      text: "{field_name} debe ser un número entero de 1 a {ceiling}",
+      hint: "Déjalo vacío para no poner límite.",
+    },
+  },
+  central_backups: {
+    central_holds_copy: {
+      text: "La central no guarda la copia {item} de {node}",
+    },
+    server_named_managed_central: {
+      text: "Esta central no gestiona ningún servidor llamado {node}",
+    },
+    server_named_managed_central_2: {
+      text: "Esta central no gestiona ningún servidor llamado {target_node}",
+    },
+    unknown_kind_copy: {
+      text: "Tipo de copia desconocido: {kind}",
+      hint: "Los tipos son: {items}.",
+    },
+  },
+  restore_server: {
+    bundle_store_read: {
+      text: "No se pudo leer el almacén del paquete",
+      hint: "{exc}",
+    },
+    restoring_state_needs_bundle: {
+      text: "Restaurar el estado necesita el paquete y su frase de paso",
+      hint: "Da las dos cosas, o indica skip_state cuando el estado ya está aquí.",
+    },
+  },
+  self_backup: {
+    back_noust_own_state: {
+      text: "No se pudo copiar el estado propio de Noust",
+      hint: "{exc}. Comprueba el espacio en disco de {directory} y que se pueden leer todos los archivos de los directorios de Noust.",
+    },
+    backup_destination_exist: {
+      text: "El destino de copias {destination} no existe",
+      hint: "Créalo antes con: noust backup destination add",
+    },
+    bundle: {
+      text: "No hay ningún paquete en {path}",
+      hint: "Lístalos con: noust self-backup list, o da la ruta completa.",
+    },
+    bundle_failed_verification_sent: {
+      text: "El paquete {name} no superó su verificación y no se envió",
+      hint: "{items}",
+    },
+    bundle_hold_store_made: {
+      text: "El paquete no contendría ningún almacén, así que no se hace",
+      hint: "No hay ningún {store_name} con contenido en {value}, el directorio que guarda el almacén que usa Noust. Ejecuta: noust setup doctor",
+    },
+    envelope_something_else: {
+      text: "{name} es un sobre de otra cosa ({value})",
+      hint: "Un paquete del estado propio de Noust tiene la etiqueta {label}.",
+    },
+    failed_verification: {
+      text: "{name} no superó su verificación",
+      hint: "{items}",
+    },
+    hold_safe_archive: {
+      text: "{name} no contiene un archivo seguro",
+      hint: "{message}",
+    },
+    holds_noust_own_state: {
+      text: "{name} contiene {value}, no el estado propio de Noust",
+      hint: "El paquete de una central se comprueba con: noust central backup --verify",
+    },
+    is_not_in: {
+      text: "{path} no está en {directory}",
+      hint: "Aquí solo se puede eliminar un paquete que este servidor guarda.",
+    },
+    name_bundle: {
+      text: "{name_or_path} no es el nombre de un paquete",
+      hint: "Lístalos con: noust self-backup list",
+    },
+    name_bundle_2: {
+      text: "{name} no es el nombre de un paquete",
+    },
+    noust_bundle: {
+      text: "{name} no es un paquete de Noust",
+      hint: "{details}",
+    },
+    passphrase_given_none_stored: {
+      text: "No se dio ninguna frase de paso y no hay ninguna guardada",
+      hint: "Da una con la petición, o configura la programación con una frase de paso.",
+    },
+    passphrase_least_characters: {
+      text: "La frase de paso debe tener al menos {min_passphrase_length} caracteres",
+      hint: "Todo lo que protege el paquete es tan fuerte como su frase de paso.",
+    },
+    passphrase_stored_scheduled_backup: {
+      text: "No hay ninguna frase de paso guardada para la copia programada del estado propio de Noust",
+      hint: "Vuelve a ponerla con: noust self-backup schedule set",
+    },
+    readable_manifest: {
+      text: "{name} no tiene un manifiesto legible",
+      hint: "{exc}",
+    },
+    schedule_keeps_nothing_server: {
+      text: "Una programación que no conserva nada en este servidor necesita un destino",
+      hint: "Indica al menos un destino al que enviar los paquetes (--to NOMBRE), o conserva los paquetes aquí.",
+    },
+    schedule_needs_passphrase_seal: {
+      text: "Una programación necesita una frase de paso con la que sellar sus paquetes",
+      hint: "Da una con la opción de frase de paso; Noust la guarda en su almacén de secretos para que el temporizador funcione sin supervisión. Guarda una copia por tu cuenta: sin ella no se abre ningún paquete.",
+    },
+    whole_number_1: {
+      text: "{name} debe ser un número entero de 1 a {ceiling}",
+      hint: "Déjalo vacío para no poner límite.",
+    },
+  },
+  self_restore: {
+    bundle_holds_secrets_sealed: {
+      text: "El paquete contiene secretos sellados con una clave que no lleva",
+      hint: "No se cambió nada. Restaura la clave del paquete (el archivo {named} de un paquete que la tenga), o restaura sin los secretos y vuelve a introducir las credenciales.",
+    },
+    bundle_names_path: {
+      text: "El paquete nombra una ruta que no debe: {relative}",
+      hint: "Una ruta de un paquete es relativa y se queda dentro del directorio en el que se restaura. No se restauró nada.",
+    },
+    bundle_store_schema_v: {
+      text: "El almacén del paquete es del esquema v{version}; este Noust entiende hasta la v{schema_version}",
+      hint: "Instala la versión de Noust que lo tomó, o una más nueva, y restaura. No se cambió nada.",
+    },
+    bundle_verify_nothing_restored: {
+      text: "El paquete no se verifica; no se restauró nada",
+      hint: "{items}",
+    },
+    restore_stopped: {
+      text: "La restauración se detuvo: {message}",
+      hint: "{details}{kept}\nSe volvieron a iniciar los servicios que estaban en marcha.",
+    },
+    restore_stopped_file_written: {
+      text: "La restauración se detuvo en un archivo que no se pudo escribir",
+      hint: "{exc}.{kept}",
+    },
+    restored_store_opened_version: {
+      text: "Esta versión de Noust no pudo abrir el almacén restaurado",
+      hint: "{exc}",
+    },
+    secret_bundle_opened_key: {
+      text: "El secreto {name} del paquete no se puede abrir con la clave que lleva el paquete",
+      hint: "{message}. No se cambió nada. Restáuralo en el tipo de servidor del que vino, o vuelve a introducir esa credencial cuando termine la restauración.",
+    },
+    secret_sealed_again_under: {
+      text: "No se pudo volver a sellar un secreto con la clave de este servidor: {message}",
+      hint: "{value}",
+    },
+    server_already_holds_noust: {
+      text: "Este servidor ya tiene estado de Noust, y una restauración lo sustituye",
+      hint: "Restaura sobre una instalación limpia, o confirma con --force. Antes se toma un paquete de lo que hay aquí, para poder devolverlo.",
+    },
+    symbolic_link_nothing_restored: {
+      text: "{walker} es un enlace simbólico; no se restaura nada a través de uno",
+      hint: "Quita el enlace, o restaura sobre una instalación limpia.",
+    },
+    take_bundle_before_replacing: {
+      text: "No se pudo tomar un paquete de lo que hay aquí antes de sustituirlo",
+      hint: "{details}\nArregla eso, o restaura sin copia de seguridad previa: noust self-backup restore --no-safety-copy",
+    },
+  },
+  volume_backup_records: {
+    consistency_mode: {
+      text: "{consistency} no es un modo de consistencia",
+      hint: "Usa uno de estos: {items}.",
+    },
+  },
+  volume_backups: {
+    application_data_target: {
+      text: "Esta aplicación no tiene el destino de datos {unknown}",
+      hint: "Sus destinos son: {value}. Añade un directorio con --path.",
+    },
+    application_started_again_after: {
+      text: "La aplicación no se pudo volver a iniciar tras la restauración",
+      hint: "{items}",
+    },
+    archive: {
+      text: "No se pudo archivar {source}",
+      hint: "{exc}. Comprueba que los datos se pueden leer y que el disco tiene espacio.",
+    },
+    archive_match_digest_nothing: {
+      text: "El archivo de {id} no coincide con su resumen; no se restauró nada",
+    },
+    backup_failed_verification_sent: {
+      text: "La copia {id} no superó su verificación y no se envió",
+      hint: "{items}",
+    },
+    could_not: {
+      text: "No se pudo {what}",
+      hint: "{value}",
+    },
+    create_restore_workspace_beside: {
+      text: "No se pudo crear un espacio de restauración junto a {destination}",
+      hint: "{exc}",
+    },
+    data: {
+      text: "{file_name} son los datos de {domain}, no de {domain2}",
+      hint: "Restáuralo en la aplicación a la que pertenece.",
+    },
+    data_back_up: {
+      text: "{domain} no tiene datos que copiar ahora",
+      hint: "Sus directorios de datos declarados todavía no existen. {value}",
+    },
+    declares_data_back_up: {
+      text: "{domain} no declara datos que copiar",
+      hint: "Declara una ruta persistente al desplegar (--persist RUTA), o añade un directorio a esta política con --path.",
+    },
+    docker_reported_success_produced: {
+      text: "Docker informó de que fue bien pero no produjo ningún archivo para el volumen {volume}",
+      hint: "Busca {value}.",
+    },
+    failed_archive_volume: {
+      text: "No se pudo archivar el volumen {volume}",
+      hint: "{value}",
+    },
+    failed_check: {
+      text: "{backup_id} no superó su comprobación",
+      hint: "{items}",
+    },
+    failed_check_nothing_restored: {
+      text: "{id} no superó su comprobación; no se restauró nada",
+      hint: "{items}",
+    },
+    failed_check_sent: {
+      text: "{backup_id} no superó su comprobación y no se envió a {destination}",
+      hint: "{items}",
+    },
+    failed_restore: {
+      text: "No se pudo restaurar {destination}",
+      hint: "{exc}",
+    },
+    failed_restore_volume: {
+      text: "No se pudo restaurar el volumen {source}",
+      hint: "{value}",
+    },
+    failed_write_metadata: {
+      text: "No se pudieron escribir los metadatos de {backup_id}",
+      hint: "{exc}",
+    },
+    hold_file: {
+      text: "{name} no contiene el archivo {name2}",
+    },
+    list_containers: {
+      text: "No se pudieron listar los contenedores de {domain}",
+      hint: "{value}",
+    },
+    longer_declares: {
+      text: "{domain} ya no declara {target}",
+      hint: "Vuelve a añadirlo (una ruta persistente, o --path en la política) y restaura de nuevo; no se restauró nada.",
+    },
+    metadata: {
+      text: "{file_name} no tiene metadatos en {destination}",
+      hint: "No lo envió Noust, así que no se sabe qué contiene ni adónde va. No se restauró nada.",
+    },
+    path_inside_application_data: {
+      text: "{raw} no es una ruta dentro de los datos de la aplicación",
+      hint: "Da una ruta relativa a donde viven los datos, como 'uploads' o 'storage/app', sin '..'.",
+    },
+    path_server: {
+      text: "{key} no tiene ruta en este servidor",
+    },
+    policy_keeps_nothing_server: {
+      text: "Una política que no conserva nada en este servidor necesita un destino",
+      hint: "Indica al menos un destino al que enviar las copias (--to NOMBRE), o conserva las copias aquí.",
+    },
+    restoring_failed: {
+      text: "Falló la restauración de {id}: {message}",
+      hint: "{value}",
+    },
+    restoring_failed_putting_data: {
+      text: "Falló la restauración de {destination} y también falló devolver sus datos",
+      hint: "{failure}\n{exc}\nLos datos que tenía están en {previous}.",
+    },
+    started_again_after_data: {
+      text: "{domain} no se pudo volver a iniciar tras copiar sus datos",
+      hint: "{items}\nInícialo con: noust start {domain}. La copia en sí no se ve afectada.",
+    },
+    volume_backup_found: {
+      text: "No se encuentra la copia de volumen: {backup_id}",
+      hint: "Lístalas con: noust backup volumes list",
+    },
+    volume_backup_found_2: {
+      text: "No se encuentra la copia de volumen: {backup_id}",
+    },
+  },
+  http3: {
+    nginx_refused_site_holds: {
+      text: "nginx rechazó el sitio que tiene el socket QUIC",
+      hint: "{errors}",
+    },
+    apache: {
+      text: "Las compilaciones estándar de Apache no tienen HTTP/3",
+      hint: "Sirve este sitio con nginx 1.25 o posterior para usar HTTP/3.",
+    },
+    no_version: {
+      text: "No se pudo leer la versión de nginx",
+      hint: "Ejecuta: {command}",
+    },
+    not_built: {
+      text: "Este nginx {version} se compiló sin --with-http_v3_module",
+      hint: "Instala la compilación de nginx.org, que lo incluye.",
+    },
+    too_old: {
+      text: "nginx {version} es anterior a la 1.25.0, la primera con HTTP/3",
+      hint: "Instala un nginx más nuevo: los paquetes de nginx.org (https://nginx.org/en/linux_packages.html) lo traen en Debian, Ubuntu y los sistemas RPM.",
+    },
+  },
+  log_retention: {
+    days_number: {
+      text: "days es un número de {min_days} a {max_days}",
+    },
+    most_disk_number_megabytes: {
+      text: "El máximo de disco es un número de megabytes de {min_mb} a {max_mb}",
+    },
+    name_keep_days_max: {
+      text: "Indica qué conservar: --days, --max-use o --persistent",
+    },
+    read: {
+      text: "No se pudo leer {dropin}",
+      hint: "{exc}",
+    },
+    retention_written_journald_restarted: {
+      text: "Se escribió la retención pero no se pudo reiniciar journald",
+      hint: "{value}",
+    },
+    written_noust: {
+      text: "{dropin} no lo escribió Noust",
+      hint: "Aparta ese archivo, o define tú la retención en él.",
+    },
+    written_noust_2: {
+      text: "{dropin} no lo escribió Noust",
+      hint: "Se deja como está.",
+    },
+    dropin_foreign: {
+      text: "{dropin} existe y no lo escribió Noust, así que se deja como está.",
+    },
+    journal_volatile: {
+      text: "El journal se guarda en memoria y se pierde en cada reinicio. Añade --persistent para conservarlo.",
+    },
+  },
+  log_search: {
+    level: {
+      text: "{level} no es un nivel",
+      hint: "Los niveles son: {items}.",
+    },
+    limit_number_1: {
+      text: "limit es un número de 1 a {max_limit}",
+    },
+    time: {
+      text: "{text} no es una hora",
+      hint: "Usa segundos de época, un tiempo atrás como 15m, 2h o 7d, o una fecha como 2026-10-16.",
+    },
+    window_ends_before_starts: {
+      text: "La ventana termina antes de empezar",
+    },
+    window_longer_journal_hold: {
+      text: "La ventana es más larga de lo que el journal puede guardar",
+      hint: "Pide como máximo {value} días cada vez.",
+    },
+    container_unreadable: {
+      text: "{domain}: no se pudo leer {service} ({reason})",
+    },
+    containers_unlisted: {
+      text: "{domain}: no se pudieron listar sus contenedores ({reason})",
+    },
+    journal_failed: {
+      text: "No se pudo buscar en el journal: {reason}",
+    },
+    no_app_matches: {
+      text: "Ninguna aplicación en la que puedas buscar coincide con {names}",
+    },
+    stacks_no_levels: {
+      text: "Los contenedores de los stacks de Docker no tienen niveles, así que no se busca en ellos cuando la consulta nombra un nivel.",
+    },
+  },
+  waf: {
+    nginx_refused_waf_rules: {
+      text: "nginx rechazó las reglas del WAF",
+      hint: "{errors}",
+    },
+    noust_installs_waf_debian: {
+      text: "Noust instala el WAF solo en Debian y Ubuntu",
+      hint: "En otros sistemas instala el módulo ModSecurity de nginx y el OWASP Core Rule Set desde tu distribución o desde nginx.org, y activa después el WAF.",
+    },
+    packages_installed: {
+      text: "No se pudieron instalar los paquetes",
+      hint: "Debajo está la salida del gestor de paquetes.",
+    },
+    waf_packages_complete: {
+      text: "Los paquetes del WAF no están completos",
+      hint: "Reinstala libnginx-mod-http-modsecurity y modsecurity-crs.",
+    },
+    base_missing: {
+      text: "Faltan los ajustes base de ModSecurity o el archivo de configuración del Core Rule Set",
+      hint: "Reinstala los paquetes: libnginx-mod-http-modsecurity y modsecurity-crs.",
+    },
+    module_missing: {
+      text: "nginx no tiene el módulo ModSecurity",
+      hint: "Instálalo: {command} (Debian y Ubuntu: libnginx-mod-http-modsecurity y modsecurity-crs).",
+    },
+    module_not_loaded: {
+      text: "El módulo ModSecurity está instalado pero nginx no lo carga",
+      hint: "Cárgalo con una línea load_module en nginx.conf (Debian y Ubuntu: {command}).",
+    },
+    not_nginx: {
+      text: "Aquí el WAF es el de nginx: Noust maneja ModSecurity a través de nginx",
+      hint: "Sirve este sitio con nginx para usar el WAF.",
+    },
+    rules_missing: {
+      text: "El OWASP Core Rule Set no está instalado",
+      hint: "Instálalo: {command} (Debian y Ubuntu: modsecurity-crs).",
+    },
+  },
+  delivery: {
+    time_limit: {
+      text: "Se detuvo la operación «{operation}» de {domain}: tardó más que el tiempo máximo de despliegue de este servidor ({limit}). No se tocó nada de lo que estaba sirviendo. Sube el límite con 'noust config set deploy.max_minutes <minutos>' (0 es sin límite).",
+    },
+    time_limit_deploy: {
+      text: "Se detuvo el despliegue de {domain}: tardó más que el tiempo máximo de despliegue de este servidor ({limit}). No se tocó nada de lo que estaba sirviendo. Sube el límite con 'noust config set deploy.max_minutes <minutos>' (0 es sin límite).",
+    },
+    time_limit_update: {
+      text: "Se detuvo la actualización de {domain}: tardó más que el tiempo máximo de despliegue de este servidor ({limit}). No se tocó nada de lo que estaba sirviendo. Sube el límite con 'noust config set deploy.max_minutes <minutos>' (0 es sin límite).",
     },
   },
 };

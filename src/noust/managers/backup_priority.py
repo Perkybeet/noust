@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from noust.core.exceptions import ValidationError
+from noust.core.server_text import say
 
 __all__ = [
     "DEFAULT_NICE",
@@ -106,9 +107,8 @@ def _whole(value: Any, key: str, low: int, high: int) -> int:
     except ValueError:
         number = low - 1
     if isinstance(value, bool) or not low <= number <= high:
-        raise ValidationError(
-            f"{key} must be a whole number from {low} to {high}",
-            details=f"It is {value!r}. Change it with: noust config set {key} VALUE",
+        raise ValidationError.from_text(
+            say("backup_priority.whole_number", high=high, key=key, low=low, value=f"{value!r}"),
             field=key,
         )
     return number
@@ -130,9 +130,12 @@ def priority_from_config(config: _Settings) -> BackupPriority:
     nice = _whole(config.get("backup.nice", DEFAULT_NICE), "backup.nice", 0, 19)
     io_class = str(config.get("backup.io_class", "best-effort")).strip().lower()
     if io_class not in IO_CLASSES:
-        raise ValidationError(
-            f"backup.io_class must be one of: {', '.join(IO_CLASSES)}",
-            details=f"It is {io_class!r}. Change it with: noust config set backup.io_class idle",
+        raise ValidationError.from_text(
+            say(
+                "backup_priority.backup_io_class",
+                io_class=f"{io_class!r}",
+                items=", ".join(IO_CLASSES),
+            ),
             field="backup.io_class",
         )
     io_priority = _whole(config.get("backup.io_priority", 7), "backup.io_priority", 0, 7)

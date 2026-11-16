@@ -10,6 +10,7 @@
 
 import { isApiError } from "../../api/client";
 
+import { describeError } from "../../lib/errors";
 /**
  * Takes the first field that says it is invalid to the keyboard: what pressing a button that could
  * not go on shows (docs/DESIGN.md 6.7). The button is never off for a missing value; it says what is
@@ -58,7 +59,8 @@ export function splitErrors<K extends string>(error: unknown, names: readonly K[
   // Refusals that are not about a value: nothing to put beside a field.
   const aboutTheValue = error.status === 400 || error.status === 422;
   if (soleField !== undefined && aboutTheValue) {
-    return { fields: { [soleField]: sentence(error.detail, error.hint) } as Partial<Record<K, string>>, form: null };
+    const described = describeError(error);
+    return { fields: { [soleField]: sentence(described.detail, described.hint) } as Partial<Record<K, string>>, form: null };
   }
   return { fields: {}, form: error };
 }

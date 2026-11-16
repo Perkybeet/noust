@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import type { Role } from "../../../api/queries/roles";
 import { translate } from "../../../i18n";
-import { effectivePermissions, groupPermissions, kindOf, roleDescription, roleLabel } from "./roleModel";
+import type { PlainKey, T } from "../../../i18n";
+import { areaLabel, effectivePermissions, groupPermissions, kindOf, permissionText, roleDescription, roleLabel } from "./roleModel";
 
 function role(over: Partial<Role> & { name: string }): Role {
   return {
@@ -87,5 +88,22 @@ describe("grouping permissions for choosing", () => {
       { area: "apps", permissions: ["apps.deploy", "apps.read"] },
       { area: "server", permissions: ["server.read"] },
     ]);
+  });
+});
+
+describe("saying a permission and its area", () => {
+  // The console's own words for the permissions it knows, the server's for one it does not (a server newer than the console).
+  const t = ((key: string) => translate("en", key as PlainKey)) as unknown as T;
+
+  it("says a known permission in the console's catalog and an unknown one as the server sent it", () => {
+    expect(permissionText(t, "apps.deploy", "the server's words")).toBe("Update, roll back, activate a release, rebuild");
+    expect(permissionText(t, "root_equivalent", "the server's words")).toBe("Raw units, cron commands, backup hooks, raw site configuration");
+    expect(permissionText(t, "apps.something_new", "A permission of a newer server")).toBe("A permission of a newer server");
+  });
+
+  it("names an area, and falls back to the area itself", () => {
+    expect(areaLabel(t, "apps")).toBe("Applications");
+    expect(areaLabel(t, "root_equivalent")).toBe("Root-equivalent");
+    expect(areaLabel(t, "something_new")).toBe("something_new");
   });
 });

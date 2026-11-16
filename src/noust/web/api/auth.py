@@ -36,6 +36,7 @@ from noust.core.accounts import Account, AuthenticationFailed
 from noust.core.accounts.local_login import LOCAL_METHODS, LocalLoginRefused, refuse_local_sign_in
 from noust.core.accounts.model import AccountError
 from noust.core.accounts.passkeys import PasskeyManager
+from noust.core.server_text import ServerText, say
 from noust.core.token_presets import TOKEN_PRESETS
 from noust.core.totp import provisioning_uri
 from noust.web.api.assistant_session import AssistantSession, session_assistant
@@ -67,6 +68,7 @@ from noust.web.permissions.access import AccessManager
 from noust.web.permissions.enforce import ensure_notice_accepted, has_permission
 from noust.web.permissions.roles import GRANT_COMPAT, role_table
 from noust.web.permissions.team_roles import TENANT_PERMISSIONS
+from noust.web.refusal import refusal
 from noust.web.server import get_brute_force, get_token_manager
 
 # The error boundary every other API router already has: without it a
@@ -80,11 +82,11 @@ get_current_session = require_auth
 
 #: The one answer to a refused account sign-in or confirmation, whatever was
 #: wrong: naming it would tell a guesser which half of the credential was right.
-INVALID_CREDENTIALS = "Invalid credentials."
+INVALID_CREDENTIALS = say("signin.invalid_credentials")
 
 #: The answer to a second step that is no longer open: spent, expired, or
 #: presented from another address. Nothing to retry but the whole sign-in.
-SIGN_IN_EXPIRED = "This sign-in has expired. Start again with your username and password."
+SIGN_IN_EXPIRED = say("signin.expired")
 
 SECOND_FACTOR_PATH = "/api/auth/login/second-factor"
 
@@ -428,7 +430,7 @@ def _iso(timestamp: float | None) -> str | None:
     return datetime.fromtimestamp(float(timestamp), tz=timezone.utc).isoformat()
 
 
-def login_failure(error: str, detail: str) -> HTTPException:
+def login_failure(error: str, sentence: ServerText) -> HTTPException:
     """
     Build a 401 whose reason a client can branch on without parsing English.
 
@@ -445,14 +447,13 @@ def login_failure(error: str, detail: str) -> HTTPException:
         error: Machine-readable reason - ``invalid_token``, ``totp_required``,
             ``passkey_required``, ``second_factor_required``, ``invalid_totp``
             or ``invalid_credentials``.
-        detail: Human-readable message.
+        sentence: What is said, a sentence of the server's catalog for the console to say in its
+            own language.
 
     Returns:
         The exception to raise.
     """
-    return HTTPException(
-        status_code=401, detail={"error": error, "detail": detail, "hint": None, "fields": None}
-    )
+    return refusal(401, sentence, error=error)
 
 
 def master_has_passkeys() -> bool:
@@ -470,7 +471,7 @@ def master_has_passkeys() -> bool:
 
 def _second_factor_required(
     totp_on: bool, passkeys_on: bool, field: str, *, elevate: bool = False
-) -> tuple[str, str]:
+) -> tuple[str, ServerText]:
     """
     Say which second factor the master token has to add.
 
@@ -487,13 +488,10 @@ def _second_factor_required(
     """
     where = "/api/auth/passkeys/elevate" if elevate else "/api/auth/passkeys/login"
     if totp_on and not passkeys_on:
-        return "totp_required", f"Two-factor authentication is enabled. Include {field}."
+        return "totp_required", say("signin.second_factor_code", field=field)
     if passkeys_on and not totp_on:
-        return "passkey_required", f"This sign-in has a passkey now. Use it: POST {where}."
-    return (
-        "second_factor_required",
-        f"Two-factor authentication is enabled. Include {field}, or use a passkey: POST {where}.",
-    )
+        return "passkey_required", say("signin.second_factor_passkey", where=where)
+    return "second_factor_required", say("signin.second_factor_either", field=field, where=where)
 
 
 def _printable(value: str | None, limit: int = 64) -> str:
@@ -632,14 +630,10 @@ def refuse_locked_sign_in(key: str, client_ip: str, path: str) -> None:
             resource=path,
             detail=f"locked for {remaining} seconds (this address and name)",
         )
-    raise HTTPException(
-        status_code=429,
-        detail={
-            "error": "locked_out",
-            "detail": f"Too many failed attempts. Locked for {remaining} seconds.",
-            "hint": None,
-            "fields": None,
-        },
+    raise refusal(
+        429,
+        say("signin.locked_out", seconds=remaining),
+        error="locked_out",
         headers={"Retry-After": str(remaining)},
     )
 
@@ -1057,7 +1051,7 @@ def login_second_factor(
             target=f"account:{account.username}",
             detail="account sign-in refused at the second step: bad_code",
         )
-        raise login_failure("invalid_totp", "Invalid two-factor code.") from exc
+        raise login_failure("invalid_totp", say("signin.invalid_totp")) from exc
 
     if not token_manager.spend_login_challenge(body.challenge):
         # Another request finished this step first: one step, one session.
@@ -1111,7 +1105,7 @@ def _master_login(request: Request, response: Response, body: LoginRequest) -> L
                 resource="/api/auth/login",
                 detail="invalid master token",
             )
-        raise login_failure("invalid_token", "Invalid token.")
+        raise login_failure("invalid_token", say("signin.invalid_token"))
 
     totp_on = token_manager.totp_enabled()
     passkeys_on = master_has_passkeys()
@@ -1136,7 +1130,7 @@ def _master_login(request: Request, response: Response, body: LoginRequest) -> L
             # second factor is a credential guess, and it must not have its
             # own, softer counter.
             record_auth_failure(client_ip, "/api/auth/login", "totp", lockout_key=lockout_key)
-            raise login_failure("invalid_totp", "Invalid two-factor code.")
+            raise login_failure("invalid_totp", say("signin.invalid_totp"))
 
     brute_force.record_success(lockout_key)
     session = token_manager.create_session(client_ip)
@@ -1317,20 +1311,10 @@ def elevate(
     if account_id is not None:
         account = token_manager.accounts.require_id(int(account_id))
         if not account.has_mfa:
-            raise AccountError(
-                "Sudo mode needs a second factor, and this account has none",
-                details="Enrol an authenticator first: POST /api/auth/2fa/enroll.",
-            )
+            raise AccountError.from_text(say("signin.sudo_mode_needs_second"))
         if token_manager.policy().sudo_require_password:
             if not account.has_password:
-                raise AccountError(
-                    "Sudo mode asks for the account's password, and this account has none",
-                    details=(
-                        "It signs in through its identity provider. Give it a password, which "
-                        "it keeps only for this: 'noust user invite NAME' lets its owner set "
-                        "one, with their authenticator."
-                    ),
-                )
+                raise AccountError.from_text(say("signin.sudo_mode_asks_account"))
             _confirm_with_password_and_code(account, body, session, client_ip)
             factor = "the password and a code"
         else:
@@ -1344,7 +1328,7 @@ def elevate(
             )
         if not token_manager.verify_second_factor(code, purpose="elevate"):
             record_auth_failure(client_ip, "/api/auth/elevate", "totp")
-            raise login_failure("invalid_totp", "Invalid two-factor code.")
+            raise login_failure("invalid_totp", say("signin.invalid_totp"))
         factor = "the console's two-factor code"
     elif master_has_passkeys():
         # The token is accepted only while no second factor exists, as with
@@ -1352,7 +1336,7 @@ def elevate(
         raise login_failure(*_second_factor_required(False, True, "code", elevate=True))
     elif not token_manager.verify_master_token(body.token or ""):
         record_auth_failure(client_ip, "/api/auth/elevate", "master_token")
-        raise login_failure("invalid_token", "Invalid token.")
+        raise login_failure("invalid_token", say("signin.invalid_token"))
     else:
         factor = "the master token"
 
@@ -1396,9 +1380,7 @@ def _confirm_with_code(
     """
     code = (body.code or "").strip()
     if not code:
-        raise login_failure(
-            "totp_required", "Enter a code from your authenticator, or a backup code."
-        )
+        raise login_failure("totp_required", say("signin.enter_code"))
     try:
         get_token_manager().accounts.complete_second_factor(
             account.id, code, client_ip=client_ip, purpose="elevate"
@@ -1415,7 +1397,7 @@ def _confirm_with_code(
         )
         _audit_lock(exc, client_ip, account.username)
         if exc.reason == "bad_code":
-            raise login_failure("invalid_totp", "Invalid two-factor code.") from exc
+            raise login_failure("invalid_totp", say("signin.invalid_totp")) from exc
         raise login_failure("invalid_credentials", INVALID_CREDENTIALS) from exc
 
 
@@ -1663,13 +1645,7 @@ def revoke_other_sessions(
     """
     current = session.get("sid") if session.get("type") == "session" else None
     if current is None:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "This credential is not a browser session; there is no other "
-                "session to leave signed in."
-            ),
-        )
+        raise refusal(400, say("signin.credential_browser_session_other"))
 
     token_manager = get_token_manager()
     account_id = session.get("account_id")
@@ -1722,9 +1698,7 @@ def revoke_one_session(
     )
 
     if revoked is None:
-        raise HTTPException(
-            status_code=404, detail="No active session matches that prefix. It may have expired."
-        )
+        raise refusal(404, say("signin.active_session_matches_prefix"))
 
     audit_event(
         "auth.session.revoke",
@@ -1952,10 +1926,7 @@ def two_factor_confirm(
             target="/api/auth/2fa/confirm",
             detail="code did not match the pending secret",
         )
-        raise HTTPException(
-            status_code=400,
-            detail="That code was not accepted. Scan the QR again and enter a fresh code.",
-        )
+        raise refusal(400, say("signin.code_accepted_scan_qr"))
 
     audit_event(
         "auth.2fa.confirm",
@@ -1995,19 +1966,13 @@ def two_factor_disable(
         AccountError: For an account's session.
     """
     if session.get("account_id") is not None:
-        raise AccountError(
-            "An account's second factor cannot be turned off",
-            details="Every account keeps one. To replace it, ask a security officer to reset it.",
-        )
+        raise AccountError.from_text(say("signin.account_second_factor_turned"))
     token_manager = get_token_manager()
     client_ip = get_client_ip(request)
 
     if not token_manager.disable_totp(body.code):
         record_auth_failure(client_ip, "/api/auth/2fa/disable", "totp")
-        raise HTTPException(
-            status_code=400,
-            detail="That code was not accepted. Two-factor authentication stays on.",
-        )
+        raise refusal(400, say("signin.code_accepted_two_factor"))
 
     audit_event(
         "auth.2fa.disable",
@@ -2099,9 +2064,7 @@ def change_password(
     """
     account_id = session.get("account_id")
     if account_id is None:
-        raise HTTPException(
-            status_code=400, detail="Only an account has a password; this credential is not one."
-        )
+        raise refusal(400, say("signin.account_password_credential"))
     token_manager = get_token_manager()
     client_ip = get_client_ip(request)
     try:
@@ -2158,9 +2121,7 @@ def accept_notice(
     """
     account_id = session.get("account_id")
     if account_id is None:
-        raise HTTPException(
-            status_code=400, detail="Only a person accepts the notice; this credential is not one."
-        )
+        raise refusal(400, say("signin.person_accepts_notice_credential"))
     get_token_manager().accounts.accept_notice(int(account_id), body.version)
     audit_event(
         "auth.notice.accept",
@@ -2393,7 +2354,7 @@ def list_api_tokens(session: dict[str, Any] = Depends(require_auth)) -> ApiToken
     """
     allowed, owner = _token_scope(session)
     if not allowed:
-        raise HTTPException(status_code=403, detail="This credential cannot list API tokens.")
+        raise refusal(403, say("signin.credential_list_api_tokens"))
     records = get_token_manager().list_api_tokens(owner)
     access = AccessStore()
     return ApiTokenListResponse(
@@ -2449,7 +2410,7 @@ def create_api_token(
     ):
         # A token minting tokens is a standing credential multiplying itself
         # out of anybody's sight; only a 3.0 admin token ever could.
-        raise HTTPException(status_code=403, detail="An API token cannot issue API tokens.")
+        raise refusal(403, say("signin.api_token_issue_api"))
     owner = _account_of(session)
     bound = AccessManager().bound_scope(
         team=body.team, project=body.project, environment=body.environment
@@ -2560,27 +2521,21 @@ def restrict_api_token(
         or record.get("revoked_at") is not None
         or (owner is not None and record.get("owner_account_id") != owner)
     ):
-        raise HTTPException(status_code=404, detail=f"No API token with id {token_id}")
+        raise refusal(404, say("signin.api_token_id", token_id=token_id))
     if is_fleet({"scope": record["scope"]}):
-        raise HTTPException(
-            status_code=400,
-            detail="A central's fleet token is not restricted here; remove the node instead.",
-        )
+        raise refusal(400, say("signin.central_fleet_token_restricted"))
     before = list(record.get("allowed_cidrs") or [])
     try:
         wanted = [
             str(ipaddress.ip_network(entry.strip(), strict=False)) for entry in body.allowed_cidrs
         ]
     except ValueError as exc:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Not an address or a network: {exc}. Use 203.0.113.7 or 10.0.0.0/8.",
-        ) from exc
+        raise refusal(400, say("signin.address_network_use_203", exc=str(exc))) from exc
     if not _narrows(before, wanted):
         ensure_elevated(request, session)
     changed = token_manager.set_api_token_networks(token_id, wanted or None)
     if changed is None:
-        raise HTTPException(status_code=404, detail=f"No API token with id {token_id}")
+        raise refusal(404, say("signin.api_token_id", token_id=token_id))
     audit_event(
         "auth.token.update",
         "success",
@@ -2626,10 +2581,10 @@ def revoke_api_token(
     allowed, owner = _token_scope(session)
     record = token_manager.get_api_token(token_id) if allowed else None
     if record is None or (owner is not None and record.get("owner_account_id") != owner):
-        raise HTTPException(status_code=404, detail=f"No API token with id {token_id}")
+        raise refusal(404, say("signin.api_token_id", token_id=token_id))
     name = token_manager.revoke_api_token(token_id)
     if name is None:
-        raise HTTPException(status_code=404, detail=f"No API token with id {token_id}")
+        raise refusal(404, say("signin.api_token_id", token_id=token_id))
 
     audit_event(
         "auth.token.revoke",
@@ -2665,10 +2620,7 @@ def revoke_own_fleet_token(
         HTTPException: 403 for any credential that is not a fleet token.
     """
     if not is_fleet(session) or session.get("token_id") is None:
-        raise HTTPException(
-            status_code=403,
-            detail="Only a central's fleet token revokes itself here; revoke others in Settings.",
-        )
+        raise refusal(403, say("signin.central_fleet_token_revokes"))
     name = get_token_manager().revoke_api_token(int(session["token_id"]))
     # What the central managed stays here as this server's own; it only stops being managed.
     from noust.fleet.central_calls import CentralCalls

@@ -45,6 +45,17 @@ from collections.abc import Container, Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from noust.core import (
+    server_text_access,
+    server_text_backups,
+    server_text_changes,
+    server_text_deploy,
+    server_text_machine,
+    server_text_roles,
+    server_text_shared,
+    server_text_signin,
+)
+
 #: What a value may be: the console puts these in a sentence, nothing structured.
 Param = str | int | float | bool
 
@@ -2491,6 +2502,27 @@ CATALOG: dict[str, str] = {
         "depends on them may differ"
     ),
 }
+
+#: The tables of sentences that live in a module of their own, by area, so that this one stays under
+#: the size a module may have. Each is a ``SENTENCES`` dict, merged here: there is one catalog, one
+#: test of it and one table the console is held to.
+_FRAGMENTS = (
+    server_text_shared,
+    server_text_access,
+    server_text_backups,
+    server_text_changes,
+    server_text_deploy,
+    server_text_machine,
+    server_text_roles,
+    server_text_signin,
+)
+for _fragment in _FRAGMENTS:
+    _clash = CATALOG.keys() & _fragment.SENTENCES.keys()
+    if _clash:
+        raise ImportError(
+            f"{_fragment.__name__} says what the catalog already says: {sorted(_clash)}"
+        )
+    CATALOG.update(_fragment.SENTENCES)
 
 
 def _names_in(template: str | None) -> tuple[str, ...] | None:

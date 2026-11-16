@@ -30,6 +30,7 @@ import type { Sandbox } from "./queries";
 import { SETTINGS_ICONS } from "./objectIcons";
 import { namedActor } from "../../activity/data";
 
+import { jobFailure } from "../../../lib/errors";
 /** The one type whose builds do not go through the sandbox (`UNSUPPORTED_TYPES` in the backend). */
 const COMPOSE = "docker-compose";
 
@@ -271,7 +272,7 @@ function SandboxCard({ app, sandbox }: { app: App; sandbox: Sandbox }) {
         ) : test.isError ? (
           <ErrorBlock live compact error={test.error} title={t("appSettings.builds.testNotStarted")} />
         ) : jobFailed ? (
-          <ErrorBlock live compact error={{ detail: job.error ?? t("appSettings.jobFailedSilently") }} title={t("appSettings.builds.testNotFinished")} />
+          <ErrorBlock live compact error={jobFailure(job, t("appSettings.jobFailedSilently"))} title={t("appSettings.builds.testNotFinished")} />
         ) : passedNow && !sandbox.enabled ? (
           <InlineMessage tone="success" live>
             {t("appSettings.builds.passedNow")}

@@ -47,6 +47,7 @@ from noust.core.accounts.oidc_model import OidcError, OidcProvider
 from noust.core.accounts.oidc_store import digest
 from noust.core.config import Config
 from noust.core.exceptions import ConfigError, DependencyError
+from noust.core.server_text import say
 from noust.web.api.auth import LoginResponse, external_sign_in, login_failure
 from noust.web.api.config import persist
 from noust.web.api.deps import NoustErrorRoute, require_elevated
@@ -358,9 +359,7 @@ def complete(request: Request, response: Response, body: CompleteRequest) -> Com
         )
         if exc.reason in ("binding", "address"):
             record_auth_failure(client_ip, COMPLETE_PATH, "oidc")
-        raise login_failure(
-            "sign_in_expired", "This sign-in has expired. Start again with your provider."
-        ) from exc
+        raise login_failure("sign_in_expired", say("signin.expired_provider")) from exc
     response.delete_cookie(BINDING_COOKIE, path="/api")
     via, label = _source_of(oidc, ticket.provider)
 

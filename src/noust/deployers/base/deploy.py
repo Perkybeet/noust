@@ -12,6 +12,7 @@ from noust.core import cancellation
 from noust.core.applock import app_lock
 from noust.core.exceptions import DeploymentError
 from noust.core.logger import Icons
+from noust.core.server_text import say
 from noust.core.store import App, AppStatus
 from noust.deployers.base.update import UpdateMixin
 from noust.deployers.helpers import sandbox as build_sandbox
@@ -53,10 +54,7 @@ class DeployMixin(UpdateMixin):
         """
         require_server_role("native_deploy")
         if not self.domain:
-            raise DeploymentError(
-                "Deployer was not configured",
-                details="Call configure(domain=..., source=...) before deploy().",
-            )
+            raise DeploymentError.from_text(say("deploy_site_service.deployer_configured"))
 
         # Held from the first look at the directory to the last step: an
         # update, a migration or a second deploy of the same application

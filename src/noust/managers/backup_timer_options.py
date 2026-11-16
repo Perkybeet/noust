@@ -35,6 +35,7 @@ from pathlib import Path
 from typing import Literal
 
 from noust.core.exceptions import ValidationError
+from noust.core.server_text import say
 from noust.core.store import NoustStore, get_store
 
 __all__ = [
@@ -109,10 +110,8 @@ def _in_range(seconds: int) -> int:
         ValidationError: When it is shorter than a minute or longer than a week.
     """
     if not MIN_RUNTIME_SECONDS <= seconds <= MAX_RUNTIME_SECONDS:
-        raise ValidationError(
-            "A time limit is from 1 minute to 7 days",
-            details=f"Got {seconds} seconds. Use 90m, 2h or 3600; leave it empty for no limit.",
-            field="max_runtime",
+        raise ValidationError.from_text(
+            say("backup_timer_options.time_limit_1_minute", seconds=seconds), field="max_runtime"
         )
     return seconds
 
@@ -133,10 +132,8 @@ def parse_duration(text: str) -> int:
     """
     match = re.fullmatch(r"\s*(\d+)\s*([smhdSMHD]?)\s*", text)
     if match is None:
-        raise ValidationError(
-            f"{text!r} is not a time limit",
-            details="Use a whole number of seconds, or a number with s, m, h or d: 90m, 2h, 1d.",
-            field="max_runtime",
+        raise ValidationError.from_text(
+            say("backup_timer_options.time_limit", text=f"{text!r}"), field="max_runtime"
         )
     return _in_range(int(match.group(1)) * _UNITS[(match.group(2) or "s").lower()])
 
@@ -181,7 +178,9 @@ def validate_options(max_runtime: int | str | None, zone: str | None) -> TimerOp
     if max_runtime is None or (isinstance(max_runtime, str) and not max_runtime.strip()):
         seconds = None
     elif isinstance(max_runtime, bool):
-        raise ValidationError("A time limit is a number", field="max_runtime")
+        raise ValidationError.from_text(
+            say("backup_timer_options.time_limit_number"), field="max_runtime"
+        )
     elif isinstance(max_runtime, int):
         seconds = _in_range(max_runtime)
     else:
@@ -190,11 +189,8 @@ def validate_options(max_runtime: int | str | None, zone: str | None) -> TimerOp
     if not name:
         return TimerOptions(seconds, None)
     if not _ZONE.fullmatch(name) or len(name) > 64 or not _known_zone(name):
-        raise ValidationError(
-            f"{name!r} is not a time zone this server knows",
-            details="Use a name of the zone database, such as Europe/Madrid, "
-            "America/Argentina/Buenos_Aires or UTC (timedatectl list-timezones lists them).",
-            field="timezone",
+        raise ValidationError.from_text(
+            say("backup_timer_options.time_zone_server_knows", name=f"{name!r}"), field="timezone"
         )
     return TimerOptions(seconds, name)
 

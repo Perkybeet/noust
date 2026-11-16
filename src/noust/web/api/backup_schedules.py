@@ -35,10 +35,11 @@ from __future__ import annotations
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from noust.core.exceptions import BackupError
+from noust.core.server_text import say
 from noust.core.teams import scoped_store
 from noust.core.utils import domain_to_app_name
 from noust.managers.backup_manager import BackupManager
@@ -54,6 +55,7 @@ from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
 from noust.web.auth import actor_label
 from noust.web.pydantic_compat import dump_model, field_validator
+from noust.web.refusal import refusal
 
 router = APIRouter(route_class=NoustErrorRoute)
 
@@ -414,9 +416,7 @@ def update_schedule(
     """
     validated = strict_domain(domain)
     if strict_domain(data.domain) != validated:
-        raise HTTPException(
-            status_code=400, detail="The domain in the path and in the request body must match."
-        )
+        raise refusal(400, say("backup_schedules.domain_path_request_body"))
     return _upsert_schedule(validated, data, session, verb="updated")
 
 
@@ -446,7 +446,7 @@ def delete_schedule(
     validated = strict_domain(domain)
     scheduler = BackupScheduler(verbose=False)
     if scheduler.get_schedule(validated) is None:
-        raise HTTPException(status_code=404, detail=f"No backup schedule for {validated}")
+        raise refusal(404, say("backup_schedules.backup_schedule", validated=str(validated)))
 
     audit_log.info(
         "delete_backup_schedule domain=%s session=%s",

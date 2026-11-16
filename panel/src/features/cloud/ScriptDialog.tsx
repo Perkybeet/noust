@@ -11,6 +11,7 @@ import { Input } from "../../components/ui/Input";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { Textarea } from "../../components/ui/Textarea";
 import { useT } from "../../i18n";
+import { scriptDescription } from "./builtinScripts";
 import { SCRIPT_NAME, cloudScriptQuery, guessKind } from "./data";
 import type { ScriptKind } from "./data";
 import { useCloudActions } from "./useCloudActions";
@@ -47,7 +48,7 @@ export function ScriptDialog({ name: existingName, copyOf, open, onOpenChange }:
   const builtin = existingName !== undefined && entry?.builtin === true;
   const shownContent = content ?? entry?.content ?? "";
   const shownKind: ScriptKind = kind ?? (entry === undefined ? guessKind(shownContent) : entry.kind === "cloud-config" ? "cloud-config" : "script");
-  const shownDescription = description ?? entry?.description ?? "";
+  const shownDescription = description ?? (entry === undefined ? "" : scriptDescription(t, entry));
   const effectiveName = existingName ?? name.trim();
   const nameOk = SCRIPT_NAME.test(effectiveName);
   const saving = saveScript.isPending;

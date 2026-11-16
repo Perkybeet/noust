@@ -244,7 +244,7 @@ describe("Settings > Roles and access", () => {
     await user.type(within(drawer).getByLabelText(/^Name/), "db-reader");
     await user.type(within(drawer).getByLabelText(/^Title/), "Database reader");
     await user.click(within(drawer).getByRole("checkbox", { name: /databases\.read/ }));
-    expect(within(drawer).getByText("See databases")).toBeInTheDocument();
+    expect(within(drawer).getByText("See database engines, databases and users")).toBeInTheDocument();
     await user.click(within(drawer).getByRole("button", { name: "Create role" }));
 
     await waitFor(() => {

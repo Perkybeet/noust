@@ -45,6 +45,7 @@ import type { AppJob } from "./useAppJob";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
+import { jobFailure } from "../../lib/errors";
 /**
  * The header's facts line: its type by name, its port, and the live site at the address a person
  * would use (`displayAddress`): HTTPS unless the certificate list shows none covers it, and while
@@ -144,7 +145,7 @@ function Job({ job, domain, t }: { job: AppJob; domain: string; t: T }) {
         announce={false}
         state="failed"
         title={words.failed}
-        error={{ detail: job.failed.error ?? t("appPages.job.noReason") }}
+        error={jobFailure(job.failed, t("appPages.job.noReason"))}
         failedAt={job.failed.completed_at ?? job.failed.created_at}
         onDismiss={job.dismiss}
       />

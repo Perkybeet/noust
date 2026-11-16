@@ -139,8 +139,8 @@ OVERSIZE_MODULES = {
     "noust.core.runner": 4425,
     "noust.core.store": 5898,
     "noust.deployers.docker_compose": 4304,
-    "noust.deployers.lifecycle": 4899,
-    "noust.managers.backup_manager": 4662,
+    "noust.deployers.lifecycle": 4846,
+    "noust.managers.backup_manager": 4571,
     "noust.managers.database.base": 3336,
     "noust.managers.database.postgres": 3296,
     "noust.managers.database.service": 3838,
@@ -150,7 +150,7 @@ OVERSIZE_MODULES = {
     "noust.managers.source_manager": 4319,
     "noust.managers.webserver": 3710,
     "noust.web.api.apps": 3377,
-    "noust.web.jobs": 3290,
+    "noust.web.jobs": 3282,
 }
 
 

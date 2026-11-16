@@ -26,6 +26,7 @@ from noust.core.accounts.directory import SETTINGS, DirectoryManager
 from noust.core.accounts.directory_store import LdapDirectory
 from noust.core.accounts.oidc_model import OidcError, OidcRefused
 from noust.core.exceptions import ValidationError
+from noust.core.server_text import say
 from noust.web.api.auth import (
     LoginResponse,
     external_sign_in,
@@ -50,7 +51,7 @@ router = APIRouter(route_class=NoustErrorRoute)
 LOGIN_PATH = "/api/auth/ldap/login"
 
 #: What a person is told when the credentials are wrong, whichever part was.
-WRONG = "Invalid username or password."
+WRONG = say("signin.invalid_directory_login")
 
 
 def directory_manager() -> DirectoryManager:

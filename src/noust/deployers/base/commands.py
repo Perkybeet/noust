@@ -14,6 +14,7 @@ from pathlib import Path
 from noust.core.appdir.permissions import hand_over_file
 from noust.core.exceptions import DeploymentError
 from noust.core.fs import SECRET_MODE
+from noust.core.server_text import say
 from noust.core.variables.model import BUILD
 from noust.deployers.base.execution import ExecutionMixin
 from noust.deployers.helpers import preflight
@@ -480,8 +481,8 @@ class CommandsMixin(ExecutionMixin):
 
         if issues:
             details = "\n".join(f"  - {issue}" for issue in issues)
-            raise DeploymentError(
-                "Pre-flight checks failed", details=f"The following issues were found:\n{details}"
+            raise DeploymentError.from_text(
+                say("deploy_commands.pre_flight_checks_failed", details=str(details))
             )
 
         self.logger.debug("All pre-flight checks passed")

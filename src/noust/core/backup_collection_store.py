@@ -30,6 +30,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 from noust.core.exceptions import ValidationError
+from noust.core.server_text import say
 from noust.core.store import NoustStore, get_store
 from noust.core.timeutil import utc_now_iso
 
@@ -116,10 +117,8 @@ def _central_name(value: str) -> str:
         ValidationError: When it is not one a fleet token can carry.
     """
     if not isinstance(value, str) or not _CENTRAL.fullmatch(value):
-        raise ValidationError(
-            f"Invalid central name: {value!r}",
-            details="A central is named like its fleet token: lower-case letters, digits and '-'.",
-            field="central",
+        raise ValidationError.from_text(
+            say("backup_collection_store.invalid_central_name", value=f"{value!r}"), field="central"
         )
     return value
 
@@ -159,19 +158,22 @@ class CentralHeld:
         rows: dict[tuple[str, str], str | None] = {}
         for copy in copies:
             if not _KIND.fullmatch(copy.kind) or not _ITEM.fullmatch(copy.item_id):
-                raise ValidationError(
-                    f"Not a copy: {copy.kind!r} {copy.item_id!r}",
-                    details="A copy is named by its kind and the identifier the list gave it.",
+                raise ValidationError.from_text(
+                    say(
+                        "backup_collection_store.copy",
+                        item_id=f"{copy.item_id!r}",
+                        kind=f"{copy.kind!r}",
+                    ),
                     field="items",
                 )
             if copy.sha256 is not None and not _SHA.fullmatch(copy.sha256):
-                raise ValidationError(
-                    f"Not a SHA-256: {copy.sha256!r}", details="It is 64 hex digits.", field="items"
+                raise ValidationError.from_text(
+                    say("backup_collection_store.sha_256", sha256=f"{copy.sha256!r}"), field="items"
                 )
             rows[(copy.kind, copy.item_id)] = copy.sha256
             if len(rows) > MAX_HELD:
-                raise ValidationError(
-                    f"A central may say it holds {MAX_HELD} copies of a server, no more",
+                raise ValidationError.from_text(
+                    say("backup_collection_store.central_say_holds_copies", max_held=str(MAX_HELD)),
                     field="items",
                 )
         now = utc_now_iso()

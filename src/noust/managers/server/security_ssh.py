@@ -37,6 +37,7 @@ from typing import Any
 from noust.core.access_changes import describe
 from noust.core.exceptions import SecurityError
 from noust.core.fs import is_rehearsal
+from noust.core.server_text import say
 from noust.fleet.authorize import AuthorizedKeys, _locked_for_write
 from noust.managers.server.security_access import (
     AccessGuardError,
@@ -289,9 +290,8 @@ def plan_fix(probe: SecurityProbe, name: str) -> FixPlan:
     """
     fix = SSH_FIXES.get(name)
     if fix is None:
-        raise SecurityError(
-            f"There is no SSH fix named {name!r}",
-            details=f"Use one of: {', '.join(SSH_FIXES)}.",
+        raise SecurityError.from_text(
+            say("ssh.no_such_fix", items=", ".join(SSH_FIXES), name=f"{name!r}")
         )
     effective = probe.effective("root")
     changes = fix.settings(effective)
@@ -417,13 +417,19 @@ class SshSecurity:
         """
         plan = self.plan(name)
         if plan.blockers:
-            raise AccessGuardError(
-                f"Not applied: {plan.fix.title.lower()}",
-                details="\n".join([*plan.blockers, *plan.guidance]),
+            raise AccessGuardError.from_text(
+                say(
+                    "access_change.not_applied",
+                    title=plan.fix.title.lower(),
+                    reasons="\n".join([*plan.blockers, *plan.guidance]),
+                )
             )
         if not plan.needed:
-            raise SecurityError(
-                f"Nothing to do: sshd already uses {', '.join(DIRECTIVES[k] + ' ' + v for k, v in plan.changes.items())}"
+            raise SecurityError.from_text(
+                say(
+                    "ssh.nothing_to_do",
+                    items=", ".join(DIRECTIVES[k] + " " + v for k, v in plan.changes.items()),
+                )
             )
         unit = read_unit(self.probe.runner)
         reload_command = reload_argv(unit)
@@ -431,9 +437,8 @@ class SshSecurity:
         with self.ledger.locked():
             waiting = self.ledger.pending()
             if waiting:
-                raise SecurityError(
-                    f"Another change is waiting for confirmation: {waiting[0].title} ({waiting[0].id})",
-                    details="Confirm it or revert it first: one change at a time can be undone safely.",
+                raise SecurityError.from_text(
+                    say("access_change.waiting_for_confirmation", id=str(waiting[0].id))
                 )
             previous, text = dropin.merged(plan.changes)
             now = self.probe.now()
@@ -465,10 +470,8 @@ class SshSecurity:
                 self._say(line)
             if not test.success:
                 self.ledger.revert(change.id, by=self.actor, on_output=self.on_output)
-                raise SecurityError(
-                    "sshd rejected the new configuration, so nothing was changed",
-                    details="Its own words are below.",
-                    output=(test.stderr or test.stdout).strip() or None,
+                raise SecurityError.from_text(
+                    say("ssh.config_rejected"), output=(test.stderr or test.stdout).strip() or None
                 )
             if reload_command:
                 change.undo = [reload_command]
@@ -476,8 +479,8 @@ class SshSecurity:
             result = reload(unit, self.probe.runner, self.on_output)
             if result is not None and not result.success:
                 self.ledger.revert(change.id, by=self.actor, on_output=self.on_output)
-                raise SecurityError(
-                    "sshd could not be reloaded, so the change was undone",
+                raise SecurityError.from_text(
+                    say("ssh.reload_failed_undone"),
                     output=(result.stderr or result.stdout).strip() or None,
                 )
             if is_rehearsal():
@@ -512,11 +515,7 @@ class SshSecurity:
             for k in missed
         ]
         self.ledger.revert(change.id, by=self.actor, on_output=self.on_output)
-        raise SecurityError(
-            "The change did not take effect, so it was undone",
-            details="sshd uses the first value it reads. Move or remove the line that wins, "
-            "then apply again:\n" + "\n".join(sources),
-        )
+        raise SecurityError.from_text(say("ssh.no_effect_undone", items="\n".join(sources)))
 
     # Confirm and revert -------------------------------------------------------
 
@@ -536,25 +535,20 @@ class SshSecurity:
         """
         change = self.ledger.load(change_id)
         if change.status != "pending":
-            raise SecurityError(f"Change {change_id} is already {change.status}")
+            raise SecurityError.from_text(
+                say("ssh.already_resolved", change_id=change_id, status=str(change.status))
+            )
         # Fresh: a remembered "no new login yet" must never be what Keep refuses on.
         found = find_proof(self.probe, change, fresh=True)
         deadline = datetime.fromtimestamp(change.expires_at, tz=timezone.utc).strftime(
             "%H:%M:%S UTC"
         )
         if not found.readable:
-            raise AccessGuardError(
-                "Noust cannot read sshd's login history, so it cannot see a new session",
-                details=f"{found.error}. The change undoes itself at {deadline}; to keep it, "
-                "make it by hand while a second session stays open.",
+            raise AccessGuardError.from_text(
+                say("ssh.login_history_unreadable", deadline=str(deadline), error=str(found.error))
             )
         if found.login is None:
-            raise AccessGuardError(
-                "No new SSH login since the change",
-                details="Keep this session open, open a NEW SSH session to this server and "
-                "confirm again once it has logged in. If it cannot log in, do nothing: the "
-                f"change undoes itself at {deadline}.",
-            )
+            raise AccessGuardError.from_text(say("ssh.no_new_login", deadline=str(deadline)))
         proof = f"New login after the change: {found.login.line}"
         return self.ledger.confirm(change_id, proof=proof, by=self.actor)
 
@@ -591,9 +585,12 @@ class SshSecurity:
         key = parse_new_key(public_key)
         entry = self._admin(user)
         if not entry.files:
-            raise SecurityError(
-                f"sshd reads no authorized_keys file for {user}",
-                details=entry.login_refusal or "Set AuthorizedKeysFile in sshd_config.",
+            raise SecurityError.from_text(
+                say(
+                    "ssh.no_authorized_keys",
+                    user=user,
+                    reason=entry.login_refusal or "Set AuthorizedKeysFile in sshd_config.",
+                )
             )
         target = entry.files[0].path
         present = [k for f in entry.files for k in f.keys if k.blob == key.blob]
@@ -655,9 +652,8 @@ class SshSecurity:
             if key.fingerprint == fingerprint
         ]
         if not matches:
-            raise SecurityError(
-                f"{user} has no key {fingerprint}",
-                details="List the keys with 'noust server security ssh keys'.",
+            raise SecurityError.from_text(
+                say("ssh.no_such_key", fingerprint=fingerprint, user=user)
             )
         key = matches[0][1]
         blockers: list[str] = []
@@ -699,9 +695,13 @@ class SshSecurity:
                 fingerprint=fingerprint,
                 reason=" ".join(blockers),
             )
-            raise AccessGuardError(
-                f"Refusing to remove {fingerprint} from {user}",
-                details="\n".join([*blockers, "Override only if you are sure (--force)."]),
+            raise AccessGuardError.from_text(
+                say(
+                    "ssh.key_removal_refused",
+                    fingerprint=fingerprint,
+                    user=user,
+                    blockers="\n".join(blockers),
+                )
             )
         return entry, matches, blockers
 
@@ -765,10 +765,8 @@ class SshSecurity:
         entry = self.probe.keys_of(user)
         if entry is None:
             names = ", ".join(each.account.name for each in self.probe.account_keys())
-            raise SecurityError(
-                f"Noust manages the keys of root and of the accounts that can become root; "
-                f"{user} is not one of them",
-                details=f"Accounts: {names or 'none found'}.",
+            raise SecurityError.from_text(
+                say("ssh.keys_of_root_only", user=user, value=str(names or "none found"))
             )
         return entry
 

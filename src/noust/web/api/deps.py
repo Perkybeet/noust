@@ -125,6 +125,7 @@ from noust.web.auth import (
     require_auth,
 )
 from noust.web.pydantic_compat import dump_model
+from noust.web.refusal import ERROR_BY_STATUS, default_error_for_status
 from noust.web.versioning import API_PREFIX
 
 if TYPE_CHECKING:
@@ -141,16 +142,7 @@ API_PATH_PREFIX = API_PREFIX
 
 #: ``error`` value for a bare ``HTTPException``, keyed by its status code. A
 #: status this table does not name falls back to :func:`_default_error_for_status`.
-_ERROR_BY_STATUS: dict[int, str] = {
-    400: "validation_error",
-    401: "unauthorized",
-    403: "forbidden",
-    404: "not_found",
-    409: "conflict",
-    413: "payload_too_large",
-    422: "validation_error",
-    429: "rate_limited",
-}
+_ERROR_BY_STATUS: dict[int, str] = ERROR_BY_STATUS
 
 #: Status used for a NoustError with no more specific mapping. A manager that
 #: raises anything else is reporting that the operation failed on the server,
@@ -590,7 +582,7 @@ def _default_error_for_status(status_code: int) -> str:
         a bare ``HTTPException`` below 500 is always a rejected request, never
         a mapped Noust exception (those go through :func:`error_response`).
     """
-    return "internal" if status_code >= 500 else "validation_error"
+    return default_error_for_status(status_code)
 
 
 def _error_for_http_exception(exc: StarletteHTTPException) -> str:

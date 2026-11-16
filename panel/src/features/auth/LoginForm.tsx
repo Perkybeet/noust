@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ReactNode, SyntheticEvent } from "react";
 
 import { isApiError } from "../../api/client";
+import type { ApiError } from "../../api/client";
 import { login, loginSecondFactor, sessionQuery } from "../../api/queries/auth";
 import type { SecondFactorStep, SessionInfo } from "../../api/queries/auth";
 import { completeSso, directorySignIn } from "../../api/queries/sso";
@@ -24,7 +25,7 @@ import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { Popover } from "../../components/ui/Popover";
 import { Select } from "../../components/ui/Select";
 import { TextLink, textLinkClassName } from "../../components/ui/TextLink";
-import { useT } from "../../i18n";
+import { hasMessage, useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { forgetAccessToken, holdAccessToken } from "./accessProof";
 import { AuthFrame } from "./AuthFrame";
@@ -36,6 +37,7 @@ import type { SsoError } from "./sso";
 import { safeNext } from "./session";
 import { CeremonyError, browserLimit, conditionalMediationAvailable } from "./webauthn";
 
+import { describeError } from "../../lib/errors";
 /**
  * The ways in the sign-in offers: the account's password, a passkey, the sign-in of a person's
  * company, and the access token the installer printed. One is on screen at a time, in the form's own
@@ -169,6 +171,12 @@ function OtherWays({ label, doors }: { label: string; doors: readonly AuthDoor[]
  */
 export function LoginForm({ next, expired, initialWay, recoveryHelp = false, sso, ssoError }: LoginFormProps) {
   const t = useT();
+  // A refusal is put in a field as text, said when it arrives: the sentences of the server's catalog (the
+  // wrong code, the wrong token) have to be here by then, so the page asks for them as it opens. The
+  // literal key is also what tells the route to load them before the page is shown.
+  useEffect(() => {
+    hasMessage("serverText.signin.invalid_totp.text");
+  }, []);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { error: sessionError } = useQuery(sessionQuery());
@@ -307,11 +315,11 @@ export function LoginForm({ next, expired, initialWay, recoveryHelp = false, sso
     autofill.current = null;
   };
 
-  const lockedOut = (error: { detail: string; retryAfter: number | null }): void => {
+  const lockedOut = (error: ApiError): void => {
     const seconds = error.retryAfter ?? 60;
     lockFor(seconds);
     // The server's own words, then the console's own addition: two sentences, not one built from parts.
-    announce(`${error.detail} ${t("auth.tryAgainIn", { time: formatWait(seconds) })}`, "assertive");
+    announce(`${describeError(error).detail} ${t("auth.tryAgainIn", { time: formatWait(seconds) })}`, "assertive");
   };
 
   const reset = (): void => {
@@ -472,7 +480,7 @@ export function LoginForm({ next, expired, initialWay, recoveryHelp = false, sso
       }
       switch (error.error) {
         case "invalid_totp":
-          setFieldErrors({ code: error.detail });
+          setFieldErrors({ code: describeError(error).detail });
           return;
         case "locked_out":
         case "rate_limited":
@@ -526,10 +534,10 @@ export function LoginForm({ next, expired, initialWay, recoveryHelp = false, sso
         case "invalid_token":
           setTokenStep("token");
           setCode("");
-          setFieldErrors({ token: error.detail });
+          setFieldErrors({ token: describeError(error).detail });
           return;
         case "invalid_totp":
-          setFieldErrors({ code: error.detail });
+          setFieldErrors({ code: describeError(error).detail });
           return;
         case "locked_out":
         case "rate_limited":

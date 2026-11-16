@@ -31,6 +31,7 @@ from pydantic import BaseModel, Field
 from noust.core.access import Binding
 from noust.core.access.model import SCOPE_ENVIRONMENT, SCOPE_INSTANCE, SCOPE_PROJECT, SCOPE_TEAM
 from noust.core.audit import record as audit_record
+from noust.core.server_text import say
 from noust.core.teams import TeamNotFoundError, TeamStore
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute, caller_account, require_elevated
@@ -539,9 +540,8 @@ def unbind_in_team(
     owner = TeamStore().require_team(team)
     if manager.team_of_binding(found) != owner.id:
         # Another team's binding reads as one that does not exist.
-        raise TeamNotFoundError(
-            f"No access binding with id {binding_id} in {owner.slug}",
-            details="List them with GET /api/teams/{team}/access.",
+        raise TeamNotFoundError.from_text(
+            say("access_api.no_such_binding", binding_id=binding_id, slug=str(owner.slug)),
             field="binding",
         )
     manager.unbind(binding_id)

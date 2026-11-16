@@ -54,6 +54,7 @@ const TITLES: Readonly<Record<string, PlainKey>> = {
   "sys.selinux": "server.checks.titles.sysSelinux",
   "sys.journal_volatile": "server.checks.titles.sysJournalVolatile",
   "noust.web_not_unit": "server.checks.titles.noustWebNotUnit",
+  "noust.units_not_enabled": "server.checks.titles.noustUnitsNotEnabled",
   "noust.fleet_key_root": "server.checks.titles.noustFleetKeyRoot",
   "noust.inline_secrets": "server.checks.titles.noustInlineSecrets",
 };

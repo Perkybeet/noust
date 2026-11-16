@@ -50,6 +50,7 @@ from noust.core.access.roles import KIND_CUSTOM, RoleStore
 from noust.core.access.store import custom_role_of
 from noust.core.accounts.model import Account
 from noust.core.exceptions import ValidationError
+from noust.core.server_text import say
 from noust.core.teams import TeamStore
 from noust.core.teams.model import (
     TEAM_ROLE_ADMIN,
@@ -356,10 +357,8 @@ class AccessManager:
 
         found = AccountManager(self._store).find(username)  # type: ignore[arg-type]
         if found is None:
-            raise AccessNotFoundError(
-                f"No account named {username!r}",
-                details="List the accounts with 'noust user list', or invite the person.",
-                field="username",
+            raise AccessNotFoundError.from_text(
+                say("team_access.no_such_account", username=f"{username!r}"), field="username"
             )
         return found
 
@@ -390,26 +389,18 @@ class AccessManager:
         if scope_kind == SCOPE_INSTANCE:
             return SCOPE_INSTANCE, 0
         if not team:
-            raise ValidationError(
-                "Name the team", details="Give the team's slug (team=...).", field="team"
-            )
+            raise ValidationError.from_text(say("team_access.name_team"), field="team")
         owner = self.teams.require_team(team)
         if scope_kind == SCOPE_TEAM:
             return SCOPE_TEAM, owner.id
         if not project:
-            raise ValidationError(
-                "Name the project",
-                details="Give the project's slug (project=...).",
-                field="project",
-            )
+            raise ValidationError.from_text(say("team_access.name_project"), field="project")
         chosen = self.teams.require_project(owner.slug, project)
         if scope_kind == SCOPE_PROJECT:
             return SCOPE_PROJECT, chosen.id
         if not environment:
-            raise ValidationError(
-                "Name the environment",
-                details="Give the environment's slug (environment=...).",
-                field="environment",
+            raise ValidationError.from_text(
+                say("team_access.name_environment"), field="environment"
             )
         stage = self.teams.require_environment(owner.slug, chosen.slug, environment)
         return SCOPE_ENVIRONMENT, stage.id
@@ -514,15 +505,12 @@ class AccessManager:
         custom = custom_permissions(self.data)
         built_in = role_name in TEAM_ROLES
         if not built_in and role_name not in custom:
-            raise AccessNotFoundError(
-                f"No role named {role!r}",
-                details="List them with 'noust access role list'.",
-                field="role",
+            raise AccessNotFoundError.from_text(
+                say("team_access.no_such_role", role=f"{role!r}"), field="role"
             )
         if built_in and kind != SCOPE_TEAM and role_name not in NARROW_BUILT_INS:
-            raise ValidationError(
-                f"{role_name!r} governs a team's members, which a {kind} does not have",
-                details=f"Give 'admin' on the {kind}, or {role_name!r} on the team.",
+            raise ValidationError.from_text(
+                say("team_access.governs_members", kind=str(kind), role_name=f"{role_name!r}"),
                 field="role",
             )
         if kind != SCOPE_INSTANCE:
@@ -530,12 +518,8 @@ class AccessManager:
                 refuse_instance_only_member(account.username, held)
             granted = role_permissions(role_name, kind, custom)
             if not granted - {P.SELF}:
-                raise ValidationError(
-                    f"The role {role_name!r} holds nothing a {kind} can own",
-                    details=(
-                        "A team, a project or an environment can hold permissions about its "
-                        "applications, databases and backups; this role has none of those."
-                    ),
+                raise ValidationError.from_text(
+                    say("team_access.role_not_ownable", kind=str(kind), role_name=f"{role_name!r}"),
                     field="role",
                 )
         scope_kind, scope_id = self._resolve_scope(

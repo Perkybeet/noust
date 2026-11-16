@@ -303,4 +303,20 @@ describe("the pending change banner in Spanish", () => {
     expect(within(notice).getByRole("button", { name: "Conservar el cambio" })).toBeEnabled();
     await expectNoAxeViolations(notice);
   });
+
+  it("says what the change is in Spanish from its code, not in the English of the record", async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    banner(() =>
+      pendingChange(Date.now(), {
+        kind: "firewall",
+        title: "Allow 5432/tcp from 10.0.4.12/32",
+        title_coded: { code: "access_changes.firewall_allow", params: { port: "5432/tcp", source: "10.0.4.12/32" } },
+      }),
+    );
+
+    expect(await screen.findByText(/Permitir 5432\/tcp desde 10\.0\.4\.12\/32/)).toBeInTheDocument();
+    expect(screen.queryByText(/Allow 5432/)).not.toBeInTheDocument();
+  });
 });

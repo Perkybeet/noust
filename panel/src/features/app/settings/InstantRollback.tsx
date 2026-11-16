@@ -41,6 +41,7 @@ import { RETENTION_MAX, RETENTION_MIN, parseRetention } from "./healthCheck";
 import { MigrationPlanView } from "./MigrationPlanView";
 import { SETTINGS_ICONS } from "./objectIcons";
 
+import { describeError, jobFailure } from "../../../lib/errors";
 // ---------------------------------------------------------------------------------------------
 // How many versions are kept: a part of the Deploys form, on an app with instant rollback.
 // ---------------------------------------------------------------------------------------------
@@ -103,11 +104,13 @@ export function useRetention(app: App): RetentionPart {
   });
 
   // The store's refusal of a number is about this one field: it goes under it.
+  const describeFor = (failure: unknown): string => {
+    const described = describeError(failure);
+    return described.hint ? `${described.detail}. ${described.hint}` : described.detail;
+  };
   const refusal =
     save.isError && isApiError(save.error) && save.error.status === 400
-      ? save.error.hint
-        ? `${save.error.detail}. ${save.error.hint}`
-        : save.error.detail
+      ? describeFor(save.error)
       : undefined;
   const error = (submitted && parsed.error !== null ? parsed.error : undefined) ?? refusal;
 
@@ -426,7 +429,7 @@ function TurnOnRollback({ app, open, onOpenChange }: { app: App; open: boolean; 
       />
     );
   } else if (step === "confirm") {
-    const failure = migrate.isError ? migrate.error : jobFailed ? { detail: job.error ?? t("appSettings.jobFailedSilently") } : null;
+    const failure = migrate.isError ? migrate.error : jobFailed ? jobFailure(job, t("appSettings.jobFailedSilently")) : null;
     body = (
       <>
         <p className="text-14 text-pretty text-fg">{plan.data ? confirmation(plan.data, t.locale) : null}</p>

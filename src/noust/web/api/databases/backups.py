@@ -36,6 +36,7 @@ from pydantic import BaseModel, Field
 from noust.core import audit
 from noust.core.exceptions import BackupError, DatabaseBackupError, ValidationError
 from noust.core.job_titles import database_backup_name
+from noust.core.server_text import say
 from noust.managers.backup_scheduler import SCHEDULE_ALIASES, validate_calendar
 from noust.managers.database.backup_records import STATUS_FAILED
 from noust.managers.database.backups import ORIGIN_MANUAL, DatabaseBackups, PolicyView
@@ -636,13 +637,20 @@ def verify_job(
     view = backups.verify(engine, backup_name, restore=restore_test)
     record = view.record
     if record is not None and record.verify_status == STATUS_FAILED:
-        raise DatabaseBackupError(
-            f"{backup_name} failed its check", details=record.verify_detail or ""
+        raise DatabaseBackupError.from_text(
+            say(
+                "backups.failed_check",
+                backup_name=backup_name,
+                value=str(record.verify_detail or "" or ""),
+            )
         )
     if record is not None and record.restore_test_status == STATUS_FAILED:
-        raise DatabaseBackupError(
-            f"{backup_name} did not restore into a temporary database",
-            details=record.restore_test_detail or "",
+        raise DatabaseBackupError.from_text(
+            say(
+                "backups.restore_into_temporary_database",
+                backup_name=backup_name,
+                value=str(record.restore_test_detail or "" or ""),
+            )
         )
     _done(job_context)
     return view.to_dict()
@@ -939,10 +947,8 @@ def delete_backup(
     backups = _backups(session)
     if destination is not None:
         if not database:
-            raise ValidationError(
-                "A database is needed to delete a copy from a destination",
-                details="Name the database the dump is of: its folder there is the database's.",
-                field="database",
+            raise ValidationError.from_text(
+                say("backups.database_needed_delete_copy"), field="database"
             )
         backups.delete_remote(engine, database, name, destination)
         return ActionResponse(success=True, message=f"{name} deleted from {destination}")

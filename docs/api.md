@@ -406,7 +406,12 @@ with its **values**:
   `findings_coded` and `reason_coded` of a stack's networks; `effect_coded` of a cleanup, `reason_coded`
   and `warnings_coded` of the swap and `reason_coded` of a cleanup's run; `coded` of what creating,
   enabling, disabling, deleting, saving and reloading a site did; `verdict_coded` and `suggestion_coded`
-  of an inspection; and `current_step_coded` and the `coded` of each log entry of a job. An error whose
+  of an inspection; and `current_step_coded` and the `coded` of each log entry of a job. Since 4.3 also:
+  `error_coded` of a job that failed (with `error_output`, what the failing program printed, kept apart from
+  the sentence; `error` is still the one line of English it always was), `title_coded` of a change to the
+  firewall or SSH (`access_changes.*`, the same words as the notification that says it), `coded` of what
+  passkeys, HTTP/3 and the WAF lack, and the `coded` of every error that the areas a person goes through
+  raise: signing in, tokens, the firewall, roles, backups and deploying. An error whose
   `detail` is one of the server's sentences carries it as `coded`, and its `hint` is that sentence's fix.
   A field that is `null` or
   absent is a sentence nobody coded: another program's output, or a line from a module that has

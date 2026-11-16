@@ -133,7 +133,15 @@ export const RETIRED: readonly Retired[] = [
   { id: "reading", language: "en", pattern: /^Reading\b/, notSentence: true, instead: "Loading … (every loading text, also what is read from the machine)" },
   { id: "make-verb", language: "en", pattern: /^Make\b/, maxWords: 6, notSentence: true, instead: "New (a file, a folder) or Create (Noust makes it)" },
   { id: "confirm-or-ok", language: "en", pattern: /^(?:Confirm|Confirm and continue|OK)$/, instead: "Continue, or the verb of what is confirmed; a state is Succeeded or Correct" },
-  { id: "health-check", language: "en", pattern: /\bhealth checks?\b/i, instead: "Startup check (the system's own phrase stays where the system prints it)" },
+  {
+    id: "health-check",
+    language: "en",
+    pattern: /\bhealth checks?\b/i,
+    instead: "Startup check (the system's own phrase stays where the system prints it)",
+    except: [
+      { key: /^serverText\.migrate\.gate_failed_back\.text$/, why: "the sentence the deployment's history and the notifications carry, which a script matches by its words (\"did not pass its health check\"), is the server's English and is kept exactly" },
+    ],
+  },
   { id: "unit-label", language: "en", pattern: /^(?:Systemd unit|Unit)\b/, maxWords: 4, notSentence: true, instead: "Service (the unit's own name stays a system value)" },
   {
     id: "emergency-access",

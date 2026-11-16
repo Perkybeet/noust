@@ -20,6 +20,7 @@ import { usePasswordAsked } from "./identityProof";
 import { elevateWithPasskey, passkeysQuery } from "./passkeys";
 import { CeremonyError, browserLimit } from "./webauthn";
 
+import { describeError } from "../../lib/errors";
 export { elevate } from "./elevation";
 
 // The whole of the second factor's setup (QR code, passkey ceremony, backup codes) loads when an account without one meets this dialog.
@@ -120,7 +121,7 @@ export function ElevateDialog() {
   const refused = (error: unknown, title: string): void => {
     if (isApiError(error) && error.sessionExpired) return; // on its way to sign-in, which cancels this
     if (isApiError(error) && (error.status === 401 || error.error === "locked_out")) {
-      setFieldError(error.detail);
+      setFieldError(describeError(error).detail);
       (askPassword ? codeRef : firstRef).current?.select();
       return;
     }

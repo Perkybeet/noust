@@ -69,6 +69,7 @@ from noust.core.accounts.webauthn import (
     verify_registration,
 )
 from noust.core.exceptions import SecurityError, ValidationError
+from noust.core.server_text import ServerText, say
 
 if TYPE_CHECKING:
     from noust.core.store import NoustStore
@@ -123,14 +124,13 @@ class PasskeysUnavailable(SecurityError):
             ``invalid_host`` or ``host_mismatch``: what the console explains.
     """
 
-    def __init__(self, reason: str, message: str, details: str) -> None:
+    def __init__(self, reason: str, sentence: ServerText) -> None:
         """
         Args:
             reason: The machine-readable reason.
-            message: What is wrong.
-            details: How to fix it.
+            sentence: What is wrong and how to fix it, a sentence of the catalog.
         """
-        super().__init__(message, details=details)
+        super().__init__(sentence.text, details=sentence.hint or "", coded=sentence)
         self.reason = reason
 
 
@@ -161,7 +161,7 @@ def require_library() -> None:
         load_crypto()
     except WebAuthnUnavailable as exc:
         raise PasskeysUnavailable(
-            "library_missing", "Passkeys need a library this server does not have", exc.details
+            "library_missing", say("passkeys.library_missing", install=exc.details)
         ) from exc
 
 
@@ -277,48 +277,25 @@ def resolve_relying_party(
     bare, header = _split_host(host or "")
     public = _origin_of(public_url) if public_url else None
     if _is_address(bare):
-        instead = (
-            f"Open {public[0]} instead"
-            if public
-            else "Give this console a name with a certificate the browser trusts"
-        )
         raise PasskeysUnavailable(
             "ip_address",
-            f"Passkeys do not work on an address such as {bare}",
-            f"Browsers only offer passkeys to a site with a name. {instead}, or reach this "
-            "server through an SSH tunnel at http://localhost:<port>.",
+            say("passkeys.ip_address_open", host=bare, public=public[0])
+            if public
+            else say("passkeys.ip_address_name", host=bare),
         )
     if not _is_name(bare):
-        raise PasskeysUnavailable(
-            "invalid_host",
-            "This request does not name a host passkeys can be bound to",
-            "Open the console by its name, such as https://noust.example.com.",
-        )
+        raise PasskeysUnavailable("invalid_host", say("passkeys.no_host"))
     local = bare == "localhost" or bare.endswith(".localhost")
     if not secure and not local:
-        raise PasskeysUnavailable(
-            "insecure_context",
-            "Passkeys need HTTPS on a name other than localhost",
-            (
-                f"Browsers only offer passkeys over HTTPS, or on http://localhost. Serve "
-                f"{bare} with a certificate the browser trusts, or reach this server through "
-                "an SSH tunnel at http://localhost:<port>."
-            ),
-        )
+        raise PasskeysUnavailable("insecure_context", say("passkeys.insecure", host=bare))
     chosen = bare.rstrip(".")
     if rp_id:
         chosen = rp_id.strip().lower().rstrip(".")
         if _is_address(chosen) or not _is_name(chosen):
-            raise PasskeysUnavailable(
-                "invalid_host",
-                f"web.passkeys.rp_id is not a host name: {rp_id!r}",
-                "Set it to the console's name, such as noust.example.com, or unset it.",
-            )
+            raise PasskeysUnavailable("invalid_host", say("passkeys.bad_rp_id", rp_id=repr(rp_id)))
         if not _within(bare, chosen):
             raise PasskeysUnavailable(
-                "host_mismatch",
-                f"This console's passkeys belong to {chosen}, and it was opened as {bare}",
-                f"Open it at {chosen} (or a name under it), or change web.passkeys.rp_id.",
+                "host_mismatch", say("passkeys.host_mismatch", chosen=chosen, host=bare)
             )
     scheme = "https" if secure else "http"
     allowed = [item.strip().lower().rstrip("/") for item in origins or () if item.strip()]
@@ -496,10 +473,8 @@ def clean_name(value: str | None) -> str:
         or len(name) > MAX_NAME_LENGTH
         or any(ord(char) < 32 or ord(char) == 127 for char in name)
     ):
-        raise ValidationError(
-            "Invalid passkey name",
-            details=f"Use 1 to {MAX_NAME_LENGTH} printable characters, such as 'Work laptop'.",
-            field="name",
+        raise ValidationError.from_text(
+            say("passkeys.invalid_passkey_name", max_name_length=str(MAX_NAME_LENGTH)), field="name"
         )
     return name
 
@@ -895,9 +870,11 @@ class PasskeyManager:
         label = clean_name(name)
         require_library()
         if self.count(owner.account_id) >= MAX_PASSKEYS_PER_OWNER:
-            raise AccountError(
-                f"There are already {MAX_PASSKEYS_PER_OWNER} passkeys for this account",
-                details="Remove one you no longer use before adding another.",
+            raise AccountError.from_text(
+                say(
+                    "passkeys.already_passkeys_account",
+                    max_passkeys_per_owner=str(MAX_PASSKEYS_PER_OWNER),
+                )
             )
         captured: dict[str, bytes] = {}
         verified = verify_registration(
@@ -907,13 +884,7 @@ class PasskeyManager:
             challenge_ok=self._spend("register", binding, rp.id, captured),
         )
         if verified.backup_eligible and not self._allows_synced():
-            raise AccountError(
-                "This server only accepts passkeys bound to one device, and this one may be synced",
-                details=(
-                    "Use a security key or a device-bound authenticator, or allow synced "
-                    "passkeys with web.passkeys.allow_synced."
-                ),
-            )
+            raise AccountError.from_text(say("passkeys.server_accepts_passkeys_bound"))
         handle = captured.get("handle") or self._handle_for(owner.account_id)
         now = self.now()
         try:
@@ -942,13 +913,10 @@ class PasskeyManager:
                 )
                 passkey_id = int(cursor.lastrowid or 0)
         except sqlite3.IntegrityError as exc:
-            raise AccountError(
-                "This passkey is already registered here",
-                details="Each passkey is added once; give another authenticator a try.",
-            ) from exc
+            raise AccountError.from_text(say("passkeys.passkey_already_registered")) from exc
         passkey = self.get(passkey_id)
         if passkey is None:
-            raise AccountError("The passkey was not saved", details="Try again.")
+            raise AccountError.from_text(say("passkeys.passkey_saved"))
         return Registration(passkey=passkey, backup_codes=self._first_codes(owner.account_id))
 
     def _first_codes(self, account_id: int | None) -> builtins.list[str] | None:
@@ -1125,10 +1093,7 @@ class PasskeyManager:
         """
         passkey = self.get(passkey_id)
         if passkey is None or passkey.account_id != account_id:
-            raise AccountError(
-                f"You have no passkey with id {passkey_id}",
-                details="List yours with GET /api/auth/passkeys.",
-            )
+            raise AccountError.from_text(say("passkeys.passkey_id", passkey_id=passkey_id))
         return passkey
 
     def rename(self, passkey_id: int, name: str, *, account_id: int | None) -> Passkey:
@@ -1175,20 +1140,11 @@ class PasskeyManager:
         if force:
             passkey = self.get(passkey_id)
             if passkey is None:
-                raise AccountError(
-                    f"No passkey with id {passkey_id}",
-                    details="List them with 'noust passkey list'.",
-                )
+                raise AccountError.from_text(say("passkeys.passkey_id_2", passkey_id=passkey_id))
         else:
             passkey = self._owned(passkey_id, account_id)
             if passkey.account_id is not None and self._only_factor(passkey.account_id):
-                raise AccountError(
-                    "This passkey is your only second factor",
-                    details=(
-                        "Add another passkey or an authenticator first. If you lost the others, "
-                        "ask a security officer to reset your second factor."
-                    ),
-                )
+                raise AccountError.from_text(say("passkeys.passkey_second_factor"))
         with self._write() as cursor:
             cursor.execute("DELETE FROM account_passkeys WHERE id = ?", (passkey.id,))
         return passkey

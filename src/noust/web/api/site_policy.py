@@ -29,7 +29,7 @@ from noust.deployers import access
 from noust.managers import trusted_proxies
 from noust.managers.site_forward_auth import PRESETS
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, known_app
+from noust.web.api.deps import CodedText, NoustErrorRoute, known_app
 from noust.web.api.scope import require_instance_scope
 from noust.web.auth import get_client_ip
 from noust.web.permissions import Permission
@@ -418,6 +418,8 @@ class Http3Model(BaseModel):
         udp_allowed: Whether the firewall lets UDP 443 in; None when it filters nothing or
             cannot be read.
         firewall_hint: The command that opens UDP 443, when it is closed.
+        coded: ``problem`` and ``hint`` as a sentence of the server's catalog (code and values),
+            for the console to say in its own language.
     """
 
     available: bool
@@ -428,6 +430,7 @@ class Http3Model(BaseModel):
     anchor: bool = False
     udp_allowed: bool | None = None
     firewall_hint: str = ""
+    coded: CodedText | None = None
 
 
 @router.get("/{domain}/http3", response_model=Http3Model)

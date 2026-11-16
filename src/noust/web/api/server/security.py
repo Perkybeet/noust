@@ -28,19 +28,22 @@ import ipaddress
 from datetime import datetime, timezone
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 
+from noust.core import access_changes
 from noust.core.exceptions import ValidationError
+from noust.core.server_text import say
 from noust.managers.server.security import OPERATIONS, ServerSecurity
 from noust.managers.server.security_catalog import CATALOG
 from noust.managers.server.security_ssh import SSH_FIXES
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import JobAcceptedResponse, require_elevated
+from noust.web.api.deps import CodedText, JobAcceptedResponse, require_elevated
 from noust.web.api.server.common import ServerRoute, accepted, require_job_context
 from noust.web.auth import actor_label, get_client_ip
 from noust.web.jobs import JobContext, JobType, get_job_manager
 from noust.web.pydantic_compat import bounded_list
+from noust.web.refusal import refusal
 
 router = APIRouter(route_class=ServerRoute, prefix="/security")
 
@@ -134,11 +137,17 @@ class ChangeOut(BaseModel):
     does a central's tunnel. ``proof_readable`` is false when sshd's login
     history cannot be read, ``proof_error`` saying why verbatim. These four
     mean nothing once the change is confirmed, undone or expired.
+
+    ``title`` is what the change is in English. ``title_coded`` is the same as a sentence of the
+    server's catalog (``access_changes.*``, code and values), for the console to say in its own
+    language; null for a change recorded before the ledger kept what it was, whose ``title`` is the
+    sentence somebody wrote then and is shown as it is.
     """
 
     id: str
     kind: str
     title: str
+    title_coded: CodedText | None = None
     actor: str
     applied_at: float
     expires_at: float
@@ -506,6 +515,8 @@ def _security(session: dict[str, Any]) -> ServerSecurity:
 def _change(data: dict[str, Any]) -> ChangeOut:
     fields = dict(data)
     fields["validate_command"] = fields.pop("validate", [])
+    sentence = access_changes.coded(str(fields.get("what", "")), fields.get("values") or {})
+    fields["title_coded"] = CodedText(**sentence.to_dict()) if sentence is not None else None
     return ChangeOut(**fields)
 
 
@@ -611,10 +622,8 @@ def _expiry(text: str) -> datetime:
             return day.replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
         moment = datetime.fromisoformat(text.replace("Z", "+00:00"))
     except ValueError as exc:
-        raise ValidationError(
-            f"{text!r} is not a date",
-            details="Use 2026-12-31 or 2026-12-31T18:00:00Z.",
-            field="expires_at",
+        raise ValidationError.from_text(
+            say("security_api.bad_date", text=f"{text!r}"), field="expires_at"
         ) from exc
     return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
 
@@ -703,7 +712,7 @@ def get_ssh_fix(fix: str, session: Annotated[dict, Depends(get_current_session)]
         HTTPException: 404 for an unknown fix.
     """
     if fix not in SSH_FIXES:
-        raise HTTPException(status_code=404, detail=f"There is no SSH fix named {fix!r}")
+        raise refusal(404, say("security_api.no_such_ssh_fix", fix=f"{fix!r}"))
     return FixPlanOut(**_security(session).ssh_plan(fix).to_dict())
 
 
@@ -853,7 +862,7 @@ def fix_check(
         HTTPException: 404 for an unknown check.
     """
     if check_id not in CATALOG:
-        raise HTTPException(status_code=404, detail=f"There is no check {check_id!r}")
+        raise refusal(404, say("security.no_such_check", check_id=f"{check_id!r}"))
     params = {"check_id": check_id, "epel": body.epel, "ignore": _client_ignore(request)}
     return _queue(request, session, "check.fix", params)
 
@@ -877,7 +886,7 @@ def apply_ssh_fix(
         HTTPException: 404 for an unknown fix.
     """
     if fix not in SSH_FIXES:
-        raise HTTPException(status_code=404, detail=f"There is no SSH fix named {fix!r}")
+        raise refusal(404, say("security_api.no_such_ssh_fix", fix=f"{fix!r}"))
     return _queue(request, session, "ssh.fix", {"fix": fix})
 
 
@@ -1144,7 +1153,7 @@ def accept_risk(
         HTTPException: 404 for an unknown check.
     """
     if check_id not in CATALOG:
-        raise HTTPException(status_code=404, detail=f"There is no check {check_id!r}")
+        raise refusal(404, say("security.no_such_check", check_id=f"{check_id!r}"))
     risk = _security(session).accept_risk(
         check_id, reason=body.reason, until=_expiry(body.expires_at)
     )
@@ -1170,5 +1179,5 @@ def revoke_risk(
     """
     risk = _security(session).revoke_risk(check_id)
     if risk is None:
-        raise HTTPException(status_code=404, detail=f"No accepted risk holds for {check_id!r}")
+        raise refusal(404, say("security_api.no_accepted_risk", check_id=f"{check_id!r}"))
     return AcceptedRiskOut(**risk.to_dict())

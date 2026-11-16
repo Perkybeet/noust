@@ -14,6 +14,7 @@ from typing import Any
 
 from fastapi import HTTPException, Request, status
 
+from noust.core.server_text import say
 from noust.web.auth.config import get_audit_logger, get_global_token_manager, get_security_config
 from noust.web.auth.connection import bearer_token, get_client_ip
 from noust.web.auth.constants import (
@@ -36,6 +37,7 @@ from noust.web.permissions.enforce import (
 )
 from noust.web.permissions.principal import scope_of
 from noust.web.permissions.scopes import RESOURCE, rule_for
+from noust.web.refusal import refusal
 
 logger = logging.getLogger("noust.web.auth")
 
@@ -89,11 +91,12 @@ def _check_csrf(request: Request, payload: dict[str, Any], client_ip: str) -> No
             resource=request.url.path,
             detail=f"missing or invalid {CSRF_HEADER_NAME} header",
         )
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail=(
-            f"Missing or invalid CSRF token. Send the {CSRF_COOKIE_NAME} cookie value "
-            f"in the {CSRF_HEADER_NAME} header, or authenticate with a Bearer token."
+    raise refusal(
+        status.HTTP_403_FORBIDDEN,
+        say(
+            "session.missing_invalid_csrf_token",
+            csrf_cookie_name=str(CSRF_COOKIE_NAME),
+            csrf_header_name=str(CSRF_HEADER_NAME),
         ),
     )
 
@@ -244,9 +247,8 @@ async def require_auth(request: Request) -> dict[str, Any]:
 
     manager = get_global_token_manager()
     if manager is None:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Authentication system not initialized",
+        raise refusal(
+            status.HTTP_500_INTERNAL_SERVER_ERROR, say("session.authentication_system_initialized")
         )
 
     config = get_security_config()

@@ -12,6 +12,7 @@ import { useNow } from "../../components/page/clock";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
+import { ServerText } from "../../components/ui/ServerText";
 import { useT } from "../../i18n";
 import type { PendingChange } from "./queries";
 
@@ -57,9 +58,9 @@ function ExpiredChange({ change, onDismiss }: { change: PendingChange; onDismiss
       onDismiss={onDismiss}
     >
       <span className="flex min-w-0 flex-col gap-1">
-        {/* The change's own name, as Noust recorded it. */}
+        {/* What the change was, said in this console's language; a change from before the ledger kept that is the sentence it was recorded with, as the system's own text. */}
         <span>
-          <Mono tone="muted">{change.title}</Mono>
+          {change.title_coded ? <ServerText coded={change.title_coded} text={change.title} /> : <Mono tone="muted">{change.title}</Mono>}
         </span>
         <span>
           {change.resolved_at !== null && change.resolved_at !== undefined

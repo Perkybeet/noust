@@ -27,6 +27,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from noust.core.exceptions import ValidationError
+from noust.core.server_text import say
 from noust.core.store import NoustStore
 from noust.core.timeutil import utc_now_iso
 
@@ -205,9 +206,12 @@ class VolumeRecords:
             ValidationError: When the consistency mode is not one there is.
         """
         if policy.consistency not in CONSISTENCY_MODES:
-            raise ValidationError(
-                f"{policy.consistency!r} is not a consistency mode",
-                details=f"Use one of: {', '.join(CONSISTENCY_MODES)}.",
+            raise ValidationError.from_text(
+                say(
+                    "volume_backup_records.consistency_mode",
+                    consistency=f"{policy.consistency!r}",
+                    items=", ".join(CONSISTENCY_MODES),
+                ),
                 field="consistency",
             )
         stamp = utc_now_iso("seconds")

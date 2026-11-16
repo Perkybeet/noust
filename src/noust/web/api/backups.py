@@ -26,9 +26,10 @@ import shutil
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
+from noust.core.server_text import say
 from noust.managers.backup_manager import BackupManager, BackupMetadata
 from noust.validators.names import validate_filename
 from noust.web.api.auth import get_current_session
@@ -42,6 +43,7 @@ from noust.web.jobs import (
     restore_backup_job,
 )
 from noust.web.pydantic_compat import iso_offset_validator
+from noust.web.refusal import refusal
 
 router = APIRouter(route_class=NoustErrorRoute)
 
@@ -285,7 +287,7 @@ def _load_backup(backup_id: str) -> tuple[BackupManager, BackupMetadata]:
     manager = BackupManager(verbose=False)
     backup = manager.get_backup(validated)
     if backup is None:
-        raise HTTPException(status_code=404, detail=f"Backup not found: {validated}")
+        raise refusal(404, say("backups.backup_found_2", validated=str(validated)))
     return manager, backup
 
 

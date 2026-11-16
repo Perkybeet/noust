@@ -26,6 +26,7 @@ from noust.core import audit
 from noust.core.audit import Actor
 from noust.core.backup_files import BackupKeys
 from noust.core.exceptions import BackupError, ValidationError
+from noust.core.server_text import say
 from noust.managers.backup_sealing import SealExisting, SealItem, encryption_status
 from noust.web.api.auth import get_current_session
 from noust.web.api.databases.common import queue
@@ -348,11 +349,7 @@ def seal_existing(session: Annotated[dict, Depends(require_elevated)]) -> JobAcc
         ValidationError: When sealing is off.
     """
     if not BackupKeys().enabled():
-        raise ValidationError(
-            "Backups are not sealed on this server",
-            details="Turn sealing on first: noust backup encryption enable, or "
-            "POST /api/backups/encryption/enable.",
-        )
+        raise ValidationError.from_text(say("backup_encryption.backups_sealed_server"))
     return queue(
         session,
         job_type=JobType.CUSTOM,

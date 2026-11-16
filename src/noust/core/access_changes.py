@@ -20,8 +20,10 @@ import logging
 from collections.abc import Mapping
 
 from noust.core.messages import MESSAGES, Locale, message
+from noust.core.server_text import ServerText, say
+from noust.core.server_text_changes import PREFIX
 
-__all__ = ["describe", "describe_record", "known"]
+__all__ = ["coded", "describe", "describe_record", "known"]
 
 log = logging.getLogger(__name__)
 
@@ -37,6 +39,27 @@ def known(what: str) -> bool:
         True when there is a sentence for it.
     """
     return f"change.{what}" in MESSAGES
+
+
+def coded(what: str, values: Mapping[str, str]) -> ServerText | None:
+    """
+    Say what a change is as a sentence of the catalog, for the console to say in its language.
+
+    Args:
+        what: The code a record keeps (``firewall_allow``); empty for a record from before 4.3.
+        values: The values the record keeps.
+
+    Returns:
+        The sentence, or None for a record that has no code, one this version does not know (a
+        server that went back) or one that lacks a value its sentence puts in: those are shown as
+        the sentence they were recorded with.
+    """
+    if not known(what):
+        return None
+    try:
+        return say(PREFIX + what, **dict(values))
+    except (KeyError, ValueError, TypeError):
+        return None
 
 
 def describe(what: str, values: Mapping[str, str], locale: Locale = "en") -> str:

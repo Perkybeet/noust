@@ -35,6 +35,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from noust.core.accounts.names import display_names
+from noust.core.server_text import say
 from noust.core.store import (
     DeploymentRecord,
     DeploymentStatus,
@@ -54,6 +55,7 @@ from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, strict_doma
 from noust.web.auth import actor_label
 from noust.web.jobs import JobType, get_job_manager, rollback_deployment_job, update_app_job
 from noust.web.pydantic_compat import iso_offset_validator
+from noust.web.refusal import refusal
 
 router = APIRouter(route_class=NoustErrorRoute)
 
@@ -268,10 +270,7 @@ def _to_out(
     # schema makes id the primary key: it is never None in practice, only in
     # a DeploymentRecord() a caller has not saved yet.
     if record.id is None:
-        raise StoreError(
-            "Deployment record has no id",
-            details="This should not happen for a row read back from the store.",
-        )
+        raise StoreError.from_text(say("deployments_api.deployment_record_id"))
     return DeploymentOut(
         id=record.id,
         domain=record.domain,
@@ -410,7 +409,7 @@ def get_deployment(
     """
     record = scoped_store().get_deployment(deployment_id)
     if record is None:
-        raise HTTPException(status_code=404, detail=f"Deployment not found: {deployment_id}")
+        raise refusal(404, say("deployments_api.not_found", deployment_id=deployment_id))
     availability = rollback_availability([record])
     return _to_out(
         record,
@@ -469,7 +468,7 @@ def get_deployment_log(
     """
     record = scoped_store().get_deployment(deployment_id)
     if record is None:
-        raise HTTPException(status_code=404, detail=f"Deployment not found: {deployment_id}")
+        raise refusal(404, say("deployments_api.not_found", deployment_id=deployment_id))
 
     result = read_deployment_log(
         record, tail=tail, level=level, search=search, timestamps=timestamps, sanitize=sanitize
@@ -515,8 +514,8 @@ def _deployment_of(domain: str, deployment_id: int) -> DeploymentRecord:
     """
     record = scoped_store().get_deployment(deployment_id)
     if record is None or record.domain != domain:
-        raise HTTPException(
-            status_code=404, detail=f"Deployment {deployment_id} of {domain} not found"
+        raise refusal(
+            404, say("deployments_api.not_found_of", deployment_id=deployment_id, domain=domain)
         )
     return record
 
@@ -558,17 +557,13 @@ def rebuild_deployment(
     domain = strict_domain(domain)
     record = _deployment_of(domain, deployment_id)
     if scoped_store().get_app(domain) is None:
-        raise HTTPException(status_code=404, detail=f"Application not found: {domain}")
+        raise refusal(404, say("apps.not_found_bare", domain=domain))
     commit = record.git_commit
     if not commit:
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "error": "no_commit",
-                "detail": f"Deployment {deployment_id} recorded no commit to rebuild",
-                "hint": "Its source is not a git repository. Update the application to "
-                "build its source again.",
-            },
+        raise refusal(
+            409,
+            say("deployments_api.no_commit", deployment_id=deployment_id),
+            error="no_commit",
         )
     from_scratch = bool(body and body.no_cache)
     kwargs: dict[str, Any] = {"domain": domain, "commit": commit}

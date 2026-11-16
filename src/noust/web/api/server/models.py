@@ -446,6 +446,9 @@ class CandidateOut(BaseModel):
     reclaimable_bytes: int | None = None
     action: str | None = None
     detail: str = ""
+    #: ``detail`` as a sentence of the server's catalog (code and values), when it is one of Noust's
+    #: own for the console to say in its language; null for a path or what a program found.
+    detail_coded: CodedText | None = None
     measured_at: str | None = None
 
 

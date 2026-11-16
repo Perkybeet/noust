@@ -29,6 +29,7 @@ import type { CreateCronJobBody } from "./useCronActions";
 import { useCronActions } from "./useCronActions";
 import { useCronPreview } from "./useCronPreview";
 
+import { describeError } from "../../lib/errors";
 /** Select's value for "no application": an option needs a value that is not empty, and a domain is never this. */
 const NO_APP = "__none";
 
@@ -74,7 +75,8 @@ function schedulePreviewError(error: unknown): { message: string; output: string
   // A moment that is refused says why in the field and what to do in the hint, both the server's words.
   const moment = error.fields?.["once_at"];
   if (moment !== undefined) return { message: moment, output: null, note: error.hint };
-  return { message: error.detail, output: error.hint, note: null };
+  const described = describeError(error);
+  return { message: described.detail, output: described.hint, note: null };
 }
 
 /**

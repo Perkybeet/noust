@@ -56,6 +56,7 @@ from noust.core.notifications.context import NotificationContext
 from noust.core.notifications.model import Notification
 from noust.core.notifier import Notifier
 from noust.core.runner import CommandRunner, get_runner
+from noust.core.server_text import say
 from noust.core.store import BackupScheduleRecord, get_store
 from noust.core.templates import text_environment
 from noust.core.utils import domain_to_app_name, find_noust_executable
@@ -158,16 +159,14 @@ def validate_calendar(schedule: str) -> str:
     """
     calendar = SCHEDULE_ALIASES.get(schedule, schedule)
     if not calendar or len(calendar) > _MAX_CALENDAR_LENGTH:
-        raise BackupError(
-            "Backup schedule is empty or too long",
-            details=f"Use an alias ({', '.join(SCHEDULE_ALIASES)}) or a calendar expression.",
+        raise BackupError.from_text(
+            say("backup_scheduler.backup_schedule_empty_too", items=", ".join(SCHEDULE_ALIASES))
         )
     # Weekday prefixes such as "Mon" are the only letters a calendar
     # expression needs, so letters are allowed but nothing else is.
     if any(not (char.isalpha() or char in _CALENDAR_ALPHABET) for char in calendar):
-        raise BackupError(
-            f"Invalid backup schedule: {calendar!r}",
-            details="A calendar expression may only contain letters, digits and '*-/,:. '.",
+        raise BackupError.from_text(
+            say("backup_scheduler.invalid_backup_schedule", calendar=f"{calendar!r}")
         )
     return calendar
 
@@ -339,10 +338,8 @@ class BackupScheduler:
             app_name = validate_app_name(schedule.app_name or domain_to_app_name(domain))
             validate_service_name(f"{paths.BACKUP_UNIT_PREFIX}{app_name}")
         except NoustError as exc:
-            raise BackupError(
-                "Cannot schedule a backup for this application",
-                details=f"{exc}. A unit file is generated from these values, so they are "
-                "restricted to characters that cannot become a systemd directive.",
+            raise BackupError.from_text(
+                say("backup_scheduler.schedule_backup_application", exc=str(exc))
             ) from exc
 
         return domain, app_name, validate_calendar(schedule.schedule)
@@ -421,9 +418,8 @@ class BackupScheduler:
         try:
             self.fs.write_text(path, content, mode=_UNIT_MODE)
         except OSError as exc:
-            raise BackupError(
-                f"Failed to write unit file: {path}",
-                details=f"{exc}. Noust must run as root to manage systemd units.",
+            raise BackupError.from_text(
+                say("backup_scheduler.failed_write_unit_file", exc=str(exc), path=str(path))
             ) from exc
 
     def create_schedule(self, schedule: BackupSchedule) -> bool:
@@ -448,11 +444,8 @@ class BackupScheduler:
         require_server_role("application_backups")
         domain, app_name, calendar = self._validate(schedule)
         if schedule.remote_only and not schedule.destinations:
-            raise ValidationError(
-                "A schedule that keeps nothing on this server needs a destination",
-                details="Name at least one destination to send the backups to (--destination "
-                "NAME), or keep the backups here.",
-                field="remote_only",
+            raise ValidationError.from_text(
+                say("backup_scheduler.schedule_keeps_nothing_server"), field="remote_only"
             )
         checked = BackupSchedule(
             domain=domain,
@@ -522,9 +515,14 @@ class BackupScheduler:
 
         result = self._systemctl("enable", "--now", f"{checked.timer_name}.timer")
         if not result.success:
-            raise BackupError(
-                f"Failed to enable timer: {checked.timer_name}.timer",
-                details=result.stderr.strip() or "Check 'systemctl status' for details.",
+            raise BackupError.from_text(
+                say(
+                    "backup_scheduler.failed_enable_timer_timer",
+                    timer_name=str(checked.timer_name),
+                    value=str(
+                        result.stderr.strip() or "Check 'systemctl status' for details." or ""
+                    ),
+                )
             )
 
     def remove_schedule(self, domain: str) -> bool:
@@ -898,10 +896,8 @@ class BackupScheduler:
         try:
             validate_service_name(unit)
         except NoustError as exc:
-            raise BackupError(
-                "Cannot schedule backups for this database",
-                details=f"{exc}. A unit file is generated from the database's name, so it is "
-                "restricted to characters that cannot become a systemd directive.",
+            raise BackupError.from_text(
+                say("backup_scheduler.schedule_backups_database", exc=str(exc))
             ) from exc
         return unit, self._unit_path(f"{unit}.timer"), self._unit_path(f"{unit}.service")
 
@@ -953,10 +949,8 @@ class BackupScheduler:
         calendar = validate_calendar(schedule)
         unit, timer_path, service_path = self._database_unit_paths(engine, database)
         if not self._is_ours(timer_path):
-            raise BackupError(
-                f"{timer_path.name} exists and is not a database backup timer",
-                details="Another timer already has this name; remove it or rename the application "
-                "that owns it before scheduling this database.",
+            raise BackupError.from_text(
+                say("backup_scheduler.exists_database_backup_timer", name=str(timer_path.name))
             )
         target = f"{engine}/{database}"
         self.options.set(unit, options or TimerOptions())
@@ -979,9 +973,14 @@ class BackupScheduler:
         self._systemctl("daemon-reload")
         result = self._systemctl("enable", "--now", f"{unit}.timer")
         if not result.success:
-            raise BackupError(
-                f"Failed to enable timer: {unit}.timer",
-                details=result.stderr.strip() or "Check 'systemctl status' for details.",
+            raise BackupError.from_text(
+                say(
+                    "backup_scheduler.failed_enable_timer_timer_2",
+                    unit=str(unit),
+                    value=str(
+                        result.stderr.strip() or "Check 'systemctl status' for details." or ""
+                    ),
+                )
             )
         self.logger.info(f"Created database backup schedule: {unit} ({calendar})")
         self._ensure_sweep_timer()
@@ -1084,10 +1083,8 @@ class BackupScheduler:
         try:
             validate_service_name(unit)
         except NoustError as exc:
-            raise BackupError(
-                f"Cannot schedule {what}",
-                details=f"{exc}. A unit file is generated from these values, so they are "
-                "restricted to characters that cannot become a systemd directive.",
+            raise BackupError.from_text(
+                say("backup_scheduler.schedule", exc=str(exc), what=what)
             ) from exc
         if not self._timers():
             self.logger.info(f"Scheduled: {unit} ({calendar}), run by the central's own scheduler")
@@ -1095,10 +1092,12 @@ class BackupScheduler:
         timer_path = self._unit_path(f"{unit}.timer")
         service_path = self._unit_path(f"{unit}.service")
         if not self._is_ours(timer_path, prefix):
-            raise BackupError(
-                f"{timer_path.name} exists and is not a timer Noust wrote for {what}",
-                details="Another timer already has this name; remove it or rename the "
-                "application that owns it before scheduling this.",
+            raise BackupError.from_text(
+                say(
+                    "backup_scheduler.exists_timer_noust_wrote",
+                    name=str(timer_path.name),
+                    what=what,
+                )
             )
         self.options.set(unit, options or TimerOptions())
         self._write_unit(timer_path, self._render(timer_template, schedule=calendar, **values))
@@ -1111,9 +1110,14 @@ class BackupScheduler:
         self._systemctl("daemon-reload")
         result = self._systemctl("enable", "--now", f"{unit}.timer")
         if not result.success:
-            raise BackupError(
-                f"Failed to enable timer: {unit}.timer",
-                details=result.stderr.strip() or "Check 'systemctl status' for details.",
+            raise BackupError.from_text(
+                say(
+                    "backup_scheduler.failed_enable_timer_timer_2",
+                    unit=unit,
+                    value=str(
+                        result.stderr.strip() or "Check 'systemctl status' for details." or ""
+                    ),
+                )
             )
         self.logger.info(f"Created schedule: {unit} ({calendar})")
 
@@ -1220,8 +1224,8 @@ class BackupScheduler:
         try:
             domain = validate_domain(domain)
         except NoustError as exc:
-            raise BackupError(
-                "Cannot schedule backups for this application", details=str(exc)
+            raise BackupError.from_text(
+                say("backup_scheduler.schedule_backups_application", exc=str(str(exc) or ""))
             ) from exc
         unit = self.volume_timer_name(domain)
         self.install_unit_pair(
@@ -1394,9 +1398,12 @@ class BackupScheduler:
             template = self.jinja_env.get_template(template_name)
             return template.render(**values)
         except TemplateError as exc:
-            raise BackupError(
-                f"Failed to render systemd template: {template_name}",
-                details=f"{exc}. The Noust installation may be incomplete.",
+            raise BackupError.from_text(
+                say(
+                    "backup_scheduler.failed_render_systemd_template",
+                    exc=str(exc),
+                    template_name=template_name,
+                )
             ) from exc
 
     def render_timer(self, schedule: BackupSchedule) -> str:
@@ -1785,9 +1792,13 @@ def run_schedule(
         message = f"backup {metadata.id} failed its verification: {problem}"
         failure_id = record_failure("backup", domain, message)
         _notify_backup(config, compose_backup_failed(domain, message, ctx, failure_id=failure_id))
-        raise BackupError(
-            f"The scheduled backup of {domain} failed its verification and was not sent",
-            details=f"{problem}. Run 'noust backup verify {metadata.id}' for the whole report.",
+        raise BackupError.from_text(
+            say(
+                "backup_scheduler.scheduled_backup_failed_verification",
+                domain=domain,
+                id=str(metadata.id),
+                problem=str(problem),
+            )
         )
     failures: list[tuple[str, str]] = []
     for destination in record.destinations:
@@ -1819,11 +1830,13 @@ def run_schedule(
     if failures:
         # Each destination's own error, rclone's words included: a timer run
         # with no notification channel has only this, in its journal.
-        raise BackupError(
-            f"Backup of {domain} was taken but could not be sent to: "
-            + ", ".join(name for name, _ in failures),
-            details="The local backup was kept.\n"
-            + "\n".join(f"{name}: {error}" for name, error in failures),
+        raise BackupError.from_text(
+            say(
+                "backup_scheduler.backup_taken_sent",
+                domain=domain,
+                items=", ".join(name for name, _ in failures),
+                items2="\n".join(f"{name}: {error}" for name, error in failures),
+            )
         )
 
     result["drill"] = _drill_when_due(domain, metadata.id, config, ctx)

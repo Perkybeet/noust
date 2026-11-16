@@ -22,6 +22,7 @@ from dataclasses import dataclass
 
 from noust.core.config import Config
 from noust.core.exceptions import NoustError
+from noust.core.server_text import ServerText, say
 
 logger = logging.getLogger(__name__)
 
@@ -186,12 +187,13 @@ def minutes_words(count: int) -> str:
     return f"{count} minute" if count == 1 else f"{count} minutes"
 
 
-def stopped_by_time_limit(operation: str, domain: object, minutes: int) -> str:
+def time_limit_sentence(operation: str, domain: object, minutes: int) -> ServerText:
     """
     Say that a deployment was stopped because it ran past the server's limit.
 
     One sentence for the job, the deployment's history row and the CLI, so they
-    cannot tell the operator three different things about the same build.
+    cannot tell the operator three different things about the same build; the
+    console says it in its own language from the code.
 
     Args:
         operation: ``deploy`` or ``update``.
@@ -201,11 +203,28 @@ def stopped_by_time_limit(operation: str, domain: object, minutes: int) -> str:
     Returns:
         The sentence, with how to raise the limit.
     """
-    return (
-        f"The {operation} of {domain} was stopped: it ran longer than this server's maximum "
-        f"deployment time ({minutes_words(minutes)}). Nothing that was serving was touched. "
-        "Raise the limit with 'noust config set deploy.max_minutes <minutes>' (0 is no limit)."
+    code = {"deploy": "delivery.time_limit_deploy", "update": "delivery.time_limit_update"}.get(
+        operation, "delivery.time_limit"
     )
+    values = {"domain": str(domain), "limit": minutes_words(minutes)}
+    return (
+        say(code, **values)
+        if code != "delivery.time_limit"
+        else say(code, operation=operation, **values)
+    )
+
+
+def stopped_by_time_limit(operation: str, domain: object, minutes: int) -> str:
+    """
+    Args:
+        operation: ``deploy`` or ``update``.
+        domain: The application.
+        minutes: The limit that applied.
+
+    Returns:
+        :func:`time_limit_sentence` in English.
+    """
+    return time_limit_sentence(operation, domain, minutes).text
 
 
 _lock = threading.Lock()

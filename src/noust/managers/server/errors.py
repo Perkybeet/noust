@@ -18,6 +18,7 @@ from __future__ import annotations
 from typing import Any
 
 from noust.core.exceptions import NoustError
+from noust.core.server_text import ServerText
 
 
 class ServerError(NoustError):
@@ -65,14 +66,22 @@ class ConfirmationRequiredError(ServerError):
             than parse the sentence.
     """
 
-    def __init__(self, message: str, details: str = "", *, required: dict[str, Any] | None = None):
+    def __init__(
+        self,
+        message: str,
+        details: str = "",
+        *,
+        required: dict[str, Any] | None = None,
+        coded: ServerText | None = None,
+    ):
         """
         Args:
             message: What needs confirming.
             details: How to confirm it.
             required: The list the caller has to acknowledge.
+            coded: The same sentence as a code and its values, for the console to say in its language.
         """
-        super().__init__(message, details)
+        super().__init__(message, details, coded=coded)
         self.required = required or {}
 
 

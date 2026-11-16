@@ -54,6 +54,7 @@ from types import SimpleNamespace
 from typing import Any
 
 from noust.core.exceptions import DependencyError
+from noust.core.server_text import say
 
 #: COSE algorithm identifiers (RFC 9053, IANA COSE registry).
 ALG_ES256 = -7
@@ -157,13 +158,8 @@ def load_crypto() -> SimpleNamespace:
         from cryptography.hazmat.primitives import hashes
         from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
     except ImportError as exc:
-        raise WebAuthnUnavailable(
-            "Passkeys need the cryptography library, which is not installed here",
-            details=(
-                "Install python3-cryptography (python311-cryptography on openSUSE Leap), "
-                "or pip install 'noust[web]', then restart noust-web. Python said: "
-                f"{exc}"
-            ),
+        raise WebAuthnUnavailable.from_text(
+            say("webauthn.passkeys_need_cryptography_library", exc=str(exc))
         ) from exc
     try:
         from cryptography.hazmat.primitives.asymmetric import ed25519

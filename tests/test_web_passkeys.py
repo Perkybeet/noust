@@ -151,6 +151,7 @@ class TestRegistration:
             "reason": None,
             "detail": None,
             "hint": None,
+            "coded": None,
         }
 
     def test_a_first_second_factor_needs_no_sudo_and_brings_backup_codes(self, app: Any) -> None:

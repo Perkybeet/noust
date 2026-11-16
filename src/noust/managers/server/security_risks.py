@@ -26,6 +26,7 @@ from typing import Any
 from noust.core import audit as audit_trail
 from noust.core import compliance
 from noust.core.exceptions import ValidationError
+from noust.core.server_text import say
 from noust.managers.server.security_catalog import CATALOG
 
 #: The longest a risk may be accepted for.
@@ -185,27 +186,31 @@ class AcceptedRisks:
             ValidationError: The check, the reason or the date is not acceptable.
         """
         if check_id not in CATALOG:
-            raise ValidationError(f"There is no check {check_id!r}", field="check_id")
+            raise ValidationError.from_text(
+                say("security.no_such_check", check_id=f"{check_id!r}"), field="check_id"
+            )
         text = " ".join((reason or "").split())
         low, high = REASON_LENGTH
         if compliance.is_on("exception_reasons"):
             if not low <= len(text) <= high:
-                raise ValidationError(
-                    f"Say why the risk is acceptable, in {low} to {high} characters",
+                raise ValidationError.from_text(
+                    say("risks.say_why_risk_acceptable", high=str(high), low=str(low)),
                     field="reason",
                 )
         elif len(text) > high:
-            raise ValidationError(f"The reason is at most {high} characters", field="reason")
+            raise ValidationError.from_text(
+                say("risks.reason_most_characters", high=str(high)), field="reason"
+            )
         else:
             text = text or compliance.NO_REASON
         now = _utc(self.clock)
         until = expires_at if expires_at.tzinfo else expires_at.replace(tzinfo=timezone.utc)
         until = until.astimezone(timezone.utc)
         if until <= now:
-            raise ValidationError("The acceptance must end in the future", field="expires_at")
+            raise ValidationError.from_text(say("risks.acceptance_end_future"), field="expires_at")
         if until > now + timedelta(days=MAX_ACCEPT_DAYS):
-            raise ValidationError(
-                f"A risk is accepted for {MAX_ACCEPT_DAYS} days at most; accept it again then",
+            raise ValidationError.from_text(
+                say("risks.risk_accepted_days_most", max_accept_days=str(MAX_ACCEPT_DAYS)),
                 field="expires_at",
             )
         stamp = now.isoformat(timespec="seconds")

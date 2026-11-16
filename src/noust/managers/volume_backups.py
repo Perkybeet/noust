@@ -88,6 +88,7 @@ from noust.core.notifications.composers import (
 )
 from noust.core.notifications.context import NotificationContext
 from noust.core.runner import CommandRunner, get_runner
+from noust.core.server_text import say
 from noust.core.signal_guard import stop_as_exit
 from noust.core.store import App, NoustStore, get_store, is_compose_backed
 from noust.core.utils import domain_to_app_name
@@ -417,10 +418,8 @@ def _limit(value: Any, ceiling: int, name: str) -> int | None:
     if value is None:
         return None
     if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= ceiling:
-        raise ValidationError(
-            f"{name} must be a whole number from 1 to {ceiling}",
-            details="Leave it empty for no limit.",
-            field=name,
+        raise ValidationError.from_text(
+            say("self_backup.whole_number_1", ceiling=ceiling, name=name), field=name
         )
     return int(value)
 
@@ -550,10 +549,7 @@ class VolumeBackupManager:
         """
         app = self.store.get_app(validate_domain(domain))
         if app is None:
-            raise VolumeBackupNotFound(
-                f"Application not found: {domain}",
-                details="Run 'noust list' to see what is deployed.",
-            )
+            raise VolumeBackupNotFound.from_text(say("apps.not_found", domain=domain))
         return app
 
     def require_app(self, domain: str) -> App:
@@ -622,10 +618,8 @@ class VolumeBackupManager:
             try:
                 relative = persistent_path(raw)
             except NoustError as exc:
-                raise ValidationError(
-                    f"{raw!r} is not a path inside the application's data",
-                    details="Give a path relative to where the data lives, such as "
-                    "'uploads' or 'storage/app', without '..'.",
+                raise ValidationError.from_text(
+                    say("volume_backups.path_inside_application_data", raw=f"{raw!r}"),
                     field="paths",
                 ) from exc
             host = root / relative
@@ -677,11 +671,12 @@ class VolumeBackupManager:
         by_key = {target.key: target for target in available}
         unknown = [key for key in wanted if key not in by_key]
         if unknown:
-            raise ValidationError(
-                f"This application has no data target {unknown[0]!r}",
-                details="Its targets are: "
-                + (", ".join(by_key) or "none declared")
-                + ". Add a directory with --path.",
+            raise ValidationError.from_text(
+                say(
+                    "volume_backups.application_data_target",
+                    unknown=f"{unknown[0]!r}",
+                    value=str(", ".join(by_key) or "none declared"),
+                ),
                 field="targets",
             )
         return [by_key[key] for key in dict.fromkeys(wanted)]
@@ -777,9 +772,12 @@ class VolumeBackupManager:
         calendar = validate_calendar(schedule)
         timer_options = validate_options(max_runtime, zone)
         if consistency not in CONSISTENCY_MODES:
-            raise ValidationError(
-                f"{consistency!r} is not a consistency mode",
-                details=f"Use one of: {', '.join(CONSISTENCY_MODES)}.",
+            raise ValidationError.from_text(
+                say(
+                    "volume_backup_records.consistency_mode",
+                    consistency=f"{consistency!r}",
+                    items=", ".join(CONSISTENCY_MODES),
+                ),
                 field="consistency",
             )
         count = _limit(retention_count, MAX_RETENTION_COUNT, "retention_count")
@@ -788,19 +786,13 @@ class VolumeBackupManager:
         available = self.targets(domain, extra_paths=extra_paths)
         chosen = self._select(available, targets)
         if not available and not targets:
-            raise ValidationError(
-                f"{domain} declares no data to back up",
-                details="Declare a persistent path when deploying (--persist PATH), or add a "
-                "directory to this policy with --path.",
-                field="targets",
+            raise ValidationError.from_text(
+                say("volume_backups.declares_data_back_up", domain=domain), field="targets"
             )
         checked = self._validated_destinations(destinations)
         if remote_only and not checked:
-            raise ValidationError(
-                "A policy that keeps nothing on this server needs a destination",
-                details="Name at least one destination to send the backups to (--to NAME), or "
-                "keep the backups here.",
-                field="remote_only",
+            raise ValidationError.from_text(
+                say("volume_backups.policy_keeps_nothing_server"), field="remote_only"
             )
         if enabled:
             self.scheduler.install_volume_timer(domain, calendar, options=timer_options)
@@ -876,13 +868,13 @@ class VolumeBackupManager:
         for entry in destinations:
             name = str(entry.get("name") or "")
             if not name or self.destinations.get(name) is None:
-                raise ValidationError(
-                    f"Backup destination {name!r} does not exist",
-                    details="Create it first with: noust backup destination add",
-                    field="destinations",
+                raise ValidationError.from_text(
+                    say("backups.backup_destination_exist", name=f"{name!r}"), field="destinations"
                 )
             if name in seen:
-                raise ValidationError(f"Destination {name!r} is listed twice", field="destinations")
+                raise ValidationError.from_text(
+                    say("backups.destination_listed_twice", name=f"{name!r}"), field="destinations"
+                )
             seen.add(name)
             checked.append(
                 {
@@ -939,9 +931,12 @@ class VolumeBackupManager:
             timeout=_SIGNAL_TIMEOUT,
         )
         if not result.success:
-            raise BackupError(
-                f"Could not list the containers of {app.domain}",
-                details=result.stderr.strip() or "Is Docker running?",
+            raise BackupError.from_text(
+                say(
+                    "volume_backups.list_containers",
+                    domain=str(app.domain),
+                    value=str(result.stderr.strip() or "Is Docker running?" or ""),
+                )
             )
         return result.stdout.split()
 
@@ -1026,11 +1021,12 @@ class VolumeBackupManager:
                 except NoustError as exc:
                     failed.append(f"{unit}: {exc}")
             if failed:
-                raise BackupError(
-                    f"{app.domain} could not be started again after its data was copied",
-                    details="\n".join(failed)
-                    + f"\nStart it with: noust start {app.domain}. The backup itself is "
-                    "unaffected.",
+                raise BackupError.from_text(
+                    say(
+                        "volume_backups.started_again_after_data",
+                        domain=str(app.domain),
+                        items="\n".join(failed),
+                    )
                 )
 
     def _signal(self, argv: list[str], what: str) -> None:
@@ -1046,10 +1042,16 @@ class VolumeBackupManager:
         """
         result = self.runner.run(argv, timeout=_SIGNAL_TIMEOUT)
         if not result.success:
-            raise BackupError(
-                f"Could not {what}",
-                details=(result.stderr or result.stdout).strip()
-                or f"{argv[0]} exited with code {result.exit_code}.",
+            raise BackupError.from_text(
+                say(
+                    "volume_backups.could_not",
+                    value=str(
+                        (result.stderr or result.stdout).strip()
+                        or f"{argv[0]} exited with code {result.exit_code}."
+                        or ""
+                    ),
+                    what=what,
+                )
             )
 
     # ------------------------------------------------------------- archives
@@ -1171,9 +1173,8 @@ class VolumeBackupManager:
                             name for name in dirnames if not (current / name).is_symlink()
                         ]
         except (OSError, tarfile.TarError) as exc:
-            raise BackupError(
-                f"Could not archive {source}",
-                details=f"{exc}. Check that the data is readable and the disk has room.",
+            raise BackupError.from_text(
+                say("volume_backups.archive", exc=str(exc), source=str(source))
             ) from exc
         return sqlite_files, skipped
 
@@ -1194,14 +1195,22 @@ class VolumeBackupManager:
             timeout=_DOCKER_TIMEOUT,
         )
         if not result.success:
-            raise BackupError(
-                f"Failed to archive the volume {volume}",
-                details=(result.stderr or result.stdout).strip() or "Is Docker running?",
+            raise BackupError.from_text(
+                say(
+                    "volume_backups.failed_archive_volume",
+                    value=str(
+                        (result.stderr or result.stdout).strip() or "Is Docker running?" or ""
+                    ),
+                    volume=volume,
+                )
             )
         if not (directory / filename).is_file():
-            raise BackupError(
-                f"Docker reported success but produced no archive for the volume {volume}",
-                details=f"Look for {directory / filename}.",
+            raise BackupError.from_text(
+                say(
+                    "volume_backups.docker_reported_success_produced",
+                    value=str(directory / filename),
+                    volume=volume,
+                )
             )
 
     # -------------------------------------------------------------- create
@@ -1278,9 +1287,12 @@ class VolumeBackupManager:
         """
         app = self._app(domain)
         if consistency not in CONSISTENCY_MODES:
-            raise ValidationError(
-                f"{consistency!r} is not a consistency mode",
-                details=f"Use one of: {', '.join(CONSISTENCY_MODES)}.",
+            raise ValidationError.from_text(
+                say(
+                    "volume_backup_records.consistency_mode",
+                    consistency=f"{consistency!r}",
+                    items=", ".join(CONSISTENCY_MODES),
+                ),
                 field="consistency",
             )
         return self._select(self.targets(app.domain, extra_paths=extra_paths), targets)
@@ -1331,14 +1343,16 @@ class VolumeBackupManager:
                 f"Nothing to back up at {missing.host_path}: {missing.key} does not exist yet"
             )
         if not present:
-            raise BackupError(
-                f"{app.domain} has no data to back up now",
-                details="Its declared data directories do not exist yet. "
-                + (
-                    f"Chosen: {', '.join(t.key for t in chosen)}."
-                    if chosen
-                    else "None are declared."
-                ),
+            raise BackupError.from_text(
+                say(
+                    "volume_backups.data_back_up",
+                    domain=str(app.domain),
+                    value=str(
+                        f"Chosen: {', '.join(t.key for t in chosen)}."
+                        if chosen
+                        else "None are declared."
+                    ),
+                )
             )
         if isinstance(self.fs, DryRunFileSystem):
             for target in present:
@@ -1395,7 +1409,9 @@ class VolumeBackupManager:
                 self._write_docker_archive(target.source, directory, archive.name)
             else:
                 if target.host_path is None:  # a path target always has one
-                    raise BackupError(f"{target.key} has no path on this server")
+                    raise BackupError.from_text(
+                        say("volume_backups.path_server", key=str(target.key))
+                    )
                 is_file = target.host_path.is_file()
                 held = target.host_path.stat()
                 owner = {"uid": held.st_uid, "gid": held.st_gid}
@@ -1444,8 +1460,12 @@ class VolumeBackupManager:
             self._write_sidecar(metadata)
         except OSError as exc:
             self.fs.remove(archive)
-            raise BackupError(
-                f"Failed to write the metadata of {backup_id}", details=str(exc)
+            raise BackupError.from_text(
+                say(
+                    "volume_backups.failed_write_metadata",
+                    backup_id=str(backup_id),
+                    exc=str(str(exc) or ""),
+                )
             ) from exc
         for entry in skipped:
             self.logger.warning(f"Left out {entry['path']}: {entry['reason']}")
@@ -1562,9 +1582,10 @@ class VolumeBackupManager:
         try:
             self._write_sidecar(metadata)
         except OSError as exc:
-            raise BackupError(
-                f"Could not write the metadata of {metadata.id} after sealing it",
-                details=f"{exc}. Seal the existing backups again: it repairs this.",
+            raise BackupError.from_text(
+                say(
+                    "backup_manager.write_metadata_after_sealing", exc=str(exc), id=str(metadata.id)
+                )
             ) from exc
 
     def require(self, backup_id: str) -> VolumeBackupMetadata:
@@ -1582,9 +1603,8 @@ class VolumeBackupManager:
         """
         metadata = self.get_backup(backup_id)
         if metadata is None:
-            raise VolumeBackupNotFound(
-                f"Volume backup not found: {backup_id}",
-                details="List them with: noust backup volumes list",
+            raise VolumeBackupNotFound.from_text(
+                say("volume_backups.volume_backup_found", backup_id=backup_id)
             )
         return metadata
 
@@ -1759,16 +1779,19 @@ class VolumeBackupManager:
         """
         metadata = self.require(backup_id)
         if self.destinations.get(destination) is None:
-            raise ValidationError(
-                f"Backup destination {destination!r} does not exist",
-                details="Create it first with: noust backup destination add",
+            raise ValidationError.from_text(
+                say("self_backup.backup_destination_exist", destination=f"{destination!r}"),
                 field="destination",
             )
         verdict = self.verify(backup_id)
         if not verdict["valid"]:
-            raise BackupError(
-                f"{backup_id} failed its check and was not sent to {destination}",
-                details="; ".join(verdict["errors"]),
+            raise BackupError.from_text(
+                say(
+                    "volume_backups.failed_check_sent",
+                    backup_id=backup_id,
+                    destination=destination,
+                    items=str("; ".join(verdict["errors"]) or ""),
+                )
             )
         metadata = self.require(backup_id)
         try:
@@ -1980,13 +2003,16 @@ class VolumeBackupManager:
         if archive is None:
             verdict = self.verify(found.id)
             if not verdict["valid"]:
-                raise BackupError(
-                    f"{found.id} failed its check; nothing was restored",
-                    details="; ".join(verdict["errors"]),
+                raise BackupError.from_text(
+                    say(
+                        "volume_backups.failed_check_nothing_restored",
+                        id=str(found.id),
+                        items=str("; ".join(verdict["errors"]) or ""),
+                    )
                 )
         elif file_sha256(source) != found.checksum:
-            raise BackupError(
-                f"The archive of {found.id} does not match its digest; nothing was restored"
+            raise BackupError.from_text(
+                say("volume_backups.archive_match_digest_nothing", id=str(found.id))
             )
         wanted = next(
             (
@@ -1997,10 +2023,12 @@ class VolumeBackupManager:
             None,
         )
         if wanted is None:
-            raise BackupError(
-                f"{app.domain} no longer declares {found.target}",
-                details="Add it back (a persistent path, or --path in the policy) and restore "
-                "again; nothing was restored.",
+            raise BackupError.from_text(
+                say(
+                    "volume_backups.longer_declares",
+                    domain=str(app.domain),
+                    target=str(found.target),
+                )
             )
         with app_lock(app.domain, "restore"):
             return self._restore_locked(app, found, wanted, source, safety_backup)
@@ -2063,9 +2091,13 @@ class VolumeBackupManager:
         except NoustError as exc:
             self._start_again(stopped)
             kept = f" The safety copy is kept as {safety.id}." if safety else ""
-            raise BackupError(
-                f"Restoring {metadata.id} failed: {exc.message}",
-                details=f"{exc.details}\nThe data was left as it was.{kept}".strip(),
+            raise BackupError.from_text(
+                say(
+                    "volume_backups.restoring_failed",
+                    id=str(metadata.id),
+                    message=str(exc.message),
+                    value=str(f"{exc.details}\nThe data was left as it was.{kept}".strip() or ""),
+                )
             ) from exc
         gate = ""
         if stopped:
@@ -2152,9 +2184,11 @@ class VolumeBackupManager:
             except NoustError as exc:
                 failed.append(f"{unit}: {exc}")
         if failed:
-            raise BackupError(
-                "The application could not be started again after the restore",
-                details="\n".join(failed),
+            raise BackupError.from_text(
+                say(
+                    "volume_backups.application_started_again_after",
+                    items=str("\n".join(failed) or ""),
+                )
             )
 
     def _gate(self, app: App) -> tuple[bool, str]:
@@ -2193,13 +2227,16 @@ class VolumeBackupManager:
                 timeout=_DOCKER_TIMEOUT,
             )
             if not result.success:
-                raise BackupError(
-                    f"Failed to restore the volume {target.source}",
-                    details=(result.stderr or result.stdout).strip(),
+                raise BackupError.from_text(
+                    say(
+                        "volume_backups.failed_restore_volume",
+                        source=str(target.source),
+                        value=str((result.stderr or result.stdout).strip() or ""),
+                    )
                 )
             return
         if target.host_path is None:  # a path target always has one
-            raise BackupError(f"{target.key} has no path on this server")
+            raise BackupError.from_text(say("volume_backups.path_server", key=str(target.key)))
         destination = target.host_path
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         workspace = destination.parent / f".noust-restore-{destination.name}-{stamp}"
@@ -2207,8 +2244,12 @@ class VolumeBackupManager:
             self.fs.make_dir(destination.parent, mode=0o755, parents=True)
             self.fs.make_dir(workspace, mode=SECRET_DIR_MODE)
         except OSError as exc:
-            raise BackupError(
-                f"Could not create a restore workspace beside {destination}", details=str(exc)
+            raise BackupError.from_text(
+                say(
+                    "volume_backups.create_restore_workspace_beside",
+                    destination=str(destination),
+                    exc=str(str(exc) or ""),
+                )
             ) from exc
         extracted = workspace / "extracted"
         previous = workspace / "previous"
@@ -2224,10 +2265,22 @@ class VolumeBackupManager:
                         max_total_bytes=MAX_BYTES,
                     )
             except SourceError as exc:
-                raise BackupError(f"Refusing to restore {archive.name}", details=str(exc)) from exc
+                raise BackupError.from_text(
+                    say(
+                        "backup_manager.refusing_restore",
+                        exc=str(str(exc) or ""),
+                        name=str(archive.name),
+                    )
+                ) from exc
             new_data = extracted / destination.name if metadata.is_file else extracted
             if metadata.is_file and not new_data.is_file():
-                raise BackupError(f"{archive.name} does not hold the file {destination.name}")
+                raise BackupError.from_text(
+                    say(
+                        "volume_backups.hold_file",
+                        name=str(archive.name),
+                        name2=str(destination.name),
+                    )
+                )
             if destination.exists() or destination.is_symlink():
                 self.fs.rename(destination, previous)
                 swapped = True
@@ -2238,7 +2291,13 @@ class VolumeBackupManager:
             self._clean(workspace)
             if isinstance(exc, BackupError):
                 raise
-            raise BackupError(f"Failed to restore {destination}", details=str(exc)) from exc
+            raise BackupError.from_text(
+                say(
+                    "volume_backups.failed_restore",
+                    destination=str(destination),
+                    exc=str(str(exc) or ""),
+                )
+            ) from exc
         self._clean(workspace)
 
     def _undo_swap(
@@ -2266,9 +2325,14 @@ class VolumeBackupManager:
                 self.fs.remove(destination)
             self.fs.rename(previous, destination)
         except OSError as exc:
-            raise BackupError(
-                f"Restoring {destination} failed and putting its data back failed too",
-                details=f"{failure}\n{exc}\nThe data it had is at {previous}.",
+            raise BackupError.from_text(
+                say(
+                    "volume_backups.restoring_failed_putting_data",
+                    destination=str(destination),
+                    exc=str(exc),
+                    failure=str(failure),
+                    previous=str(previous),
+                )
             ) from exc
 
     def _hand_back(self, destination: Path, metadata: VolumeBackupMetadata) -> None:
@@ -2346,10 +2410,8 @@ class VolumeBackupManager:
                 destination, f"{REMOTE_ROOT}/{app_name}/{slug}", file_name, staging, fs=self.fs
             )
             if sidecar is None:
-                raise BackupError(
-                    f"{file_name} has no metadata on {destination}",
-                    details="It was not sent by Noust, so what it holds and where it goes are "
-                    "not known. Nothing was restored.",
+                raise BackupError.from_text(
+                    say("volume_backups.metadata", destination=destination, file_name=file_name)
                 )
             # What the MAC covers is what Noust wrote; what the destination and the
             # sending added around it is not part of it.
@@ -2359,14 +2421,18 @@ class VolumeBackupManager:
                 if key in VolumeBackupMetadata.__dataclass_fields__
             }
             if sidecar_mac_state(signed) == "invalid":
-                raise BackupError(
-                    f"The metadata of {file_name} does not match its MAC; nothing was restored"
+                raise BackupError.from_text(
+                    say("backup_return.metadata_match_mac_nothing", file_name=file_name)
                 )
             metadata = VolumeBackupMetadata.from_dict(signed)
             if metadata.domain != domain:
-                raise BackupError(
-                    f"{file_name} is the data of {metadata.domain}, not of {domain}",
-                    details="Restore it into the application it belongs to.",
+                raise BackupError.from_text(
+                    say(
+                        "volume_backups.data",
+                        domain=str(metadata.domain),
+                        domain2=domain,
+                        file_name=file_name,
+                    )
                 )
             return self.restore(
                 metadata.id,
@@ -2455,9 +2521,12 @@ class VolumeBackupManager:
                 deep = days > 0 and self._verification_due(domain, entry, days)
                 verdict = self.verify(entry.id, deep=deep)
                 if not verdict["valid"]:
-                    raise BackupError(
-                        f"The backup {entry.id} failed its verification and was not sent",
-                        details="; ".join(verdict["errors"]),
+                    raise BackupError.from_text(
+                        say(
+                            "volume_backups.backup_failed_verification_sent",
+                            id=str(entry.id),
+                            items=str("; ".join(verdict["errors"]) or ""),
+                        )
                     )
         except NoustError as exc:
             text = str(exc)

@@ -7,6 +7,7 @@ import { useT } from "../../i18n";
 import { jobLines, jobState, jobStep } from "../databases/jobs";
 import type { JobWords } from "./useJobInHand";
 
+import { jobFailure } from "../../lib/errors";
 export interface JobLogPanelProps {
   /** The job followed; null while the answer that queued it has not arrived. */
   job: Job | null;
@@ -34,7 +35,7 @@ export function JobLogPanel({ job, words, label, result, height = 220 }: JobLogP
         state={state}
         title={title}
         step={job !== null ? jobStep(job) : null}
-        {...(state === "failed" ? { error: { detail: job?.error ?? (job !== null ? jobStep(job) : null) ?? "" } } : {})}
+        {...(state === "failed" ? { error: jobFailure(job ?? {}, (job !== null ? jobStep(job) : null) ?? "") } : {})}
       />
       <LogViewer lines={job !== null ? jobLines(job) : []} label={label} filename={`${job?.id ?? "job"}.log`} height={height} loading={job === null} emptyMessage={t("databases.job.outputEmpty")} />
       {state === "succeeded" ? result : null}

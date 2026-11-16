@@ -53,11 +53,14 @@ from noust.core.exceptions import (
     RollbackError,
 )
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, get_fs
+from noust.core.job_errors import JobErrors
 from noust.core.job_titles import title_for
 from noust.core.redact import Scrubber, app_secret_values, scrubber_for, secret_env_values
 from noust.core.server_text import ServerText, say
 from noust.core.store import DeploymentTrigger, JobRecord, NoustStore, get_store
 from noust.core.teams import ownership_target
+from noust.web.job_failure import error_text as _error_text
+from noust.web.job_failure import failure_sentence
 from noust.web.job_log import JobLogEntry, scrub_sentence
 
 logger = logging.getLogger(__name__)
@@ -83,25 +86,6 @@ _RECORDING_ERRORS: tuple[type[Exception], ...] = (NoustError, OSError, sqlite3.E
 #: thread that was running it is gone - and this is the whole review focus of
 #: Task 1.7: it must reappear as failed, never stay "running" forever.
 INTERRUPTED_REASON = "Interrupted by a panel restart"
-
-
-def _error_text(exc: BaseException) -> str:
-    """
-    Render a failure for a job's ``error``, keeping a tool's own output.
-
-    ``str()`` of a :class:`NoustError` carries its message and fix but not its
-    ``output``: certbot's or nginx's own words, which the job page shows
-    verbatim under the diagnosis and which a job otherwise lost.
-
-    Args:
-        exc: The failure.
-
-    Returns:
-        The message, then the fix, then the tool's output, as present.
-    """
-    if isinstance(exc, NoustError) and exc.output:
-        return f"{exc}\n\n{exc.output.rstrip()}"
-    return str(exc)
 
 
 class JobStatus(str, Enum):
@@ -298,6 +282,9 @@ class Job:
         completed_at: When it finished, whatever the outcome.
         result: Value returned by the job function.
         error: Error message when the job failed.
+        error_coded: The sentence that ended it as a code and its values, when it was one of
+            the server's (:mod:`noust.core.server_text`); None otherwise.
+        error_output: The failing program's own words, apart from ``error_coded``.
         logs: Everything the job reported.
         metadata: Free-form context, such as the domain being deployed.
         actor: Who queued the job - a session id prefix, an API token name,
@@ -330,6 +317,8 @@ class Job:
     completed_at: datetime | None = None
     result: Any | None = None
     error: str | None = None
+    error_coded: ServerText | None = None
+    error_output: str | None = None
     logs: list[JobLogEntry] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
     actor: str | None = None
@@ -367,6 +356,8 @@ class Job:
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
             "result": self.result,
             "error": self.error,
+            "error_coded": self.error_coded.to_dict() if self.error_coded else None,
+            "error_output": self.error_output,
             "logs": [log.to_dict() for log in self.logs[-MAX_SERIALISED_LOGS:]],
             "metadata": self.metadata,
             "title": title_for(self.type.value, self.metadata, self.name).to_dict(),
@@ -684,6 +675,7 @@ class JobManager:
                 metadata={"domain": record.domain} if record.domain else {},
                 actor=record.actor,
             )
+            job.error_coded, job.error_output = JobErrors().get(job_id)
         except failures as exc:
             logger.warning("Could not announce the end of job %s: %s", job_id, exc)
             return
@@ -1125,6 +1117,7 @@ class JobManager:
         job.holder = None
         job.status = JobStatus.FAILED
         job.error = job.scrubber.scrub(_error_text(busy))
+        job.error_coded, job.error_output = failure_sentence(busy, job.scrubber)
         job.add_log(f"Job failed: {busy}", "error")
         job.completed_at = datetime.now()
         self._notify_subscribers(job)
@@ -1202,6 +1195,7 @@ class JobManager:
             self._log_failure(job, exc)
             job.status = JobStatus.FAILED
             job.error = job.scrubber.scrub(_error_text(exc))
+            job.error_coded, job.error_output = failure_sentence(exc, job.scrubber)
             job.add_log(f"Job failed: {exc}", "error")
         finally:
             job.completed_at = datetime.now()
@@ -1217,12 +1211,8 @@ class JobManager:
         minutes = self._over_time.get(job.id, delivery.current().max_minutes)
         domain = job.metadata.get("domain")
         job.status = JobStatus.FAILED
-        job.error = (
-            f"The {job.type.value} of {domain} was stopped: it ran longer than this server's "
-            f"maximum deployment time ({delivery.minutes_words(minutes)}). Nothing that was serving was "
-            "touched. Raise the limit with 'noust config set deploy.max_minutes <minutes>' "
-            "(0 is no limit)."
-        )
+        job.error_coded = delivery.time_limit_sentence(job.type.value, domain, minutes)
+        job.error = job.error_coded.text
         job.add_log(f"Job failed: {job.error}", "error")
 
     @staticmethod
@@ -1738,6 +1728,8 @@ class JobManager:
                         actor=job.actor,
                     )
                 )
+                if job.error_coded is not None:
+                    JobErrors().save(job.id, job.error_coded, job.error_output)
             except _RECORDING_ERRORS as exc:
                 logger.warning("Could not persist job %s: %s", job.id, exc)
 

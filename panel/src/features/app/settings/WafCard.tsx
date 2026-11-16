@@ -14,6 +14,7 @@ import { Notice } from "../../../components/ui/Notice";
 import { RowList } from "../../../components/ui/RowList";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { Textarea } from "../../../components/ui/Textarea";
+import { ServerText, useServerSentence } from "../../../components/ui/ServerText";
 import { useT } from "../../../i18n";
 import { useOrganization } from "../../teams/useOrganization";
 import { listOf } from "./access";
@@ -28,6 +29,7 @@ import { SETTINGS_ICONS } from "./objectIcons";
  */
 export function WafCard({ form, domain }: { form: AccessForm; domain: string }) {
   const t = useT();
+  const say = useServerSentence();
   const org = useOrganization();
   const queryClient = useQueryClient();
   const support = useQuery(appWafQuery(domain));
@@ -68,7 +70,7 @@ export function WafCard({ form, domain }: { form: AccessForm; domain: string }) 
         {unavailable ? (
           <Notice
             tone="warning"
-            title={data.problem}
+            title={say(data.coded, data.problem)}
             action={
               data.installable && org.can("server.manage") ? (
                 <Button icon={<SETTINGS_ICONS.install aria-hidden="true" />} loading={install.isPending} onClick={() => install.mutate()}>
@@ -77,7 +79,7 @@ export function WafCard({ form, domain }: { form: AccessForm; domain: string }) 
               ) : undefined
             }
           >
-            {data.hint}
+            <ServerText coded={data.coded} text={data.hint} part="hint" />
           </Notice>
         ) : null}
         {install.isError ? <ErrorBlock live compact error={install.error} title={t("network.access.waf.installFailed")} /> : null}

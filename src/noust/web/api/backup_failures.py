@@ -18,13 +18,15 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
+from noust.core.server_text import say
 from noust.managers.backup_failures import BackupFailure, BackupFailureLog
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute
+from noust.web.refusal import refusal
 
 router = APIRouter(route_class=NoustErrorRoute)
 
@@ -90,7 +92,7 @@ def _found(failure_id: int) -> BackupFailure:
     """
     record = BackupFailureLog().get(failure_id)
     if record is None:
-        raise HTTPException(status_code=404, detail=f"Backup failure not found: {failure_id}")
+        raise refusal(404, say("backup_failures.backup_failure_found", failure_id=failure_id))
     return record
 
 

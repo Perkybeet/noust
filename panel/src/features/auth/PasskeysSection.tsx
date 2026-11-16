@@ -21,6 +21,7 @@ import { Input } from "../../components/ui/Input";
 import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
+import { ServerText } from "../../components/ui/ServerText";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { announce } from "../../app/Announcer";
 import { useT } from "../../i18n";
@@ -38,19 +39,33 @@ function Unavailable({ t, availability }: { t: T; availability: PasskeyAvailabil
     return (
       <Notice tone="warning" title={t("auth.passkeys.unavailableTitle")}>
         <div className="flex flex-col gap-2">
-          {/* The fix in the operator's language when the reason is a known one; the server's own otherwise. */}
-          {availability.reason === "ip_address" ? (
-            <p className="max-w-measure text-pretty">{t("auth.passkeys.ipAddress")}</p>
-          ) : availability.reason === "insecure_context" ? (
-            <p className="max-w-measure text-pretty">{t("auth.passkeys.insecureContext")}</p>
-          ) : availability.hint ? (
-            <p className="max-w-measure text-pretty">{availability.hint}</p>
-          ) : null}
-          {availability.detail ? (
-            <SystemOutput label={t("auth.passkeys.serverSaid")} maxHeight="max-h-24">
-              {availability.detail}
-            </SystemOutput>
-          ) : null}
+          {availability.coded ? (
+            // The server's sentence and its fix, said in this language from their code: Noust's words, not a program's.
+            <>
+              <p className="max-w-measure text-pretty">
+                <ServerText coded={availability.coded} text={availability.detail} />
+              </p>
+              <p className="max-w-measure text-pretty">
+                <ServerText coded={availability.coded} text={availability.hint} part="hint" />
+              </p>
+            </>
+          ) : (
+            <>
+              {/* The fix in the operator's language when the reason is a known one; the server's own otherwise. */}
+              {availability.reason === "ip_address" ? (
+                <p className="max-w-measure text-pretty">{t("auth.passkeys.ipAddress")}</p>
+              ) : availability.reason === "insecure_context" ? (
+                <p className="max-w-measure text-pretty">{t("auth.passkeys.insecureContext")}</p>
+              ) : availability.hint ? (
+                <p className="max-w-measure text-pretty">{availability.hint}</p>
+              ) : null}
+              {availability.detail ? (
+                <SystemOutput label={t("auth.passkeys.serverSaid")} maxHeight="max-h-24">
+                  {availability.detail}
+                </SystemOutput>
+              ) : null}
+            </>
+          )}
         </div>
       </Notice>
     );

@@ -30,6 +30,7 @@ import { useConfirmItsYou } from "../useDeleteApp";
 import { previewName, previewStatus } from "./previews";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
+import { jobFailure } from "../../../lib/errors";
 /** When a preview goes: "Expires in 5d", or "Expired 2h ago" while its removal is pending. */
 function Expiry({ value }: { value: string }) {
   const t = useT();
@@ -256,7 +257,7 @@ export function PreviewRow({ domain, preview, can, onLogs }: PreviewRowProps) {
           }
         />
       ) : null}
-      {removalFailed ? <ErrorBlock live compact error={{ detail: job.error ?? t("appSettings.jobFailedSilently") }} title={t("previewHand.list.notRemoved", { name })} /> : null}
+      {removalFailed ? <ErrorBlock live compact error={jobFailure(job, t("appSettings.jobFailedSilently"))} title={t("previewHand.list.notRemoved", { name })} /> : null}
 
       <ConfirmDialog
         open={approving}

@@ -14,6 +14,7 @@ from typing import Any
 from noust.core import app_build_store
 from noust.core.exceptions import DeploymentError, ServiceError, ValidationError
 from noust.core.fs import DryRunFileSystem
+from noust.core.server_text import say
 from noust.core.store import App, DomainKind
 from noust.core.variables.predefined import RELEASE_ENV_NAME
 from noust.deployers.base.build import BuildMixin
@@ -60,10 +61,7 @@ class SiteServiceMixin(BuildMixin):
             True if successful.
         """
         if not self.domain:
-            raise DeploymentError(
-                "Deployer was not configured",
-                details="Call configure(domain=..., source=...) before deploy().",
-            )
+            raise DeploymentError.from_text(say("deploy_site_service.deployer_configured"))
 
         self._record_requested_domains()
         manager = self._webserver_manager()
@@ -90,12 +88,12 @@ class SiteServiceMixin(BuildMixin):
             self.get_nginx_template() if self.webserver == "nginx" else self.get_apache_template()
         )
         if template != "proxy" and self._zero_downtime_app() is not None:
-            raise DeploymentError(
-                f"{self.domain} runs blue/green, which needs the proxy site; this release "
-                f"renders the {template} template",
-                details="A noust.nginx.yaml gives the site routes of its own, which the two "
-                f"instances cannot share. Remove it, or turn the mode off first: "
-                f"noust app zero-downtime {self.domain} off",
+            raise DeploymentError.from_text(
+                say(
+                    "deploy_site_service.runs_blue_green_needs",
+                    domain=str(self.domain),
+                    template=str(template),
+                )
             )
 
         self.logger.substep(f"Web server: {self.webserver}")
@@ -203,9 +201,8 @@ class SiteServiceMixin(BuildMixin):
         if self.uses_releases and self._staged is None:
             active = self.releases.current()
             if active is None:
-                raise DeploymentError(
-                    f"{self.domain} has no active release to serve",
-                    details=f"Build one first: noust update {self.domain}",
+                raise DeploymentError.from_text(
+                    say("deploy_site_service.active_release_serve", domain=str(self.domain))
                 )
             self.adopt_release(
                 StagedRelease(path=active.path, commit=active.commit, manager=self.releases)
@@ -227,10 +224,7 @@ class SiteServiceMixin(BuildMixin):
                 directive value cannot be written safely into the unit file.
         """
         if not self.domain or not self.app_name:
-            raise DeploymentError(
-                "Deployer was not configured",
-                details="Call configure(domain=..., source=...) before deploy().",
-            )
+            raise DeploymentError.from_text(say("deploy_site_service.deployer_configured"))
 
         start_command = self._unit_command()
 
@@ -317,11 +311,8 @@ class SiteServiceMixin(BuildMixin):
             return self._resolve_absolute_path(command)
         program = command.split(" ", 1)[0].strip('"')
         if not program.startswith("/"):
-            raise DeploymentError(
-                f"build.start names {program}, which is in none of the project's tools, "
-                "the pinned runtime or the system's directories",
-                details="Install it where the service can run it, or name the program by its "
-                "path in the project (./bin/server).",
+            raise DeploymentError.from_text(
+                say("deploy_site_service.build_start_names_none", program=str(program))
             )
         return command
 
@@ -352,12 +343,12 @@ class SiteServiceMixin(BuildMixin):
         """
         base = self.build_config().base_directory
         if base:
-            raise DeploymentError(
-                f"{self.domain} runs blue/green, which cannot serve a project from the "
-                f"subdirectory {base}",
-                details="Both instances run from the root of their release. Turn the mode off "
-                f"(noust app zero-downtime {self.domain} off), or move the project to the root "
-                "of the repository.",
+            raise DeploymentError.from_text(
+                say(
+                    "deploy_site_service.runs_blue_green_serve",
+                    base=str(base),
+                    domain=str(self.domain),
+                )
             )
 
     def _launch_record(self) -> dict[str, Any] | None:

@@ -134,9 +134,7 @@ export function IdentityCard({ domain }: { domain: string }) {
             exact: true,
           });
           if (job.status !== "completed")
-            throw new JobFailedError(
-              job.error ?? t("appSettings.jobFailedSilently"),
-            );
+            throw JobFailedError.of(job, t("appSettings.jobFailedSilently"));
           announce(t("appSettings.identity.moved", { domain }));
         }}
       />

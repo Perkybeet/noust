@@ -23,6 +23,7 @@ from noust.core.exceptions import (
 )
 from noust.core.fs import DryRunFileSystem
 from noust.core.logger import Icons
+from noust.core.server_text import say
 from noust.core.store import DEFAULT_KEEP_RELEASES, AppStatus, ReleaseStatus
 from noust.core.variables.predefined import RELEASE_ENV_NAME
 from noust.deployers.base.site_service import SiteServiceMixin
@@ -352,10 +353,7 @@ class ReleaseMixin(SiteServiceMixin):
                 ran out of order.
         """
         if self._staged is None:
-            raise DeploymentError(
-                "No release is being built",
-                details="The fetch step stages the release; it has to run first.",
-            )
+            raise DeploymentError.from_text(say("deploy_release.release_built"))
         return self._staged
 
     def _activate_release(self) -> None:

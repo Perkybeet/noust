@@ -454,6 +454,21 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_docker_stack_versions_stack
 """
 DOCKER_COLUMNS: list[Column] = []
 
+# Owned by the language lane: how a job failed, as the sentence of the catalog it was (item 151).
+# job_errors: one row per failed job whose error carried a code (``noust.core.job_errors``, the only
+#   writer): the code, its values as JSON and the failing program's own words, so that the job page
+#   says the failure in the language of whoever looks at it. A side table and not a column of
+#   ``jobs``, so that the store can still be read by the version it was migrated from.
+LANGUAGE_SQL = """
+CREATE TABLE IF NOT EXISTS job_errors (
+    job_id TEXT PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE,
+    code TEXT NOT NULL,
+    params TEXT NOT NULL DEFAULT '{}',
+    output TEXT
+);
+"""
+LANGUAGE_COLUMNS: list[Column] = []
+
 
 def _fragments() -> list[str]:
     return [
@@ -469,6 +484,7 @@ def _fragments() -> list[str]:
         AGENTS_SQL,
         ASSISTANT_SQL,
         DOCKER_SQL,
+        LANGUAGE_SQL,
     ]
 
 
@@ -486,6 +502,7 @@ def _columns() -> list[Column]:
         *AGENTS_COLUMNS,
         *ASSISTANT_COLUMNS,
         *DOCKER_COLUMNS,
+        *LANGUAGE_COLUMNS,
     ]
 
 

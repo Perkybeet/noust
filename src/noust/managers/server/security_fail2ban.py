@@ -33,6 +33,7 @@ from noust.core import paths
 from noust.core.exceptions import SecurityError, ValidationError
 from noust.core.package_family import install_apt_packages
 from noust.core.runner import CommandResult, CommandRunner, get_runner
+from noust.core.server_text import say
 from noust.managers.server.errors import ConfirmationRequiredError, UnsupportedHostError
 from noust.managers.server.host import PROBE_TIMEOUT, PackageFamily, detect_platform
 from noust.managers.server.security_pending import FAIL2BAN_JAIL, FAIL2BAN_WEB_JAIL, audit
@@ -490,29 +491,36 @@ class Fail2ban:
         try:
             ip = str(ipaddress.ip_address(address.strip()))
         except ValueError as exc:
-            raise ValidationError(f"{address!r} is not an IP address", field="address") from exc
+            raise ValidationError.from_text(
+                say("security.bad_ip", address=f"{address!r}"), field="address"
+            ) from exc
         state = self.state()
         if not state.running:
-            raise SecurityError("fail2ban is not running", output=state.error or None)
+            raise SecurityError.from_text(say("fail2ban.not_running"), output=state.error or None)
         if jail is not None:
             if state.jail(jail) is None:
-                raise ValidationError(
-                    f"There is no fail2ban jail {jail!r}",
-                    details=f"Jails: {', '.join(j.name for j in state.jails) or 'none'}.",
+                raise ValidationError.from_text(
+                    say(
+                        "fail2ban.no_such_jail",
+                        jail=f"{jail!r}",
+                        value=str(", ".join(j.name for j in state.jails) or "none"),
+                    ),
                     field="jail",
                 )
             jails = [jail]
         else:
             jails = [each.name for each in state.jails if ip in each.banned]
             if not jails:
-                raise ValidationError(f"{ip} is not banned by any jail", field="address")
+                raise ValidationError.from_text(
+                    say("fail2ban.not_banned", ip=str(ip)), field="address"
+                )
         for name in jails:
             argv = ["fail2ban-client", "set", name, "unbanip", ip]
             result = self._run(argv)
             self._say(argv, result)
             if not result.success:
-                raise SecurityError(
-                    f"fail2ban did not lift the ban of {ip} in {name}",
+                raise SecurityError.from_text(
+                    say("fail2ban.lift_failed", ip=str(ip), name=str(name)),
                     output=(result.stderr or result.stdout).strip() or None,
                 )
         audit("server.fail2ban", f"address:{ip}", action="unban", jails=jails)
@@ -602,20 +610,23 @@ class Fail2ban:
         """
         commands, needs_epel, blocker = self._install_plan()
         if blocker or not commands:
-            raise UnsupportedHostError("Noust cannot install fail2ban here", blocker)
+            raise UnsupportedHostError.from_text(
+                say("security.no_fail2ban_here", install_hint=blocker or "")
+            )
         if needs_epel and not epel:
+            from_epel = say("fail2ban.needs_epel")
             raise ConfirmationRequiredError(
-                "fail2ban comes from EPEL on this system",
-                details="EPEL is a third-party repository maintained by Fedora. Confirm that it "
-                "may be enabled to install fail2ban from it.",
+                from_epel.text,
+                from_epel.hint or "",
                 required={"epel": True, "packages": [argv[-1] for argv in commands]},
+                coded=from_epel,
             )
         for argv in commands:
             result = self._install_step(argv)
             self._say(argv, result)
             if not result.success:
-                raise SecurityError(
-                    f"Installing failed: {' '.join(argv)}",
+                raise SecurityError.from_text(
+                    say("fail2ban.installing_failed", items=" ".join(argv)),
                     output=(result.stderr or result.stdout).strip() or None,
                 )
         addresses = self._never_banned(ignore)
@@ -654,17 +665,15 @@ class Fail2ban:
                     reason=(result.stderr or result.stdout).strip(),
                 )
                 if never_started:
-                    what = "fail2ban never answered after it was started"
+                    put_back = say("fail2ban.never_answered_back", jail=str(FAIL2BAN_JAIL))
                 elif NO_ACTION in result.stderr:
-                    what = "fail2ban left the sshd jail with no ban action"
+                    put_back = say("fail2ban.no_ban_action_back", jail=str(FAIL2BAN_JAIL))
                 else:
-                    what = f"fail2ban did not accept the sshd jail ({' '.join(argv)})"
-                raise SecurityError(
-                    f"{what}, so {FAIL2BAN_JAIL} was put back",
-                    details="See why it did not start: journalctl -u fail2ban"
-                    if never_started
-                    else "",
-                    output=(result.stderr or result.stdout).strip() or None,
+                    put_back = say(
+                        "fail2ban.jail_refused_back", argv=" ".join(argv), jail=str(FAIL2BAN_JAIL)
+                    )
+                raise SecurityError.from_text(
+                    put_back, output=(result.stderr or result.stdout).strip() or None
                 )
         audit("server.fail2ban", FAIL2BAN_JAIL, action="install", ignored=addresses, ports=ports)
         self._record_install(commands)
@@ -708,19 +717,14 @@ class Fail2ban:
         """
         state = self.state()
         if not state.running:
-            raise SecurityError(
-                "fail2ban is not running",
-                details="Install it first: noust server security fail2ban install",
-                output=state.error or None,
+            raise SecurityError.from_text(
+                say("security.fail2ban_not_running"), output=state.error or None
             )
         if not state.web_available:
-            raise SecurityError("nginx is not installed here, so there is no log to watch")
+            raise SecurityError.from_text(say("security.no_nginx_log"))
         missing = [f for f in WEB_FILTERS if not self.probe.host.at(f).exists()]
         if missing:
-            raise SecurityError(
-                "This fail2ban has no filter for nginx",
-                details="Missing: " + ", ".join(missing) + ". Update fail2ban.",
-            )
+            raise SecurityError.from_text(say("fail2ban.no_nginx_filter", items=", ".join(missing)))
         addresses = self._web_addresses(ignore)
         target = self.probe.host.at(FAIL2BAN_WEB_JAIL)
         previous = read_no_follow(target)
@@ -804,8 +808,8 @@ class Fail2ban:
         result = self._run(argv, timeout=60)
         self._say(argv, result)
         if not result.success:
-            raise SecurityError(
-                "fail2ban did not read the logs of the new sites",
+            raise SecurityError.from_text(
+                say("fail2ban.logs_not_read"),
                 output=(result.stderr or result.stdout).strip() or None,
             )
         return True
@@ -881,14 +885,17 @@ class Fail2ban:
                 action=action,
                 reason=(result.stderr or result.stdout).strip(),
             )
-            what = (
-                "fail2ban left an nginx jail with no ban action"
+            web_back = (
+                say("fail2ban.web_no_ban_action_back", jail=str(FAIL2BAN_WEB_JAIL))
                 if NO_ACTION in result.stderr
-                else f"fail2ban did not accept the nginx jails ({' '.join(argv)})"
+                else say(
+                    "fail2ban.web_jails_refused_back",
+                    argv=" ".join(argv),
+                    jail=str(FAIL2BAN_WEB_JAIL),
+                )
             )
-            raise SecurityError(
-                f"{what}, so {FAIL2BAN_WEB_JAIL} was put back",
-                output=(result.stderr or result.stdout).strip() or None,
+            raise SecurityError.from_text(
+                web_back, output=(result.stderr or result.stdout).strip() or None
             )
 
 

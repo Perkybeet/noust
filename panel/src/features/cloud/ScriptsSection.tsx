@@ -18,6 +18,7 @@ import { Mono } from "../../components/ui/Mono";
 import { NameWithTags } from "../../components/ui/NameWithTags";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { useT } from "../../i18n";
+import { scriptDescription } from "./builtinScripts";
 import type { T } from "../../i18n";
 import { cloudScriptsQuery } from "./data";
 import type { CloudScript } from "./data";
@@ -42,8 +43,8 @@ function columnsFor(t: T): readonly Column<CloudScript>[] {
       // One line, cut at the end: a long description would widen the table past its slab, and the whole of it is its title.
       cell: (script) =>
         script.description !== "" ? (
-          <span title={script.description} className="block max-w-sm truncate text-13 text-fg-muted">
-            {script.description}
+          <span title={scriptDescription(t, script)} className="block max-w-sm truncate text-13 text-fg-muted">
+            {scriptDescription(t, script)}
           </span>
         ) : (
           <EmptyCell reason={t("cloud.scripts.noDescription")} />

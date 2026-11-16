@@ -18,6 +18,7 @@ from urllib.parse import quote
 
 from noust.core.exceptions import SecurityError
 from noust.core.fs import is_rehearsal
+from noust.core.server_text import say
 from noust.web.auth.clock import _now
 from noust.web.auth.constants import (
     FILE_MODE,
@@ -64,12 +65,12 @@ class SessionStore:
                 self._conn = sqlite3.connect(str(path), check_same_thread=False)
                 os.chmod(path, FILE_MODE)
         except (sqlite3.Error, OSError) as exc:
-            raise SecurityError(
-                f"Cannot open the web session database {path}",
-                details=(
-                    "Run the web panel as root, or set "
-                    f"{STATE_DIR_ENV} to a directory the current user owns."
-                ),
+            raise SecurityError.from_text(
+                say(
+                    "auth_sessions.open_web_session_database",
+                    path=str(path),
+                    state_dir_env=str(STATE_DIR_ENV),
+                )
             ) from exc
         self._conn.row_factory = sqlite3.Row
         self._lock = threading.Lock()

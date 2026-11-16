@@ -36,6 +36,7 @@ from pydantic import BaseModel, Field
 
 from noust.core.audit import Actor
 from noust.core.exceptions import BackupError, ValidationError
+from noust.core.server_text import say
 from noust.deployers.recorder import CapturingLogger
 from noust.managers.backup_scheduler import validate_calendar
 from noust.managers.self_backup import SelfBackupManager, SelfBackupNotFound
@@ -327,10 +328,8 @@ def _passphrase(manager: SelfBackupManager, given: str | None) -> str:
     """
     chosen = given or manager.stored_passphrase()
     if not chosen:
-        raise ValidationError(
-            "No passphrase was given and none is stored",
-            details="Give one with the request, or set the schedule with a passphrase.",
-            field="passphrase",
+        raise ValidationError.from_text(
+            say("self_backup.passphrase_given_none_stored"), field="passphrase"
         )
     return chosen
 
@@ -550,7 +549,13 @@ def verify_job(
     manager = _manager(None, job_context, actor, f"Proving {name}")
     report = manager.verify(name, _passphrase(manager, passphrase))
     if not report["ok"]:
-        raise BackupError(f"{name} failed its verification", details="; ".join(report["problems"]))
+        raise BackupError.from_text(
+            say(
+                "self_backup.failed_verification",
+                items=str("; ".join(report["problems"]) or ""),
+                name=name,
+            )
+        )
     _done(job_context)
     return report
 

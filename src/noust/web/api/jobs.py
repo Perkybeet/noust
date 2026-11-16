@@ -38,7 +38,9 @@ from noust.core.exceptions import (
     NoustError,
     ValidationError,
 )
+from noust.core.job_errors import JobErrors
 from noust.core.job_titles import title_for
+from noust.core.server_text import say
 from noust.core.store import JobRecord
 from noust.core.teams import scoped_store
 from noust.deployers.lifecycle import (
@@ -64,6 +66,7 @@ from noust.web.jobs import (
     visible_state,
 )
 from noust.web.pydantic_compat import iso_offset_validator
+from noust.web.refusal import refusal
 
 router = APIRouter(prefix="/jobs", tags=["jobs"], route_class=NoustErrorRoute)
 
@@ -165,6 +168,17 @@ class JobResponse(BaseModel):
     completed_at: str | None = None
     result: dict[str, Any] | None = None
     error: str | None = None
+    error_coded: CodedText | None = Field(
+        default=None,
+        description="error as a sentence of the server's catalog (code and values), when the "
+        "failure was one, for the console to say in its language; error is the same in English",
+    )
+    error_output: str | None = Field(
+        default=None,
+        description="The failing program's own words, shown as they came, when error_coded is "
+        "set: error then holds them after the sentence, and a client that says the sentence "
+        "itself shows these instead",
+    )
     logs: list[dict[str, Any]] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
     title: CodedText | None = Field(
@@ -322,6 +336,8 @@ def _from_record(record: JobRecord) -> JobResponse:
         if isinstance(parsed, dict):
             result = parsed
 
+    coded, output = JobErrors().get(record.id) if record.error else (None, None)
+
     # The store keeps the application of a job and nothing else of its subject.
     subject = {"domain": record.domain} if record.domain else {}
     response = JobResponse(
@@ -340,6 +356,8 @@ def _from_record(record: JobRecord) -> JobResponse:
         result=result,
         deployment_id=_deployment_id_of(result),
         error=record.error,
+        error_coded=CodedText(**coded.to_dict()) if coded else None,
+        error_output=output,
         logs=[],
         metadata=subject,
         title=CodedText(**title_for(record.type, subject, record.name).to_dict()),
@@ -370,10 +388,7 @@ def _validated_job_id(job_id: str) -> str:
         ValidationError: When it is not a hexadecimal identifier.
     """
     if not JOB_ID_PATTERN.fullmatch(job_id):
-        raise ValidationError(
-            f"Invalid job id: {job_id!r}",
-            details="Job ids are hexadecimal, as returned when the job was queued.",
-        )
+        raise ValidationError.from_text(say("jobs_api.invalid_job_id", job_id=f"{job_id!r}"))
     return job_id
 
 
@@ -417,9 +432,12 @@ def list_jobs(
         try:
             JobStatus(status)
         except ValueError as exc:
-            raise ValidationError(
-                f"Unknown job status: {status!r}",
-                details=f"Use one of: {', '.join(s.value for s in JobStatus)}.",
+            raise ValidationError.from_text(
+                say(
+                    "jobs_api.unknown_job_status",
+                    items=", ".join(s.value for s in JobStatus),
+                    status=f"{status!r}",
+                )
             ) from exc
 
     records = scoped_store().list_jobs(limit=limit, status=status, domain=domain)
@@ -773,11 +791,7 @@ def update_group(request: UpdateManyRequest, session: dict[str, Any]) -> UpdateM
     tags = validate_tags(request.tags)
     in_a_place = bool(request.team or request.project or request.environment)
     if not (named or in_a_place or tags):
-        raise ValidationError(
-            "Say which applications",
-            details="Name a team, a project, an environment, a tag, or the domains to update.",
-            field="project",
-        )
+        raise ValidationError.from_text(say("jobs_api.say_applications"), field="project")
     chosen: dict[str, Any] = {}
     if in_a_place or tags:
         carrying: set[str] | None = None
@@ -804,9 +818,12 @@ def update_group(request: UpdateManyRequest, session: dict[str, Any]) -> UpdateM
         else:
             chosen[domain] = found
     if len(chosen) > MAX_GROUP:
-        raise ValidationError(
-            f"That is {len(chosen)} applications; a request updates at most {MAX_GROUP}",
-            details="Narrow it to a project or an environment.",
+        raise ValidationError.from_text(
+            say(
+                "jobs_api.applications_request_updates_most",
+                count=len(chosen),
+                max_group=str(MAX_GROUP),
+            ),
             field="project",
         )
     for domain in sorted(chosen):
@@ -1070,7 +1087,7 @@ def get_job(job_id: str, session: Annotated[dict, Depends(get_current_session)])
     """
     record = scoped_store().get_job(_validated_job_id(job_id))
     if record is None:
-        raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
+        raise refusal(404, say("jobs_api.not_found", job_id=job_id))
     return _from_record(record)
 
 
@@ -1103,7 +1120,7 @@ def get_job_log(
     """
     record = scoped_store().get_job(_validated_job_id(job_id))
     if record is None:
-        raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
+        raise refusal(404, say("jobs_api.not_found", job_id=job_id))
 
     if not record.log_path:
         return JobLogResponse(content="", truncated=False)
@@ -1151,7 +1168,9 @@ def cancel_job(
         outcome = manager.cancel(validated, actor=actor_label(session))
     except CancelRefused as refused:
         if refused.reason == "unknown":
-            raise HTTPException(status_code=404, detail=f"Job not found: {validated}") from None
+            raise refusal(
+                404, say("jobs_api.not_found_validated", validated=str(validated))
+            ) from None
         raise
 
     if outcome.state == "cancelled":

@@ -42,6 +42,7 @@ from noust.core.accounts.reset import (
 from noust.core.audit import record as audit_record
 from noust.core.ens.profile import is_ens
 from noust.core.exceptions import EmailError
+from noust.core.server_text import say
 from noust.core.teams.onboarding import invite_to_team
 from noust.web.api.deps import CodedText, NoustErrorRoute, caller_account, require_elevated
 from noust.web.auth import (
@@ -52,6 +53,7 @@ from noust.web.auth import (
     require_auth,
 )
 from noust.web.permissions.principal import actor_of
+from noust.web.refusal import refusal
 from noust.web.server import get_token_manager
 
 logger = logging.getLogger(__name__)
@@ -507,6 +509,18 @@ class AccountActionResponse(BaseModel):
     message: str
 
 
+#: What an account may not do to itself, by the action asked: the sentence that says it.
+_OWN_ACCOUNT = {
+    "change_person": "accounts_api.own_account_change_person",
+    "change_role": "accounts_api.own_account_change_role",
+    "remove": "accounts_api.own_account_remove",
+    "disable": "accounts_api.own_account_disable",
+    "enable": "accounts_api.own_account_enable",
+    "unlock": "accounts_api.own_account_unlock",
+    "reset_second_factor": "accounts_api.own_account_reset_second_factor",
+}
+
+
 def _refuse_self(session: dict[str, Any], username: str, action: str) -> None:
     """
     Refuse an action on one's own account that another person has to take.
@@ -533,10 +547,7 @@ def _refuse_self(session: dict[str, Any], username: str, action: str) -> None:
         bool(session.get("username")) and str(session["username"]) == username.strip().lower()
     )
     if own:
-        raise AccountError(
-            f"You cannot {action} your own account",
-            details="Another administrator can, or root with 'noust user'.",
-        )
+        raise AccountError.from_text(say(_OWN_ACCOUNT[action]))
 
 
 def _after_role_granted(account: Account) -> None:
@@ -730,15 +741,7 @@ def request_password_reset(
             has local sign-in off, or runs the ENS profile.
     """
     if not password_reset_offered():
-        raise HTTPException(
-            status_code=404,
-            detail={
-                "error": "reset_unavailable",
-                "detail": "This server does not reset passwords by mail.",
-                "hint": "Ask a security officer for a new invitation.",
-                "fields": None,
-            },
-        )
+        raise refusal(404, say("signin.reset_unavailable"), error="reset_unavailable")
     client_ip = get_client_ip(request)
     issued = PasswordResets(get_token_manager().accounts).request(
         body.identifier, client_ip=client_ip
@@ -785,15 +788,7 @@ def confirm_password_reset(request: Request, body: PasswordResetConfirm) -> Pass
     from noust.web.api.auth import INVALID_CREDENTIALS, login_failure
 
     if not password_reset_offered():
-        raise HTTPException(
-            status_code=404,
-            detail={
-                "error": "reset_unavailable",
-                "detail": "This server does not reset passwords by mail.",
-                "hint": "Ask a security officer for a new invitation.",
-                "fields": None,
-            },
-        )
+        raise refusal(404, say("signin.reset_unavailable"), error="reset_unavailable")
     token_manager = get_token_manager()
     client_ip = get_client_ip(request)
     try:
@@ -1058,7 +1053,7 @@ def update_account(
     client_ip = get_client_ip(request)
     account = accounts.require(username)
     if body.person_ref is not None and body.person_ref != (account.person_ref or ""):
-        _refuse_self(session, username, "change the person of")
+        _refuse_self(session, username, "change_person")
     if body.display_name is not None or body.person_ref is not None:
         account = accounts.update_profile(
             username, display_name=body.display_name, person_ref=body.person_ref
@@ -1083,7 +1078,7 @@ def update_account(
     if body.roles is not None:
         account = _change_roles(session, request, username, body.roles)
     elif body.role is not None and body.role != account.role:
-        _refuse_self(session, username, "change the role of")
+        _refuse_self(session, username, "change_role")
         previous = ", ".join(account.roles)
         account = accounts.set_role(username, body.role, by=caller_account(session))
         _after_role_granted(account)
@@ -1138,7 +1133,7 @@ def _change_roles(
     account = accounts.require(username)
     if tuple(roles) == account.roles:
         return account
-    _refuse_self(session, username, "change the role of")
+    _refuse_self(session, username, "change_role")
     previous = ", ".join(account.roles)
     changed = accounts.set_roles(
         username, roles, by=caller_account(session), actor=actor_label(session)
@@ -1346,7 +1341,7 @@ def reset_account_mfa(
     Raises:
         AccountNotFoundError: When no account has that name.
     """
-    _refuse_self(session, username, "reset the second factor of")
+    _refuse_self(session, username, "reset_second_factor")
     token_manager = get_token_manager()
     account = token_manager.accounts.reset_mfa(username)
     token_manager.sessions.revoke_account(account.id)
@@ -1430,7 +1425,7 @@ def revoke_exception(
     """
     accounts = get_token_manager().accounts
     if not accounts.revoke_exception(exception_id):
-        raise HTTPException(status_code=404, detail=f"No exception in force with id {exception_id}")
+        raise refusal(404, say("accounts_api.exception_force_id", exception_id=exception_id))
     audit_event(
         "user.sod_exception",
         "success",

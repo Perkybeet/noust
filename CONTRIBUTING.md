@@ -623,6 +623,14 @@ decided in the data layer, not in the routes.
 - Feedback items are numbered and commit bodies cite them as "item N".
 - Google-style docstrings on everything public, with Args/Returns/Raises.
 - Type hints everywhere, modern syntax (`X | None`, `list[str]`).
+- **A sentence a person reads has a code.** An error that says English Noust typed (`raise X("...")`, an
+  `HTTPException` with a spelled detail) and carries no code is a Spanish console with an English paragraph in
+  it. Add the sentence to `core/server_text*.py` and raise `X.from_text(say("area.what", value=...))`
+  (`web/refusal.py`'s `refusal()` at the door of a route). `tests/test_untranslated_sentences.py` reads the syntax
+  tree and fails on a new one; its table of what is still uncoded only goes down, and the areas a person
+  goes through (sign-in, tokens, the firewall, roles, backups, deploying) are at zero. A program's own output
+  is not a sentence of ours: it travels as `output=` and is shown as it came. The console says an error
+  through `describeError`, never by reading `error.detail`: `panel/src/lib/errorReading.test.ts`.
 - Actionable errors: `raise DeploymentError("what happened", details="how to fix it")`.
 - A pattern that judges text is applied with `fullmatch`, never `match` plus a `$`: `$` matches before a
   trailing newline, which is how `validate_app_name("shop\n")` was once accepted.

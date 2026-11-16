@@ -38,6 +38,7 @@ from noust.web.api.services import restart_refusal, restart_unit
 from noust.web.permissions import Permission
 from noust.web.permissions.principal import actor_of
 from noust.web.permissions.team_roles import permissions_at
+from noust.web.refusal import detail_text
 
 #: How many things one restart by tag may touch; a tag that reaches more is narrowed first.
 MAX_RESTART = 100
@@ -365,7 +366,7 @@ def _restart_application(app: Any, session: dict, dry_run: bool) -> TagRestartOu
             kind="application",
             name=app.domain,
             outcome=tag_deploys.SKIPPED,
-            detail=str(exc.detail),
+            detail=detail_text(exc),
         )
     except NoustError as exc:
         return TagRestartOut(
@@ -394,7 +395,7 @@ def _restart_service(unit: str, dry_run: bool) -> TagRestartOut:
         restart_unit(unit)
     except HTTPException as exc:
         return TagRestartOut(
-            kind="service", name=unit, outcome=tag_deploys.SKIPPED, detail=str(exc.detail)
+            kind="service", name=unit, outcome=tag_deploys.SKIPPED, detail=detail_text(exc)
         )
     except NoustError as exc:
         return TagRestartOut(

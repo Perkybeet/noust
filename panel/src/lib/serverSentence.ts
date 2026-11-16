@@ -46,6 +46,14 @@ export function codedOf(error: unknown): CodedText | null {
   return asCoded((extra as Record<string, unknown>)["coded"]);
 }
 
+/**
+ * The sentence behind the note at `index` of a list that travels beside its codes (`notes` and `notes_coded`), or
+ * null: a server that does not send the codes (an older node) or a note that is not one of Noust's own.
+ */
+export function codedAt(list: readonly (CodedText | null)[] | undefined, index: number): CodedText | null {
+  return list?.[index] ?? null;
+}
+
 /** A code and its values as the API sends them (a log entry's `coded`), or null when it is not one. */
 export function asCoded(value: unknown): CodedText | null {
   if (typeof value !== "object" || value === null) return null;

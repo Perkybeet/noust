@@ -62,6 +62,7 @@ import { SETTINGS_ICONS } from "./objectIcons";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 import { PartSaveBar, PartSection } from "./saveHost";
 
+import { jobFailure } from "../../../lib/errors";
 type Disabled = ResponseOf<"/api/apps/{domain}/previews/settings", "delete">;
 
 /** One thing previews need, with what it is for. */
@@ -451,7 +452,7 @@ function PreviewSettingsForm({
           <ErrorBlock
             live
             compact
-            error={{ detail: job.error ?? t("appSettings.jobFailedSilently") }}
+            error={jobFailure(job, t("appSettings.jobFailedSilently"))}
             title={t("appSettings.previews.someNotRemoved")}
             hint={t("appSettings.previews.someNotRemovedHint")}
           />

@@ -40,6 +40,7 @@ AREAS = [
     "AGENTS",
     "ASSISTANT",
     "DOCKER",
+    "LANGUAGE",
 ]
 
 

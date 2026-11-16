@@ -32,6 +32,7 @@ from pydantic import BaseModel, Field
 
 from noust.core.audit import Actor
 from noust.core.exceptions import BackupError
+from noust.core.server_text import say
 from noust.deployers.recorder import CapturingLogger
 from noust.managers.backup_scheduler import validate_calendar
 from noust.managers.volume_backups import (
@@ -46,6 +47,7 @@ from noust.web.api.databases.common import ActionResponse, queue, session_actor
 from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, require_elevated
 from noust.web.jobs import JobContext, JobType
 from noust.web.pydantic_compat import dump_model, field_validator, iso_offset_validator
+from noust.web.refusal import refusal
 
 router = APIRouter(route_class=NoustErrorRoute)
 
@@ -840,7 +842,7 @@ def get_backup(
     """
     entry = _manager(session).get_backup(backup_id)
     if entry is None:
-        raise HTTPException(status_code=404, detail=f"Volume backup not found: {backup_id}")
+        raise refusal(404, say("volume_backups.volume_backup_found_2", backup_id=backup_id))
     return _backup_response(entry)
 
 
@@ -868,7 +870,13 @@ def verify_job(
     manager = _manager(None, job_context, actor, f"Checking {backup_id}")
     verdict = manager.verify(backup_id, deep=deep)
     if not verdict["valid"]:
-        raise BackupError(f"{backup_id} failed its check", details="; ".join(verdict["errors"]))
+        raise BackupError.from_text(
+            say(
+                "volume_backups.failed_check",
+                backup_id=backup_id,
+                items=str("; ".join(verdict["errors"]) or ""),
+            )
+        )
     _done(job_context)
     return verdict
 

@@ -5,7 +5,8 @@
  */
 
 import type { Role } from "../../../api/queries/roles";
-import type { T } from "../../../i18n";
+import { hasMessage } from "../../../i18n";
+import type { PlainKey, T } from "../../../i18n";
 
 export type RoleKind = "owner" | "follows" | "edited" | "custom";
 
@@ -42,6 +43,21 @@ export function roleLabel(t: T, role: Pick<Role, "name" | "label">): string {
 /** What the role is for: the console's own sentence for one Noust ships and nobody edited, the server's otherwise. */
 export function roleDescription(t: T, role: Pick<Role, "name" | "description" | "edited">): string {
   return shipped(role.name) && !role.edited ? t(`roles.names.${role.name}.description`) : role.description;
+}
+
+/**
+ * What a permission lets a role do, in this console's language. The server's own words (`english`) are
+ * what is shown for a permission this console has no text for, so a server newer than the console still says something true.
+ */
+export function permissionText(t: T, permission: string, english: string): string {
+  const key = `roles.permissionText.${permission.replace(/\./g, "_")}`;
+  return hasMessage(key) ? t(key as PlainKey) : english;
+}
+
+/** The word for the area that groups permissions (`apps`: Applications); the area itself when this console has none. */
+export function areaLabel(t: T, area: string): string {
+  const key = `roles.area.${area}`;
+  return hasMessage(key) ? t(key as PlainKey) : area;
 }
 
 export interface PermissionGroup {

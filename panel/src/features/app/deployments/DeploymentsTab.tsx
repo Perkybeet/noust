@@ -44,6 +44,7 @@ import type { DeploymentsSearch } from "./filters";
 import { deploymentStatusWord, shortCommit, triggerWords } from "./words";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 
+import { jobFailure } from "../../../lib/errors";
 /** Rows asked for at once: far more than the store keeps (twenty by default), so the history is whole and filters see all of it. */
 const HISTORY_PAGE = 200;
 
@@ -345,7 +346,7 @@ export function DeploymentsTab({ domain, search, onSearchChange }: DeploymentsTa
       <QueuePanel domain={domain} />
       {/* The page's own box under its header already says this failure when it is that job: one failure is one box. */}
       {action.failed !== null && action.kind === "rebuild" && action.failed.id !== shownFailure ? (
-        <ErrorBlock live compact error={{ detail: action.failed.error ?? t("appPages.job.noReason") }} title={t("appPages.deployments.actions.rebuildFailed")} when={action.failed.completed_at ?? action.failed.created_at} />
+        <ErrorBlock live compact error={jobFailure(action.failed, t("appPages.job.noReason"))} title={t("appPages.deployments.actions.rebuildFailed")} when={action.failed.completed_at ?? action.failed.created_at} />
       ) : null}
       {pages.isError && pages.data === undefined ? (
         <ErrorBlock error={pages.error} title={t("appPages.deployments.tab.loadError")} onRetry={() => void pages.refetch()} retrying={pages.isRefetching} />

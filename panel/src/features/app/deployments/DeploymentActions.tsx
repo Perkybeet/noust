@@ -24,6 +24,7 @@ import { useRollback, useTrackJob } from "../RollbackHost";
 import { shortCommit } from "./words";
 import { OBJECT_ICONS, VERB_ICONS } from "../../../components/ui/objectIcons";
 
+import { jobFailure } from "../../../lib/errors";
 const RUNNING = new Set(["queued", "running"]);
 
 /** What a deployment's page can queue. Going back is the page's one rollback question, followed by the header. */
@@ -255,7 +256,7 @@ export function useDeploymentActions(domain: string, deployment: Deployment): De
       <ErrorBlock
         live
         compact
-        error={{ detail: action.failed.error ?? t("appPages.job.noReason") }}
+        error={jobFailure(action.failed, t("appPages.job.noReason"))}
         title={actionWords(t, domain).failed}
       />
     ) : action.done !== null && action.kind !== null ? (

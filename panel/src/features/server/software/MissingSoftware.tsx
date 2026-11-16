@@ -33,6 +33,7 @@ import type { SoftwareItem } from "./queries";
 import { installPermissions, whyKey } from "./registry";
 import { componentName, purposeOf } from "./words";
 
+import { jobFailure } from "../../../lib/errors";
 export interface MissingSoftwareProps {
   /** The registry's id of what is missing: `nginx_stream_module`, `cloudflared`. */
   component: string;
@@ -97,7 +98,7 @@ function Installing({ name, followed, retry, className }: { name: string; follow
       announce={false}
       state="failed"
       title={t("software.missing.failed", { name })}
-      error={{ detail: job.error ?? "" }}
+      error={jobFailure(job)}
       action={
         <>
           <Button size="sm" onClick={retry}>

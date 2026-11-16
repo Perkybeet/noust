@@ -33,6 +33,7 @@ from pydantic import BaseModel, Field
 
 from noust.core import audit
 from noust.core.exceptions import ValidationError
+from noust.core.server_text import say
 from noust.core.store import get_store
 from noust.core.teams import scoped_store
 from noust.core.teams.model import ResourceNotFoundError
@@ -204,9 +205,8 @@ def _kind(kind: str) -> str:
         ValidationError: When it is not one.
     """
     if kind not in KINDS:
-        raise ValidationError(
-            f"Unknown kind of copy: {kind!r}",
-            details=f"The kinds are: {', '.join(KINDS)}.",
+        raise ValidationError.from_text(
+            say("central_backups.unknown_kind_copy", items=", ".join(KINDS), kind=f"{kind!r}"),
             field="kind",
         )
     return kind
@@ -229,7 +229,9 @@ def _copy(node: str, kind: str, item: str) -> Any:
     """
     found = CollectedStore().get(node, _kind(kind), item)
     if found is None or found.state != HELD:
-        raise ResourceNotFoundError(f"The central holds no copy {item!r} of {node}")
+        raise ResourceNotFoundError.from_text(
+            say("central_backups.central_holds_copy", item=f"{item!r}", node=node)
+        )
     return found
 
 
@@ -372,8 +374,8 @@ def collect_now(
     if body.node is not None and (
         not scoped_store().sees_node(body.node) or get_store().get_node(body.node) is None
     ):
-        raise ValidationError(
-            f"No server named {body.node} is managed by this central", field="node"
+        raise ValidationError.from_text(
+            say("central_backups.server_named_managed_central", node=str(body.node)), field="node"
         )
     get_worker().wake(body.node, force=body.force)
     return StatusOut(**status_of(visible=_visible(), instance=_sees_all()))
@@ -500,7 +502,9 @@ def restore_copy(
     copy = _copy(node, kind, body.item)
     target_node = body.target_node or node
     if not scoped_store().sees_node(target_node) or get_store().get_node(target_node) is None:
-        raise ResourceNotFoundError(f"No server named {target_node} is managed by this central")
+        raise ResourceNotFoundError.from_text(
+            say("central_backups.server_named_managed_central_2", target_node=str(target_node))
+        )
     audit.record(
         "central_backup.restore",
         actor=session_actor(session),

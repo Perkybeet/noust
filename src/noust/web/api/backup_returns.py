@@ -29,6 +29,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from noust.core.exceptions import ValidationError
+from noust.core.server_text import say
 from noust.managers.backup_catalogue import KINDS
 from noust.managers.backup_return import BackupReturn, ReturnRequest
 from noust.managers.database.uploads import Upload, UploadOffsetError, UploadProfile, UploadStore
@@ -211,8 +212,8 @@ async def send_return_chunk(
     """
     data = await request.body()
     if len(data) > CHUNK_BYTES:
-        raise ValidationError(
-            f"A chunk may be at most {CHUNK_BYTES} bytes here", details="Split the file."
+        raise ValidationError.from_text(
+            say("backup_returns.chunk_most_bytes", chunk_bytes=str(CHUNK_BYTES))
         )
     try:
         upload = await run_in_threadpool(
@@ -342,14 +343,18 @@ def restore_returned_copy(
         ValidationError: 400 for an unknown kind or an upload that is not finished.
     """
     if body.kind not in KINDS:
-        raise ValidationError(f"Unknown kind of copy: {body.kind!r}", field="kind")
+        raise ValidationError.from_text(
+            say("backup_return.unknown_kind_copy", kind=f"{body.kind!r}"), field="kind"
+        )
     owner = actor_label(session)
     upload = _returns().get(body.upload_id, owner=owner)
     if not upload.complete:
-        raise ValidationError(
-            "The copy has not finished arriving",
-            details=f"{upload.received} of {upload.size} bytes are in. Send the rest, then "
-            "complete the upload.",
+        raise ValidationError.from_text(
+            say(
+                "backup_returns.copy_finished_arriving",
+                received=str(upload.received),
+                size=str(upload.size),
+            ),
             field="upload_id",
         )
     domain = str(body.target.get("domain") or body.meta.get("domain") or "")

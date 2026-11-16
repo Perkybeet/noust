@@ -5,6 +5,9 @@ import { isApiError, request } from "../../../api/client";
 import type { ResponseOf } from "../../../api/client";
 import { isJobFinished, jobQuery } from "../../../api/queries/jobs";
 import type { Job } from "../../../api/queries/jobs";
+import { jobFailure } from "../../../lib/errors";
+import type { JobFailureSource } from "../../../lib/errors";
+import type { CodedText } from "../../../lib/serverSentence";
 
 export type WebhookStatus = ResponseOf<"/api/apps/{domain}/webhook", "get">;
 export type WebhookReceived = ResponseOf<"/api/apps/{domain}/webhook/received", "get">;
@@ -145,11 +148,23 @@ export async function waitForJob(queryClient: QueryClient, queued: Job): Promise
 /** A job that ended without completing, as an error a save can show: its own words. */
 export class JobFailedError extends Error {
   readonly detail: string;
+  /** The sentence behind `detail`, when the server gave it a code: said in the console's language. */
+  readonly coded: CodedText | null;
+  /** What the failing program printed, as it came. */
+  readonly output: string | null;
 
-  constructor(detail: string) {
+  constructor(detail: string, coded: CodedText | null = null, output: string | null = null) {
     super(detail);
     this.name = "JobFailedError";
     this.detail = detail;
+    this.coded = coded;
+    this.output = output;
+  }
+
+  /** The failure of a job: its error, the sentence behind it and what the failing program printed. */
+  static of(job: JobFailureSource, fallback = ""): JobFailedError {
+    const failure = jobFailure(job, fallback);
+    return new JobFailedError(failure.detail, failure.coded, failure.output);
   }
 }
 

@@ -30,7 +30,7 @@ import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
 import { Meter } from "../../../components/ui/Progress";
-import { ServerText } from "../../../components/ui/ServerText";
+import { ServerText, useServerSentence } from "../../../components/ui/ServerText";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
@@ -304,6 +304,7 @@ function ImagesDrawer({ onClose }: { onClose: () => void }) {
 
 function Candidates({ storage, open }: { storage: Storage | undefined; open: (opened: Opened) => void }) {
   const t = useT();
+  const say = useServerSentence();
   // How old the measurement is: said under the title, where the table's own first question (is this current?) is asked.
   const measured =
     storage === undefined ? <LineToCome /> : storage.analysis_at ? t.rich("server.storage.measuredAt", { when: <RelativeTime value={storage.analysis_at} /> }) : t("server.storage.neverMeasured");
@@ -315,8 +316,12 @@ function Candidates({ storage, open }: { storage: Storage | undefined; open: (op
       cell: (row) => (
         <span className="flex min-w-0 flex-col">
           <span className="text-13 text-fg">{candidateLabel(t, row.id)}</span>
-          {/* The path or what Noust found, verbatim. */}
-          {row.detail !== "" ? <span className="truncate text-12 text-fg-muted" title={row.detail}>{row.detail}</span> : null}
+          {/* What Noust found, in this console's language when it is one of its sentences; a path, verbatim. */}
+          {row.detail !== "" ? (
+            <span className="truncate text-12 text-fg-muted" title={say(row.detail_coded, row.detail)}>
+              <ServerText coded={row.detail_coded} text={row.detail} />
+            </span>
+          ) : null}
         </span>
       ),
     },

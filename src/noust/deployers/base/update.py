@@ -14,6 +14,7 @@ from noust.core import cancellation
 from noust.core.appdir.layout import RELEASES
 from noust.core.deploy_failures import app_unhealthy
 from noust.core.exceptions import DeploymentError
+from noust.core.server_text import say
 from noust.deployers.base.release import ReleaseMixin
 from noust.deployers.helpers.hooks import CommandHookExecutor, DeploymentHooks, HookSet
 from noust.deployers.helpers.release_build import StagedRelease
@@ -112,10 +113,8 @@ class UpdateMixin(ReleaseMixin):
         require_server_role("native_deploy")
         report = on_step or (lambda _message: None)
         if self.resolve_layout() != RELEASES:
-            raise DeploymentError(
-                f"{self.domain} is not on the release layout",
-                details="Only an application that builds releases can build one without "
-                f"serving it: noust app migrate {self.domain}",
+            raise DeploymentError.from_text(
+                say("deploy_update.release_layout", domain=str(self.domain))
             )
         self._forget_hooks()
         built = False
@@ -183,9 +182,8 @@ class UpdateMixin(ReleaseMixin):
         require_server_role("native_deploy")
         report = on_step or (lambda _message: None)
         if self.resolve_layout() != RELEASES:
-            raise DeploymentError(
-                f"{self.domain} is not on the release layout",
-                details="A release can only be promoted into an application that builds releases.",
+            raise DeploymentError.from_text(
+                say("deploy_update.release_layout_2", domain=str(self.domain))
             )
         self.adopt_release(staged)
         self._forget_hooks()

@@ -107,15 +107,19 @@ export function ErrorBlock({ error, title: pageTitle, hint, onRetry, retrying = 
             <span>{title}</span>
             {when ? <RelativeTime value={when} className="text-12 font-normal text-fg-faint" /> : null}
           </p>
+          {/* Noust's own sentence is the product speaking, in the console's language: text, not what a program printed. */}
+          {described.own ? <p className="text-13 text-pretty text-fg">{described.detail}</p> : null}
           {fix !== undefined ? <p className="text-13 text-pretty text-fg-muted">{fix}</p> : null}
         </div>
       </div>
-      <SystemOutput
-        label={t("common.errorBlock.systemSaidLabel", { title })}
-        className="rounded-control border border-border bg-surface px-3 py-2"
-      >
-        {described.detail}
-      </SystemOutput>
+      {described.own ? null : (
+        <SystemOutput
+          label={t("common.errorBlock.systemSaidLabel", { title })}
+          className="rounded-control border border-border bg-surface px-3 py-2"
+        >
+          {described.detail}
+        </SystemOutput>
+      )}
       {output !== null ? (
         <SystemOutput
           label={t("common.errorBlock.commandOutputLabel", { title })}

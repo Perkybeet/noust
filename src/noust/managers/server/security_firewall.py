@@ -49,6 +49,7 @@ from noust.core.access_changes import describe
 from noust.core.exceptions import SecurityError, ValidationError
 from noust.core.package_family import PackageFamily, install_hint
 from noust.core.runner import EXIT_NOT_FOUND, CommandResult
+from noust.core.server_text import say
 from noust.managers.server.host import PROBE_TIMEOUT, read_text
 from noust.managers.server.security_access import AccessGuardError
 from noust.managers.server.security_docker_user import (
@@ -422,18 +423,18 @@ class RuleRequest:
             ValidationError: A field is not what a rule may carry.
         """
         if self.action not in ("allow", "deny"):
-            raise ValidationError("A rule's action is allow or deny", field="action")
+            raise ValidationError.from_text(say("firewall.bad_action"), field="action")
         if not isinstance(self.port, int) or not 1 <= self.port <= 65535:
-            raise ValidationError("A port is a number from 1 to 65535", field="port")
+            raise ValidationError.from_text(say("firewall.bad_port"), field="port")
         if self.proto not in ("tcp", "udp", "any"):
-            raise ValidationError("A protocol is tcp, udp or any", field="proto")
+            raise ValidationError.from_text(say("firewall.bad_protocol"), field="proto")
         source = (self.source or "any").strip()
         if source != "any":
             try:
                 source = str(ipaddress.ip_network(source, strict=False))
             except ValueError as exc:
-                raise ValidationError(
-                    f"{self.source!r} is not an address or a network", field="source"
+                raise ValidationError.from_text(
+                    say("firewall.bad_source", source=f"{self.source!r}"), field="source"
                 ) from exc
         comment = "".join(c for c in self.comment if c.isalnum() or c in " ._-")[:48].strip()
         return RuleRequest(self.action, self.port, self.proto, source, comment)
@@ -1279,11 +1280,13 @@ class Firewall:
             action=f"{request.action} port {request.port}",
             reason=f"{what} listens there",
         )
-        raise AccessGuardError(
-            f"Refusing to {request.action} port {request.port}: {what} listens there",
-            details="Closing it could cut off the SSH sessions open now and a central's "
-            "tunnel. To restrict who reaches it, allow the addresses you use and let the "
-            "default policy close the rest.",
+        raise AccessGuardError.from_text(
+            say(
+                "firewall.port_in_use",
+                action=str(request.action),
+                port=str(request.port),
+                what=str(what),
+            )
         )
 
     def _guard_delete(self, rule: FirewallRule, state: FirewallState, protected: Protected) -> None:
@@ -1319,38 +1322,37 @@ class Firewall:
                     action=f"delete '{rule.spec}'",
                     reason=f"last rule opening port {port} ({what})",
                 )
-                raise AccessGuardError(
-                    f"Refusing to delete the rule that lets everyone reach port {port} ({what})",
-                    details="With the default policy denying, nobody could open a new SSH "
-                    "session, the central's tunnel included. Add the rule you want instead "
-                    "first, then delete this one.",
+                raise AccessGuardError.from_text(
+                    say("firewall.keeps_ssh_open", port=str(port), what=str(what))
                 )
 
     # Changes --------------------------------------------------------------------
 
     def _require_ledger(self) -> ChangeLedger:
         if self.ledger is None:
-            raise SecurityError("This firewall was opened for reading only")
+            raise SecurityError.from_text(say("firewall.read_only"))
         return self.ledger
 
     def _editable(self) -> FirewallState:
         state = self.state()
         if state.backend not in ("ufw", "firewalld") or not state.installed:
-            raise SecurityError(
-                "Noust changes ufw and firewalld rules, and neither is in use here",
-                details="Install a firewall Noust can change: "
-                + install_hint(
-                    {
-                        PackageFamily.APT: "ufw",
-                        PackageFamily.DNF: "firewalld",
-                        PackageFamily.ZYPPER: "firewalld",
-                    },
-                    runner=self.probe.runner,
+            raise SecurityError.from_text(
+                say(
+                    "firewall.no_changeable_firewall",
+                    value=str(
+                        install_hint(
+                            {
+                                PackageFamily.APT: "ufw",
+                                PackageFamily.DNF: "firewalld",
+                                PackageFamily.ZYPPER: "firewalld",
+                            },
+                            runner=self.probe.runner,
+                        )
+                    ),
                 )
-                + "; nftables and iptables rules are only read.",
             )
         if state.error:
-            raise SecurityError("The firewall's state could not be read", output=state.error)
+            raise SecurityError.from_text(say("firewall.state_unreadable"), output=state.error)
         return state
 
     def plan_add(self, request: RuleRequest) -> FirewallPlan:
@@ -1427,10 +1429,7 @@ class Firewall:
         state = self._editable()
         rule = next((item for item in state.rules if item.id == rule_id), None)
         if rule is None:
-            raise SecurityError(
-                f"There is no firewall rule {rule_id}",
-                details="List the rules with 'noust server security firewall status'.",
-            )
+            raise SecurityError.from_text(say("firewall.no_such_rule", rule_id=rule_id))
         self._guard_delete(rule, state, self.protected())
         return self._build_delete(rule, state)
 
@@ -1488,27 +1487,27 @@ class Firewall:
         state = self._editable()
         rule = next((item for item in state.rules if item.id == rule_id), None)
         if rule is None:
-            raise SecurityError(
-                f"There is no firewall rule {rule_id}",
-                details="List the rules with 'noust server security firewall status'.",
-            )
+            raise SecurityError.from_text(say("firewall.no_such_rule", rule_id=rule_id))
         if not rule.source_changeable:
-            raise SecurityError(
-                f"Noust changes the origin of a rule for one port, and '{rule.spec}' is not one",
-                details="For this one, add the rule you want and then delete this one.",
+            raise SecurityError.from_text(
+                say("firewall.origin_needs_one_port", spec=str(rule.spec))
             )
         comment = rule.comment.removeprefix(NOUST_COMMENT).strip()
         action = "allow" if rule.action == "allow" else "deny"
         moved = RuleRequest(action, rule.ports[0][0], rule.proto, source, comment).validated()
         if _same_origin(rule.source, moved.source):
-            raise ValidationError(
-                f"The rule already admits from {_origin_words(rule.source)}", field="source"
+            raise ValidationError.from_text(
+                say("firewall.rule_already_admits", value=str(_origin_words(rule.source))),
+                field="source",
             )
         if any(_same_rule_with_origin(other, moved) for other in state.rules):
-            raise SecurityError(
-                f"There is already a rule for {moved.proto} port {moved.port} from "
-                f"{_origin_words(moved.source)}",
-                details="Delete the rule you do not want, or choose another origin.",
+            raise SecurityError.from_text(
+                say(
+                    "firewall.rule_exists",
+                    port=str(moved.port),
+                    proto=str(moved.proto),
+                    value=str(_origin_words(moved.source)),
+                )
             )
         protected = self.protected()
         self._guard_rule(moved, protected)
@@ -1576,18 +1575,21 @@ class Firewall:
                 action=f"change the origin of '{rule.spec}'",
                 reason=f"it is what lets everyone reach port {port} ({what})",
             )
-            raise AccessGuardError(
-                f"Refusing to change who reaches port {port} ({what}) to "
-                f"{_origin_words(moved.source)}",
-                details=(
-                    f"It would cut off the SSH sessions open now ({', '.join(cut)}) and could "
-                    "leave a central's tunnel out. Choose a network that holds the address you "
-                    "are connected from, or add the rule you want first and delete this one "
-                    "once you have proved it works."
-                    if cut
-                    else "It would leave nobody able to open a new SSH session or reach the "
-                    "console: the default policy denies and nothing else admits them."
-                ),
+            raise AccessGuardError.from_text(
+                say(
+                    "firewall.origin_cuts_ssh",
+                    port=str(port),
+                    what=what,
+                    origin=_origin_words(moved.source),
+                    sessions=", ".join(cut),
+                )
+                if cut
+                else say(
+                    "firewall.origin_locks_out",
+                    port=str(port),
+                    what=what,
+                    origin=_origin_words(moved.source),
+                )
             )
 
     def plan_enable(self) -> FirewallPlan:
@@ -1602,14 +1604,9 @@ class Firewall:
         """
         state = self._editable()
         if state.backend != "ufw":
-            raise SecurityError(
-                "Noust turns on ufw only",
-                details="For firewalld, allow SSH in the default zone with "
-                "'firewall-offline-cmd --add-service=ssh', then 'systemctl enable --now "
-                "firewalld', keeping this session open.",
-            )
+            raise SecurityError.from_text(say("firewall.turns_on_ufw_only"))
         if state.active:
-            raise SecurityError("ufw is already active")
+            raise SecurityError.from_text(say("firewall.ufw_active"))
         protected = self.protected()
         apply: list[list[str]] = []
         undo: list[list[str]] = [["ufw", "disable"]]
@@ -1643,7 +1640,7 @@ class Firewall:
         """
         state = self._editable()
         if not state.active:
-            raise SecurityError(f"{state.backend} is not active")
+            raise SecurityError.from_text(say("firewall.not_active", backend=str(state.backend)))
         if state.backend == "ufw":
             return _plan(
                 "firewall_disable", {}, [["ufw", "disable"]], [["ufw", "--force", "enable"]], []
@@ -1707,22 +1704,16 @@ class Firewall:
         for rule_id in wanted:
             old = next((item for item in state.rules if item.id == rule_id), None)
             if old is None:
-                raise SecurityError(
-                    f"There is no firewall rule {rule_id}",
-                    details="List the rules with 'noust server security firewall status'.",
-                )
+                raise SecurityError.from_text(say("firewall.no_such_rule", rule_id=str(rule_id)))
             protocols = ("tcp", "udp") if rule.proto == "any" else (rule.proto,)
             if old.action != "allow" or not any(old.covers(rule.port, p) for p in protocols):
-                raise SecurityError(
-                    f"The rule '{old.spec}' is not about port {rule.port}",
-                    details="Only a rule that allows the port being opened is replaced with it.",
+                raise SecurityError.from_text(
+                    say("firewall.rule_other_port", port=str(rule.port), spec=str(old.spec))
                 )
             if old.ports != ((rule.port, rule.port),):
                 # It would close the other ports it names for everybody as well.
-                raise SecurityError(
-                    f"The rule '{old.spec}' covers more than port {rule.port}",
-                    details="Delete it on its own from the firewall's rules, and add the ones "
-                    "you want for each port.",
+                raise SecurityError.from_text(
+                    say("firewall.rule_covers_more", port=str(rule.port), spec=str(old.spec))
                 )
             deletions.append(self.plan_delete(rule_id))
             titles.append(f"'{old.spec}'")
@@ -1822,10 +1813,7 @@ class Firewall:
         """
         rule = request.validated()
         if rule.action != "allow":
-            raise SecurityError(
-                "Only an allow rule is made without a confirmation window",
-                details="Denying a port can cut SSH off, so it waits to be confirmed.",
-            )
+            raise SecurityError.from_text(say("firewall.allow_only_unconfirmed"))
         state = self.state()
         if state.backend not in ("ufw", "firewalld") or not state.installed:
             return DirectChange(
@@ -1835,7 +1823,7 @@ class Firewall:
                 "Noust changes ufw and firewalld rules, and neither is in use here",
             )
         if state.error:
-            raise SecurityError("The firewall's state could not be read", output=state.error)
+            raise SecurityError.from_text(say("firewall.state_unreadable"), output=state.error)
         if any(self._same_rule(existing, rule) for existing in state.rules):
             return DirectChange(state.backend, state.active, False, "it is already allowed")
         if state.backend == "firewalld" and not state.active:
@@ -1907,8 +1895,8 @@ class Firewall:
                     action=plan.title,
                     reason=(result.stderr or result.stdout).strip(),
                 )
-                raise SecurityError(
-                    f"The firewall refused '{' '.join(argv)}'",
+                raise SecurityError.from_text(
+                    say("firewall.refused", items=" ".join(argv)),
                     output=(result.stderr or result.stdout).strip() or None,
                 )
             done.append(argv)
@@ -1918,8 +1906,8 @@ class Firewall:
             if not result.success:
                 for undo in reversed(plan.undo):
                     self.probe.runner.run(undo, timeout=PROBE_TIMEOUT, env=FIREWALL_ENV)
-                raise SecurityError(
-                    f"The firewall could not make '{plan.title}' permanent, so it was undone",
+                raise SecurityError.from_text(
+                    say("firewall.not_permanent", title=str(plan.title)),
                     output=(result.stderr or result.stdout).strip() or None,
                 )
         self._state = None
@@ -1946,9 +1934,8 @@ class Firewall:
         with ledger.locked():
             waiting = ledger.pending()
             if waiting:
-                raise SecurityError(
-                    f"Another change is waiting for confirmation: {waiting[0].title} ({waiting[0].id})",
-                    details="Confirm it or revert it first: one change at a time can be undone safely.",
+                raise SecurityError.from_text(
+                    say("access_change.waiting_for_confirmation", id=str(waiting[0].id))
                 )
             now = self.probe.now()
             state = self.state()
@@ -1982,8 +1969,8 @@ class Firewall:
                         action=plan.title,
                         reason=(result.stderr or result.stdout).strip(),
                     )
-                    raise SecurityError(
-                        f"The firewall refused '{' '.join(argv)}', so the change was undone",
+                    raise SecurityError.from_text(
+                        say("firewall.refused_undone", items=" ".join(argv)),
                         output=(result.stderr or result.stdout).strip() or None,
                     )
             self._state = None

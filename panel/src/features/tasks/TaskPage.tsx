@@ -45,6 +45,7 @@ import { pin, unpin, useTaskState } from "./store";
 import { whoOf } from "./who";
 import { stepOf, titleOf, viewOf } from "./words";
 
+import { jobFailure } from "../../lib/errors";
 /** The jobs whose steps are the deploy's five phases, which the page draws as its line of steps. */
 const DEPLOY_JOBS: ReadonlySet<string> = new Set(["deploy", "update", "rollback", "push", "zero_downtime", "migrate"]);
 
@@ -175,7 +176,7 @@ function TaskView({ job }: { job: Job }) {
         }}
       >
         <div className="flex flex-col gap-6">
-          {task.state === "failed" && job.error !== null && job.error !== undefined && job.error !== "" ? <ErrorBlock compact error={{ detail: job.error }} title={endingWords(task, t.locale)} /> : null}
+          {task.state === "failed" && job.error !== null && job.error !== undefined && job.error !== "" ? <ErrorBlock compact error={jobFailure(job)} title={endingWords(task, t.locale)} /> : null}
           <Card as="section" level={2} title={t("tasks.page.steps")}>
             {phases !== null ? <PhaseTimeline phases={phases} outcome={outcomeOf(job.status)} /> : <Doing task={task} title={title} />}
             {state.kind === "cannot" ? (

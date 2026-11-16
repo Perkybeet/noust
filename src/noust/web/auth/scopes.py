@@ -9,8 +9,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import HTTPException, Request, status
+from fastapi import Request, status
 
+from noust.core.server_text import say
 from noust.web.auth.config import get_audit_logger
 from noust.web.auth.connection import get_client_ip
 from noust.web.auth.constants import (
@@ -20,6 +21,7 @@ from noust.web.auth.constants import (
     SAFE_METHODS,
 )
 from noust.web.auth.payload import actor_label, scope_satisfies
+from noust.web.refusal import refusal
 from noust.web.versioning import canonical_api_path
 
 
@@ -94,11 +96,13 @@ def ensure_scope(request: Request, payload: dict[str, Any], required: str) -> No
             resource=request.url.path,
             detail=f"scope '{granted}' below required '{required}'",
         )
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail=(
-            f"This credential's scope is '{granted}', and {request.method} "
-            f"{request.url.path} requires '{required}'. Issue a token with the "
-            "right scope from Settings, or POST /api/auth/tokens."
+    raise refusal(
+        status.HTTP_403_FORBIDDEN,
+        say(
+            "auth_scopes.credential_scope_requires_issue",
+            granted=str(granted),
+            method=str(request.method),
+            path=str(request.url.path),
+            required=required,
         ),
     )

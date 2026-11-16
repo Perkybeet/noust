@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from noust.core.exceptions import SecurityError, ValidationError
+from noust.core.server_text import say
 
 #: The five roles every release since 3.1 has shipped, weakest first, which is also the order
 #: the console lists them in. A server has more roles than these (the owner, and the ones its
@@ -97,18 +98,9 @@ def validate_username(value: str) -> str:
     """
     name = (value or "").strip().lower()
     if not USERNAME_PATTERN.fullmatch(name):
-        raise ValidationError(
-            f"Invalid username: {value!r}",
-            details=(
-                "Use 2 to 64 lower-case letters, digits, '.', '-' or '_', starting with a "
-                "letter or digit, such as 'maria' or 'maria.adm'."
-            ),
-        )
+        raise ValidationError.from_text(say("accounts_model.invalid_username", value=f"{value!r}"))
     if name in RESERVED_USERNAMES:
-        raise ValidationError(
-            f"The username {name!r} is reserved",
-            details="It already names something in the audit log. Pick another one.",
-        )
+        raise ValidationError.from_text(say("accounts_model.username_reserved", name=f"{name!r}"))
     return name
 
 
@@ -130,9 +122,8 @@ def validate_role(value: str, known: Iterable[str] | None = None) -> str:
     role = (value or "").strip().lower()
     names = tuple(ROLES if known is None else known)
     if role not in names:
-        raise ValidationError(
-            f"Unknown role: {value!r}",
-            details=f"Use one of: {', '.join(names)}.",
+        raise ValidationError.from_text(
+            say("accounts_model.unknown_role", items=", ".join(names), value=f"{value!r}")
         )
     return role
 
@@ -152,9 +143,8 @@ def clean_display_name(value: str | None) -> str:
     """
     name = (value or "").strip()
     if len(name) > MAX_DISPLAY_NAME or any(ord(char) < 32 or ord(char) == 127 for char in name):
-        raise ValidationError(
-            "Invalid display name",
-            details=f"Use at most {MAX_DISPLAY_NAME} printable characters.",
+        raise ValidationError.from_text(
+            say("accounts_model.invalid_display_name", max_display_name=str(MAX_DISPLAY_NAME))
         )
     return name
 
@@ -185,10 +175,8 @@ def clean_email(value: str | None) -> str | None:
     if not address:
         return None
     if len(address) > MAX_EMAIL or not _EMAIL.fullmatch(address):
-        raise ValidationError(
-            f"Not an e-mail address: {value!r}",
-            details="Use an address such as maria@example.com.",
-            field="email",
+        raise ValidationError.from_text(
+            say("accounts_model.e_mail_address", value=f"{value!r}"), field="email"
         )
     return address
 
@@ -210,9 +198,8 @@ def clean_person_ref(value: str | None) -> str | None:
     if not ref:
         return None
     if len(ref) > MAX_PERSON_REF or any(ord(char) < 32 or ord(char) == 127 for char in ref):
-        raise ValidationError(
-            "Invalid person reference",
-            details=f"Use at most {MAX_PERSON_REF} printable characters, such as an e-mail.",
+        raise ValidationError.from_text(
+            say("accounts_model.invalid_person_reference", max_person_ref=str(MAX_PERSON_REF))
         )
     return ref
 
@@ -250,10 +237,8 @@ class AuthenticationFailed(AccountError):
             account_id: The account the attempt named, when there is one.
             locked_now: Whether this failure locked the account.
         """
-        super().__init__(
-            "Invalid credentials",
-            details="Check the username, the password and the code, then try again.",
-        )
+        sentence = say("signin.credentials_refused")
+        super().__init__(sentence.text, details=sentence.hint or "", coded=sentence)
         self.reason = reason
         self.account_id = account_id
         self.locked_now = locked_now

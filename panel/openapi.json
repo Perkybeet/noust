@@ -9520,6 +9520,16 @@
             "title": "Detail",
             "type": "string"
           },
+          "detail_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -10643,7 +10653,7 @@
         "type": "object"
       },
       "ChangeOut": {
-        "description": "A change to sshd or the firewall.\n\n``pending`` until confirmed or undone; ``expires_at`` (epoch seconds) is\nwhen its timer undoes it.\n\nWhile it is pending, ``proof_seen`` says whether the new SSH login that\nkeeps it is already on record, and ``proof_login`` is that login: the\nsame check Keep makes, so Keep will not be refused for it. A session that\nwas already open does not count; for ``proof`` ``operator`` (sshd) neither\ndoes a central's tunnel. ``proof_readable`` is false when sshd's login\nhistory cannot be read, ``proof_error`` saying why verbatim. These four\nmean nothing once the change is confirmed, undone or expired.",
+        "description": "A change to sshd or the firewall.\n\n``pending`` until confirmed or undone; ``expires_at`` (epoch seconds) is\nwhen its timer undoes it.\n\nWhile it is pending, ``proof_seen`` says whether the new SSH login that\nkeeps it is already on record, and ``proof_login`` is that login: the\nsame check Keep makes, so Keep will not be refused for it. A session that\nwas already open does not count; for ``proof`` ``operator`` (sshd) neither\ndoes a central's tunnel. ``proof_readable`` is false when sshd's login\nhistory cannot be read, ``proof_error`` saying why verbatim. These four\nmean nothing once the change is confirmed, undone or expired.\n\n``title`` is what the change is in English. ``title_coded`` is the same as a sentence of the\nserver's catalog (``access_changes.*``, code and values), for the console to say in its own\nlanguage; null for a change recorded before the ledger kept what it was, whose ``title`` is the\nsentence somebody wrote then and is shown as it is.",
         "properties": {
           "actor": {
             "title": "Actor",
@@ -10763,6 +10773,16 @@
           "title": {
             "title": "Title",
             "type": "string"
+          },
+          "title_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "undo": {
             "default": [],
@@ -32433,7 +32453,7 @@
         "type": "object"
       },
       "Http3Model": {
-        "description": "Whether this server can serve HTTP/3, and what stands in the way.\n\nAttributes:\n    available: nginx is 1.25.0 or later and was built with the HTTP/3 module.\n    webserver: ``nginx`` or ``apache``.\n    version: nginx's version.\n    problem: What is missing, when something is.\n    hint: How to fix it.\n    anchor: Whether the site that holds the QUIC socket is in place.\n    udp_allowed: Whether the firewall lets UDP 443 in; None when it filters nothing or\n        cannot be read.\n    firewall_hint: The command that opens UDP 443, when it is closed.",
+        "description": "Whether this server can serve HTTP/3, and what stands in the way.\n\nAttributes:\n    available: nginx is 1.25.0 or later and was built with the HTTP/3 module.\n    webserver: ``nginx`` or ``apache``.\n    version: nginx's version.\n    problem: What is missing, when something is.\n    hint: How to fix it.\n    anchor: Whether the site that holds the QUIC socket is in place.\n    udp_allowed: Whether the firewall lets UDP 443 in; None when it filters nothing or\n        cannot be read.\n    firewall_hint: The command that opens UDP 443, when it is closed.\n    coded: ``problem`` and ``hint`` as a sentence of the server's catalog (code and values),\n        for the console to say in its own language.",
         "properties": {
           "anchor": {
             "default": false,
@@ -32443,6 +32463,16 @@
           "available": {
             "title": "Available",
             "type": "boolean"
+          },
+          "coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "firewall_hint": {
             "default": "",
@@ -35253,6 +35283,29 @@
             ],
             "title": "Error"
           },
+          "error_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "error as a sentence of the server's catalog (code and values), when the failure was one, for the console to say in its language; error is the same in English"
+          },
+          "error_output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The failing program's own words, shown as they came, when error_coded is set: error then holds them after the sentence, and a client that says the sentence itself shows these instead",
+            "title": "Error Output"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -37084,6 +37137,21 @@
               "type": "string"
             },
             "title": "Notes",
+            "type": "array"
+          },
+          "notes_coded": {
+            "default": [],
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/CodedText"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Notes Coded",
             "type": "array"
           },
           "scanned": {
@@ -42108,8 +42176,18 @@
         "type": "object"
       },
       "PasskeyAvailability": {
-        "description": "Whether passkeys work for the request that asked, and if not, why.\n\nAttributes:\n    supported: Whether a ceremony can be started from this page.\n    rp_id: The name passkeys are bound to here, when supported.\n    reason: When not: ``library_missing``, ``ip_address``,\n        ``insecure_context``, ``invalid_host`` or ``host_mismatch``. The\n        browser knows more (no WebAuthn, a certificate it does not trust)\n        and says so itself.\n    detail: What is wrong, in one sentence.\n    hint: How to fix it.",
+        "description": "Whether passkeys work for the request that asked, and if not, why.\n\nAttributes:\n    supported: Whether a ceremony can be started from this page.\n    rp_id: The name passkeys are bound to here, when supported.\n    reason: When not: ``library_missing``, ``ip_address``,\n        ``insecure_context``, ``invalid_host`` or ``host_mismatch``. The\n        browser knows more (no WebAuthn, a certificate it does not trust)\n        and says so itself.\n    detail: What is wrong, in one sentence.\n    hint: How to fix it.\n    coded: ``detail`` and ``hint`` as a sentence of the server's catalog (code and values), for\n        the console to say in its own language.",
         "properties": {
+          "coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "detail": {
             "anyOf": [
               {
@@ -54350,6 +54428,21 @@
               "type": "string"
             },
             "title": "Notes",
+            "type": "array"
+          },
+          "notes_coded": {
+            "default": [],
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/CodedText"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Notes Coded",
             "type": "array"
           },
           "persistent": {
@@ -73364,7 +73457,7 @@
         "type": "object"
       },
       "WafModel": {
-        "description": "Whether this server can run the WAF, and what stands in the way.\n\nAttributes:\n    available: nginx has the ModSecurity module loaded and the Core Rule Set is installed.\n    webserver: ``nginx`` or ``apache``.\n    module_loaded: nginx has loaded the module.\n    module_installed: The module's file is on disk.\n    rules: The Core Rule Set was found.\n    problem: What is missing, when something is.\n    hint: How to fix it.\n    installable: Noust can install the packages here (Debian and Ubuntu).\n    packages: The packages it would install.\n    anchor: The shared rules are loaded.",
+        "description": "Whether this server can run the WAF, and what stands in the way.\n\nAttributes:\n    available: nginx has the ModSecurity module loaded and the Core Rule Set is installed.\n    webserver: ``nginx`` or ``apache``.\n    module_loaded: nginx has loaded the module.\n    module_installed: The module's file is on disk.\n    rules: The Core Rule Set was found.\n    problem: What is missing, when something is.\n    hint: How to fix it.\n    installable: Noust can install the packages here (Debian and Ubuntu).\n    packages: The packages it would install.\n    anchor: The shared rules are loaded.\n    coded: ``problem`` and ``hint`` as a sentence of the server's catalog (code and values),\n        for the console to say in its own language.",
         "properties": {
           "anchor": {
             "title": "Anchor",
@@ -73373,6 +73466,16 @@
           "available": {
             "title": "Available",
             "type": "boolean"
+          },
+          "coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "hint": {
             "default": "",

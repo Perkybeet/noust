@@ -15,6 +15,7 @@ import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
 import { SkeletonCard } from "../../../components/ui/Skeleton";
 import { Textarea } from "../../../components/ui/Textarea";
+import { ServerText, useServerSentence } from "../../../components/ui/ServerText";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { useOpenPort } from "../../network/OpenPortDialog";
@@ -128,6 +129,7 @@ function HeadersCard({ form, policy, t }: { form: AccessForm; policy: AppPolicy;
  */
 function Http3Card({ form, domain, t }: { form: AccessForm; domain: string; t: T }) {
   const support = useQuery(appHttp3Query(domain));
+  const say = useServerSentence();
   // The one dialog that opens a port (network): the console does what the firewall's command does, so the card shows no command.
   const openPort = useOpenPort();
   const { draft, edit } = form;
@@ -139,7 +141,7 @@ function Http3Card({ form, domain, t }: { form: AccessForm; domain: string; t: T
     data === undefined
       ? null
       : !data.available
-        ? { title: data.problem, body: data.hint, action: undefined }
+        ? { title: say(data.coded, data.problem), body: <ServerText coded={data.coded} text={data.hint} part="hint" />, action: undefined }
         : data.udp_allowed === false
           ? {
               title: t("network.access.http3.udpClosed"),

@@ -31,6 +31,7 @@ import { newestLine } from "../../lib/serverSentence";
 import { serverKeys } from "./queries";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
+import { jobFailure } from "../../lib/errors";
 /** What a job of this area does, which names it while it runs and once it ends. */
 export type ServerJobKind = "update" | "refresh" | "repair" | "auto" | "software" | "cleanup" | "analyze" | "swap" | "security" | "checks" | "restarts" | "noust";
 
@@ -238,7 +239,7 @@ export function ServerJobSlot() {
         <JobProgress
           state="failed"
           title={title}
-          error={{ detail: job.error ?? jobStep(job) ?? "" }}
+          error={jobFailure(job, jobStep(job) ?? "")}
           action={viewOutput}
           {...(mine ? { onDismiss: dismiss } : {})}
         />

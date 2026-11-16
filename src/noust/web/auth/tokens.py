@@ -27,6 +27,7 @@ from noust.core.accounts.model import Account
 from noust.core.console_exposure_store import console_published
 from noust.core.exceptions import SecurityError
 from noust.core.fs import SECRET_MODE, get_fs
+from noust.core.server_text import say
 from noust.core.store import StoreError
 from noust.core.token_presets import preset_permissions
 from noust.web.auth.clock import _now, utcnow
@@ -340,11 +341,11 @@ class TokenManager:
             # is reported by write_private_file, with the directory's name.
             existing = None
         except OSError as exc:
-            raise SecurityError(
-                f"Cannot read the web signing key {secret_file}",
-                details=(
-                    "The web panel must run as the user that owns the key. "
-                    f"Run as root, or set {STATE_DIR_ENV} to a directory you own."
+            raise SecurityError.from_text(
+                say(
+                    "tokens.read_web_signing_key",
+                    secret_file=str(secret_file),
+                    state_dir_env=str(STATE_DIR_ENV),
                 ),
                 output=str(exc),
             ) from exc
@@ -358,14 +359,8 @@ class TokenManager:
         # Overwriting a key file that exists but is empty would invalidate
         # every session without anyone asking for it, and would hide the
         # truncation (a full disk, an interrupted write, a bad restore).
-        raise SecurityError(
-            f"The web signing key {secret_file} exists but is empty",
-            details=(
-                "Noust refuses to invent a new key silently, because that logs every "
-                "operator out and hides whatever truncated the file. Restore the file "
-                f"from backup, or delete it with 'rm {secret_file}' to start over, "
-                "which revokes all existing sessions on purpose."
-            ),
+        raise SecurityError.from_text(
+            say("tokens.web_signing_key_exists", secret_file=str(secret_file))
         )
 
     def generate_master_token(self) -> str:
@@ -593,23 +588,14 @@ class TokenManager:
         except FileNotFoundError:
             return default
         except OSError as exc:
-            raise SecurityError(
-                f"Cannot read the two-factor state file {path}",
-                details=(
-                    "Run the web panel as the user that owns it, or delete the file to "
-                    "turn two-factor authentication off on purpose."
-                ),
+            raise SecurityError.from_text(
+                say("tokens.read_two_factor_state", path=str(path))
             ) from exc
         try:
             state = json.loads(raw)
         except json.JSONDecodeError as exc:
-            raise SecurityError(
-                f"The two-factor state file {path} is corrupt",
-                details=(
-                    "Noust refuses to guess whether two-factor authentication was on. "
-                    f"Restore the file from backup, or delete it with 'rm {path}' to "
-                    "disable the second factor on purpose."
-                ),
+            raise SecurityError.from_text(
+                say("tokens.two_factor_state_file", path=str(path))
             ) from exc
         default.update(state if isinstance(state, dict) else {})
         return default
@@ -678,10 +664,7 @@ class TokenManager:
         with self._totp_lock:
             state = self._read_totp_state()
             if state["enabled"]:
-                raise SecurityError(
-                    "Two-factor authentication is already enabled",
-                    details="Disable it with a current code before enrolling a new authenticator.",
-                )
+                raise SecurityError.from_text(say("tokens.two_factor_authentication_already"))
             secret = totp.generate_secret()
             state["pending_secret"] = secret
             self._write_totp_state(state)
@@ -719,10 +702,7 @@ class TokenManager:
             state = self._read_totp_state()
             pending = state["pending_secret"]
             if not pending:
-                raise SecurityError(
-                    "No two-factor enrolment is in progress",
-                    details="Begin one first: POST /api/auth/2fa/enroll, or Enable in Settings.",
-                )
+                raise SecurityError.from_text(say("tokens.two_factor_enrolment_progress"))
             if not totp.verify(pending, code, t=_now()):
                 return None
             codes = [
@@ -827,10 +807,7 @@ class TokenManager:
         with self._totp_lock:
             state = self._read_totp_state()
             if not state["enabled"]:
-                raise SecurityError(
-                    "Two-factor authentication is not enabled",
-                    details="There is nothing to regenerate. Enrol first from Settings.",
-                )
+                raise SecurityError.from_text(say("tokens.two_factor_authentication_enabled_2"))
             codes = [
                 f"{secrets.token_hex(2)}-{secrets.token_hex(2)}" for _ in range(BACKUP_CODE_COUNT)
             ]
@@ -853,10 +830,7 @@ class TokenManager:
             SecurityError: When two-factor authentication is not enabled.
         """
         if not self._read_totp_state()["enabled"]:
-            raise SecurityError(
-                "Two-factor authentication is not enabled",
-                details="There is nothing to disable. Enrol first from Settings.",
-            )
+            raise SecurityError.from_text(say("tokens.two_factor_authentication_enabled"))
         if not self.verify_second_factor(code, purpose="disable"):
             return False
         with self._totp_lock:
@@ -943,84 +917,58 @@ class TokenManager:
                 assistant with ``allow_elevated`` or without an owner.
         """
         if caller is not None and caller not in CALLERS:
-            raise SecurityError(
-                f"Unknown caller for an API token: {caller!r}",
-                details=f"Use one of: {', '.join(CALLERS)}, or none.",
+            raise SecurityError.from_text(
+                say(
+                    "tokens.unknown_caller_api_token",
+                    caller=f"{caller!r}",
+                    items=", ".join(CALLERS),
+                )
             )
         if caller == ASSISTANT_CALLER and (allow_elevated or owner is None):
-            raise SecurityError(
-                "The assistant's token acts for a person and never in sudo mode",
-                details="Issue it for an account, without allow_elevated: what needs a "
-                "person's confirmation is done by the person, in the console.",
-            )
+            raise SecurityError.from_text(say("tokens.assistant_token_acts_person"))
         if scope == FLEET_SCOPE:
             # The chokepoint for the one scope that may speak for somebody
             # else: POST /api/auth/tokens and 'noust token create' both land
             # here, and neither may mint it.
-            raise SecurityError(
-                "A fleet token cannot be issued here",
-                details=(
-                    "Fleet tokens are created on this server by 'noust fleet authorize "
-                    "--central-key ... --name <central>', which also installs the "
-                    "central's restricted SSH key and prints the join code for it."
-                ),
-            )
+            raise SecurityError.from_text(say("tokens.fleet_token_issued"))
         if scope not in API_TOKEN_SCOPES:
-            raise SecurityError(
-                f"Unknown API token scope: {scope!r}",
-                details=f"Use one of: {', '.join(API_TOKEN_SCOPES)}.",
+            raise SecurityError.from_text(
+                say(
+                    "tokens.unknown_api_token_scope",
+                    items=", ".join(API_TOKEN_SCOPES),
+                    scope=f"{scope!r}",
+                )
             )
         if preset is not None:
             if permissions is not None:
-                raise SecurityError(
-                    "A token takes a preset or a list of permissions, not both",
-                    details="Give the preset alone, or name the permissions yourself.",
-                )
+                raise SecurityError.from_text(say("tokens.token_takes_preset_list"))
             permissions = sorted(preset_permissions(preset))
         policy = self.policy()
         if owner is None and policy.requires("restricted_tokens"):
-            raise SecurityError(
-                "On this server an API token belongs to an account",
-                details=(
-                    "Issue it signed in as that account, or from the CLI with "
-                    "'noust token create NAME --owner USERNAME'."
-                ),
-            )
+            raise SecurityError.from_text(say("tokens.server_api_token_belongs"))
         if policy.token_max_days is not None:
             longest = float(policy.token_max_days) * 24
             if expires_hours is None:
                 expires_hours = longest
             elif expires_hours > longest:
-                raise SecurityError(
-                    f"API tokens last at most {policy.token_max_days} days on this server",
-                    details=(
-                        f"Ask for {int(longest)} hours or fewer, and issue a new one then. "
-                        f"A compliance framework asks for it: noust compliance status."
-                    ),
+                raise SecurityError.from_text(
+                    say(
+                        "tokens.api_tokens_last_most",
+                        longest=int(longest),
+                        token_max_days=str(policy.token_max_days),
+                    )
                 )
         if allow_elevated and policy.requires("restricted_tokens"):
-            raise SecurityError(
-                "API tokens cannot act in sudo mode on this server",
-                details="Do what needs confirming from the console, as a person.",
-            )
+            raise SecurityError.from_text(say("tokens.api_tokens_act_sudo"))
         if (
             allow_elevated
             and issuer_permissions is not None
             and Permission.ACCOUNTS_MANAGE not in issuer_permissions
         ):
-            raise SecurityError(
-                "Only whoever governs accounts can issue an API token that acts in sudo mode",
-                details=(
-                    "Ask an administrator to issue it, or issue the token without allow_elevated "
-                    "and do what needs confirming from the console, as a person."
-                ),
-            )
+            raise SecurityError.from_text(say("tokens.whoever_governs_accounts_issue"))
         stored_permissions: list[str] | None = None
         if bound is not None and owner is None:
-            raise SecurityError(
-                "A token bound to a team, project or environment belongs to an account",
-                details="Issue it signed in as that account, or with '--owner USERNAME'.",
-            )
+            raise SecurityError.from_text(say("tokens.token_bound_team_project"))
         if owner is not None:
             # A token never holds more than its owner does anywhere: the role's
             # permissions and what the owner's team roles add - and, bound to a
@@ -1032,15 +980,17 @@ class TokenManager:
             else:
                 unknown = sorted(set(permissions) - ALL_PERMISSIONS)
                 if unknown:
-                    raise SecurityError(
-                        f"Unknown permissions: {', '.join(unknown)}",
-                        details="GET /api/auth/roles lists every permission there is.",
+                    raise SecurityError.from_text(
+                        say("tokens.unknown_permissions", items=", ".join(unknown))
                     )
                 missing = sorted(set(permissions) - held)
                 if missing:
-                    raise SecurityError(
-                        f"A token cannot hold more than its owner: {', '.join(missing)}",
-                        details=f"The {owner.role} role does not hold them; leave them out.",
+                    raise SecurityError.from_text(
+                        say(
+                            "tokens.token_hold_more_owner",
+                            items=", ".join(missing),
+                            role=str(owner.role),
+                        )
                     )
                 granted = frozenset(permissions) | {Permission.SELF}
             stored_permissions = sorted(granted)
@@ -1051,16 +1001,14 @@ class TokenManager:
             # a word, which made a "deploy only" token a token for everything its scope allowed.
             unknown = sorted(set(permissions) - ALL_PERMISSIONS)
             if unknown:
-                raise SecurityError(
-                    f"Unknown permissions: {', '.join(unknown)}",
-                    details="GET /api/auth/roles lists every permission there is.",
+                raise SecurityError.from_text(
+                    say("tokens.unknown_permissions", items=", ".join(unknown))
                 )
             held_by_issuer = ALL_PERMISSIONS if issuer_permissions is None else issuer_permissions
             missing = sorted(set(permissions) - held_by_issuer)
             if missing:
-                raise SecurityError(
-                    f"A token cannot hold more than its owner: {', '.join(missing)}",
-                    details="Whoever issues it does not hold them; leave them out.",
+                raise SecurityError.from_text(
+                    say("tokens.token_hold_more_owner_2", items=", ".join(missing))
                 )
             granted = frozenset(permissions) | {Permission.SELF}
             stored_permissions = sorted(granted)
@@ -1109,12 +1057,8 @@ class TokenManager:
             if kind not in BOUND_KINDS or not bound_reach(
                 owned, kind, bound_id, self.accounts.store
             ):
-                raise SecurityError(
-                    f"{owner.username!r} does not reach that {kind}",
-                    details=(
-                        "A token bound to a scope can only be issued by someone who has a "
-                        "role there: give the account one first ('noust access grant')."
-                    ),
+                raise SecurityError.from_text(
+                    say("tokens.reach", kind=str(kind), username=f"{owner.username!r}")
                 )
             owned = {**owned, **bound_fields(owned, kind, bound_id, self.accounts.store)}
         return owned
@@ -1196,15 +1140,9 @@ class TokenManager:
         """
         cleaned = name.strip()
         if not cleaned or len(cleaned) > 64:
-            raise SecurityError(
-                "API token names are 1 to 64 characters",
-                details="Name the token after what will hold it, such as 'ci-deploy'.",
-            )
+            raise SecurityError.from_text(say("tokens.api_token_names_1"))
         if expires_hours is not None and expires_hours <= 0:
-            raise SecurityError(
-                "The token expiry must be a positive number of hours",
-                details="Omit it entirely for a token that only dies by revocation.",
-            )
+            raise SecurityError.from_text(say("tokens.token_expiry_positive_number"))
 
         token = f"{API_TOKEN_PREFIX}{secrets.token_urlsafe(TOKEN_LENGTH)}"
         now = time.time()
@@ -1226,12 +1164,8 @@ class TokenManager:
                 caller=caller,
             )
         except sqlite3.IntegrityError as exc:
-            raise SecurityError(
-                f"An API token named {cleaned!r} already exists",
-                details=(
-                    "Names are unique, including revoked tokens, so an audit line "
-                    "naming one always names one thing. Pick a new name."
-                ),
+            raise SecurityError.from_text(
+                say("tokens.api_token_named_already", cleaned=f"{cleaned!r}")
             ) from exc
 
         return {
@@ -2279,30 +2213,19 @@ class TokenManager:
         """
         candidate = prefix.strip().lower()
         if not re.fullmatch(r"[0-9a-f]{6,32}", candidate):
-            raise SecurityError(
-                f"Not a session id prefix: {prefix!r}",
-                details=(
-                    "Prefixes are the leading characters of a session id as listed by "
-                    "GET /api/auth/sessions: hexadecimal, at least six characters."
-                ),
-            )
+            raise SecurityError.from_text(say("tokens.session_id_prefix", prefix=f"{prefix!r}"))
 
         matches = self.sessions.sids_with_prefix(candidate, account_id)
         if not matches:
             return None
         if len(matches) > 1:
-            raise SecurityError(
-                f"The prefix {candidate!r} matches {len(matches)} sessions",
-                details="Send more characters of the session id so exactly one matches.",
+            raise SecurityError.from_text(
+                say(
+                    "tokens.prefix_matches_sessions", candidate=f"{candidate!r}", count=len(matches)
+                )
             )
         if protect_sid and matches[0] == protect_sid:
-            raise SecurityError(
-                "That is the session you are using",
-                details=(
-                    "Revoking the current session from here would leave the browser "
-                    "holding dead cookies. Use Sign out, or POST /api/auth/logout."
-                ),
-            )
+            raise SecurityError.from_text(say("tokens.session_using"))
 
         self.sessions.revoke(matches[0])
         return matches[0][:8]

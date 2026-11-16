@@ -50,6 +50,7 @@ from noust.core.exceptions import DeploymentError
 from noust.core.fs import FileSystem, get_fs
 from noust.core.logger import Logger
 from noust.core.runner import CommandRunner, get_runner
+from noust.core.server_text import say
 
 #: Directory, inside the application directory, that holds one build per entry.
 RELEASES_DIR = "releases"
@@ -194,11 +195,7 @@ def _short_commit(commit: str | None) -> str:
         return NO_COMMIT
     normalized = commit.strip().lower()
     if not _COMMIT.fullmatch(normalized):
-        raise DeploymentError(
-            f"{commit!r} is not a commit id",
-            details="Pass the full or abbreviated hash from `git rev-parse HEAD`, "
-            "or None for a source that is not a git checkout.",
-        )
+        raise DeploymentError.from_text(say("appdir_releases.commit_id", commit=f"{commit!r}"))
     return normalized[:SHORT_COMMIT_LENGTH]
 
 
@@ -261,10 +258,8 @@ def persistent_path(raw: str) -> PurePosixPath:
         or ".." in candidate.parts
         or not candidate.parts
     ):
-        raise DeploymentError(
-            f"Persistent path {raw!r} is not a path inside the application",
-            details="Persistent paths are relative to the application root, such as "
-            "'storage' or 'public/uploads', and may not be absolute or contain '..'.",
+        raise DeploymentError.from_text(
+            say("appdir_releases.persistent_path_path_inside", raw=f"{raw!r}")
         )
     return candidate
 
@@ -283,9 +278,8 @@ def _color(color: str) -> str:
         DeploymentError: It is not ``blue`` or ``green``.
     """
     if not _COLOR.fullmatch(color):
-        raise DeploymentError(
-            f"{color!r} is not an instance of a zero-downtime application",
-            details="The instances are blue and green.",
+        raise DeploymentError.from_text(
+            say("appdir_releases.instance_zero_downtime_application", color=f"{color!r}")
         )
     return color
 
@@ -460,10 +454,13 @@ class ReleaseManager:
             self._issued.add(release_id)
             return path
 
-        raise DeploymentError(
-            f"Could not claim a release directory in {self.releases_dir}",
-            details=f"{_MAX_NAME_ATTEMPTS} names for {stamp} were taken. Check for "
-            "a runaway process creating releases, then retry.",
+        raise DeploymentError.from_text(
+            say(
+                "appdir_releases.claim_release_directory",
+                max_name_attempts=str(_MAX_NAME_ATTEMPTS),
+                releases_dir=str(self.releases_dir),
+                stamp=str(stamp),
+            )
         )
 
     def link_shared(self, release: Path, persistent: Sequence[str]) -> SharedLinks:
@@ -508,11 +505,14 @@ class ReleaseManager:
                 continue
             blocked = first_obstacle(self.shared_dir, path)
             if blocked is not None:
-                raise DeploymentError(
-                    f"Refusing to create {shared}: {blocked} is not a plain directory",
-                    details=f"A symlink or file at {blocked} would make Noust create "
-                    f"{path} somewhere outside {self.shared_dir}. Replace it with a "
-                    "directory, or create the shared path yourself.",
+                raise DeploymentError.from_text(
+                    say(
+                        "appdir_releases.refusing_create_plain_directory",
+                        blocked=str(blocked),
+                        path=str(path),
+                        shared=str(shared),
+                        shared_dir=str(self.shared_dir),
+                    )
                 )
 
         linked: builtins.list[str] = []
@@ -573,10 +573,11 @@ class ReleaseManager:
         if os.path.lexists(self.current_link) and not self.current_link.is_symlink():
             # The in-place layout is never converted by accident: only the
             # explicit migration replaces a real tree with a link.
-            raise DeploymentError(
-                f"{self.current_link} is a real directory, not a release link",
-                details="This application is not on the release layout. Migrate it "
-                "explicitly before activating releases.",
+            raise DeploymentError.from_text(
+                say(
+                    "appdir_releases.real_directory_release_link",
+                    current_link=str(self.current_link),
+                )
             )
 
         previous = self.current()
@@ -586,14 +587,18 @@ class ReleaseManager:
         try:
             self.fs.symlink(Path(RELEASES_DIR) / release_id, self.current_link)
         except OSError as error:
-            raise DeploymentError(
-                f"Could not point {self.current_link} at release {release_id}",
-                details=f"{error}. Nothing changed: "
-                + (
-                    f"release {previous.id} is still active."
-                    if previous is not None
-                    else "there was no active release before."
-                ),
+            raise DeploymentError.from_text(
+                say(
+                    "appdir_releases.point_release",
+                    current_link=str(self.current_link),
+                    error=str(error),
+                    release_id=str(release_id),
+                    value=str(
+                        f"release {previous.id} is still active."
+                        if previous is not None
+                        else "there was no active release before."
+                    ),
+                )
             ) from error
         # The processes beside the web process follow the release that serves.
         if self.workers_link.is_symlink():
@@ -642,18 +647,23 @@ class ReleaseManager:
         """
         release_id = self._existing_release_id(release)
         if os.path.lexists(self.workers_link) and not self.workers_link.is_symlink():
-            raise DeploymentError(
-                f"{self.workers_link} is a real directory, not a release link",
-                details="Noust keeps only a link there. Move what is in it away; Noust "
-                "recreates the link.",
+            raise DeploymentError.from_text(
+                say(
+                    "appdir_releases.real_directory_release_link_2",
+                    workers_link=str(self.workers_link),
+                )
             )
         previous = self.workers_release()
         try:
             self.fs.symlink(Path(RELEASES_DIR) / release_id, self.workers_link)
         except OSError as error:
-            raise DeploymentError(
-                f"Could not point {self.workers_link} at release {release_id}",
-                details=str(error),
+            raise DeploymentError.from_text(
+                say(
+                    "appdir_releases.point_workers",
+                    workers_link=str(self.workers_link),
+                    release_id=release_id,
+                    error=str(error),
+                )
             ) from error
         return None if previous is None else previous.path
 
@@ -752,15 +762,18 @@ class ReleaseManager:
             self.fs.symlink(Path("..") / RELEASES_DIR / release_id, self.color_link(color))
             env_file = self.color_env_file(color)
             if env_file.is_symlink():
-                raise DeploymentError(
-                    f"Refusing to write {env_file}: it is a symlink",
-                    details="Remove the link; Noust writes the port of each instance itself.",
+                raise DeploymentError.from_text(
+                    say("appdir_releases.refusing_write_symlink", env_file=str(env_file))
                 )
             self.fs.write_text(env_file, f"PORT={int(port)}\n", mode=0o644)
         except OSError as error:
-            raise DeploymentError(
-                f"Could not point the {color} instance at release {release_id}",
-                details=str(error),
+            raise DeploymentError.from_text(
+                say(
+                    "appdir_releases.point_instance",
+                    color=color,
+                    release_id=release_id,
+                    error=str(error),
+                )
             ) from error
         return None if previous is None else previous.path
 
@@ -789,10 +802,8 @@ class ReleaseManager:
         if self.colors_dir.is_symlink() or (
             os.path.lexists(self.colors_dir) and not self.colors_dir.is_dir()
         ):
-            raise DeploymentError(
-                f"{self.colors_dir} is not a plain directory",
-                details="A symlink or file there would make Noust write somewhere else. "
-                "Remove it; Noust recreates the directory.",
+            raise DeploymentError.from_text(
+                say("appdir_releases.plain_directory", colors_dir=str(self.colors_dir))
             )
 
     def rollback(self, to: str | None = None) -> Release:
@@ -815,26 +826,30 @@ class ReleaseManager:
 
         if to is None:
             if active_index is None:
-                raise DeploymentError(
-                    "There is no active release to roll back from",
-                    details=f"{self.current_link} does not point at a release. "
-                    + self._available_hint(releases)
-                    + " Name the one to activate explicitly.",
+                raise DeploymentError.from_text(
+                    say(
+                        "appdir_releases.active_release_roll_back",
+                        current_link=str(self.current_link),
+                        value=str(self._available_hint(releases)),
+                    )
                 )
             if active_index + 1 >= len(releases):
-                raise DeploymentError(
-                    f"Release {releases[active_index].id} is the oldest one; there is "
-                    "nothing earlier to roll back to",
-                    details="Older releases were pruned or never existed. Deploy a "
-                    "known-good commit instead, or restore a backup.",
+                raise DeploymentError.from_text(
+                    say(
+                        "lifecycle.release_oldest_nothing_earlier",
+                        id=str(releases[active_index].id),
+                    )
                 )
             target = releases[active_index + 1]
         else:
             found = next((r for r in releases if r.id == to), None)
             if found is None:
-                raise DeploymentError(
-                    f"Release {to!r} does not exist",
-                    details=self._available_hint(releases),
+                raise DeploymentError.from_text(
+                    say(
+                        "appdir_releases.release_missing",
+                        release_id=repr(to),
+                        available=self._available_hint(releases),
+                    )
                 )
             target = found
 
@@ -861,11 +876,7 @@ class ReleaseManager:
             DeploymentError: keep is less than 1.
         """
         if keep < 1:
-            raise DeploymentError(
-                f"Cannot keep {keep} releases",
-                details="Keep at least 1 release. A release is the application's "
-                "code; pruning them all would leave nothing to run or roll back to.",
-            )
+            raise DeploymentError.from_text(say("appdir_releases.keep_releases", keep=keep))
 
         releases = self.list()
         survivors = {r.id for r in releases[:keep]}
@@ -1003,10 +1014,13 @@ class ReleaseManager:
             and not release.is_symlink()
         )
         if not in_place:
-            raise DeploymentError(
-                f"{release} is not a release of {self.app_path}",
-                details=f"Releases are directories in {self.releases_dir} named like "
-                "20260925-143012-a1b2c3d, created by a deploy.",
+            raise DeploymentError.from_text(
+                say(
+                    "appdir_releases.release",
+                    app_path=str(self.app_path),
+                    release=str(release),
+                    releases_dir=str(self.releases_dir),
+                )
             )
         return release.name
 
@@ -1032,9 +1046,12 @@ class ReleaseManager:
         """
         release_id = self._release_id(release)
         if not (self.releases_dir / release_id).is_dir() and release_id not in self._issued:
-            raise DeploymentError(
-                f"Release {release_id} does not exist",
-                details=self._available_hint(),
+            raise DeploymentError.from_text(
+                say(
+                    "appdir_releases.release_missing",
+                    release_id=release_id,
+                    available=self._available_hint(),
+                )
             )
         return release_id
 

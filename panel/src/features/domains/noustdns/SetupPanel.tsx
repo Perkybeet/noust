@@ -18,6 +18,7 @@ import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 
+import { jobFailure } from "../../../lib/errors";
 type Role = "primary" | "secondary";
 
 /** The addresses a person typed, separated by commas, spaces or lines. */
@@ -136,7 +137,7 @@ export function SetupPanel({ server }: { server: NoustServer }) {
           {running ? (
             <JobProgress state={job?.status === "running" ? "running" : "queued"} title={t("noustDns.setup.running")} step={job?.current_step ?? null} />
           ) : job !== null && isJobFinished(job) && job.status !== "completed" ? (
-            <JobProgress state="failed" title={t("noustDns.setup.failed")} error={{ detail: job.error ?? "" }} onDismiss={followed.dismiss} />
+            <JobProgress state="failed" title={t("noustDns.setup.failed")} error={jobFailure(job)} onDismiss={followed.dismiss} />
           ) : setup.isError && fields === null ? (
             <JobProgress state="failed" title={t("noustDns.setup.failed")} error={setup.error} onDismiss={() => setup.reset()} />
           ) : null}

@@ -147,7 +147,7 @@ function HardeningForm({
         exact: true,
       });
       if (job.status !== "completed")
-        throw new JobFailedError(job.error ?? t("runtime.hardening.jobFailed"));
+        throw JobFailedError.of(job, t("runtime.hardening.jobFailed"));
     },
     onSuccess: (_result, values) => {
       setSubmitted(false);

@@ -59,6 +59,7 @@ from noust.central import require_server_role
 from noust.core import audit
 from noust.core.exceptions import DependencyError, NoustError, ValidationError
 from noust.core.logger import Logger
+from noust.core.server_text import say
 from noust.core.store import App, NoustStore, get_store, is_compose_backed
 from noust.core.utils import domain_to_app_name
 from noust.managers.backup_destinations import BackupDestinationManager
@@ -487,8 +488,8 @@ class RestoreServer:
                     ):
                         orphans.append(f"{row['engine']}/{row['name']}")
                 except sqlite3.Error as exc:
-                    raise ValidationError(
-                        "The bundle's store could not be read", details=str(exc)
+                    raise ValidationError.from_text(
+                        say("restore_server.bundle_store_read", exc=str(str(exc) or ""))
                     ) from exc
                 finally:
                     connection.close()
@@ -557,10 +558,8 @@ class RestoreServer:
         """
         require_server_role("restoring_a_server")
         if not skip_state and not (name_or_path and passphrase):
-            raise ValidationError(
-                "Restoring the state needs the bundle and its passphrase",
-                details="Give both, or pass skip_state when the state is already here.",
-                field="name_or_path",
+            raise ValidationError.from_text(
+                say("restore_server.restoring_state_needs_bundle"), field="name_or_path"
             )
 
         def step(text: str) -> None:

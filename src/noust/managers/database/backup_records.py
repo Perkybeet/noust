@@ -30,6 +30,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from noust.core.exceptions import ValidationError
+from noust.core.server_text import say
 from noust.core.store import NoustStore
 from noust.managers.database.scope import ALL_DATABASES, SCOPE_ALL, SCOPE_DATABASE
 
@@ -339,10 +340,13 @@ class BackupRecords:
         if policy.scope not in (SCOPE_DATABASE, SCOPE_ALL) or (policy.scope == SCOPE_ALL) != (
             policy.db_name == ALL_DATABASES
         ):
-            raise ValidationError(
-                f"A {policy.scope!r} policy cannot be stored for {policy.db_name!r}",
-                details="Only a policy that covers all databases is stored under "
-                f"{ALL_DATABASES!r}, and it is always one.",
+            raise ValidationError.from_text(
+                say(
+                    "backup_records.policy_stored",
+                    all_databases=f"{ALL_DATABASES!r}",
+                    db_name=f"{policy.db_name!r}",
+                    scope=f"{policy.scope!r}",
+                ),
                 field="scope",
             )
         stamp = now()

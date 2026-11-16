@@ -20,6 +20,7 @@ import type { T } from "../../i18n";
 import { formatBytes } from "../../lib/format";
 import { useNode } from "../../nodes/useNode";
 
+import { describeError } from "../../lib/errors";
 type Key = "memory_mb" | "cpus" | "swap_mb" | "tasks";
 
 const KEYS: readonly Key[] = ["memory_mb", "cpus", "swap_mb", "tasks"];
@@ -125,7 +126,7 @@ function LimitsForm({ engine, display, data }: { engine: string; display: string
       if (confirm || !isApiError(error) || error.error !== "confirmation_required") return;
       const listed = error.extra["warnings"];
       const messages = Array.isArray(listed) ? listed.filter((item): item is string => typeof item === "string") : [];
-      setWarnings({ messages: messages.length > 0 ? messages : [error.detail], body });
+      setWarnings({ messages: messages.length > 0 ? messages : [describeError(error).detail], body });
     },
   });
 

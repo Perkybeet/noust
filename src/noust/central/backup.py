@@ -57,6 +57,7 @@ from noust.core.ens.envelope import (
 )
 from noust.core.fs import SECRET_DIR_MODE, FileSystem, get_fs
 from noust.core.runner import CommandRunner
+from noust.core.server_text import say
 
 #: The envelope's label, so a file says what it is without a passphrase.
 LABEL = "noust-central-backup"
@@ -431,15 +432,21 @@ def verify_central_backup(
         try:
             extract_archive(archive, extracted, archive_format="tar.gz")
         except SourceError as exc:
-            raise EnvelopeError(
-                f"{path.name} does not hold a readable archive: {exc.message}",
-                details=exc.details,
+            raise EnvelopeError.from_text(
+                say(
+                    "backup.hold_readable_archive",
+                    details=str(exc.details or ""),
+                    message=str(exc.message),
+                    name=str(path.name),
+                )
             ) from exc
         root = extracted / ROOT_NAME
         try:
             manifest = json.loads((root / MANIFEST_NAME).read_text())
         except (OSError, ValueError) as exc:
-            raise EnvelopeError(f"{path.name} has no readable manifest: {exc}") from exc
+            raise EnvelopeError.from_text(
+                say("backup.readable_manifest", exc=str(exc), name=str(path.name))
+            ) from exc
         for entry in manifest.get("files", []):
             file_path = root / str(entry.get("path", ""))
             if not file_path.is_file():

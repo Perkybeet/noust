@@ -47,6 +47,7 @@ from typing import TYPE_CHECKING, Any, Literal, Protocol
 from noust.core.exceptions import DeploymentError, NoustError, ValidationError
 from noust.core.fs import is_rehearsal
 from noust.core.runner import CommandResult
+from noust.core.server_text import ServerText, say
 
 if TYPE_CHECKING:
     from noust.core.logger import Logger
@@ -258,9 +259,8 @@ class HookFailedError(DeploymentError):
 
     def __init__(
         self,
-        message: str,
+        sentence: ServerText,
         *,
-        details: str,
         output: str,
         phase: HookPhase,
         hook: Hook,
@@ -268,14 +268,16 @@ class HookFailedError(DeploymentError):
     ) -> None:
         """
         Args:
-            message: What failed.
-            details: How to fix it.
+            sentence: What failed and how to go on, a sentence of the catalog; the fix is
+                followed by the hook's own output, which is what the deployment history keeps.
             output: The hook's own output, verbatim.
             phase: The phase it belonged to.
             hook: The hook.
             outcome: What the phase had run until then.
         """
-        super().__init__(message, details=details, output=output)
+        super().__init__(
+            sentence.text, details=(sentence.hint or "").strip(), output=output, coded=sentence
+        )
         self.phase = phase
         self.hook = hook
         self.outcome = outcome
@@ -348,11 +350,18 @@ def refuse_unsupported(hooks: HookSet, app_type: str, *, serves: bool) -> None:
     if reason is None:
         return
     where = "noust.yaml" if hooks.source == "repo" else "the operator's hooks"
-    raise ValidationError(
-        f"Deploy hooks are declared in {where}, and {app_type} applications have none",
-        details=f"{reason}. Remove them"
-        + (" from noust.yaml" if hooks.source == "repo" else " with: noust app hooks clear DOMAIN")
-        + ", or deploy the project as the type that runs it.",
+    raise ValidationError.from_text(
+        say(
+            "deploy_hooks.deploy_hooks_declared_applications",
+            app_type=app_type,
+            reason=str(reason),
+            value=str(
+                " from noust.yaml"
+                if hooks.source == "repo"
+                else " with: noust app hooks clear DOMAIN"
+            ),
+            where=str(where),
+        ),
         field="hooks",
     )
 
@@ -392,8 +401,7 @@ def run_hooks(
             entry = _entry(phase, hook, exit_code=None, ok=False, output=str(exc))
             outcome.ran.append(entry)
             raise HookFailedError(
-                f"The {phase} hook '{hook.command}' could not run: {exc.message}",
-                details=_with_output(exc.details or _fix(phase), exc.output or ""),
+                _could_not_run(phase, hook, exc),
                 output=exc.output or "",
                 phase=phase,
                 hook=hook,
@@ -416,14 +424,9 @@ def run_hooks(
             if hook.migrates and migration_applied(output):
                 outcome.schema_changed = True
             continue
-        how = (
-            f"ran out of its {hook.timeout} seconds"
-            if result.timed_out
-            else f"exited with {result.exit_code}"
-        )
+        failed = _failed(phase, hook, result, output)
         raise HookFailedError(
-            f"The {phase} hook '{hook.command}' {how}",
-            details=_with_output(_fix(phase), output),
+            failed,
             output=output,
             phase=phase,
             hook=hook,
@@ -432,37 +435,51 @@ def run_hooks(
     return outcome
 
 
-def _fix(phase: HookPhase) -> str:
+def _could_not_run(phase: HookPhase, hook: Hook, exc: NoustError) -> ServerText:
     """
     Args:
         phase: The phase that failed.
+        hook: The hook that could not start.
+        exc: Why it could not.
 
     Returns:
-        What failing it means and how to go on.
+        The sentence that says so. The fix is the executor's own when it had one, else what
+        failing the phase means; the hook's output follows it, verbatim: the details are what the
+        deployment history keeps as the error, and what the hook said is the part an operator needs.
     """
-    if phase == "pre_deploy":
-        return (
-            "Nothing was switched over: what served before is still serving. Fix the hook "
-            "or what it checks, and deploy again; its output is above and in the deployment's log."
+    values = {"phase": str(phase), "command": hook.command, "reason": exc.message}
+    output = exc.output or ""
+    if exc.details:
+        return say(
+            "deploy_hooks.could_not_run_detail", **values, details=exc.details, output=output
         )
-    return (
-        "The new version is serving; only the hook failed. Run it again by hand, or fix it "
-        "for the next deployment; its output is above and in the deployment's log."
-    )
+    if phase == "pre_deploy":
+        return say("deploy_hooks.pre_could_not_run", **values, output=output)
+    return say("deploy_hooks.post_could_not_run", **values, output=output)
 
 
-def _with_output(fix: str, output: str) -> str:
+def _failed(phase: HookPhase, hook: Hook, result: CommandResult, output: str) -> ServerText:
     """
     Args:
-        fix: How to go on.
-        output: The hook's own output.
+        phase: The phase that failed.
+        hook: The hook that ran.
+        result: How it ended.
+        output: What it printed.
 
     Returns:
-        Both, the output verbatim after the fix: the details are what the
-        deployment history keeps as the error, and what the hook said is
-        the part an operator needs.
+        The sentence that says it ran out of its time or exited with a code, and what failing the
+        phase means and how to go on.
     """
-    return f"{fix}\n\n{output}" if output else fix
+    values = {"phase": str(phase), "command": hook.command, "output": output}
+    if result.timed_out:
+        values["seconds"] = str(hook.timeout)
+        code = (
+            "deploy_hooks.pre_timed_out" if phase == "pre_deploy" else "deploy_hooks.post_timed_out"
+        )
+    else:
+        values["exit_code"] = str(result.exit_code)
+        code = "deploy_hooks.pre_exited" if phase == "pre_deploy" else "deploy_hooks.post_exited"
+    return say(code, **values)
 
 
 def _combined(result: CommandResult) -> str:
@@ -635,11 +652,12 @@ class CommandHookExecutor:
                 not a directory inside the tree.
         """
         if hook.service is not None:
-            raise ValidationError(
-                f"The hook names the service {hook.service!r}, and a {self.app_type} "
-                "application has no services",
-                details="'service' is for Docker Compose stacks. Remove it to run the hook "
-                "in the application's own tree.",
+            raise ValidationError.from_text(
+                say(
+                    "deploy_hooks.hook_names_service_application",
+                    app_type=str(self.app_type),
+                    service=f"{hook.service!r}",
+                ),
                 field="service",
             )
         cwd = self.root
@@ -649,10 +667,8 @@ class CommandHookExecutor:
             # A link the repository committed must not take a hook, which
             # runs with the application's secrets, outside its tree.
             if not cwd.is_relative_to(root) or not cwd.is_dir():
-                raise ValidationError(
-                    f"The hook's workdir {hook.workdir!r} is not a directory inside the "
-                    "application",
-                    details="Name a directory of the repository, relative to its root.",
+                raise ValidationError.from_text(
+                    say("deploy_hooks.hook_workdir_directory_inside", workdir=f"{hook.workdir!r}"),
                     field="workdir",
                 )
         return self.run(list(hook.run), cwd=cwd, timeout=hook.timeout)
@@ -968,9 +984,7 @@ def describe_hooks(domain: str, *, store: NoustStore | None = None) -> AppHooks:
     target = store or get_store()
     app = target.get_app(domain)
     if app is None:
-        raise NoustError(
-            f"Application not found: {domain}", details="Run 'noust list' to see what is deployed."
-        )
+        raise NoustError.from_text(say("apps.not_found", domain=domain))
     document = target.get_app_hooks(domain)
     if document is not None:
         return AppHooks(
@@ -1034,9 +1048,7 @@ def set_operator_hooks(
     target = store or get_store()
     app = target.get_app(domain)
     if app is None:
-        raise NoustError(
-            f"Application not found: {domain}", details="Run 'noust list' to see what is deployed."
-        )
+        raise NoustError.from_text(say("apps.not_found", domain=domain))
     hooks = HookSet() if document is None else parse_hooks_document(document, source="operator")
     if document is not None:
         refuse_unsupported(hooks, app.app_type, serves=not app.is_static)

@@ -23,6 +23,7 @@ import { useT } from "../../../i18n";
 import { splitErrors } from "../../settings/formErrors";
 import { SETTINGS_ICONS } from "./objectIcons";
 
+import { jobFailure } from "../../../lib/errors";
 /** One name per line, blank lines left out and a repeated name once: what the API takes. */
 function namesOf(text: string): string[] {
   const seen = new Set<string>();
@@ -166,7 +167,7 @@ function PackagesBody({ domain, state }: { domain: string; state: AppPackages })
           </Notice>
         ) : null}
         {install.isError ? <ErrorBlock live compact error={install.error} title={t("appPackages.notStarted", { domain })} /> : null}
-        {jobFailed ? <ErrorBlock live compact error={{ detail: job.error ?? t("appPackages.jobFailedSilently") }} title={t("appPackages.notInstalled", { domain })} /> : null}
+        {jobFailed ? <ErrorBlock live compact error={jobFailure(job, t("appPackages.jobFailedSilently"))} title={t("appPackages.notInstalled", { domain })} /> : null}
       </div>
       {editing ? <PackagesDrawer domain={domain} state={state} onClose={() => setEditing(false)} /> : null}
     </Card>

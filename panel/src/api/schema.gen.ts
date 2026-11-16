@@ -40220,6 +40220,7 @@ export interface components {
              * @default
              */
             detail: string;
+            detail_coded?: components["schemas"]["CodedText"] | null;
             /** Id */
             id: string;
             /** Measured At */
@@ -40901,6 +40902,11 @@ export interface components {
          *     does a central's tunnel. ``proof_readable`` is false when sshd's login
          *     history cannot be read, ``proof_error`` saying why verbatim. These four
          *     mean nothing once the change is confirmed, undone or expired.
+         *
+         *     ``title`` is what the change is in English. ``title_coded`` is the same as a sentence of the
+         *     server's catalog (``access_changes.*``, code and values), for the console to say in its own
+         *     language; null for a change recorded before the ledger kept what it was, whose ``title`` is the
+         *     sentence somebody wrote then and is shown as it is.
          */
         ChangeOut: {
             /** Actor */
@@ -40968,6 +40974,7 @@ export interface components {
             status: string;
             /** Title */
             title: string;
+            title_coded?: components["schemas"]["CodedText"] | null;
             /**
              * Undo
              * @default []
@@ -53211,6 +53218,8 @@ export interface components {
          *         udp_allowed: Whether the firewall lets UDP 443 in; None when it filters nothing or
          *             cannot be read.
          *         firewall_hint: The command that opens UDP 443, when it is closed.
+         *         coded: ``problem`` and ``hint`` as a sentence of the server's catalog (code and values),
+         *             for the console to say in its own language.
          */
         Http3Model: {
             /**
@@ -53220,6 +53229,7 @@ export interface components {
             anchor: boolean;
             /** Available */
             available: boolean;
+            coded?: components["schemas"]["CodedText"] | null;
             /**
              * Firewall Hint
              * @default
@@ -54739,6 +54749,13 @@ export interface components {
             description: string;
             /** Error */
             error?: string | null;
+            /** @description error as a sentence of the server's catalog (code and values), when the failure was one, for the console to say in its language; error is the same in English */
+            error_coded?: components["schemas"]["CodedText"] | null;
+            /**
+             * Error Output
+             * @description The failing program's own words, shown as they came, when error_coded is set: error then holds them after the sentence, and a client that says the sentence itself shows these instead
+             */
+            error_output?: string | null;
             /** Id */
             id: string;
             /** Logs */
@@ -55713,6 +55730,11 @@ export interface components {
             matched: number;
             /** Notes */
             notes: string[];
+            /**
+             * Notes Coded
+             * @default []
+             */
+            notes_coded: (components["schemas"]["CodedText"] | null)[];
             /** Scanned */
             scanned: number;
             /** Since */
@@ -58340,8 +58362,11 @@ export interface components {
          *             and says so itself.
          *         detail: What is wrong, in one sentence.
          *         hint: How to fix it.
+         *         coded: ``detail`` and ``hint`` as a sentence of the server's catalog (code and values), for
+         *             the console to say in its own language.
          */
         PasskeyAvailability: {
+            coded?: components["schemas"]["CodedText"] | null;
             /** Detail */
             detail?: string | null;
             /** Hint */
@@ -65048,6 +65073,11 @@ export interface components {
             max_use_mb?: number | null;
             /** Notes */
             notes: string[];
+            /**
+             * Notes Coded
+             * @default []
+             */
+            notes_coded: (components["schemas"]["CodedText"] | null)[];
             /**
              * Persistent
              * @default false
@@ -75049,12 +75079,15 @@ export interface components {
          *         installable: Noust can install the packages here (Debian and Ubuntu).
          *         packages: The packages it would install.
          *         anchor: The shared rules are loaded.
+         *         coded: ``problem`` and ``hint`` as a sentence of the server's catalog (code and values),
+         *             for the console to say in its own language.
          */
         WafModel: {
             /** Anchor */
             anchor: boolean;
             /** Available */
             available: boolean;
+            coded?: components["schemas"]["CodedText"] | null;
             /**
              * Hint
              * @default

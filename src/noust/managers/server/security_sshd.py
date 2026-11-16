@@ -42,6 +42,7 @@ from noust.core import paths
 from noust.core.exceptions import SecurityError
 from noust.core.fs import FileSystem, get_fs
 from noust.core.runner import CommandResult, CommandRunner, get_runner
+from noust.core.server_text import say
 from noust.managers.server.host import PROBE_TIMEOUT, HostPaths, read_text
 
 #: The main configuration file.
@@ -235,11 +236,8 @@ def read_effective(
         ["sshd", "-T", "-C", spec], timeout=PROBE_TIMEOUT, env=PROBE_ENV
     )
     if not result.success or not result.stdout.strip():
-        raise SshdUnavailableError(
-            "sshd did not report its effective configuration",
-            details="Run 'sshd -T' as root to see why; an sshd that cannot print its "
-            "configuration would refuse to reload it too.",
-            output=(result.stderr or result.stdout).strip() or None,
+        raise SshdUnavailableError.from_text(
+            say("sshd.no_effective_config"), output=(result.stderr or result.stdout).strip() or None
         )
     return parse_effective(result.stdout, spec)
 
@@ -300,9 +298,11 @@ def render_dropin(settings: dict[str, str]) -> str:
     for keyword, value in settings.items():
         name = DIRECTIVES.get(keyword)
         if name is None:
-            raise SecurityError(f"Noust does not write the sshd keyword {keyword!r}")
+            raise SecurityError.from_text(say("sshd.keyword_refused", keyword=f"{keyword!r}"))
         if not re.fullmatch(r"[A-Za-z0-9-]{1,32}", value):
-            raise SecurityError(f"Refusing the value {value!r} for {name}")
+            raise SecurityError.from_text(
+                say("sshd.value_refused", name=str(name), value=f"{value!r}")
+            )
         lines.append(f"{name} {value}\n")
     return "".join(lines)
 
@@ -326,11 +326,10 @@ def read_no_follow(path: Path) -> str | None:
         return None
     except OSError as exc:
         if exc.errno == errno.ELOOP:
-            raise SecurityError(
-                f"Refusing to use {path}: it is a symbolic link",
-                details="Noust writes this file itself; remove the link and try again.",
-            ) from exc
-        raise SecurityError(f"Cannot read {path}", details=exc.strerror or str(exc)) from exc
+            raise SecurityError.from_text(say("sshd.symlink_refused", path=str(path))) from exc
+        raise SecurityError.from_text(
+            say("sshd.cannot_read", path=str(path)), output=exc.strerror or str(exc)
+        ) from exc
     with os.fdopen(descriptor, encoding="utf-8", errors="replace") as handle:
         return handle.read()
 
@@ -365,11 +364,7 @@ class SshdDropIn:
         """
         text = read_no_follow(self.path)
         if text is not None and text.strip() and not paths.carries_unit_marker(text):
-            raise SecurityError(
-                f"{DROPIN} exists and Noust did not write it",
-                details="Noust keeps its sshd settings in that file only. Move what it holds "
-                "to another file in /etc/ssh/sshd_config.d/, then try again.",
-            )
+            raise SecurityError.from_text(say("sshd.dropin_not_noust", dropin=str(DROPIN)))
         return text
 
     def merged(self, changes: dict[str, str]) -> tuple[str | None, str]:
@@ -589,10 +584,7 @@ def reload_argv(unit: SshdUnit) -> list[str] | None:
         return ["systemctl", "reload", unit.service]
     if unit.socket and unit.socket_active:
         return None
-    raise SecurityError(
-        "sshd is not running under systemd, so Noust cannot reload it",
-        details="Start it (systemctl start ssh, or sshd on RHEL and SUSE) and try again.",
-    )
+    raise SecurityError.from_text(say("sshd.not_under_systemd"))
 
 
 def reload(

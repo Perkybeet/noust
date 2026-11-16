@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError, ApprovalPendingError, ElevationCancelledError } from "../../api/errors";
 import { setLocale } from "../../app/locale";
+import { jobFailure } from "../../lib/errors";
 import { expectNoAxeViolations } from "../../test/axe";
 import { ErrorBlock, QueryState } from "./QueryState";
 import type { QueryLike } from "./QueryState";
@@ -183,6 +184,45 @@ describe("ErrorBlock", () => {
   it("shows nothing extra when the error carries no output", () => {
     render(<ErrorBlock error={FAILURE} title="Restart failed" />);
     expect(screen.queryByText(": the command's own output", { exact: false })).not.toBeInTheDocument();
+  });
+
+  it("says Noust's own sentence in this language as text, not as what a program printed, and keeps the program's output in mono", async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    const own = new ApiError(404, "not_found", "Application not found: shop.example.com", "Run 'noust list' to see what is deployed.", null, null, "nginx: [emerg] unexpected end", null, {
+      coded: { code: "apps.not_found", params: { domain: "shop.example.com" } },
+    });
+    render(<ErrorBlock error={own} title="No se pudo recompilar" />);
+
+    // The sentence is words of the product: a paragraph, in Spanish, never the English the server sent.
+    expect(screen.getByText("No se encuentra la aplicación shop.example.com").tagName).toBe("P");
+    expect(screen.queryByText(/Application not found/)).not.toBeInTheDocument();
+    expect(screen.getByText("Ejecuta 'noust list' para ver qué hay desplegado.")).toBeInTheDocument();
+    // What the program printed stays as it came, in its own region.
+    const output = screen.getByText("nginx: [emerg] unexpected end");
+    expect(output.tagName).toBe("PRE");
+    expect(output).toHaveAttribute("translate", "no");
+    expect(screen.queryByRole("region", { name: /lo que dijo el sistema/ })).not.toBeInTheDocument();
+  });
+
+  it("shows the failure of a job from its code, as it does an API error", async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    render(
+      <ErrorBlock
+        error={jobFailure({
+          error: "Application not found: shop.example.com\n  Details: Run 'noust list' to see what is deployed.",
+          error_coded: { code: "apps.not_found", params: { domain: "shop.example.com" } },
+          error_output: null,
+        })}
+        title="No se pudo recompilar"
+      />,
+    );
+
+    expect(screen.getByText("No se encuentra la aplicación shop.example.com")).toBeInTheDocument();
+    expect(screen.queryByText(/Details:/)).not.toBeInTheDocument();
   });
 
   it("labels its retry button and system-output regions in Spanish", async () => {

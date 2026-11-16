@@ -14,6 +14,7 @@ import { useT } from "../../i18n";
 import { jobActionLabel, jobResource } from "./data";
 import type { ActivityJob } from "./data";
 
+import { jobFailure } from "../../lib/errors";
 export interface JobLogDrawerProps {
   job: ActivityJob | null;
   onOpenChange: (open: boolean) => void;
@@ -61,7 +62,7 @@ export function JobLogDrawer({ job, onOpenChange }: JobLogDrawerProps) {
       ) : (
         <div className="flex flex-col gap-2">
           {job.error ? (
-            <ErrorBlock compact error={{ detail: job.error }} title={t("activity.jobLog.thisJobFailed")} />
+            <ErrorBlock compact error={jobFailure(job)} title={t("activity.jobLog.thisJobFailed")} />
           ) : null}
           <LogViewer
             lines={lines}

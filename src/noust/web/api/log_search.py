@@ -30,7 +30,7 @@ from noust.managers.log_search import (
 )
 from noust.web.api.auth import get_current_session
 from noust.web.api.databases.common import session_actor
-from noust.web.api.deps import NoustErrorRoute, require_elevated
+from noust.web.api.deps import CodedText, NoustErrorRoute, require_elevated
 
 router = APIRouter(route_class=NoustErrorRoute)
 
@@ -84,6 +84,9 @@ class LogSearchResponse(BaseModel):
     since: float
     until: float
     notes: list[str]
+    #: Each of ``notes`` as a sentence of the server's catalog (code and values), at the same place,
+    #: for the console to say in its language; null for a note that is not one.
+    notes_coded: list[CodedText | None] = []
     apps: list[str]
     understood: str = ""
 
@@ -172,6 +175,8 @@ class RetentionModel(BaseModel):
     configured: bool = False
     foreign: bool = False
     notes: list[str]
+    #: Each of ``notes`` as a sentence of the server's catalog, at the same place; null for one that is not.
+    notes_coded: list[CodedText | None] = []
 
 
 class RetentionBody(BaseModel):

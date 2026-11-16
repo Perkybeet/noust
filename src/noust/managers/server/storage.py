@@ -179,6 +179,8 @@ class Candidate:
         action: The cleanup action that frees it, None where the console only
             reports (databases, coredumps).
         detail: What it is, one sentence of facts (a path, a count).
+        detail_coded: ``detail`` as a sentence of the catalog (code and values) when it is one
+            of Noust's own; None when it is a path or what a program found, which is shown as it is.
         measured_at: When the size was measured, ISO 8601 UTC.
     """
 
@@ -188,6 +190,7 @@ class Candidate:
     action: str | None = None
     detail: str = ""
     measured_at: str | None = None
+    detail_coded: ServerText | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -393,10 +396,7 @@ def _psutil() -> Any:
     try:
         import psutil
     except ImportError as exc:
-        raise DependencyError(
-            "psutil is not installed, so disks cannot be listed",
-            details="Install the web extra: pip install 'noust[web]'.",
-        ) from exc
+        raise DependencyError.from_text(say("storage.psutil_installed_disks_listed")) from exc
     return psutil
 
 
@@ -554,12 +554,14 @@ class StorageManager:
         if size is None:
             return None
         target = DEFAULT_JOURNAL_MB * 1024**2
+        reduce_to = say("storage.reduce_to", megabytes=DEFAULT_JOURNAL_MB)
         return Candidate(
             id="journal",
             size_bytes=size,
             reclaimable_bytes=max(0, size - target),
             action="journal",
-            detail=f"Reduce it to {DEFAULT_JOURNAL_MB} MB",
+            detail=reduce_to.text,
+            detail_coded=reduce_to,
             measured_at=utc_now_iso(),
         )
 
@@ -875,13 +877,15 @@ class StorageManager:
             for release in doomed:
                 reclaimable += self.measure(release.path) or 0
         if total:
+            over_keep = say("storage.releases_over_keep", apps=apps)
             out.candidates.append(
                 Candidate(
                     id="releases",
                     size_bytes=total,
                     reclaimable_bytes=reclaimable,
                     action="releases",
-                    detail=f"{apps} application(s) keep more releases than they are set to",
+                    detail=over_keep.text,
+                    detail_coded=over_keep,
                     measured_at=utc_now_iso(),
                 )
             )
@@ -900,11 +904,13 @@ class StorageManager:
 
             usage = BackupManager(runner=self.runner, fs=self._fs).get_storage_usage()
         if usage.get("total_size_bytes"):
+            summary = say("storage.backups_summary", count=int(usage.get("total_backups", 0)))
             out.candidates.append(
                 Candidate(
                     id="backups",
                     size_bytes=int(usage["total_size_bytes"]),
-                    detail=f"{usage.get('total_backups', 0)} backups; their retention is a backup setting",
+                    detail=summary.text,
+                    detail_coded=summary,
                     measured_at=utc_now_iso(),
                 )
             )
@@ -1026,8 +1032,12 @@ class StorageManager:
                 False,
                 items=tuple(f"{domain}: {release}" for domain, release in doomed),
             )
-        raise ValidationError(
-            f"Unknown cleanup action: {action!r}", f"Use one of: {', '.join(CLEANUP_ACTIONS)}."
+        raise ValidationError.from_text(
+            say(
+                "storage.unknown_cleanup_action",
+                action=f"{action!r}",
+                items=", ".join(CLEANUP_ACTIONS),
+            )
         )
 
     def cleanup(
@@ -1063,14 +1073,16 @@ class StorageManager:
         """
         plan = self.plan_cleanup(action, **params)
         if plan.needs_confirmation and not confirm:
+            asked = say("storage.cleanup_deletes", action=action, effect=plan.effect)
             raise ConfirmationRequiredError(
-                f"'{action}' deletes something you may want back",
-                plan.effect,
+                asked.text,
+                asked.hint or "",
                 required={
                     "action": action,
                     "commands": list(plan.commands),
                     "items": list(plan.items),
                 },
+                coded=asked,
             )
         if not record or isinstance(self.fs, DryRunFileSystem):
             return self._clean(action, plan, on_line, **params)
@@ -1192,10 +1204,8 @@ class StorageManager:
         try:
             self._gate().remove_image(ref)
         except DockerError as exc:
-            raise ServerError(
-                f"'docker image rm {ref}' failed",
-                "Nothing else was changed. The tool's own output is below.",
-                output=exc.output or exc.message,
+            raise ServerError.from_text(
+                say("storage.docker_image_rm_failed", ref=ref), output=exc.output or exc.message
             ) from exc
         emit(f"Removed {ref}")
 
@@ -1219,9 +1229,12 @@ class StorageManager:
 
         outcome = self.runner.stream(argv, on_line=relay, timeout=CLEANUP_TIMEOUT)
         if not outcome.success:
-            raise ServerError(
-                f"'{' '.join(argv[:3])}' failed (exit code {outcome.exit_code})",
-                "Nothing else was changed. The tool's own output is below.",
+            raise ServerError.from_text(
+                say(
+                    "storage.failed_exit_code",
+                    exit_code=str(outcome.exit_code),
+                    items=" ".join(argv[:3]),
+                ),
                 output="\n".join(result.output[-40:]) or outcome.stderr,
             )
 
@@ -1241,7 +1254,7 @@ class StorageManager:
         size = params.get("size_mb")
         days = params.get("days")
         if size is not None and days is not None:
-            raise ValidationError("Give a size or an age, not both", "Use size_mb or days.")
+            raise ValidationError.from_text(say("storage.give_size_age_both"))
         if days is not None:
             limit = f"--vacuum-time={_positive(days, 'days')}d"
         else:
@@ -1264,9 +1277,15 @@ class StorageManager:
             self.platform, runner=self._runner, fs=self._fs, host=self.host
         ).clean_cache_argv()
         if argv is None:
-            raise UnsupportedHostError(
-                "There is no package cache to clean on this system",
-                self.platform.why_updates_unsupported() or "No package manager was found.",
+            raise UnsupportedHostError.from_text(
+                say(
+                    "storage.package_cache_clean_system",
+                    value=str(
+                        self.platform.why_updates_unsupported()
+                        or "No package manager was found."
+                        or ""
+                    ),
+                )
             )
         return argv
 
@@ -1281,7 +1300,7 @@ class StorageManager:
             UnsupportedHostError: Docker is not installed.
         """
         if not self.runner.exists("docker"):
-            raise UnsupportedHostError("Docker is not installed on this system")
+            raise UnsupportedHostError.from_text(say("storage.docker_installed_system"))
         return DockerGate.prune_build_cache_argv()
 
     def _image_target(self, target: Any) -> dict[str, Any]:
@@ -1299,9 +1318,7 @@ class StorageManager:
                 uses, or one that is not here.
         """
         if not isinstance(target, str) or not _IMAGE_ID.match(target):
-            raise ValidationError(
-                "Name the image by its id", "Use an id from the list of unused images."
-            )
+            raise ValidationError.from_text(say("storage.name_image_id"))
         short = target.removeprefix("sha256:")[:12]
         for offered_image in self.docker_unused_images():
             if offered_image["id"] == short:
@@ -1310,17 +1327,13 @@ class StorageManager:
         for image in kept:
             if image.id.removeprefix("sha256:")[:12] == short:
                 owner = image.owner.subject
-                raise ValidationError(
-                    "That image is not in the list of unused images: it is a version "
-                    + (f"{owner} keeps" if owner else "an application keeps")
-                    + " to go back to",
-                    "Noust never offers it for removal. An application keeps fewer versions "
-                    "with: noust releases keep",
+                raise ValidationError.from_text(
+                    say(
+                        "storage.image_list_unused_images_2",
+                        value=str(f"{owner} keeps" if owner else "an application keeps"),
+                    )
                 )
-        raise ValidationError(
-            "That image is not in the list of unused images",
-            "It may be in use by a container, or not be there any more.",
-        )
+        raise ValidationError.from_text(say("storage.image_list_unused_images"))
 
     def _doomed_releases(self) -> list[tuple[str, str]]:
         """
@@ -1379,7 +1392,9 @@ def _positive(value: Any, name: str) -> int:
         ValidationError: It is not a positive integer.
     """
     if isinstance(value, bool) or not isinstance(value, int) or value < 1:
-        raise ValidationError(f"{name} must be a positive whole number", f"Got {value!r}.")
+        raise ValidationError.from_text(
+            say("storage.positive_whole_number", name=name, value=f"{value!r}")
+        )
     return int(value)
 
 

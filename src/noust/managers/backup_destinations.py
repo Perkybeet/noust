@@ -61,6 +61,7 @@ from noust.core.logger import Logger
 from noust.core.redact import Scrubber
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.secrets import SecretStore
+from noust.core.server_text import say
 from noust.core.store import BackupDestinationRecord, NoustStore, get_store
 from noust.core.utils import domain_to_app_name
 from noust.managers.backup_manager import (
@@ -380,9 +381,12 @@ def backend_fields(backend: str) -> list[BackendField]:
     try:
         own = BACKEND_FIELDS[backend]
     except KeyError as exc:
-        raise BackupError(
-            f"Unknown backup destination backend: {backend!r}",
-            details=f"Use one of: {', '.join(sorted(BACKEND_FIELDS))}.",
+        raise BackupError.from_text(
+            say(
+                "backup_destinations.unknown_backup_destination_backend",
+                backend=f"{backend!r}",
+                items=", ".join(sorted(BACKEND_FIELDS)),
+            )
         ) from exc
     return [*own, _PATH_FIELD]
 
@@ -479,10 +483,8 @@ def validate_destination_name(name: str) -> str:
         BackupError: When the name does not match the pattern.
     """
     if not _NAME_RE.fullmatch(name):
-        raise BackupError(
-            f"Invalid backup destination name: {name!r}",
-            details="Use 1-32 characters: lowercase letters, digits and '-', starting with a "
-            "letter or digit. The name also becomes an rclone remote name.",
+        raise BackupError.from_text(
+            say("backup_destinations.invalid_backup_destination_name", name=f"{name!r}")
         )
     return name
 
@@ -502,16 +504,9 @@ def _checked_crypt_key(password: object, password2: object) -> dict[str, str]:
         BackupError: When either is missing or not text.
     """
     if not isinstance(password, str) or not password.strip():
-        raise BackupError(
-            "The encryption key has no password",
-            details="Both passphrases 'noust backup destination show-key' printed are needed.",
-        )
+        raise BackupError.from_text(say("backup_destinations.encryption_key_password"))
     if not isinstance(password2, str) or not password2.strip():
-        raise BackupError(
-            "The encryption key has no password2",
-            details="Both passphrases 'noust backup destination show-key' printed are needed: "
-            "password2 is the salt, and without it nothing decrypts.",
-        )
+        raise BackupError.from_text(say("backup_destinations.encryption_key_password2"))
     return {"password": password.strip(), "password2": password2.strip()}
 
 
@@ -537,9 +532,11 @@ def parse_crypt_key(text: str) -> dict[str, str]:
         try:
             data = json.loads(stripped)
         except json.JSONDecodeError as exc:
-            raise BackupError("The encryption key is not valid JSON", details=str(exc)) from exc
+            raise BackupError.from_text(
+                say("backup_destinations.encryption_key_valid_json", exc=str(str(exc) or ""))
+            ) from exc
         if not isinstance(data, dict):
-            raise BackupError("The encryption key must be a JSON object")
+            raise BackupError.from_text(say("backup_destinations.encryption_key_json_object"))
         return _checked_crypt_key(data.get("password"), data.get("password2"))
 
     labelled: dict[str, str] = {}
@@ -553,12 +550,7 @@ def parse_crypt_key(text: str) -> dict[str, str]:
     lines = [line.strip() for line in stripped.splitlines() if line.strip()]
     if len(lines) == 2:
         return _checked_crypt_key(lines[0], lines[1])
-    raise BackupError(
-        "Could not read an encryption key",
-        details="Give what 'noust backup destination show-key NAME' printed: its "
-        "'password:' and 'password2:' lines, its --json output, or the two passphrases "
-        "on two lines.",
-    )
+    raise BackupError.from_text(say("backup_destinations.read_encryption_key"))
 
 
 def _env_prefix(name: str) -> str:
@@ -677,37 +669,53 @@ def validate_bucket(backend: str, name: str) -> str:
     label = f"The {kind} name {name!r}"
     if backend == "b2":
         if not 6 <= len(name) <= 50:
-            raise BackupError(f"{label} is not valid: a B2 bucket has 6 to 50 characters")
+            raise BackupError.from_text(
+                say("backup_destinations.valid_b2_bucket_6", label=str(label))
+            )
         if not _B2_BUCKET.fullmatch(name):
-            raise BackupError(f"{label} is not valid: a B2 bucket uses letters, digits and hyphens")
+            raise BackupError.from_text(
+                say("backup_destinations.valid_b2_bucket_uses", label=str(label))
+            )
         if name.lower().startswith("b2-"):
-            raise BackupError(f"{label} is not valid: B2 reserves names that start with b2-")
+            raise BackupError.from_text(
+                say("backup_destinations.valid_b2_reserves_names", label=str(label))
+            )
         return name
     if backend == "azureblob":
         if not 3 <= len(name) <= 63:
-            raise BackupError(f"{label} is not valid: a container has 3 to 63 characters")
+            raise BackupError.from_text(
+                say("backup_destinations.valid_container_3_63", label=str(label))
+            )
         if not _AZURE_CONTAINER.fullmatch(name):
-            raise BackupError(
-                f"{label} is not valid: a container name uses lowercase letters, digits and "
-                "single hyphens, and starts and ends with a letter or a digit"
+            raise BackupError.from_text(
+                say("backup_destinations.valid_container_name_uses", label=str(label))
             )
         return name
     if not 3 <= len(name) <= 63:
-        raise BackupError(f"{label} is not valid: a bucket name has 3 to 63 characters")
+        raise BackupError.from_text(
+            say("backup_destinations.valid_bucket_name_3", label=str(label))
+        )
     pattern = _GCS_BUCKET if backend == "gcs" else _S3_BUCKET
     if name != name.lower() or not re.fullmatch(r"[a-z0-9._\-]+", name):
-        raise BackupError(
-            f"{label} is not valid: a bucket name uses lowercase letters, digits, hyphens and "
-            + ("underscores and dots" if backend == "gcs" else "dots")
+        raise BackupError.from_text(
+            say(
+                "backup_destinations.valid_bucket_name_uses",
+                label=str(label),
+                value=str("underscores and dots" if backend == "gcs" else "dots"),
+            )
         )
     if not pattern.fullmatch(name):
-        raise BackupError(
-            f"{label} is not valid: a bucket name starts and ends with a letter or a digit"
+        raise BackupError.from_text(
+            say("backup_destinations.valid_bucket_name_starts", label=str(label))
         )
     if ".." in name:
-        raise BackupError(f"{label} is not valid: a bucket name has no two dots in a row")
+        raise BackupError.from_text(
+            say("backup_destinations.valid_bucket_name_two", label=str(label))
+        )
     if _IPV4.fullmatch(name):
-        raise BackupError(f"{label} is not valid: a bucket name is not an IP address")
+        raise BackupError.from_text(
+            say("backup_destinations.valid_bucket_name_ip", label=str(label))
+        )
     return name
 
 
@@ -729,11 +737,7 @@ def _check_bucket_setting(backend: str, raw_path: str | None, *, required: bool)
     bucket = bucket_of(backend, raw_path)
     if bucket is None:
         if required:
-            raise BackupError(
-                "Name the bucket this destination writes into",
-                details="The folder of an object store starts with its bucket: "
-                "--field path=BUCKET/noust-backups. Noust does not create buckets.",
-            )
+            raise BackupError.from_text(say("backup_destinations.name_bucket_destination_writes"))
         return
     validate_bucket(backend, bucket)
 
@@ -899,9 +903,11 @@ def _require_rclone(runner: CommandRunner) -> None:
     """
     if runner.exists("rclone"):
         return
-    raise DependencyError(
-        "rclone is required for backup destinations",
-        details=dependency_install_hint(RCLONE_DEPENDENCY, runner=runner),
+    raise DependencyError.from_text(
+        say(
+            "backup_destinations.rclone_required_backup_destinations",
+            value=str(dependency_install_hint(RCLONE_DEPENDENCY, runner=runner) or ""),
+        )
     )
 
 
@@ -1103,10 +1109,8 @@ class BackupDestinationManager:
         """
         destination = self.store.get_backup_destination(name)
         if destination is None:
-            raise BackupError(
-                f"No such backup destination: {name}",
-                details="Run 'noust backup destination list' to see the destinations "
-                "Noust knows about.",
+            raise BackupError.from_text(
+                say("backup_destinations.such_backup_destination", name=name)
             )
         return destination
 
@@ -1160,8 +1164,13 @@ class BackupDestinationManager:
                     "this machine's own alias). Check where the name resolves, or remove the "
                     "destination."
                 )
-            raise BackupError(
-                f"Refusing backup destination host {host!r}: {exc}", details=details
+            raise BackupError.from_text(
+                say(
+                    "backup_destinations.refusing_backup_destination_host",
+                    details=str(details or ""),
+                    exc=str(exc),
+                    host=f"{host!r}",
+                )
             ) from exc
 
     def require_encrypted_upload(self, name: str) -> BackupDestinationRecord:
@@ -1188,13 +1197,8 @@ class BackupDestinationManager:
         destination = self._require(name)
         if destination.encrypted or not backup_encryption_required():
             return destination
-        raise BackupError(
-            f"{name} is not encrypted, and backups leave this server only encrypted",
-            details=(
-                "The ens-medium security profile (or backup.encryption: required) refuses "
-                f"unencrypted uploads. Encrypt it: noust backup destination update {name} "
-                f"--encrypt, then keep its key safe: noust backup destination show-key {name}."
-            ),
+        raise BackupError.from_text(
+            say("backup_destinations.encrypted_backups_leave_server", name=name)
         )
 
     # -- fields and secrets ---------------------------------------------
@@ -1224,9 +1228,13 @@ class BackupDestinationManager:
         specs = {spec.key: spec for spec in backend_fields(backend)}
         unknown = set(fields) - set(specs)
         if unknown:
-            raise BackupError(
-                f"Unknown field(s) for backend {backend!r}: {', '.join(sorted(unknown))}",
-                details=f"Valid fields: {', '.join(sorted(specs))}.",
+            raise BackupError.from_text(
+                say(
+                    "backup_destinations.unknown_field_backend",
+                    backend=f"{backend!r}",
+                    items=", ".join(sorted(unknown)),
+                    items2=", ".join(sorted(specs)),
+                )
             )
 
         settings: dict[str, str] = {}
@@ -1235,15 +1243,24 @@ class BackupDestinationManager:
             raw = fields.get(key)
             if raw is None or raw == "":
                 if spec.required and not partial:
-                    raise BackupError(
-                        f"Missing required field {key!r} for backend {backend!r}",
-                        details=spec.help or f"{spec.label} is required.",
+                    raise BackupError.from_text(
+                        say(
+                            "backup_destinations.missing_required_field_backend",
+                            backend=f"{backend!r}",
+                            key=f"{key!r}",
+                            value=str(spec.help or f"{spec.label} is required." or ""),
+                        )
                     )
                 continue
             if spec.strict and raw not in spec.choices:
-                raise BackupError(
-                    f"{spec.label} must be {' or '.join(spec.choices)}, not {raw!r}",
-                    details=spec.help or f"Choose one of: {', '.join(spec.choices)}.",
+                raise BackupError.from_text(
+                    say(
+                        "backup_destinations.must_be_not",
+                        items=" or ".join(spec.choices),
+                        label=str(spec.label),
+                        raw=f"{raw!r}",
+                        value=str(spec.help or f"Choose one of: {', '.join(spec.choices)}." or ""),
+                    )
                 )
             if spec.secret:
                 secret_values[key] = raw
@@ -1287,9 +1304,11 @@ class BackupDestinationManager:
         """
         result = self.runner.run(["rclone", "obscure", "-"], input=raw, timeout=_RCLONE_TIMEOUT)
         if not result.success:
-            raise BackupError(
-                "rclone could not obscure a password",
-                details=(result.stderr or result.stdout).strip(),
+            raise BackupError.from_text(
+                say(
+                    "backup_destinations.rclone_obscure_password",
+                    value=str((result.stderr or result.stdout).strip() or ""),
+                )
             )
         return result.stdout.strip()
 
@@ -1360,12 +1379,14 @@ class BackupDestinationManager:
         _require_rclone(self.runner)
         validated_name = validate_destination_name(name)
         if self.store.get_backup_destination(validated_name) is not None:
-            raise BackupError(f"Backup destination already exists: {validated_name}")
-        if crypt_key is not None and not encrypted:
-            raise BackupError(
-                "An encryption key was given for a destination that is not encrypted",
-                details="Add it with encryption on (--encrypt) to use an existing key.",
+            raise BackupError.from_text(
+                say(
+                    "backup_destinations.backup_destination_already_exists",
+                    validated_name=str(validated_name),
+                )
             )
+        if crypt_key is not None and not encrypted:
+            raise BackupError.from_text(say("backup_destinations.encryption_key_given_destination"))
         if crypt_key is not None:
             # Checked before anything is stored, so a bad key leaves nothing behind.
             _checked_crypt_key(crypt_key.get("password"), crypt_key.get("password2"))
@@ -1391,9 +1412,12 @@ class BackupDestinationManager:
                 # Nothing of it stays: not the row, not the secrets, not a key generated for it.
                 self.store.delete_backup_destination(validated_name)
                 self.secrets.delete(_secret_namespace(validated_name))
-                raise BackupError(
-                    f"Backup destination {validated_name!r} was not saved: it could not be reached",
-                    details=_why(exc),
+                raise BackupError.from_text(
+                    say(
+                        "backup_destinations.backup_destination_saved_reached",
+                        validated_name=f"{validated_name!r}",
+                        value=str(_why(exc) or ""),
+                    )
                 ) from exc
         return saved
 
@@ -1465,10 +1489,12 @@ class BackupDestinationManager:
             except (BackupError, DependencyError) as exc:
                 self.store.save_backup_destination(existing)
                 self.secrets.write_protected_json(namespace, before)
-                raise BackupError(
-                    f"Backup destination {name!r} was not changed: it could not be reached "
-                    "with the new settings",
-                    details=_why(exc),
+                raise BackupError.from_text(
+                    say(
+                        "backup_destinations.backup_destination_changed_reached",
+                        name=f"{name!r}",
+                        value=str(_why(exc) or ""),
+                    )
                 ) from exc
         return saved
 
@@ -1496,12 +1522,12 @@ class BackupDestinationManager:
         """
         destination = self._require(name)
         if destination.encrypted and not key_saved and self.has_encryption_key(name):
-            raise BackupError(
-                f"Backup destination {name!r} is encrypted: the backups already sent there "
-                "can only be read with its key",
-                details=f"Removing it deletes the only copy Noust has of that key. Run 'noust "
-                f"backup destination show-key {name}' and keep what it prints, then remove it "
-                "confirming the key was saved (key_saved=true in the API).",
+            raise BackupError.from_text(
+                say(
+                    "backup_destinations.backup_destination_encrypted_backups",
+                    name=f"{name!r}",
+                    name2=name,
+                )
             )
 
         referencing = [
@@ -1522,10 +1548,13 @@ class BackupDestinationManager:
         ]
         used_by = sorted([*referencing, *(f"{p.engine}/{p.db_name}" for p in policies)])
         if used_by and not force:
-            raise BackupError(
-                f"Backup destination {name!r} is used by {len(used_by)} "
-                f"schedule(s): {', '.join(used_by)}",
-                details="Pass --force to remove it and drop the reference from those schedules.",
+            raise BackupError.from_text(
+                say(
+                    "backup_destinations.backup_destination_used_schedule",
+                    count=len(used_by),
+                    items=", ".join(used_by),
+                    name=f"{name!r}",
+                )
             )
 
         for domain in referencing:
@@ -1566,18 +1595,15 @@ class BackupDestinationManager:
         """
         destination = self._require(name)
         if not destination.encrypted:
-            raise BackupError(
-                f"Backup destination {name!r} is not encrypted",
-                details="There is no encryption key to show.",
+            raise BackupError.from_text(
+                say("backup_destinations.backup_destination_encrypted", name=f"{name!r}")
             )
         secret_values = self.secrets.read_protected_json(_secret_namespace(name))
         password = secret_values.get("crypt_password")
         password2 = secret_values.get("crypt_password2")
         if not password or not password2:
-            raise BackupError(
-                f"Encryption keys for {name!r} are missing",
-                details="The destination is marked encrypted but its keys were not found; "
-                "backups written to it cannot be decrypted without them.",
+            raise BackupError.from_text(
+                say("backup_destinations.encryption_keys_missing", name=f"{name!r}")
             )
         return {"password": password, "password2": password2}
 
@@ -1636,10 +1662,8 @@ class BackupDestinationManager:
             password = secret_values.get("crypt_password")
             password2 = secret_values.get("crypt_password2")
             if not password or not password2:
-                raise BackupError(
-                    f"Backup destination {name!r} is marked encrypted but has no encryption key",
-                    details="Recreate it, or turn encryption off: a crypt remote with no "
-                    "password cannot be used.",
+                raise BackupError.from_text(
+                    say("backup_destinations.backup_destination_marked_encrypted", name=f"{name!r}")
                 )
             env[f"RCLONE_CONFIG_{crypt_prefix}_TYPE"] = "crypt"
             env[f"RCLONE_CONFIG_{crypt_prefix}_REMOTE"] = wrapped
@@ -1837,10 +1861,8 @@ class BackupDestinationManager:
         try:
             validated = validate_app_name(app_name)
         except ValidationError as exc:
-            raise BackupError(
-                f"Invalid application name: {app_name!r}",
-                details="An application name is one path segment: letters, digits, '.', "
-                "'_' and '-'.",
+            raise BackupError.from_text(
+                say("backup_destinations.invalid_application_name", app_name=f"{app_name!r}")
             ) from exc
         return f"{self.target(name).rstrip('/')}/{validated}"
 
@@ -1885,15 +1907,24 @@ class BackupDestinationManager:
             combined = f"{result.stderr}\n{result.stdout}".lower()
             if "not found" in combined or "directory not found" in combined:
                 return []
-            raise BackupError(
-                f"Could not list {target_dir}",
-                details=_scrub((result.stderr or result.stdout).strip(), secrets_literal),
+            raise BackupError.from_text(
+                say(
+                    "backup_destinations.list",
+                    target_dir=target_dir,
+                    value=str(
+                        _scrub((result.stderr or result.stdout).strip(), secrets_literal) or ""
+                    ),
+                )
             )
         try:
             data = json.loads(result.stdout or "[]")
         except json.JSONDecodeError as exc:
-            raise BackupError(
-                f"rclone returned invalid JSON listing {target_dir}", details=str(exc)
+            raise BackupError.from_text(
+                say(
+                    "backup_destinations.rclone_returned_invalid_json",
+                    exc=str(str(exc) or ""),
+                    target_dir=target_dir,
+                )
             ) from exc
         return [entry for entry in data if isinstance(entry, dict)]
 
@@ -1950,15 +1981,24 @@ class BackupDestinationManager:
                     or "directorynotfound" in lowered
                     or "nosuchbucket" in lowered
                 ):
-                    raise BackupError(
-                        f"Could not reach backup destination {name!r}: the bucket {bucket!r} "
-                        "does not exist",
-                        details=f"Noust does not create buckets: make {bucket!r} with your "
-                        f"provider (or correct the name) and try again.\n{said}".strip(),
+                    raise BackupError.from_text(
+                        say(
+                            "backup_destinations.reach_backup_destination_bucket",
+                            bucket=f"{bucket!r}",
+                            name=f"{name!r}",
+                            value=str(
+                                f"Noust does not create buckets: make {bucket!r} with your "
+                                f"provider (or correct the name) and try again.\n{said}".strip()
+                                or ""
+                            ),
+                        )
                     )
-                raise BackupError(
-                    f"Could not reach backup destination {name!r}",
-                    details=said,
+                raise BackupError.from_text(
+                    say(
+                        "backup_destinations.reach_backup_destination_2",
+                        name=f"{name!r}",
+                        said=str(said or ""),
+                    )
                 )
 
         # The folder is created on first use, as its help promises; a test
@@ -1972,9 +2012,14 @@ class BackupDestinationManager:
             secrets=secrets_literal,
         )
         if not created.success:
-            raise BackupError(
-                f"Could not reach backup destination {name!r}",
-                details=_scrub((created.stderr or created.stdout).strip(), secrets_literal),
+            raise BackupError.from_text(
+                say(
+                    "backup_destinations.reach_backup_destination",
+                    name=f"{name!r}",
+                    value=str(
+                        _scrub((created.stderr or created.stdout).strip(), secrets_literal) or ""
+                    ),
+                )
             )
 
         result = self.runner.run(
@@ -1984,9 +2029,14 @@ class BackupDestinationManager:
             secrets=secrets_literal,
         )
         if not result.success:
-            raise BackupError(
-                f"Could not reach backup destination {name!r}",
-                details=_scrub((result.stderr or result.stdout).strip(), secrets_literal),
+            raise BackupError.from_text(
+                say(
+                    "backup_destinations.reach_backup_destination",
+                    name=f"{name!r}",
+                    value=str(
+                        _scrub((result.stderr or result.stdout).strip(), secrets_literal) or ""
+                    ),
+                )
             )
         return {"ok": True, "entries": [line for line in result.stdout.splitlines() if line]}
 
@@ -2013,19 +2063,21 @@ class BackupDestinationManager:
         """
         entry = next((e for e in entries if e.get("Name") == local_file.name), None)
         if entry is None:
-            raise BackupError(
-                f"Upload of {local_file.name} did not reach the destination",
-                details="It was not listed there right after being copied.",
+            raise BackupError.from_text(
+                say("backup_destination_files.upload_reach_destination", name=str(local_file.name))
             )
 
         try:
             local_size = local_file.stat().st_size
             remote_size = entry.get("Size")
             if isinstance(remote_size, int) and remote_size != local_size:
-                raise BackupError(
-                    f"Size mismatch after uploading {local_file.name}",
-                    details=f"Local file is {local_size} bytes; the destination reports "
-                    f"{remote_size}.",
+                raise BackupError.from_text(
+                    say(
+                        "backup_destinations.size_mismatch_after_uploading",
+                        local_size=str(local_size),
+                        name=str(local_file.name),
+                        remote_size=str(remote_size),
+                    )
                 )
 
             for hash_name, remote_hash in (entry.get("Hashes") or {}).items():
@@ -2035,15 +2087,21 @@ class BackupDestinationManager:
                 if local_hash is None:
                     continue
                 if local_hash != remote_hash:
-                    raise BackupError(
-                        f"Hash mismatch after uploading {local_file.name}",
-                        details=f"{hash_name} differs between the local file and the destination.",
+                    raise BackupError.from_text(
+                        say(
+                            "backup_destinations.hash_mismatch_after_uploading",
+                            hash_name=str(hash_name),
+                            name=str(local_file.name),
+                        )
                     )
                 return str(hash_name)
         except OSError as exc:
-            raise BackupError(
-                f"Could not read {local_file} to verify its upload",
-                details=f"{exc}. The local backup may have been deleted while it was sent.",
+            raise BackupError.from_text(
+                say(
+                    "backup_destinations.read_verify_upload",
+                    exc=str(exc),
+                    local_file=str(local_file),
+                )
             ) from exc
         return "size"
 
@@ -2126,9 +2184,14 @@ class BackupDestinationManager:
             secrets=secrets_literal,
         )
         if not result.success:
-            raise BackupError(
-                f"Could not read the backup metadata in {target_dir}",
-                details=_scrub((result.stderr or result.stdout).strip(), secrets_literal),
+            raise BackupError.from_text(
+                say(
+                    "backup_destinations.read_backup_metadata",
+                    target_dir=target_dir,
+                    value=str(
+                        _scrub((result.stderr or result.stdout).strip(), secrets_literal) or ""
+                    ),
+                )
             )
 
         origins: dict[str, str | None] = {}
@@ -2211,10 +2274,16 @@ class BackupDestinationManager:
                     secrets=secrets_literal,
                 )
                 if not result.success and "not found" not in (result.stderr or "").lower():
-                    raise BackupError(
-                        f"Failed to remove {backup_id}{suffix} from the destination "
-                        "during retention",
-                        details=_scrub((result.stderr or result.stdout).strip(), secrets_literal),
+                    raise BackupError.from_text(
+                        say(
+                            "backup_destinations.failed_remove_destination_during",
+                            backup_id=str(backup_id),
+                            suffix=str(suffix),
+                            value=str(
+                                _scrub((result.stderr or result.stdout).strip(), secrets_literal)
+                                or ""
+                            ),
+                        )
                     )
         return to_delete
 
@@ -2263,9 +2332,13 @@ class BackupDestinationManager:
         manager = backup_manager or BackupManager(verbose=False)
         archive_path, metadata_path = manager.local_files(backup)
         if not archive_path.is_file():
-            raise BackupError(f"Backup archive not found: {archive_path}")
+            raise BackupError.from_text(
+                say("backup_destinations.backup_archive_found", archive_path=str(archive_path))
+            )
         if not metadata_path.is_file():
-            raise BackupError(f"Backup metadata not found: {metadata_path}")
+            raise BackupError.from_text(
+                say("backup_destinations.backup_metadata_found", metadata_path=str(metadata_path))
+            )
 
         app_name = domain_to_app_name(backup.domain)
         target_dir = self._app_target(destination_name, app_name)
@@ -2314,10 +2387,13 @@ class BackupDestinationManager:
                 retention_bytes=gigabytes_to_bytes(check_gigabytes(retention_gb, "retention_gb")),
             )
         except BackupError as exc:
-            raise BackupError(
-                f"{backup.id} was uploaded to {destination_name} and verified, but retention "
-                "could not be applied there",
-                details=exc.details or exc.message,
+            raise BackupError.from_text(
+                say(
+                    "backup_destinations.uploaded_verified_retention_applied",
+                    destination_name=destination_name,
+                    id=str(backup.id),
+                    value=str(exc.details or exc.message or ""),
+                )
             ) from exc
 
         self.forget_exhausted_legacy(destination_name)
@@ -2453,47 +2529,70 @@ class BackupDestinationManager:
                 secrets=secrets_literal,
             )
             if not result.success:
-                raise BackupError(
-                    f"Failed to download {name} from {destination_name}",
-                    details=_scrub((result.stderr or result.stdout).strip(), secrets_literal),
+                raise BackupError.from_text(
+                    say(
+                        "backup_destination_files.failed_download",
+                        destination_name=destination_name,
+                        name=str(name),
+                        value=str(
+                            _scrub((result.stderr or result.stdout).strip(), secrets_literal) or ""
+                        ),
+                    )
                 )
             if not destination_path.is_file():
-                raise BackupError(
-                    f"Download of {name} did not produce a file at {destination_path}"
+                raise BackupError.from_text(
+                    say(
+                        "backup_destinations.download_produce_file",
+                        destination_path=str(destination_path),
+                        name=str(name),
+                    )
                 )
 
         try:
             sidecar = json.loads(metadata_path.read_text())
         except (OSError, json.JSONDecodeError) as exc:
-            raise BackupError(
-                f"Downloaded metadata for {backup_id} is unreadable", details=str(exc)
+            raise BackupError.from_text(
+                say(
+                    "backup_destinations.downloaded_metadata_unreadable",
+                    backup_id=backup_id,
+                    exc=str(str(exc) or ""),
+                )
             ) from exc
         if not isinstance(sidecar, dict):
-            raise BackupError(f"Downloaded metadata for {backup_id} is not a JSON object")
+            raise BackupError.from_text(
+                say("backup_destinations.downloaded_metadata_json_object", backup_id=backup_id)
+            )
 
         if sidecar.get("id") != backup_id:
-            raise BackupError(
-                f"The metadata downloaded as {metadata_name} describes another backup",
-                details=f"It names {sidecar.get('id')!r}. Nothing was restored.",
+            raise BackupError.from_text(
+                say(
+                    "backup_destinations.metadata_downloaded_describes_another",
+                    metadata_name=str(metadata_name),
+                    value=f"{sidecar.get('id')!r}",
+                )
             )
         recorded_domain = sidecar.get("domain")
         if not isinstance(recorded_domain, str) or domain_to_app_name(recorded_domain) != app_name:
-            raise BackupError(
-                f"Backup {backup_id} on {destination_name} says it belongs to "
-                f"{recorded_domain!r}, not to {app_name}",
-                details="A backup is restored from the folder of the application it was taken "
-                "from, and its metadata decides where a restore without a target goes, so the "
-                "two must agree. Nothing was restored.",
+            raise BackupError.from_text(
+                say(
+                    "backup_destinations.backup_says_belongs",
+                    app_name=app_name,
+                    backup_id=backup_id,
+                    destination_name=destination_name,
+                    recorded_domain=f"{recorded_domain!r}",
+                )
             )
 
         expected_checksum = sidecar.get("checksum")
         if expected_checksum:
             actual = BackupManager(verbose=False).checksum_of(archive_path)
             if actual != expected_checksum:
-                raise BackupError(
-                    f"Checksum mismatch after downloading {backup_id} from {destination_name}",
-                    details="The downloaded archive does not match the checksum recorded when "
-                    "it was created. Restoring it would restore corrupted data.",
+                raise BackupError.from_text(
+                    say(
+                        "backup_destinations.checksum_mismatch_after_downloading",
+                        backup_id=backup_id,
+                        destination_name=destination_name,
+                    )
                 )
 
         return archive_path, metadata_path
@@ -2523,21 +2622,27 @@ class BackupDestinationManager:
         entries = self._list_remote(env, target_dir, secrets_literal, hashes=False)
         entry = next((e for e in entries if e.get("Name") == archive_name), None)
         if entry is None:
-            raise BackupError(
-                f"{archive_name} was not found on the destination",
-                details=f"Looked in {target_dir}. List what is there with "
-                "'noust backup remote-list'.",
+            raise BackupError.from_text(
+                say(
+                    "backup_destinations.found_destination",
+                    archive_name=archive_name,
+                    target_dir=target_dir,
+                )
             )
         size = entry.get("Size")
         if not isinstance(size, int) or size < 0:
             return
         free = shutil.disk_usage(staging_dir).free
         if free < size + _STAGING_HEADROOM:
-            raise BackupError(
-                f"Not enough space to download {archive_name}",
-                details=f"The archive is {size} bytes and {staging_dir} has {free} bytes free "
-                f"(plus {_STAGING_HEADROOM} bytes kept spare). Free some space there first; "
-                "nothing was downloaded.",
+            raise BackupError.from_text(
+                say(
+                    "backup_destinations.enough_space_download",
+                    archive_name=archive_name,
+                    free=str(free),
+                    size=str(size),
+                    staging_dir=str(staging_dir),
+                    staging_headroom=str(_STAGING_HEADROOM),
+                )
             )
 
     def restore_remote(
@@ -2590,8 +2695,12 @@ class BackupDestinationManager:
             try:
                 fallback = BackupMetadata.from_dict(json.loads(metadata_path.read_text()))
             except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
-                raise BackupError(
-                    f"Downloaded metadata for {backup_id} is incomplete", details=str(exc)
+                raise BackupError.from_text(
+                    say(
+                        "backup_destinations.downloaded_metadata_incomplete",
+                        backup_id=backup_id,
+                        exc=str(str(exc) or ""),
+                    )
                 ) from exc
             domain = target_domain or fallback.domain
             manager.restore_archive(

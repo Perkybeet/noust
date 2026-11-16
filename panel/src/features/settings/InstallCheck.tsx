@@ -11,11 +11,23 @@ import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Disclosure } from "../../components/ui/Disclosure";
 import { ICONS } from "../../components/ui/icons";
+import { ServerText } from "../../components/ui/ServerText";
 import { Skeleton } from "../../components/ui/Skeleton";
-import { useT } from "../../i18n";
+import { hasMessage, useT } from "../../i18n";
+import type { PlainKey, T } from "../../i18n";
 import { cx } from "../../lib/cx";
 
-type Item = InstallCheckResult["sections"][number]["items"][number];
+type Section = InstallCheckResult["sections"][number];
+type Item = Section["items"][number];
+
+/**
+ * What a section is called in this console's language: its key says which one it is (`web_server`), and
+ * the server's own `title` is the English the console shows for a section this version does not know.
+ */
+function sectionTitle(t: T, section: Section): string {
+  const key = `settings.about.installCheck.sections.${section.key}`;
+  return section.key !== "" && hasMessage(key) ? t(key as PlainKey) : section.title;
+}
 
 /** An item's outcome as a shape and a word: what passed, what is optional, what to look at, what is missing. */
 function Outcome({ status }: { status: Item["status"] }) {
@@ -36,13 +48,13 @@ function Row({ item }: { item: Item }) {
     <li className="flex min-w-0 flex-wrap items-start gap-x-3 gap-y-1.5 py-2.5">
       <Outcome status={item.status} />
       <div className="flex min-w-0 flex-1 basis-64 flex-col gap-1.5">
-        {/* The doctor's own words, kept as it wrote them. */}
-        <span translate="no" className="text-13 leading-5 text-pretty break-words text-fg">
-          {item.text.trim()}
+        {/* A line the server gave a code is Noust's own sentence, said in this language; one it did not is another program's words, kept as it wrote them. */}
+        <span {...(item.coded ? {} : { translate: "no" })} className="text-13 leading-5 text-pretty break-words text-fg">
+          <ServerText coded={item.coded} text={item.text.trim()} />
         </span>
-        {(item.notes ?? []).map((note) => (
-          <span key={note} translate="no" className="text-12 text-fg-muted">
-            {note}
+        {(item.notes ?? []).map((note, index) => (
+          <span key={note} {...(item.notes_coded?.[index] ? {} : { translate: "no" })} className="text-12 text-fg-muted">
+            <ServerText coded={item.notes_coded?.[index]} text={note} />
           </span>
         ))}
         {item.fix ? <CommandHint label={t("settings.about.installCheck.fix")} command={item.fix} reason="salida-del-sistema" /> : null}
@@ -76,8 +88,13 @@ function Details({ report }: { report: InstallCheckResult }) {
       <Card padding="none">
         <div className="flex min-w-0 flex-col divide-y divide-border">
           {report.sections.map((section) => (
-            <Subsection key={section.title} title={section.title} description={section.explain ?? undefined} className="gap-1 px-4 pt-3 pb-1">
-              <ul aria-label={t("settings.about.installCheck.listLabel", { section: section.title })} className="flex min-w-0 flex-col">
+            <Subsection
+              key={section.title}
+              title={sectionTitle(t, section)}
+              description={section.explain ? <ServerText coded={section.explain_coded} text={section.explain} /> : undefined}
+              className="gap-1 px-4 pt-3 pb-1"
+            >
+              <ul aria-label={t("settings.about.installCheck.listLabel", { section: sectionTitle(t, section) })} className="flex min-w-0 flex-col">
                 {section.items.map((item, index) => (
                   <Row key={`${item.text}-${String(index)}`} item={item} />
                 ))}

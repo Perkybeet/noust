@@ -42,6 +42,7 @@ from noust.core import app_health_store
 from noust.core.app_health_store import HealthExtras
 from noust.core.exceptions import NoustError
 from noust.core.logger import Logger
+from noust.core.server_text import say
 from noust.deployers.helpers.health import (
     answers,
     wait_until_command_succeeds,
@@ -272,10 +273,7 @@ class HealthCheck:
 
         domain, command = self.domain, self.command
         if domain is None or command is None:
-            raise NoustError(
-                "A command health check needs the application it runs in",
-                details="This is a fault of Noust, not of the check: report it.",
-            )
+            raise NoustError.from_text(say("health_gate.command_health_check_needs"))
 
         def run(timeout: float) -> tuple[bool, str]:
             return run_health_command(domain, command, service=self.service, timeout=timeout)

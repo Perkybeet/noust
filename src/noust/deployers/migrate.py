@@ -74,6 +74,7 @@ from noust.core.exceptions import DeploymentError, NoustError, ValidationError
 from noust.core.fs import FileSystem, get_fs, is_rehearsal
 from noust.core.logger import Logger
 from noust.core.runner import CommandResult, CommandRunner, get_runner
+from noust.core.server_text import say
 from noust.core.store import (
     App,
     DeploymentTrigger,
@@ -351,10 +352,12 @@ def plan_migration(
     for path in persistent:
         blocked = first_obstacle(root, PurePosixPath(path))
         if blocked is not None or (root / path).is_symlink():
-            raise DeploymentError(
-                f"Cannot keep {path} in shared/: {blocked or root / path} is a symlink or a file",
-                details="Only real directories and files move to shared/. Resolve the link "
-                "or leave the path out with --persist.",
+            raise DeploymentError.from_text(
+                say(
+                    "migrate.keep_shared_symlink_file",
+                    path=str(path),
+                    value=str(blocked or root / path),
+                )
             )
 
     env_files = tuple(
@@ -493,11 +496,12 @@ def _with_databases(
         db for db in databases if not any(PurePosixPath(db).is_relative_to(k) for k in chosen)
     ]
     if uncovered and source == FROM_OPERATOR:
-        raise DeploymentError(
-            f"SQLite database(s) outside the paths named with --persist: {', '.join(uncovered)}",
-            details="A database left in the first release is not in the next one: the next "
-            "deploy would start from an empty database. Name each one, or the directory that "
-            "holds it, too: " + " ".join(_persist_hint(db) for db in uncovered),
+        raise DeploymentError.from_text(
+            say(
+                "migrate.sqlite_database_outside_paths",
+                items=", ".join(uncovered),
+                items2=" ".join(_persist_hint(db) for db in uncovered),
+            )
         )
     if uncovered:
         warnings.append(
@@ -595,29 +599,24 @@ def _inplace_app(domain: str) -> App:
     """
     app = get_store().get_app(domain)
     if app is None:
-        raise NoustError(
-            f"Application not found: {domain}", details="Run 'noust list' to see what is deployed."
-        )
+        raise NoustError.from_text(say("apps.not_found", domain=domain))
     if app.layout == RELEASES:
-        raise DeploymentError(
-            f"{domain} is on the release layout already",
-            details=f"There is nothing to migrate. See its releases with: noust releases list "
-            f"{domain}",
-        )
+        raise DeploymentError.from_text(say("migrate.release_layout_already", domain=domain))
     try:
         deployer = get_deployer(app.app_type) if app.app_type else None
     except ValueError:
         deployer = None
     if deployer is None or not supports_release_layout(deployer):
-        raise DeploymentError(
-            f"{app.app_type or 'unknown'} applications cannot use the release layout yet",
-            details=f"{domain} keeps updating in place, which is what it has always done.",
+        raise DeploymentError.from_text(
+            say(
+                "migrate.applications_use_release_layout",
+                domain=domain,
+                value=str(app.app_type or "unknown"),
+            )
         )
     root = app_root(app)
     if not root.is_dir() or root.is_symlink():
-        raise DeploymentError(
-            f"{root} is not a directory", details="Redeploy the application before migrating it."
-        )
+        raise DeploymentError.from_text(say("migrate.directory", root=str(root)))
     return app
 
 
@@ -707,10 +706,12 @@ def _untracked(root: Path, runner: CommandRunner) -> tuple[list[str], list[str]]
         "--untracked-files=normal",
     )
     if not result.success:
-        raise DeploymentError(
-            f"git could not list what is untracked in {root}",
-            details=(result.stderr or result.stdout).strip()
-            + "\nName the paths to keep with --persist instead.",
+        raise DeploymentError.from_text(
+            say(
+                "migrate.git_list_untracked",
+                root=str(root),
+                value=(result.stderr or result.stdout).strip(),
+            )
         )
     directories: list[str] = []
     files: list[str] = []
@@ -777,23 +778,16 @@ def _explicit(paths: Sequence[str]) -> list[str]:
         except DeploymentError as exc:
             raise ValidationError(exc.message, details=exc.details) from exc
         if path.parts[0] in KEPT_AT_ROOT:
-            raise ValidationError(
-                f"{raw} does not need --persist",
-                details="Noust keeps it at the application root, beside releases/.",
-            )
+            raise ValidationError.from_text(say("migrate.need_persist", raw=str(raw)))
         if path.parts[0] in (ENV_FILE, *ENV_INVENTORIES):
-            raise ValidationError(
-                f"{raw} does not need --persist",
-                details="The .env always moves to shared/, and every release links it.",
-            )
+            raise ValidationError.from_text(say("migrate.need_persist_2", raw=str(raw)))
         if path not in normalized:
             normalized.append(path)
     for path in normalized:
         for other in normalized:
             if path != other and path.is_relative_to(other):
-                raise ValidationError(
-                    f"{path} is inside {other}",
-                    details="Name only the outer one; everything under it moves with it.",
+                raise ValidationError.from_text(
+                    say("migrate.inside", other=str(other), path=str(path))
                 )
     return [str(path) for path in normalized]
 
@@ -967,9 +961,12 @@ class _Journal:
                 put one inside the other.
         """
         if os.path.lexists(destination):
-            raise DeploymentError(
-                f"Cannot move {source} to {destination}: something is already there",
-                details="Nothing was overwritten. Move it out of the way and retry.",
+            raise DeploymentError.from_text(
+                say(
+                    "migrate.move_something_already",
+                    destination=str(destination),
+                    source=str(source),
+                )
             )
         self._fs.move(source, destination)
 
@@ -1122,9 +1119,14 @@ def _migrate(domain: str, plan: MigrationPlan, *, trigger: str, log: Logger) -> 
     app = _inplace_app(domain)
     root = app_root(app)
     if plan.domain != app.domain or Path(plan.app_path) != root:
-        raise DeploymentError(
-            f"The plan is for {plan.domain} at {plan.app_path}, not {app.domain} at {root}",
-            details="Plan again and migrate with the new plan.",
+        raise DeploymentError.from_text(
+            say(
+                "migrate.plan",
+                app_path=str(plan.app_path),
+                domain=str(plan.domain),
+                domain2=str(app.domain),
+                root=str(root),
+            )
         )
 
     before = count_tree(root)
@@ -1185,10 +1187,13 @@ def _migrate(domain: str, plan: MigrationPlan, *, trigger: str, log: Logger) -> 
             if (after.files, after.bytes) != (before.files, before.bytes) or (
                 after.links != before.links + added_links
             ):
-                raise DeploymentError(
-                    f"{root} held {before} before the migration and {after} after it",
-                    details="Every file must still be there, in the release or in shared/. The "
-                    "migration was undone.",
+                raise DeploymentError.from_text(
+                    say(
+                        "migrate.held_before_migration_after",
+                        after=str(after),
+                        before=str(before),
+                        root=str(root),
+                    )
                 )
 
             _hand_over([release, *created_dirs], log, app)
@@ -1198,10 +1203,8 @@ def _migrate(domain: str, plan: MigrationPlan, *, trigger: str, log: Logger) -> 
             log.substep("Restarting on the release layout")
             healthy, evidence = health_gate_for(app, store, log).restart_and_probe()
             if not healthy:
-                raise DeploymentError(
-                    f"{app.domain} did not pass its health check on the release layout; "
-                    "the in-place layout was put back",
-                    details=evidence,
+                raise DeploymentError.from_text(
+                    say("migrate.gate_failed_back", domain=app.domain, evidence=evidence)
                 )
 
             # The staging directory is empty once everything is in the release.
@@ -1211,9 +1214,13 @@ def _migrate(domain: str, plan: MigrationPlan, *, trigger: str, log: Logger) -> 
     except (OSError, sqlite3.Error) as error:
         # Not a Noust error, so it carries no details to put the undo's report
         # in: one error that says what failed and what the undo managed.
-        raise DeploymentError(
-            f"The migration of {app.domain} failed and was undone: {error}",
-            details=journal.report(),
+        raise DeploymentError.from_text(
+            say(
+                "migrate.failed_undone",
+                domain=app.domain,
+                error=str(error),
+                journal=journal.report(),
+            )
         ) from error
 
     log.substep(f"{app.domain} runs from release {release.name}")
@@ -1358,9 +1365,12 @@ def _share(
         path = PurePosixPath(raw)
         blocked = first_obstacle(release, path)
         if blocked is not None or (release / path).is_symlink():
-            raise DeploymentError(
-                f"Cannot move {path} to shared/: {blocked or release / path} is a symlink",
-                details="Nothing was moved. Plan again.",
+            raise DeploymentError.from_text(
+                say(
+                    "migrate.move_shared_symlink",
+                    path=str(path),
+                    value=str(blocked or release / path),
+                )
             )
         # What is missing on either side is created by the move or by the
         # link below; remembered top-down so the undo removes it bottom-up.
@@ -1387,17 +1397,19 @@ def _share(
     for linked in links.linked:
         journal.created_link(release / linked)
     if links.conflicts:
-        raise DeploymentError(
-            f"Could not link {', '.join(links.conflicts)} into release {release.name}",
-            details="Something is still in the release where the link must go.",
+        raise DeploymentError.from_text(
+            say(
+                "migrate.link_into_release",
+                items=", ".join(links.conflicts),
+                name=str(release.name),
+            )
         )
     for linked in links.linked:
         log.substep(f"Linked {linked} to shared/{linked}")
 
     if releases.activate(release) is not None:
-        raise DeploymentError(
-            f"{root / CURRENT_LINK} pointed at a release already",
-            details="An in-place application has none. Check the directory by hand.",
+        raise DeploymentError.from_text(
+            say("migrate.pointed_release_already", value=str(root / CURRENT_LINK))
         )
     journal.created_link(root / CURRENT_LINK)
     return created

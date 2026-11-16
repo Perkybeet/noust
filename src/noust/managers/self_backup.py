@@ -83,6 +83,7 @@ from noust.core.notifications.composers import (
 from noust.core.notifications.context import NotificationContext
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.secrets import SecretStore, at_rest_key_path
+from noust.core.server_text import say
 from noust.core.store import SCHEMA_VERSION, NoustStore, get_store
 from noust.managers.backup_destination_files import DestinationFileManager, file_sha256
 from noust.managers.backup_failures import record_failure
@@ -233,10 +234,8 @@ def _limit(value: Any, ceiling: int, name: str) -> int | None:
     if value is None:
         return None
     if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= ceiling:
-        raise ValidationError(
-            f"{name} must be a whole number from 1 to {ceiling}",
-            details="Leave it empty for no limit.",
-            field=name,
+        raise ValidationError.from_text(
+            say("self_backup.whole_number_1", ceiling=ceiling, name=name), field=name
         )
     return int(value)
 
@@ -482,9 +481,11 @@ class SelfBackupManager:
             ValidationError: When it is too short to protect anything.
         """
         if len(passphrase) < sealing.MIN_PASSPHRASE_LENGTH:
-            raise ValidationError(
-                f"The passphrase must have at least {sealing.MIN_PASSPHRASE_LENGTH} characters",
-                details="Everything the bundle protects is as strong as its passphrase.",
+            raise ValidationError.from_text(
+                say(
+                    "self_backup.passphrase_least_characters",
+                    min_passphrase_length=str(sealing.MIN_PASSPHRASE_LENGTH),
+                ),
                 field="passphrase",
             )
         self.secrets.write(SECRET_NAME, passphrase)
@@ -914,11 +915,12 @@ class SelfBackupManager:
                 # Said before anything is sent: a bundle with no store is the one nobody can
                 # restore a server from, and it would pass for a good one until the day it is used.
                 if not any(entry["path"] == STORE_IN_BUNDLE for entry in manifest["files"]):
-                    raise BackupError(
-                        "The bundle would hold no store, so it is not made",
-                        details=f"There is no {paths.STORE_NAME} with content in "
-                        f"{labels.get('state', paths.state_dir())}, the directory that holds "
-                        "the store Noust uses. Run: noust setup doctor",
+                    raise BackupError.from_text(
+                        say(
+                            "self_backup.bundle_hold_store_made",
+                            store_name=str(paths.STORE_NAME),
+                            value=str(labels.get("state", paths.state_dir())),
+                        )
                     )
                 manifest["store"] = {"path": STORE_IN_BUNDLE}
                 key = self._secrets_key_in(labels, manifest)
@@ -947,10 +949,8 @@ class SelfBackupManager:
                     label=LABEL,
                 )
         except (OSError, sqlite3.Error, tarfile.TarError) as exc:
-            raise BackupError(
-                "Could not back Noust's own state up",
-                details=f"{exc}. Check the disk space of {self.directory} and that every file "
-                "of Noust's directories can be read.",
+            raise BackupError.from_text(
+                say("self_backup.back_noust_own_state", directory=str(self.directory), exc=str(exc))
             ) from exc
         bundle = SelfBackup(path=info.path, size=info.size, sha256=info.sha256, manifest=manifest)
         self._write_sidecar(bundle, kind=kind)
@@ -1085,25 +1085,25 @@ class SelfBackupManager:
         candidate = Path(name_or_path)
         path = candidate if len(candidate.parts) > 1 else self.directory / name_or_path
         if len(candidate.parts) == 1 and not _NAME.match(name_or_path):
-            raise SelfBackupNotFound(
-                f"{name_or_path!r} is not the name of a bundle",
-                details="List them with: noust self-backup list",
+            raise SelfBackupNotFound.from_text(
+                say("self_backup.name_bundle", name_or_path=f"{name_or_path!r}")
             )
         if not path.is_file() or path.is_symlink():
-            raise SelfBackupNotFound(
-                f"No bundle at {path}",
-                details="List them with: noust self-backup list, or give the whole path.",
-            )
+            raise SelfBackupNotFound.from_text(say("self_backup.bundle", path=str(path)))
         try:
             header = read_header(path)
         except EnvelopeError as exc:
-            raise SelfBackupNotFound(
-                f"{path.name} is not a Noust bundle", details=exc.details
+            raise SelfBackupNotFound.from_text(
+                say("self_backup.noust_bundle", details=str(exc.details or ""), name=str(path.name))
             ) from exc
         if header.get("label") != LABEL:
-            raise SelfBackupNotFound(
-                f"{path.name} is an envelope of something else ({header.get('label')!r})",
-                details="A bundle of Noust's own state has the label " + LABEL + ".",
+            raise SelfBackupNotFound.from_text(
+                say(
+                    "self_backup.envelope_something_else",
+                    label=str(LABEL),
+                    name=str(path.name),
+                    value=f"{header.get('label')!r}",
+                )
             )
         return path
 
@@ -1139,19 +1139,28 @@ class SelfBackupManager:
                 max_total_bytes=MAX_BYTES,
             )
         except SourceError as exc:
-            raise BackupError(
-                f"{path.name} does not hold a safe archive", details=exc.message
+            raise BackupError.from_text(
+                say(
+                    "self_backup.hold_safe_archive",
+                    message=str(exc.message or ""),
+                    name=str(path.name),
+                )
             ) from exc
         self.fs.remove(archive)
         root = extracted / ROOT_NAME
         try:
             manifest = json.loads((root / MANIFEST_NAME).read_text())
         except (OSError, ValueError) as exc:
-            raise BackupError(f"{path.name} has no readable manifest", details=str(exc)) from exc
+            raise BackupError.from_text(
+                say("self_backup.readable_manifest", exc=str(str(exc) or ""), name=str(path.name))
+            ) from exc
         if manifest.get("format") != LABEL:
-            raise BackupError(
-                f"{path.name} holds {manifest.get('format')!r}, not Noust's own state",
-                details="A central's bundle is checked with: noust central backup --verify",
+            raise BackupError.from_text(
+                say(
+                    "self_backup.holds_noust_own_state",
+                    name=str(path.name),
+                    value=f"{manifest.get('format')!r}",
+                )
             )
         return root, manifest
 
@@ -1300,9 +1309,8 @@ class SelfBackupManager:
         """
         path = self.resolve(name)
         if path.parent.resolve() != self.directory.resolve():
-            raise BackupError(
-                f"{path} is not in {self.directory}",
-                details="Only a bundle this server keeps can be deleted here.",
+            raise BackupError.from_text(
+                say("self_backup.is_not_in", directory=str(self.directory), path=str(path))
             )
         self.fs.remove(path)
         self.fs.remove(self._sidecar_path(path))
@@ -1349,9 +1357,8 @@ class SelfBackupManager:
         """
         path = self.resolve(name_or_path)
         if self.destinations.get(destination) is None:
-            raise ValidationError(
-                f"Backup destination {destination!r} does not exist",
-                details="Create it first with: noust backup destination add",
+            raise ValidationError.from_text(
+                say("self_backup.backup_destination_exist", destination=f"{destination!r}"),
                 field="destination",
             )
         sidecar_file = self._sidecar_path(path)
@@ -1459,7 +1466,7 @@ class SelfBackupManager:
             BackupError: When the download fails or does not match its digest.
         """
         if not _NAME.match(name):
-            raise BackupError(f"{name!r} is not the name of a bundle")
+            raise BackupError.from_text(say("self_backup.name_bundle_2", name=f"{name!r}"))
         path, _ = self.destinations.download_file(
             destination,
             f"{REMOTE_ROOT}/{_SLUG.sub('-', host).strip('-')}",
@@ -1605,10 +1612,8 @@ class SelfBackupManager:
         for entry in destinations:
             name = str(entry.get("name") or "")
             if not name or self.destinations.get(name) is None:
-                raise ValidationError(
-                    f"Backup destination {name!r} does not exist",
-                    details="Create it first with: noust backup destination add",
-                    field="destinations",
+                raise ValidationError.from_text(
+                    say("backups.backup_destination_exist", name=f"{name!r}"), field="destinations"
                 )
             checked.append(
                 {
@@ -1623,21 +1628,14 @@ class SelfBackupManager:
                 }
             )
         if remote_only and not checked:
-            raise ValidationError(
-                "A schedule that keeps nothing on this server needs a destination",
-                details="Name at least one destination to send the bundles to (--to NAME), or "
-                "keep the bundles here.",
-                field="remote_only",
+            raise ValidationError.from_text(
+                say("self_backup.schedule_keeps_nothing_server"), field="remote_only"
             )
         if passphrase is not None:
             self.store_passphrase(passphrase)
         elif self.stored_passphrase() is None:
-            raise ValidationError(
-                "A schedule needs a passphrase to seal its bundles under",
-                details="Give one with the passphrase option; Noust keeps it in its secret "
-                "store so the timer can run unattended. Keep a copy of your own: without it "
-                "no bundle opens.",
-                field="passphrase",
+            raise ValidationError.from_text(
+                say("self_backup.schedule_needs_passphrase_seal"), field="passphrase"
             )
         if enabled:
             self.scheduler.install_self_backup_timer(calendar, options=timer_options)
@@ -1731,10 +1729,8 @@ class SelfBackupManager:
         try:
             passphrase = self.stored_passphrase()
             if passphrase is None:
-                raise ValidationError(
-                    "No passphrase is stored for the scheduled backup of Noust's own state",
-                    details="Set it again with: noust self-backup schedule set",
-                    field="passphrase",
+                raise ValidationError.from_text(
+                    say("self_backup.passphrase_stored_scheduled_backup"), field="passphrase"
                 )
             step("Backing up Noust's own state")
             bundle = self.create(passphrase, kind="scheduled")
@@ -1743,9 +1739,12 @@ class SelfBackupManager:
             verdict = self.verify(bundle.path.name, passphrase)
             result["verification"] = verdict
             if not verdict["ok"]:
-                raise BackupError(
-                    f"The bundle {bundle.path.name} failed its verification and was not sent",
-                    details="; ".join(verdict["problems"]),
+                raise BackupError.from_text(
+                    say(
+                        "self_backup.bundle_failed_verification_sent",
+                        items=str("; ".join(verdict["problems"]) or ""),
+                        name=str(bundle.path.name),
+                    )
                 )
         except NoustError as exc:
             text = str(exc)

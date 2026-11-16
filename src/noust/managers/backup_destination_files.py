@@ -40,6 +40,7 @@ from typing import Any
 from noust.core.exceptions import BackupError, ValidationError
 from noust.core.fs import SECRET_DIR_MODE, FileSystem, get_fs
 from noust.core.logger import Logger
+from noust.core.server_text import say
 from noust.managers.backup_destinations import (
     _RCLONE_LIST_TIMEOUT,
     _RCLONE_TIMEOUT,
@@ -131,10 +132,8 @@ class DestinationFileManager(BackupDestinationManager):
         """
         segments = [segment for segment in folder.split("/") if segment]
         if not segments or any(not _SEGMENT.fullmatch(segment) for segment in segments):
-            raise BackupError(
-                f"Invalid folder on the destination: {folder!r}",
-                details="A folder is made of names with letters, digits, '_', '$', '-' and '.' "
-                "(never first).",
+            raise BackupError.from_text(
+                say("backup_destination_files.invalid_folder_destination", folder=f"{folder!r}")
             )
         return f"{self.target(destination_name).rstrip('/')}/{'/'.join(segments)}"
 
@@ -162,9 +161,14 @@ class DestinationFileManager(BackupDestinationManager):
             secrets=secrets_literal,
         )
         if not result.success:
-            raise BackupError(
-                f"Could not read the metadata in {target_dir}",
-                details=_scrub((result.stderr or result.stdout).strip(), secrets_literal),
+            raise BackupError.from_text(
+                say(
+                    "backup_destination_files.read_metadata",
+                    target_dir=target_dir,
+                    value=str(
+                        _scrub((result.stderr or result.stdout).strip(), secrets_literal) or ""
+                    ),
+                )
             )
         return {
             data["name"]: data
@@ -214,7 +218,7 @@ class DestinationFileManager(BackupDestinationManager):
         self.require_encrypted_upload(destination_name)
         self.settle_folder(destination_name)
         if not local.is_file():
-            raise BackupError(f"Cannot send {local}: it is not a file")
+            raise BackupError.from_text(say("backup_destination_files.send_file", local=str(local)))
         env = self.remote_env(destination_name)
         secrets_literal = self._secret_literals(destination_name)
         target_dir = self._folder_target(destination_name, folder)
@@ -233,9 +237,15 @@ class DestinationFileManager(BackupDestinationManager):
             secrets=secrets_literal,
         )
         if not result.success:
-            raise BackupError(
-                f"Failed to upload {name} to {destination_name}",
-                details=_scrub((result.stderr or result.stdout).strip(), secrets_literal),
+            raise BackupError.from_text(
+                say(
+                    "backup_destination_files.failed_upload",
+                    destination_name=destination_name,
+                    name=str(name),
+                    value=str(
+                        _scrub((result.stderr or result.stdout).strip(), secrets_literal) or ""
+                    ),
+                )
             )
         result = self.runner.run(
             ["rclone", "rcat", f"{target_dir}/{sidecar_name}"],
@@ -277,10 +287,13 @@ class DestinationFileManager(BackupDestinationManager):
                 retention_bytes=retention_bytes,
             )
         except BackupError as exc:
-            raise BackupError(
-                f"{name} was uploaded to {destination_name} and verified, but retention could "
-                "not be applied there",
-                details=exc.details or exc.message,
+            raise BackupError.from_text(
+                say(
+                    "backup_destination_files.uploaded_verified_retention_applied",
+                    destination_name=destination_name,
+                    name=str(name),
+                    value=str(exc.details or exc.message or ""),
+                )
             ) from exc
         return {
             "destination": destination_name,
@@ -341,9 +354,15 @@ class DestinationFileManager(BackupDestinationManager):
                 secrets=secrets_literal,
             )
             if not result.success:
-                raise BackupError(
-                    f"Failed to upload {local.name} to {destination_name}",
-                    details=_scrub((result.stderr or result.stdout).strip(), secrets_literal),
+                raise BackupError.from_text(
+                    say(
+                        "backup_destination_files.failed_upload",
+                        destination_name=destination_name,
+                        name=str(local.name),
+                        value=str(
+                            _scrub((result.stderr or result.stdout).strip(), secrets_literal) or ""
+                        ),
+                    )
                 )
             uploaded.append(local.name)
         if uploaded:
@@ -433,13 +452,17 @@ class DestinationFileManager(BackupDestinationManager):
             try:
                 validate_filename(name)
             except ValidationError as exc:
-                raise BackupError(
-                    f"Invalid file name: {name!r}", details="A file is named by its name alone."
+                raise BackupError.from_text(
+                    say("backup_destination_files.invalid_file_name_2", name=f"{name!r}")
                 ) from exc
             if name not in remote_sizes:
-                raise BackupError(
-                    f"{name} is not on {destination_name}",
-                    details=f"Looked in {target_dir}.",
+                raise BackupError.from_text(
+                    say(
+                        "backup_destination_files.is_not_on",
+                        destination_name=destination_name,
+                        name=str(name),
+                        target_dir=str(target_dir),
+                    )
                 )
             destination = directory / name
             if destination.is_file() and destination.stat().st_size == remote_sizes[name]:
@@ -451,16 +474,25 @@ class DestinationFileManager(BackupDestinationManager):
                 secrets=secrets_literal,
             )
             if not result.success or not destination.is_file():
-                raise BackupError(
-                    f"Failed to download {name} from {destination_name}",
-                    details=_scrub((result.stderr or result.stdout).strip(), secrets_literal),
+                raise BackupError.from_text(
+                    say(
+                        "backup_destination_files.failed_download",
+                        destination_name=destination_name,
+                        name=str(name),
+                        value=str(
+                            _scrub((result.stderr or result.stdout).strip(), secrets_literal) or ""
+                        ),
+                    )
                 )
             expected = remote_sizes[name]
             if isinstance(expected, int) and destination.stat().st_size != expected:
                 files.remove(destination)
-                raise BackupError(
-                    f"Size mismatch after downloading {name}",
-                    details=f"The destination holds {expected} bytes of it.",
+                raise BackupError.from_text(
+                    say(
+                        "backup_destination_files.size_mismatch_after_downloading",
+                        expected=str(expected),
+                        name=str(name),
+                    )
                 )
             fetched.append(name)
         return fetched
@@ -501,15 +533,18 @@ class DestinationFileManager(BackupDestinationManager):
         """
         entry = next((e for e in entries if e.get("Name") == name), None)
         if entry is None:
-            raise BackupError(
-                f"Upload of {name} did not reach the destination",
-                details="It was not listed there right after being copied.",
+            raise BackupError.from_text(
+                say("backup_destination_files.upload_reach_destination", name=name)
             )
         size = entry.get("Size")
         if isinstance(size, int) and size != len(body.encode()):
-            raise BackupError(
-                f"Size mismatch after uploading {name}",
-                details=f"Sent {len(body.encode())} bytes; the destination reports {size}.",
+            raise BackupError.from_text(
+                say(
+                    "backup_destination_files.size_mismatch_after_uploading",
+                    count=len(body.encode()),
+                    name=name,
+                    size=str(size),
+                )
             )
 
     def _apply_file_retention(
@@ -599,9 +634,14 @@ class DestinationFileManager(BackupDestinationManager):
                 secrets=secrets_literal,
             )
             if not result.success and "not found" not in (result.stderr or "").lower():
-                raise BackupError(
-                    f"Failed to remove {victim} from the destination",
-                    details=_scrub((result.stderr or result.stdout).strip(), secrets_literal),
+                raise BackupError.from_text(
+                    say(
+                        "backup_destination_files.failed_remove_destination",
+                        value=str(
+                            _scrub((result.stderr or result.stdout).strip(), secrets_literal) or ""
+                        ),
+                        victim=str(victim),
+                    )
                 )
 
     def list_files(self, destination_name: str, folder: str) -> list[RemoteFile]:
@@ -704,8 +744,8 @@ class DestinationFileManager(BackupDestinationManager):
         try:
             validate_filename(name)
         except ValidationError as exc:
-            raise BackupError(
-                f"Invalid file name: {name!r}", details="A dump is named by its file name alone."
+            raise BackupError.from_text(
+                say("backup_destination_files.invalid_file_name", name=f"{name!r}")
             ) from exc
         env = self.remote_env(destination_name)
         secrets_literal = self._secret_literals(destination_name)
@@ -721,27 +761,44 @@ class DestinationFileManager(BackupDestinationManager):
             secrets=secrets_literal,
         )
         if not result.success:
-            raise BackupError(
-                f"Failed to download {name} from {destination_name}",
-                details=_scrub((result.stderr or result.stdout).strip(), secrets_literal),
+            raise BackupError.from_text(
+                say(
+                    "backup_destination_files.failed_download",
+                    destination_name=destination_name,
+                    name=name,
+                    value=str(
+                        _scrub((result.stderr or result.stdout).strip(), secrets_literal) or ""
+                    ),
+                )
             )
         if not destination.is_file():
-            raise BackupError(f"Download of {name} did not produce a file at {destination}")
+            raise BackupError.from_text(
+                say(
+                    "backup_destination_files.download_produce_file",
+                    destination=str(destination),
+                    name=name,
+                )
+            )
 
         sidecar = self._read_one_sidecar(env, target_dir, name, secrets_literal)
         if sidecar is None:
             return destination, None
         if sidecar.get("name") != name:
-            raise BackupError(
-                f"The metadata downloaded for {name} describes another file",
-                details=f"It names {sidecar.get('name')!r}. Nothing was restored.",
+            raise BackupError.from_text(
+                say(
+                    "backup_destination_files.metadata_downloaded_describes_another",
+                    name=name,
+                    value=f"{sidecar.get('name')!r}",
+                )
             )
         expected = sidecar.get("sha256")
         if expected and file_sha256(destination) != expected:
-            raise BackupError(
-                f"Checksum mismatch after downloading {name} from {destination_name}",
-                details="The downloaded file does not match the digest recorded when it was "
-                "sent. Restoring it would restore corrupted data. Nothing was restored.",
+            raise BackupError.from_text(
+                say(
+                    "backup_destination_files.checksum_mismatch_after_downloading",
+                    destination_name=destination_name,
+                    name=name,
+                )
             )
         return destination, sidecar
 
@@ -774,13 +831,20 @@ class DestinationFileManager(BackupDestinationManager):
             combined = f"{result.stderr}\n{result.stdout}".lower()
             if "not found" in combined:
                 return None
-            raise BackupError(
-                f"Could not read the metadata of {name}",
-                details=_scrub((result.stderr or result.stdout).strip(), secrets_literal),
+            raise BackupError.from_text(
+                say(
+                    "backup_destination_files.read_metadata_2",
+                    name=name,
+                    value=str(
+                        _scrub((result.stderr or result.stdout).strip(), secrets_literal) or ""
+                    ),
+                )
             )
         found = decode_sidecars(result.stdout or "")
         if not found:
-            raise BackupError(f"The metadata of {name} is not a JSON object")
+            raise BackupError.from_text(
+                say("backup_destination_files.metadata_json_object", name=name)
+            )
         return found[0]
 
     def delete_file(self, destination_name: str, folder: str, name: str) -> None:
@@ -802,8 +866,8 @@ class DestinationFileManager(BackupDestinationManager):
         try:
             validate_filename(name)
         except ValidationError as exc:
-            raise BackupError(
-                f"Invalid file name: {name!r}", details="A dump is named by its file name alone."
+            raise BackupError.from_text(
+                say("backup_destination_files.invalid_file_name", name=f"{name!r}")
             ) from exc
         env = self.remote_env(destination_name)
         secrets_literal = self._secret_literals(destination_name)

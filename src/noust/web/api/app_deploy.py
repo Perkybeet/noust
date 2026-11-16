@@ -34,6 +34,7 @@ from pydantic import BaseModel, Field
 from noust.core import deploy_guard
 from noust.core.container_store import ContainerStore
 from noust.core.exceptions import DeploysFrozenError, QueueFullError, ValidationError
+from noust.core.server_text import say
 from noust.core.store import App
 from noust.core.teams import scoped_store
 from noust.deployers.helpers.container_settings import change_container
@@ -44,6 +45,7 @@ from noust.web.api.deps import NoustErrorRoute, strict_domain
 from noust.web.api.jobs import queue_update, refuse_if_nothing_new
 from noust.web.auth import API_TOKEN_SID_PREFIX, actor_label
 from noust.web.pydantic_compat import dump_model
+from noust.web.refusal import refusal
 
 router = APIRouter(route_class=NoustErrorRoute)
 
@@ -123,32 +125,23 @@ def check_options(options: DeployOptions) -> None:
     """
     exact = [name for name in ("commit", "tag") if getattr(options, name)]
     if len(exact) > 1:
-        raise ValidationError(
-            "A commit and a tag both name what to deploy",
-            details="Give one of them.",
-            field="tag",
-        )
+        raise ValidationError.from_text(say("app_deploy_api.commit_tag_both_name"), field="tag")
     if options.pull_request is not None:
         if options.pull_request < 1:
-            raise ValidationError(
-                "A pull request number is 1 or more",
-                details="Give the number the code host shows.",
-                field="pull_request",
+            raise ValidationError.from_text(
+                say("app_deploy_api.pull_request_number_1"), field="pull_request"
             )
         others = [
             name for name in ("commit", "tag", "image_tag") if getattr(options, name) is not None
         ]
         if others:
-            raise ValidationError(
-                f"A pull request preview is rebuilt from its branch: {others[0]} does not apply",
-                details="Ask for the preview alone, or deploy the application.",
+            raise ValidationError.from_text(
+                say("app_deploy_api.pull_request_preview_rebuilt", others=str(others[0])),
                 field="pull_request",
             )
     if options.image_tag is not None and exact:
-        raise ValidationError(
-            "An image tag is the version to deploy: a commit or a tag does not apply",
-            details="Deploy the image tag, or a commit of the repository, not both.",
-            field="image_tag",
+        raise ValidationError.from_text(
+            say("app_deploy_api.image_tag_version_deploy"), field="image_tag"
         )
 
 
@@ -167,11 +160,8 @@ def _queue_image_tag(app: App, tag: str, actor: str) -> None:
     """
     settings = ContainerStore().get(app.domain)
     if settings is None or settings.method != METHOD_IMAGE or not settings.image:
-        raise ValidationError(
-            f"{app.domain} does not run an image from a registry",
-            details="An image tag only means something to an application deployed with --image. "
-            "Deploy the others by commit or tag.",
-            field="image_tag",
+        raise ValidationError.from_text(
+            say("app_deploy_api.run_image_registry", domain=str(app.domain)), field="image_tag"
         )
     change_container(app.domain, {"image": with_tag(settings.image, tag)}, actor=actor)
 
@@ -303,7 +293,7 @@ def deploy_app(
     validated = strict_domain(domain)
     result = deploy_one(validated, options, actor_label(session), automatic=_is_pipeline(session))
     if result.status == "not_found":
-        raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
+        raise refusal(404, say("app_deploy_api.application_found", validated=str(validated)))
     if result.status in ("frozen", "paused"):
         # Not a 2xx: a pipeline that reads success would think the deploy happened.
         raise HTTPException(
@@ -372,9 +362,12 @@ def deploy_apps(
     )
     check_options(options)
     if len(body.apps) > MAX_BATCH:
-        raise ValidationError(
-            f"{len(body.apps)} applications is more than one call deploys ({MAX_BATCH})",
-            details="Split the list over several calls.",
+        raise ValidationError.from_text(
+            say(
+                "app_deploy_api.applications_more_call_deploys",
+                count=len(body.apps),
+                max_batch=str(MAX_BATCH),
+            ),
             field="apps",
         )
     domains = list(dict.fromkeys(strict_domain(item) for item in body.apps))

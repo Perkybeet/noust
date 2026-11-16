@@ -70,6 +70,7 @@ from noust.core.accounts.oidc_store import (
 )
 from noust.core.accounts.saml_store import SamlProvider, SamlStore
 from noust.core.exceptions import ValidationError
+from noust.core.server_text import say
 
 logger = logging.getLogger(__name__)
 
@@ -847,7 +848,7 @@ class SamlManager:
             refuse_to_lose_a_way_in(
                 self.accounts.store,
                 without_provider=existing.name,
-                action=f"Disabling the provider {existing.name!r}",
+                action=say("local_login.nobody_disabling_provider", name=repr(existing.name)),
             )
         self.data.save_provider(provider)
         return provider
@@ -924,7 +925,7 @@ class SamlManager:
         refuse_to_lose_a_way_in(
             self.accounts.store,
             without_provider=found.name,
-            action=f"Removing the provider {found.name!r}",
+            action=say("local_login.nobody_removing_provider", name=repr(found.name)),
         )
         self.data.delete_provider(found.name)
         return found

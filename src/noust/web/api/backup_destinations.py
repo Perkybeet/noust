@@ -37,6 +37,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from noust.core.exceptions import BackupError
+from noust.core.server_text import say
 from noust.core.store import BackupDestinationRecord
 from noust.managers.backup_destinations import (
     BACKEND_FIELDS,
@@ -52,6 +53,7 @@ from noust.web.api.auth import get_current_session
 from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, require_elevated, strict_domain
 from noust.web.auth import actor_label
 from noust.web.jobs import JobType, get_job_manager, restore_from_destination_job
+from noust.web.refusal import refusal
 
 router = APIRouter(route_class=NoustErrorRoute)
 
@@ -600,9 +602,12 @@ def restore_from_destination(
     validated_id = validate_filename(backup_id)
     app_name = (data.app_name if data else None) or app_name_of_backup_id(validated_id)
     if not app_name:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cannot determine the application {validated_id!r} belongs to; pass app_name.",
+        raise refusal(
+            400,
+            say(
+                "backup_destinations.determine_application_belongs_pass",
+                validated_id=f"{validated_id!r}",
+            ),
         )
 
     # Refused here so the request fails, not the job; the manager checks it again

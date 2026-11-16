@@ -38,6 +38,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from noust.core.exceptions import SecurityError
+from noust.core.server_text import say
 from noust.fleet.authorize import KEY_COMMENT_PREFIX, NO_LISTEN, has_tunnel_options
 from noust.managers.server.host import HostPaths
 from noust.managers.server.security_accounts import Account
@@ -136,7 +137,7 @@ def _decode(blob: str) -> bytes:
     try:
         return base64.b64decode(blob, validate=True)
     except (binascii.Error, ValueError) as exc:
-        raise SecurityError("The key is damaged: its key is not base64") from exc
+        raise SecurityError.from_text(say("ssh_keys.key_damaged_key_base64")) from exc
 
 
 def _fields(raw: bytes) -> list[bytes]:
@@ -343,28 +344,19 @@ def parse_new_key(line: str) -> AuthorizedKey:
     """
     text = (line or "").strip()
     if not text or len(text) > MAX_KEY_LINE or "\n" in text or any(ord(c) < 32 for c in text):
-        raise SecurityError(
-            "The public key is not one line of an OpenSSH public key",
-            details="Paste the whole content of your .pub file, on one line.",
-        )
+        raise SecurityError.from_text(say("ssh_keys.public_key_line_openssh"))
     fields = text.split(None, 2)
     if len(fields) < 2 or fields[0] not in ADDABLE_TYPES:
-        raise SecurityError(
-            "The public key's type is not one Noust adds",
-            details="Use an ed25519 key (ssh-keygen -t ed25519), or ECDSA or RSA of at least "
-            f"{MIN_RSA_BITS} bits. Options such as from= or command= are not accepted here.",
+        raise SecurityError.from_text(
+            say("ssh_keys.public_key_type_noust", min_rsa_bits=str(MIN_RSA_BITS))
         )
     key_type, blob = fields[0], fields[1]
     bits = key_bits(key_type, blob)
     if bits is None:
-        raise SecurityError(
-            "The public key is damaged",
-            details="Its key does not hold the type the line declares; copy the line again.",
-        )
+        raise SecurityError.from_text(say("ssh_keys.public_key_damaged"))
     if key_type == "ssh-rsa" and bits < MIN_RSA_BITS:
-        raise SecurityError(
-            f"The RSA key has {bits} bits, which is too weak",
-            details=f"Use at least {MIN_RSA_BITS} bits, or an ed25519 key.",
+        raise SecurityError.from_text(
+            say("ssh_keys.rsa_key_bits_too", bits=str(bits), min_rsa_bits=str(MIN_RSA_BITS))
         )
     comment = "".join(
         char

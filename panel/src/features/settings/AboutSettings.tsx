@@ -34,6 +34,7 @@ import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { useRenderedPathname } from "../../app/renderedPath";
 import { openReport } from "../report/store";
 
+import { jobFailure } from "../../lib/errors";
 type UpdateInfo = ResponseOf<"/api/system/version", "get">;
 
 const REPOSITORY = "https://github.com/Perkybeet/noust";
@@ -99,7 +100,7 @@ function IndexBehind({ info, version }: { info: UpdateInfo; version: string }): 
         </Button>
         <ReleaseNotesLink url={info.release_url} version={version} />
       </div>
-      {failed ? <ErrorBlock live compact error={{ detail: job.error ?? "" }} title={t("settings.about.version.refreshFailed")} /> : null}
+      {failed ? <ErrorBlock live compact error={jobFailure(job)} title={t("settings.about.version.refreshFailed")} /> : null}
       <UpdateNotes version={version} />
     </StateLine>
   );

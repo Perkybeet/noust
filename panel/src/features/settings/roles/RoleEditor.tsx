@@ -18,7 +18,7 @@ import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 import { accountKeys } from "../accounts/api";
 import { focusFirstInvalid, splitErrors } from "../formErrors";
-import { groupPermissions, kindOf, roleDescription, roleLabel } from "./roleModel";
+import { areaLabel, groupPermissions, kindOf, permissionText, roleDescription, roleLabel } from "./roleModel";
 
 const FIELDS = ["name", "label", "description", "permissions"] as const;
 
@@ -191,7 +191,7 @@ export function RoleEditor({ role, catalog, onClose }: RoleEditorProps) {
             </InlineMessage>
           ) : null}
           {groups.map((group) => (
-            <Subsection key={group.area} title={group.area}>
+            <Subsection key={group.area} title={areaLabel(t, group.area)}>
               <div className="flex flex-col gap-2">
                 {group.permissions.map((permission) => (
                   <Checkbox
@@ -202,7 +202,7 @@ export function RoleEditor({ role, catalog, onClose }: RoleEditorProps) {
                       toggle(permission, on);
                     }}
                     label={<Mono tone="default">{permission}</Mono>}
-                    description={<span translate="no">{catalog.permissions[permission] ?? ""}</span>}
+                    description={permissionText(t, permission, catalog.permissions[permission] ?? "")}
                   />
                 ))}
               </div>

@@ -13,6 +13,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from noust.core.exceptions import SecurityError
+from noust.core.server_text import say
 from noust.web.permissions import Permission
 from noust.web.permissions.roles import ADMIN
 
@@ -142,9 +143,8 @@ def _validated_networks(entries: list[str] | None) -> list[str] | None:
         try:
             networks.append(str(ipaddress.ip_network(str(entry).strip(), strict=False)))
         except ValueError as exc:
-            raise SecurityError(
-                f"Not an address or a network: {entry!r}",
-                details="Use addresses or CIDRs, such as 203.0.113.7 or 10.0.0.0/8.",
+            raise SecurityError.from_text(
+                say("auth_records.address_network", entry=f"{entry!r}")
             ) from exc
     return networks
 

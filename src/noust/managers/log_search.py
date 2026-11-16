@@ -48,6 +48,7 @@ from noust.core.exceptions import NoustError, ValidationError
 from noust.core.redact import Scrubber, scrubber_for
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.secret_detection import mask_secret_shapes
+from noust.core.server_text import ServerText, say
 from noust.core.store import App, is_compose_backed
 from noust.core.utils import domain_to_app_name, legacy_app_name
 from noust.managers.server import logquery
@@ -231,10 +232,7 @@ def parse_moment(text: str | float | None, now: float, default: float) -> float:
     try:
         parsed = datetime.fromisoformat(raw)
     except ValueError as exc:
-        raise ValidationError(
-            f"{text!r} is not a time",
-            details="Use epoch seconds, a time ago such as 15m, 2h or 7d, or a date such as 2026-10-16.",
-        ) from exc
+        raise ValidationError.from_text(say("log_search.time", text=f"{text!r}")) from exc
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed.timestamp()
@@ -303,7 +301,19 @@ class SearchResult:
     since: float = 0.0
     until: float = 0.0
     notes: list[str] = field(default_factory=list)
+    notes_coded: list[ServerText | None] = field(default_factory=list)
     understood: str = ""
+
+    def note(self, sentence: ServerText) -> None:
+        """
+        Add a note on the answer: what was left out and why.
+
+        Args:
+            sentence: What is said, a sentence of the catalog; the English is kept in ``notes`` and
+                the sentence in ``notes_coded``, at the same place, for the console to say in its language.
+        """
+        self.notes.append(sentence.text)
+        self.notes_coded.append(sentence)
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -318,6 +328,8 @@ class SearchResult:
             "since": self.since,
             "until": self.until,
             "notes": list(self.notes),
+            "notes_coded": [note.to_dict() if note else None for note in self.notes_coded]
+            + [None] * (len(self.notes) - len(self.notes_coded)),
             "understood": self.understood,
         }
 
@@ -454,22 +466,26 @@ class LogSearch:
         tree = logquery.parse(text)
         if level is not None:
             if level.lower() not in logquery.LEVELS:
-                raise ValidationError(
-                    f"{level!r} is not a level",
-                    details=f"The levels are: {', '.join(LEVEL_NAMES)}.",
+                raise ValidationError.from_text(
+                    say("log_search.level", items=", ".join(LEVEL_NAMES), level=f"{level!r}"),
                     field="level",
                 )
             tree = _with_clause(tree, logquery.Field("level", level.lower()))
         if not 1 <= limit <= MAX_LIMIT:
-            raise ValidationError(f"limit is a number from 1 to {MAX_LIMIT}", field="limit")
+            raise ValidationError.from_text(
+                say("log_search.limit_number_1", max_limit=str(MAX_LIMIT)), field="limit"
+            )
         start = parse_moment(since, now, now - 3_600)
         end = parse_moment(until, now, now)
         if end <= start:
-            raise ValidationError("The window ends before it starts", field="until")
+            raise ValidationError.from_text(
+                say("log_search.window_ends_before_starts"), field="until"
+            )
         if end - start > MAX_WINDOW_SECONDS:
-            raise ValidationError(
-                "The window is longer than the journal can hold",
-                details=f"Ask for at most {MAX_WINDOW_SECONDS // 86_400} days at a time.",
+            raise ValidationError.from_text(
+                say(
+                    "log_search.window_longer_journal_hold", value=str(MAX_WINDOW_SECONDS // 86_400)
+                ),
                 field="since",
             )
 
@@ -477,7 +493,7 @@ class LogSearch:
         selected = [app for app in apps if named is None or app.domain.lower() in named]
         result = SearchResult(since=start, until=end, understood=logquery.render(tree))
         if named is not None and not selected:
-            result.notes.append("No application you can search matches " + ", ".join(sorted(named)))
+            result.note(say("log_search.no_app_matches", names=", ".join(sorted(named))))
         self._scrubbers = {}
         found: list[LogLine] = []
         journal_apps = [app for app in selected if not is_compose_backed(app.app_type)]
@@ -486,10 +502,7 @@ class LogSearch:
         stacks = [app for app in selected if is_compose_backed(app.app_type)]
         if stacks:
             if "level" in fields_of(tree):
-                result.notes.append(
-                    "The containers of Docker stacks have no levels, so they are not searched "
-                    "when the query names a level."
-                )
+                result.note(say("log_search.stacks_no_levels"))
             else:
                 for app in stacks:
                     self._containers(tree, app, start, end, result, found)
@@ -551,7 +564,7 @@ class LogSearch:
             reason = (done.stderr or done.stdout).strip().splitlines()
             # journalctl exits 1 for "no entries" on some versions; a real failure says something.
             if reason and "No entries" not in reason[0]:
-                result.notes.append(f"The journal could not be searched: {reason[0][:200]}")
+                result.note(say("log_search.journal_failed", reason=reason[0][:200]))
             return
         lines = done.stdout.splitlines()
         if len(lines) > SCAN_LIMIT:
@@ -625,7 +638,9 @@ class LogSearch:
             containers = find_stack_containers(app, self.runner)
         except NoustError as exc:
             # A stack that cannot be listed is a note on the answer, not a failure of it.
-            result.notes.append(f"{app.domain}: its containers could not be listed ({exc.message})")
+            result.note(
+                say("log_search.containers_unlisted", domain=app.domain, reason=exc.message)
+            )
             return
         bound = _bind_app(tree, app.domain)
         for container in containers:
@@ -642,9 +657,13 @@ class LogSearch:
                 timeout=DOCKER_TIMEOUT,
             )
             if not done.success:
-                result.notes.append(
-                    f"{app.domain}: {container.service} could not be read "
-                    f"({(done.stderr or '').strip()[:120] or 'docker logs failed'})"
+                result.note(
+                    say(
+                        "log_search.container_unreadable",
+                        domain=app.domain,
+                        service=container.service,
+                        reason=(done.stderr or "").strip()[:120] or "docker logs failed",
+                    )
                 )
                 continue
             # docker writes a container's stderr to its own stderr.

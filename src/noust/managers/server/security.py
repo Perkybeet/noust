@@ -32,6 +32,7 @@ from typing import Any
 from noust.core.exceptions import SecurityError, ValidationError
 from noust.core.fs import FileSystem
 from noust.core.runner import CommandRunner
+from noust.core.server_text import say
 from noust.managers.server.errors import UnsupportedHostError
 from noust.managers.server.host import HostPaths
 from noust.managers.server.security_access import AccessGuardError
@@ -268,7 +269,7 @@ class ServerSecurity:
             return {"change": self.firewall_enable().to_dict()}
         if action == "fail2ban:install":
             return {"fail2ban": self.fail2ban_install(epel=epel, ignore=ignore)}
-        raise SecurityError(f"There is no automatic fix {action!r}")
+        raise SecurityError.from_text(say("security.no_such_fix", action=f"{action!r}"))
 
     def accepted_risks(self) -> list[AcceptedRisk]:
         """
@@ -790,19 +791,22 @@ class ServerSecurity:
             SecurityError: It cannot be done here, or another change is pending.
         """
         if operation not in OPERATIONS:
-            raise SecurityError(f"There is no security operation {operation!r}")
+            raise SecurityError.from_text(
+                say("security.no_such_operation", operation=f"{operation!r}")
+            )
         _names, access = OPERATIONS[operation]
         if access:
             waiting = [change for change in self.pending() if change.status == "pending"]
             if waiting:
-                raise SecurityError(
-                    f"Another change is waiting for confirmation: {waiting[0].title} ({waiting[0].id})",
-                    details="Confirm it or revert it first: one change at a time can be undone safely.",
+                raise SecurityError.from_text(
+                    say("access_change.waiting_for_confirmation", id=str(waiting[0].id))
                 )
         if operation == "check.fix":
             check_id = str(params.get("check_id", ""))
             if check_id not in CATALOG:
-                raise ValidationError(f"There is no check {check_id!r}", field="check_id")
+                raise ValidationError.from_text(
+                    say("security.no_such_check", check_id=f"{check_id!r}"), field="check_id"
+                )
             action = self._fix_action(check_id)
             kind, _, name = action.partition(":")
             if kind == "ssh":
@@ -813,9 +817,12 @@ class ServerSecurity:
         if operation == "ssh.fix":
             plan = self.ssh_plan(str(params.get("fix", "")))
             if plan.blockers:
-                raise AccessGuardError(
-                    f"Not applied: {plan.fix.title.lower()}",
-                    details="\n".join([*plan.blockers, *plan.guidance]),
+                raise AccessGuardError.from_text(
+                    say(
+                        "access_change.not_applied",
+                        title=plan.fix.title.lower(),
+                        reasons="\n".join([*plan.blockers, *plan.guidance]),
+                    )
                 )
             return plan.fix.title
         if operation == "ssh.key.add":
@@ -846,7 +853,9 @@ class ServerSecurity:
         if operation == "fail2ban.install":
             state = self._fail2ban().state()
             if not state.install_supported:
-                raise UnsupportedHostError("Noust cannot install fail2ban here", state.install_hint)
+                raise UnsupportedHostError.from_text(
+                    say("security.no_fail2ban_here", install_hint=state.install_hint)
+                )
             if state.needs_epel and not params.get("epel"):
                 self._fail2ban().install(epel=False)  # raises the confirmation, changes nothing
             return "Install fail2ban with an sshd jail"
@@ -855,18 +864,17 @@ class ServerSecurity:
             if not params.get("enable"):
                 return "Stop fail2ban watching nginx"
             if not state.running:
-                raise SecurityError(
-                    "fail2ban is not running",
-                    details="Install it first: noust server security fail2ban install",
-                )
+                raise SecurityError.from_text(say("security.fail2ban_not_running"))
             if not state.web_available:
-                raise SecurityError("nginx is not installed here, so there is no log to watch")
+                raise SecurityError.from_text(say("security.no_nginx_log"))
             return "Make fail2ban watch nginx: wrong passwords, scanners and clients over a limit"
         address = str(params.get("address", ""))
         try:
             ipaddress.ip_address(address.strip())
         except ValueError as exc:
-            raise ValidationError(f"{address!r} is not an IP address", field="address") from exc
+            raise ValidationError.from_text(
+                say("security.bad_ip", address=f"{address!r}"), field="address"
+            ) from exc
         return f"Lift the fail2ban ban of {address}"
 
     def _fix_action(self, check_id: str) -> str:
@@ -885,18 +893,18 @@ class ServerSecurity:
         report = self.checks(refresh=True, host_checks=False)
         check = report.get(check_id)
         if check is None or check.fix is None or check.status == "pass":
-            raise SecurityError(
-                f"Check {check_id} has nothing to fix",
-                details="Run the checks again; it may have passed since.",
-            )
+            raise SecurityError.from_text(say("security.nothing_to_fix", check_id=check_id))
         if check.fix.kind != "automatic" or not check.fix.action:
-            raise SecurityError(
-                f"Check {check_id} has no automatic fix here",
-                details="\n".join(
-                    part
-                    for part in (check.fix.blocked, *check.fix.steps, check.fix.cli or "")
-                    if part
-                ),
+            raise SecurityError.from_text(
+                say(
+                    "security.no_automatic_fix",
+                    check_id=check_id,
+                    steps="\n".join(
+                        part
+                        for part in (check.fix.blocked, *check.fix.steps, check.fix.cli or "")
+                        if part
+                    ),
+                )
             )
         return check.fix.action
 
@@ -954,7 +962,7 @@ class ServerSecurity:
         if operation == "fail2ban.unban":
             jail = params.get("jail")
             return self.fail2ban_unban(str(params.get("address", "")), str(jail) if jail else None)
-        raise SecurityError(f"There is no security operation {operation!r}")
+        raise SecurityError.from_text(say("security.no_such_operation", operation=f"{operation!r}"))
 
     # Overview ------------------------------------------------------------------------------
 

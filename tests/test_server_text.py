@@ -129,6 +129,18 @@ def test_a_code_fits_a_tree_because_the_consoles_catalog_is_one() -> None:
     assert [c for c in sentences if any(o.startswith(c + ".") for o in sentences)] == []
 
 
+def test_no_sentence_takes_a_value_called_code_because_say_names_its_first_argument_that() -> None:
+    # ``say(code, **values)``: a value called ``code`` is "multiple values for argument 'code'" the day the
+    # sentence is said, which for a failure of a hook was the failure of the hook hidden behind a TypeError.
+    # The exit code of a program is ``exit_code``.
+    named_code = {name for template in CATALOG.values() for name in _placeholders(template)} & {
+        "code",
+        "params",
+    }
+
+    assert named_code == set()
+
+
 def test_no_sentence_is_empty_and_none_has_a_stray_brace() -> None:
     for code, template in CATALOG.items():
         assert template.strip(), code
@@ -140,7 +152,9 @@ def _trees() -> list[tuple[Path, ast.AST]]:
     return [
         (path, ast.parse(path.read_text(encoding="utf-8")))
         for path in sorted(SRC.rglob("*.py"))
-        if "static" not in path.parts and path.name != "server_text.py"
+        # The catalog and the tables merged into it say each sentence once, as a key: that is not
+        # a place that says it.
+        if "static" not in path.parts and not path.name.startswith("server_text")
     ]
 
 
@@ -190,8 +204,15 @@ def test_every_sentence_in_the_catalog_is_said_somewhere() -> None:
         for node in ast.walk(tree)
         if isinstance(node, ast.Constant) and isinstance(node.value, str)
     }
+    # The sentences of a change to the firewall or to SSH are asked for by the ledger's own code
+    # (``access_changes.coded``), which is a value of the record and not a literal of the source:
+    # ``tests/test_access_changes_coded.py`` holds each to the notification that says the same.
     unused = sorted(
-        code for code in CATALOG if not code.endswith(HINT_SUFFIX) and code not in literals
+        code
+        for code in CATALOG
+        if not code.endswith(HINT_SUFFIX)
+        and code not in literals
+        and not code.startswith("access_changes.")
     )
 
     assert unused == []

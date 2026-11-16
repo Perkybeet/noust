@@ -439,6 +439,7 @@ export const server = {
       sysSelinux: "SELinux is not enforcing",
       sysJournalVolatile: "The system logs are lost at every reboot",
       noustWebNotUnit: "The console does not start with the server",
+      noustUnitsNotEnabled: "Application services do not start with the server",
       noustFleetKeyRoot: "A central's tunnel logs in as root",
       noustInlineSecrets: "Application services carry variables any local user can read",
     },

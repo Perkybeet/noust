@@ -33,6 +33,7 @@ from typing import Any
 from noust.central import require_server_role
 from noust.core import audit
 from noust.core.exceptions import ValidationError
+from noust.core.server_text import ServerText, say
 from noust.managers.server.security_firewall import Firewall
 from noust.managers.server.security_probe import SecurityProbe
 from noust.managers.webserver import WebServerManager
@@ -61,6 +62,8 @@ class Http3Support:
         udp_allowed: Whether the firewall lets UDP 443 in: None when there is no firewall
             Noust can read, or it filters nothing.
         firewall_hint: The command that opens UDP 443, when it is closed.
+        coded: ``problem`` and ``hint`` as a sentence of the catalog (code and values), for the
+            console to say in its own language; None when nothing stands in the way.
     """
 
     available: bool
@@ -71,6 +74,7 @@ class Http3Support:
     anchor: bool = False
     udp_allowed: bool | None = None
     firewall_hint: str = ""
+    coded: ServerText | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -86,6 +90,7 @@ class Http3Support:
             "anchor": self.anchor,
             "udp_allowed": self.udp_allowed,
             "firewall_hint": self.firewall_hint,
+            "coded": self.coded.to_dict() if self.coded else None,
         }
 
 
@@ -143,35 +148,32 @@ class Http3:
         """
         name = self._web.backend.name
         if name != "nginx":
+            apache = say("http3.apache")
             return Http3Support(
                 available=False,
                 webserver=name,
-                problem="Apache's stock builds have no HTTP/3",
-                hint="Serve this site with nginx 1.25 or later to use HTTP/3.",
+                problem=apache.text,
+                hint=apache.hint or "",
+                coded=apache,
             )
         result = self._web.runner.run(["nginx", "-V"], timeout=10)
         numbers, built = parse_nginx_v(f"{result.stderr}\n{result.stdout}")
         version = ".".join(str(part) for part in numbers)
-        problem = hint = ""
+        said: ServerText | None = None
         if not numbers:
-            problem = "nginx's version could not be read"
-            hint = "Run: nginx -V"
+            said = say("http3.no_version", command="nginx -V")
         elif numbers < MINIMUM:
-            problem = f"nginx {version} is older than 1.25.0, the first with HTTP/3"
-            hint = (
-                "Install a newer nginx: the nginx.org packages (https://nginx.org/en/linux_packages.html) "
-                "carry it on Debian, Ubuntu and RPM systems."
-            )
+            said = say("http3.too_old", version=version)
         elif not built:
-            problem = f"This nginx {version} was built without --with-http_v3_module"
-            hint = "Install the build from nginx.org, which includes it."
+            said = say("http3.not_built", version=version)
         allowed, command = self._udp_allowed()
         return Http3Support(
-            available=not problem,
+            available=said is None,
             webserver=name,
             version=version,
-            problem=problem,
-            hint=hint,
+            problem=said.text if said else "",
+            hint=(said.hint or "") if said else "",
+            coded=said,
             anchor=self.anchored(),
             udp_allowed=allowed,
             firewall_hint=command,
@@ -227,7 +229,9 @@ class Http3:
         require_server_role("sites")
         support = self.support()
         if not support.available:
-            raise ValidationError(support.problem, details=support.hint, field="http3")
+            raise ValidationError(
+                support.problem, details=support.hint, field="http3", coded=support.coded
+            )
         if self.anchored():
             return False
         web = self._web
@@ -241,9 +245,8 @@ class Http3:
                 fs.symlink(self.file, self.link)
             errors = web.config_errors()
             if errors is not None:
-                raise ValidationError(
-                    "nginx refused the site that holds the QUIC socket",
-                    details=errors,
+                raise ValidationError.from_text(
+                    say("http3.nginx_refused_site_holds", errors=str(errors or "")),
                     output=errors,
                     field="http3",
                 )

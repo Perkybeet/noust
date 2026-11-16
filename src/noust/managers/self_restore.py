@@ -53,6 +53,7 @@ from noust.core import paths
 from noust.core.exceptions import BackupError, ConfigError, NoustError
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE
 from noust.core.secrets import PROTECTED_DOMAIN, SecretStore, at_rest_key_path
+from noust.core.server_text import say
 from noust.core.store import SCHEMA_VERSION, NoustStore, get_store
 from noust.managers.backup_destination_files import file_sha256
 from noust.managers.self_backup import SelfBackupManager, store_path_in
@@ -216,19 +217,16 @@ class SelfRestore:
             or pure.is_absolute()
             or any(part in ("", ".", "..") for part in pure.parts)
         ):
-            raise BackupError(
-                f"The bundle names a path it must not: {relative!r}",
-                details="A path in a bundle is relative and stays inside the directory it is "
-                "restored to. Nothing was restored.",
+            raise BackupError.from_text(
+                say("self_restore.bundle_names_path", relative=f"{relative!r}")
             )
         place = root.joinpath(*pure.parts)
         walker = root
         for part in pure.parts[:-1]:
             walker = walker / part
             if walker.is_symlink():
-                raise BackupError(
-                    f"{walker} is a symbolic link; nothing is restored through one",
-                    details="Remove the link, or restore onto a clean install.",
+                raise BackupError.from_text(
+                    say("self_restore.symbolic_link_nothing_restored", walker=str(walker))
                 )
         return place
 
@@ -330,20 +328,14 @@ class SelfRestore:
             )
             existing = self._has_state(targets)
             if existing and not force:
-                raise BackupError(
-                    "This server already holds Noust state, and a restore replaces it",
-                    details="Restore onto a clean install, or confirm with --force. A bundle of "
-                    "what is here is taken first, so it can be put back.",
-                )
+                raise BackupError.from_text(say("self_restore.server_already_holds_noust"))
             if existing and safety_copy:
                 self.manager.logger.info("Taking a bundle of what is here first")
                 try:
                     report.safety_copy = manager.create(passphrase, kind="pre-restore").path.name
                 except BackupError as exc:
-                    raise BackupError(
-                        "Could not take a bundle of what is here before replacing it",
-                        details=f"{exc.details}\nFix that, or restore without a safety copy: "
-                        "noust self-backup restore --no-safety-copy",
+                    raise BackupError.from_text(
+                        say("self_restore.take_bundle_before_replacing", details=str(exc.details))
                     ) from exc
             report.stopped = self._stop_writers()
             try:
@@ -357,14 +349,16 @@ class SelfRestore:
                     f" What was here is kept in {report.safety_copy}." if report.safety_copy else ""
                 )
                 if isinstance(exc, BackupError):
-                    raise BackupError(
-                        f"The restore stopped: {exc.message}",
-                        details=f"{exc.details}{kept}\nThe services that were running were started "
-                        "again.",
+                    raise BackupError.from_text(
+                        say(
+                            "self_restore.restore_stopped",
+                            details=str(exc.details),
+                            kept=str(kept),
+                            message=str(exc.message),
+                        )
                     ) from exc
-                raise BackupError(
-                    "The restore stopped on a file that could not be written",
-                    details=f"{exc}.{kept}",
+                raise BackupError.from_text(
+                    say("self_restore.restore_stopped_file_written", exc=str(exc), kept=str(kept))
                 ) from exc
             if reseal is None:
                 self._secrets_note(manifest, targets, report)
@@ -408,16 +402,19 @@ class SelfRestore:
             if integrity != "ok":
                 problems.append(f"The store's snapshot is damaged: {integrity}")
             elif version is not None and version > SCHEMA_VERSION:
-                raise BackupError(
-                    f"The bundle's store is schema v{version}; this Noust understands up to "
-                    f"v{SCHEMA_VERSION}",
-                    details="Install the Noust version that took it, or a newer one, then restore. "
-                    "Nothing was changed.",
+                raise BackupError.from_text(
+                    say(
+                        "self_restore.bundle_store_schema_v",
+                        schema_version=str(SCHEMA_VERSION),
+                        version=str(version),
+                    )
                 )
         if problems:
-            raise BackupError(
-                "The bundle does not verify; nothing was restored",
-                details="\n".join(problems[:10]),
+            raise BackupError.from_text(
+                say(
+                    "self_restore.bundle_verify_nothing_restored",
+                    items=str("\n".join(problems[:10]) or ""),
+                )
             )
 
     @staticmethod
@@ -584,9 +581,8 @@ class SelfRestore:
                 f"The store was opened at {store.db_path} and is schema v{SCHEMA_VERSION}"
             )
         except (NoustError, sqlite3.Error, OSError) as exc:
-            raise BackupError(
-                "The restored store could not be opened by this version of Noust",
-                details=f"{exc}",
+            raise BackupError.from_text(
+                say("self_restore.restored_store_opened_version", exc=str(exc))
             ) from exc
 
     def _plan_reseal(
@@ -649,11 +645,8 @@ class SelfRestore:
         if names:
             bundle_key = root / str(named)
             if not bundle_key.is_file():
-                raise BackupError(
-                    "The bundle holds secrets sealed under a key it does not carry",
-                    details="Nothing was changed. Restore the bundle's key (the file "
-                    f"{named} of a bundle that has it), or restore without the secrets and "
-                    "enter the credentials again.",
+                raise BackupError.from_text(
+                    say("self_restore.bundle_holds_secrets_sealed", named=str(named))
                 )
             shutil.copyfile(bundle_key, old_root.parent / "secrets.key", follow_symlinks=False)
             reader = SecretStore(root=old_root, fs=self.manager.fs)
@@ -661,12 +654,12 @@ class SelfRestore:
                 try:
                     reader.read_protected_json(name)
                 except ConfigError as exc:
-                    raise BackupError(
-                        f"The secret {name} in the bundle cannot be opened with the key the "
-                        "bundle carries",
-                        details=f"{exc.message}. Nothing was changed. Restore it onto the kind of "
-                        "server it came from, or enter that credential again once the "
-                        "restore is done.",
+                    raise BackupError.from_text(
+                        say(
+                            "self_restore.secret_bundle_opened_key",
+                            message=str(exc.message),
+                            name=str(name),
+                        )
                     ) from exc
         return _Reseal(names=tuple(names), old_root=old_root, key_path=str(named))
 
@@ -692,9 +685,12 @@ class SelfRestore:
             for name in reseal.names:
                 writer.write_protected_json(name, reader.read_protected_json(name))
         except ConfigError as exc:
-            raise BackupError(
-                f"A secret could not be sealed again under this server's key: {exc.message}",
-                details=exc.details or "",
+            raise BackupError.from_text(
+                say(
+                    "self_restore.secret_sealed_again_under",
+                    message=str(exc.message),
+                    value=str(exc.details or "" or ""),
+                )
             ) from exc
         report.notes.append(
             f"{len(reseal.names)} protected secret(s) were sealed again under this server's own "

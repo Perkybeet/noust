@@ -38,6 +38,7 @@ from pathlib import Path
 from noust.core.backup_files import open_backup
 from noust.core.exceptions import BackupError, DatabaseBackupError, DatabaseError
 from noust.core.runner import CommandResult
+from noust.core.server_text import say
 from noust.managers.database.base import OWN_DUMP_OPTIONS, BaseDatabaseManager, backup_format
 from noust.managers.database.clickhouse import backup_problem
 from noust.managers.database.mongo_archive import (
@@ -161,14 +162,16 @@ def _plain_copy(manager: BaseDatabaseManager, path: Path) -> Iterator[Path]:
             ["gzip", "-dc", str(path)], target, timeout=_DECOMPRESS_TIMEOUT
         )
         if not result.success:
-            raise DatabaseBackupError(
-                f"{path.name} is not a valid gzip file",
-                details=result.stderr.strip() or "gzip -dc failed and said nothing.",
+            raise DatabaseBackupError.from_text(
+                say(
+                    "backup_verify.valid_gzip_file",
+                    name=str(path.name),
+                    value=str(result.stderr.strip() or "gzip -dc failed and said nothing." or ""),
+                )
             )
         if not target.is_file():
-            raise DatabaseBackupError(
-                f"{path.name} could not be decompressed",
-                details="gzip -dc reported success but wrote no file.",
+            raise DatabaseBackupError.from_text(
+                say("backup_verify.decompressed", name=str(path.name))
             )
         yield target
 

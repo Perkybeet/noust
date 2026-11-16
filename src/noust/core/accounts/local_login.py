@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING
 
 from noust.core.accounts.model import ROLE_ADMIN, ROLE_SECURITY, Account, validate_username
 from noust.core.exceptions import ValidationError
+from noust.core.server_text import ServerText, say
 
 if TYPE_CHECKING:
     from noust.core.store import NoustStore
@@ -125,9 +126,10 @@ def clean_exempt(value: object) -> list[str]:
     elif isinstance(value, (list, tuple)):
         items = value
     else:
-        raise ValidationError(
-            f"{SETTING_EXEMPT} must be a list of usernames",
-            details=f"Got {value!r}.",
+        raise ValidationError.from_text(
+            say(
+                "local_login.list_usernames", setting_exempt=str(SETTING_EXEMPT), value=f"{value!r}"
+            ),
             field=SETTING_EXEMPT,
         )
     names: list[str] = []
@@ -136,9 +138,8 @@ def clean_exempt(value: object) -> list[str]:
         if name not in names:
             names.append(name)
     if len(names) > MAX_EXEMPT:
-        raise ValidationError(
-            f"At most {MAX_EXEMPT} accounts keep their password",
-            details="A break-glass list is a short one.",
+        raise ValidationError.from_text(
+            say("local_login.most_accounts_keep_their", max_exempt=str(MAX_EXEMPT)),
             field=SETTING_EXEMPT,
         )
     return names
@@ -209,7 +210,7 @@ def survivors(
 
 def _refuse_if_nobody(
     store: NoustStore | None,
-    action: str,
+    action: ServerText,
     *,
     exempt: Iterable[str] | None = None,
     without_provider: str | None = None,
@@ -232,13 +233,7 @@ def _refuse_if_nobody(
     ):
         return
     raise LocalLoginRefused(
-        f"{action} would leave nobody able to administer this server",
-        details=(
-            "Link an administrator or a security officer to an enabled identity provider "
-            "('noust auth oidc link'), or name a break-glass account that keeps its password "
-            "('noust auth local-login exempt add NAME'), first."
-        ),
-        field=SETTING_ENABLED,
+        action.text, details=action.hint or "", field=SETTING_ENABLED, coded=action
     )
 
 
@@ -256,7 +251,7 @@ def refuse_to_turn_off(
         LocalLoginRefused: When no administrator or security officer would be
             able to sign in.
     """
-    _refuse_if_nobody(store, "Turning off the password sign-in", exempt=exempt)
+    _refuse_if_nobody(store, say("local_login.nobody_turning_off"), exempt=exempt)
 
 
 def refuse_to_lose_a_way_in(
@@ -264,7 +259,7 @@ def refuse_to_lose_a_way_in(
     *,
     without_provider: str | None = None,
     without_identity: int | None = None,
-    action: str = "This change",
+    action: ServerText | None = None,
 ) -> None:
     """
     Refuse to remove, disable or unlink the last way an administrator signs in.
@@ -284,7 +279,10 @@ def refuse_to_lose_a_way_in(
     if load_policy().enabled:
         return
     _refuse_if_nobody(
-        store, action, without_provider=without_provider, without_identity=without_identity
+        store,
+        action or say("local_login.nobody_this_change"),
+        without_provider=without_provider,
+        without_identity=without_identity,
     )
 
 
@@ -303,8 +301,6 @@ def refuse_local_sign_in(account: Account) -> None:
     """
     if load_policy().allows(account):
         return
-    raise LocalLoginRefused(
-        "Sign-in with a password or a passkey is turned off on this server",
-        details="Use the sign-in with your organisation's identity provider.",
-        field="local_login",
+    raise LocalLoginRefused.from_text(
+        say("local_login.sign_password_passkey_turned"), field="local_login"
     )

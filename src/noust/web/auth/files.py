@@ -15,6 +15,7 @@ from pathlib import Path
 
 from noust.core.exceptions import SecurityError
 from noust.core.fs import get_fs, is_rehearsal
+from noust.core.server_text import say
 from noust.web.auth.constants import DIR_MODE, FILE_MODE, STATE_DIR_ENV
 
 
@@ -45,13 +46,12 @@ def ensure_state_dir(path: Path) -> None:
         if stat.S_IMODE(path.stat().st_mode) != DIR_MODE:
             fs.chmod(path, DIR_MODE)
     except OSError as exc:
-        raise SecurityError(
-            f"Cannot create the Noust web state directory {path}",
-            details=(
-                "The web panel stores its signing key, sessions and audit log there. "
-                f"Create it as root with 'install -d -m 700 {path}', or point the panel "
-                f"somewhere writable with {STATE_DIR_ENV}=/path/to/dir."
-            ),
+        raise SecurityError.from_text(
+            say(
+                "auth_files.create_noust_web_state",
+                path=str(path),
+                state_dir_env=str(STATE_DIR_ENV),
+            )
         ) from exc
 
 
@@ -77,12 +77,8 @@ def state_file_exists(path: Path) -> bool:
     try:
         return path.exists()
     except OSError as exc:
-        raise SecurityError(
-            f"Cannot look for {path}",
-            details=(
-                "The web panel keeps its credentials where only its owner can read. "
-                f"Run as root, or set {STATE_DIR_ENV} to a directory you own."
-            ),
+        raise SecurityError.from_text(
+            say("auth_files.look", path=str(path), state_dir_env=str(STATE_DIR_ENV)),
             output=str(exc),
         ) from exc
 
@@ -109,12 +105,8 @@ def write_private_file(path: Path, content: str) -> None:
     try:
         get_fs().write_text(path, content, mode=FILE_MODE)
     except OSError as exc:
-        raise SecurityError(
-            f"Cannot write {path}",
-            details=(
-                "Run the web panel as root, or set "
-                f"{STATE_DIR_ENV} to a directory the current user owns."
-            ),
+        raise SecurityError.from_text(
+            say("auth_files.write", path=str(path), state_dir_env=str(STATE_DIR_ENV))
         ) from exc
 
 

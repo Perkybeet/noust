@@ -19,7 +19,7 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from noust.core.credential_activity import (
@@ -33,6 +33,7 @@ from noust.core.credential_activity import (
     reference_of,
 )
 from noust.core.credential_clients import ClientSeen, CredentialClients
+from noust.core.server_text import say
 from noust.core.teams import current_scope, scoped_store
 from noust.deployers.credential_undo import STATUS_CONFIRM, STATUS_READY, Undoer, UndoPlan
 from noust.web.api.approvals import ApprovalClientInfo
@@ -43,6 +44,7 @@ from noust.web.jobs import JobType, get_job_manager
 from noust.web.permissions import Permission
 from noust.web.permissions.enforce import has_permission
 from noust.web.permissions.team_roles import permissions_at
+from noust.web.refusal import refusal
 from noust.web.server import get_token_manager
 from noust.web.undo_jobs import is_read_tool, undo_credential_job
 
@@ -348,7 +350,7 @@ def _record(token_id: int, session: dict[str, Any]) -> dict[str, Any]:
         owner = session.get("account_id") or session.get("owner_account_id")
         if owner is not None and record.get("owner_account_id") == int(owner):
             return record
-    raise HTTPException(status_code=404, detail=f"No API token with id {token_id}")
+    raise refusal(404, say("signin.api_token_id", token_id=token_id))
 
 
 def _visible() -> Any:
@@ -584,7 +586,7 @@ def _intervention(record: dict[str, Any], n: int) -> Intervention:
     """
     found = _activity().intervention(_ref(record), n, visible=_visible(), is_read_tool=is_read_tool)
     if found is None:
-        raise HTTPException(status_code=404, detail=f"No intervention {n} of this token")
+        raise refusal(404, say("token_activity.intervention_token", n=n))
     return found
 
 
@@ -697,14 +699,7 @@ def post_undo(
     asked = list(dict.fromkeys(request.apps)) if request.apps is not None else list(candidates)
     chosen = [domain for domain in asked if domain in candidates]
     if not chosen:
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "error": "undo_unavailable",
-                "detail": "None of the applications asked for can be put back.",
-                "hint": "GET the plan of this intervention to see why each one cannot.",
-            },
-        )
+        raise refusal(409, say("token_activity.undo_unavailable"), error="undo_unavailable")
     scope = current_scope()
     if scope.restricted:
         scoped = scoped_store()
@@ -716,14 +711,15 @@ def post_undo(
                 else frozenset()
             )
             if Permission.APPS_DEPLOY not in held:
-                raise HTTPException(
-                    status_code=403,
-                    detail={
-                        "error": "permission_denied",
-                        "detail": f"This needs the '{Permission.APPS_DEPLOY}' permission on {domain}",
-                        "hint": "Ask an administrator of its team.",
-                        "fields": {"apps": domain},
-                    },
+                raise refusal(
+                    403,
+                    say(
+                        "token_activity.needs_deploy",
+                        permission=str(Permission.APPS_DEPLOY),
+                        domain=domain,
+                    ),
+                    error="permission_denied",
+                    fields={"apps": domain},
                 )
     unconfirmed = [
         domain
@@ -731,20 +727,11 @@ def post_undo(
         if candidates[domain].status == STATUS_CONFIRM and domain not in request.schema_changed_ok
     ]
     if unconfirmed:
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "error": "schema_changed",
-                "detail": (
-                    "Going back passes a deployment that changed the database's schema, in "
-                    + ", ".join(unconfirmed)
-                ),
-                "hint": (
-                    "Noust puts the code back, never the database: confirm it for those applications "
-                    "(schema_changed_ok) or leave them out."
-                ),
-                "fields": {"apps": ", ".join(unconfirmed)},
-            },
+        raise refusal(
+            409,
+            say("token_activity.schema_changed", apps=", ".join(unconfirmed)),
+            error="schema_changed",
+            fields={"apps": ", ".join(unconfirmed)},
         )
     visible = _visible()
     seen = None if visible is None else sorted(scoped_store().visible_domains() or set())

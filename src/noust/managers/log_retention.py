@@ -31,6 +31,7 @@ from typing import Any
 from noust.core.exceptions import ServiceError, ValidationError
 from noust.core.fs import FileSystem, get_fs
 from noust.core.runner import CommandRunner, get_runner
+from noust.core.server_text import ServerText, say
 
 #: Where the drop-in goes, and what marks it as Noust's.
 DROPIN = Path("/etc/systemd/journald.conf.d/50-noust-retention.conf")
@@ -77,6 +78,18 @@ class RetentionStatus:
     configured: bool = False
     foreign: bool = False
     notes: list[str] = field(default_factory=list)
+    notes_coded: list[ServerText | None] = field(default_factory=list)
+
+    def note(self, sentence: ServerText) -> None:
+        """
+        Add a note an operator should know.
+
+        Args:
+            sentence: What is said, a sentence of the catalog; the English is kept in ``notes`` and the
+                sentence in ``notes_coded``, at the same place, for the console to say in its language.
+        """
+        self.notes.append(sentence.text)
+        self.notes_coded.append(sentence)
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -92,6 +105,8 @@ class RetentionStatus:
             "configured": self.configured,
             "foreign": self.foreign,
             "notes": list(self.notes),
+            "notes_coded": [note.to_dict() if note else None for note in self.notes_coded]
+            + [None] * (len(self.notes) - len(self.notes_coded)),
         }
 
 
@@ -196,13 +211,9 @@ class LogRetention:
                 found.persistent = settings.get("Storage") == "persistent"
             else:
                 found.foreign = True
-                found.notes.append(
-                    f"{self._dropin} exists and Noust did not write it, so it is left alone."
-                )
+                found.note(say("log_retention.dropin_foreign", dropin=str(self._dropin)))
         if not found.journal_on_disk and not found.persistent:
-            found.notes.append(
-                "The journal is kept in memory and lost at every reboot. Add --persistent to keep it."
-            )
+            found.note(say("log_retention.journal_volatile"))
         done = self.runner.run(["journalctl", "--disk-usage"], timeout=COMMAND_TIMEOUT)
         if done.success:
             found.disk_usage = done.stdout.strip()
@@ -234,22 +245,26 @@ class LogRetention:
         """
         before = self.status()
         if before.foreign:
-            raise ServiceError(
-                f"{self._dropin} was not written by Noust",
-                details="Move it aside, or set the retention in that file yourself.",
+            raise ServiceError.from_text(
+                say("log_retention.written_noust", dropin=str(self._dropin))
             )
         new_days = days if days is not None else before.days
         new_mb = max_use_mb if max_use_mb is not None else before.max_use_mb
         new_persistent = before.persistent if persistent is None else persistent
         if days is None and max_use_mb is None and persistent is None:
-            raise ValidationError(
-                "Name what to keep: --days, --max-use or --persistent", field="days"
-            )
+            raise ValidationError.from_text(say("log_retention.name_keep_days_max"), field="days")
         if new_days is not None and not MIN_DAYS <= new_days <= MAX_DAYS:
-            raise ValidationError(f"days is a number from {MIN_DAYS} to {MAX_DAYS}", field="days")
+            raise ValidationError.from_text(
+                say("log_retention.days_number", max_days=str(MAX_DAYS), min_days=str(MIN_DAYS)),
+                field="days",
+            )
         if new_mb is not None and not MIN_MB <= new_mb <= MAX_MB:
-            raise ValidationError(
-                f"The most disk is a number of megabytes from {MIN_MB} to {MAX_MB}",
+            raise ValidationError.from_text(
+                say(
+                    "log_retention.most_disk_number_megabytes",
+                    max_mb=str(MAX_MB),
+                    min_mb=str(MIN_MB),
+                ),
                 field="max_use_mb",
             )
         lines = [MARKER, "[Journal]"]
@@ -276,8 +291,8 @@ class LogRetention:
         """
         before = self.status()
         if before.foreign:
-            raise ServiceError(
-                f"{self._dropin} was not written by Noust", details="It is left as it is."
+            raise ServiceError.from_text(
+                say("log_retention.written_noust_2", dropin=str(self._dropin))
             )
         if before.configured:
             self.fs.remove(self._dropin, missing_ok=True)
@@ -294,7 +309,9 @@ class LogRetention:
         except (FileNotFoundError, NotADirectoryError):
             return None
         except (OSError, UnicodeDecodeError) as exc:
-            raise ServiceError(f"{self._dropin} could not be read", details=str(exc)) from exc
+            raise ServiceError.from_text(
+                say("log_retention.read", dropin=str(self._dropin), exc=str(str(exc) or ""))
+            ) from exc
 
     def _apply(self) -> None:
         """Tell journald to reread its configuration; it keeps what it has."""
@@ -302,7 +319,9 @@ class LogRetention:
             ["systemctl", "restart", "systemd-journald"], timeout=COMMAND_TIMEOUT
         )
         if not done.success:
-            raise ServiceError(
-                "The retention was written but journald could not be restarted",
-                details=(done.stderr or done.stdout).strip(),
+            raise ServiceError.from_text(
+                say(
+                    "log_retention.retention_written_journald_restarted",
+                    value=str((done.stderr or done.stdout).strip() or ""),
+                )
             )

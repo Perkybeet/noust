@@ -27,6 +27,7 @@ import { useNode } from "../../nodes/useNode";
 import { EngineLimits } from "./EngineLimits";
 import { engineName, engineState } from "./engines";
 
+import { describeError } from "../../lib/errors";
 /** The value that clears a setting from Noust's file, so the engine's own value applies. */
 const DEFAULT_WORD = "default";
 
@@ -183,7 +184,7 @@ function SettingsForm({ engine, data }: { engine: string; data: EngineSettings }
       if (confirm || !isApiError(error) || error.error !== "confirmation_required") return;
       const listed = error.extra["warnings"];
       const warnings = Array.isArray(listed) ? listed.filter((item): item is string => typeof item === "string") : [];
-      setExposure({ warnings: warnings.length > 0 ? warnings : [error.detail], values });
+      setExposure({ warnings: warnings.length > 0 ? warnings : [describeError(error).detail], values });
     },
   });
 

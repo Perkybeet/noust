@@ -29,6 +29,7 @@ import { getLocale } from "../../app/locale";
 import { newestLine } from "../../lib/serverSentence";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
+import { jobFailure } from "../../lib/errors";
 /** What a job on a database does, which names it while it runs and once it ends. */
 export type DatabaseJobKind =
   | "backup"
@@ -308,7 +309,7 @@ export function DatabaseJobProgress({ job, words, onDismiss }: { job: Job; words
           <JobProgress
             state="failed"
             title={title}
-            error={{ detail: job.error ?? jobStep(job) ?? "" }}
+            error={jobFailure(job, jobStep(job) ?? "")}
             {...(onDismiss !== undefined ? { onDismiss } : {})}
             className="w-full"
           />

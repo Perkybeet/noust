@@ -24,6 +24,7 @@ import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { Drawer } from "../../components/ui/Drawer";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
+import { ServerText, useServerSentence } from "../../components/ui/ServerText";
 import { StatusGlyph, stateTextClass } from "../../components/ui/StatusPill";
 import type { Status } from "../../components/ui/StatusPill";
 import { SystemOutput } from "../../components/ui/SystemOutput";
@@ -85,8 +86,10 @@ function ProofLine({ id, change, proof }: { id: string; change: PendingChange; p
     <span id={id} role="status" className="inline-flex min-w-0 items-start gap-1.5">
       <StatusGlyph state={state} size={12} className={`mt-1 shrink-0 ${stateTextClass(state)}`} />
       <span className="min-w-0">
-        {/* The change's own name, as Noust recorded it. */}
-        <span className="font-medium text-fg">{change.title}.</span>{" "}
+        {/* What the change is, said in this console's language from what Noust recorded of it (a change from before the ledger kept that is shown as it was written). */}
+        <span className="font-medium text-fg">
+          <ServerText coded={change.title_coded} text={change.title} />.
+        </span>{" "}
         {proof.kind === "seen"
           ? t.rich("server.pending.proofSeen", {
               user: <Mono>{proof.user}</Mono>,
@@ -106,9 +109,10 @@ function ProofLine({ id, change, proof }: { id: string; change: PendingChange; p
 /** What the banner leaves out: how to keep the change, what the proof means, and the terminal's way. */
 function PendingDetails({ change, proof, open, onOpenChange }: { change: PendingChange; proof: Proof; open: boolean; onOpenChange: (open: boolean) => void }) {
   const t = useT();
+  const say = useServerSentence();
   const firewall = change.kind.startsWith("firewall");
   return (
-    <Drawer open={open} onOpenChange={onOpenChange} size="md" title={t("server.pending.detailsTitle")} description={change.title}>
+    <Drawer open={open} onOpenChange={onOpenChange} size="md" title={t("server.pending.detailsTitle")} description={say(change.title_coded, change.title)}>
       <div className="flex flex-col gap-4 text-13 text-fg-muted">
         {/* What to do comes before where it stands, and is gone once it is done. */}
         {proof.kind !== "seen" ? <p>{firewall ? t("server.pending.howFirewall") : t("server.pending.howSsh")}</p> : null}

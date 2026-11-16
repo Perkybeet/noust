@@ -51,6 +51,7 @@ from noust.core.fs import SECRET_DIR_MODE, FileSystem, get_fs, is_rehearsal
 from noust.core.runner import CommandRunner
 from noust.core.sealing import MIN_PASSPHRASE_LENGTH
 from noust.core.secrets import SecretStore
+from noust.core.server_text import say
 
 logger = logging.getLogger(__name__)
 
@@ -191,10 +192,7 @@ class BackupKeys:
             BackupError: When sealing is off, because there is nothing to rotate.
         """
         if not self.enabled():
-            raise BackupError(
-                "Backups are not sealed: there is no key to rotate",
-                details="Turn sealing on first: noust backup encryption enable.",
-            )
+            raise BackupError.from_text(say("backup_files.backups_sealed_key_rotate"))
         return self.make_key()
 
     def reveal(self, key_id: str | None = None) -> tuple[str, str]:
@@ -215,16 +213,10 @@ class BackupKeys:
         """
         chosen = key_id or self.current_id()
         if chosen is None:
-            raise BackupError(
-                "No key is current",
-                details="Seal backups first: noust backup encryption enable.",
-            )
+            raise BackupError.from_text(say("backup_files.key_current"))
         passphrase = self.passphrase(chosen)
         if passphrase is None:
-            raise BackupError(
-                "This server holds no such key",
-                details="List the keys it holds with: noust backup encryption status.",
-            )
+            raise BackupError.from_text(say("backup_files.server_holds_such_key"))
         audit.record("backup.encryption.reveal", target="backups:local", details={"key": chosen})
         return chosen, passphrase
 
@@ -242,22 +234,18 @@ class BackupKeys:
                 good key).
         """
         if _KEY_ID.fullmatch(key_id) is None:
-            raise BackupError(
-                f"{key_id!r} is not the id of a key",
-                details="A key's id is eight lower-case hex digits, as the error of a backup "
-                "that does not open names it.",
-            )
+            raise BackupError.from_text(say("backup_files.id_key", key_id=f"{key_id!r}"))
         if len(passphrase) < MIN_PASSPHRASE_LENGTH:
-            raise BackupError(
-                "That is too short to be a key",
-                details=f"Keys are {PASSPHRASE_LENGTH} characters; this has {len(passphrase)}.",
+            raise BackupError.from_text(
+                say(
+                    "backup_files.too_short_key",
+                    count=len(passphrase),
+                    passphrase_length=str(PASSPHRASE_LENGTH),
+                )
             )
         held = self.passphrase(key_id)
         if held is not None and held != passphrase:
-            raise BackupError(
-                f"This server already holds a key {key_id} with another value",
-                details="Nothing was replaced. Check the id and the value you kept.",
-            )
+            raise BackupError.from_text(say("backup_files.server_already_holds_key", key_id=key_id))
         self.store.write(f"{KEY_PREFIX}/{key_id}", passphrase)
         audit.record("backup.encryption.key", target="backups:local", details={"key": key_id})
 
@@ -383,11 +371,12 @@ def seal_in_place(
         return False
     passphrase = keyring.passphrase(key_id)
     if passphrase is None:
-        raise BackupError(
-            "Backups are to be sealed but the key is missing",
-            details=f"The secret {KEY_PREFIX}/{key_id} is gone. Stop sealing "
-            "(noust backup encryption disable) or make a new key (noust backup encryption "
-            "rotate); the backup was left as it was.",
+        raise BackupError.from_text(
+            say(
+                "backup_files.backups_sealed_key_missing",
+                key_id=str(key_id),
+                key_prefix=str(KEY_PREFIX),
+            )
         )
     files = fs or get_fs()
     partial = path.with_name(f".{path.name}.sealing")
@@ -398,10 +387,12 @@ def seal_in_place(
         files.rename(partial, path)
     except (EnvelopeError, OSError) as exc:
         files.remove(partial)
-        raise BackupError(
-            f"Could not seal {path.name}",
-            details=f"{str(getattr(exc, 'details', None) or exc).rstrip('.')}. "
-            "The backup was left as it was.",
+        raise BackupError.from_text(
+            say(
+                "backup_files.seal",
+                name=str(path.name),
+                value=str(str(getattr(exc, "details", None) or exc).rstrip(".")),
+            )
         ) from exc
     return True
 
@@ -596,14 +587,13 @@ def open_backup(
     key_id = sealed_with(path)
     passphrase = keyring.passphrase(key_id) if key_id else None
     if passphrase is None:
-        raise BackupError(
-            f"{path.name} is sealed and this server does not hold its key",
-            details=(
-                f"It was sealed with key {key_id or 'of another program'}. Put the key back with "
-                f"'noust backup encryption import-key {key_id or '<id>'}' (the value "
-                "'noust backup encryption show-key' printed when it was made, kept elsewhere), or "
-                "restore from a copy that is not sealed."
-            ),
+        raise BackupError.from_text(
+            say(
+                "backup_files.sealed_server_hold_key",
+                name=str(path.name),
+                value=str(key_id or "of another program"),
+                value2=str(key_id or "<id>"),
+            )
         )
     files = fs or get_fs()
     root = _scratch_root()
@@ -616,8 +606,12 @@ def open_backup(
         try:
             open_envelope(path, opened, passphrase, runner=runner, fs=files)
         except EnvelopeError as exc:
-            raise BackupError(
-                f"{path.name} does not open", details=exc.details or exc.message
+            raise BackupError.from_text(
+                say(
+                    "backup_files.open",
+                    name=str(path.name),
+                    value=str(exc.details or exc.message or ""),
+                )
             ) from exc
         open_now[str(path)] = [opened, 1]
         try:

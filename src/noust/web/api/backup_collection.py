@@ -31,7 +31,7 @@ from __future__ import annotations
 import os
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, Query, Response
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
@@ -39,10 +39,12 @@ from noust.core import audit
 from noust.core.backup_collection_store import CentralHeld, HeldCopy
 from noust.core.exceptions import SecurityError, ValidationError
 from noust.core.fleet_tokens import central_of_token
+from noust.core.server_text import say
 from noust.managers.backup_catalogue import KINDS, BackupCatalogue, open_for_reading
 from noust.web.api.auth import get_current_session
 from noust.web.api.databases.common import session_actor
 from noust.web.api.deps import NoustErrorRoute
+from noust.web.refusal import refusal
 
 router = APIRouter(route_class=NoustErrorRoute)
 
@@ -197,9 +199,12 @@ def list_collection(
         wanted = [part.strip() for part in kinds.split(",") if part.strip()]
         unknown = [kind for kind in wanted if kind not in KINDS]
         if unknown:
-            raise ValidationError(
-                f"Unknown kind of copy: {unknown[0]!r}",
-                details=f"The kinds are: {', '.join(KINDS)}.",
+            raise ValidationError.from_text(
+                say(
+                    "backup_collection.unknown_kind_copy",
+                    items=", ".join(KINDS),
+                    unknown=f"{unknown[0]!r}",
+                ),
                 field="kinds",
             )
     catalogue = BackupCatalogue().build(wanted)
@@ -260,20 +265,13 @@ async def read_file(
     found = await run_in_threadpool(catalogue.item, kind, item)
     file = found.file(name) if found is not None else None
     if found is None or file is None:
-        raise HTTPException(status_code=404, detail="This server lists no such copy file")
+        raise refusal(404, say("backup_collection.server_lists_such_copy"))
     if found.blocked:
-        raise SecurityError(
-            "This server lets a copy leave only encrypted, and this one is not",
-            details="The ens-medium profile (or backup.encryption: required) refuses it. Seal "
-            "the backups here: noust backup encryption enable, then noust backup encryption "
-            "seal-existing.",
-        )
+        raise SecurityError.from_text(say("backup_collection.server_lets_copy_leave"))
     try:
         descriptor = open_for_reading(file)
     except OSError as exc:
-        raise HTTPException(
-            status_code=404, detail="The file went away or changed since it was listed"
-        ) from exc
+        raise refusal(404, say("backup_collection.file_went_away_changed")) from exc
     if offset == 0:
         audit.record(
             "backup.collection.read",
@@ -329,10 +327,7 @@ def say_what_is_held(
     """
     central = central_of_token(str(session.get("token_name") or ""))
     if central is None:
-        raise ValidationError(
-            "Only a central says which copies of this server it holds",
-            details="Call this with the fleet token a central holds for this server.",
-        )
+        raise ValidationError.from_text(say("backup_collection.central_says_copies_server"))
     sync = CentralHeld().replace(
         central, [HeldCopy(item.kind, item.id, item.sha256) for item in body.items]
     )

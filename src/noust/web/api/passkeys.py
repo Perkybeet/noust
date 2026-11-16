@@ -43,6 +43,7 @@ from noust.core.accounts.passkeys import (
     resolve_relying_party,
 )
 from noust.core.accounts.webauthn import WebAuthnError
+from noust.core.server_text import say
 from noust.web.api.auth import (
     SIGN_IN_EXPIRED,
     ElevateResponse,
@@ -52,7 +53,7 @@ from noust.web.api.auth import (
     login_failure,
     set_session_cookies,
 )
-from noust.web.api.deps import NoustErrorRoute, ensure_elevated
+from noust.web.api.deps import CodedText, NoustErrorRoute, ensure_elevated
 from noust.web.api.identity_proof import ensure_first_factor_proof
 from noust.web.auth import (
     audit_event,
@@ -64,6 +65,7 @@ from noust.web.auth import (
 )
 from noust.web.permissions.enforce import ensure_notice_accepted
 from noust.web.permissions.roles import GRANT_COMPAT
+from noust.web.refusal import refusal
 from noust.web.server import get_brute_force, get_token_manager
 
 router = APIRouter(route_class=NoustErrorRoute)
@@ -150,6 +152,8 @@ class PasskeyAvailability(BaseModel):
             and says so itself.
         detail: What is wrong, in one sentence.
         hint: How to fix it.
+        coded: ``detail`` and ``hint`` as a sentence of the server's catalog (code and values), for
+            the console to say in its own language.
     """
 
     supported: bool
@@ -157,6 +161,7 @@ class PasskeyAvailability(BaseModel):
     reason: str | None = None
     detail: str | None = None
     hint: str | None = None
+    coded: CodedText | None = None
 
 
 class PasskeyListResponse(BaseModel):
@@ -339,6 +344,7 @@ def _unavailable(exc: PasskeysUnavailable) -> HTTPException:
             "detail": exc.message,
             "hint": exc.details,
             "fields": None,
+            "coded": exc.coded.to_dict() if exc.coded else None,
         },
     )
 
@@ -376,15 +382,7 @@ def _owner(session: dict[str, Any]) -> PasskeyOwner:
             authenticator, and a ceremony is bound to a session.
     """
     if session.get("type") != "session" or is_fleet(session):
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "error": "passkey_session_required",
-                "detail": "Passkeys are managed from a signed-in browser session",
-                "hint": "Sign in to the console in a browser; tokens cannot hold passkeys.",
-                "fields": None,
-            },
-        )
+        raise refusal(400, say("passkeys.session_required"), error="passkey_session_required")
     account_id = session.get("account_id")
     if account_id is None:
         return PasskeyOwner(account_id=None, username="master")
@@ -543,7 +541,11 @@ def list_passkeys(
         availability = PasskeyAvailability(supported=True, rp_id=rp.id)
     except PasskeysUnavailable as exc:
         availability = PasskeyAvailability(
-            supported=False, reason=exc.reason, detail=exc.message, hint=exc.details
+            supported=False,
+            reason=exc.reason,
+            detail=exc.message,
+            hint=exc.details,
+            coded=CodedText(**exc.coded.to_dict()) if exc.coded else None,
         )
     return PasskeyListResponse(
         passkeys=[PasskeyInfo.of(item) for item in passkeys().list(owner.account_id)],

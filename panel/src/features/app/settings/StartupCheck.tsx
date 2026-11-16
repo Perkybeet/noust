@@ -56,6 +56,7 @@ import type {
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { SETTINGS_ICONS } from "./objectIcons";
 
+import { describeError } from "../../../lib/errors";
 const EMPTY: HealthDraft = { path: "", expect: "", timeout: "" };
 
 /** A Compose stack runs a command check in one of its services. */
@@ -189,10 +190,10 @@ export function useStartupCheck(app: App): StartupCheckPart {
       }
     } else {
       const field = healthFieldOf(save.error.detail);
-      if (field !== null)
-        serverFields[field] = save.error.hint
-          ? `${save.error.detail}. ${save.error.hint}`
-          : save.error.detail;
+      if (field !== null) {
+        const described = describeError(save.error);
+        serverFields[field] = described.hint ? `${described.detail}. ${described.hint}` : described.detail;
+      }
     }
     if (
       Object.keys(serverFields).length === 0 &&

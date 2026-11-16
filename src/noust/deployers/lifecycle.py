@@ -92,6 +92,7 @@ from noust.core.exceptions import (
 )
 from noust.core.fs import SECRET_MODE, get_fs, is_rehearsal
 from noust.core.logger import Logger
+from noust.core.server_text import say
 from noust.core.store import (
     App,
     AppType,
@@ -330,18 +331,14 @@ def update_app(
     if commit is not None:
         commit = validate_commit_id(commit)
         if source or branch:
-            raise ValidationError(
-                "A commit names exactly what to deploy; a source or a branch does not apply",
-                details=f"Run either 'noust update {domain} --commit {commit}' or an update "
-                "from a source or a branch, not both.",
+            raise ValidationError.from_text(
+                say("lifecycle.commit_names_exactly_deploy", commit=str(commit), domain=domain)
             )
     if tag is not None:
         tag = validate_tag_name(tag)
         if commit is not None or source or branch:
-            raise ValidationError(
-                "A tag names exactly what to deploy; a commit, a source or a branch does not apply",
-                details=f"Run either 'noust update {domain} --tag {tag}' or an update from "
-                "a commit, a source or a branch, not both.",
+            raise ValidationError.from_text(
+                say("lifecycle.tag_names_exactly_deploy", domain=domain, tag=str(tag))
             )
     # Held for the whole update, backup to restart: a rollback, a migration
     # or a second update (a webhook firing while an operator updates by hand)
@@ -418,10 +415,7 @@ def update_backup_policy(domain: str) -> UpdateBackupPolicy:
     """
     policy = get_update_policy(domain, store=get_store())
     if policy is None:
-        raise NoustError(
-            f"Application not found: {domain}",
-            details="Run 'noust list' to see what is deployed.",
-        )
+        raise NoustError.from_text(say("apps.not_found", domain=domain))
     return policy
 
 
@@ -450,7 +444,7 @@ def set_update_backup_required(
     previous = update_backup_policy(domain)
     policy = set_policy(domain, required, updated_by=actor, store=get_store())
     if policy is None:
-        raise NoustError(f"Application not found: {domain}")
+        raise NoustError.from_text(say("apps.not_found_bare", domain=domain))
     audit.record(
         "apps.update_backup",
         target=f"app:{domain}",
@@ -593,9 +587,8 @@ def _update_app(
     app_name = domain_to_app_name(domain) if adopted else app_path.name
 
     if not app_path.exists():
-        raise NoustError(
-            f"Application not found: {domain}",
-            details=f"Nothing is deployed at {app_path}. Deploy it with: noust create -d {domain}",
+        raise NoustError.from_text(
+            say("apps.not_found_here", app_path=str(app_path), domain=domain)
         )
 
     requirement = _backup_requirement(domain)
@@ -630,12 +623,12 @@ def _update_app(
     if (commit is not None or tag is not None) and not (app_path / ".git").exists():
         # Checked before the backup: nothing is worth doing for a tree that
         # has no history to take the commit from.
-        raise SourceError(
-            f"{domain} is not a git checkout; there is no "
-            + (f"tag {tag}" if tag is not None else f"commit {commit}")
-            + " to deploy",
-            details=f"An application deployed from a directory or an archive is rebuilt "
-            f"from its source: noust update {domain}",
+        raise SourceError.from_text(
+            say(
+                "lifecycle.git_checkout_deploy",
+                domain=domain,
+                value=str(f"tag {tag}" if tag is not None else f"commit {commit}"),
+            )
         )
 
     source_manager = SourceManager(verbose=verbose)
@@ -693,11 +686,8 @@ def _update_app(
     previous_commit = _serving_commit(source_manager, app, app_path)
     if pulls_image(app):
         if source:
-            raise ValidationError(
-                f"{domain} is an image from a registry: it has no source to fetch from",
-                details="Change the image with: noust app container set "
-                f"{domain} --image REFERENCE, then update.",
-                field="source",
+            raise ValidationError.from_text(
+                say("lifecycle.image_registry_source_fetch", domain=domain), field="source"
             )
         phase(2, PHASES, "Pulling the image again")
     elif tag_commit is not None:
@@ -870,24 +860,28 @@ def _update_release(
 
     fetch_from = source or app.source
     if not fetch_from:
-        raise NoustError(
-            f"{app.domain} has no recorded source to build a release from",
-            details=f"Pass one explicitly: noust update {app.domain} --source <git URL or path>",
+        raise NoustError.from_text(
+            say("lifecycle.recorded_source_build_release", domain=str(app.domain))
         )
 
     deployer = get_deployer(app_type, verbose=verbose)
     if not supports_release_layout(deployer):
-        raise NoustError(
-            f"{app.domain} is on the releases layout, which {app_type} applications do not support",
-            details="Redeploy it with the type it was created with.",
+        raise NoustError.from_text(
+            say(
+                "lifecycle.releases_layout_applications_support",
+                app_type=str(app_type),
+                domain=str(app.domain),
+            )
         )
 
     if (commit is not None or tag is not None) and validate_source(fetch_from)[0] != "git":
-        raise SourceError(
-            f"{app.domain} is not deployed from git; there is no "
-            + (f"tag {tag}" if tag is not None else f"commit {commit}")
-            + " to deploy",
-            details=f"Its source is {fetch_from}. Rebuild it from there: noust update {app.domain}",
+        raise SourceError.from_text(
+            say(
+                "lifecycle.deployed_git_deploy",
+                domain=str(app.domain),
+                fetch_from=str(fetch_from),
+                value=str(f"tag {tag}" if tag is not None else f"commit {commit}"),
+            )
         )
 
     # A branch named now, else the pin, else the recorded branch: never the
@@ -915,9 +909,12 @@ def _update_release(
         # Only the release pipelines of BaseDeployer and of the monorepo can be handed a
         # staged release.
         if not isinstance(deployer, BaseDeployer | MonorepoDeployer):
-            raise DeploymentError(
-                f"{app_type} applications cannot deploy a single commit",
-                details=f"Update {app.domain} from its branch instead: noust update {app.domain}",
+            raise DeploymentError.from_text(
+                say(
+                    "lifecycle.applications_deploy_single_commit",
+                    app_type=str(app_type),
+                    domain=str(app.domain),
+                )
             )
         source_manager = deployer.source_manager
         if tag is not None:
@@ -1315,11 +1312,8 @@ def _refuse_older_tag(app: App | None, tag: str, deployed: str | None) -> None:
         return
     if compare_tags(tag, deployed) == -1:
         domain = app.domain if app is not None else "DOMAIN"
-        raise DeploymentError(
-            f"{tag} is older than {deployed}, which is deployed",
-            details=f"An update never goes back. To return to an earlier version use "
-            f"'noust rollback {domain}', which asks first when the database changed; "
-            f"to rebuild one exact commit, 'noust update {domain} --commit SHA'.",
+        raise DeploymentError.from_text(
+            say("lifecycle.older_deployed", deployed=str(deployed), domain=str(domain), tag=tag)
         )
 
 
@@ -1360,24 +1354,17 @@ def _tag_to_deploy(
     if app is None or pattern is None:
         return tag
     if branch is not None:
-        raise ValidationError(
-            f"{domain} follows tags ({pattern}), so it has no branch to update from",
-            details=f"Stop following tags first: noust app follow-tags {domain} --off. "
-            f"To deploy one exact tag, noust update {domain} --tag TAG.",
+        raise ValidationError.from_text(
+            say("lifecycle.follows_tags_branch_update", domain=domain, pattern=str(pattern))
         )
     if tag is not None or commit is not None or source:
         return tag
     if not app.source or validate_source(app.source)[0] != "git":
-        raise SourceError(
-            f"{domain} follows tags but is not deployed from git",
-            details=f"Stop following them: noust app follow-tags {domain} --off",
-        )
+        raise SourceError.from_text(say("lifecycle.follows_tags_deployed_git", domain=domain))
     newest = newest_tag(SourceManager(verbose=verbose).remote_tags(app.source), pattern)
     if newest is None:
-        raise SourceError(
-            f"The remote has no tag matching {pattern}",
-            details=f"Push a tag that does, or change what {domain} follows: "
-            f"noust app follow-tags {domain} PATTERN",
+        raise SourceError.from_text(
+            say("lifecycle.remote_tag_matching", domain=domain, pattern=str(pattern))
         )
     return newest
 
@@ -1890,10 +1877,8 @@ def _activate_release(
     if (previous is None or previous.id != target.id) and target.id in _unserved_releases(
         get_store(), app
     ):
-        raise DeploymentError(
-            f"Release {target.id} was built and has not served yet",
-            details="Switching to it here would skip its pre-deploy hooks and migrations. "
-            f"Promote it instead: noust releases promote {app.domain} {target.id}",
+        raise DeploymentError.from_text(
+            say("lifecycle.release_built_served", domain=str(app.domain), id=str(target.id))
         )
     if not schema_changed_ok and (previous is None or previous.id != target.id):
         _confirm_release_schema(app, target, previous)
@@ -2023,16 +2008,9 @@ def _release_app(domain: str) -> App:
     """
     app = get_store().get_app(domain)
     if app is None:
-        raise NoustError(
-            f"Application not found: {domain}",
-            details="Run 'noust list' to see what is deployed.",
-        )
+        raise NoustError.from_text(say("apps.not_found", domain=domain))
     if app.layout != RELEASES and app.app_type not in _IMAGE_RELEASES:
-        raise DeploymentError(
-            f"{domain} is deployed in place and has no releases",
-            details=f"Roll back to a backup with 'noust rollback {domain}', or move it onto "
-            f"releases with 'noust app migrate {domain}'.",
-        )
+        raise DeploymentError.from_text(say("lifecycle.deployed_place_releases", domain=domain))
     return app
 
 
@@ -2074,7 +2052,9 @@ def _container_deployer(app: App, *, log: Logger | None = None) -> ContainerDepl
     """
     deployer = _image_deployer(app, log=log)
     if not isinstance(deployer, ContainerDeployer):
-        raise DeploymentError(f"{app.domain} is not a container application")
+        raise DeploymentError.from_text(
+            say("lifecycle.container_application", domain=str(app.domain))
+        )
     return deployer
 
 
@@ -2093,7 +2073,9 @@ def _image_deployer(app: App, *, log: Logger | None = None) -> DockerComposeDepl
         DeploymentError: The application keeps no images of its releases.
     """
     if app.app_type not in _IMAGE_RELEASES:
-        raise DeploymentError(f"{app.domain} does not keep its releases as images")
+        raise DeploymentError.from_text(
+            say("lifecycle.keep_releases_images", domain=str(app.domain))
+        )
     deployer = stack_deployer(app, verbose=log.verbose if log is not None else False)
     if log is not None:
         deployer.logger = log  # type: ignore[assignment]
@@ -2136,23 +2118,21 @@ def _activate_image_release(
         found = next((image for image in images if image.id == release_id), None)
         if found is None:
             ids = ", ".join(image.id for image in images) or "none"
-            raise DeploymentError(
-                f"Release {release_id!r} does not exist",
-                details=f"Releases, newest first: {ids}.",
+            raise DeploymentError.from_text(
+                say("lifecycle.release_exist", ids=str(ids), release_id=f"{release_id!r}")
             )
         if not found.present:
-            raise DeploymentError(
-                f"The image of release {release_id} is no longer on this server",
-                details="It was pruned or never built here: rebuild its commit instead "
-                f"(noust update {app.domain} --commit COMMIT).",
+            raise DeploymentError.from_text(
+                say(
+                    "lifecycle.image_release_longer_server",
+                    domain=str(app.domain),
+                    release_id=str(release_id),
+                )
             )
         target = found
     else:
         if active is None:
-            raise DeploymentError(
-                "There is no active release to roll back from",
-                details="Name the release to activate: noust releases list <domain>.",
-            )
+            raise DeploymentError.from_text(say("lifecycle.active_release_roll_back"))
         older = [
             image
             for image in images
@@ -2161,11 +2141,8 @@ def _activate_image_release(
             and image.status != ReleaseStatus.FAILED.value
         ]
         if not older:
-            raise DeploymentError(
-                f"Release {active.id} is the oldest one with an image; there is nothing "
-                "earlier to roll back to",
-                details="Older images were pruned or never existed. Deploy a known-good commit "
-                "instead, or restore a backup.",
+            raise DeploymentError.from_text(
+                say("lifecycle.release_oldest_image_nothing", id=str(active.id))
             )
         target = older[0]
 
@@ -2240,22 +2217,16 @@ def _activation_target(
         found = next((r for r in listed if r.id == release_id), None)
         if found is None:
             ids = ", ".join(r.id for r in listed) or "none"
-            raise DeploymentError(
-                f"Release {release_id!r} does not exist",
-                details=f"Releases on disk, newest first: {ids}.",
+            raise DeploymentError.from_text(
+                say("lifecycle.release_exist_2", ids=str(ids), release_id=f"{release_id!r}")
             )
         return found
     if previous is None:
-        raise DeploymentError(
-            "There is no active release to roll back from",
-            details="Name the release to activate: noust releases list <domain>.",
-        )
+        raise DeploymentError.from_text(say("lifecycle.active_release_roll_back"))
     index = next(i for i, r in enumerate(listed) if r.id == previous.id)
     if index + 1 >= len(listed):
-        raise DeploymentError(
-            f"Release {previous.id} is the oldest one; there is nothing earlier to roll back to",
-            details="Older releases were pruned or never existed. Deploy a known-good commit "
-            "instead, or restore a backup.",
+        raise DeploymentError.from_text(
+            say("lifecycle.release_oldest_nothing_earlier", id=str(previous.id))
         )
     return listed[index + 1]
 
@@ -3208,9 +3179,8 @@ def rollback_to_deployment(
     store = get_store()
     record = store.get_deployment(deployment_id)
     if record is None or record.domain != domain:
-        raise NoustError(
-            f"Deployment {deployment_id} of {domain} not found",
-            details=f"See the application's history: GET /api/deployments?domain={domain}",
+        raise NoustError.from_text(
+            say("lifecycle.deployment_found", deployment_id=deployment_id, domain=domain)
         )
     reason = rollback_availability([record]).get(deployment_id)
     if reason is not None:
@@ -3233,9 +3203,7 @@ def rollback_to_deployment(
     app = store.get_app(domain)
     if app is None:
         # rollback_availability read it a moment ago; a deletion since won.
-        raise NoustError(
-            f"Application not found: {domain}", details="Run 'noust list' to see what is deployed."
-        )
+        raise NoustError.from_text(say("apps.not_found", domain=domain))
     # Asked above, for this deployment: what follows must not ask again.
     if (
         app.layout == RELEASES or app.app_type == AppType.CONTAINER.value
@@ -3463,9 +3431,7 @@ def set_resource_limits(
     store = get_store()
     app = store.get_app(domain)
     if app is None:
-        raise NoustError(
-            f"Application not found: {domain}", details="Run 'noust list' to see what is deployed."
-        )
+        raise NoustError.from_text(say("apps.not_found", domain=domain))
     limits.validated()
     # Rewriting the units while a migration or an update rewrites or restarts
     # them would leave whichever finished last.
@@ -3497,9 +3463,8 @@ def _set_resource_limits(
     if app.app_type == AppType.CONTAINER.value:
         return _set_container_limits(app, limits, restart=restart, store=store, log=log)
     if app.app_type == "docker-compose":
-        raise DeploymentError(
-            f"{domain} runs in Docker containers, which its unit's limits do not reach",
-            details="Set deploy.resources.limits for each service in the compose file.",
+        raise DeploymentError.from_text(
+            say("lifecycle.runs_docker_containers_unit", domain=str(domain))
         )
     if app.app_type == PHP_FPM:
         return _set_pool_limits(app, limits, store=store, log=log)
@@ -3543,10 +3508,14 @@ def _set_resource_limits(
         if not healthy:
             put_back()
             restored, _ = gate.restart_and_probe()
-            state = "running again" if restored else "back, but it is not answering either"
-            raise DeploymentError(
-                f"{domain} did not answer under the new limits; the previous ones are {state}",
-                details=evidence,
+            raise DeploymentError.from_text(
+                say(
+                    "lifecycle.limits_unanswered_restored"
+                    if restored
+                    else "lifecycle.limits_unanswered_dead",
+                    domain=domain,
+                    evidence=evidence,
+                )
             )
 
     return _record_limits(app, limits, units, restart, store)
@@ -3573,9 +3542,8 @@ def _units_of(app: App, store: NoustStore, *, purpose: str) -> list[str]:
     if not units and not app.is_static:
         units = [app_root(app).name]
     if not units:
-        raise DeploymentError(
-            f"{app.domain} is a static site; no process of its own runs to be {purpose}",
-            details="The web server serves it straight from disk.",
+        raise DeploymentError.from_text(
+            say("lifecycle.static_site_process_own", domain=str(app.domain), purpose=purpose)
         )
     return units
 
@@ -3608,9 +3576,8 @@ def _set_container_limits(
     deployer = _container_deployer(app, log=log)
     healthy, evidence = deployer.change_limits(limits, restart=restart)
     if not healthy:
-        raise DeploymentError(
-            f"{app.domain} did not answer under the new limits; the previous ones are back",
-            details=evidence,
+        raise DeploymentError.from_text(
+            say("lifecycle.limits_unanswered_back", domain=app.domain, evidence=evidence)
         )
     return _record_limits(app, limits, (domain_to_app_name(app.domain),), restart, store)
 
@@ -3643,12 +3610,7 @@ def _set_pool_limits(
         ValidationError: FPM refused the new pool (the previous one is back).
     """
     if limits.cpu_quota_percent is not None:
-        raise DeploymentError(
-            f"{app.domain} runs in the PHP-FPM every PHP application shares; a CPU quota "
-            "cannot be given to its pool alone",
-            details="Leave the CPU limit out: its memory limit and task limit (the pool's "
-            "workers) apply.",
-        )
+        raise DeploymentError.from_text(say("lifecycle.runs_php_fpm_every", domain=str(app.domain)))
     service = set_pool_limits(
         app, memory_max_mb=limits.memory_max_mb, tasks_max=limits.tasks_max, logger=log
     )
@@ -3742,20 +3704,13 @@ def set_stop_policy(
     store = get_store()
     app = store.get_app(domain)
     if app is None:
-        raise NoustError(
-            f"Application not found: {domain}", details="Run 'noust list' to see what is deployed."
-        )
+        raise NoustError.from_text(say("apps.not_found", domain=domain))
     if app.app_type in (AppType.DOCKER_COMPOSE.value, AppType.CONTAINER.value):
-        raise DeploymentError(
-            f"{domain} runs in Docker containers, which its unit's stop policy does not reach",
-            details="Set stop_grace_period for each service in the compose file.",
+        raise DeploymentError.from_text(
+            say("lifecycle.runs_docker_containers_unit_2", domain=domain)
         )
     if app.app_type == PHP_FPM:
-        raise DeploymentError(
-            f"{domain} runs in the PHP-FPM every PHP application shares, which is not stopped "
-            "with its own",
-            details="PHP-FPM's process_control_timeout is the server's setting.",
-        )
+        raise DeploymentError.from_text(say("lifecycle.runs_php_fpm_every_2", domain=domain))
     units = _units_of(app, store, purpose="stopped with a signal")
     services = ServiceManager()
     if app.zero_downtime:
@@ -3805,9 +3760,8 @@ def restart_blue_green(
     active = releases.current()
     if active is None:
         put_back()
-        raise DeploymentError(
-            f"{app.domain} has no active release to restart under the new limits",
-            details=f"Build one first: noust update {app.domain}",
+        raise DeploymentError.from_text(
+            say("lifecycle.active_release_restart_under", domain=str(app.domain))
         )
     try:
         BlueGreen(
@@ -3823,9 +3777,12 @@ def restart_blue_green(
         # is an NginxError, and the new limits must not stay in the template
         # either way. The engine has already stopped the instance it started.
         put_back()
-        raise DeploymentError(
-            f"{app.domain} did not answer under the new limits; the previous ones are back",
-            details=f"{exc.message}\n\n{exc.details}".strip(),
+        raise DeploymentError.from_text(
+            say(
+                "lifecycle.limits_unanswered_back",
+                domain=app.domain,
+                evidence=f"{exc.message}\n\n{exc.details}".strip(),
+            )
         ) from exc
 
 
@@ -3878,9 +3835,8 @@ def set_health_check(
     store = get_store()
     app = require_app(store, validate_domain(domain))
     if app.is_static and app.app_type != PHP_FPM:
-        raise DeploymentError(
-            f"{app.domain} is a static site; nothing answers HTTP for it but the web server",
-            details="Its health check is that the directory it serves has an index.html.",
+        raise DeploymentError.from_text(
+            say("lifecycle.static_site_nothing_answers", domain=str(app.domain))
         )
     # A deploy probing with the old settings while they change would be
     # judged by neither; refused at once instead, naming what runs.
@@ -3947,9 +3903,12 @@ def set_branch(
     store = get_store()
     app = require_app(store, validate_domain(domain))
     if branch is not None and _followed_pattern(app):
-        raise ValidationError(
-            f"{app.domain} follows tags ({_followed_pattern(app)}), so it has no branch to pin",
-            details=f"Stop following tags first: noust app follow-tags {app.domain} --off",
+        raise ValidationError.from_text(
+            say(
+                "lifecycle.follows_tags_branch_pin",
+                domain=str(app.domain),
+                value=str(_followed_pattern(app)),
+            )
         )
     commit: str | None = None
     wanted = validate_git_ref(branch) if branch is not None else None
@@ -4014,15 +3973,12 @@ def set_follow_tags(domain: str, pattern: str | None) -> TagFollow:
     app = require_app(store, validate_domain(domain))
     if pattern is not None:
         if not app.source or validate_source(app.source)[0] != "git":
-            raise SourceError(
-                f"{app.domain} is not deployed from git, so it has no tags to follow",
-                details="Only an application whose source is a git repository can follow tags.",
+            raise SourceError.from_text(
+                say("lifecycle.deployed_git_tags_follow", domain=str(app.domain))
             )
         if store.get_branch_pin(app.domain):
-            raise ValidationError(
-                f"{app.domain} has a branch pinned, and an application follows a branch "
-                "or tags, not both",
-                details=f"Unpin it first: noust app branch {app.domain} --unpin",
+            raise ValidationError.from_text(
+                say("lifecycle.branch_pinned_application_follows", domain=str(app.domain))
             )
     previous = _followed_pattern(app)
     # Refused while an update runs: it read what it follows already.
@@ -4272,15 +4228,12 @@ def check_adopted_directory(
     if named is None:
         return False
     if not remove_files:
-        raise ValidationError(
-            "Naming a directory to remove contradicts keeping the files",
-            details="Drop --keep-files (remove_files=false in the API) or the directory.",
-            field="remove_adopted_directory",
+        raise ValidationError.from_text(
+            say("lifecycle.naming_directory_remove_contradicts"), field="remove_adopted_directory"
         )
     if Path(named).resolve() != app_path.resolve():
-        raise ValidationError(
-            f"{named} is not the directory of {domain}",
-            details=f"Its directory is {app_path}; name exactly that one to remove it.",
+        raise ValidationError.from_text(
+            say("lifecycle.directory", app_path=str(app_path), domain=domain, named=str(named)),
             field="remove_adopted_directory",
         )
     return not is_in_apps_directory(app_path)
@@ -4414,10 +4367,7 @@ def _delete_app(
         else Config().apps_directory / domain_to_app_name(domain)
     )
     if app is None and not app_path.exists():
-        raise NoustError(
-            f"Application not found: {domain}",
-            details="Nothing to delete; check 'noust list' for the exact domain.",
-        )
+        raise NoustError.from_text(say("apps.not_found_to_delete", domain=domain))
     # Decided before anything is touched: a refusal leaves the application whole.
     adopted_named = check_adopted_directory(
         domain, app_path, remove_files=remove_files, named=remove_adopted_directory
@@ -4698,10 +4648,7 @@ def _release_adopted(
     from noust.deployers.native_adopt import release
 
     if remove_adopted_directory is not None:
-        raise ValidationError(
-            f"{domain} is an adopted site: Noust never removes its files",
-            details="Deleting it only forgets it. Remove the directory yourself if it should go.",
-        )
+        raise ValidationError.from_text(say("lifecycle.adopted_site_noust_never", domain=domain))
     store = get_store()
     app = store.get_app(domain)
     warnings: list[str] = []

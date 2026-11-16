@@ -22,6 +22,7 @@ import type { LandingTarget } from "./useDeploymentLanding";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { ArrivalRow } from "../app/ArrivalRow";
 
+import { jobFailure } from "../../lib/errors";
 /** The deployment this job's build is recorded as, once the deployer wrote its row. */
 function BuildLogLink({ domain, id }: { domain: string; id: number }) {
   const t = useT();
@@ -176,7 +177,7 @@ export function JobOutcome({ kind, target, followedJob }: JobOutcomeProps) {
         <JobProgress
           state="failed"
           title={t(kind === "import" ? "newApp.deploy.importFailed" : "newApp.deploy.failed", { domain: target.domain })}
-          error={{ detail: job.error ?? t("newApp.deploy.failedNoDetail") }}
+          error={jobFailure(job, t("newApp.deploy.failedNoDetail"))}
           hint={t("newApp.deploy.failedAfterHint")}
         />
         {log}

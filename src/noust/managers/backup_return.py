@@ -36,6 +36,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from noust.core.exceptions import BackupError, ValidationError
+from noust.core.server_text import say
 from noust.managers.backup_catalogue import KIND_APP, KIND_DATABASE, KIND_NOUST, KIND_VOLUME
 
 if TYPE_CHECKING:
@@ -124,7 +125,9 @@ class BackupReturn:
         }
         handler = handlers.get(request.kind)
         if handler is None:
-            raise ValidationError(f"Unknown kind of copy: {request.kind!r}", field="kind")
+            raise ValidationError.from_text(
+                say("backup_return.unknown_kind_copy", kind=f"{request.kind!r}"), field="kind"
+            )
         return handler(request)
 
     # ------------------------------------------------------------------- kinds
@@ -144,10 +147,8 @@ class BackupReturn:
         manager = self._apps or BackupManager(verbose=False)
         domain = str(request.target.get("domain") or request.meta.get("domain") or "")
         if not domain:
-            raise ValidationError(
-                "Say which application the backup goes back into",
-                details="The copy does not name one: give its domain.",
-                field="domain",
+            raise ValidationError.from_text(
+                say("backup_return.say_application_backup_goes"), field="domain"
             )
         fallback: BackupMetadata | None = None
         if request.sidecar:
@@ -186,29 +187,28 @@ class BackupReturn:
 
         manager = self._volumes or VolumeBackupManager()
         if not request.sidecar:
-            raise BackupError(
-                "A copy of an application's data needs the metadata that says what it is",
-                details="The central holds the archive without its sidecar, so what it holds and "
-                "where it goes are not known. Nothing was restored.",
-            )
+            raise BackupError.from_text(say("backup_return.copy_application_data_needs"))
         known = set(VolumeBackupMetadata.__dataclass_fields__)
         signed = {key: value for key, value in request.sidecar.items() if key in known}
         if sidecar_mac_state(signed) == "invalid":
-            raise BackupError(
-                f"The metadata of {request.file_name} does not match its MAC; nothing was restored"
+            raise BackupError.from_text(
+                say("backup_return.metadata_match_mac_nothing", file_name=str(request.file_name))
             )
         try:
             metadata = VolumeBackupMetadata.from_dict(signed)
         except (KeyError, TypeError) as exc:
-            raise BackupError(
-                f"The metadata of {request.file_name} cannot be read: {exc}",
-                details="Nothing was restored.",
+            raise BackupError.from_text(
+                say("backup_return.metadata_read", exc=str(exc), file_name=str(request.file_name))
             ) from exc
         wanted = str(request.target.get("domain") or metadata.domain)
         if metadata.domain != wanted:
-            raise BackupError(
-                f"{request.file_name} is the data of {metadata.domain}, not of {wanted}",
-                details="Restore it into the application it belongs to.",
+            raise BackupError.from_text(
+                say(
+                    "backup_return.data",
+                    domain=str(metadata.domain),
+                    file_name=str(request.file_name),
+                    wanted=str(wanted),
+                )
             )
         outcome = manager.restore(
             metadata.id,
@@ -237,10 +237,8 @@ class BackupReturn:
         engine = str(request.target.get("engine") or request.meta.get("engine") or "")
         database = str(request.target.get("database") or request.meta.get("database") or "")
         if not engine or not database:
-            raise ValidationError(
-                "Say which database the dump is loaded into",
-                details="The copy names neither its engine nor its database: give them.",
-                field="database",
+            raise ValidationError.from_text(
+                say("backup_return.say_database_dump_loaded"), field="database"
             )
         backups = self._databases or DatabaseBackups(DatabaseService())
         new_name = request.target.get("new_name") or None
@@ -280,18 +278,22 @@ class BackupReturn:
         try:
             header = read_header(request.path)
         except EnvelopeError as exc:
-            raise BackupError(
-                f"{request.file_name} is not a bundle of Noust's own state: {exc}",
-                details="Nothing was put in the bundles' folder.",
+            raise BackupError.from_text(
+                say(
+                    "backup_return.bundle_noust_own_state_2",
+                    exc=str(exc),
+                    file_name=str(request.file_name),
+                )
             ) from exc
         if header.get("label") != LABEL:
-            raise BackupError(f"{request.file_name} is not a bundle of Noust's own state")
+            raise BackupError.from_text(
+                say("backup_return.bundle_noust_own_state", file_name=str(request.file_name))
+            )
         fs = get_fs()
         destination = manager.directory / request.file_name
         if destination.exists():
-            raise BackupError(
-                f"This server already has a bundle called {request.file_name}",
-                details="Nothing was replaced.",
+            raise BackupError.from_text(
+                say("backup_return.server_already_bundle_called", file_name=str(request.file_name))
             )
         fs.make_dir(manager.directory, mode=0o700, parents=True)
         fs.move(request.path, destination)

@@ -23,6 +23,7 @@ import socket
 import threading
 
 from noust.core.exceptions import ValidationError
+from noust.core.server_text import say
 
 SCHEME = "scrypt"
 VERSION = "v1"
@@ -201,29 +202,20 @@ def check_password_policy(password: str, *, username: str, min_length: int) -> N
         ValidationError: With what to change, when the password is refused.
     """
     if len(password) < min_length:
-        raise ValidationError(
-            f"The password is shorter than {min_length} characters",
-            details="Use a longer passphrase: several unrelated words are easy to remember.",
+        raise ValidationError.from_text(
+            say("passwords.password_shorter_characters", min_length=min_length)
         )
     if len(password) > MAX_PASSWORD_LENGTH:
-        raise ValidationError(
-            f"The password is longer than {MAX_PASSWORD_LENGTH} characters",
-            details="Use a shorter passphrase.",
+        raise ValidationError.from_text(
+            say(
+                "passwords.password_longer_characters", max_password_length=str(MAX_PASSWORD_LENGTH)
+            )
         )
     lowered = password.lower()
     if len(set(password)) < 4:
-        raise ValidationError(
-            "The password repeats too few different characters",
-            details="Use a passphrase with more variety.",
-        )
+        raise ValidationError.from_text(say("passwords.password_repeats_too_few"))
     if len(username) >= 3 and username.lower() in lowered:
-        raise ValidationError(
-            "The password contains the username",
-            details="Use a passphrase that does not include the account's name.",
-        )
+        raise ValidationError.from_text(say("passwords.password_contains_username"))
     hostname = socket.gethostname().split(".", 1)[0].lower()
     if len(hostname) >= 4 and hostname in lowered:
-        raise ValidationError(
-            "The password contains this server's name",
-            details="Use a passphrase that does not include the machine's name.",
-        )
+        raise ValidationError.from_text(say("passwords.password_contains_server_name"))

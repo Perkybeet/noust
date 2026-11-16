@@ -59,6 +59,7 @@ from noust.core import paths
 from noust.core.exceptions import SecurityError
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem, get_fs, is_rehearsal
 from noust.core.runner import CommandRunner, get_runner
+from noust.core.server_text import say
 from noust.managers.server.host import HostPaths
 from noust.managers.server.security_notifications import announce_expired
 from noust.managers.server.security_sshd import DROPIN, read_no_follow
@@ -224,7 +225,9 @@ class PendingChange:
                 values={str(k): str(v) for k, v in data.get("values", {}).items()},
             )
         except (KeyError, TypeError, ValueError) as exc:
-            raise SecurityError("A pending change record is damaged", details=str(exc)) from exc
+            raise SecurityError.from_text(
+                say("access_change.record_damaged"), output=str(exc)
+            ) from exc
         check_record(change)
         return change
 
@@ -241,15 +244,17 @@ def check_record(change: PendingChange) -> None:
             or an identifier that is not one this module mints.
     """
     if not change.id.isalnum() or len(change.id) > 32:
-        raise SecurityError(f"Refusing the pending change id {change.id!r}")
+        raise SecurityError.from_text(say("access_change.bad_id", id=f"{change.id!r}"))
     if change.status not in STATUSES:
-        raise SecurityError(f"Refusing the pending change status {change.status!r}")
+        raise SecurityError.from_text(say("access_change.bad_status", status=f"{change.status!r}"))
     for restore in change.files:
         if restore.path not in RESTORABLE_FILES:
-            raise SecurityError(f"Refusing to restore {restore.path}: Noust never writes it")
+            raise SecurityError.from_text(
+                say("access_change.restore_refused", path=str(restore.path))
+            )
     for argv in [change.validate, *change.undo, *change.commit]:
         if argv and Path(argv[0]).name not in UNDO_PROGRAMS:
-            raise SecurityError(f"Refusing to run {argv[0]} to undo a change")
+            raise SecurityError.from_text(say("access_change.undo_refused", argv=str(argv[0])))
 
 
 #: Ledgers this thread holds, and how deep: ``flock`` belongs to an open file
@@ -387,7 +392,7 @@ class ChangeLedger:
             SecurityError: The identifier is not one this module mints.
         """
         if not change_id.isalnum() or len(change_id) > 32:
-            raise SecurityError(f"There is no pending change {change_id!r}")
+            raise SecurityError.from_text(say("access_change.unknown", change_id=f"{change_id!r}"))
         return self.directory / f"{change_id}.json"
 
     def save(self, change: PendingChange) -> None:
@@ -418,15 +423,12 @@ class ChangeLedger:
         """
         text = read_no_follow(self._path(change_id))
         if text is None:
-            raise SecurityError(
-                f"There is no pending change {change_id}",
-                details="List them with 'noust server security pending'.",
-            )
+            raise SecurityError.from_text(say("access_change.unknown_listed", change_id=change_id))
         try:
             data = json.loads(text)
         except json.JSONDecodeError as exc:
-            raise SecurityError(
-                f"The record of change {change_id} is damaged", details=str(exc)
+            raise SecurityError.from_text(
+                say("access_change.record_damaged_named", change_id=change_id), output=str(exc)
             ) from exc
         return PendingChange.from_dict(data)
 
@@ -503,10 +505,7 @@ class ChangeLedger:
                     break
                 except BlockingIOError as exc:
                     if time.monotonic() > deadline:
-                        raise SecurityError(
-                            "Another change to SSH or the firewall is still being applied",
-                            details="Wait for it to finish, then try again.",
-                        ) from exc
+                        raise SecurityError.from_text(say("access_change.busy")) from exc
                     time.sleep(0.2)
             held[key] = 1
             try:
@@ -574,10 +573,8 @@ class ChangeLedger:
         result = self.runner.run(self.timer_argv(change), timeout=TIMER_TIMEOUT)
         if not result.success:
             self.fs.remove(self._path(change.id), missing_ok=True)
-            raise SecurityError(
-                "Noust could not arm the timer that would undo this change, so it did not make it",
-                details="A change to SSH or the firewall is only made when it can undo itself. "
-                "Check that systemd is running (systemctl is-system-running).",
+            raise SecurityError.from_text(
+                say("access_change.no_timer"),
                 output=(result.stderr or result.stdout).strip() or None,
             )
 
@@ -623,16 +620,17 @@ class ChangeLedger:
         with self.locked():
             change = self.load(change_id)
             if change.status != "pending":
-                raise SecurityError(
-                    f"Change {change_id} is already {change.status}",
-                    details="Only a pending change can be confirmed.",
+                raise SecurityError.from_text(
+                    say(
+                        "access_change.already_resolved",
+                        change_id=change_id,
+                        status=str(change.status),
+                    )
                 )
             stopped, said = self._stop_timer(change)
             if not stopped:
-                raise SecurityError(
-                    f"Too late: change {change_id} is being undone right now",
-                    details="Its confirmation window ended. Apply it again if you still want it.",
-                    output=said or None,
+                raise SecurityError.from_text(
+                    say("access_change.too_late", change_id=change_id), output=said or None
                 )
             failures = self._run_all(change.commit, None)
             if failures:
@@ -643,8 +641,8 @@ class ChangeLedger:
                 change.resolved_by = by
                 change.resolution = "Making it permanent failed:\n" + "\n".join(failures)
                 self.save(change)
-                raise SecurityError(
-                    f"Change {change_id} could not be made permanent and was undone",
+                raise SecurityError.from_text(
+                    say("access_change.not_permanent", change_id=change_id),
                     output="\n".join(failures),
                 )
             change.status = "confirmed"

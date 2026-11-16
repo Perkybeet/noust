@@ -18,6 +18,7 @@ import { ServerText } from "../../../components/ui/ServerText";
 import { useT } from "../../../i18n";
 import { useNode } from "../../../nodes/useNode";
 
+import { jobFailure } from "../../../lib/errors";
 /** The packages a 409 `confirmation_required` says the install needs EPEL for, when it names them. */
 function packagesOf(error: unknown): string {
   if (!isApiError(error)) return "";
@@ -96,7 +97,7 @@ export function InstallPanel({ server }: { server: NoustServer }) {
           {running ? (
             <JobProgress state={job?.status === "running" ? "running" : "queued"} title={t("noustDns.install.running")} step={job?.current_step ?? null} />
           ) : failed ? (
-            <JobProgress state="failed" title={t("noustDns.install.failed")} error={{ detail: job.error ?? "" }} onDismiss={followed.dismiss} />
+            <JobProgress state="failed" title={t("noustDns.install.failed")} error={jobFailure(job)} onDismiss={followed.dismiss} />
           ) : install.isError && !(isApiError(install.error) && install.error.error === "confirmation_required") ? (
             <JobProgress
               state="failed"

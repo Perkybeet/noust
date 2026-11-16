@@ -95,6 +95,13 @@ entry for, or one whose values did not all arrive, shows the English the server 
 console still says something true. Never paraphrase a sentence with a key of your own: the words live once, in
 `src/noust/core/server_text.py`, and the console's `serverText` namespace is its translation.
 
+An error is said through `describeError` (`lib/errors.ts`), the one reader: it puts the sentence of an API error
+(`coded` in its body) in this console's language and says whether it did (`own`), so that `ErrorBlock` sets it as text and
+keeps mono for what a program printed. A job that failed is read the same way through `jobFailure(job)` (its `error_coded` and
+the failing program's `error_output`); a component never draws `error.detail` or `job.error` itself, which is the English of
+whoever ran it (`lib/errorReading.test.ts` holds the console to it). A sentence the console puts in a field as text, when it
+arrives (a refusal of the sign-in), needs its namespace loaded by then: the page asks for it as it opens.
+
 Adding a sentence is done on the server: add it to `CATALOG`, run `python scripts/generate_server_text.py`
 (it writes `src/api/serverTextCodes.gen.ts`, the codes and the values each takes), and then add it to `en/serverText.ts`
 and `es/serverText.ts` with the same placeholders. `serverText.test.ts` fails until both languages have it, and for a

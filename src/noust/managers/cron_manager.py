@@ -168,11 +168,13 @@ _LEDGER_JOURNAL_ENTRIES = 5000
 _NORMALIZED_FORM = re.compile(r"^Normalized form:\s*(.+)$", re.MULTILINE)
 
 #: Every elapse line systemd-analyze prints for --iterations: the first run is
-#: "Next elapse", each one after is "Iter. #N".
-_ELAPSE_LINE = re.compile(r"^\s*(?:Next elapse|Iter\.\s*#\d+):\s*(.+)$", re.MULTILINE)
+#: "Next elapse", each one after is "Iter. #N". The line after it, when the zone of the server is not
+#: UTC, is the same moment as "(in UTC)": the instant, whatever zone the calendar was read in.
+_ELAPSE_LINE = re.compile(
+    r"^\s*(?:Next elapse|Iter\.\s*#\d+):\s*(.+)$(?:\n\s*\(in UTC\):\s*(.+)$)?", re.MULTILINE
+)
 
-#: The weekday-prefixed timestamp on an elapse line, once TZ=UTC pins every
-#: run to the zone the console displays in: "Thu 2026-01-01 00:00:00 UTC".
+#: The weekday-prefixed timestamp on an elapse line, in UTC: "Thu 2026-01-01 00:00:00 UTC".
 _ELAPSE_TIMESTAMP = re.compile(r"^\w+\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})\s+UTC$")
 
 
@@ -1982,7 +1984,8 @@ class CronManager:
 
         Returns:
             The normalised calendar expression, and up to ``iterations``
-            future runs as ISO 8601 timestamps with a UTC offset.
+            future runs as ISO 8601 timestamps with a UTC offset: the instants the timer fires, read
+            in the zone of the server as the timer reads the expression.
 
         Raises:
             ServiceError: When the expression fails Noust's own validation, or
@@ -1994,7 +1997,8 @@ class CronManager:
             [
                 "--base-time="
                 + dt.datetime.fromtimestamp(base_time, tz=dt.timezone.utc).strftime(
-                    "%Y-%m-%d %H:%M:%S"
+                    # With its zone: without one systemd reads it in the server's own.
+                    "%Y-%m-%d %H:%M:%S UTC"
                 )
             ]
             if base_time is not None
@@ -2002,10 +2006,9 @@ class CronManager:
         )
         result = self.runner.run(
             ["systemd-analyze", "calendar", f"--iterations={iterations}", *anchor, calendar],
+            # In the server's own zone, as its timer reads the expression (``*-*-* 02:00:00`` is
+            # 02:00 where the server is, not 02:00 UTC); the instants are read from the UTC line.
             timeout=_ANALYZE_TIMEOUT,
-            # Pinned so every run in the preview is reported in the same zone
-            # the console displays it in, regardless of the host's own.
-            env={"TZ": "UTC"},
         )
         if not result.success:
             raise ServiceError(
@@ -2018,7 +2021,8 @@ class CronManager:
 
         next_runs: list[str] = []
         for match in _ELAPSE_LINE.finditer(result.stdout):
-            timestamp = self._parse_elapse_timestamp(match.group(1).strip())
+            # The UTC line when systemd printed one; the elapse line is itself in UTC otherwise.
+            timestamp = self._parse_elapse_timestamp((match.group(2) or match.group(1)).strip())
             if timestamp is not None:
                 next_runs.append(timestamp)
             if len(next_runs) >= iterations:

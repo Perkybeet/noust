@@ -2719,6 +2719,62 @@ export const serverText = {
         text: "the cleanup policy is switched off",
       },
     },
+    docker_image_rm_failed: {
+      text: "'docker image rm {ref}' failed",
+      hint: "Nothing else was changed. The tool's own output is below.",
+    },
+    docker_installed_system: {
+      text: "Docker is not installed on this system",
+    },
+    failed_exit_code: {
+      text: "'{items}' failed (exit code {exit_code})",
+      hint: "Nothing else was changed. The tool's own output is below.",
+    },
+    give_size_age_both: {
+      text: "Give a size or an age, not both",
+      hint: "Use size_mb or days.",
+    },
+    image_list_unused_images: {
+      text: "That image is not in the list of unused images",
+      hint: "It may be in use by a container, or not be there any more.",
+    },
+    image_list_unused_images_2: {
+      text: "That image is not in the list of unused images: it is a version {value} to go back to",
+      hint: "Noust never offers it for removal. An application keeps fewer versions with: noust releases keep",
+    },
+    name_image_id: {
+      text: "Name the image by its id",
+      hint: "Use an id from the list of unused images.",
+    },
+    package_cache_clean_system: {
+      text: "There is no package cache to clean on this system",
+      hint: "{value}",
+    },
+    positive_whole_number: {
+      text: "{name} must be a positive whole number",
+      hint: "Got {value}.",
+    },
+    psutil_installed_disks_listed: {
+      text: "psutil is not installed, so disks cannot be listed",
+      hint: "Install the web extra: pip install 'noust[web]'.",
+    },
+    unknown_cleanup_action: {
+      text: "Unknown cleanup action: {action}",
+      hint: "Use one of: {items}.",
+    },
+    cleanup_deletes: {
+      text: "'{action}' deletes something you may want back",
+      hint: "{effect}",
+    },
+    backups_summary: {
+      text: "{count} backups; their retention is a backup setting",
+    },
+    reduce_to: {
+      text: "Reduce it to {megabytes} MB",
+    },
+    releases_over_keep: {
+      text: "{apps} application(s) keep more releases than they are set to",
+    },
   },
   streams: {
     firewall: {
@@ -2929,6 +2985,2638 @@ export const serverText = {
     zero_downtime: {
       text: "{domain} runs in zero-downtime mode, which only nginx supports",
       hint: "Turn the mode off first, then plan the move again: {command}",
+    },
+  },
+  apps: {
+    not_found: {
+      text: "Application not found: {domain}",
+      hint: "Run 'noust list' to see what is deployed.",
+    },
+    not_found_here: {
+      text: "Application not found: {domain}",
+      hint: "Nothing is deployed at {app_path}. Deploy it with: noust create -d {domain}",
+    },
+    not_found_bare: {
+      text: "Application not found: {domain}",
+    },
+    not_found_to_delete: {
+      text: "Application not found: {domain}",
+      hint: "Nothing to delete; check 'noust list' for the exact domain.",
+    },
+  },
+  access_api: {
+    no_such_binding: {
+      text: "No access binding with id {binding_id} in {slug}",
+      hint: "List them with GET /api/teams/<team>/access.",
+    },
+  },
+  access_change: {
+    already_resolved: {
+      text: "Change {change_id} is already {status}",
+      hint: "Only a pending change can be confirmed.",
+    },
+    bad_id: {
+      text: "Refusing the pending change id {id}",
+    },
+    bad_status: {
+      text: "Refusing the pending change status {status}",
+    },
+    busy: {
+      text: "Another change to SSH or the firewall is still being applied",
+      hint: "Wait for it to finish, then try again.",
+    },
+    no_timer: {
+      text: "Noust could not arm the timer that would undo this change, so it did not make it",
+      hint: "A change to SSH or the firewall is only made when it can undo itself. Check that systemd is running (systemctl is-system-running).",
+    },
+    not_permanent: {
+      text: "Change {change_id} could not be made permanent and was undone",
+    },
+    restore_refused: {
+      text: "Refusing to restore {path}: Noust never writes it",
+    },
+    too_late: {
+      text: "Too late: change {change_id} is being undone right now",
+      hint: "Its confirmation window ended. Apply it again if you still want it.",
+    },
+    undo_refused: {
+      text: "Refusing to run {argv} to undo a change",
+    },
+    unknown: {
+      text: "There is no pending change {change_id}",
+    },
+    unknown_listed: {
+      text: "There is no pending change {change_id}",
+      hint: "List them with 'noust server security pending'.",
+    },
+    waiting_for_confirmation: {
+      text: "Another change is waiting for confirmation (change {id})",
+      hint: "Confirm it or revert it first: one change at a time can be undone safely.",
+    },
+    not_applied: {
+      text: "Not applied: {title}",
+      hint: "{reasons}",
+    },
+    record_damaged: {
+      text: "A pending change record is damaged",
+    },
+    record_damaged_named: {
+      text: "The record of change {change_id} is damaged",
+    },
+  },
+  firewall: {
+    allow_only_unconfirmed: {
+      text: "Only an allow rule is made without a confirmation window",
+      hint: "Denying a port can cut SSH off, so it waits to be confirmed.",
+    },
+    bad_action: {
+      text: "A rule's action is allow or deny",
+    },
+    bad_port: {
+      text: "A port is a number from 1 to 65535",
+    },
+    bad_protocol: {
+      text: "A protocol is tcp, udp or any",
+    },
+    bad_source: {
+      text: "{source} is not an address or a network",
+    },
+    keeps_ssh_open: {
+      text: "Refusing to delete the rule that lets everyone reach port {port} ({what})",
+      hint: "With the default policy denying, nobody could open a new SSH session, the central's tunnel included. Add the rule you want instead first, then delete this one.",
+    },
+    no_changeable_firewall: {
+      text: "Noust changes ufw and firewalld rules, and neither is in use here",
+      hint: "Install a firewall Noust can change: {value}; nftables and iptables rules are only read.",
+    },
+    no_such_rule: {
+      text: "There is no firewall rule {rule_id}",
+      hint: "List the rules with 'noust server security firewall status'.",
+    },
+    not_active: {
+      text: "{backend} is not active",
+    },
+    not_permanent: {
+      text: "The firewall could not make '{title}' permanent, so it was undone",
+    },
+    origin_needs_one_port: {
+      text: "Noust changes the origin of a rule for one port, and '{spec}' is not one",
+      hint: "For this one, add the rule you want and then delete this one.",
+    },
+    port_in_use: {
+      text: "Refusing to {action} port {port}: {what} listens there",
+      hint: "Closing it could cut off the SSH sessions open now and a central's tunnel. To restrict who reaches it, allow the addresses you use and let the default policy close the rest.",
+    },
+    read_only: {
+      text: "This firewall was opened for reading only",
+    },
+    refused: {
+      text: "The firewall refused '{items}'",
+    },
+    refused_undone: {
+      text: "The firewall refused '{items}', so the change was undone",
+    },
+    rule_already_admits: {
+      text: "The rule already admits from {value}",
+    },
+    rule_covers_more: {
+      text: "The rule '{spec}' covers more than port {port}",
+      hint: "Delete it on its own from the firewall's rules, and add the ones you want for each port.",
+    },
+    rule_exists: {
+      text: "There is already a rule for {proto} port {port} from {value}",
+      hint: "Delete the rule you do not want, or choose another origin.",
+    },
+    rule_other_port: {
+      text: "The rule '{spec}' is not about port {port}",
+      hint: "Only a rule that allows the port being opened is replaced with it.",
+    },
+    state_unreadable: {
+      text: "The firewall's state could not be read",
+    },
+    turns_on_ufw_only: {
+      text: "Noust turns on ufw only",
+      hint: "For firewalld, allow SSH in the default zone with 'firewall-offline-cmd --add-service=ssh', then 'systemctl enable --now firewalld', keeping this session open.",
+    },
+    ufw_active: {
+      text: "ufw is already active",
+    },
+    origin_cuts_ssh: {
+      text: "Refusing to change who reaches port {port} ({what}) to {origin}",
+      hint: "It would cut off the SSH sessions open now ({sessions}) and could leave a central's tunnel out. Choose a network that holds the address you are connected from, or add the rule you want first and delete this one once you have proved it works.",
+    },
+    origin_locks_out: {
+      text: "Refusing to change who reaches port {port} ({what}) to {origin}",
+      hint: "It would leave nobody able to open a new SSH session or reach the console: the default policy denies and nothing else admits them.",
+    },
+  },
+  security: {
+    bad_ip: {
+      text: "{address} is not an IP address",
+    },
+    fail2ban_not_running: {
+      text: "fail2ban is not running",
+      hint: "Install it first: noust server security fail2ban install",
+    },
+    no_nginx_log: {
+      text: "nginx is not installed here, so there is no log to watch",
+    },
+    no_such_check: {
+      text: "There is no check {check_id}",
+    },
+    no_such_fix: {
+      text: "There is no automatic fix {action}",
+    },
+    no_such_operation: {
+      text: "There is no security operation {operation}",
+    },
+    nothing_to_fix: {
+      text: "Check {check_id} has nothing to fix",
+      hint: "Run the checks again; it may have passed since.",
+    },
+    no_automatic_fix: {
+      text: "Check {check_id} has no automatic fix here",
+      hint: "{steps}",
+    },
+    no_fail2ban_here: {
+      text: "Noust cannot install fail2ban here",
+      hint: "{install_hint}",
+    },
+  },
+  security_api: {
+    bad_date: {
+      text: "{text} is not a date",
+      hint: "Use 2026-12-31 or 2026-12-31T18:00:00Z.",
+    },
+    no_accepted_risk: {
+      text: "No accepted risk holds for {check_id}",
+    },
+    no_such_ssh_fix: {
+      text: "There is no SSH fix named {fix}",
+    },
+  },
+  ssh: {
+    already_resolved: {
+      text: "Change {change_id} is already {status}",
+    },
+    config_rejected: {
+      text: "sshd rejected the new configuration, so nothing was changed",
+      hint: "Its own words are below.",
+    },
+    keys_of_root_only: {
+      text: "Noust manages the keys of root and of the accounts that can become root; {user} is not one of them",
+      hint: "Accounts: {value}.",
+    },
+    login_history_unreadable: {
+      text: "Noust cannot read sshd's login history, so it cannot see a new session",
+      hint: "{error}. The change undoes itself at {deadline}; to keep it, make it by hand while a second session stays open.",
+    },
+    no_effect_undone: {
+      text: "The change did not take effect, so it was undone",
+      hint: "sshd uses the first value it reads. Move or remove the line that wins, then apply again:\n{items}",
+    },
+    no_new_login: {
+      text: "No new SSH login since the change",
+      hint: "Keep this session open, open a NEW SSH session to this server and confirm again once it has logged in. If it cannot log in, do nothing: the change undoes itself at {deadline}.",
+    },
+    no_such_fix: {
+      text: "There is no SSH fix named {name}",
+      hint: "Use one of: {items}.",
+    },
+    no_such_key: {
+      text: "{user} has no key {fingerprint}",
+      hint: "List the keys with 'noust server security ssh keys'.",
+    },
+    nothing_to_do: {
+      text: "Nothing to do: sshd already uses {items}",
+    },
+    reload_failed_undone: {
+      text: "sshd could not be reloaded, so the change was undone",
+    },
+    key_removal_refused: {
+      text: "Refusing to remove {fingerprint} from {user}",
+      hint: "{blockers}\nOverride only if you are sure (--force).",
+    },
+    no_authorized_keys: {
+      text: "sshd reads no authorized_keys file for {user}",
+      hint: "{reason}",
+    },
+  },
+  sshd: {
+    dropin_not_noust: {
+      text: "{dropin} exists and Noust did not write it",
+      hint: "Noust keeps its sshd settings in that file only. Move what it holds to another file in /etc/ssh/sshd_config.d/, then try again.",
+    },
+    keyword_refused: {
+      text: "Noust does not write the sshd keyword {keyword}",
+    },
+    no_effective_config: {
+      text: "sshd did not report its effective configuration",
+      hint: "Run 'sshd -T' as root to see why; an sshd that cannot print its configuration would refuse to reload it too.",
+    },
+    not_under_systemd: {
+      text: "sshd is not running under systemd, so Noust cannot reload it",
+      hint: "Start it (systemctl start ssh, or sshd on RHEL and SUSE) and try again.",
+    },
+    symlink_refused: {
+      text: "Refusing to use {path}: it is a symbolic link",
+      hint: "Noust writes this file itself; remove the link and try again.",
+    },
+    value_refused: {
+      text: "Refusing the value {value} for {name}",
+    },
+    cannot_read: {
+      text: "Cannot read {path}",
+    },
+  },
+  access_changes: {
+    firewall_allow: {
+      text: "Allow {port} from {source}",
+    },
+    firewall_allow_any: {
+      text: "Allow {port} from anywhere",
+    },
+    firewall_allow_any_replacing: {
+      text: "Allow {port} from anywhere, and delete {rules}",
+    },
+    firewall_allow_replacing: {
+      text: "Allow {port} from {source}, and delete {rules}",
+    },
+    firewall_delete: {
+      text: "Delete the firewall rule “{rule}”",
+    },
+    firewall_deny: {
+      text: "Deny {port} from {source}",
+    },
+    firewall_deny_any: {
+      text: "Deny {port} from anywhere",
+    },
+    firewall_deny_any_replacing: {
+      text: "Deny {port} from anywhere, and delete {rules}",
+    },
+    firewall_deny_replacing: {
+      text: "Deny {port} from {source}, and delete {rules}",
+    },
+    firewall_disable: {
+      text: "Turn off ufw",
+    },
+    firewall_enable: {
+      text: "Turn on ufw, denying incoming by default",
+    },
+    firewall_source: {
+      text: "Change the origin of {port} from {old} to {source}",
+    },
+    firewall_source_from_any: {
+      text: "Change the origin of {port} from anywhere to {source}",
+    },
+    firewall_source_to_any: {
+      text: "Change the origin of {port} from {old} to anywhere",
+    },
+    firewall_stop: {
+      text: "Stop firewalld",
+    },
+    ssh_disable_passwords: {
+      text: "Turn off SSH password logins",
+    },
+    ssh_no_empty_passwords: {
+      text: "Refuse logins with an empty password",
+    },
+    ssh_root_no: {
+      text: "Refuse root logins over SSH",
+    },
+    ssh_root_prohibit_password: {
+      text: "Let root log in over SSH with a key only",
+    },
+    ssh_sensible_defaults: {
+      text: "Apply sensible SSH limits",
+    },
+    ssh_verbose_logging: {
+      text: "Log the key fingerprint of every SSH login",
+    },
+  },
+  accounts_api: {
+    exception_force_id: {
+      text: "No exception in force with id {exception_id}",
+    },
+    own_account_change_person: {
+      text: "You cannot change the person of your own account",
+      hint: "Another administrator can, or root with 'noust user'.",
+    },
+    own_account_change_role: {
+      text: "You cannot change the role of your own account",
+      hint: "Another administrator can, or root with 'noust user'.",
+    },
+    own_account_disable: {
+      text: "You cannot disable your own account",
+      hint: "Another administrator can, or root with 'noust user'.",
+    },
+    own_account_enable: {
+      text: "You cannot enable your own account",
+      hint: "Another administrator can, or root with 'noust user'.",
+    },
+    own_account_remove: {
+      text: "You cannot remove your own account",
+      hint: "Another administrator can, or root with 'noust user'.",
+    },
+    own_account_reset_second_factor: {
+      text: "You cannot reset the second factor of your own account",
+      hint: "Another administrator can, or root with 'noust user'.",
+    },
+    own_account_unlock: {
+      text: "You cannot unlock your own account",
+      hint: "Another administrator can, or root with 'noust user'.",
+    },
+  },
+  accounts_model: {
+    e_mail_address: {
+      text: "Not an e-mail address: {value}",
+      hint: "Use an address such as maria@example.com.",
+    },
+    invalid_display_name: {
+      text: "Invalid display name",
+      hint: "Use at most {max_display_name} printable characters.",
+    },
+    invalid_person_reference: {
+      text: "Invalid person reference",
+      hint: "Use at most {max_person_ref} printable characters, such as an e-mail.",
+    },
+    invalid_username: {
+      text: "Invalid username: {value}",
+      hint: "Use 2 to 64 lower-case letters, digits, '.', '-' or '_', starting with a letter or digit, such as 'maria' or 'maria.adm'.",
+    },
+    unknown_role: {
+      text: "Unknown role: {value}",
+      hint: "Use one of: {items}.",
+    },
+    username_reserved: {
+      text: "The username {name} is reserved",
+      hint: "It already names something in the audit log. Pick another one.",
+    },
+  },
+  auth_files: {
+    create_noust_web_state: {
+      text: "Cannot create the Noust web state directory {path}",
+      hint: "The web panel stores its signing key, sessions and audit log there. Create it as root with 'install -d -m 700 {path}', or point the panel somewhere writable with {state_dir_env}=/path/to/dir.",
+    },
+    look: {
+      text: "Cannot look for {path}",
+      hint: "The web panel keeps its credentials where only its owner can read. Run as root, or set {state_dir_env} to a directory you own.",
+    },
+    write: {
+      text: "Cannot write {path}",
+      hint: "Run the web panel as root, or set {state_dir_env} to a directory the current user owns.",
+    },
+  },
+  auth_records: {
+    address_network: {
+      text: "Not an address or a network: {entry}",
+      hint: "Use addresses or CIDRs, such as 203.0.113.7 or 10.0.0.0/8.",
+    },
+  },
+  auth_scopes: {
+    credential_scope_requires_issue: {
+      text: "This credential's scope is '{granted}', and {method} {path} requires '{required}'. Issue a token with the right scope from Settings, or POST /api/auth/tokens.",
+    },
+  },
+  auth_sessions: {
+    open_web_session_database: {
+      text: "Cannot open the web session database {path}",
+      hint: "Run the web panel as root, or set {state_dir_env} to a directory the current user owns.",
+    },
+  },
+  local_login: {
+    list_usernames: {
+      text: "{setting_exempt} must be a list of usernames",
+      hint: "Got {value}.",
+    },
+    most_accounts_keep_their: {
+      text: "At most {max_exempt} accounts keep their password",
+      hint: "A break-glass list is a short one.",
+    },
+    sign_password_passkey_turned: {
+      text: "Sign-in with a password or a passkey is turned off on this server",
+      hint: "Use the sign-in with your organisation's identity provider.",
+    },
+    nobody_cutting_link: {
+      text: "Cutting this link would leave nobody able to administer this server",
+      hint: "Link an administrator or a security officer to an enabled identity provider ('noust auth oidc link'), or name a break-glass account that keeps its password ('noust auth local-login exempt add NAME'), first.",
+    },
+    nobody_disabling_directory: {
+      text: "Disabling the directory {name} would leave nobody able to administer this server",
+      hint: "Link an administrator or a security officer to an enabled identity provider ('noust auth oidc link'), or name a break-glass account that keeps its password ('noust auth local-login exempt add NAME'), first.",
+    },
+    nobody_disabling_provider: {
+      text: "Disabling the provider {name} would leave nobody able to administer this server",
+      hint: "Link an administrator or a security officer to an enabled identity provider ('noust auth oidc link'), or name a break-glass account that keeps its password ('noust auth local-login exempt add NAME'), first.",
+    },
+    nobody_removing_directory: {
+      text: "Removing the directory {name} would leave nobody able to administer this server",
+      hint: "Link an administrator or a security officer to an enabled identity provider ('noust auth oidc link'), or name a break-glass account that keeps its password ('noust auth local-login exempt add NAME'), first.",
+    },
+    nobody_removing_provider: {
+      text: "Removing the provider {name} would leave nobody able to administer this server",
+      hint: "Link an administrator or a security officer to an enabled identity provider ('noust auth oidc link'), or name a break-glass account that keeps its password ('noust auth local-login exempt add NAME'), first.",
+    },
+    nobody_this_change: {
+      text: "This change would leave nobody able to administer this server",
+      hint: "Link an administrator or a security officer to an enabled identity provider ('noust auth oidc link'), or name a break-glass account that keeps its password ('noust auth local-login exempt add NAME'), first.",
+    },
+    nobody_turning_off: {
+      text: "Turning off the password sign-in would leave nobody able to administer this server",
+      hint: "Link an administrator or a security officer to an enabled identity provider ('noust auth oidc link'), or name a break-glass account that keeps its password ('noust auth local-login exempt add NAME'), first.",
+    },
+  },
+  passkeys: {
+    already_passkeys_account: {
+      text: "There are already {max_passkeys_per_owner} passkeys for this account",
+      hint: "Remove one you no longer use before adding another.",
+    },
+    invalid_passkey_name: {
+      text: "Invalid passkey name",
+      hint: "Use 1 to {max_name_length} printable characters, such as 'Work laptop'.",
+    },
+    passkey_already_registered: {
+      text: "This passkey is already registered here",
+      hint: "Each passkey is added once; give another authenticator a try.",
+    },
+    passkey_id: {
+      text: "You have no passkey with id {passkey_id}",
+      hint: "List yours with GET /api/auth/passkeys.",
+    },
+    passkey_id_2: {
+      text: "No passkey with id {passkey_id}",
+      hint: "List them with 'noust passkey list'.",
+    },
+    passkey_saved: {
+      text: "The passkey was not saved",
+      hint: "Try again.",
+    },
+    passkey_second_factor: {
+      text: "This passkey is your only second factor",
+      hint: "Add another passkey or an authenticator first. If you lost the others, ask a security officer to reset your second factor.",
+    },
+    server_accepts_passkeys_bound: {
+      text: "This server only accepts passkeys bound to one device, and this one may be synced",
+      hint: "Use a security key or a device-bound authenticator, or allow synced passkeys with web.passkeys.allow_synced.",
+    },
+    bad_rp_id: {
+      text: "web.passkeys.rp_id is not a host name: {rp_id}",
+      hint: "Set it to the console's name, such as noust.example.com, or unset it.",
+    },
+    host_mismatch: {
+      text: "This console's passkeys belong to {chosen}, and it was opened as {host}",
+      hint: "Open it at {chosen} (or a name under it), or change web.passkeys.rp_id.",
+    },
+    insecure: {
+      text: "Passkeys need HTTPS on a name other than localhost",
+      hint: "Browsers only offer passkeys over HTTPS, or on http://localhost. Serve {host} with a certificate the browser trusts, or reach this server through an SSH tunnel at http://localhost:<port>.",
+    },
+    ip_address_name: {
+      text: "Passkeys do not work on an address such as {host}",
+      hint: "Browsers only offer passkeys to a site with a name. Give this console a name with a certificate the browser trusts, or reach this server through an SSH tunnel at http://localhost:<port>.",
+    },
+    ip_address_open: {
+      text: "Passkeys do not work on an address such as {host}",
+      hint: "Browsers only offer passkeys to a site with a name. Open {public} instead, or reach this server through an SSH tunnel at http://localhost:<port>.",
+    },
+    library_missing: {
+      text: "Passkeys need a library this server does not have",
+      hint: "{install}",
+    },
+    no_host: {
+      text: "This request does not name a host passkeys can be bound to",
+      hint: "Open the console by its name, such as https://noust.example.com.",
+    },
+    session_required: {
+      text: "Passkeys are managed from a signed-in browser session",
+      hint: "Sign in to the console in a browser; tokens cannot hold passkeys.",
+    },
+  },
+  passwords: {
+    password_contains_server_name: {
+      text: "The password contains this server's name",
+      hint: "Use a passphrase that does not include the machine's name.",
+    },
+    password_contains_username: {
+      text: "The password contains the username",
+      hint: "Use a passphrase that does not include the account's name.",
+    },
+    password_longer_characters: {
+      text: "The password is longer than {max_password_length} characters",
+      hint: "Use a shorter passphrase.",
+    },
+    password_repeats_too_few: {
+      text: "The password repeats too few different characters",
+      hint: "Use a passphrase with more variety.",
+    },
+    password_shorter_characters: {
+      text: "The password is shorter than {min_length} characters",
+      hint: "Use a longer passphrase: several unrelated words are easy to remember.",
+    },
+  },
+  session: {
+    authentication_system_initialized: {
+      text: "Authentication system not initialized",
+    },
+    missing_invalid_csrf_token: {
+      text: "Missing or invalid CSRF token. Send the {csrf_cookie_name} cookie value in the {csrf_header_name} header, or authenticate with a Bearer token.",
+    },
+  },
+  signin: {
+    account_password_credential: {
+      text: "Only an account has a password; this credential is not one.",
+    },
+    account_second_factor_turned: {
+      text: "An account's second factor cannot be turned off",
+      hint: "Every account keeps one. To replace it, ask a security officer to reset it.",
+    },
+    active_session_matches_prefix: {
+      text: "No active session matches that prefix. It may have expired.",
+    },
+    address_network_use_203: {
+      text: "Not an address or a network: {exc}. Use 203.0.113.7 or 10.0.0.0/8.",
+    },
+    api_token_id: {
+      text: "No API token with id {token_id}",
+    },
+    api_token_issue_api: {
+      text: "An API token cannot issue API tokens.",
+    },
+    central_fleet_token_restricted: {
+      text: "A central's fleet token is not restricted here; remove the node instead.",
+    },
+    central_fleet_token_revokes: {
+      text: "Only a central's fleet token revokes itself here; revoke others in Settings.",
+    },
+    code_accepted_scan_qr: {
+      text: "That code was not accepted. Scan the QR again and enter a fresh code.",
+    },
+    code_accepted_two_factor: {
+      text: "That code was not accepted. Two-factor authentication stays on.",
+    },
+    credential_browser_session_other: {
+      text: "This credential is not a browser session; there is no other session to leave signed in.",
+    },
+    credential_list_api_tokens: {
+      text: "This credential cannot list API tokens.",
+    },
+    person_accepts_notice_credential: {
+      text: "Only a person accepts the notice; this credential is not one.",
+    },
+    sudo_mode_asks_account: {
+      text: "Sudo mode asks for the account's password, and this account has none",
+      hint: "It signs in through its identity provider. Give it a password, which it keeps only for this: 'noust user invite NAME' lets its owner set one, with their authenticator.",
+    },
+    sudo_mode_needs_second: {
+      text: "Sudo mode needs a second factor, and this account has none",
+      hint: "Enrol an authenticator first: POST /api/auth/2fa/enroll.",
+    },
+    credentials_refused: {
+      text: "Invalid credentials",
+      hint: "Check the username, the password and the code, then try again.",
+    },
+    enter_code: {
+      text: "Enter a code from your authenticator, or a backup code.",
+    },
+    expired: {
+      text: "This sign-in has expired. Start again with your username and password.",
+    },
+    expired_provider: {
+      text: "This sign-in has expired. Start again with your provider.",
+    },
+    invalid_credentials: {
+      text: "Invalid credentials.",
+    },
+    invalid_directory_login: {
+      text: "Invalid username or password.",
+    },
+    invalid_token: {
+      text: "Invalid token.",
+    },
+    invalid_totp: {
+      text: "Invalid two-factor code.",
+    },
+    second_factor_code: {
+      text: "Two-factor authentication is enabled. Include {field}.",
+    },
+    second_factor_either: {
+      text: "Two-factor authentication is enabled. Include {field}, or use a passkey: POST {where}.",
+    },
+    second_factor_passkey: {
+      text: "This sign-in has a passkey now. Use it: POST {where}.",
+    },
+    locked_out: {
+      text: "Too many failed attempts. Locked for {seconds} seconds.",
+    },
+    reset_unavailable: {
+      text: "This server does not reset passwords by mail.",
+      hint: "Ask a security officer for a new invitation.",
+    },
+  },
+  token_activity: {
+    intervention_token: {
+      text: "No intervention {n} of this token",
+    },
+    needs_deploy: {
+      text: "This needs the '{permission}' permission on {domain}",
+      hint: "Ask an administrator of its team.",
+    },
+    schema_changed: {
+      text: "Going back passes a deployment that changed the database's schema, in {apps}",
+      hint: "Noust puts the code back, never the database: confirm it for those applications (schema_changed_ok) or leave them out.",
+    },
+    undo_unavailable: {
+      text: "None of the applications asked for can be put back.",
+      hint: "GET the plan of this intervention to see why each one cannot.",
+    },
+  },
+  tokens: {
+    api_token_named_already: {
+      text: "An API token named {cleaned} already exists",
+      hint: "Names are unique, including revoked tokens, so an audit line naming one always names one thing. Pick a new name.",
+    },
+    api_token_names_1: {
+      text: "API token names are 1 to 64 characters",
+      hint: "Name the token after what will hold it, such as 'ci-deploy'.",
+    },
+    api_tokens_act_sudo: {
+      text: "API tokens cannot act in sudo mode on this server",
+      hint: "Do what needs confirming from the console, as a person.",
+    },
+    api_tokens_last_most: {
+      text: "API tokens last at most {token_max_days} days on this server",
+      hint: "Ask for {longest} hours or fewer, and issue a new one then. A compliance framework asks for it: noust compliance status.",
+    },
+    assistant_token_acts_person: {
+      text: "The assistant's token acts for a person and never in sudo mode",
+      hint: "Issue it for an account, without allow_elevated: what needs a person's confirmation is done by the person, in the console.",
+    },
+    fleet_token_issued: {
+      text: "A fleet token cannot be issued here",
+      hint: "Fleet tokens are created on this server by 'noust fleet authorize --central-key KEY --name <central>', which also installs the central's restricted SSH key and prints the join code for it.",
+    },
+    prefix_matches_sessions: {
+      text: "The prefix {candidate} matches {count} sessions",
+      hint: "Send more characters of the session id so exactly one matches.",
+    },
+    reach: {
+      text: "{username} does not reach that {kind}",
+      hint: "A token bound to a scope can only be issued by someone who has a role there: give the account one first ('noust access grant').",
+    },
+    read_two_factor_state: {
+      text: "Cannot read the two-factor state file {path}",
+      hint: "Run the web panel as the user that owns it, or delete the file to turn two-factor authentication off on purpose.",
+    },
+    read_web_signing_key: {
+      text: "Cannot read the web signing key {secret_file}",
+      hint: "The web panel must run as the user that owns the key. Run as root, or set {state_dir_env} to a directory you own.",
+    },
+    server_api_token_belongs: {
+      text: "On this server an API token belongs to an account",
+      hint: "Issue it signed in as that account, or from the CLI with 'noust token create NAME --owner USERNAME'.",
+    },
+    session_id_prefix: {
+      text: "Not a session id prefix: {prefix}",
+      hint: "Prefixes are the leading characters of a session id as listed by GET /api/auth/sessions: hexadecimal, at least six characters.",
+    },
+    session_using: {
+      text: "That is the session you are using",
+      hint: "Revoking the current session from here would leave the browser holding dead cookies. Use Sign out, or POST /api/auth/logout.",
+    },
+    token_bound_team_project: {
+      text: "A token bound to a team, project or environment belongs to an account",
+      hint: "Issue it signed in as that account, or with '--owner USERNAME'.",
+    },
+    token_expiry_positive_number: {
+      text: "The token expiry must be a positive number of hours",
+      hint: "Omit it entirely for a token that only dies by revocation.",
+    },
+    token_hold_more_owner: {
+      text: "A token cannot hold more than its owner: {items}",
+      hint: "The {role} role does not hold them; leave them out.",
+    },
+    token_hold_more_owner_2: {
+      text: "A token cannot hold more than its owner: {items}",
+      hint: "Whoever issues it does not hold them; leave them out.",
+    },
+    token_takes_preset_list: {
+      text: "A token takes a preset or a list of permissions, not both",
+      hint: "Give the preset alone, or name the permissions yourself.",
+    },
+    two_factor_authentication_already: {
+      text: "Two-factor authentication is already enabled",
+      hint: "Disable it with a current code before enrolling a new authenticator.",
+    },
+    two_factor_authentication_enabled: {
+      text: "Two-factor authentication is not enabled",
+      hint: "There is nothing to disable. Enrol first from Settings.",
+    },
+    two_factor_authentication_enabled_2: {
+      text: "Two-factor authentication is not enabled",
+      hint: "There is nothing to regenerate. Enrol first from Settings.",
+    },
+    two_factor_enrolment_progress: {
+      text: "No two-factor enrolment is in progress",
+      hint: "Begin one first: POST /api/auth/2fa/enroll, or Enable in Settings.",
+    },
+    two_factor_state_file: {
+      text: "The two-factor state file {path} is corrupt",
+      hint: "Noust refuses to guess whether two-factor authentication was on. Restore the file from backup, or delete it with 'rm {path}' to disable the second factor on purpose.",
+    },
+    unknown_api_token_scope: {
+      text: "Unknown API token scope: {scope}",
+      hint: "Use one of: {items}.",
+    },
+    unknown_caller_api_token: {
+      text: "Unknown caller for an API token: {caller}",
+      hint: "Use one of: {items}, or none.",
+    },
+    unknown_permissions: {
+      text: "Unknown permissions: {items}",
+      hint: "GET /api/auth/roles lists every permission there is.",
+    },
+    web_signing_key_exists: {
+      text: "The web signing key {secret_file} exists but is empty",
+      hint: "Noust refuses to invent a new key silently, because that logs every operator out and hides whatever truncated the file. Restore the file from backup, or delete it with 'rm {secret_file}' to start over, which revokes all existing sessions on purpose.",
+    },
+    whoever_governs_accounts_issue: {
+      text: "Only whoever governs accounts can issue an API token that acts in sudo mode",
+      hint: "Ask an administrator to issue it, or issue the token without allow_elevated and do what needs confirming from the console, as a person.",
+    },
+  },
+  webauthn: {
+    passkeys_need_cryptography_library: {
+      text: "Passkeys need the cryptography library, which is not installed here",
+      hint: "Install python3-cryptography (python311-cryptography on openSUSE Leap), or pip install 'noust[web]', then restart noust-web. Python said: {exc}",
+    },
+  },
+  team_access: {
+    governs_members: {
+      text: "{role_name} governs a team's members, which a {kind} does not have",
+      hint: "Give 'admin' on the {kind}, or {role_name} on the team.",
+    },
+    name_environment: {
+      text: "Name the environment",
+      hint: "Give the environment's slug (environment=SLUG).",
+    },
+    name_project: {
+      text: "Name the project",
+      hint: "Give the project's slug (project=SLUG).",
+    },
+    name_team: {
+      text: "Name the team",
+      hint: "Give the team's slug (team=SLUG).",
+    },
+    no_such_account: {
+      text: "No account named {username}",
+      hint: "List the accounts with 'noust user list', or invite the person.",
+    },
+    no_such_role: {
+      text: "No role named {role}",
+      hint: "List them with 'noust access role list'.",
+    },
+    role_not_ownable: {
+      text: "The role {role_name} holds nothing a {kind} can own",
+      hint: "A team, a project or an environment can hold permissions about its applications, databases and backups; this role has none of those.",
+    },
+  },
+  app_deploy_api: {
+    application_found: {
+      text: "Application not found: {validated}",
+    },
+    applications_more_call_deploys: {
+      text: "{count} applications is more than one call deploys ({max_batch})",
+      hint: "Split the list over several calls.",
+    },
+    commit_tag_both_name: {
+      text: "A commit and a tag both name what to deploy",
+      hint: "Give one of them.",
+    },
+    image_tag_version_deploy: {
+      text: "An image tag is the version to deploy: a commit or a tag does not apply",
+      hint: "Deploy the image tag, or a commit of the repository, not both.",
+    },
+    pull_request_number_1: {
+      text: "A pull request number is 1 or more",
+      hint: "Give the number the code host shows.",
+    },
+    pull_request_preview_rebuilt: {
+      text: "A pull request preview is rebuilt from its branch: {others} does not apply",
+      hint: "Ask for the preview alone, or deploy the application.",
+    },
+    run_image_registry: {
+      text: "{domain} does not run an image from a registry",
+      hint: "An image tag only means something to an application deployed with --image. Deploy the others by commit or tag.",
+    },
+  },
+  appdir_releases: {
+    active_release_roll_back: {
+      text: "There is no active release to roll back from",
+      hint: "{current_link} does not point at a release. {value} Name the one to activate explicitly.",
+    },
+    claim_release_directory: {
+      text: "Could not claim a release directory in {releases_dir}",
+      hint: "{max_name_attempts} names for {stamp} were taken. Check for a runaway process creating releases, then retry.",
+    },
+    commit_id: {
+      text: "{commit} is not a commit id",
+      hint: "Pass the full or abbreviated hash from `git rev-parse HEAD`, or None for a source that is not a git checkout.",
+    },
+    instance_zero_downtime_application: {
+      text: "{color} is not an instance of a zero-downtime application",
+      hint: "The instances are blue and green.",
+    },
+    keep_releases: {
+      text: "Cannot keep {keep} releases",
+      hint: "Keep at least 1 release. A release is the application's code; pruning them all would leave nothing to run or roll back to.",
+    },
+    persistent_path_path_inside: {
+      text: "Persistent path {raw} is not a path inside the application",
+      hint: "Persistent paths are relative to the application root, such as 'storage' or 'public/uploads', and may not be absolute or contain '..'.",
+    },
+    plain_directory: {
+      text: "{colors_dir} is not a plain directory",
+      hint: "A symlink or file there would make Noust write somewhere else. Remove it; Noust recreates the directory.",
+    },
+    point_release: {
+      text: "Could not point {current_link} at release {release_id}",
+      hint: "{error}. Nothing changed: {value}",
+    },
+    real_directory_release_link: {
+      text: "{current_link} is a real directory, not a release link",
+      hint: "This application is not on the release layout. Migrate it explicitly before activating releases.",
+    },
+    real_directory_release_link_2: {
+      text: "{workers_link} is a real directory, not a release link",
+      hint: "Noust keeps only a link there. Move what is in it away; Noust recreates the link.",
+    },
+    refusing_create_plain_directory: {
+      text: "Refusing to create {shared}: {blocked} is not a plain directory",
+      hint: "A symlink or file at {blocked} would make Noust create {path} somewhere outside {shared_dir}. Replace it with a directory, or create the shared path yourself.",
+    },
+    refusing_write_symlink: {
+      text: "Refusing to write {env_file}: it is a symlink",
+      hint: "Remove the link; Noust writes the port of each instance itself.",
+    },
+    release: {
+      text: "{release} is not a release of {app_path}",
+      hint: "Releases are directories in {releases_dir} named like 20260925-143012-a1b2c3d, created by a deploy.",
+    },
+    point_instance: {
+      text: "Could not point the {color} instance at release {release_id}",
+      hint: "{error}",
+    },
+    point_workers: {
+      text: "Could not point {workers_link} at release {release_id}",
+      hint: "{error}",
+    },
+    release_missing: {
+      text: "Release {release_id} does not exist",
+      hint: "{available}",
+    },
+  },
+  deploy_commands: {
+    pre_flight_checks_failed: {
+      text: "Pre-flight checks failed",
+      hint: "The following issues were found:\n{details}",
+    },
+  },
+  deploy_hooks: {
+    deploy_hooks_declared_applications: {
+      text: "Deploy hooks are declared in {where}, and {app_type} applications have none",
+      hint: "{reason}. Remove them{value}, or deploy the project as the type that runs it.",
+    },
+    hook_names_service_application: {
+      text: "The hook names the service {service}, and a {app_type} application has no services",
+      hint: "'service' is for Docker Compose stacks. Remove it to run the hook in the application's own tree.",
+    },
+    hook_workdir_directory_inside: {
+      text: "The hook's workdir {workdir} is not a directory inside the application",
+      hint: "Name a directory of the repository, relative to its root.",
+    },
+    could_not_run_detail: {
+      text: "The {phase} hook '{command}' could not run: {reason}",
+      hint: "{details}\n\n{output}",
+    },
+    post_could_not_run: {
+      text: "The {phase} hook '{command}' could not run: {reason}",
+      hint: "The new version is serving; only the hook failed. Run it again by hand, or fix it for the next deployment; its output is above and in the deployment's log.\n\n{output}",
+    },
+    post_exited: {
+      text: "The {phase} hook '{command}' exited with {exit_code}",
+      hint: "The new version is serving; only the hook failed. Run it again by hand, or fix it for the next deployment; its output is above and in the deployment's log.\n\n{output}",
+    },
+    post_timed_out: {
+      text: "The {phase} hook '{command}' ran out of its {seconds} seconds",
+      hint: "The new version is serving; only the hook failed. Run it again by hand, or fix it for the next deployment; its output is above and in the deployment's log.\n\n{output}",
+    },
+    pre_could_not_run: {
+      text: "The {phase} hook '{command}' could not run: {reason}",
+      hint: "Nothing was switched over: what served before is still serving. Fix the hook or what it checks, and deploy again; its output is above and in the deployment's log.\n\n{output}",
+    },
+    pre_exited: {
+      text: "The {phase} hook '{command}' exited with {exit_code}",
+      hint: "Nothing was switched over: what served before is still serving. Fix the hook or what it checks, and deploy again; its output is above and in the deployment's log.\n\n{output}",
+    },
+    pre_timed_out: {
+      text: "The {phase} hook '{command}' ran out of its {seconds} seconds",
+      hint: "Nothing was switched over: what served before is still serving. Fix the hook or what it checks, and deploy again; its output is above and in the deployment's log.\n\n{output}",
+    },
+  },
+  deploy_release: {
+    release_built: {
+      text: "No release is being built",
+      hint: "The fetch step stages the release; it has to run first.",
+    },
+  },
+  deploy_site_service: {
+    active_release_serve: {
+      text: "{domain} has no active release to serve",
+      hint: "Build one first: noust update {domain}",
+    },
+    build_start_names_none: {
+      text: "build.start names {program}, which is in none of the project's tools, the pinned runtime or the system's directories",
+      hint: "Install it where the service can run it, or name the program by its path in the project (./bin/server).",
+    },
+    deployer_configured: {
+      text: "Deployer was not configured",
+      hint: "Call configure(domain=DOMAIN, source=SOURCE) before deploy().",
+    },
+    runs_blue_green_needs: {
+      text: "{domain} runs blue/green, which needs the proxy site; this release renders the {template} template",
+      hint: "A noust.nginx.yaml gives the site routes of its own, which the two instances cannot share. Remove it, or turn the mode off first: noust app zero-downtime {domain} off",
+    },
+    runs_blue_green_serve: {
+      text: "{domain} runs blue/green, which cannot serve a project from the subdirectory {base}",
+      hint: "Both instances run from the root of their release. Turn the mode off (noust app zero-downtime {domain} off), or move the project to the root of the repository.",
+    },
+  },
+  deploy_update: {
+    release_layout: {
+      text: "{domain} is not on the release layout",
+      hint: "Only an application that builds releases can build one without serving it: noust app migrate {domain}",
+    },
+    release_layout_2: {
+      text: "{domain} is not on the release layout",
+      hint: "A release can only be promoted into an application that builds releases.",
+    },
+  },
+  deployments_api: {
+    deployment_record_id: {
+      text: "Deployment record has no id",
+      hint: "This should not happen for a row read back from the store.",
+    },
+    not_found: {
+      text: "Deployment not found: {deployment_id}",
+    },
+    not_found_of: {
+      text: "Deployment {deployment_id} of {domain} not found",
+    },
+    no_commit: {
+      text: "Deployment {deployment_id} recorded no commit to rebuild",
+      hint: "Its source is not a git repository. Update the application to build its source again.",
+    },
+  },
+  health_gate: {
+    command_health_check_needs: {
+      text: "A command startup check needs the application it runs in",
+      hint: "This is a fault of Noust, not of the check: report it.",
+    },
+  },
+  jobs_api: {
+    applications_request_updates_most: {
+      text: "That is {count} applications; a request updates at most {max_group}",
+      hint: "Narrow it to a project or an environment.",
+    },
+    invalid_job_id: {
+      text: "Invalid job id: {job_id}",
+      hint: "Job ids are hexadecimal, as returned when the job was queued.",
+    },
+    not_found: {
+      text: "Job not found: {job_id}",
+    },
+    not_found_validated: {
+      text: "Job not found: {validated}",
+    },
+    say_applications: {
+      text: "Say which applications",
+      hint: "Name a team, a project, an environment, a tag, or the domains to update.",
+    },
+    unknown_job_status: {
+      text: "Unknown job status: {status}",
+      hint: "Use one of: {items}.",
+    },
+  },
+  lifecycle: {
+    active_release_restart_under: {
+      text: "{domain} has no active release to restart under the new limits",
+      hint: "Build one first: noust update {domain}",
+    },
+    active_release_roll_back: {
+      text: "There is no active release to roll back from",
+      hint: "Name the release to activate: noust releases list <domain>.",
+    },
+    adopted_site_noust_never: {
+      text: "{domain} is an adopted site: Noust never removes its files",
+      hint: "Deleting it only forgets it. Remove the directory yourself if it should go.",
+    },
+    applications_deploy_single_commit: {
+      text: "{app_type} applications cannot deploy a single commit",
+      hint: "Update {domain} from its branch instead: noust update {domain}",
+    },
+    branch_pinned_application_follows: {
+      text: "{domain} has a branch pinned, and an application follows a branch or tags, not both",
+      hint: "Unpin it first: noust app branch {domain} --unpin",
+    },
+    commit_names_exactly_deploy: {
+      text: "A commit names exactly what to deploy; a source or a branch does not apply",
+      hint: "Run either 'noust update {domain} --commit {commit}' or an update from a source or a branch, not both.",
+    },
+    container_application: {
+      text: "{domain} is not a container application",
+    },
+    deployed_git_deploy: {
+      text: "{domain} is not deployed from git; there is no {value} to deploy",
+      hint: "Its source is {fetch_from}. Rebuild it from there: noust update {domain}",
+    },
+    deployed_git_tags_follow: {
+      text: "{domain} is not deployed from git, so it has no tags to follow",
+      hint: "Only an application whose source is a git repository can follow tags.",
+    },
+    deployed_place_releases: {
+      text: "{domain} is deployed in place and has no releases",
+      hint: "Roll back to a backup with 'noust rollback {domain}', or move it onto releases with 'noust app migrate {domain}'.",
+    },
+    deployment_found: {
+      text: "Deployment {deployment_id} of {domain} not found",
+      hint: "See the application's history: GET /api/deployments?domain={domain}",
+    },
+    directory: {
+      text: "{named} is not the directory of {domain}",
+      hint: "Its directory is {app_path}; name exactly that one to remove it.",
+    },
+    follows_tags_branch_pin: {
+      text: "{domain} follows tags ({value}), so it has no branch to pin",
+      hint: "Stop following tags first: noust app follow-tags {domain} --off",
+    },
+    follows_tags_branch_update: {
+      text: "{domain} follows tags ({pattern}), so it has no branch to update from",
+      hint: "Stop following tags first: noust app follow-tags {domain} --off. To deploy one exact tag, noust update {domain} --tag TAG.",
+    },
+    follows_tags_deployed_git: {
+      text: "{domain} follows tags but is not deployed from git",
+      hint: "Stop following them: noust app follow-tags {domain} --off",
+    },
+    git_checkout_deploy: {
+      text: "{domain} is not a git checkout; there is no {value} to deploy",
+      hint: "An application deployed from a directory or an archive is rebuilt from its source: noust update {domain}",
+    },
+    image_registry_source_fetch: {
+      text: "{domain} is an image from a registry: it has no source to fetch from",
+      hint: "Change the image with: noust app container set {domain} --image REFERENCE, then update.",
+    },
+    image_release_longer_server: {
+      text: "The image of release {release_id} is no longer on this server",
+      hint: "It was pruned or never built here: rebuild its commit instead (noust update {domain} --commit COMMIT).",
+    },
+    keep_releases_images: {
+      text: "{domain} does not keep its releases as images",
+    },
+    naming_directory_remove_contradicts: {
+      text: "Naming a directory to remove contradicts keeping the files",
+      hint: "Drop --keep-files (remove_files=false in the API) or the directory.",
+    },
+    older_deployed: {
+      text: "{tag} is older than {deployed}, which is deployed",
+      hint: "An update never goes back. To return to an earlier version use 'noust rollback {domain}', which asks first when the database changed; to rebuild one exact commit, 'noust update {domain} --commit SHA'.",
+    },
+    recorded_source_build_release: {
+      text: "{domain} has no recorded source to build a release from",
+      hint: "Pass one explicitly: noust update {domain} --source <git URL or path>",
+    },
+    release_built_served: {
+      text: "Release {id} was built and has not served yet",
+      hint: "Switching to it here would skip its pre-deploy hooks and migrations. Promote it instead: noust releases promote {domain} {id}",
+    },
+    release_exist: {
+      text: "Release {release_id} does not exist",
+      hint: "Releases, newest first: {ids}.",
+    },
+    release_exist_2: {
+      text: "Release {release_id} does not exist",
+      hint: "Releases on disk, newest first: {ids}.",
+    },
+    release_oldest_image_nothing: {
+      text: "Release {id} is the oldest one with an image; there is nothing earlier to roll back to",
+      hint: "Older images were pruned or never existed. Deploy a known-good commit instead, or restore a backup.",
+    },
+    release_oldest_nothing_earlier: {
+      text: "Release {id} is the oldest one; there is nothing earlier to roll back to",
+      hint: "Older releases were pruned or never existed. Deploy a known-good commit instead, or restore a backup.",
+    },
+    releases_layout_applications_support: {
+      text: "{domain} is on the releases layout, which {app_type} applications do not support",
+      hint: "Update it with the type it was created with.",
+    },
+    remote_tag_matching: {
+      text: "The remote has no tag matching {pattern}",
+      hint: "Push a tag that does, or change what {domain} follows: noust app follow-tags {domain} PATTERN",
+    },
+    runs_docker_containers_unit: {
+      text: "{domain} runs in Docker containers, which its unit's limits do not reach",
+      hint: "Set deploy.resources.limits for each service in the compose file.",
+    },
+    runs_docker_containers_unit_2: {
+      text: "{domain} runs in Docker containers, which its unit's stop policy does not reach",
+      hint: "Set stop_grace_period for each service in the compose file.",
+    },
+    runs_php_fpm_every: {
+      text: "{domain} runs in the PHP-FPM every PHP application shares; a CPU quota cannot be given to its pool alone",
+      hint: "Leave the CPU limit out: its memory limit and task limit (the pool's workers) apply.",
+    },
+    runs_php_fpm_every_2: {
+      text: "{domain} runs in the PHP-FPM every PHP application shares, which is not stopped with its own",
+      hint: "PHP-FPM's process_control_timeout is the server's setting.",
+    },
+    static_site_nothing_answers: {
+      text: "{domain} is a static site; nothing answers HTTP for it but the web server",
+      hint: "Its startup check is that the directory it serves has an index.html.",
+    },
+    static_site_process_own: {
+      text: "{domain} is a static site; no process of its own runs to be {purpose}",
+      hint: "The web server serves it straight from disk.",
+    },
+    tag_names_exactly_deploy: {
+      text: "A tag names exactly what to deploy; a commit, a source or a branch does not apply",
+      hint: "Run either 'noust update {domain} --tag {tag}' or an update from a commit, a source or a branch, not both.",
+    },
+    limits_unanswered_back: {
+      text: "{domain} did not answer under the new limits; the previous ones are back",
+      hint: "{evidence}",
+    },
+    limits_unanswered_dead: {
+      text: "{domain} did not answer under the new limits; the previous ones are back, but it is not answering either",
+      hint: "{evidence}",
+    },
+    limits_unanswered_restored: {
+      text: "{domain} did not answer under the new limits; the previous ones are running again",
+      hint: "{evidence}",
+    },
+  },
+  migrate: {
+    applications_use_release_layout: {
+      text: "{value} applications cannot use the release layout yet",
+      hint: "{domain} keeps updating in place, which is what it has always done.",
+    },
+    directory: {
+      text: "{root} is not a directory",
+      hint: "Update the application before migrating it.",
+    },
+    git_list_untracked: {
+      text: "git could not list what is untracked in {root}",
+      hint: "{value}\nName the paths to keep with --persist instead.",
+    },
+    held_before_migration_after: {
+      text: "{root} held {before} before the migration and {after} after it",
+      hint: "Every file must still be there, in the release or in shared/. The migration was undone.",
+    },
+    inside: {
+      text: "{path} is inside {other}",
+      hint: "Name only the outer one; everything under it moves with it.",
+    },
+    keep_shared_symlink_file: {
+      text: "Cannot keep {path} in shared/: {value} is a symlink or a file",
+      hint: "Only real directories and files move to shared/. Resolve the link or leave the path out with --persist.",
+    },
+    link_into_release: {
+      text: "Could not link {items} into release {name}",
+      hint: "Something is still in the release where the link must go.",
+    },
+    move_shared_symlink: {
+      text: "Cannot move {path} to shared/: {value} is a symlink",
+      hint: "Nothing was moved. Plan again.",
+    },
+    move_something_already: {
+      text: "Cannot move {source} to {destination}: something is already there",
+      hint: "Nothing was overwritten. Move it out of the way and retry.",
+    },
+    need_persist: {
+      text: "{raw} does not need --persist",
+      hint: "Noust keeps it at the application root, beside releases/.",
+    },
+    need_persist_2: {
+      text: "{raw} does not need --persist",
+      hint: "The .env always moves to shared/, and every release links it.",
+    },
+    plan: {
+      text: "The plan is for {domain} at {app_path}, not {domain2} at {root}",
+      hint: "Plan again and migrate with the new plan.",
+    },
+    pointed_release_already: {
+      text: "{value} pointed at a release already",
+      hint: "An in-place application has none. Check the directory by hand.",
+    },
+    release_layout_already: {
+      text: "{domain} is on the release layout already",
+      hint: "There is nothing to migrate. See its releases with: noust releases list {domain}",
+    },
+    sqlite_database_outside_paths: {
+      text: "SQLite database(s) outside the paths named with --persist: {items}",
+      hint: "A database left in the first release is not in the next one: the next deploy would start from an empty database. Name each one, or the directory that holds it, too: {items2}",
+    },
+    failed_undone: {
+      text: "The migration of {domain} failed and was undone: {error}",
+      hint: "{journal}",
+    },
+    gate_failed_back: {
+      text: "{domain} did not pass its health check on the release layout; the in-place layout was put back",
+      hint: "{evidence}",
+    },
+  },
+  fail2ban: {
+    installing_failed: {
+      text: "Installing failed: {items}",
+    },
+    lift_failed: {
+      text: "fail2ban did not lift the ban of {ip} in {name}",
+    },
+    logs_not_read: {
+      text: "fail2ban did not read the logs of the new sites",
+    },
+    no_nginx_filter: {
+      text: "This fail2ban has no filter for nginx",
+      hint: "Missing: {items}. Update fail2ban.",
+    },
+    no_such_jail: {
+      text: "There is no fail2ban jail {jail}",
+      hint: "Jails: {value}.",
+    },
+    not_banned: {
+      text: "{ip} is not banned by any jail",
+    },
+    not_running: {
+      text: "fail2ban is not running",
+    },
+    jail_refused_back: {
+      text: "fail2ban did not accept the sshd jail ({argv}), so {jail} was put back",
+    },
+    needs_epel: {
+      text: "fail2ban comes from EPEL on this system",
+      hint: "EPEL is a third-party repository maintained by Fedora. Confirm that it may be enabled to install fail2ban from it.",
+    },
+    never_answered_back: {
+      text: "fail2ban never answered after it was started, so {jail} was put back",
+      hint: "See why it did not start: journalctl -u fail2ban",
+    },
+    no_ban_action_back: {
+      text: "fail2ban left the sshd jail with no ban action, so {jail} was put back",
+    },
+    web_jails_refused_back: {
+      text: "fail2ban did not accept the nginx jails ({argv}), so {jail} was put back",
+    },
+    web_no_ban_action_back: {
+      text: "fail2ban left an nginx jail with no ban action, so {jail} was put back",
+    },
+  },
+  risks: {
+    acceptance_end_future: {
+      text: "The acceptance must end in the future",
+    },
+    reason_most_characters: {
+      text: "The reason is at most {high} characters",
+    },
+    risk_accepted_days_most: {
+      text: "A risk is accepted for {max_accept_days} days at most; accept it again then",
+    },
+    say_why_risk_acceptable: {
+      text: "Say why the risk is acceptable, in {low} to {high} characters",
+    },
+  },
+  ssh_keys: {
+    key_damaged_key_base64: {
+      text: "The key is damaged: its key is not base64",
+    },
+    public_key_damaged: {
+      text: "The public key is damaged",
+      hint: "Its key does not hold the type the line declares; copy the line again.",
+    },
+    public_key_line_openssh: {
+      text: "The public key is not one line of an OpenSSH public key",
+      hint: "Paste the whole content of your .pub file, on one line.",
+    },
+    public_key_type_noust: {
+      text: "The public key's type is not one Noust adds",
+      hint: "Use an ed25519 key (ssh-keygen -t ed25519), or ECDSA or RSA of at least {min_rsa_bits} bits. Options such as from= or command= are not accepted here.",
+    },
+    rsa_key_bits_too: {
+      text: "The RSA key has {bits} bits, which is too weak",
+      hint: "Use at least {min_rsa_bits} bits, or an ed25519 key.",
+    },
+  },
+  backup: {
+    hold_readable_archive: {
+      text: "{name} does not hold a readable archive: {message}",
+      hint: "{details}",
+    },
+    readable_manifest: {
+      text: "{name} has no readable manifest: {exc}",
+    },
+  },
+  backup_collection: {
+    central_says_copies_server: {
+      text: "Only a central says which copies of this server it holds",
+      hint: "Call this with the fleet token a central holds for this server.",
+    },
+    file_went_away_changed: {
+      text: "The file went away or changed since it was listed",
+    },
+    server_lets_copy_leave: {
+      text: "This server lets a copy leave only encrypted, and this one is not",
+      hint: "The ens-medium profile (or backup.encryption: required) refuses it. Seal the backups here: noust backup encryption enable, then noust backup encryption seal-existing.",
+    },
+    server_lists_such_copy: {
+      text: "This server lists no such copy file",
+    },
+    unknown_kind_copy: {
+      text: "Unknown kind of copy: {unknown}",
+      hint: "The kinds are: {items}.",
+    },
+  },
+  backup_collection_store: {
+    central_say_holds_copies: {
+      text: "A central may say it holds {max_held} copies of a server, no more",
+    },
+    copy: {
+      text: "Not a copy: {kind} {item_id}",
+      hint: "A copy is named by its kind and the identifier the list gave it.",
+    },
+    invalid_central_name: {
+      text: "Invalid central name: {value}",
+      hint: "A central is named like its fleet token: lower-case letters, digits and '-'.",
+    },
+    sha_256: {
+      text: "Not a SHA-256: {sha256}",
+      hint: "It is 64 hex digits.",
+    },
+  },
+  backup_destination_files: {
+    checksum_mismatch_after_downloading: {
+      text: "Checksum mismatch after downloading {name} from {destination_name}",
+      hint: "The downloaded file does not match the digest recorded when it was sent. Restoring it would restore corrupted data. Nothing was restored.",
+    },
+    download_produce_file: {
+      text: "Download of {name} did not produce a file at {destination}",
+    },
+    failed_download: {
+      text: "Failed to download {name} from {destination_name}",
+      hint: "{value}",
+    },
+    failed_remove_destination: {
+      text: "Failed to remove {victim} from the destination",
+      hint: "{value}",
+    },
+    failed_upload: {
+      text: "Failed to upload {name} to {destination_name}",
+      hint: "{value}",
+    },
+    invalid_file_name: {
+      text: "Invalid file name: {name}",
+      hint: "A dump is named by its file name alone.",
+    },
+    invalid_file_name_2: {
+      text: "Invalid file name: {name}",
+      hint: "A file is named by its name alone.",
+    },
+    invalid_folder_destination: {
+      text: "Invalid folder on the destination: {folder}",
+      hint: "A folder is made of names with letters, digits, '_', '$', '-' and '.' (never first).",
+    },
+    is_not_on: {
+      text: "{name} is not on {destination_name}",
+      hint: "Looked in {target_dir}.",
+    },
+    metadata_downloaded_describes_another: {
+      text: "The metadata downloaded for {name} describes another file",
+      hint: "It names {value}. Nothing was restored.",
+    },
+    metadata_json_object: {
+      text: "The metadata of {name} is not a JSON object",
+    },
+    read_metadata: {
+      text: "Could not read the metadata in {target_dir}",
+      hint: "{value}",
+    },
+    read_metadata_2: {
+      text: "Could not read the metadata of {name}",
+      hint: "{value}",
+    },
+    send_file: {
+      text: "Cannot send {local}: it is not a file",
+    },
+    size_mismatch_after_downloading: {
+      text: "Size mismatch after downloading {name}",
+      hint: "The destination holds {expected} bytes of it.",
+    },
+    size_mismatch_after_uploading: {
+      text: "Size mismatch after uploading {name}",
+      hint: "Sent {count} bytes; the destination reports {size}.",
+    },
+    upload_reach_destination: {
+      text: "Upload of {name} did not reach the destination",
+      hint: "It was not listed there right after being copied.",
+    },
+    uploaded_verified_retention_applied: {
+      text: "{name} was uploaded to {destination_name} and verified, but retention could not be applied there",
+      hint: "{value}",
+    },
+  },
+  backup_destinations: {
+    backup_archive_found: {
+      text: "Backup archive not found: {archive_path}",
+    },
+    backup_destination_already_exists: {
+      text: "Backup destination already exists: {validated_name}",
+    },
+    backup_destination_changed_reached: {
+      text: "Backup destination {name} was not changed: it could not be reached with the new settings",
+      hint: "{value}",
+    },
+    backup_destination_encrypted: {
+      text: "Backup destination {name} is not encrypted",
+      hint: "There is no encryption key to show.",
+    },
+    backup_destination_encrypted_backups: {
+      text: "Backup destination {name} is encrypted: the backups already sent there can only be read with its key",
+      hint: "Removing it deletes the only copy Noust has of that key. Run 'noust backup destination show-key {name2}' and keep what it prints, then remove it confirming the key was saved (key_saved=true in the API).",
+    },
+    backup_destination_marked_encrypted: {
+      text: "Backup destination {name} is marked encrypted but has no encryption key",
+      hint: "Recreate it, or turn encryption off: a crypt remote with no password cannot be used.",
+    },
+    backup_destination_saved_reached: {
+      text: "Backup destination {validated_name} was not saved: it could not be reached",
+      hint: "{value}",
+    },
+    backup_destination_used_schedule: {
+      text: "Backup destination {name} is used by {count} schedule(s): {items}",
+      hint: "Pass --force to remove it and drop the reference from those schedules.",
+    },
+    backup_metadata_found: {
+      text: "Backup metadata not found: {metadata_path}",
+    },
+    backup_says_belongs: {
+      text: "Backup {backup_id} on {destination_name} says it belongs to {recorded_domain}, not to {app_name}",
+      hint: "A backup is restored from the folder of the application it was taken from, and its metadata decides where a restore without a target goes, so the two must agree. Nothing was restored.",
+    },
+    checksum_mismatch_after_downloading: {
+      text: "Checksum mismatch after downloading {backup_id} from {destination_name}",
+      hint: "The downloaded archive does not match the checksum recorded when it was created. Restoring it would restore corrupted data.",
+    },
+    determine_application_belongs_pass: {
+      text: "Cannot determine the application {validated_id} belongs to; pass app_name.",
+    },
+    download_produce_file: {
+      text: "Download of {name} did not produce a file at {destination_path}",
+    },
+    downloaded_metadata_incomplete: {
+      text: "Downloaded metadata for {backup_id} is incomplete",
+      hint: "{exc}",
+    },
+    downloaded_metadata_json_object: {
+      text: "Downloaded metadata for {backup_id} is not a JSON object",
+    },
+    downloaded_metadata_unreadable: {
+      text: "Downloaded metadata for {backup_id} is unreadable",
+      hint: "{exc}",
+    },
+    encrypted_backups_leave_server: {
+      text: "{name} is not encrypted, and backups leave this server only encrypted",
+      hint: "The ens-medium security profile (or backup.encryption: required) refuses unencrypted uploads. Encrypt it: noust backup destination update {name} --encrypt, then keep its key safe: noust backup destination show-key {name}.",
+    },
+    encryption_key_given_destination: {
+      text: "An encryption key was given for a destination that is not encrypted",
+      hint: "Add it with encryption on (--encrypt) to use an existing key.",
+    },
+    encryption_key_json_object: {
+      text: "The encryption key must be a JSON object",
+    },
+    encryption_key_password: {
+      text: "The encryption key has no password",
+      hint: "Both passphrases 'noust backup destination show-key' printed are needed.",
+    },
+    encryption_key_password2: {
+      text: "The encryption key has no password2",
+      hint: "Both passphrases 'noust backup destination show-key' printed are needed: password2 is the salt, and without it nothing decrypts.",
+    },
+    encryption_key_valid_json: {
+      text: "The encryption key is not valid JSON",
+      hint: "{exc}",
+    },
+    encryption_keys_missing: {
+      text: "Encryption keys for {name} are missing",
+      hint: "The destination is marked encrypted but its keys were not found; backups written to it cannot be decrypted without them.",
+    },
+    enough_space_download: {
+      text: "Not enough space to download {archive_name}",
+      hint: "The archive is {size} bytes and {staging_dir} has {free} bytes free (plus {staging_headroom} bytes kept spare). Free some space there first; nothing was downloaded.",
+    },
+    failed_remove_destination_during: {
+      text: "Failed to remove {backup_id}{suffix} from the destination during retention",
+      hint: "{value}",
+    },
+    found_destination: {
+      text: "{archive_name} was not found on the destination",
+      hint: "Looked in {target_dir}. List what is there with 'noust backup remote-list'.",
+    },
+    hash_mismatch_after_uploading: {
+      text: "Hash mismatch after uploading {name}",
+      hint: "{hash_name} differs between the local file and the destination.",
+    },
+    invalid_application_name: {
+      text: "Invalid application name: {app_name}",
+      hint: "An application name is one path segment: letters, digits, '.', '_' and '-'.",
+    },
+    invalid_backup_destination_name: {
+      text: "Invalid backup destination name: {name}",
+      hint: "Use 1-32 characters: lowercase letters, digits and '-', starting with a letter or digit. The name also becomes an rclone remote name.",
+    },
+    list: {
+      text: "Could not list {target_dir}",
+      hint: "{value}",
+    },
+    metadata_downloaded_describes_another: {
+      text: "The metadata downloaded as {metadata_name} describes another backup",
+      hint: "It names {value}. Nothing was restored.",
+    },
+    missing_required_field_backend: {
+      text: "Missing required field {key} for backend {backend}",
+      hint: "{value}",
+    },
+    must_be_not: {
+      text: "{label} must be {items}, not {raw}",
+      hint: "{value}",
+    },
+    name_bucket_destination_writes: {
+      text: "Name the bucket this destination writes into",
+      hint: "The folder of an object store starts with its bucket: --field path=BUCKET/noust-backups. Noust does not create buckets.",
+    },
+    rclone_obscure_password: {
+      text: "rclone could not obscure a password",
+      hint: "{value}",
+    },
+    rclone_required_backup_destinations: {
+      text: "rclone is required for backup destinations",
+      hint: "{value}",
+    },
+    rclone_returned_invalid_json: {
+      text: "rclone returned invalid JSON listing {target_dir}",
+      hint: "{exc}",
+    },
+    reach_backup_destination: {
+      text: "Could not reach backup destination {name}",
+      hint: "{value}",
+    },
+    reach_backup_destination_2: {
+      text: "Could not reach backup destination {name}",
+      hint: "{said}",
+    },
+    reach_backup_destination_bucket: {
+      text: "Could not reach backup destination {name}: the bucket {bucket} does not exist",
+      hint: "{value}",
+    },
+    read_backup_metadata: {
+      text: "Could not read the backup metadata in {target_dir}",
+      hint: "{value}",
+    },
+    read_encryption_key: {
+      text: "Could not read an encryption key",
+      hint: "Give what 'noust backup destination show-key NAME' printed: its 'password:' and 'password2:' lines, its --json output, or the two passphrases on two lines.",
+    },
+    read_verify_upload: {
+      text: "Could not read {local_file} to verify its upload",
+      hint: "{exc}. The local backup may have been deleted while it was sent.",
+    },
+    refusing_backup_destination_host: {
+      text: "Refusing backup destination host {host}: {exc}",
+      hint: "{details}",
+    },
+    size_mismatch_after_uploading: {
+      text: "Size mismatch after uploading {name}",
+      hint: "Local file is {local_size} bytes; the destination reports {remote_size}.",
+    },
+    such_backup_destination: {
+      text: "No such backup destination: {name}",
+      hint: "Run 'noust backup destination list' to see the destinations Noust knows about.",
+    },
+    unknown_backup_destination_backend: {
+      text: "Unknown backup destination backend: {backend}",
+      hint: "Use one of: {items}.",
+    },
+    unknown_field_backend: {
+      text: "Unknown field(s) for backend {backend}: {items}",
+      hint: "Valid fields: {items2}.",
+    },
+    uploaded_verified_retention_applied: {
+      text: "{id} was uploaded to {destination_name} and verified, but retention could not be applied there",
+      hint: "{value}",
+    },
+    valid_b2_bucket_6: {
+      text: "{label} is not valid: a B2 bucket has 6 to 50 characters",
+    },
+    valid_b2_bucket_uses: {
+      text: "{label} is not valid: a B2 bucket uses letters, digits and hyphens",
+    },
+    valid_b2_reserves_names: {
+      text: "{label} is not valid: B2 reserves names that start with b2-",
+    },
+    valid_bucket_name_3: {
+      text: "{label} is not valid: a bucket name has 3 to 63 characters",
+    },
+    valid_bucket_name_ip: {
+      text: "{label} is not valid: a bucket name is not an IP address",
+    },
+    valid_bucket_name_starts: {
+      text: "{label} is not valid: a bucket name starts and ends with a letter or a digit",
+    },
+    valid_bucket_name_two: {
+      text: "{label} is not valid: a bucket name has no two dots in a row",
+    },
+    valid_bucket_name_uses: {
+      text: "{label} is not valid: a bucket name uses lowercase letters, digits, hyphens and {value}",
+    },
+    valid_container_3_63: {
+      text: "{label} is not valid: a container has 3 to 63 characters",
+    },
+    valid_container_name_uses: {
+      text: "{label} is not valid: a container name uses lowercase letters, digits and single hyphens, and starts and ends with a letter or a digit",
+    },
+  },
+  backup_encryption: {
+    backups_sealed_server: {
+      text: "Backups are not sealed on this server",
+      hint: "Turn sealing on first: noust backup encryption enable, or POST /api/backups/encryption/enable.",
+    },
+  },
+  backup_failures: {
+    backup_failure_found: {
+      text: "Backup failure not found: {failure_id}",
+    },
+  },
+  backup_files: {
+    backups_sealed_key_missing: {
+      text: "Backups are to be sealed but the key is missing",
+      hint: "The secret {key_prefix}/{key_id} is gone. Stop sealing (noust backup encryption disable) or make a new key (noust backup encryption rotate); the backup was left as it was.",
+    },
+    backups_sealed_key_rotate: {
+      text: "Backups are not sealed: there is no key to rotate",
+      hint: "Turn sealing on first: noust backup encryption enable.",
+    },
+    id_key: {
+      text: "{key_id} is not the id of a key",
+      hint: "A key's id is eight lower-case hex digits, as the error of a backup that does not open names it.",
+    },
+    key_current: {
+      text: "No key is current",
+      hint: "Seal backups first: noust backup encryption enable.",
+    },
+    open: {
+      text: "{name} does not open",
+      hint: "{value}",
+    },
+    seal: {
+      text: "Could not seal {name}",
+      hint: "{value}. The backup was left as it was.",
+    },
+    sealed_server_hold_key: {
+      text: "{name} is sealed and this server does not hold its key",
+      hint: "It was sealed with key {value}. Put the key back with 'noust backup encryption import-key {value2}' (the value 'noust backup encryption show-key' printed when it was made, kept elsewhere), or restore from a copy that is not sealed.",
+    },
+    server_already_holds_key: {
+      text: "This server already holds a key {key_id} with another value",
+      hint: "Nothing was replaced. Check the id and the value you kept.",
+    },
+    server_holds_such_key: {
+      text: "This server holds no such key",
+      hint: "List the keys it holds with: noust backup encryption status.",
+    },
+    too_short_key: {
+      text: "That is too short to be a key",
+      hint: "Keys are {passphrase_length} characters; this has {count}.",
+    },
+  },
+  backup_manager: {
+    already_backup_directory: {
+      text: "{source} is already the backup directory",
+      hint: "Pass the directory the backups were written to by mistake.",
+    },
+    application_found: {
+      text: "Application not found: {domain}",
+      hint: "Nothing to back up at {app_path}.",
+    },
+    application_name_reserved_inside: {
+      text: "Application name '{app_name}' is reserved inside a backup archive",
+      hint: "Rename the deployment; this name collides with the archive payload.",
+    },
+    archive_corrupted: {
+      text: "Archive is corrupted: {exc}",
+    },
+    archive_restored: {
+      text: "Archive cannot be restored: {exc}",
+      hint: "It would be refused by a restore too.",
+    },
+    archive_say_application_belongs: {
+      text: "This archive does not say which application it belongs to",
+      hint: "Pass --target-domain to restore it explicitly.",
+    },
+    backup_archive_contain_single: {
+      text: "Backup archive does not contain a single application directory",
+      hint: "Found: {value}.",
+    },
+    backup_archive_found: {
+      text: "Backup archive not found: {archive}",
+      hint: "Pass the path of a .tar.gz written by 'noust backup create'.",
+    },
+    backup_checksum_mismatch: {
+      text: "Backup checksum mismatch: {name}",
+      hint: "The archive does not match the checksum recorded when it was created. Restoring it would restore corrupted data.",
+    },
+    backup_claims_carry: {
+      text: "Backup claims a {label} it does not carry: {relative}",
+      hint: "The archive is incomplete; do not trust it as a backup.",
+    },
+    backup_contains_databases_database: {
+      text: "This backup contains databases but the database managers are unavailable",
+      hint: "{exc}. Install the database extras before restoring.",
+    },
+    backup_describes_database_version: {
+      text: "The backup describes a database this version cannot restore",
+      hint: "Entry: {entry}. Restore it with the version that took it.",
+    },
+    backup_entry_points_outside: {
+      text: "Backup entry for {label} points outside the archive",
+      hint: "{exc}",
+    },
+    backup_file_found: {
+      text: "Backup file not found: {backup_file}",
+      hint: "The metadata is there but the archive is not.",
+    },
+    backup_file_found_2: {
+      text: "Backup file not found: {archive}",
+      hint: "The metadata is there but the archive is not.",
+    },
+    backup_file_found_3: {
+      text: "Backup file not found: {archive}",
+    },
+    backup_found: {
+      text: "Backup not found: {backup_id}",
+      hint: "Run 'noust backup list' to see the backups Noust knows about.",
+    },
+    backup_holds_copy_database: {
+      text: "Backup {backup_id} holds no copy of a database of the stack",
+      hint: "Only a backup taken before an update of a Docker Compose application, or with --include-databases, does. 'noust backup list' shows the others.",
+    },
+    backup_lists_found: {
+      text: "Backup lists a {label} that cannot be found",
+      hint: "Recorded location: {value}.",
+    },
+    backup_manifest_object: {
+      text: "Backup manifest is not an object",
+      hint: "The archive was not written by Noust.",
+    },
+    backup_manifest_unreadable: {
+      text: "Backup manifest is unreadable",
+      hint: "{exc}. The archive is corrupted or was not written by Noust.",
+    },
+    backup_names_application_root: {
+      text: "Backup names an application root outside the archive: {name}",
+      hint: "{exc}",
+    },
+    create_restore_workspace_beside: {
+      text: "Could not create a restore workspace beside {app_path}",
+      hint: "{exc}. Free space or fix permissions under {parent}.",
+    },
+    database_backup_requested_database: {
+      text: "Database backup requested but the database managers are unavailable",
+      hint: "{exc}. Install the database extras or drop --include-databases.",
+    },
+    directory: {
+      text: "Not a directory: {source}",
+      hint: "Pass the directory holding the misplaced <app>/ backup directories.",
+    },
+    dump_reach_backup_archive: {
+      text: "Dump of '{name}' did not reach the backup archive",
+      hint: "{engine} reported success but {target} does not exist.",
+    },
+    failed_back_up_database: {
+      text: "Failed to back up {engine} database '{name}'",
+      hint: "{exc}",
+    },
+    failed_create_backup_archive: {
+      text: "Failed to create backup archive for {app_name}",
+      hint: "{exc}",
+    },
+    failed_create_backup_directory: {
+      text: "Failed to create backup directory: {backup_dir}",
+      hint: "{exc}. Noust must run as root.",
+    },
+    failed_create_backup_directory_2: {
+      text: "Failed to create backup directory: {app_backup_dir}",
+      hint: "{exc}",
+    },
+    failed_restore_database: {
+      text: "Failed to restore {engine} database '{name}' from {name2}",
+      hint: "{exc}",
+    },
+    failed_restore_docker_volume: {
+      text: "Failed to restore Docker volume: {volume}",
+      hint: "{stderr}",
+    },
+    failed_restore_files_into: {
+      text: "Failed to restore files into {app_path}",
+      hint: "{exc}",
+    },
+    failed_store_backup_archive: {
+      text: "Failed to store backup archive: {backup_file}",
+      hint: "{exc}",
+    },
+    failed_write_backup_metadata: {
+      text: "Failed to write backup metadata: {metadata_file}",
+      hint: "{exc}",
+    },
+    installed_back_up: {
+      text: "{engine} is not installed, cannot back up '{name}'",
+      hint: "Install {engine} or run the backup without --include-databases.",
+    },
+    manager_available_database_engine: {
+      text: "No manager available for database engine: {engine}",
+      hint: "{value}",
+    },
+    per_schema_dumps_placed: {
+      text: "Per-schema dumps cannot be placed inside a self-contained backup",
+      hint: "Back up the whole database, or dump the schema on its own with pg_dump --schema.",
+    },
+    put_back_databases: {
+      text: "Cannot put back the databases of {domain}: {message}",
+      hint: "The databases are restored through the stack's compose file, which the restored tree must have.",
+    },
+    read: {
+      text: "Cannot read {file_path}",
+      hint: "{exc}",
+    },
+    read_2: {
+      text: "Cannot read {name}",
+      hint: "{exc}. The archive is corrupted or was not written by Noust.",
+    },
+    read_application_record: {
+      text: "Could not read the application record for {domain}",
+      hint: "{exc}",
+    },
+    refusing_restore: {
+      text: "Refusing to restore {name}",
+      hint: "{exc}",
+    },
+    refusing_restore_over_current: {
+      text: "Refusing to restore over {app_path}: the current state could not be copied aside first",
+      hint: "{exc}. Free space or fix permissions under {parent}, or move {app_path} out of the way yourself and restore again.",
+    },
+    restore_into: {
+      text: "Cannot restore into {domain}",
+      hint: "{exc}. The target domain does not yield a usable directory name.",
+    },
+    restoring_database_needs_application: {
+      text: "Restoring the database of {domain} needs the application stopped",
+      hint: "The dump replaces what the database holds, under an application that would still be writing to it. A restore stops the application itself; if it was asked not to, stop it first: noust stop {domain}",
+    },
+    unpacking_needs_about_bytes: {
+      text: "Unpacking {backup_id} needs about {declared} bytes under {workspace} and only {free} are free",
+      hint: "Free some space, or point TMPDIR at a larger filesystem.",
+    },
+    write_metadata_after_sealing: {
+      text: "Could not write the metadata of {id} after sealing it",
+      hint: "{exc}. Seal the existing backups again: it repairs this.",
+    },
+  },
+  backup_priority: {
+    backup_io_class: {
+      text: "backup.io_class must be one of: {items}",
+      hint: "It is {io_class}. Change it with: noust config set backup.io_class idle",
+    },
+    whole_number: {
+      text: "{key} must be a whole number from {low} to {high}",
+      hint: "It is {value}. Change it with: noust config set {key} VALUE",
+    },
+  },
+  backup_records: {
+    policy_stored: {
+      text: "A {scope} policy cannot be stored for {db_name}",
+      hint: "Only a policy that covers all databases is stored under {all_databases}, and it is always one.",
+    },
+  },
+  backup_return: {
+    bundle_noust_own_state: {
+      text: "{file_name} is not a bundle of Noust's own state",
+    },
+    bundle_noust_own_state_2: {
+      text: "{file_name} is not a bundle of Noust's own state: {exc}",
+      hint: "Nothing was put in the bundles' folder.",
+    },
+    copy_application_data_needs: {
+      text: "A copy of an application's data needs the metadata that says what it is",
+      hint: "The central holds the archive without its sidecar, so what it holds and where it goes are not known. Nothing was restored.",
+    },
+    data: {
+      text: "{file_name} is the data of {domain}, not of {wanted}",
+      hint: "Restore it into the application it belongs to.",
+    },
+    metadata_match_mac_nothing: {
+      text: "The metadata of {file_name} does not match its MAC; nothing was restored",
+    },
+    metadata_read: {
+      text: "The metadata of {file_name} cannot be read: {exc}",
+      hint: "Nothing was restored.",
+    },
+    say_application_backup_goes: {
+      text: "Say which application the backup goes back into",
+      hint: "The copy does not name one: give its domain.",
+    },
+    say_database_dump_loaded: {
+      text: "Say which database the dump is loaded into",
+      hint: "The copy names neither its engine nor its database: give them.",
+    },
+    server_already_bundle_called: {
+      text: "This server already has a bundle called {file_name}",
+      hint: "Nothing was replaced.",
+    },
+    unknown_kind_copy: {
+      text: "Unknown kind of copy: {kind}",
+    },
+  },
+  backup_returns: {
+    chunk_most_bytes: {
+      text: "A chunk may be at most {chunk_bytes} bytes here",
+      hint: "Split the file.",
+    },
+    copy_finished_arriving: {
+      text: "The copy has not finished arriving",
+      hint: "{received} of {size} bytes are in. Send the rest, then complete the upload.",
+    },
+  },
+  backup_scheduler: {
+    backup_schedule_empty_too: {
+      text: "Backup schedule is empty or too long",
+      hint: "Use an alias ({items}) or a calendar expression.",
+    },
+    backup_taken_sent: {
+      text: "Backup of {domain} was taken but could not be sent to: {items}",
+      hint: "The local backup was kept.\n{items2}",
+    },
+    exists_database_backup_timer: {
+      text: "{name} exists and is not a database backup timer",
+      hint: "Another timer already has this name; remove it or rename the application that owns it before scheduling this database.",
+    },
+    exists_timer_noust_wrote: {
+      text: "{name} exists and is not a timer Noust wrote for {what}",
+      hint: "Another timer already has this name; remove it or rename the application that owns it before scheduling this.",
+    },
+    failed_enable_timer_timer: {
+      text: "Failed to enable timer: {timer_name}.timer",
+      hint: "{value}",
+    },
+    failed_enable_timer_timer_2: {
+      text: "Failed to enable timer: {unit}.timer",
+      hint: "{value}",
+    },
+    failed_render_systemd_template: {
+      text: "Failed to render systemd template: {template_name}",
+      hint: "{exc}. The Noust installation may be incomplete.",
+    },
+    failed_write_unit_file: {
+      text: "Failed to write unit file: {path}",
+      hint: "{exc}. Noust must run as root to manage systemd units.",
+    },
+    invalid_backup_schedule: {
+      text: "Invalid backup schedule: {calendar}",
+      hint: "A calendar expression may only contain letters, digits and '*-/,:. '.",
+    },
+    schedule: {
+      text: "Cannot schedule {what}",
+      hint: "{exc}. A unit file is generated from these values, so they are restricted to characters that cannot become a systemd directive.",
+    },
+    schedule_backup_application: {
+      text: "Cannot schedule a backup for this application",
+      hint: "{exc}. A unit file is generated from these values, so they are restricted to characters that cannot become a systemd directive.",
+    },
+    schedule_backups_application: {
+      text: "Cannot schedule backups for this application",
+      hint: "{exc}",
+    },
+    schedule_backups_database: {
+      text: "Cannot schedule backups for this database",
+      hint: "{exc}. A unit file is generated from the database's name, so it is restricted to characters that cannot become a systemd directive.",
+    },
+    schedule_keeps_nothing_server: {
+      text: "A schedule that keeps nothing on this server needs a destination",
+      hint: "Name at least one destination to send the backups to (--destination NAME), or keep the backups here.",
+    },
+    scheduled_backup_failed_verification: {
+      text: "The scheduled backup of {domain} failed its verification and was not sent",
+      hint: "{problem}. Run 'noust backup verify {id}' for the whole report.",
+    },
+  },
+  backup_schedules: {
+    backup_schedule: {
+      text: "No backup schedule for {validated}",
+    },
+    domain_path_request_body: {
+      text: "The domain in the path and in the request body must match.",
+    },
+  },
+  backup_sealing: {
+    backups_sealed_server: {
+      text: "Backups are not sealed on this server",
+      hint: "Turn sealing on first: noust backup encryption enable. Then seal what is already there with: noust backup encryption seal-existing",
+    },
+  },
+  backup_timer_options: {
+    time_limit: {
+      text: "{text} is not a time limit",
+      hint: "Use a whole number of seconds, or a number with s, m, h or d: 90m, 2h, 1d.",
+    },
+    time_limit_1_minute: {
+      text: "A time limit is from 1 minute to 7 days",
+      hint: "Got {seconds} seconds. Use 90m, 2h or 3600; leave it empty for no limit.",
+    },
+    time_limit_number: {
+      text: "A time limit is a number",
+    },
+    time_zone_server_knows: {
+      text: "{name} is not a time zone this server knows",
+      hint: "Use a name of the zone database, such as Europe/Madrid, America/Argentina/Buenos_Aires or UTC (timedatectl list-timezones lists them).",
+    },
+  },
+  backup_verify: {
+    decompressed: {
+      text: "{name} could not be decompressed",
+      hint: "gzip -dc reported success but wrote no file.",
+    },
+    valid_gzip_file: {
+      text: "{name} is not a valid gzip file",
+      hint: "{value}",
+    },
+  },
+  backups: {
+    backup_destination_exist: {
+      text: "Backup destination {name} does not exist",
+      hint: "Create it first with: noust backup destination add",
+    },
+    backup_found: {
+      text: "Backup not found: {file_name}",
+      hint: "List the dumps with: noust db backups",
+    },
+    backup_found_2: {
+      text: "Backup not found: {validated}",
+    },
+    backup_run_origin: {
+      text: "A backup run cannot have the origin {origin}",
+      hint: "Use one of: {items}.",
+    },
+    database_engine_noust_keeps: {
+      text: "Not a database engine Noust keeps dumps of: {engine}",
+      hint: "An engine is lower-case letters and digits, as 'noust db engines' lists it.",
+    },
+    database_exist: {
+      text: "Database '{name}' does not exist",
+      hint: "List them with: noust db list --engine {engine_name}",
+    },
+    database_needed_delete_copy: {
+      text: "A database is needed to delete a copy from a destination",
+      hint: "Name the database the dump is of: its folder there is the database's.",
+    },
+    destination_listed_twice: {
+      text: "Destination {name} is listed twice",
+    },
+    dump_format_available: {
+      text: "Dump format {dump_format} is not available for {display_name}",
+      hint: "PostgreSQL takes custom, plain or tar; every other engine has one format.",
+    },
+    dump_reported_taken_read: {
+      text: "The dump {name} was reported taken but cannot be read",
+      hint: "{exc}. Check the permissions and the space of {parent}.",
+    },
+    dump_restore_into_temporary: {
+      text: "The dump {name} did not restore into a temporary database",
+      hint: "{value}",
+    },
+    dump_taken_failed_check: {
+      text: "The dump {name} was taken but failed its check",
+      hint: "{verify_detail}\n\nThe file is kept at {path}. Take another dump, and delete this one with: noust db backup-delete",
+    },
+    failed_check: {
+      text: "{backup_name} failed its check",
+      hint: "{value}",
+    },
+    failed_check_nothing_restored: {
+      text: "{file_name} from {destination} failed its check; nothing was restored",
+      hint: "{detail}",
+    },
+    failed_check_sent: {
+      text: "{file_name} failed its check and was not sent to {destination}",
+      hint: "{value}",
+    },
+    key_too_long_name: {
+      text: "The key {engine} is too long to be the name of a folder on a destination",
+      hint: "A folder's name is at most {max_folder_name} characters; rename the Compose project or the container.",
+    },
+    policy_keeps_nothing_server: {
+      text: "A policy that keeps nothing on this server needs a destination",
+      hint: "Name at least one destination to send the dumps to (--to NAME), or keep the dumps here.",
+    },
+    redis_policy_already_covers: {
+      text: "A Redis policy already covers the whole instance",
+      hint: "A snapshot is every slot at once: give the policy any database of the instance, such as 0.",
+    },
+    redis_restore_new_database: {
+      text: "Redis cannot restore as a new database",
+      hint: "A snapshot replaces every key of the instance.",
+    },
+    redis_snapshot_test_restored: {
+      text: "A Redis snapshot cannot be test-restored",
+      hint: "Restoring one replaces every key of the instance, so it cannot be tried on the side. Noust checks it with redis-check-rdb instead.",
+    },
+    redis_snapshot_test_restored_2: {
+      text: "A Redis snapshot cannot be test-restored",
+      hint: "It would replace every key of the instance.",
+    },
+    restore_into_temporary_database: {
+      text: "{backup_name} did not restore into a temporary database",
+      hint: "{value}",
+    },
+    superuser_load_ask: {
+      text: "{display_name} has no superuser load to ask for",
+      hint: "Only PostgreSQL loads a dump as the database's owner by default.",
+    },
+    whole_number_1: {
+      text: "{field_name} must be a whole number from 1 to {ceiling}",
+      hint: "Leave it empty for no limit.",
+    },
+  },
+  central_backups: {
+    central_holds_copy: {
+      text: "The central holds no copy {item} of {node}",
+    },
+    server_named_managed_central: {
+      text: "No server named {node} is managed by this central",
+    },
+    server_named_managed_central_2: {
+      text: "No server named {target_node} is managed by this central",
+    },
+    unknown_kind_copy: {
+      text: "Unknown kind of copy: {kind}",
+      hint: "The kinds are: {items}.",
+    },
+  },
+  restore_server: {
+    bundle_store_read: {
+      text: "The bundle's store could not be read",
+      hint: "{exc}",
+    },
+    restoring_state_needs_bundle: {
+      text: "Restoring the state needs the bundle and its passphrase",
+      hint: "Give both, or pass skip_state when the state is already here.",
+    },
+  },
+  self_backup: {
+    back_noust_own_state: {
+      text: "Could not back Noust's own state up",
+      hint: "{exc}. Check the disk space of {directory} and that every file of Noust's directories can be read.",
+    },
+    backup_destination_exist: {
+      text: "Backup destination {destination} does not exist",
+      hint: "Create it first with: noust backup destination add",
+    },
+    bundle: {
+      text: "No bundle at {path}",
+      hint: "List them with: noust self-backup list, or give the whole path.",
+    },
+    bundle_failed_verification_sent: {
+      text: "The bundle {name} failed its verification and was not sent",
+      hint: "{items}",
+    },
+    bundle_hold_store_made: {
+      text: "The bundle would hold no store, so it is not made",
+      hint: "There is no {store_name} with content in {value}, the directory that holds the store Noust uses. Run: noust setup doctor",
+    },
+    envelope_something_else: {
+      text: "{name} is an envelope of something else ({value})",
+      hint: "A bundle of Noust's own state has the label {label}.",
+    },
+    failed_verification: {
+      text: "{name} failed its verification",
+      hint: "{items}",
+    },
+    hold_safe_archive: {
+      text: "{name} does not hold a safe archive",
+      hint: "{message}",
+    },
+    holds_noust_own_state: {
+      text: "{name} holds {value}, not Noust's own state",
+      hint: "A central's bundle is checked with: noust central backup --verify",
+    },
+    is_not_in: {
+      text: "{path} is not in {directory}",
+      hint: "Only a bundle this server keeps can be deleted here.",
+    },
+    name_bundle: {
+      text: "{name_or_path} is not the name of a bundle",
+      hint: "List them with: noust self-backup list",
+    },
+    name_bundle_2: {
+      text: "{name} is not the name of a bundle",
+    },
+    noust_bundle: {
+      text: "{name} is not a Noust bundle",
+      hint: "{details}",
+    },
+    passphrase_given_none_stored: {
+      text: "No passphrase was given and none is stored",
+      hint: "Give one with the request, or set the schedule with a passphrase.",
+    },
+    passphrase_least_characters: {
+      text: "The passphrase must have at least {min_passphrase_length} characters",
+      hint: "Everything the bundle protects is as strong as its passphrase.",
+    },
+    passphrase_stored_scheduled_backup: {
+      text: "No passphrase is stored for the scheduled backup of Noust's own state",
+      hint: "Set it again with: noust self-backup schedule set",
+    },
+    readable_manifest: {
+      text: "{name} has no readable manifest",
+      hint: "{exc}",
+    },
+    schedule_keeps_nothing_server: {
+      text: "A schedule that keeps nothing on this server needs a destination",
+      hint: "Name at least one destination to send the bundles to (--to NAME), or keep the bundles here.",
+    },
+    schedule_needs_passphrase_seal: {
+      text: "A schedule needs a passphrase to seal its bundles under",
+      hint: "Give one with the passphrase option; Noust keeps it in its secret store so the timer can run unattended. Keep a copy of your own: without it no bundle opens.",
+    },
+    whole_number_1: {
+      text: "{name} must be a whole number from 1 to {ceiling}",
+      hint: "Leave it empty for no limit.",
+    },
+  },
+  self_restore: {
+    bundle_holds_secrets_sealed: {
+      text: "The bundle holds secrets sealed under a key it does not carry",
+      hint: "Nothing was changed. Restore the bundle's key (the file {named} of a bundle that has it), or restore without the secrets and enter the credentials again.",
+    },
+    bundle_names_path: {
+      text: "The bundle names a path it must not: {relative}",
+      hint: "A path in a bundle is relative and stays inside the directory it is restored to. Nothing was restored.",
+    },
+    bundle_store_schema_v: {
+      text: "The bundle's store is schema v{version}; this Noust understands up to v{schema_version}",
+      hint: "Install the Noust version that took it, or a newer one, then restore. Nothing was changed.",
+    },
+    bundle_verify_nothing_restored: {
+      text: "The bundle does not verify; nothing was restored",
+      hint: "{items}",
+    },
+    restore_stopped: {
+      text: "The restore stopped: {message}",
+      hint: "{details}{kept}\nThe services that were running were started again.",
+    },
+    restore_stopped_file_written: {
+      text: "The restore stopped on a file that could not be written",
+      hint: "{exc}.{kept}",
+    },
+    restored_store_opened_version: {
+      text: "The restored store could not be opened by this version of Noust",
+      hint: "{exc}",
+    },
+    secret_bundle_opened_key: {
+      text: "The secret {name} in the bundle cannot be opened with the key the bundle carries",
+      hint: "{message}. Nothing was changed. Restore it onto the kind of server it came from, or enter that credential again once the restore is done.",
+    },
+    secret_sealed_again_under: {
+      text: "A secret could not be sealed again under this server's key: {message}",
+      hint: "{value}",
+    },
+    server_already_holds_noust: {
+      text: "This server already holds Noust state, and a restore replaces it",
+      hint: "Restore onto a clean install, or confirm with --force. A bundle of what is here is taken first, so it can be put back.",
+    },
+    symbolic_link_nothing_restored: {
+      text: "{walker} is a symbolic link; nothing is restored through one",
+      hint: "Remove the link, or restore onto a clean install.",
+    },
+    take_bundle_before_replacing: {
+      text: "Could not take a bundle of what is here before replacing it",
+      hint: "{details}\nFix that, or restore without a safety copy: noust self-backup restore --no-safety-copy",
+    },
+  },
+  volume_backup_records: {
+    consistency_mode: {
+      text: "{consistency} is not a consistency mode",
+      hint: "Use one of: {items}.",
+    },
+  },
+  volume_backups: {
+    application_data_target: {
+      text: "This application has no data target {unknown}",
+      hint: "Its targets are: {value}. Add a directory with --path.",
+    },
+    application_started_again_after: {
+      text: "The application could not be started again after the restore",
+      hint: "{items}",
+    },
+    archive: {
+      text: "Could not archive {source}",
+      hint: "{exc}. Check that the data is readable and the disk has room.",
+    },
+    archive_match_digest_nothing: {
+      text: "The archive of {id} does not match its digest; nothing was restored",
+    },
+    backup_failed_verification_sent: {
+      text: "The backup {id} failed its verification and was not sent",
+      hint: "{items}",
+    },
+    could_not: {
+      text: "Could not {what}",
+      hint: "{value}",
+    },
+    create_restore_workspace_beside: {
+      text: "Could not create a restore workspace beside {destination}",
+      hint: "{exc}",
+    },
+    data: {
+      text: "{file_name} is the data of {domain}, not of {domain2}",
+      hint: "Restore it into the application it belongs to.",
+    },
+    data_back_up: {
+      text: "{domain} has no data to back up now",
+      hint: "Its declared data directories do not exist yet. {value}",
+    },
+    declares_data_back_up: {
+      text: "{domain} declares no data to back up",
+      hint: "Declare a persistent path when deploying (--persist PATH), or add a directory to this policy with --path.",
+    },
+    docker_reported_success_produced: {
+      text: "Docker reported success but produced no archive for the volume {volume}",
+      hint: "Look for {value}.",
+    },
+    failed_archive_volume: {
+      text: "Failed to archive the volume {volume}",
+      hint: "{value}",
+    },
+    failed_check: {
+      text: "{backup_id} failed its check",
+      hint: "{items}",
+    },
+    failed_check_nothing_restored: {
+      text: "{id} failed its check; nothing was restored",
+      hint: "{items}",
+    },
+    failed_check_sent: {
+      text: "{backup_id} failed its check and was not sent to {destination}",
+      hint: "{items}",
+    },
+    failed_restore: {
+      text: "Failed to restore {destination}",
+      hint: "{exc}",
+    },
+    failed_restore_volume: {
+      text: "Failed to restore the volume {source}",
+      hint: "{value}",
+    },
+    failed_write_metadata: {
+      text: "Failed to write the metadata of {backup_id}",
+      hint: "{exc}",
+    },
+    hold_file: {
+      text: "{name} does not hold the file {name2}",
+    },
+    list_containers: {
+      text: "Could not list the containers of {domain}",
+      hint: "{value}",
+    },
+    longer_declares: {
+      text: "{domain} no longer declares {target}",
+      hint: "Add it back (a persistent path, or --path in the policy) and restore again; nothing was restored.",
+    },
+    metadata: {
+      text: "{file_name} has no metadata on {destination}",
+      hint: "It was not sent by Noust, so what it holds and where it goes are not known. Nothing was restored.",
+    },
+    path_inside_application_data: {
+      text: "{raw} is not a path inside the application's data",
+      hint: "Give a path relative to where the data lives, such as 'uploads' or 'storage/app', without '..'.",
+    },
+    path_server: {
+      text: "{key} has no path on this server",
+    },
+    policy_keeps_nothing_server: {
+      text: "A policy that keeps nothing on this server needs a destination",
+      hint: "Name at least one destination to send the backups to (--to NAME), or keep the backups here.",
+    },
+    restoring_failed: {
+      text: "Restoring {id} failed: {message}",
+      hint: "{value}",
+    },
+    restoring_failed_putting_data: {
+      text: "Restoring {destination} failed and putting its data back failed too",
+      hint: "{failure}\n{exc}\nThe data it had is at {previous}.",
+    },
+    started_again_after_data: {
+      text: "{domain} could not be started again after its data was copied",
+      hint: "{items}\nStart it with: noust start {domain}. The backup itself is unaffected.",
+    },
+    volume_backup_found: {
+      text: "Volume backup not found: {backup_id}",
+      hint: "List them with: noust backup volumes list",
+    },
+    volume_backup_found_2: {
+      text: "Volume backup not found: {backup_id}",
+    },
+  },
+  http3: {
+    nginx_refused_site_holds: {
+      text: "nginx refused the site that holds the QUIC socket",
+      hint: "{errors}",
+    },
+    apache: {
+      text: "Apache's stock builds have no HTTP/3",
+      hint: "Serve this site with nginx 1.25 or later to use HTTP/3.",
+    },
+    no_version: {
+      text: "nginx's version could not be read",
+      hint: "Run: {command}",
+    },
+    not_built: {
+      text: "This nginx {version} was built without --with-http_v3_module",
+      hint: "Install the build from nginx.org, which includes it.",
+    },
+    too_old: {
+      text: "nginx {version} is older than 1.25.0, the first with HTTP/3",
+      hint: "Install a newer nginx: the nginx.org packages (https://nginx.org/en/linux_packages.html) carry it on Debian, Ubuntu and RPM systems.",
+    },
+  },
+  log_retention: {
+    days_number: {
+      text: "days is a number from {min_days} to {max_days}",
+    },
+    most_disk_number_megabytes: {
+      text: "The most disk is a number of megabytes from {min_mb} to {max_mb}",
+    },
+    name_keep_days_max: {
+      text: "Name what to keep: --days, --max-use or --persistent",
+    },
+    read: {
+      text: "{dropin} could not be read",
+      hint: "{exc}",
+    },
+    retention_written_journald_restarted: {
+      text: "The retention was written but journald could not be restarted",
+      hint: "{value}",
+    },
+    written_noust: {
+      text: "{dropin} was not written by Noust",
+      hint: "Move it aside, or set the retention in that file yourself.",
+    },
+    written_noust_2: {
+      text: "{dropin} was not written by Noust",
+      hint: "It is left as it is.",
+    },
+    dropin_foreign: {
+      text: "{dropin} exists and Noust did not write it, so it is left alone.",
+    },
+    journal_volatile: {
+      text: "The journal is kept in memory and lost at every reboot. Add --persistent to keep it.",
+    },
+  },
+  log_search: {
+    level: {
+      text: "{level} is not a level",
+      hint: "The levels are: {items}.",
+    },
+    limit_number_1: {
+      text: "limit is a number from 1 to {max_limit}",
+    },
+    time: {
+      text: "{text} is not a time",
+      hint: "Use epoch seconds, a time ago such as 15m, 2h or 7d, or a date such as 2026-10-16.",
+    },
+    window_ends_before_starts: {
+      text: "The window ends before it starts",
+    },
+    window_longer_journal_hold: {
+      text: "The window is longer than the journal can hold",
+      hint: "Ask for at most {value} days at a time.",
+    },
+    container_unreadable: {
+      text: "{domain}: {service} could not be read ({reason})",
+    },
+    containers_unlisted: {
+      text: "{domain}: its containers could not be listed ({reason})",
+    },
+    journal_failed: {
+      text: "The journal could not be searched: {reason}",
+    },
+    no_app_matches: {
+      text: "No application you can search matches {names}",
+    },
+    stacks_no_levels: {
+      text: "The containers of Docker stacks have no levels, so they are not searched when the query names a level.",
+    },
+  },
+  waf: {
+    nginx_refused_waf_rules: {
+      text: "nginx refused the WAF's rules",
+      hint: "{errors}",
+    },
+    noust_installs_waf_debian: {
+      text: "Noust installs the WAF on Debian and Ubuntu only",
+      hint: "Elsewhere install nginx's ModSecurity module and the OWASP Core Rule Set from your distribution or from nginx.org, then turn the WAF on.",
+    },
+    packages_installed: {
+      text: "The packages could not be installed",
+      hint: "The package manager's output is below.",
+    },
+    waf_packages_complete: {
+      text: "The WAF's packages are not complete",
+      hint: "Reinstall libnginx-mod-http-modsecurity and modsecurity-crs.",
+    },
+    base_missing: {
+      text: "ModSecurity's base settings or the Core Rule Set's setup file are missing",
+      hint: "Reinstall the packages: libnginx-mod-http-modsecurity and modsecurity-crs.",
+    },
+    module_missing: {
+      text: "nginx has no ModSecurity module",
+      hint: "Install it: {command} (Debian and Ubuntu: libnginx-mod-http-modsecurity and modsecurity-crs).",
+    },
+    module_not_loaded: {
+      text: "The ModSecurity module is installed but nginx does not load it",
+      hint: "Load it with a load_module line in nginx.conf (Debian and Ubuntu: {command}).",
+    },
+    not_nginx: {
+      text: "The WAF is nginx's here: Noust drives ModSecurity through nginx",
+      hint: "Serve this site with nginx to use the WAF.",
+    },
+    rules_missing: {
+      text: "The OWASP Core Rule Set is not installed",
+      hint: "Install it: {command} (Debian and Ubuntu: modsecurity-crs).",
+    },
+  },
+  delivery: {
+    time_limit: {
+      text: "The {operation} of {domain} was stopped: it ran longer than this server's maximum deployment time ({limit}). Nothing that was serving was touched. Raise the limit with 'noust config set deploy.max_minutes <minutes>' (0 is no limit).",
+    },
+    time_limit_deploy: {
+      text: "The deploy of {domain} was stopped: it ran longer than this server's maximum deployment time ({limit}). Nothing that was serving was touched. Raise the limit with 'noust config set deploy.max_minutes <minutes>' (0 is no limit).",
+    },
+    time_limit_update: {
+      text: "The update of {domain} was stopped: it ran longer than this server's maximum deployment time ({limit}). Nothing that was serving was touched. Raise the limit with 'noust config set deploy.max_minutes <minutes>' (0 is no limit).",
     },
   },
 } as const;

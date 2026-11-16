@@ -40,6 +40,7 @@ from typing import Any
 from noust.central import require_server_role
 from noust.core import audit
 from noust.core.exceptions import ValidationError
+from noust.core.server_text import ServerText, say
 from noust.managers.server.errors import UnsupportedHostError
 from noust.managers.server.host import PackageFamily, detect_platform
 from noust.managers.server.pkg import backend_for
@@ -128,6 +129,8 @@ class WafSupport:
         installable: Noust can install the packages here (Debian and Ubuntu).
         packages: The packages it would install.
         anchor: Whether the shared rules are in place.
+        coded: ``problem`` and ``hint`` as a sentence of the catalog (code and values), for the
+            console to say in its own language; None when nothing stands in the way.
     """
 
     available: bool
@@ -140,6 +143,7 @@ class WafSupport:
     installable: bool = False
     packages: tuple[str, ...] = field(default_factory=tuple)
     anchor: bool = False
+    coded: ServerText | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -157,6 +161,7 @@ class WafSupport:
             "installable": self.installable,
             "packages": list(self.packages),
             "anchor": self.anchor,
+            "coded": self.coded.to_dict() if self.coded else None,
         }
 
 
@@ -362,37 +367,37 @@ class Waf:
         """
         name = self._web.backend.name
         if name != "nginx":
+            apache = say("waf.not_nginx")
             return WafSupport(
                 available=False,
                 webserver=name,
-                problem="The WAF is nginx's here: Noust drives ModSecurity through nginx",
-                hint="Serve this site with nginx to use the WAF.",
+                problem=apache.text,
+                hint=apache.hint or "",
+                coded=apache,
             )
         installed = self._first(MODULE_FILES) is not None
         loaded = self._module_loaded()
         rules = self._first(CRS_RULES, marker=CRS_MARKER) is not None
-        problem = hint = ""
+        install = "noust app policy waf install"
+        said: ServerText | None = None
         if not loaded:
-            problem = (
-                "The ModSecurity module is installed but nginx does not load it"
+            said = (
+                say(
+                    "waf.module_not_loaded",
+                    command="ln -s /usr/share/nginx/modules-available/mod-http-modsecurity.conf "
+                    "/etc/nginx/modules-enabled/50-mod-http-modsecurity.conf",
+                )
                 if installed
-                else "nginx has no ModSecurity module"
-            )
-            hint = (
-                "Load it with a load_module line in nginx.conf "
-                "(Debian and Ubuntu: ln -s /usr/share/nginx/modules-available/mod-http-modsecurity.conf "
-                "/etc/nginx/modules-enabled/50-mod-http-modsecurity.conf)."
-                if installed
-                else "Install it: noust app policy waf install (Debian and Ubuntu: "
-                "libnginx-mod-http-modsecurity and modsecurity-crs)."
+                else say("waf.module_missing", command=install)
             )
         elif not rules:
-            problem = "The OWASP Core Rule Set is not installed"
-            hint = "Install it: noust app policy waf install (Debian and Ubuntu: modsecurity-crs)."
+            said = say("waf.rules_missing", command=install)
         elif self._first(BASE_CONFIGS) is None or self._first(CRS_SETUPS) is None:
-            problem = "ModSecurity's base settings or the Core Rule Set's setup file are missing"
-            hint = "Reinstall the packages: libnginx-mod-http-modsecurity and modsecurity-crs."
+            said = say("waf.base_missing")
+        problem = said.text if said else ""
+        hint = (said.hint or "") if said else ""
         return WafSupport(
+            coded=said,
             available=not problem,
             webserver=name,
             module_loaded=loaded,
@@ -427,18 +432,13 @@ class Waf:
         """
         require_server_role("sites")
         if not self._installable():
-            raise UnsupportedHostError(
-                "Noust installs the WAF on Debian and Ubuntu only",
-                "Elsewhere install nginx's ModSecurity module and the OWASP Core Rule Set from "
-                "your distribution or from nginx.org, then turn the WAF on.",
-            )
+            raise UnsupportedHostError.from_text(say("waf.noust_installs_waf_debian"))
         platform = detect_platform(self._web.runner, None)
         backend = backend_for(platform, runner=self._web.runner, fs=self._web.fs)
         result = backend.install(list(PACKAGES), timeout=INSTALL_TIMEOUT)
         if not result.success:
-            raise ValidationError(
-                "The packages could not be installed",
-                details="The package manager's output is below.",
+            raise ValidationError.from_text(
+                say("waf.packages_installed"),
                 output="\n".join(p for p in (result.stdout.strip(), result.stderr.strip()) if p),
             )
         audit.record("sites.waf", target="server", details={"action": "install"})
@@ -457,11 +457,7 @@ class Waf:
         setup = self._first(CRS_SETUPS)
         rules = self._first(CRS_RULES, marker=CRS_MARKER)
         if base is None or setup is None or rules is None:
-            raise ValidationError(
-                "The WAF's packages are not complete",
-                details="Reinstall libnginx-mod-http-modsecurity and modsecurity-crs.",
-                field="waf",
-            )
+            raise ValidationError.from_text(say("waf.waf_packages_complete"), field="waf")
         return (
             self._web.jinja_env.get_template("waf_rules.j2").render(
                 base=str(base), setup=str(setup), rules=str(rules), audit_log=AUDIT_LOG
@@ -514,9 +510,8 @@ class Waf:
                 fs.symlink(self.file, self.link)
             errors = web.config_errors()
             if errors is not None:
-                raise ValidationError(
-                    "nginx refused the WAF's rules",
-                    details=errors,
+                raise ValidationError.from_text(
+                    say("waf.nginx_refused_waf_rules", errors=str(errors or "")),
                     output=errors,
                     field="waf",
                 )

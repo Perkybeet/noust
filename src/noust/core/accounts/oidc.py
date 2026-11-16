@@ -106,6 +106,7 @@ from noust.core.accounts.oidc_store import (
 )
 from noust.core.exceptions import ConfigError, ValidationError
 from noust.core.sealing import SecretsLockedError
+from noust.core.server_text import say
 
 if TYPE_CHECKING:
     from noust.core.store import NoustStore
@@ -414,7 +415,7 @@ class OidcManager:
             refuse_to_lose_a_way_in(
                 self.accounts.store,
                 without_provider=existing.name,
-                action=f"Disabling the provider {existing.name!r}",
+                action=say("local_login.nobody_disabling_provider", name=repr(existing.name)),
             )
         self.data.save_provider(provider)
         if client_secret:
@@ -485,7 +486,7 @@ class OidcManager:
         refuse_to_lose_a_way_in(
             self.accounts.store,
             without_provider=found.name,
-            action=f"Removing the provider {found.name!r}",
+            action=say("local_login.nobody_removing_provider", name=repr(found.name)),
         )
         self.data.delete_provider(found.name)
         return found
@@ -943,7 +944,7 @@ class OidcManager:
             refuse_to_lose_a_way_in(
                 self.accounts.store,
                 without_identity=identity_id,
-                action="Cutting this link",
+                action=say("local_login.nobody_cutting_link"),
             )
         found = self.data.unlink_identity(identity_id)
         if found is None:

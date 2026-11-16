@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from noust.deployers import access
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, known_app, require_elevated
+from noust.web.api.deps import CodedText, NoustErrorRoute, known_app, require_elevated
 from noust.web.api.scope import require_instance_scope
 from noust.web.permissions import Permission
 
@@ -45,6 +45,8 @@ class WafModel(BaseModel):
         installable: Noust can install the packages here (Debian and Ubuntu).
         packages: The packages it would install.
         anchor: The shared rules are loaded.
+        coded: ``problem`` and ``hint`` as a sentence of the server's catalog (code and values),
+            for the console to say in its own language.
     """
 
     available: bool
@@ -55,6 +57,7 @@ class WafModel(BaseModel):
     problem: str = ""
     hint: str = ""
     installable: bool
+    coded: CodedText | None = None
     packages: list[str]
     anchor: bool
 

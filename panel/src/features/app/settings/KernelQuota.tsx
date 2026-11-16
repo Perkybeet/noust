@@ -45,7 +45,7 @@ export function KernelQuota({ disk, domain }: { disk: AppDisk; domain: string })
     const queued = await request("put", "/api/apps/{domain}/disk/kernel", { params: { domain }, body: { enabled } });
     const job = await waitForJob(queryClient, queued.job as unknown as Job);
     void queryClient.invalidateQueries({ queryKey: diskKey(domain) });
-    if (job.status !== "completed") throw new JobFailedError(job.error ?? t("appSettings.jobFailedSilently"));
+    if (job.status !== "completed") throw JobFailedError.of(job, t("appSettings.jobFailedSilently"));
     announce(enabled ? t("runtime.disk.kernel.given") : t("runtime.disk.kernel.taken"));
   };
 

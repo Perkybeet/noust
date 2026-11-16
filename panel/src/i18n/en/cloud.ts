@@ -88,6 +88,11 @@ export const cloud = {
   // Boot scripts (the cloud-init library)
 
   scripts: {
+    builtinDescription: {
+      swap_2g: "Create a 2 GB swap file when the server has no swap (small plans run out of memory in builds).",
+      base_packages: "Install the tools an operator reaches for first: curl, git, htop, unzip.",
+      unattended_security_updates: "Debian and Ubuntu: install security updates by themselves. Never reboots.",
+    },
     title: "Boot scripts",
     description: "What a new machine runs the first time it boots, after Noust's own part. You pick them when you create a server.",
     loadingLabel: "boot scripts",

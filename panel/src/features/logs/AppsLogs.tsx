@@ -28,6 +28,8 @@ import { patched, rangeChoices, sourceChoices, switchedTo } from "./sources";
 import type { Patch } from "./sources";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
+import { ServerText } from "../../components/ui/ServerText";
+import { codedAt } from "../../lib/serverSentence";
 /** Select's value for "no filter": an option needs a value. */
 const ALL = "__all";
 /** The scope select's values that are not a server's name (a name is never `@`-prefixed). */
@@ -214,9 +216,10 @@ export function AppsLogs({ search, onSearchChange }: AppsLogsProps) {
               </div>
               {answer.notes.length > 0 ? (
                 <ul className="flex flex-col gap-1 text-12 text-fg-muted">
-                  {answer.notes.map((note) => (
-                    <li key={note} translate="no">
-                      {note}
+                  {answer.notes.map((note, index) => (
+                    // A note Noust wrote is said in this language from its code; one it did not is another program's words.
+                    <li key={note} {...(codedAt(answer.notes_coded, index) ? {} : { translate: "no" })}>
+                      <ServerText coded={codedAt(answer.notes_coded, index)} text={note} />
                     </li>
                   ))}
                 </ul>

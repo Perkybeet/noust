@@ -66,7 +66,7 @@ async function setMode(queryClient: ReturnType<typeof useQueryClient>, domain: s
   void queryClient.invalidateQueries({ queryKey: zeroDowntimeKey(domain) });
   void queryClient.invalidateQueries({ queryKey: appKeys.detail(domain), exact: true });
   void queryClient.invalidateQueries({ queryKey: appKeys.list, exact: true });
-  if (job.status !== "completed") throw new JobFailedError(job.error ?? "");
+  if (job.status !== "completed") throw JobFailedError.of(job);
 }
 
 export interface DrainPart {

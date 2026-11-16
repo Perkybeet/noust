@@ -30,6 +30,8 @@ import { formatBytes } from "../../lib/format";
 import { splitErrors } from "./formErrors";
 import { FormFailure } from "./SettingsForm";
 
+import { ServerText } from "../../components/ui/ServerText";
+import { codedAt } from "../../lib/serverSentence";
 /** The server's own ranges (noust.managers.log_retention). */
 export const MIN_DAYS = 1;
 export const MAX_DAYS = 3650;
@@ -199,8 +201,10 @@ function Retention({ current }: { current: LogRetention }) {
         ) : null}
         {current.notes.length > 0 ? (
           <ul className="flex flex-col gap-1 text-12 text-fg-muted">
-            {current.notes.map((note) => (
-              <li key={note}>{note}</li>
+            {current.notes.map((note, index) => (
+              <li key={note}>
+                <ServerText coded={codedAt(current.notes_coded, index)} text={note} />
+              </li>
             ))}
           </ul>
         ) : null}

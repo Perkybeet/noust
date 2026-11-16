@@ -1594,6 +1594,7 @@ CancelledOut = TypedDict("CancelledOut", {
 CandidateOut = TypedDict("CandidateOut", {
     "action": NotRequired[Union[str, None]],
     "detail": NotRequired[str],
+    "detail_coded": NotRequired[Union["CodedText", None]],
     "id": Required[str],
     "measured_at": NotRequired[Union[str, None]],
     "reclaimable_bytes": NotRequired[Union[int, None]],
@@ -1825,6 +1826,7 @@ ChangeOut = TypedDict("ChangeOut", {
     "resolved_by": NotRequired[Union[str, None]],
     "status": Required[str],
     "title": Required[str],
+    "title_coded": NotRequired[Union["CodedText", None]],
     "undo": NotRequired[list[list[str]]],
     "unit": Required[str],
     "validate_command": NotRequired[list[str]],
@@ -5624,6 +5626,7 @@ HowItRunsSentence = TypedDict("HowItRunsSentence", {
 Http3Model = TypedDict("Http3Model", {
     "anchor": NotRequired[bool],
     "available": Required[bool],
+    "coded": NotRequired[Union["CodedText", None]],
     "firewall_hint": NotRequired[str],
     "hint": NotRequired[str],
     "problem": NotRequired[str],
@@ -6119,6 +6122,8 @@ JobResponse = TypedDict("JobResponse", {
     "deployment_id": NotRequired[Union[int, None]],
     "description": Required[str],
     "error": NotRequired[Union[str, None]],
+    "error_coded": NotRequired[Union["CodedText", None]],
+    "error_output": NotRequired[Union[str, None]],
     "id": Required[str],
     "logs": NotRequired[list[dict[str, Any]]],
     "metadata": NotRequired[dict[str, Any]],
@@ -6448,6 +6453,7 @@ LogSearchResponse = TypedDict("LogSearchResponse", {
     "lines": Required[list["LogLineModel"]],
     "matched": Required[int],
     "notes": Required[list[str]],
+    "notes_coded": NotRequired[list[Union["CodedText", None]]],
     "scanned": Required[int],
     "since": Required[float],
     "truncated": Required[bool],
@@ -7339,6 +7345,7 @@ PartOut = TypedDict("PartOut", {
 })
 
 PasskeyAvailability = TypedDict("PasskeyAvailability", {
+    "coded": NotRequired[Union["CodedText", None]],
     "detail": NotRequired[Union[str, None]],
     "hint": NotRequired[Union[str, None]],
     "reason": NotRequired[Union[str, None]],
@@ -9440,6 +9447,7 @@ RetentionModel = TypedDict("RetentionModel", {
     "journal_on_disk": NotRequired[bool],
     "max_use_mb": NotRequired[Union[int, None]],
     "notes": Required[list[str]],
+    "notes_coded": NotRequired[list[Union["CodedText", None]]],
     "persistent": NotRequired[bool],
 })
 
@@ -12655,6 +12663,7 @@ WafEventsResponse = TypedDict("WafEventsResponse", {
 WafModel = TypedDict("WafModel", {
     "anchor": Required[bool],
     "available": Required[bool],
+    "coded": NotRequired[Union["CodedText", None]],
     "hint": NotRequired[str],
     "installable": Required[bool],
     "module_installed": Required[bool],
