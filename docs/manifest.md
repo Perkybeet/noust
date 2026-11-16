@@ -172,7 +172,7 @@ own folder). They are resolved **where the manifest is applied from**, never on 
 
 ## From the console
 
-Settings > Manifest takes a pasted manifest and shows what applying it would change on this server, in
+Server > Manifest (it was Settings > Manifest before 4.3: the address still leads there) takes a pasted manifest and shows what applying it would change on this server, in
 order, with what needs sudo mode and what could not be checked. **Apply these changes** then queues the
 apply as a job and follows it where you are: it waits for the deployments it queues, because what comes
 after an application's creation (its domains, its databases, its backups) needs the application to exist.

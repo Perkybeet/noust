@@ -242,8 +242,8 @@ warned about as well.
 
 Let's Encrypt issues for 90 days now, for 64 from 10 February 2027 and for 45 from 16 February 2028,
 and offers a profile of 6 days; certificates you buy are limited to 100 days from March 2027. A
-threshold written in days is wrong for at least one of those (25 days left is half the life of a
-45-day certificate and a warning on a 90-day one), so Noust judges a certificate on its own life,
+threshold written in days is wrong for at least one of those (25 days left is more than half the life
+of a 45-day certificate and past the point where a 90-day one is renewed), so Noust judges a certificate on its own life,
 between the start and the end it reads from the certificate file:
 
 | State | When | In `noust health` |

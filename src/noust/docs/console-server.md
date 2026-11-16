@@ -2,8 +2,12 @@
 
 Part of [The console, page by page](console.md).
 
-The Server is one area of the bar with a column of its own, in three groups: **This machine** (Status, Machine,
-Processes, Resource monitor, Updates), **What runs** (Services, Web server, Software) and **Tools** (Files, Terminal).
+The Server is one area of the bar with a column of its own, in five groups: **This machine** (Status, Machine,
+Folders and builds, Processes, Resource monitor, Updates), **What runs** (Services, Web server, Console, Software),
+**Docker** (its seven pages and, on a hub, Deploy on this machine), **Tools** (Files, Manifest, Terminal) and, on a
+fleet, **Fleet** (With the central). A section the machine cannot do is not in the column: a machine with no usable
+Docker has no Docker group, and a hub in a container is not offered the machine's own clock, system log, root shell
+or firewall.
 Status is titled with the machine's name; every other section is titled with its own name and says, on the line
 under it, which machine it is about. Each section puts its own actions at the right of its title. On a fleet, from
 "All servers", the area is the list of servers (see [Fleet](console-fleet.md)); choosing one there is choosing it
@@ -12,16 +16,21 @@ in the selector. The system's journal is in [Logs](console-overview.md#logs). Se
 | Section | What it has |
 |---|---|
 | Status | Four readings (processor, memory, disk with when it fills, how long it has been up and whether it asks for a reboot), what uses the most now with whose it is (an application or a service) and a way to every process, and what is not well, each with the action that deals with it. The header says how many ports are open to the outside and leads to Network |
-| Machine | **This machine**: its name and its time zone, each one press from its value (rename, change zone), what the zone is used by (scheduled tasks, backups) and the clock's synchronisation. **Hardware**: processor, memory, disk, the system and its end of support, kernel, load. **Reboot and shut down**, now or scheduled |
+| Machine | **This machine**: its name, the addresses it is reached at and its time zone, each one press from its value (rename, change zone), what the zone is used by (scheduled tasks, backups) and the clock's synchronisation. **Hardware**: processor, memory, disk, the system and its end of support, kernel, load. **Reboot and shut down**, now or scheduled |
+| Folders and builds | Where this machine keeps its applications and its backups, the web server new sites are served with and how much it builds at once. They were in Settings > General, which keeps the policy (whether to look for new versions, the certificate account, how many backups are kept, how long a deployment may take) |
 | Processes | What runs and what it costs, read only. Each process says the application or the service it belongs to; the search looks at the name and at that; a link leads to Listening ports for "which process has a port?" |
 | Resource monitor | The processor, the memory, the disk and the network over a window (1 hour, 24 hours, 7 days), the same charts as Alerts > Metrics, and the **Resource watcher**: whether its unit runs and what it noted |
 | Updates | One page for Noust and the system. **Noust**: which one runs here, what is new and **Update Noust** as a job. **Automatic updates**, with its switch beside the name. **From the system**: pending packages, security first; install all or only security (the plan is read first); a reboot that is due and why; services on replaced libraries; the history of runs |
 | Services | Every systemd unit Noust manages ("Show all units" lists the rest, read-only), the ones that fail first, each with whose it is (an application, made by hand or the system's) and since when. A service's page has its live journal, controls and a unit editor checked with `systemd-analyze verify`; **a new service written by hand** is checked the same way before it is created, by the server (a refusal says systemd's own words and writes nothing). A unit Noust did not create has no Logs section: the server does not follow its journal |
 | Web server | Which of nginx and Apache answers on ports 80 and 443 and what is behind each; the one new applications are put behind (it moves none of the ones already there); and **Move to Apache** (or nginx): the plan first, the agreement it asks for, and the job that does it, put back if a site does not answer. See [Moving to the other web server](network-webserver.md) |
+| Console | Publishes this machine's console on a name of its own over TLS, or keeps it private, and takes it down again: an nginx site, a certificate and the console told to trust nginx, with what is checked first and a preview of what will be done. See [Settings](console-settings.md) |
 | Software | What the server is made of as far as Noust is concerned: what each piece is used for, whether it is there, whether Noust installed it (and who, on hover), what depends on it, and whether it can be removed. The seven pieces of the machine itself, which Noust never removes, are one line until you open it |
+| Docker | Seven pages of what Docker has on this machine, whoever made it: **Summary** (what asks for a person first), **Stacks**, **Containers**, **Images**, **Volumes**, **Networks** and **Engine** (which Docker there is and what does not fit in it). Each row says whose it is and offers only what that owner's own way allows; a container is read from the inside, with its logs and a console. A person of a team does not see it, because Docker is the machine's. See [Docker](docker.md) |
+| Deploy on this machine | On a hub, what giving Noust the machine's Docker means, the lines to add to the central's compose file and the check with its result. The console never turns it on. See [Deploy where the central runs](central-deploy-here.md) |
 | Terminal | A shell on the server, for whoever holds its permission |
+| Manifest | What applying a manifest of applications would change on this server, before anything does, and then exactly that. See [The manifest](manifest.md) |
 | Files | The disks (with the fullest said in the section's line), what takes their space with what can be given back, **Kept between deployments**, swap, **Automatic cleanup** with its history. Each slab says one line, and the long rule is behind its "?" |
-| Central's permissions | On a fleet, for a server a central manages: what the central may do there (the level, and whether it may also change how the server is reached), as the server publishes it. Only the server can change it: the page builds the `noust fleet access` command for the level chosen, and **Check again** reads the server's answer |
+| With the central | On a fleet, for a server a central manages: what the central may do there (the level, and whether it may also change how the server is reached), as the server publishes it. Only the server can change it: the page builds the `noust fleet access` command for the level chosen, and **Check again** reads the server's answer. Whether the server follows the central's settings or is independent is decided here too |
 
 ## Security
 

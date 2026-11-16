@@ -78,14 +78,15 @@ connected and answered. If this central has not been prepared for it, the dialog
 command that fixes it (`noust node link setup`). A server that dials in shows "Dials in: port N of this
 central" where another shows its SSH address.
 
-**Console address** publishes the console at a name that points at this server: an nginx site, a
+**Server > Console** publishes the console at a name that points at this server: an nginx site, a
 Let's Encrypt certificate, the console told to trust nginx, and an allow-list if you give one;
 there is no plain-HTTP form. The page lists what is checked first (a second factor on every
 account that can sign in, with the accounts that lack one named; the ENS profile, which keeps the
 console on loopback unless you force it with an allow-list; a name that is not an application's
 or a site Noust did not write), the dialog previews what will be done, and publishing and
 unpublishing are jobs followed in the page (sudo mode). Unpublishing removes exactly what
-publishing made and leaves what was already there.
+publishing made and leaves what was already there. **Settings > Console address** is only the address the
+links of the notices open (`web.public_url`).
 
 **Sign-in image** puts a picture of your own where Noust draws its noust on the sign-in screen and the
 screens around it (the second factor, the first account, an invitation, a new password): a logo, or any

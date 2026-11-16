@@ -1,9 +1,12 @@
-> **Noust 4.2** puts the console in order: one frame on every screen, with Network and Security as areas of
-> their own, a Home of widgets each person arranges, background work in sight from any page, the server's
-> software on one page, and pages that say what each thing is before they explain it. Signing in is redrawn,
-> with room for your own logo, and a problem is reported from the console in three steps. Nothing that runs is
-> rewritten, and the store moves to schema 17: read [docs/UPGRADING-4.2.md](docs/UPGRADING-4.2.md) before
-> updating, and see [docs/CHANGELOG-4.2.md](docs/CHANGELOG-4.2.md).
+> **Noust 4.3** looks after all of Docker and lets a machine that only has Docker deploy. Server > Docker lists
+> what Docker has on a server, whoever made it, and changes only what its owner's own way allows; images have new
+> versions to look for and update behind the health gate, a stack that already runs can be brought to Noust, and
+> the central of a NAS, given the machine's Docker on purpose, deploys containers and Compose stacks on it. An
+> optional built-in assistant, with the model you choose, explains a failure, looks into it with read-only tools
+> and proposes what a person approves, and "See what it will do" shows an operation's plan before it is applied.
+> A central takes the copies of its servers through the tunnels it already has. No application, site or stack is
+> rewritten, and the store moves to schema 18: read [docs/UPGRADING-4.3.md](docs/UPGRADING-4.3.md) before updating, and see
+> [docs/CHANGELOG-4.3.md](docs/CHANGELOG-4.3.md).
 >
 > Every earlier release has its own changelog in [docs/](docs/) (`CHANGELOG-<version>.md`).
 
@@ -84,14 +87,23 @@ from the CLI, a browser console and a JSON API.
   with its environment, and commands run once; for administrators, a root shell on the server,
   off until it is turned on. Each session asks you to confirm it is you, and is recorded
   ([docs/terminal.md](docs/terminal.md)).
+- **Docker, looked after whole.** When the machine has Docker, Server > Docker lists its containers,
+  images, volumes and networks whoever made them, says whose each is (an application's, a database
+  engine's, Noust's, or nobody's) and offers only what that owner's own way allows
+  ([docs/docker.md](docs/docker.md)).
+- **An assistant, if you want one.** Off until an administrator turns it on, with the model you choose;
+  it explains and investigates, and what would change something is a proposal a person approves
+  ([docs/assistant.md](docs/assistant.md)).
 
 **It is not**
 
 - **A cluster or an orchestrator.** Each server runs its own applications and manages
   itself. A central manages several Noust servers from one console and acts on many at once
   (see [The fleet](#the-fleet)); it does not schedule work across them.
-- **A container platform.** Applications run as ordinary processes. Docker is only needed if
-  you deploy a Docker Compose project, which Noust then runs as a unit.
+- **A container orchestrator.** Applications run as ordinary processes. A Dockerfile, an image
+  or a Docker Compose project runs in containers on the same machine, under a unit, and Docker
+  is needed only for those; Noust looks after what Docker has there and does not schedule
+  containers across machines.
 - **A container boundary between running applications.** Each application created from 3.2
   runs as an account of its own, so one cannot read another's tree, but they share the kernel
   and the machine; those from before keep the shared service account until `noust app identity
@@ -363,6 +375,28 @@ See [docs/compose.md](docs/compose.md).
 
 ---
 
+## Docker
+
+```bash
+noust docker images check                      # ask the registries which images in use have a new version
+noust docker images update IMAGE               # an application's image: its own update, behind the health gate
+noust docker stack bring nextcloud --preview   # a stack that already runs: what Noust would register, nothing touched
+noust docker stack compose check nextcloud new.yml   # judge an edited Compose, write nothing
+noust server cleanup docker-dangling-images --plan   # what a cleanup would remove, whose it is, before it does
+```
+
+Server > Docker has seven pages (summary, stacks, containers, images, volumes, networks, engine). A
+container is read from the inside (why it stopped, its last lines, its logs as they are written, what it uses,
+a console), what an application owns is changed through the application, and what nobody of Noust made is
+started, stopped and removed there. A look for a new version is asked for and never made by a page; a major
+version is accepted in words, and a stack's edited Compose is judged by what Compose resolves it to, kept as a
+version and put back by itself when the stack does not come up. A machine that has Docker and nothing else, such
+as the central of a NAS given its Docker on purpose, deploys containers and stacks on it
+([docs/central-deploy-here.md](docs/central-deploy-here.md)). See [docs/docker.md](docs/docker.md) and
+[docs/containers.md](docs/containers.md).
+
+---
+
 ## Pull request previews
 
 ```bash
@@ -506,6 +540,25 @@ certificates close to expiry, memory pressure, the hardening checks, the audit t
 applications still building as root.
 
 ![Diagnose](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/assets/console/app-diagnose.png)
+
+### The built-in assistant
+
+```bash
+printf '%s\n' "$KEY" | noust assistant enable --base-url https://api.example.org/v1 --model MODEL --key-stdin
+noust assistant ask --as marta "Why does shop.example.com keep restarting?"
+noust update shop.example.com --plan                                   # what an update would do, nothing executed
+```
+
+An assistant that is off until an administrator turns it on, with the model the administrator chooses (a
+service that speaks the OpenAI-compatible protocol, or a model on your machine or network). From a failed
+deployment, a diagnosis or a firing alert it explains what it read, looks into it with read-only tools, and
+proposes what it would do: a change is a call a person approves with their own session, where sudo mode and a
+second approver are asked as ever. It acts with a token of its own that never has sudo mode and never reaches
+secrets, terminals, accounts or the audit trail; nothing leaves the server until it is on, and what leaves has
+every secret removed. How well a given model investigates is for you to see:
+[docs/assistant.md](docs/assistant.md) says what is tested and what is not
+([docs/assistant-battery.md](docs/assistant-battery.md)), and [docs/plans.md](docs/plans.md) is the plan
+every operation can show before it is applied.
 
 ---
 
@@ -718,7 +771,11 @@ never marked as passed.
 One Noust, the central, shows and drives several Noust servers from a single console and CLI.
 The central can be one more VPS, or a container on a machine at home such as a NAS, reaching
 each server over an SSH tunnel it opens outward, so no port has to be opened anywhere. A central
-that only manages the fleet (`central.role = hub`) deploys nothing itself.
+that only manages the fleet (`central.role = hub`) deploys nothing itself, unless a NAS's is given the
+machine's Docker socket on purpose and told to deploy containers on it
+([docs/central-deploy-here.md](docs/central-deploy-here.md)); a package for the App Center of a UGREEN NAS
+is in the repository ([docs/ugreen.md](docs/ugreen.md)). The central can also take the copies of its servers
+through the tunnels it already has (`noust fleet collect`), with nothing opened on the router.
 
 ```bash
 noust node key vps1                                                    # on the central
@@ -983,13 +1040,15 @@ The documentation is in [docs/](docs/), arranged by the question you have.
 the messages word for word.
 
 **Guides**: [stacks](docs/frameworks.md), [build](docs/build.md), [sources](docs/sources.md),
-[Docker Compose](docs/compose.md), [containers](docs/containers.md),
+[Docker Compose](docs/compose.md), [containers](docs/containers.md), [Docker](docs/docker.md),
 [recipes](docs/recipes.md), [releases and rollback](docs/releases.md),
 [domains](docs/domains.md), [certificates](docs/certificates.md),
 [databases](docs/databases.md), [backups](docs/disaster-recovery.md), [CI](docs/ci.md),
 [the monitor](docs/MONITOR.md), [notifications](docs/notifications.md),
 [the console's security](docs/security.md), [teams](docs/teams.md), [single sign-on](docs/sso.md),
-[a central and its fleet](docs/CENTRAL.md), and [from Coolify](docs/coolify.md),
+[the built-in assistant](docs/assistant.md), [seeing what an operation will do](docs/plans.md),
+[a central and its fleet](docs/CENTRAL.md), [deploying where the central runs](docs/central-deploy-here.md),
+[Noust on a UGREEN NAS](docs/ugreen.md), and [from Coolify](docs/coolify.md),
 [Dokploy](docs/dokploy.md), [CapRover](docs/caprover.md) or [Dokku](docs/dokku.md).
 
 **Concepts**: [the guarantees Noust makes](docs/SECURITY-MODEL.md) and
@@ -1001,8 +1060,8 @@ and [the API guide](docs/api.md), [every setting](docs/reference-config.md) and
 `noust <command> --help`.
 
 **Releases**: [the release policy](docs/release-policy.md),
-[upgrading to 4.0](docs/UPGRADING-4.0.md), [going back](docs/downgrading.md),
-[what changed in 4.0](docs/CHANGELOG-4.0.md) and in the API ([API changes](docs/API-CHANGELOG.md)).
+[upgrading to 4.3](docs/UPGRADING-4.3.md), [going back](docs/downgrading.md),
+[what changed in 4.3](docs/CHANGELOG-4.3.md) and in the API ([API changes](docs/API-CHANGELOG.md)).
 Every earlier release has its own changelog and upgrade guide in [docs/](docs/); those of the line
 that carried the product's previous name are [2.3](docs/CHANGELOG-2.3.md), [2.2](docs/CHANGELOG-2.2.md),
 [2.1](docs/CHANGELOG-2.1.md), [2.0](docs/CHANGELOG-2.0.md) and [upgrading to 2.0](docs/UPGRADING-2.0.md).

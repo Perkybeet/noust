@@ -106,6 +106,12 @@ the application's log, verbatim.
 
 - **Find the cause:** `noust diagnose wrenfield.io` checks the unit, the port, the application's
   answer, nginx and the certificate, and names the most likely cause first.
+- **A first deploy that fails leaves no application behind, and is not forgotten.** Noust undoes what it
+  created, so there is nothing to open at the domain, and the console's page for that domain says the first deploy
+  failed, when, and what the system printed, with Noust's own fix above it when it has one. It offers to try again
+  with what was asked (the wizard opens on the same source, branch and domain; a password or token that was in the
+  address was not kept, and is typed again) or to forget the failure, and it is listed in what needs attention.
+  The API has the list (`GET /api/first-deploys`); one older than two weeks is not in it.
 - **The build failed:** [A build or a deploy failed](troubleshooting-build.md).
 - **The site answers 502:** [The site answers 502](troubleshooting-502.md).
 - **There is no certificate** (`SSL was requested but could not be obtained.`): the name does not

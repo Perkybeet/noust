@@ -14,7 +14,7 @@ console cannot turn it on.
 With it on, the central deploys what needs only Docker:
 
 - applications that run as a container (a Dockerfile, an image from a registry, or Railpack),
-- Docker Compose stacks, and the catalogue's recipes (435 of the 440 are Compose stacks),
+- Docker Compose stacks, and the catalogue's recipes (426 of the 430 you can install are Compose stacks),
 - database engines in containers: the Databases area lists the engines Noust runs, their databases and their
   users, and makes, copies and restores them. It says that there is no PostgreSQL of the machine's own (the table's
   sentence, `system` in the answers of `/api/databases/servers`, `/databases` and `/engines`) and never offers to

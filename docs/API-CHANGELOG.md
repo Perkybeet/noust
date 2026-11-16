@@ -235,11 +235,13 @@ against the schema of 4.2.0.
   provider, the limits and the prices and turns it on or off; `POST /api/assistant/probe` (`settings.manage`) asks
   the provider what it can do, as sentences with a code; `POST /api/assistant/off` (`settings.manage`, sudo mode)
   turns it off and revokes every token it holds; `GET /api/assistant/presets` (`settings.read`) lists the providers
-  by name; `GET /api/assistant/usage` (`assistant.use`) says what it cost and the limits; and a person's own
+  by name; `GET /api/assistant/usage` (`settings.read`: what the assistant made it do for the person in the last
+  hour and a conversation's totals need `assistant.use`) says what it cost and the limits; and a person's own
   conversations are listed, read and deleted at `/api/assistant/conversations` (`assistant.use`). `GET
   /api/auth/session` carries `assistant` (`enabled`, `can_use`, `tools`, `model`, `location`, `mask_personal` and,
-  when it is not offered to this caller, a `reason` with a code), and `central.features` has a key `assistant`. A new
-  permission, `assistant.use`, held by the administrator and operator roles and by no team role. The tokens of the
+  when it is not offered to this caller, a `reason` with a code); the assistant is not a row of `central.features`,
+  which says what the role and the machine can do. A new permission, `assistant.use`, held by the administrator
+  and operator roles and by no team role. The tokens of the
   API carry `caller` in what they authenticate (`token` or `assistant`); no route can ask for the second.
 - **Asking the built-in assistant** (`assistant.use`, a person's own conversations only). `POST
   /api/assistant/conversations` begins one and `POST /api/assistant/conversations/{id}/turns` asks a question in it
@@ -279,6 +281,57 @@ against the schema of 4.2.0.
   error `app_store` (its `hint` says to update through the store), where a container answered `container_image`
   with the command of Docker's.
 
+- **The plan of an operation** (item 183). An operation that has one says where it is in its own OpenAPI entry,
+  `x-noust-plan` (`method`, `path`, `operation`), and the plan is a `POST` that changes nothing, runs nothing that
+  changes anything and asks for no sudo mode: `POST /api/apps/{domain}/update/plan`,
+  `.../deployments/{deployment_id}/rollback/plan`, `.../restart/plan`, `.../stop/plan`, `.../start/plan`,
+  `.../limits/plan`, `.../domains/plan`, `.../domains/{name}/plan`, `.../delete/plan` and `.../migrate/plan`,
+  `POST /api/certs/{domain}/renew/plan` and `POST /api/docker/cleanup/plan`. It is read with the permission to read
+  what the operation would change (`apps.read`; `docker.read` for Docker), takes the operation's own body and answers
+  one shape: `effect`, `commands`, `files`, `steps`, `findings`, `unknown`, `needs`, `blocked`, `operation`,
+  `subject`, `asked_remote` and `omitted`, each sentence with its code and values. A client reads `x-noust-plan` to
+  know whether an operation has one: a server before 4.3 publishes none. [plans.md](plans.md).
+- **First deployments that failed** (item 141). `GET /api/first-deploys` (permission `apps.read`, `domain` filters)
+  lists, newest first, the first deployments whose job failed and left no application: `job_id`, `domain`, `origin`
+  (`source`, `image`, `compose` or `recipe`), `source` with every credential masked, `branch`, `app_type`, `recipe`,
+  `created_at`, `error` verbatim, `error_coded` and `finished_at`. A domain that has an application, one whose newest
+  attempt is running or worked, a dismissed one and one older than two weeks are not listed. `POST
+  /api/first-deploys/{attempt}/dismiss` (`apps.manage`) puts one away.
+- **Where an application is reached, and how to reach it** (items 188, 189). `GET /api/apps/{domain}/address`
+  (`apps.read`) answers `kind` (`site`, `port` where no web server of Noust's serves it, or `none`), `url`, `port`
+  and `proxy_hint`: `target`, `scheme`, `host`, `port`, the `headers` the reverse proxy of the NAS sets (`name`,
+  `meaning`, `nginx`), `websocket` and `read_timeout_seconds`, or `null` where a site of Noust's serves it.
+  `POST /api/apps/adopt` answers `kept_by` (`unit`, or `docker` where the central deploys with the
+  machine's Docker), `address` and `restart_loss` (what a restart of the machine would not bring back).
+  `POST /api/central/container-host/check` (`docker.manage`) is the report of whether a central can deploy on its
+  machine's Docker, as `noust central deploy-here check` prints it, and `GET /api/central/schedule` (`server.read`)
+  lists what the central runs itself where the machine has no timers, with when each runs next, how the last run
+  went and how many runs it stood for.
+- **The port that answers.** An application (`GET /api/apps/{domain}` and the list) carries `serving_port`: the port
+  that answers now, which in zero-downtime mode is the serving instance's (green is on the port after the
+  record's), and `port` otherwise (item 146).
+- **A token narrowed by a name** (item 163). `POST /api/auth/tokens` takes `preset` (`read_apps`, `deploy_only`,
+  `deploy_and_restart` or `backups`) instead of `permissions`, and `GET /api/auth/roles` lists them as
+  `token_presets` (`id`, `permissions`) with `tenant_permissions`, what a token bound to a team, a project or an
+  environment can ever hold. A preset the issuer does not hold all of is refused whole.
+- **The proof a first second factor asks for** (item 132). `POST /api/auth/2fa/enroll` and `POST
+  /api/auth/passkeys/registration/options` take an optional body, `{"password": ...}`, which an account without a
+  second factor gives when its sign-in is older than ten minutes.
+- **Replacing rules in one step** (item 139). `POST /api/server/security/firewall/rules` takes `replaces`, up to 16
+  ids of rules to remove with the new one: the narrow rule is made first and the wide one removed after it, under
+  one confirmation window, and only a rule that allows exactly the port is replaced. The guard of SSH and of the
+  console keeps holding for what would be removed.
+- **The invitation's address** (item 149). The answer of `POST /api/auth/invitations` carries `public_url`
+  (`web.public_url`), the address the link is built from, or `null` when the server was never told one, so a client
+  can say that a link made from a local address means nothing to the person invited.
+- **More of what the server says carries its code** (item 151). A failed job has `error_coded`, the sentence of
+  the catalog it failed with, and `error_output`, the failing program's own words apart; the same pair of text and
+  code, `coded`, `detail_coded`, `title_coded` or `notes_coded`, is on the answers of the web application firewall,
+  HTTP/3, passkey availability, the search of logs, the journal's retention and the overview's candidates and
+  changes. The English text is unchanged.
+- **A server out of file descriptors says so.** Any route can answer `503` with the error `descriptors_exhausted`,
+  its sentence, the fix and the command, where it answered `500` with no name (item 165).
+
 ### Changed, without breaking a client
 
 - **The listings of the Databases area on a central that deploys containers** answer `200` with what there is and
@@ -295,6 +348,24 @@ against the schema of 4.2.0.
   later messages carry `In-Reply-To` and `References`. The webhook's payload does not change.
 - `PUT /api/config/notifications/telegram` changes only the bot and the chat. It used to write the whole block, so
   the topics, the events and the route of the channel went with it.
+- **Setting up an account's first second factor needs a recent proof** (item 132). `POST /api/auth/2fa/enroll` and
+  `POST /api/auth/passkeys/registration/options` answered for any session of an account that had no factor. They
+  now answer `403` with `identity_proof_required` (the sign-in is older than ten minutes: send the account's
+  password in the body) or `fresh_sign_in_required` (the account has no password: sign in again), and a token that
+  acts for an account never counts as a recent sign-in. A wrong password is `401 invalid_credentials` and is counted
+  like one at sign-in. An account that already has a factor is not asked.
+- **A token the master token or root issues is narrowed to what was asked** (item 163). `POST /api/auth/tokens` with
+  `permissions` used to drop them without a word when the token had no owner, and a "deploy only" token held
+  everything its scope allowed. It holds what was asked, and no more than whoever issues it holds.
+- **`PUT /api/config/smtp` with no host is `422`** on the field that says what to enter, where it saved an e-mail
+  channel that could not send (item 137). Taking the account away is a write of the whole block and is not
+  affected.
+- **The actor of the master token, and of an account, is one name** (item 152). A job, the audit trail and Activity
+  say `master` for the master token in a browser as they do for a Bearer (a job's actor was twelve characters of
+  its session's id), and an account is its username.
+- **A firewall or SSH change that nobody confirmed is recorded as undone** (item 138): the audit events are
+  `server.firewall_expired` and `server.ssh_expired`, where the timer's undoing was recorded under the event of the
+  change itself. One an operator undoes by hand keeps its original event.
 
 ## 4.2.0
 

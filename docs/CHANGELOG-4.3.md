@@ -1,0 +1,431 @@
+# Noust 4.3 changelog
+
+Changes since Noust 4.2.1. What to do before updating is in [UPGRADING-4.3.md](UPGRADING-4.3.md); what a
+client of the HTTP API can notice is in [API-CHANGELOG.md](API-CHANGELOG.md).
+
+4.3 makes Noust look after all of Docker, lets a machine that only has Docker deploy, and adds an optional
+assistant that explains, investigates and proposes what a person approves, with the model the operator
+chooses. Server > Docker lists what Docker has on a machine, whoever made it, says whose each thing is and
+changes only what the owner's own way allows; images have new versions to look for and update behind the
+health gate, a stack that already runs can be brought to Noust and a stack's Compose edited with a way back.
+The central of a NAS, which is a container, can be given the machine's Docker and then runs applications,
+stacks and database engines on it, and it can be installed from the app store of a UGREEN NAS. The built-in
+assistant is off until an administrator turns it on, acts only as a token of its own that never has sudo
+mode, and what it would change is a proposal that a person carries out. Around those, the console says what
+is happening in its own words, Settings is the central's, a central takes the copies of its servers through
+the tunnels it already has, and a certificate is judged on its own life. It is a minor version: the HTTP API
+only grows, the command line keeps every command and option, and the store moves to schema 18.
+
+## Before you upgrade
+
+[UPGRADING-4.3.md](UPGRADING-4.3.md) has the order of an update and the way back; this is what to know
+first.
+
+- **The store moves to schema 18, and 4.2 cannot open it.** The upgrade keeps a copy of the store beside it,
+  as before. Going back to 4.2 means putting that copy back (`noust store compat --to 4.2.1`;
+  [downgrading.md](downgrading.md)).
+- **Under the ENS profile, what an API token changes in production now waits for a person.** The control
+  `token_production_approval` (ENS MEDIA and ALTA ask for it) makes `propose` the least a token can have in
+  production, so a pipeline that deployed there alone now answers `202 approval_required` until somebody
+  approves the request. Everywhere else a token keeps doing what it did. See
+  [security-approvals.md](security-approvals.md#tokens-and-the-built-in-assistant-the-approval-policy).
+- **The check on a Compose file reads what Compose resolves it to.** A stack whose file reaches a privileged
+  container or the Docker socket through an `include`, an `extends`, a profile or a `volumes_from` used to pass
+  unseen. One that is running keeps running; its next update is refused once, naming the finding, unless the
+  application has an exception.
+- **The console no longer says `Strict-Transport-Security` on every name.** It says it only on the name
+  `noust console expose` published it on, and never with `includeSubDomains`. A browser that already
+  remembers the old policy for a name shared with other services keeps it until it is cleared once
+  ([UPGRADING-4.3.md](UPGRADING-4.3.md#the-console-says-strict-transport-security-only-on-a-name-it-owns)).
+- **A few pages moved, and their old addresses lead to where they went.** Fleet settings is no longer a page
+  of its own (each kind is in the section it belongs to), the manifest is Server > Manifest, and what only a
+  machine has (its folders, publishing its console on a name) is on Server; the table is in
+  [UPGRADING-4.3.md](UPGRADING-4.3.md#what-you-will-notice).
+- **A fleet in the middle of an update works.** A 4.3 central drives servers still on 4.2: for those servers the
+  Docker zone, the copies it collects, the approval policy and the settings 4.3 brings say that the server needs
+  4.3, the plan of an operation is not offered, and the rest goes on.
+
+## Docker
+
+- **Server > Docker** (item 189). Seven pages: Summary (what asks for a person first: a container that keeps
+  restarting, with why; one stopped though its policy says it should run; the disk running out), Stacks,
+  Containers, Images, Volumes, Networks and Engine. Every row says whose it is (an application's, a database
+  engine's, Noust's own, or "Noust did not create it") and offers only what that owner's own way allows: what an
+  application owns is read there and changed from the application, with the command that does it, and what
+  nobody of Noust made is started, stopped, restarted and removed there. With All servers the same pages list
+  every server, with the server as a column and a filter. A machine with no usable Docker does not offer the
+  section.
+- **A container from the inside.** Why it is the way it is in Docker's own words (how it ended, whether it ran
+  out of memory, how often it restarted lately, its restart policy and limits, what it touches), its last lines
+  with credentials masked, its logs live, what it uses and a console in any container, recorded like the other
+  terminals. What would not come back after the machine restarts is listed, with the line that fixes each.
+- **Whose each thing is is decided by what Noust registered**, never by what an object says of itself, before
+  anything is done to it. Two permissions are new: `docker.read` (every role) and `docker.manage` (the
+  administrator); a person of a team is refused all of the zone, because Docker is the machine's. The audit
+  trail has the events of what is changed and of what was refused.
+- **Choosing how an application runs.** When a source can run directly on the server or in a container, the
+  wizard, `noust create --run-as server|container` and the application's page say what Noust proposes and why,
+  what the other way would take and what stops it. What Noust proposes is what it always deployed; it only
+  moves when the machine cannot run that form. An application's Overview says how it runs, with its unit,
+  account and folder, or its image.
+- **New versions of the images in use.** `noust docker images check` (and **Look for new versions**) asks each
+  registry what a tag points at, without downloading the layers, and says what the new version is to the one
+  that runs: patch, minor, major or floating. Nothing is asked of a registry unless somebody asks. An image of
+  an application is updated by the application's own update behind its health gate; a major version is accepted
+  in words, and a database's also needs a copy that a restore drill loaded in the last day. A central asks
+  every server of the fleet at once.
+- **A stack that already runs can be brought to Noust.** `noust docker stack bring` (the same as
+  `noust app adopt`, offered where the stack is seen) previews first what would be registered and what would not
+  come back after a restart, and recreates, restarts and rewrites nothing. A stack nobody of Noust made can
+  also be started, stopped and restarted as a whole.
+- **A stack's Compose, edited with a net.** `noust docker stack compose` (and the stack's page) judges a document
+  by the model Compose resolves it to, says what it would recreate before anything changes, keeps every saved
+  text as a version with who saved it and why (the latest 30), applies it as the application's update behind the
+  health gate and puts the document before back when the stack does not come up.
+- **The check on a Compose file judges what Compose resolves it to.** A service brought in by an `include` or an
+  `extends`, a `jobs` entry, a service under any profile, the file of a `secrets` or `configs` entry, and the
+  volumes or namespace of a container that is not part of the stack are read as the file's own. An `include` or
+  an `extends` that leaves the application is refused before Compose reads it.
+- **A cleanup is a plan.** What would go, whose it is and how much it holds is shown before anything is removed,
+  and it is applied as it was shown: a plan that changed since is shown again and nothing is touched. The images
+  an application keeps to go back to are never offered. A volume is never marked by itself: the zone's plan lists
+  the unused ones unticked and each is named before it goes, and `noust server cleanup`, which has no action for
+  volumes, says with `--plan` what an action would remove and whose each thing is.
+- **Volumes of a container application are copied** from Backups, as a Compose stack's are, and the helper
+  container that copies them is pinned by tag and digest.
+- **Installing Docker asks for the packages each distribution has**: Docker and Compose from the system's
+  repositories on Ubuntu, Debian 13, Fedora and openSUSE. Debian 12 and 11 only package Compose version 1, which
+  Noust says before it installs anything, pointing to Docker's own repository; the rest of the RPM family is told
+  how and never given a repository.
+
+## A machine that only has Docker
+
+- **The central of a NAS can deploy on the machine's Docker** (items 187, 188). It is off until it is asked
+  twice, on purpose, in the file that creates the container: the machine's Docker socket mounted into it and
+  `NOUST_DEPLOY_HERE=containers`. The console cannot turn it on. `noust central deploy-here check` proves the
+  setting, the socket, the engine, the group and that the applications' folder is the same folder inside the
+  container and on the machine. [central-deploy-here.md](central-deploy-here.md) says what you agree to: whoever
+  signs in as an administrator can do what root can on the NAS.
+- **What it deploys**: container applications, Compose stacks and the recipes that are Compose stacks, database
+  engines in containers (the listings of the Databases area answer with the engines Noust runs, their databases
+  and users, and say why there is no PostgreSQL of the machine's own; making an instance, a database and a user,
+  copying and restoring work there), updates with the health check and the way back, logs, a console, and copies
+  of volumes and of the databases of a stack. What needs systemd or a web server on the machine (native
+  applications, domains and certificates of Noust, previews, an application's scheduled tasks, the zero-downtime
+  relay, and the machine's own services, firewall and clock) is not offered, in one sentence that the commands
+  repeat; the table of functions also says that the machine's own processes, disks and packages are not what a
+  container shows.
+- **Reaching what you deploy.** With no web server, an application is published on a port of the machine, from
+  8081, and its address is the machine's name and that port. Its page says what to paste into the NAS's own
+  reverse proxy (`GET /api/apps/{domain}/address`), with the steps for the proxies of the common NAS systems, or
+  an outbound Cloudflare tunnel whose connector is a container Docker restarts, with its token in a file only it
+  reads.
+- **Nothing waits for a timer that does not exist.** The central runs the schedules itself (copies of
+  applications and volumes, retention, the Docker cleanup, and the look for new image versions only when
+  `central.image_check` says when), runs once what came due while it was off and says so
+  (`noust central schedule status`).
+- **A stack that already ran on the NAS is brought to Noust** without touching it: it writes no unit and looks for
+  no site, says first which containers would not come back and whether the stack only answers on the machine, and
+  refuses one whose containers another Compose made, naming which.
+- **The image carries Docker's client**: Docker 29.9.3, Compose 5.7.1 and buildx 0.39.0, each fixed by the sum
+  of its file. The client asks the engine which API it speaks and uses the lower, so one image serves the
+  engines of a Synology, of Debian 12 and of a UGREEN (API 1.41 and later).
+- **Noust from the App Center of a UGREEN NAS** (items 198, 199). A package of the central for UGOS Pro, with a
+  form (the console's port, who may open it, the names of the NAS for its certificate) and an icon, is built from
+  `packaging/ugreen/`. The icon opens plain HTTP on a port that only redirects to the console over HTTPS
+  (`NOUST_REDIRECT_PORT`, a door in cleartext built as one), the first start in a container names the container
+  and says that the token gives the whole central, not root on the machine, and the app has no Docker socket, so
+  it manages servers and deploys nothing on the NAS. New versions arrive through the store: the version check says
+  where Noust was installed from (`installed_from`, set by `NOUST_INSTALLED_FROM`) and gives no command, and
+  `POST /api/system/update` answers `501 app_store` where a container image answered `container_image`.
+  [ugreen.md](ugreen.md).
+- **What each server can do is one table** (item 187). Each function says what it needs (the server role, or a
+  fact of the machine: systemd, a web server, Docker, root, the journal), the refusal of a hub takes its words
+  from it, and the session says for every function whether it works here and why not. A hub on a NAS is simply a
+  Noust without some functions, and nothing is offered there that leads nowhere.
+
+## The built-in assistant
+
+- **An assistant that explains, investigates and proposes** (item 171), off until an administrator turns it on,
+  with the model the operator chooses: a service that speaks the OpenAI-compatible protocol, or a model on this
+  machine or the operator's network. Noust sells no model. From a failed deployment, a diagnosis, a firing alert
+  or the palette ("Explain this"), a panel says which page it reads and what it has read, quotes the lines of an
+  error as Noust holds them, and shows the answer with the things it looked at. `noust assistant
+  status|enable|configure|disable|probe|usage|ask`. [assistant.md](assistant.md).
+- **Before it is used, a probe says what the model can do**: whether the provider answers, has the model, and
+  makes a well formed call to a tool. When it does not, the assistant only explains what it is shown.
+- **Nothing leaves the server by default.** What leaves is what a person asked and what the assistant read to
+  answer, through the tools the MCP endpoint offers plus a search of this documentation and of the API's
+  operations, with the values of variables, Noust's credentials and anything shaped like a credential removed
+  and, for a provider outside the operator's network, emails and IP addresses disguised. The key is kept sealed
+  and never returned. An address is judged on every request, no redirect is followed, and plain HTTP only reaches
+  a host the operator listed. [PRIVACY.md](PRIVACY.md) lists the request.
+- **What it cannot do is not decided by the model.** Each conversation acts with a token of its own, held to the
+  intersection of what the person holds and a preset, never past a floor nobody raises (secrets, terminals,
+  access to the machine, accounts, the audit trail, security, settings, the fleet and the teams), and never in
+  sudo mode. A change is a proposal with the exact call, drawn from the operation and not from the model's
+  words, that the person approves with their own session, where sudo mode and a second approver are asked as
+  ever. A value that is neither the person's nor Noust's makes the call a proposal, and after the assistant has
+  read text somebody else wrote, so does everything in that conversation.
+- **It has limits that cannot be removed**: steps in a turn, tokens in a conversation, spending in a
+  conversation and in a month (against a price table the operator writes) and changes in an hour, said at 80 % and
+  cut between steps. Conversations are kept per account, masked, for `retention.assistant_days` (30). Turning it
+  off revokes every token it holds.
+- **A battery decides whether it ships.** [assistant-battery.md](assistant-battery.md) says what 53 scenarios with
+  deterministic oracles test (secrets, actions, approval, injection through a journal, a build log, a commit
+  message and a branch name, limits and the fleet), the four defects it found and what it does not say.
+- **Under a security profile**, `security.assistant_flows` (asked by ENS MEDIA and ALTA) lets it be turned on only
+  with a model on this machine or the operator's network, or a provider declared an authorized flow with its
+  reason recorded. The role permission is `assistant.use`: the administrator and the operator, and no team role.
+- **With a fleet it is the central's**, and works on the server chosen in the console through the central, under
+  the ceiling each server sets for it.
+- **The documentation travels inside the package** (`src/noust/docs`), so the assistant finds it on every
+  install: PyPI, the Debian and RPM packages and the central's image. The Debian package keeps only its README as a
+  document of its own and no longer installs the notes of the 3.x series.
+
+## See what it will do
+
+- **A plan before an operation is applied** (item 183): the commands in order, the files and what changes in
+  them, what Noust found out by looking, what it does not know and what applying will ask for. Updating an
+  application, going back to a deployment, restarting, stopping and starting, changing limits, renewing a
+  certificate, adding and removing a domain, deleting an application, migrating to releases and a Docker cleanup
+  have one. It runs nothing, asks for no sudo mode and leaves nothing behind, and never shows a secret.
+- **Where it is**: the **See what it will do** fold of the dialog of the operation, `noust update --plan` and
+  `noust delete --plan`, and the API (`x-noust-plan` says which operations have one). A proposal of the
+  assistant carries the plan its operation publishes. [plans.md](plans.md).
+
+## Who calls: tokens, the approval policy and what a credential did
+
+- **An approval policy for a caller that is not a person** (item 184). For each permission that changes
+  something, in production and in every other environment, a token and the assistant each have a value: it does
+  it, it proposes it and a person approves it in the console, or it cannot. A token ships as `alone` everywhere
+  its permissions let it, so nothing changes until somebody changes the table; the assistant proposes everything.
+  Who calls is read from the credential and never from what a client says of itself. **Settings > Approval
+  policy** and `noust approval policy show|set|reset`.
+- **Approvals say who asked.** A request carries the class of caller, the token, the environment, the application
+  and the client the token said it was (labelled as its word), and is decided by a person who holds what the
+  call needs; a token never approves, not even its own. A tool of MCP that changes something takes `approval`,
+  and a call that waits is answered "Not done", not as an error.
+- **What each credential did, and a way to leave it as it was** (item 185). A token's interventions (what it did
+  without half an hour of silence) with the deployments that resulted; `noust token activity NAME` reads them, and
+  leaving one as it was is a plan first (what goes back, what does not and why) and then a job in sudo mode that
+  puts back the deployment before, asking again where a schema changed. The assistant is one credential for each
+  person.
+- **A token is narrowed to what a job needs by a name** (item 163): `noust token create --preset deploy_only`
+  (also `read_apps`, `deploy_and_restart` and `backups`), `preset` in `POST /api/auth/tokens`, and a fourth choice
+  in the token dialog, "Only what a job needs". A token that the master token or root issues is narrowed to what
+  it was asked, where the request used to be dropped without a word.
+- **Credentials have one name.** The master token is "master" in the audit trail, in Activity and in jobs, an
+  account is its username, and a command at the terminal is `cli:<login>` (item 152).
+
+## The fleet
+
+- **Settings is the central's** (item 166). With a fleet, the server chosen at the top does not count in Settings.
+  A channel, an alert rule, a backup destination, an image registry, a shared variable and the console's address
+  are listed once, in the section they belong to, with how many servers follow each (the central is the source
+  and is never counted) and which have not applied it yet; one setting is applied alone; a panel lists the
+  servers and a value for one of them is made from there. A server's policy (whether it looks for new versions,
+  the account certificates are issued to, how many backups it keeps and how long a deployment may build) is one
+  setting of the fleet, `policy/general`. What each server holds of its own (code hosts, log shipping, secret
+  managers, deploy keys) is a table of servers in its section. Whether a server follows the fleet or is
+  independent is decided on its own page, **Server > With the central**, and one that follows again can take
+  over what it kept. A lone server sees the Settings it had.
+- **All servers works in every area** (items 187, 196). The scope is part of the address (`/fleet/<path>`), so a
+  reload, a link and the back button keep it and nothing but the person moves the selector. Each section of an
+  area has a page under All servers: the ones with a view of the whole fleet show it, and the rest say which
+  server to open and take the person there. A page that speaks of several servers says so in its first line.
+- **A hub never offers what it cannot do** (item 187). The console asks the session's table of functions for the
+  navigation, the palette, the breadcrumbs and the links between pages, so a hub in a container has no page of the
+  machine's own clock, system log, root shell, firewall or security checks.
+- **The central takes the copies of its servers** (item 195): through the tunnel it already has to each one, so
+  nothing is opened on the router and no server holds the key to where they end up. Applications, databases,
+  volumes and Noust's own state are taken in pieces that resume, written under a name no good copy has until
+  every checksum matched; a full disk stops the pass, says so and deletes nothing. They are listed, restored on
+  the server they came from or on another, or let go from **Copies on the central** in the fleet's Backups, and
+  `noust fleet collect enable|disable|follow|set|run|list|delete|restore|status`. A server before 4.3 only gives
+  its database dumps until it is updated. It is one copy on one machine, which `noust health` and the compliance
+  checks say. [central-maintain.md](central-maintain.md#taking-the-copies-of-your-servers).
+
+## Notifications
+
+- **Messages kept together** (item 190). A Telegram group keeps each subject (deploys, alerts, backups, security,
+  system) in a topic of its own, and Noust creates the missing topics through the bot when somebody asks
+  (`noust notify telegram-topics --create`), saying what the group lacks when it cannot. A recovery answers the
+  message that announced the failure, and the end of a deploy its start. A topic that was deleted or closed no
+  longer loses the notice: it is sent again to the general thread, with a line that says so. E-mail about one thing
+  has one subject, without how it went, and carries `In-Reply-To` and `References`, so a mail client reads one
+  conversation. A channel that cannot group says why instead of offering it.
+- **A change nobody confirmed is told** (item 138). When the timer undoes a change to the firewall or to SSH that
+  was not confirmed in time, the channels get `access_change_reverted` (which change, who applied it, when and
+  what the undo printed), the audit trail says `server.firewall_expired` or `server.ssh_expired` instead of one
+  more change, and the Server page says so for a day. The notice is worded in the reader's language from what the
+  change was.
+- **Four more events**: `cert_renewal_failed`, `app_oom_killed`, `domain_expiring` and `domain_expired`, all on by
+  default (the two of the registration are only raised while `monitor.domain_expiry` is on).
+- **The e-mail channel is not configured until mail can leave** (item 137): a provider with everything it needs,
+  or an SMTP host. Saving SMTP asks for the server, and a channel switched on with nothing to send through no
+  longer counts as one.
+- **Alerts opens with what Noust watches** (item 159): a short list of what is watched without being asked, whether
+  each is on, and by which of the server's channels what it finds would go, said once in the head and only per
+  row where a channel narrows what it hears. What ships off and is worth turning on (the registration date of
+  domains) is offered apart, with what it asks and of whom.
+- **What needs attention is one list with one count** (item 161). The bell, Home, the Server page and the
+  sidebar's counters read the one list the server joins and ranks: the state of applications, the machine's own
+  facts (updates, a reboot, the end of support of the system, a disk, the clock, the swap, failed services), the
+  open findings of Security, and what is a person's (requests waiting for their decision, a newer Noust, recipes
+  behind). A row says where it comes from and opens that screen from a press anywhere on it.
+
+## Backups and restores
+
+- **A database copy made with Back up now is kept** (item 140): it is recorded as manual (`noust db backup-run
+  --manual`), and retention, local and on a destination, only deletes what a schedule made. Copies recorded before
+  4.3 cannot be told from the rest and stay recorded as scheduled.
+- **Dumps of an engine that runs in a container reach their destination** (item 191). The folder a destination
+  kept them in could not be named for an engine whose key carries an `@` and a dot, so the upload failed every
+  night. A host engine's folder is what it always was: nothing already on a destination moves.
+- **An application's copy takes the databases it is linked to** (item 192), wherever they live. An application
+  whose database is a container instance, and that is not a Compose stack, was copied with its files only.
+- **The restore drill no longer fails on a role Noust made** (item 193): a Compose stack's PostgreSQL dump names
+  the read-only role Noust creates, and loading it into a throwaway container failed on the first `GRANT`. The drill
+  loads without grants and owners and says so; a real restore makes the roles Noust created and stops on one that
+  is not Noust's and is missing.
+- **Noust's own copy packs the store it uses** (item 194). On a server whose store was still under
+  `~/.local/share/noust` and whose `/var/lib/noust` held an empty `noust.db`, the self-backup bundled the empty
+  file. The bundle now holds the store Noust uses with the key its secrets are sealed under, `noust setup doctor`
+  names a store outside the state directory, and `noust setup move-store` moves it, sealing the secrets again.
+- **A restore that was tried is evidence** (item 174). ENS-BAK-03 judges that a restore of each application was
+  tried in the last 30 days and says when, how it ended, how long it took and how many databases it loaded;
+  `noust ens report` has a section of restores tried, and the compliance control `restore_drill_days` keeps
+  `backup.drill_days` at 30 days at most, and not off, where a framework asks for it.
+
+## Certificates, domains and the kernel
+
+- **A certificate is judged on its own life** (item 172): healthy from a third of its life left, renewal pending
+  under a third, critical under a sixth, expired, whatever its length, because a threshold in days is wrong for at
+  least one of the lifetimes certificates now have. `noust health`, `noust diagnose`, `noust cert list`, the
+  monitor, the console and `GET /api/certs` all ask the one answer; `monitor.cert_warning_days` stays as the
+  ceiling.
+- **The result of the renewal is read too**: certbot's timer and its last run, with its own words, in `noust
+  health` and as `cert_renewal_failed`. The nginx sites Noust writes no longer ask for OCSP stapling, which nginx
+  warned about at every reload; a site written before changes when Noust writes it again, an operator's site is
+  never touched, and `noust setup doctor` names the sites that still carry it.
+- **When the registration of a domain expires** (item 173): off until `monitor.domain_expiry` is turned on, the
+  monitor asks the domain's registry over RDAP once a day and says `domain_expiring` at 30 and 7 days and
+  `domain_expired`. `noust domain expiry [--refresh]` shows it and says first what it sends and to whom;
+  `noust domain list` has a Registration column; the domain name is what leaves the server
+  ([PRIVACY.md](PRIVACY.md)).
+- **The kernel's kills are named by application** (item 175). The diagnosis says the kernel killed this
+  application, how many times since its unit started, and its memory limit against the most it used; the monitor
+  announces each rise once (`app_oom_killed`). Without cgroup v2 it says that it cannot tell whose the kill was.
+
+## Signing in, confirming and tokens
+
+- **The first second factor is set up where it is asked for** (items 131, 132). "Confirm it's you" sets the factor
+  up in the same dialog for an account that has none, says without blame what leaving it for later costs, and
+  goes back to the action. Setting up the first factor asks for a recent proof of who is asking: a sign-in at most
+  ten minutes old, or the account's password given with the request (`identity_proof_required` and
+  `fresh_sign_in_required` otherwise), so the cookie of an old session cannot bind an authenticator of its own. The
+  password is asked where the server asks for one.
+- **The access token says what it is** (items 133, 134). The token dialog says that the access token belongs to
+  nobody, cannot be tied to a team, a project or an environment, and shows what a token will hold before it is
+  made. The sign-in's "lost it" link issues a new one (`noust web token --new`) and says that the token in use stops
+  working.
+- **An invitation's link comes from the console's public address** (item 149), `web.public_url`, and says when it
+  cannot work for the person invited (through an SSH tunnel the address of the browser is a local one). The
+  installer prints `http://localhost:8080/login`, because a passkey is bound to a name and refused on an address of
+  numbers.
+- **A secret typed by hand is hidden** (item 148): a variable added in the new application wizard's own row is
+  hidden when its name says it is a secret or its value looks like one, by the rules the server holds.
+- **Opening a port only to some addresses says when a rule for everybody keeps it open** (item 139), and offers,
+  unticked, to remove it in the same step, as one change with one confirmation window. Moving a rule to another
+  origin is one step too (`noust server security firewall change-source RULE --from ORIGIN`, item 164).
+
+## The console
+
+- **Arriving and finding** (items 157, 158, 160, 197). The main bar reads in words from 1200 px wide, not 1440, and
+  on a short screen keeps Settings and the fold button in sight at 768 px. The sign-in page says where the access
+  token is and the command that issues another, and the first account's page says that the account is the
+  person's own. The palette finds "migrate", "once", "upload" and "413", and an application's Diagnose, Terminal
+  and Files. Pointing at a tab, a segment or a row no longer looks like choosing it: under the pointer an option is
+  one flat tone darker, and only the chosen one has a shape.
+- **Home, while it is arranged** (items 167, 168, 169): the page is as long as its content, a widget that is held
+  leaves the outline of its place at its real size with the name of that size, its edges and corner change its
+  size, the page scrolls under it, a widget from the gallery is dragged to the place it is wanted, and moving,
+  resizing and removing offer Undo. The gallery's cards use their width.
+- **What the console says is happening** (items 135, 136, 141 to 147, 154). A first deploy that fails is told on
+  the page of its domain, with its output in the system's own words and a way to try again with what was asked
+  (`GET /api/first-deploys`), and is listed in what needs attention. A server whose only news is a failed first
+  deploy shows it on Home, not the first steps. The page of an application and its column draw one state, a deploy
+  running included, and the header shows the port that answers, which in zero-downtime mode is not the recorded one
+  (`serving_port`); the top bar no longer counts the idle copy as stopped. Needs attention opens from every width,
+  the bell lists every line, a fleet of only its central says it has no servers yet, and "You started it and left
+  that page" is said only of a person who left. The answer to Continue and the field that stops a save are
+  brought into sight.
+- **Scheduled tasks** (items 150, 164). A task of an application runs the way the application does: in its folder,
+  as its account, with its `.env`, with what its unit sets for the process and with its own tools first on the
+  `PATH`; `noust cron create NAME COMMAND --app DOMAIN`. A task can run once at a date and retire itself
+  (`noust cron create NAME COMMAND --once --at "YYYY-MM-DD HH:MM"`), in the server's time with its zone said; its
+  result stays for 30 days (`noust cron history`, **Ran once**), including whether the server ran it late. A task
+  written before 4.3 changes only when it is written again, and `noust setup doctor` names each with the command.
+- **The audit log exports as CSV or NDJSON** (item 164) with the filter of the Audit page, by the code
+  `noust audit export` shares: the CSV has what each event recorded in its last column, credentials of a
+  recognisable shape masked, and a cell a spreadsheet would run as a formula written as text.
+- **Python deploys ask for what the deployment uses** (item 156): `python3` and that it can make an environment
+  with pip in it, not the system's `pip3`, which the RPM package does not depend on.
+- **File descriptors** (item 165, issue 19). A console that reaches its limit of open files answers `503
+  descriptors_exhausted` with the fix and the command, `noust health` shows what `noust-web` and `noust-monitor` hold
+  against their limit and warns from 80 %, and both units are written with `LimitNOFILE=65536`.
+
+## Language
+
+- **No English of Noust's own in a console read in Spanish** (item 151). A sentence Noust writes for a person is a
+  code and its values, a test reads the tree for the next one written as a literal, and a failed job keeps the
+  code and the values of its failure apart from what the program printed, so the failure is read in the language of
+  whoever looks at it. What a system printed is still shown as it printed it.
+- **The four community languages carry what 4.3 and 4.2 added.** German, French, Brazilian Portuguese and
+  Simplified Chinese had fallen under the 95 % of English a released language must keep: the navigation and Home
+  of 4.2, the widgets and the texts of 4.3 are now in each as drafts that nobody who speaks the language has read
+  yet.
+
+## Security
+
+- **`Strict-Transport-Security` only on a name the console owns** (item 198): `web.hsts` is `auto` (the name
+  `noust console expose` published), `always` or `never`, and the header never carries `includeSubDomains`.
+- **`Permissions-Policy` opens `display-capture` to the console's own origin and to nothing it could be made to
+  embed**, which the button that takes a picture of the tab for a problem report needs. The camera, the microphone
+  and the rest stay closed.
+- **The central's image carries Docker 29.9.3, Compose 5.7.1 and buildx 0.39.0**, each fixed by the sum of its
+  file, in place of an older pair: the advisories published against what the three programs are built with go from
+  5 critical and 154 high to none critical and 4 high, in libraries Noust does not ask them to use.
+- **A Compose file's privileges are judged on what it resolves to**, and a helper container that copies a volume is
+  pinned by digest and says it is Noust's (above).
+- **A bundle of Noust's own state restored between a user's store and the system's seals its secrets again**
+  under the key the server reads, and a bundle whose key does not open one of its secrets is refused before
+  anything is stopped or written (item 194).
+- **The code-scanning alerts that were open are closed or decided with the reason written down** (item 87): the
+  password of an address in text and a private key are found in linear time, the provider's `golang.org/x/crypto`
+  moves past its advisory, and the console's error buffer is held to what it passes on.
+- **Nothing new leaves the server by default.** What 4.3 can ask of somebody else is each off until a person
+  turns it on: the assistant's model, the registry of a domain, the registries of the images in use, and the
+  topics of a Telegram group ([PRIVACY.md](PRIVACY.md)).
+
+## Fixes
+
+- A first deployment that fails is remembered, and a deployment that fails on an application that exists is amber
+  when its service runs, instead of red (items 141, 147).
+- `PUT /api/config/smtp` with no host answers 422 on the field instead of saving a channel that cannot send
+  (item 137), and `PUT /api/config/notifications/telegram` changes only the bot and the chat, where it used to
+  write the whole block and lose the topics, events and route (item 190).
+- A restore of a Compose stack's PostgreSQL stops before touching anything, naming the command that makes the role,
+  when the dump names a role that is not Noust's and is missing (item 193).
+- A one-time task that failed no longer leaves a failed unit in `systemctl --failed`, and an application's export
+  leaves out a task that runs once, which would otherwise fire on a date on another server and never go away
+  (item 164).
+- `noust setup doctor` has a section for each of the store's place, the scheduled tasks to write again, the units
+  that still carry the limit of 1024 open files and the sites that still ask for stapling, each with the command
+  that settles it (items 194, 150, 165, 172).
+- A copy of a database is titled as one in the jobs, not as a copy of an application (item 153).
+- A firewall or SSH change that nobody confirmed is told as undone in Activity, not as one more change, and in the
+  language of whoever reads it (item 138).
+- The security model says what confirms sudo mode: a code of the authenticator or a passkey, and the password as
+  well only where the policy asks for it, always under the ENS profile (item 155).
