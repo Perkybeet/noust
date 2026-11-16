@@ -1,0 +1,360 @@
+# Configuration reference
+
+Noust keeps its settings in one file, `/etc/noust/config.yaml` (mode `0600`, in a `0700`
+directory: it holds the database credentials and, encrypted, the SMTP and notification ones). Nothing needs to be in it:
+every setting has a default, `noust config show` prints what is in effect, and the file only has
+to hold what you changed.
+
+```bash
+noust config show                       # the settings in effect, secrets shown as ***
+noust config get monitor.smtp.host      # one setting
+noust config set web.port 8443          # one setting, checked before it is written
+noust config set monitor.smtp.password  # a secret: asked hidden at a terminal
+printf '%s' "$PASS" | noust config set monitor.smtp.password --stdin
+noust config set monitor.email_recipients a@example.com,b@example.com   # a list
+noust config upgrade                    # append the sections a newer Noust introduced
+noust config clean                      # remove the settings no version reads any more
+noust config path                       # where the file is
+```
+
+A secret typed as `VALUE` lands in the shell history and in `ps` for every local user, so secrets
+go through the prompt or `--stdin`. `noust config show` and `GET /api/config` print `***` for
+every secret that is set and an empty value for one that is not.
+
+The environment overrides a few settings for one process: `NOUST_APPS_DIR` (`apps_directory`),
+`NOUST_WEBSERVER` (`webserver`), `NOUST_SERVICE_USER` (`service_user`), `NOUST_SSL_EMAIL`
+(`ssl.email`), `NOUST_CENTRAL_ROLE` (`central.role`) and `NOUST_DEPLOY_HERE` (`central.deploy_here`).
+
+A value that fails its check (a port out of range, a relative path, a host that is not a name) is
+refused in the same words by `noust config set`, the console and the API.
+
+## Obsolete settings
+
+Settings of features that no longer exist stay in a file an older version wrote. They are ignored
+on load, they are not part of `noust config show` (which lists them apart, by name and never with
+a value), `noust config set` refuses them, and a full `PUT /api/config` cannot bring them back.
+
+`noust config clean` removes them from `config.yaml` as text: every comment and the rest of the
+file stay as they are. It first writes a copy next to the file with the date in its name
+(`config.yaml.bak-20260929-101500`, mode `0600`) - except that the credential of a removed feature
+is not kept in it: the OpenAI API key the old AI monitor stored is deleted from the file and is
+not in the copy either. A file it cannot edit safely as text (a multi-line flow mapping holding
+one of them) is left untouched and the command says which lines to remove by hand. The package
+upgrade runs `noust config upgrade` and then `noust config clean`.
+
+| Setting | Why it is obsolete |
+|---|---|
+| `monitor.use_ai` | The AI analysis of processes was removed in 1.0. |
+| `monitor.ai_interval` | The AI analysis of processes was removed in 1.0. |
+| `monitor.openai` | Nothing sends data to OpenAI. The API key stored here is deleted by `noust config clean`. |
+| `monitor.auto_terminate` | The monitor reports; it never kills a process. Read as `false` whatever the file says. |
+| `monitor.terminate_malicious_only` | Same. Read as `false`. |
+| `monitor.dry_run` | Same. Read as `true`. |
+| `databases.backup_dir` | Backups go where `backup.directory` says. |
+| `databases.default_encoding` | A database is created with the character set of its own command or request (utf8mb4 for MySQL, UTF8 for PostgreSQL). |
+| `databases.auto_start` | `noust db install` always starts the engine it installs. |
+| `databases.auto_enable` | `noust db install` always enables the engine it installs at boot. |
+| `logging` | Noust writes its logs to journald and to files it names itself. |
+| `nodejs` | Noust uses the Node.js installed on the machine; these were never consulted. |
+| `python` | Noust uses the Python installed on the machine; these were never consulted. |
+
+## Applications and web server
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `apps_directory` | `/var/www/apps` | Where applications are deployed, one directory per domain. Must be an absolute path. A Docker Compose stack adopted with `noust app adopt` stays where it already ran (`/opt/shop`, say), outside this directory; deleting it keeps that directory unless `noust delete --remove-adopted-directory` names it (see [compose.md](compose-adopt.md#adopting-a-running-stack)). |
+| `webserver` | `nginx` | The web server **new** applications are put behind: `nginx` or `apache`. Every application keeps the one it was deployed behind (`apps.webserver`), and changing this moves none of them, so it is refused (409 over the API) while applications or sites are still behind the other server, with how many are on each. `noust webserver migrate --to apache --all` moves them ([the guide](network-webserver.md)). |
+| `service_user` | `www-data` | The Unix user the units of applications without an account of their own run as, and their files belong to. From 3.2 an application Noust creates runs as its own account, `noust-app-<name>`, and one from before moves to its own with `noust app identity migrate`; Docker Compose stacks, monorepos and static sites keep this account (see [releases.md](builds-and-accounts.md#the-account-an-application-runs-as)). |
+| `service_group` | `www-data` | Its group. |
+| `deploy.layout` | `releases` | Layout of applications created from now on: `releases` builds each deploy in its own directory behind a health gate; `inplace` is the 1.x layout. An application keeps its layout until it is migrated explicitly. |
+| `deploy.zero_downtime` | `true` | Whether a new application on releases that runs a process behind nginx starts in zero-downtime mode (two instances, blue and green) right after its first deploy answered. Applications that exist keep how they update until `noust app zero-downtime DOMAIN on`; static and PHP sites never need it (see [releases.md](releases-deploys.md#zero-downtime-by-default)). |
+| `deploy.hardening` | `default` | The systemd sandbox the unit of a new application runs in: `off` (the unit as it was before 4.0), `default` (read-only filesystem but for the application's own tree, no home directories, no devices, no capabilities, a system-call filter) or `strict` (also bans the privileged and resource calls and, for runtimes without a JIT, writable executable memory). Applications that exist keep their unit until `noust app hardening set` moves them; Docker Compose stacks, containers and PHP sites are not hardened this way (see [runtime.md](runtime.md#service-security)). |
+| `deploy.drain_seconds` | `10` | Seconds the old instance keeps running after traffic moved, for the applications that start in zero-downtime mode (0 to 300). |
+| `deploy.max_concurrent_builds` | `2` | How many applications build at the same time (1 to 16). One application never builds two things at once, and anything that is not a build (a restore, an operating system update) runs alone; the rest wait in the queue (see [releases.md](releases-deploys.md#the-deploy-queue)). Read again every few seconds: no restart. |
+| `deploy.install_timeout` | `1800` | Seconds the install of an application's dependencies may take before it is stopped (60 to 86400). An application's build block (`timeout`) overrides it for itself; see [build.md](build.md#how-long-a-build-may-take). Read again every few seconds. |
+| `deploy.build_timeout` | `2700` | Seconds an application's build may take before it is stopped (60 to 86400), with the same override. |
+| `deploy.queue_limit` | `25` | How many deployments and updates may wait before the next is refused with 429 (1 to 1000). A push that is the same as one already waiting merges into it and needs no room. |
+| `deploy.history_keep` | `20` | How many deployments of an application's history are kept, with their build logs (1 to 1000). An application can have its own with `noust deploy keep`; the older ones go at its next deploy. The builds kept on disk to go back to are `noust releases keep` (see [delivery.md](delivery.md#how-much-history-is-kept)). |
+| `deploy.max_minutes` | `60` | The longest a deployment may build, in minutes (0 to 1440; 0 is no limit). A build past it is stopped as an operator's cancel would, its process group included, and the deployment and its job end as a failure that says the time limit was the reason, not as a cancellation. The clock starts when the build starts, not while it waits in the queue. Read again every few seconds: no restart. Set it from **Settings > General** too. |
+| `ssl.email` | empty | The address certbot registers certificates with. Empty registers without one. |
+| `ssl.enabled` | `true` | Shown in the console's general settings. It switches nothing: every site gets a certificate unless it is created with `--no-ssl`. |
+| `ssl.provider` | `certbot` | Shown in the console's general settings. certbot is the only provider. |
+| `ssl.hsts` | `false` | Whether the nginx and Apache sites Noust writes send `Strict-Transport-Security: max-age=31536000` on their HTTPS side. Off until asked for: browsers remember it for a year, so it is not something to turn on for a domain that may still need plain HTTP. Sites already written change the next time they are written (a deploy, a domain change, `noust site`). |
+| `ssl.ca` | `letsencrypt` | The certificate authority certificates are ordered from: `letsencrypt`, `letsencrypt-staging` (certificates browsers do not trust, for trying a setup without spending the rate limit), `zerossl`, `google` (both ask for an external account: `noust cert acme`), or `custom` with `ssl.acme_server`. See [certificates.md](certificates.md#the-certificate-authority). |
+| `ssl.acme_server` | empty | The directory URL of a `custom` authority. An `https://` URL without credentials. |
+| `ssl.eab_kid` | empty | The key id of the external account ZeroSSL and Google ask for. Its HMAC key is not a setting: it is kept in the secret store (`noust cert acme --eab-hmac-key`). |
+| `ssl.reuse_wildcard` | `true` | Whether an application one label under a wildcard certificate that already exists is served with it instead of getting an order of its own. What keeps a preview per pull request from spending the authority's rate limit. |
+| `dns.resolvers` | `1.1.1.1`, `8.8.8.8` | The resolvers the check "does this name point here?" asks, in order: the public DNS the authority's validators ask, not the server's own cache. Empty means the server's resolver. At most 8 addresses. |
+| `dns.check_previews` | `true` | The job of a preview resolves the name it is about to take and says in its log when it points elsewhere ([previews.md](previews.md#turning-them-on)). The build goes on whatever it says. |
+| `dns.public_addresses` | empty | This server's public addresses when it cannot see them itself (behind NAT, or a cloud's 1:1 address). The DNS check compares with them, and the records Noust creates point at them. |
+| `backup.directory` | `/var/backups/noust` | Where backups are written. Empty means the default; a relative path is refused. Not in the defaults: it is read with its default in place. |
+| `backup.max_per_app` | `10` | Backups kept per application by rotation, 1 to 100. A schedule with its own retention ignores it. |
+| `backup.max_bytes` | 256 GiB | Largest total size a backup archive may extract to; one past it is refused instead of filling the disk during a restore. Not in the defaults. |
+| `backup.max_entries` | `2000000` | Most files a backup archive may hold when it is extracted; one past it is refused. Not in the defaults. |
+| `backup.encrypt_new_destinations` | `true` | Whether a backup destination made without a word about encryption is wrapped in rclone's crypt backend. What the operator said wins. Not in the defaults. |
+| `backup.drill_days` | `30` | A scheduled backup rehearses restoring itself when the last good drill is older than this many days; `0` turns it off. A framework that asks for restores that were tried (ENS MEDIA, ISO/IEC 27001, NIS2, the GDPR) holds it to 30 and does not let it be turned off (the control `restore_drill_days`); `noust ens check` and `noust ens report` show the last restore tried, its result and how long it took. Not in the defaults. |
+| `updates.check` | `true` | Whether Noust asks GitHub for the latest release (the CLI's background check and `GET /api/system/version`). Off means the request is never made. |
+| `updates.auto.enabled` | `false` | Whether Noust installs its own new releases by itself, inside the window below. Needs `updates.check`. Turn it on with `noust self-update set --enable`, which also writes the timer. |
+| `updates.auto.channel` | `patch` | Which releases it takes: `security` (only one that fixes a vulnerability), `patch` (also the patch releases of the minor it runs) or `stable` (also a new minor). A new major version is never taken. |
+| `updates.auto.window` | `03:00-05:00` | The hours an update may start in, on the server's clock; it may cross midnight (`23:00-01:00`). |
+| `updates.auto.days` | `daily` | The days the window opens on: `daily`, or weekdays (`mon,thu`). A window that crosses midnight belongs to the day it opened on. |
+
+`backup.*` and the other settings listed below as "not in the defaults" are read where they are
+used, with their default in the code, so a file that lacks them behaves as documented.
+
+## Server
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `server.name` | empty | The name this server goes by in every notification and, on a central, in the fleet. Empty means the machine's short hostname. At most 64 characters, one line. |
+| `central.role` | `server` | What this Noust is for: `server` deploys and serves applications (and may also manage other servers), `hub` only manages other servers (a central on a NAS or in a container) and refuses applications, sites and certificates. `NOUST_CENTRAL_ROLE` overrides it. |
+| `central.deploy_here` | empty | Whether a hub also deploys on its machine's own Docker: `containers` lets it run container applications and Compose stacks through the Docker socket it was given, empty (or `off`) keeps it a hub that deploys nothing. `NOUST_DEPLOY_HERE` sets it, and the console cannot turn it on: see [Deploy where the central runs](central-deploy-here.md). |
+| `central.image_check` | empty | When a central that deploys containers asks the registries whether the images in use have a new version, from its own scheduler: one of Noust's schedule names (`daily`, `weekly`) or a calendar expression (`Mon *-*-* 04:00:00`). Empty (or `off`) is never, the default: it is a request to somebody else's server ([PRIVACY.md](PRIVACY.md)), so nothing makes it until a person says when. |
+| `central.name` | the host name | The name a central goes by to the servers it manages. Not in the defaults. |
+| `metrics.retention_days` | `400` | Days the hourly tier of the charts' history is kept (35 to 3650). The finer tiers are fixed: 5 s for 2 hours, 1 minute for 26 hours, 10 minutes for 8 days. The per-minute process samples behind the charts are kept as long as the minute tier (26 hours); the unit failures and recoveries the timeline reads, as long as the hourly tier (see [MONITOR.md](MONITOR.md#process-samples)). |
+
+## Console
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `web.enabled` | `false` | Set to `true` when the console runs on this server: the CLI then prints links into it (`--open`). |
+| `web.host` | `127.0.0.1` | The address the CLI builds console links from and the firewall checks read. What the console actually binds is decided by `noust web start --host`, never by this file. |
+| `web.port` | `8080` | The same for the port. Must be 1 to 65535. |
+| `web.public_url` | empty | Where the console is reachable from a browser (an absolute `https://` URL, no trailing slash). Deploy notifications link to it, and its host is always allowed by `web.allowed_hosts`. |
+| `web.hooks_url` | empty | The public base of `/hooks/` that code hosts deliver to. Written by `noust web expose-hooks`; unset while webhooks can only reach this server through an address of your own. |
+| `github.host` | empty | The GitHub the GitHub App talks to: empty is github.com, or the host of a GitHub Enterprise Server (`ghe.example.com`) or Enterprise Cloud with data residency (`acme.ghe.com`). Set it before the App is created (`noust github host set`): a server that has an App keeps its host unless forced. |
+| `integrations.forge_hosts` | empty | Code hosts whose kind their address does not say, as `host=kind` entries: `git.example.com=gitea`, `code.example.com=forgejo`, `scm.example.com=gogs`, `git.example.org=gitlab`. A host named `gitlab...`, `gitea...`, `forgejo...`, `gogs...` or `bitbucket...` is known by its name, and `codeberg.org` and `gitea.com` by being what they are. It is what lets a deployment mark its commit and a preview comment on its pull request there, and the webhook setup show the right page (see [sources.md](sources.md)). |
+| `web.allowed_hosts` | empty | The Host header values the console answers to, checked on every request: names, or `*.example.com` for every subdomain. A request for any other host gets a 400 saying so. Loopback and the hosts of `web.public_url` and `web.hooks_url` are always allowed. Empty allows any host, as every earlier version did. Names only: no scheme, port or path. |
+| `web.ip_whitelist` | empty | Client addresses or networks allowed to reach the console; empty allows any. `noust web start --allow-ip` overrides it, and a central's `NOUST_ALLOW_IP` too. |
+| `web.api_enabled` | `true` | Whether API tokens (`noust_tok_`) are accepted. Off, a script gets `403 api_disabled` while the console, which signs in with a session, and the command line carry on; a central's fleet token keeps working, since it is how a central reaches this node. Each token can also be restricted to networks: `noust token create --allow-ip` and `noust token set --allow-ip`. |
+| `web.rate_limit_enabled` | `true` | Whether requests are rate limited. |
+| `web.rate_limit_requests` | `120` | Requests without a credential allowed per window and client address. |
+| `web.rate_limit_authenticated_requests` | `1200` | Requests with a valid credential allowed per window and credential. |
+| `web.rate_limit_window` | `60` | Length of that window, in seconds. |
+| `web.max_failed_attempts` | `5` | Failed sign-ins before a client address is locked out. |
+| `web.lockout_duration` | `900` | How long that lockout lasts, in seconds. |
+| `web.token_expiration_hours` | `12` | Console session lifetime in hours, renewed by activity. |
+| `web.session_timeout` | `3600` | Shown in the console's general settings, 300 to 86400. The session lifetime that is enforced is `web.token_expiration_hours` and `auth.session.*`. Not in the defaults. |
+
+## Accounts and audit
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `security.frameworks` | `[]` | The compliance frameworks that are on: `ens-basica`, `ens-media`, `ens-alta`, `iso-27001`, `nis2`, `cis-ig1`, `cis-ig2`, `soc2-security`, `gdpr-32`. Each turns on the controls it names (see [COMPLIANCE.md](COMPLIANCE.md)); several may be on and each control takes the strictest value any asks. Change them with `noust compliance enable` / `disable`. |
+| `security.profile` | `standard` | The setting from before frameworks, kept working: `standard`, or `ens-medium` (any spelling of it, and anything unrecognised) for ENS MEDIA. It means "ENS MEDIA is on". |
+| `security.roles_split`, `security.separation_of_duties`, `security.single_role_per_account`, `security.sso_no_admin`, `security.restricted_tokens`, `security.token_production_approval` | `false` | Controls of their own (accounts): see [COMPLIANCE.md](COMPLIANCE.md). `security.token_production_approval` makes what an API token changes in production wait for a person's approval (the factory value of the approval policy for a token, see [Sudo mode and four-eyes approvals](security-approvals.md)). A framework that asks for one forces it on whatever the setting says; you can only tighten. |
+| `security.second_factor` | `false` | Every account must enrol an authenticator or a passkey before it can do anything else. Off, the first account is offered one and may leave it for later, until the console is published on a name (`noust console expose`, which refuses while any account lacks one) or listens beyond loopback. ENS MEDIA and ALTA, ISO 27001, NIS2, SOC 2 and CIS IG1 force it on. |
+| `security.change_reasons`, `security.exception_reasons` | `false` | Ask for a reason with every change from the command line and every approval request (`--reason`); ask for one with a decision that lowers protection (building as root, accepting a risk, a privileged container, an incident freeze). |
+| `security.master_token`, `security.external_audit_sink`, `security.log_shipping_tls`, `security.backup_offsite`, `security.tls_certificate`, `security.explicit_allowlist`, `security.console_exposure`, `security.database_remote_listen`, `security.server_terminal`, `security.mounts_read_only`, `security.db_write_root_equivalent` | permissive | The other controls that have a setting of their own; `noust compliance controls` lists every one with its key, its value in force and who forces it. |
+| `security.assistant_flows` | `false` | The built-in assistant is turned on only with a model on this machine or on a host of `security.allow_private_hosts`, or with a provider somebody declared as an authorised flow, with the reason on record ([assistant.md](assistant.md)). ENS MEDIA and ALTA force it on. |
+| `approval.enabled` | `false` | Root-equivalent changes wait for a second person's approval (`noust approval`, the console's Approvals). A framework that asks for it, such as ENS MEDIA, turns it on whatever this says; `approval.approvers`, `approval.request_hours` and `approval.execute_minutes` tune who decides and for how long. |
+| `security.allow_private_hosts` | none | Hosts this server may send a request to although they resolve to its own network: a NAS or a MinIO a backup destination connects to, an internal artifact server a source archive is downloaded from, a webhook on the LAN. Names or address literals, compared exactly. Without the host in this list, a destination is refused when it is made or tested, and every use of one refuses the cloud metadata service and this machine's own aliases. Notifications keep their own `notifications.allow_private_hosts`, and also honour this one. |
+| `security.app_packages` | none | The system packages an application may declare (`noust app packages`), as names and globs: `[libvips*, ffmpeg, fonts-*]`. Empty allows any package the distribution has; with a list, a package outside it is refused when it is declared and again when it is installed. See [build.md](build-runtimes.md#system-packages). |
+| `security.allowed_sources` | none | Where code may come from, as hosts, organisations or repositories (`github.com/acme`; written `a, b` or `[a, b]`, and every entry is checked when it is saved; a port is not compared, so `git.example.com` allows `git.example.com:8443`), and `local`, `push`, `upload` and `recipes` for a directory, `git push`, an uploaded archive and the catalogue's recipes. Empty allows everything. See [sources.md](sources.md#the-allowed-origins). |
+| `auth.session.idle_minutes` | `30` | A session unused for this long is over. |
+| `auth.session.absolute_hours` | `12` | A session older than this is over, however active. |
+| `auth.lockout.threshold` | `5` | Consecutive failed sign-ins that lock an account. |
+| `auth.lockout.minutes` | `15` | How long the account stays locked. |
+| `auth.password.min_length` | `12` | The shortest password accepted. |
+| `auth.sudo.idle_minutes` | `15` | Sudo mode ("Confirm it's you") stays open this long after the last destructive action performed in it, 5 to 60. Under the ENS profile, 10 at most. |
+| `auth.sudo.max_minutes` | `120` | The longest sudo mode lasts from the moment it was confirmed, however busy the session is, 5 to 480 and never below `auth.sudo.idle_minutes`. Under the ENS profile, 30 at most. |
+| `auth.sudo.require_password` | `false` | Confirming asks for the account's password as well as a code. Off, one factor is enough (a passkey, or a code from the authenticator or a backup code), because the session already proved both at sign-in. Always on under the ENS profile. |
+| `mcp.enabled` | `false` | Whether `POST /api/mcp` answers: the Model Context Protocol endpoint a client uses with an API token to inspect, deploy and control applications (see [mcp.md](mcp.md)). Only a security officer turns it on. |
+| `mcp.groups` | `inspect, deploy, control` | Which kinds of tool are offered. `inspect` reads, `deploy` updates, rolls back and backs up, `control` starts, stops and restarts. |
+| `auth.local_login.enabled` | `true` | Whether a password or a passkey signs an account in. Off once single sign-on is in: only the identity provider does, the accounts in `auth.local_login.exempt` keep their password, and the master token and the command line are untouched. Refused while it would leave no administrator or security officer able to sign in (see [sso.md](sso.md)). |
+| `auth.local_login.exempt` | empty | Up to 10 break-glass accounts that keep their password and passkeys while `auth.local_login.enabled` is off. |
+| `auth.tokens.max_days` | `90` | Longest life of an API token under a framework that asks for one (ENS), and its default. The number is in every file, so on its own it limits nothing: `enforce_max_days` says it was chosen. |
+| `auth.tokens.enforce_max_days` | `false` | The operator chose the number in `max_days`, so it limits tokens with or without a framework. `noust compliance set token_max_days 60` writes both; `... none` turns it off. |
+| `auth.notice.text` | empty | Rights and obligations shown after sign-in and accepted on record. Editing it asks everybody to accept it again. |
+| `auth.login_label` | empty | Shown on the sign-in page instead of the host name, which is not shown before sign-in. |
+| `audit.on_failure` | `warn` | What a change does when the audit trail cannot be written: `warn` makes it and shows the failure (console, `noust health`); `refuse` stops every change - the API's and the command line's - until the trail works. Always `refuse` under the ENS profile. |
+| `audit.retention_days` | `365` | Days audit events are kept; 90 is the least accepted. Nothing is deleted before every destination received it. |
+| `audit.max_total_mb` | `2048` | Disk the audit trail may take. |
+| `audit.rotate_mb` | `64` | Size at which its file is rotated. |
+| `audit.host_activity` | `mutations` | What the host action ledger records: `off`, `mutations` or `all`. |
+| `audit.flood_window_seconds` | `60` | Window of the anti-flood rule that collapses a burst of identical events. |
+| `audit.flood_burst` | `10` | Identical events allowed in that window before they are collapsed. |
+| `audit.journald` | `auto` | Send events to journald: `auto` (when its socket exists), `on` or `off`. |
+| `audit.stdout` | `auto` | Write events to standard output: `auto` (inside a central's container), `on` or `off`. |
+| `audit.syslog` | none | RFC 5424 receivers, each `{transport: unix\|udp\|tcp\|tls, address, facility, ca, client_cert, client_key, pin_sha256, server_name, backfill}`. |
+| `audit.enterprise_id` | `32473` | IANA Private Enterprise Number of the structured data ID `noust@<id>`. 32473 is the documentation number: set your organisation's own. |
+| `audit.checkpoint_minutes` | `5` | How often the chain writes a signed checkpoint. |
+| `audit.sink_lag_minutes` | `15` | How far a destination may fall behind before it is reported. |
+| `retention.jobs_days` | `90` | Days finished background jobs and their logs are kept. |
+| `retention.deployments_days` | `365` | Days deployment records are kept. |
+| `retention.sessions_days` | `30` | Days ended sessions are kept. |
+| `retention.terminal_days` | `90` | Days the recordings of console terminals are kept. Under the ENS profile, at least `audit.retention_days`: a recording is evidence. |
+| `retention.assistant_days` | `30` | Days what people said to the built-in assistant is kept, by the last time the conversation was used (see [assistant.md](assistant.md)). Their author can delete it sooner. |
+
+## Terminal
+
+How the console's terminal behaves. `docs/terminal.md` explains what each limit protects and what a recording holds.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `terminal.enabled` | `true` | Whether the console may open a terminal into an application, as its own account. Off, only one-off commands remain. |
+| `terminal.idle_minutes` | `10` | A terminal where nothing is typed for this long is ended, 1 to 120. Under the ENS profile, 10 at most. |
+| `terminal.max_minutes` | `120` | The longest a terminal lasts, however busy, 1 to 720. Under the ENS profile, 60 at most. |
+| `terminal.max_sessions` | `8` | Terminals open at once on this server, 1 to 64. |
+| `terminal.max_sessions_per_user` | `3` | Terminals one person may have open at once, 1 to 16. |
+| `terminal.recording.max_mb` | `8` | The most one session's recording may take, 1 to 1024. Input and output have a share each, so a flood of output cannot hide what was typed. |
+| `terminal.server.enabled` | `false` | Allow a root shell on the server itself in the browser, for administrators only. Off until you turn it on. |
+| `terminal.server.force_ens` | `false` | Under the ENS profile the server's terminal stays off even when enabled, unless this is set too. Setting it is on record. |
+| `terminal.exec.max_seconds` | `1800` | The longest a one-off command (`noust app exec`) may run, 1 to 86400. |
+
+## Monitor and notifications
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `monitor.enabled` | `false` | Shown by `noust monitor config`. Whether the monitor runs is decided by `noust-monitor.service` (`noust monitor enable`/`disable`). |
+| `monitor.scan_interval` | `60` | Seconds between scans, and so the longest a failed unit can go unannounced. |
+| `monitor.cpu_threshold` | `80.0` | CPU percentage above which a process is noted. |
+| `monitor.memory_threshold` | `80.0` | Memory percentage above which a process is noted. |
+| `monitor.disk_threshold` | `90.0` | The percentage from which the disk of the applications is announced (`disk_threshold`), 1 to 100. |
+| `monitor.disk_check_seconds` | `0` | The least seconds between two looks at the disks; 0 looks on every scan. A longer wait is a longer delay before the message, never a different message. |
+| `monitor.disk_renotify_hours` | `0` | While a disk stays over its threshold, announce it again every this many hours (up to 720). 0 sends one message per crossing. |
+| `monitor.cert_warning_days` | `14` | The ceiling on when a late certificate is announced (`cert_expiring`), at most once a day: it speaks when fewer days than this are left and the certificate is past the point where it is renewed (a third of its life). It never makes a certificate with most of its life ahead late. |
+| `monitor.backup_missing_days` | `2` | A backup schedule or policy (an application's, a database's, an application's data or Noust's own state) with no successful backup newer than this many days is announced (`backup_missing`). A weekly or monthly schedule is allowed its period and a day. 0 turns the check off. |
+| `monitor.backup_check_hours` | `6` | How often the monitor looks for backups that did not run, and asks the backup destinations in use whether they answer (`destination_unreachable`). |
+| `monitor.backup_missing_renotify_hours` | `24` | While a backup stays missing, announce it again every this many hours. |
+| `monitor.os_patches_check_hours` | `24` | How often the monitor asks the package manager what is waiting (`os_patches`). 0 turns the check off. |
+| `monitor.token_warning_days` | `7` | An API token is announced (`token_expiring`) this many days before it expires. 0 turns the check off. |
+| `monitor.domain_expiry` | `false` | Ask the registry of each domain Noust serves when its registration expires (RDAP), once a day, and announce it at 30 and 7 days and when it has (`domain_expiring`, `domain_expired`). Off by default, and no profile turns it on: the domain name goes to the registry, which `docs/PRIVACY.md` says. `noust domain expiry` shows what they said. |
+| `monitor.webserver_check_seconds` | `60` | How often the monitor looks at nginx (or Apache); 0 turns the watch off, 3600 at most. A web server that fell is started again after its configuration test passes ([MONITOR.md](MONITOR.md#the-web-server)). |
+| `monitor.restart_webserver` | `true` | Start the web server again when it fell. `false` announces it and does nothing else. |
+| `monitor.webserver_restart_limit` | `3` | Restarts of the web server in an hour; past it the monitor says so once and stops, 1 to 20. |
+| `monitor.container_check_seconds` | `60` | How often the monitor reads the containers of the Compose stacks (restart counters and Docker's events); 0 turns it off. |
+| `monitor.container_restart_limit` | `5` | A container Docker restarted this many times since it was first seen is announced (`container_restart_loop`). 0 turns the announcement off. |
+| `monitor.security_check_hours` | `6` | How often the monitor asks the update check whether a release fixes a vulnerability (`security_release`). 0 turns it off. |
+| `monitor.security_renotify_hours` | `72` | While the server stays below the fix, announce it again every this many hours. 0 says it once. |
+| `monitor.recipe_check_hours` | `24` | How often the monitor looks for installed recipes behind the catalogue (`recipe_outdated`). 0 turns it off. |
+| `monitor.recipe_renotify_days` | `7` | The same list of outdated recipes is repeated after this many days. 0 repeats nothing until the list changes. |
+| `monitor.log_file` | `/var/log/noust/monitor.log` | Where the monitor writes its own log. |
+| `monitor.smtp.host` | empty | The SMTP server email notifications go through. |
+| `monitor.smtp.port` | `465` | Its port, 1 to 65535. |
+| `monitor.smtp.username` | empty | The account. |
+| `monitor.smtp.password` | empty | Its password (a secret). |
+| `monitor.smtp.use_ssl` | `true` | Implicit TLS, usually port 465. Not together with `use_tls`. |
+| `monitor.smtp.use_tls` | `false` | STARTTLS, usually port 587. Not together with `use_ssl`. |
+| `monitor.smtp.from_address` | empty | The sender; empty uses the account name. |
+| `monitor.smtp.timeout` | `30` | Seconds before a connection to the SMTP server is given up. Not in the defaults. |
+| `monitor.email_api.provider` | empty | Send mail through a provider's API instead of SMTP: `resend`, `postmark`, `brevo` or `ses`. Empty is SMTP. |
+| `monitor.email_api.from_address` | empty | The sender, which the provider must have verified. |
+| `monitor.email_api.api_key` | empty | Resend, Postmark (server token) or Brevo key (a secret). |
+| `monitor.email_api.region` | empty | Amazon SES: the AWS region, such as `eu-west-1`. |
+| `monitor.email_api.access_key_id` | empty | Amazon SES access key id (a secret). |
+| `monitor.email_api.secret_access_key` | empty | Amazon SES secret access key (a secret). |
+| `monitor.email_recipients` | empty list | Who receives email notifications: a list of addresses, or `a@x.com,b@y.com` from the command line. |
+| `monitor.notify` | `false` | Also mail the monitor's raw observations. Not in the defaults. |
+| `monitor.watch_units` | none | Extra systemd units the monitor watches besides the applications'. Not in the defaults. |
+| `monitor.retention_days` | `30` | Days the monitor keeps its observations. Not in the defaults. |
+| `monitor.max_observations` | `5000` | Row cap of the observations table. Not in the defaults. |
+| `notifications.enabled` | `false` | Master switch of multi-channel notifications. |
+| `notifications.muted_until` | empty | A pause of every notification: a moment with its time zone (`2026-11-06T09:00:00+01:00`) before which nothing is sent, and after which everything is sent again. The console writes it when the switch of the notification channels is turned off and the person says until when; empty is no pause. `notifications.enabled` is the switch for "until I turn it on". |
+| `notifications.language` | `en` | `en` or `es`: the language of Noust's own words in a notification. The evidence they carry (a probe, rclone's or certbot's output) is never translated. |
+| `notifications.console_url` | empty | Where the links of this server's notifications open: its own pages inside the console of the central that manages it (`https://central.example.com/n/web-2`), https only. A central sets it on the servers it manages (the *console link* of [the settings of the fleet](central-operate.md#settings-of-the-fleet)); unset, the links are built from `web.public_url`. |
+| `notifications.central_silent_minutes` | `15` | Minutes the central that manages this server may stay quiet before the server says so (`central_silent`). 0 turns it off. See [the fleet guide](central-operate.md#when-the-central-goes-quiet). |
+| `notifications.allow_private_hosts` | none | Hosts a webhook channel may deliver to although they resolve to a private address. Not in the defaults. |
+| `notifications.events.deploy_started` | `false` | Notify when a deployment starts. Off: it fires once per attempt with no outcome, and would double the volume of every deploy that also succeeds or fails. |
+| `notifications.events.deploy_success` | `true` | Notify when a deployment succeeds. |
+| `notifications.events.deploy_failed` | `true` | Notify when a deployment fails. Also carries the warning that Noust's own trial build of an application in the sandbox failed before one of its updates, which then built as root as before (see [releases.md](builds-and-accounts.md#builds-in-the-sandbox)). |
+| `notifications.events.deploy_rolled_back` | `true` | Notify when a failed activation put the previous release back. |
+| `notifications.events.deploy_hook_failed` | `true` | Notify when a deployment went live with warnings: a `post_deploy` hook failed once the new version was serving. |
+| `notifications.events.restore_success` | `true` | Notify when a restore succeeds. |
+| `notifications.events.restore_failed` | `true` | Notify when a restore fails. |
+| `notifications.events.cert_expiring` | `true` | Notify when a certificate is late to renew or expired. |
+| `notifications.events.cert_renewal_failed` | `true` | certbot's last renewal failed, or the timer that runs it is not running; with certbot's own words. |
+| `notifications.events.domain_expiring` | `true` | The registration of a domain is within 30 or 7 days of expiring (needs `monitor.domain_expiry`). |
+| `notifications.events.domain_expired` | `true` | The registration of a domain has expired (needs `monitor.domain_expiry`). |
+| `notifications.events.app_oom_killed` | `true` | The kernel killed an application for running out of memory (cgroup v2), with how many times, its memory limit and the most it used. |
+| `notifications.events.access_change_reverted` | `true` | A change to the firewall or to SSH nobody confirmed in time was undone by its timer; says which change, who applied it and what the undo printed. |
+| `notifications.events.unit_failed` | `true` | Notify when a watched unit fails. |
+| `notifications.events.app_unreachable` | `true` | Notify when an application whose unit is running stops answering its health check: three failed probes over at least a minute, once per outage; not asked while the application is being deployed or runs a job, nor when its unit was stopped on purpose or failed (that is `unit_failed`). A stack with no published port is judged by its containers instead. |
+| `notifications.events.app_recovered` | `true` | Notify when an application that was reported unreachable answers again. |
+| `notifications.events.disk_threshold` | `true` | Notify when a disk crosses its threshold. |
+| `notifications.events.backup_failed` | `true` | Notify when a backup fails. |
+| `notifications.events.backup_success` | `false` | Notify on every successful scheduled backup: a heartbeat, not a problem. |
+| `notifications.events.destination_unreachable` | `true` | Notify when a backup destination in use stops answering (asked every six hours), with what rclone said, and when it answers again. |
+| `notifications.events.node_unreachable` | `true` | On a central: a server it manages stopped answering. |
+| `notifications.events.node_recovered` | `true` | On a central: a server answers again. |
+| `notifications.events.node_host_key_changed` | `true` | On a central: a server's SSH host key changed and the tunnel was closed. |
+| `notifications.events.server_rebooted` | `true` | The server restarted when nobody asked for it from Noust (the provider, a crash, a `reboot` typed by hand). |
+| `notifications.events.server_back` | `true` | A reboot or shutdown asked from Noust is over and the console runs again. |
+| `notifications.events.approval_requested` | `true` | A change that needs a second person's approval is waiting for a decision. |
+| `notifications.events.approval_decided` | `true` | A request for approval was approved or rejected. |
+| `notifications.events.alert_firing` | `true` | A user-defined alert rule (`noust alert`) has been breached for its whole duration. |
+| `notifications.events.alert_resolved` | `true` | An alert that was announced is back inside its limit. |
+| `notifications.events.alert_acknowledged` | `true` | Somebody took an alert that is firing (`noust alert ack`); a PagerDuty channel acknowledges the incident. |
+| `notifications.events.backup_missing` | `true` | A scheduled backup did not run (an application's, a database's, an application's data or Noust's own state): nothing failed, so `backup_failed` never says so. |
+| `notifications.events.cron_failed` | `true` | A cron job (`noust cron`) ended with an error, with the last lines it printed. |
+| `notifications.events.cron_success` | `false` | Every successful run of every cron job: a heartbeat, off like `backup_success`. |
+| `notifications.events.os_patches` | `true` | Operating system updates are waiting, security ones first; also when the check itself cannot be made. |
+| `notifications.events.token_expiring` | `true` | An API token is about to expire, expires today or just expired. |
+| `notifications.events.cleanup_failed` | `true` | A disk cleanup (`noust server cleanup-schedule`) failed or freed less than it should, with what it said. |
+| `notifications.events.cleanup_success` | `false` | Every cleanup that went well: a heartbeat, off like `backup_success`. |
+| `notifications.events.cron_missed` | `true` | A scheduled task will not run when it should: its timer is gone, disabled or cannot be read. |
+| `notifications.events.probe_failed` | `true` | An external probe (`noust probe`) stopped answering as expected, once per outage. |
+| `notifications.events.probe_recovered` | `true` | A probe that was reported failing answers again. |
+| `notifications.events.security_release` | `true` | A Noust release that fixes a vulnerability is out and this server runs an earlier one. |
+| `notifications.events.container_restart_loop` | `true` | A container of a Compose stack keeps being restarted by Docker (`monitor.container_restart_limit`). |
+| `notifications.events.recipe_outdated` | `true` | Recipes installed from the catalogue have a newer version in it. |
+| `notifications.events.central_silent` | `true` | The central that manages this server has stopped calling it, and the first call after that. Said by the server, through its own channels. |
+| `status_page.enabled` | `false` | The monitor writes the public status page of the probes (see [probes.md](probes.md#the-status-page)). |
+| `status_page.directory` | empty | Where its files are written, an absolute path; empty is `/var/lib/noust/status-page`. |
+| `status_page.title` | empty | The page's title, at most 80 characters; empty is `Status`. |
+| `notifications.channels.webhook.webhook_url` | empty | The generic endpoint notifications are posted to (a secret: it is a capability URL). |
+| `notifications.channels.webhook.secret` | empty | Signs every delivery with HMAC-SHA256 in `X-Noust-Signature` when set (a secret). |
+| `notifications.channels.webhook.webhook_headers` | empty | The receiver's own headers, one `Name: value` per line, at most 20 (an `Authorization: Bearer` for n8n or Home Assistant). A secret: its values are credentials. The names Noust sets itself (`Content-Type`, `X-Noust-*`) cannot be replaced. |
+| `notifications.channels.slack.webhook_url` | empty | A Slack incoming webhook (a secret). |
+| `notifications.channels.discord.webhook_url` | empty | A Discord webhook (a secret). The message is one embed (state colour, facts, timestamp, a link to the console when `web.public_url` is set); if Discord refuses it, the alert is sent once more as plain text. |
+| `notifications.channels.discord.mention_role_id` | empty | A Discord role to ping when a **critical** event arrives (a deploy, restore, backup, unit or node that failed; a certificate that expired; an application not answering). Only a failure pings; warnings, successes and the test message never do. The id is 17 to 20 digits: Developer Mode, right-click the role, Copy ID. |
+| `notifications.channels.discord.mention_user_id` | empty | A Discord user to ping in the same cases, in addition to the role. |
+| `notifications.channels.telegram.bot_token` | empty | The bot's token (a secret). |
+| `notifications.channels.telegram.chat_id` | empty | The chat: an integer id (a group's is negative) or `@channelname`. |
+| `notifications.channels.telegram.topics` | empty | A topic of the forum group for each subject of the messages: `deploys`, `alerts`, `backups`, `security`, `system` (`noust notify events` lists the subject of each event). A subject with no number goes to the next place below. Written by the console, `noust notify channel set telegram --topic deploys=12` or `noust notify telegram-topics --create`, which has Noust create the topics. See [notifications.md](notifications.md#keeping-messages-together). |
+| `notifications.channels.telegram.threads` | empty | A topic for one event, by its name (`backup_failed: 9`). It wins over `topics`. |
+| `notifications.channels.telegram.thread_id` | empty | One topic for the whole channel; the last place before the group's general thread. |
+| `notifications.channels.email.enabled` | `false` | Send notifications by email, through the `monitor.smtp.*` account to `monitor.email_recipients`. |
+| `notifications.channels.pushover.user_key` | empty | The Pushover user (or group) key (a secret). |
+| `notifications.channels.pushover.app_token` | empty | The Pushover application's token (a secret). Both are form fields of the request, never part of its URL. |
+| `notifications.channels.pushover.device` | empty | Deliver to this device only; empty delivers to all of the user's. |
+| `notifications.channels.ntfy.webhook_url` | empty | The ntfy topic's URL, `https://ntfy.sh/alerts` or your own server's (a secret: on a public server the topic is the password). |
+| `notifications.channels.ntfy.token` | empty | An access token for a topic that needs one, sent as a bearer header (a secret). |
+| `notifications.channels.gotify.webhook_url` | empty | The Gotify server's URL (a secret). |
+| `notifications.channels.gotify.token` | empty | The Gotify application's token, sent as `X-Gotify-Key` (a secret). |
+| `notifications.channels.teams.webhook_url` | empty | A Microsoft Teams Workflows webhook (a secret); the message is an Adaptive Card. |
+| `notifications.channels.mattermost.webhook_url` | empty | A Mattermost incoming webhook (a secret). |
+| `notifications.channels.matrix.homeserver` | empty | The Matrix homeserver's base URL. |
+| `notifications.channels.matrix.room_id` | empty | The room's id, `!abc:example.org` (Room settings, Advanced). |
+| `notifications.channels.matrix.access_token` | empty | The posting account's access token (a secret), sent as a bearer header. |
+| `notifications.channels.lark.webhook_url` | empty | A Lark (Feishu) custom bot's webhook (a secret). |
+| `notifications.channels.lark.secret` | empty | The bot's signing secret, when signature verification is on (a secret). |
+| `notifications.channels.pagerduty.routing_key` | empty | The 32-character integration key of a service (Events API v2) (a secret). |
+| `notifications.channels.pagerduty.region` | `us` | The account's service region, `us` or `eu`. |
+
+Any other key under `notifications.channels` is a **further channel** of one of those types, with its own events, route and quiet hours: see [notifications.md](notifications.md).
+
+## Databases
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `databases.credentials.mysql.user` | `root` | The administrative account Noust connects to MySQL/MariaDB with. |
+| `databases.credentials.mysql.password` | empty | Its password (a secret). Empty uses the local socket as root. |
+| `databases.credentials.postgresql.user` | `postgres` | The administrative role for PostgreSQL. |
+| `databases.credentials.postgresql.password` | empty | Its password (a secret). |
+| `databases.credentials.redis.password` | empty | The password Redis requires (a secret). |
+| `databases.credentials.mongodb.user` | empty | The administrative user for MongoDB. |
+| `databases.credentials.mongodb.password` | empty | Its password (a secret). |
+| `databases.safety_copies_kept` | `5` | Safety copies a restore takes of a database before loading over it, kept per database; older ones are deleted after each restore. The newest is never deleted, whatever the value. |
+| `databases.import_max_bytes` | `10737418240` (10 GiB) | The largest dump the console may upload to import (`/api/databases/imports/uploads`): a bigger size is refused before a byte is sent. A file already on the server is not limited by it (`noust db import`). |
+| `uploads.source_max_bytes` | `536870912` (512 MiB) | The largest archive the console or `noust upload add` takes as the code of an application (`/api/uploads`): a bigger size is refused before a byte is sent. What it extracts to is capped apart (50,000 files, 2 GiB). |
+| `releases.bundle_max_bytes` | `8589934592` (8 GiB) | The largest release bundle this server takes from a build server (`/api/apps/{domain}/releases/uploads`, the central's "build on"): a bigger size is refused before a byte is sent. |
+| `databases.import_directories` | empty | Folders, besides `imports` under the backup directory, the API may read a dump from by its path. A comma-separated list of absolute paths; `/` is refused. The CLI reads any file. |
+
+## Adding a setting
+
+A setting exists when code reads it. A new one goes in `DEFAULT_CONFIG` in
+`src/noust/core/config.py` with a comment saying what reads it, in this page in the same change,
+and, when a value can be wrong, in `_KEY_VALIDATORS` so every front end refuses it in the same
+words. `tests/test_config_clean.py` fails when a default is not documented here. When a setting
+stops being read, it moves from `DEFAULT_CONFIG` to `OBSOLETE_KEYS` with the reason.

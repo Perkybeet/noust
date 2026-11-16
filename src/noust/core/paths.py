@@ -299,13 +299,16 @@ def getenv(name: str, default: str | None = None) -> str | None:
 def docs_directories() -> tuple[Path, ...]:
     """
     Returns:
-        Where the documentation may be installed, in order: a source checkout's ``docs`` and the
-        directories the packages put it in. The assistant looks it up there; where none holds any,
-        it has nothing to look up and does not offer to.
+        Where the documentation may be installed, in order: a source checkout's ``docs``, the copy
+        inside the Python package (the pages the site publishes, present on every install: the wheel,
+        the Debian package, the RPM and the central's image) and the directories some packages put
+        it in. The assistant looks it up there, and where none holds any it has nothing to look up
+        and does not offer to.
     """
     here = Path(__file__).resolve()
     return (
         here.parents[3] / "docs",
+        here.parents[1] / "docs",
         Path("/usr/share/doc/noust"),
         Path("/usr/share/doc/noust-doc"),
         Path("/usr/share/doc/packages/noust"),

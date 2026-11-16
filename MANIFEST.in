@@ -24,6 +24,9 @@ include src/noust/changelog.json
 recursive-include src/noust/core/notifications/assets *.png
 # The console's committed build (source in panel/, which is not shipped).
 recursive-include src/noust/web/static *
+# The documentation the assistant searches: a copy of the pages the site publishes, written from
+# docs/ by scripts/generate_packaged_docs.py (item 171).
+recursive-include src/noust/docs *.md
 
 # Include documentation
 recursive-include docs *.md *.png *.jpg *.svg

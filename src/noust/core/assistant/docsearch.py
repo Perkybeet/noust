@@ -8,9 +8,11 @@ Looking up the documentation, to cite it (item 171).
 the page and the heading it is under, so that an answer can say where it read what it says. A page
 is cut at its headings; a search is a BM25 ranking over the passages (:mod:`noust.core.assistant.bm25`).
 
-The documentation is not inside the Python package: the RPM installs ``docs/`` and a source checkout
-has it. Where no page is found there is nothing to look up and the tool is not offered: what cannot
-be done is not offered, instead of being offered to fail.
+The documentation is in the Python package (``noust/docs``, a copy of the pages the site publishes that
+``scripts/generate_packaged_docs.py`` writes), so it is there on every install: the wheel, the Debian
+package, the RPM and the central's image. A source checkout has the pages in ``docs/`` and uses them
+first. Where no page is found there is nothing to look up and the tool is not offered: what cannot be
+done is not offered, instead of being offered to fail.
 """
 
 from __future__ import annotations
@@ -22,7 +24,7 @@ from pathlib import Path
 
 from noust.core.assistant.bm25 import Index
 
-__all__ = ["DocIndex", "Passage", "split_markdown"]
+__all__ = ["DocIndex", "Passage", "is_history", "split_markdown"]
 
 #: Pages that say what changed, not what is true: history is not to be cited as documentation.
 _HISTORY = re.compile(r"(?:CHANGELOG|UPGRADING|API-CHANGELOG)", re.IGNORECASE)
@@ -35,6 +37,18 @@ MAX_PASSAGE = 1_400
 _MAX_PAGES = 400
 #: The largest page read.
 _MAX_PAGE_BYTES = 1_500_000
+
+
+def is_history(name: str) -> bool:
+    """
+    Args:
+        name: A page's file name.
+
+    Returns:
+        Whether the page says what changed (a changelog, an upgrade guide) instead of what is true.
+        The index does not read it, and the documentation that travels in the package leaves it out.
+    """
+    return _HISTORY.search(name) is not None
 
 
 @dataclass(frozen=True)
@@ -151,7 +165,7 @@ def _pages(folder: Path) -> Sequence[Path]:
             path
             for path in folder.glob("*.md")
             if path.is_file()
-            and not _HISTORY.search(path.name)
+            and not is_history(path.name)
             and path.stat().st_size <= _MAX_PAGE_BYTES
         )
     except OSError:

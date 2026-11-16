@@ -764,6 +764,7 @@ class TestPackaging:
             "recipes/*.yaml": SRC / "recipes",
             "recipes/assets/**/*": SRC / "recipes" / "assets",
             "web/static/**/*": SRC / "web/static",
+            "docs/*.md": SRC / "docs",
         }
 
         missing = [
@@ -789,6 +790,7 @@ class TestPackaging:
         manifest = (REPO / "MANIFEST.in").read_text(encoding="utf-8")
 
         assert "recursive-include src/noust/web/static *" in manifest
+        assert "recursive-include src/noust/docs *.md" in manifest
         assert "recursive-include src/noust/recipes *.yaml" in manifest
         assert "recursive-include src/noust/recipes/assets *" in manifest
         assert "web/templates" not in manifest, "the Jinja pages are gone"

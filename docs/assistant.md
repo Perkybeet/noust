@@ -121,7 +121,7 @@ Three things, and it is told which of them the model can do (the probe says so):
 - **It investigates.** With a model that calls tools it reads what it needs, step by step, with read-only tools:
   the same short list as [the MCP endpoint](mcp.md) (applications, their state, journal and diagnosis, the names of
   their variables, deployments, jobs, backups, certificates, the server's health), and three of its own:
-  `search_docs` (the pages of this documentation, to cite; offered only where the documentation is installed),
+  `search_docs` (the pages of this documentation, to cite; they travel inside Noust's own package, so it is offered on every install),
   `find_operation` (which operation of the API does what the person wants) and `call_operation` (prepare the exact
   call of an operation that was found). Every step is shown as it happens ("read the log of deployment 14") with
   how much it read and how many values that looked like secrets were hidden before they were sent.

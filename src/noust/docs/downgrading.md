@@ -1,0 +1,176 @@
+# Going back to an earlier Noust
+
+An upgrade can be undone. What decides how is one fact: **Noust's store only moves forward.** The
+store (`noust.db`, in `/var/lib/noust`) records which applications exist, how they deploy, the
+accounts, the destinations and the schedules. Each release opens a store written at its own
+schema version or an older one, migrating the older ones, and **refuses a store written by a newer
+release** instead of guessing:
+
+```
+The Noust database at /var/lib/noust/noust.db was written by a newer Noust
+(schema v15; this version understands up to v13)
+```
+
+So going back is one of two things, and one command says which:
+
+```bash
+noust store compat --to 3.3.1
+```
+
+```
+Store: /var/lib/noust/noust.db
+Schema on disk: 15
+This release writes: 15
+Oldest release that opens it: 4.0.0
+Copies kept before upgrading:
+  noust.db.v13-20261014T101500Z-4242-ab12cd.bak  schema 13  2026-10-14 10:15 UTC
+
+1. Noust 3.3.1 cannot open this store (schema 15; it understands up to 13). The copy kept before
+   the upgrade can be opened: noust.db.v13-..., schema 13, taken 2026-10-14 10:15 UTC.
+...
+```
+
+`--json` prints the same as data. It reads and changes nothing.
+
+## Which release opens which store
+
+| Store schema | First written by | Opened by |
+|---|---|---|
+| 8 | 2.0.0 | 2.0.0 and later |
+| 9 | 2.1.0 | 2.1.0 and later |
+| 10 | 2.2.0 | 2.2.0 and later |
+| 11 | 3.0.0 | 3.0.0 and later |
+| 12 | 3.1.0 | 3.1.0 and later |
+| 13 | 3.2.0 | 3.2.0 and later (3.3 did not change it) |
+| 14 | 4.0.0, on the way to 15 | 4.0.0 and later |
+| 15 | 4.0.0 | 4.0.0 and later |
+| 16 | 4.1.0 | 4.1.0 and later |
+| 17 | 4.2.0 | 4.2.0 and later |
+| 18 | 4.3.0 | 4.3.0 and later |
+
+The table is in the code (`noust.core.store_compat.SCHEMA_RELEASES`), and a test fails when the
+schema a release writes has no row in it. **A schema only ever changes in a minor release**
+([release policy](release-policy.md)): a patch release can always be replaced by the one before it.
+
+## The release can open the store: install it
+
+Going from 3.3.2 to 3.3.1, or from any release to an earlier one with the same schema, needs
+nothing but the earlier package. **The repositories serve only the newest version of the package**
+(each distribution's repository is rebuilt for every release), so the package you go back to is
+one you saved, or one you fetch:
+
+```bash
+# Before upgrading, keep the package you are on:
+apt-get download noust            # Debian, Ubuntu: noust_3.3.1-1_all.deb in this folder
+dnf download noust                # Fedora: needs dnf-plugins-core
+
+# Going back:
+apt install --allow-downgrades ./noust_3.3.1-*_all.deb      # Debian, Ubuntu
+dnf downgrade ./noust-3.3.1-*.noarch.rpm                     # Fedora, the package you saved
+zypper install --oldpackage ./noust-3.3.1-*.noarch.rpm       # openSUSE, the package you saved
+pip install 'noust[all]==3.3.1'                              # PyPI keeps every version
+```
+
+Each release's `.deb` is also attached to its page on GitHub, and PyPI keeps every version, so a
+Debian, Ubuntu or pip server can always fetch it. Then `systemctl restart noust-web noust-monitor`.
+Nothing else is touched: applications, units and sites are not part of Noust's own version, and
+they keep serving the whole time.
+
+## The release cannot open the store: put the copy back
+
+Every upgrade that has to migrate the store first keeps a copy of it beside the file, taken with
+SQLite's online backup (so what the write-ahead log still held is in it), owner-only, named by the
+schema it holds: `noust.db.v13-<time>-<pid>-<id>.bak`. Going back to a release that predates the
+schema means going back to that copy, **and losing what changed in Noust since it was taken**
+(applications created, accounts, settings). Applications' own data, their units and sites, are
+unaffected.
+
+`noust store compat --to RELEASE` gives the exact steps for your server, with your paths, and each
+one is a command you can paste: the step that keeps the current store aside tests each file, so it
+works whether or not SQLite left a write-ahead log (a store that was closed cleanly has none), and
+quotes a data directory with a space in it. In outline:
+
+1. Stop the console and the monitor: `systemctl stop noust-web noust-monitor`.
+2. Keep the current store aside, with its write-ahead log (`noust.db`, `noust.db-wal`,
+   `noust.db-shm`), in a folder of its own, so nothing is lost if the decision turns out wrong.
+3. Put the copy in the store's place: `cp noust.db.v13-... noust.db && chmod 600 noust.db`.
+4. Install the earlier release (above).
+5. Start the console: `systemctl start noust-web noust-monitor`.
+
+An earlier release that is started on the new store refuses it in its own words, before it
+writes anything, and names the copy:
+
+```
+The Noust database at /var/lib/noust/noust.db was written by a newer Noust (schema v15; this version understands up to v13)
+Downgrading Noust is not supported: install the newer version again. To go back regardless, restore the copy the
+upgrade kept beside it (noust.db.v<old version>-*.bak) over noust.db; whatever changed since the upgrade is lost.
+```
+
+Meanwhile nothing stops serving: the applications, their units and their sites are not part of the
+release, and they answer the same before, during and after (the rehearsal that proves this is
+`python tests/integration/run.py --downgrade-to-3.3`: a real 3.3.1 server is upgraded, goes back by
+these steps, and goes forward again).
+
+**What comes back and what does not.** The store holds the applications, the sites, the databases,
+the schedules, the destinations, the settings and **the accounts**: what was created on the newer
+release after the copy was taken is gone with it (an application created then keeps serving on its
+unit and its site, but the older Noust does not know it; deploy it again there if you want it managed).
+**API tokens and console sessions are in a database of their own in the state directory** and are
+not rolled back: a token made after the upgrade is still there afterwards.
+
+If no copy was kept (a store from before copies were made), the way back is a self-backup taken
+before the upgrade: `noust self-backup list`, then `noust self-backup restore`
+([disaster-recovery.md](disaster-recovery.md)). Take one before every minor upgrade:
+the update refuses nothing for lack of one, but it says so ("There is no self-backup of the
+configuration and the store on this server").
+
+## Before you upgrade
+
+Noust rehearses its own update before it installs anything: it checks the room on disk, that the
+store opens and passes SQLite's integrity check, what the package manager says when it simulates
+the upgrade (`apt-get -s`, `dnf` in test mode, `zypper --dry-run`) and whether a recent self-backup
+exists. A failed check stops the update with the tool's own words; a warning is shown and the update
+goes on. The same checks run when a central updates its servers.
+
+## What 4.0 wrote that an earlier release ignores
+
+- **Sealed channel secrets.** From 4.0 the credentials of the notification channels (a webhook URL, a
+  token, the signing secret, the headers) are kept in `/etc/noust/config.yaml` as `noust-channel:v1:`
+  values, sealed under `/etc/noust/secrets.key`. An earlier Noust reads them as the text they are, so
+  its channels would try to deliver to the sealed value and fail. Going back means opening them
+  first: keep the key with the file, and set the credentials again with the earlier release
+  (`noust config set notifications.channels.webhook.webhook_url ...`), or restore `config.yaml` from a
+  backup taken before the upgrade.
+- **The folder of a backup destination** (schema v15). A destination made without naming a folder kept
+  the old product's default; 4.0 moves it to `noust-backups` and remembers the old one so what is
+  already there stays listed and restorable. The copy of the store that going back restores holds
+  the old name, and the archives written meanwhile are in the new folder, where the earlier release
+  does not look: fetch them from the destination by hand if you need them.
+- **`domains.enabled`** (schema v14) and the monitor's tables: the older release ignores the columns,
+  and a name that was switched off is served again by it.
+
+## What 4.1 wrote that an earlier release ignores
+
+4.1 writes the store at schema 16: the list of roles and the roles of each account, the fleet's settings and
+what each server applied of them, the leases of the GitHub App and the pushes forwarded, the default of each
+database engine, and Noust DNS's zones. The copy that going back restores holds none of it. Outside the store,
+an application that moved to the other web server is still on it while the copy says it is not, and Noust DNS
+is a service of the system that goes on answering: move the applications back and take Noust DNS away
+before you go back. [UPGRADING-4.1.md](UPGRADING-4.1.md#rolling-back) says how.
+
+## What 4.2 wrote that an earlier release ignores
+
+4.2 writes the store at schema 17: each account's Home panels (`account_dashboards`) and the ledger of the
+software Noust installed (`installed_software`). The copy that going back restores holds neither: the console
+of 4.1 draws its fixed Home, and software installed while on 4.2 stays installed but is no longer known to have
+been Noust's. Outside the store, the sign-in picture stays in `sign-in-image` under the state directory and 4.1
+does not show it, and a pause of the notifications (`notifications.muted_until`) ends. Nothing needs undoing
+first. [UPGRADING-4.2.md](UPGRADING-4.2.md#rolling-back) says how.
+
+## What an upgrade guide says about it
+
+Each minor's upgrade guide has a "Rolling back" section that is specific to what that release
+changed: [4.2](UPGRADING-4.2.md#rolling-back), [4.1](UPGRADING-4.1.md#rolling-back), [4.0](UPGRADING-4.0.md#rolling-back),
+[3.3](UPGRADING-3.3.md#rolling-back), [3.2](UPGRADING-3.2.md#rolling-back),
+[3.1](UPGRADING-3.1.md#rolling-back). Read it first: it names the files the release wrote that the
+older one ignores.

@@ -438,6 +438,12 @@ jobs:
       - name: Check the completion scripts are current
         run: python scripts/generate_completions.py --check
 
+      # The assistant searches the documentation in files, and every package carries a committed
+      # copy of the pages the site publishes (src/noust/docs): a page edited without the script is
+      # a package that answers from an older text.
+      - name: Check the packaged documentation is current
+        run: python scripts/generate_packaged_docs.py --check
+
       # packaging/install.sh cannot import Noust, so it carries a generated copy
       # of the platform table (noust.managers.server.platforms) and docs/PLATFORMS.md
       # shows the same rows: this is the gate that keeps the three equal.
@@ -631,3 +637,8 @@ jobs:
           noust --version
           noust --help > /dev/null
           noust list --help > /dev/null
+
+      # The built-in assistant searches the documentation in files. It is in the Python package, so
+      # the package installs it, and the search finds a page with the interpreter that runs noust.
+      - name: The documentation is in the package
+        run: python3 packaging/check_documentation.py

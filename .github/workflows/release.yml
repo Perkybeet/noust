@@ -79,6 +79,9 @@ jobs:
       - name: Check the completion scripts are current
         run: python scripts/generate_completions.py --check
 
+      - name: Check the packaged documentation is current
+        run: python scripts/generate_packaged_docs.py --check
+
       # What the documentation shows is what the product is: the pictures of the console
       # are the ones of this minor release, or the tag does not publish. Retake them with
       # `cd panel && npm run docs:screens` (see CONTRIBUTING.md, Releasing).
@@ -160,6 +163,12 @@ jobs:
           print("Every module imports from the installed package")
           PY
 
+      # The built-in assistant searches the documentation in files: the wheel carries the pages
+      # (src/noust/docs), so `pip install noust` offers the same tool as every package.
+      - name: The documentation is in the wheel
+        working-directory: /tmp
+        run: python "$GITHUB_WORKSPACE/packaging/check_documentation.py"
+
   # Builds the .debs the way OBS does: from exactly the files the OBS job
   # uploads (packaging/obs/stage.sh), with debian/ made only from the debian.*
   # files as debtransform does, in a container with only the declared
@@ -239,6 +248,10 @@ jobs:
           noust --help > /dev/null
           noust list --help > /dev/null
           echo "The package installs and the command runs"
+
+      # The documentation is in the package, not beside it: debian.docs names only the README.
+      - name: The documentation is in the package
+        run: python3 packaging/check_documentation.py
 
       # The panel must import against the pydantic this distribution actually
       # packages, not the one pip installs. Ubuntu 24.04 ships pydantic 1.10
@@ -383,6 +396,14 @@ jobs:
           noust list --help > /dev/null
           echo "The package installs and the command runs"
 
+      # The built-in assistant searches the documentation in files, and the spec lists the package's
+      # directory whole: the pages are there with no line of their own. Leap 15.6 installs the python
+      # 3.11 flavor while python3 is 3.6, so the check runs with the interpreter noust itself runs with.
+      - name: The documentation is in the package
+        run: |
+          python="$(head -n 1 "$(command -v noust)" | sed -e 's/^#!//' -e 's/ .*//')"
+          "$python" packaging/check_documentation.py
+
       # The same claim the deb job makes: the panel imports against the
       # pydantic this distribution packages, which on the RPM side is 2.x and
       # is the other half of the bridge in noust.web.pydantic_compat. The web
@@ -467,6 +488,11 @@ jobs:
           curl -fsSk https://127.0.0.1:8443/health
           [ "$(docker exec central id -u)" = 10001 ] || { echo "The central must not run as root"; exit 1; }
           docker exec central noust --version
+
+      # The central is where the assistant lives for most people, and the image installs the wheel
+      # and nothing else: the documentation has to be in it.
+      - name: The documentation is in the image
+        run: docker exec -i central python - < packaging/check_documentation.py
 
   release:
     name: Create Release

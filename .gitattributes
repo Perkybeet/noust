@@ -31,6 +31,7 @@ terraform-provider-noust/ export-ignore
 # What a build writes, not what a person wrote: a pull request's diff folds these away and the
 # language statistics leave them out. A script rewrites each one (CONTRIBUTING.md, "Commands").
 src/noust/web/static/** linguist-generated=true
+src/noust/docs/** linguist-generated=true
 *.gen.ts linguist-generated=true
 panel/openapi*.json linguist-generated=true
 man/noust.1 linguist-generated=true

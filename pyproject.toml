@@ -143,6 +143,9 @@ noust = [
     "web/static/**/*",
     # The email's wordmark, a PNG attached inline (core/notifications/render/email.py).
     "core/notifications/assets/*.png",
+    # The documentation the site publishes, for the assistant's search (item 171): a committed
+    # copy that scripts/generate_packaged_docs.py writes from docs/, so every package carries it.
+    "docs/*.md",
     "py.typed",
 ]
 

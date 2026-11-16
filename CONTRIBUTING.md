@@ -248,6 +248,10 @@ src/noust/
                     token and no SSH: the API, contexts and jobs
   templates/, completions/   data and no Python: the Jinja templates of nginx, Apache, PHP-FPM and
                     systemd, and the generated shell completions
+  docs/             data and no Python: the pages `docs/site.yaml` publishes, copied byte for byte by
+                    `scripts/generate_packaged_docs.py`, so the assistant's `search_docs` finds the
+                    documentation on every install (the wheel, the Debian package, the RPM, the image);
+                    `docs/` at the root is where a page is edited, this is only the copy
   web/
     api/            thin layer over the managers; one error contract for every router;
                     node_proxy.py forwards every node call, event and WebSocket over its
@@ -676,6 +680,7 @@ python scripts/release.py --check         # version consistency
 python scripts/security_model.py --write  # regenerate docs/SECURITY-MODEL.md after changing a role, a header, a route or a guarantee
 python scripts/generate_command_summaries.py  # regenerate cli/command_summaries.py after changing a command's help or adding a command
 python scripts/generate_secret_shapes.py  # regenerate panel/src/api/secretShapes.gen.ts after changing a shape of core/secret_detection.py (the console masks its report with the same shapes; a test fails until you have)
+python scripts/generate_packaged_docs.py  # regenerate src/noust/docs after editing a page of docs/ or docs/site.yaml (the package carries a copy for the assistant; a test fails until you have)
 ```
 
 The integration harness deploys for real (nginx, systemd, Docker, a database) inside one privileged
@@ -791,6 +796,13 @@ the build environment has no network. That is why the console's Vite build is co
 build-time only; nothing but the build ships, and it loads nothing from a CDN. The CI `panel`
 job rebuilds and fails when the committed build differs from what `panel/` produces, so
 after any change under `panel/src` run `npm run build` and commit `src/noust/web/static`.
+
+The documentation travels the same way. The built-in assistant looks pages up in files, so the pages
+`docs/site.yaml` publishes are a committed copy in `src/noust/docs/` (`scripts/generate_packaged_docs.py`,
+byte for byte, without the changelogs and upgrade guides, which the index skips), declared once in
+`pyproject.toml`'s package-data and `MANIFEST.in`. The wheel, the sdist, the deb, the rpm and the central's
+image inherit it, and no recipe lists a page: `obs/debian.docs` names only the README. After a change to a
+page, run the script; `tests/test_assistant_packaged_docs.py` and CI's `--check` fail until you have.
 
 When adding a dependency, declare it in all four places: `pyproject.toml`, `setup.py`,
 `obs/debian.control` and the RPM spec in `rpm/`. `tests/test_architecture.py` fails if an import is
