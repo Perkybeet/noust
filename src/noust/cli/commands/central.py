@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import signal
 import sys
+from collections.abc import Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 from types import FrameType
@@ -30,7 +31,8 @@ from typing import Any
 import click
 
 from noust import central
-from noust.central import scheduler, setup
+from noust.central import redirect, scheduler, setup
+from noust.central.redirect import RedirectServer
 from noust.central.unlock import UnlockServer, UnlockUnavailableError, send_request, socket_path
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.core import paths, sealing
@@ -42,9 +44,6 @@ from noust.core.secrets import secrets_dir
 #: unprivileged and a NAS usually has 443 taken by its own interface.
 DEFAULT_HOST = ALL_INTERFACES
 DEFAULT_PORT = 8443
-
-#: How to reach a shell on the central, for the messages that name one.
-DOCKER_EXEC = "docker exec -it noust"
 
 
 @click.group("central", cls=NoustGroup)
@@ -94,6 +93,45 @@ def _stopped(signum: int, frame: FrameType | None) -> None:
     """
 
 
+def _start_redirect(
+    logger: Any, bind: str, console_port: int, allowed: Sequence[str]
+) -> RedirectServer | None:
+    """
+    Open the port that only redirects to the console, when the environment asks for one.
+
+    A port that is not a port or cannot be opened is said in the log and the console starts
+    without it: the redirect is a convenience for an app store that opens an address over HTTP,
+    never a reason for the central not to come up.
+
+    Args:
+        logger: The CLI's logger.
+        bind: The address the console listens on, which the redirect listens on too.
+        console_port: The port the console listens on.
+        allowed: Who may connect to the console, which is who the redirect answers.
+
+    Returns:
+        The running redirect, or None when there is none.
+    """
+    from noust.web.auth import ip_matches
+
+    allow_list = list(allowed)
+    try:
+        server = redirect.from_environment(
+            console_port, bind, allow=lambda address: ip_matches(address, allow_list)
+        )
+        if server is None:
+            return None
+        server.start()
+    except NoustError as exc:
+        logger.warning(f"{exc.message}. {exc.details}")
+        return None
+    logger.info(
+        f"Plain HTTP on port {server.port} only redirects to the console over HTTPS "
+        f"(port {server.https_port} as seen from outside): it serves nothing else."
+    )
+    return server
+
+
 def _run(ctx: Context, host: str, port: int) -> None:
     """
     Prepare the central and serve its console until it is stopped.
@@ -113,7 +151,12 @@ def _run(ctx: Context, host: str, port: int) -> None:
         # issued and printed for a console that never comes up.
         import noust.web.api  # noqa: F401
         from noust.web.auth import TokenManager
-        from noust.web.server import run_server, verify_tls_material
+        from noust.web.server import (
+            BANNER_GRANTS_CENTRAL,
+            BANNER_GRANTS_MACHINE,
+            run_server,
+            verify_tls_material,
+        )
     except ImportError as exc:
         raise DependencyError(
             "The central needs the console's dependencies, which are not installed",
@@ -124,6 +167,7 @@ def _run(ctx: Context, host: str, port: int) -> None:
         ensure_console_certificate,
         print_console_banner,
     )
+    from noust.core.docker import owners
     from noust.managers.console_service import StartOptions
 
     logger = ctx.logger
@@ -149,7 +193,11 @@ def _run(ctx: Context, host: str, port: int) -> None:
     finally:
         manager.sessions.close()
 
+    new_token = owners.central_command("web token --new")
+    in_container = owners.own_container_reference() is not None
     if token is not None:
+        # In a container the token opens the central, not the machine under it, and the address
+        # above is the container's own: the banner says what is true where it is read.
         print_console_banner(
             config,
             token,
@@ -157,15 +205,22 @@ def _run(ctx: Context, host: str, port: int) -> None:
                 "This is the central's first start: the token above is shown this once and "
                 "never again. Sign in, then turn on two-factor authentication in the "
                 "console's settings: a central needs it before its first server.",
-                "In a container the address above is the container's own: open "
-                "https://<the host's address>:<the published port> instead.",
-                f"Lost it? '{DOCKER_EXEC} noust web token --new' issues another.",
+                *(
+                    (
+                        "In a container the address above is the container's own: open "
+                        "https://<the host's address>:<the published port> instead.",
+                    )
+                    if in_container
+                    else ()
+                ),
+                f"Lost it? '{new_token}' issues another.",
             ),
+            grants=BANNER_GRANTS_CENTRAL if in_container else BANNER_GRANTS_MACHINE,
         )
     else:
         logger.info(
             f"Noust central ({role}) serving https://{bind}:{port}. Sign in with the token "
-            f"printed at its first start; '{DOCKER_EXEC} noust web token --new' issues another."
+            f"printed at its first start; '{new_token}' issues another."
         )
     fingerprint = setup.certificate_fingerprint(Path(cert_path))
     if fingerprint:
@@ -179,13 +234,14 @@ def _run(ctx: Context, host: str, port: int) -> None:
     if sealing.is_sealed(root):
         logger.warning(
             "The secrets are sealed: no server can be reached until they are unlocked. "
-            f"Unlock them in the console, or: {DOCKER_EXEC} noust central unlock"
+            f"Unlock them in the console, or: {owners.central_command('central unlock')}"
         )
     unlock_server = UnlockServer(root)
     try:
         unlock_server.start()
     except NoustError as exc:
         logger.warning(f"{exc.message}. {exc.details}")
+    redirect_server = _start_redirect(logger, bind, config.port, allowed)
     # Where systemd keeps no timers, what was scheduled runs from here, and what came due while the
     # central was off runs now and is said.
     schedules = scheduler.start_if_needed(logger.info)
@@ -206,6 +262,8 @@ def _run(ctx: Context, host: str, port: int) -> None:
     finally:
         if schedules is not None:
             schedules.stop()
+        if redirect_server is not None:
+            redirect_server.stop()
         unlock_server.stop()
         # Forgets the keys and removes the decrypted copies handed to ssh.
         sealing.lock(root)
@@ -236,7 +294,10 @@ def run_command(ctx: Context, host: str, port: int) -> None:
     The first start mints a self-signed certificate (unless NOUST_TLS_CERT and
     NOUST_TLS_KEY name one) and prints the sign-in token once. Clients are
     limited to loopback and the private networks unless NOUST_ALLOW_IP or
-    web.ip_whitelist says otherwise. SIGTERM stops it cleanly.
+    web.ip_whitelist says otherwise. NOUST_REDIRECT_PORT opens one more port
+    that only redirects to the console over HTTPS, for an app store that opens
+    an address over plain HTTP; NOUST_PUBLIC_HTTPS_PORT says which port the
+    console has from outside. SIGTERM stops it cleanly.
     """
     if ctx.dry_run:
         ctx.logger.info(

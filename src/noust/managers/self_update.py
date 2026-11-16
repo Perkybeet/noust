@@ -44,7 +44,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from noust import __version__
-from noust.core import paths
+from noust.core import install_source, paths
 from noust.core.exceptions import NoustError
 from noust.core.fs import SECRET_MODE, FileSystem, get_fs
 from noust.core.runner import CommandRunner, get_runner
@@ -186,7 +186,7 @@ class SelfUpdateRefused(Exception):
     This server cannot update its own Noust from here.
 
     Attributes:
-        code: ``unsupported_installation``, ``container_image``,
+        code: ``unsupported_installation``, ``container_image``, ``app_store``,
             ``already_running`` or ``unit_failed``.
         message: The sentence.
         hint: What to run instead, or what to do.
@@ -304,6 +304,8 @@ class SelfUpdate:
         sleep: Waits between looks at the unit.
         preflight: Runs the checks before the installation, given the method and the
             package names; the real ones (:mod:`noust.managers.upgrade_preflight`) when omitted.
+        installed_from: The app store this was installed from, as :mod:`noust.core.install_source`
+            says it, instead of reading ``NOUST_INSTALLED_FROM`` (tests).
     """
 
     def __init__(
@@ -319,7 +321,9 @@ class SelfUpdate:
         process_started: float | None = None,
         sleep: Callable[[float], None] = time.sleep,
         preflight: Callable[[str, Sequence[str]], PreflightReport] | None = None,
+        installed_from: str | None = None,
     ) -> None:
+        self._installed_from = installed_from
         self._runner = runner
         self.process_started = (
             process_started if process_started is not None else _process_started()
@@ -344,6 +348,15 @@ class SelfUpdate:
         return self._fs or get_fs()
 
     # ------------------------------------------------------------- facts
+
+    def installed_from(self) -> str | None:
+        """
+        Name the app store this Noust was installed from, if one.
+
+        Returns:
+            A word of :data:`noust.core.install_source.SOURCES`, or None.
+        """
+        return self._installed_from or install_source.installed_from()
 
     def method(self) -> str:
         """
@@ -435,6 +448,16 @@ class SelfUpdate:
         Returns:
             The refusal, or None when it can.
         """
+        source = self.installed_from()
+        if source is not None:
+            # Before the container it also is: the store replaces the image, with the version it
+            # reviewed, and a command of Docker's would leave its app in a state it does not know.
+            place = install_source.SOURCES[source]
+            return SelfUpdateRefused(
+                "app_store",
+                f"This Noust was installed from {place}; its new versions arrive through it",
+                f"Open {place} and update Noust there",
+            )
         if self.in_container():
             return SelfUpdateRefused(
                 "container_image",
@@ -600,9 +623,9 @@ class SelfUpdate:
         Describe what this server can do about its Noust, and the last update.
 
         Returns:
-            ``current_version``, ``method``, ``supported``, ``code``,
-            ``reason``, ``command`` (the argv that would run) and ``last_run``
-            (the settled record, or None).
+            ``current_version``, ``method``, ``installed_from``, ``supported``,
+            ``code``, ``reason``, ``command`` (the argv that would run) and
+            ``last_run`` (the settled record, or None).
         """
         refusal = self.refusal()
         record = self.read()
@@ -612,6 +635,7 @@ class SelfUpdate:
         return {
             "current_version": self.version,
             "method": self.method(),
+            "installed_from": self.installed_from(),
             "supported": refusal is None,
             "code": refusal.code if refusal else None,
             "reason": refusal.message if refusal else None,

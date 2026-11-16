@@ -456,6 +456,8 @@ jobs:
         run: |
           sh -n packaging/install.sh
           shellcheck -s sh packaging/install.sh
+          sh -n packaging/ugreen/build.sh
+          shellcheck -s sh packaging/ugreen/build.sh
 
       - name: Build the distribution
         run: |

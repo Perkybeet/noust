@@ -5074,6 +5074,10 @@ FirstFactorProof = TypedDict("FirstFactorProof", {
     "password": NotRequired[Union[str, None]],
 })
 
+FirstStart = TypedDict("FirstStart", {
+    "token_shown_by": Required[Literal["installer", "container_log"]],
+})
+
 FixOwnerRequest = TypedDict("FixOwnerRequest", {
     "owner": NotRequired[Union[str, None]],
 })
@@ -10257,6 +10261,7 @@ SelfUpdateOut = TypedDict("SelfUpdateOut", {
     "command": NotRequired[Union[list[str], None]],
     "current_version": Required[str],
     "hint": NotRequired[Union[str, None]],
+    "installed_from": NotRequired[Union[str, None]],
     "last_run": NotRequired[Union[dict[str, Any], None]],
     "method": Required[str],
     "reason": NotRequired[Union[str, None]],
@@ -10496,6 +10501,7 @@ SessionInfo = TypedDict("SessionInfo", {
     "elevation_max_minutes": NotRequired[Union[int, None]],
     "elevation_requires_password": NotRequired[bool],
     "expires_at": NotRequired[Union[str, None]],
+    "first_start": NotRequired[Union["FirstStart", None]],
     "grant": NotRequired[Union[str, None]],
     "hostname": Required[str],
     "idle_minutes": NotRequired[Union[int, None]],
@@ -12312,6 +12318,7 @@ UpdateInfo = TypedDict("UpdateInfo", {
     "current_version": Required[str],
     "has_update": Required[bool],
     "indexed_version": NotRequired[Union[str, None]],
+    "installed_from": NotRequired[Union[str, None]],
     "latest_version": NotRequired[Union[str, None]],
     "published_version": NotRequired[Union[str, None]],
     "refresh_command": NotRequired[Union[str, None]],

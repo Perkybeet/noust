@@ -5625,4 +5625,26 @@ export const serverText: Catalog<typeof en> = {
       text: "Se detuvo la actualización de {domain}: tardó más que el tiempo máximo de despliegue de este servidor ({limit}). No se tocó nada de lo que estaba sirviendo. Sube el límite con 'noust config set deploy.max_minutes <minutos>' (0 es sin límite).",
     },
   },
+  redirect: {
+    host: {
+      text: "El host pedido no es un nombre ni una dirección",
+      hint: "Escribe el nombre o la dirección, como mucho con un puerto detrás.",
+    },
+    port: {
+      text: "{name} no es un puerto",
+      hint: "Escribe un número del 1 al 65535, o quita {name}.",
+    },
+    port_console: {
+      text: "{setting} es el puerto de la propia consola ({port})",
+      hint: "La consola habla TLS en él: la redirección necesita un puerto propio.",
+    },
+    port_open: {
+      text: "No se puede abrir el puerto {port} para la redirección a la consola",
+      hint: "{reason}. Lo tiene otro programa: elige otro con {setting}, o quítalo. A la consola no le afecta.",
+    },
+    target: {
+      text: "La petición no es para una ruta de la consola",
+      hint: "Solo se redirige una ruta con su consulta, tal como las escribe un navegador.",
+    },
+  },
 };

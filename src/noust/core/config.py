@@ -53,6 +53,7 @@ from urllib.parse import urlparse
 
 import yaml  # type: ignore[import-untyped]
 
+from noust.core import hsts as _hsts
 from noust.core import paths, update_policy
 from noust.core.central_settings import (
     CENTRAL_DEFAULTS,
@@ -469,6 +470,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # (and web.hooks_url) are always allowed. Empty allows any Host, as
         # every earlier version did - see _validate_allowed_hosts.
         "allowed_hosts": [],
+        # When the console tells a browser to remember that its name is HTTPS only
+        # (Strict-Transport-Security, noust.core.hsts): "auto" only on the name `noust console
+        # expose` published it on, "always" on every name it is reached by over TLS, "never".
+        "hsts": "auto",
     },
     "integrations": {
         # Code hosts whose kind their address does not say: "git.example.com=gitea",
@@ -2171,6 +2176,7 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "integrations.forge_hosts": _validate_forge_hosts,
     "web.hooks_url": _validate_hooks_url,
     "web.allowed_hosts": _validate_allowed_hosts,
+    "web.hsts": _validate_choice("web.hsts", _hsts.MODES),
     "security.allow_private_hosts": _validate_private_hosts,
     "security.allowed_sources": _validate_allowed_sources,
     "security.frameworks": _validate_frameworks,

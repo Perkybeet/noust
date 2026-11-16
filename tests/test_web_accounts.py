@@ -429,6 +429,55 @@ class TestNoticeAndLeaks:
         assert body["login_label"] == "Production EU"
         assert body["permissions"] == []
 
+    def test_the_one_thing_it_is_told_is_that_the_server_has_no_account_yet_and_where_the_token_was_shown(
+        self, sandbox: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "noust.web.api.first_start.own_container_reference", lambda *a, **k: None
+        )
+        client = build(sandbox)
+
+        body = client.get("/api/auth/session").json()
+
+        assert body["accounts_exist"] is False
+        assert body["first_start"] == {"token_shown_by": "installer"}
+        # Nothing else the first start needs: no version, no hostname, no second factor, no role.
+        assert body["version"] == "" and body["totp_enabled"] is False
+        assert body["permissions"] == [] and body["central"] is None
+
+    def test_in_a_container_the_token_was_shown_in_its_log_and_no_installer_showed_it(
+        self, sandbox: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "noust.web.api.first_start.own_container_reference", lambda *a, **k: "3f2a9c1b0d4e"
+        )
+        client = build(sandbox)
+
+        body = client.get("/api/auth/session").json()
+
+        assert body["first_start"] == {"token_shown_by": "container_log"}
+        assert "3f2a9c1b0d4e" not in client.get("/api/auth/session").text
+
+    def test_once_there_is_an_account_an_anonymous_caller_is_told_nothing_of_it(
+        self, sandbox: Path
+    ) -> None:
+        client = build(sandbox)
+        make_account("maria", "admin")
+
+        body = client.get("/api/auth/session").json()
+
+        assert body["accounts_exist"] is None
+        assert body["first_start"] is None
+
+    def test_a_signed_in_caller_has_no_first_start_to_be_told(self, sandbox: Path) -> None:
+        client = build(sandbox)
+        master_sign_in(client)
+
+        body = client.get("/api/auth/session").json()
+
+        assert body["accounts_exist"] is False
+        assert body["first_start"] is None
+
     def test_a_wrong_master_token_does_not_count_down(self, sandbox: Path) -> None:
         client = build(sandbox)
         get_token_manager().generate_master_token()

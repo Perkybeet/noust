@@ -837,7 +837,9 @@ def _set_apart(lines: list[str], block: Sequence[str]) -> list[str]:
     return lines
 
 
-def _print_banner(config: SecurityConfig, token: str, notes: Sequence[str]) -> None:
+def _print_banner(
+    config: SecurityConfig, token: str, notes: Sequence[str], grants: str | None = None
+) -> None:
     """
     Print the banner that hands the operator the console: token, address, notes.
 
@@ -852,12 +854,16 @@ def _print_banner(config: SecurityConfig, token: str, notes: Sequence[str]) -> N
         config: The configuration the console runs with.
         token: The access token issued for it.
         notes: Lines closing the banner, before its last rule.
+        grants: What the token opens, as :func:`noust.web.server.startup_banner` says it; the
+            machine's root when None.
     """
-    from noust.web.server import banner_address, startup_banner
+    from noust.web.server import BANNER_GRANTS_MACHINE, banner_address, startup_banner
 
     scheme = "https" if config.require_https else "http"
     address = banner_address(config.host)
-    lines = list(startup_banner(token, address, config.port, scheme))
+    lines = list(
+        startup_banner(token, address, config.port, scheme, grants or BANNER_GRANTS_MACHINE)
+    )
     lines = _set_apart(lines, loopback_access_lines(address, config.port, scheme=scheme))
     if notes:
         lines = [*lines[:-1], "", *notes, lines[-1]]

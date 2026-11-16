@@ -136,3 +136,9 @@ panel/.tanstack/
 # working tree before installing into a container.
 tests/integration/.build/
 docs/llms-full.txt
+
+# The UGREEN App Center package is built outside the repository (packaging/ugreen/build.sh);
+# a package and the developer signature are never kept in it.
+*.upk
+ugdev.sig
+packaging/ugreen/build_dir/

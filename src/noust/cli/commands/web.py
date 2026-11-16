@@ -260,7 +260,9 @@ def ensure_console_certificate(host: str, logger: Logger, verbose: bool) -> Path
     return PANEL_TLS_CERT
 
 
-def print_console_banner(config: SecurityConfig, token: str, notes: Sequence[str]) -> None:
+def print_console_banner(
+    config: SecurityConfig, token: str, notes: Sequence[str], grants: str | None = None
+) -> None:
     """
     Print the banner that hands the operator a console and its token.
 
@@ -268,8 +270,9 @@ def print_console_banner(config: SecurityConfig, token: str, notes: Sequence[str
         config: The configuration the console runs with.
         token: The access token issued for it.
         notes: Lines closing the banner.
+        grants: What the token opens, as the banner says it; the machine's root when None.
     """
-    _print_banner(config, token, notes)
+    _print_banner(config, token, notes, grants)
 
 
 def _service_payload(status: dict[str, Any] | None) -> dict[str, Any]:

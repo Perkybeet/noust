@@ -112,6 +112,7 @@ from noust.web.auth import (
     shared_address,
 )
 from noust.web.config_watch import ConfigWatchMiddleware
+from noust.web.console_hsts import header_for_connection
 from noust.web.events import (
     AppStatePublisher,
     announce_app_mutation,
@@ -217,8 +218,6 @@ CONTENT_SECURITY_POLICY = (
     "require-trusted-types-for 'script'"
 )
 
-HSTS_VALUE = "max-age=31536000; includeSubDomains"
-
 #: Browser features the console never uses, switched off for it and for anything
 #: it could be made to embed. Not clipboard-write (the copy buttons) or
 #: fullscreen, which it does use and which a document has by default.
@@ -258,7 +257,8 @@ PERMISSIONS_POLICY = ", ".join(
 #: hardening cannot differ between the response that has a route and the one
 #: that has not, and so docs/SECURITY-MODEL.md prints exactly what is sent.
 #: ``Cache-Control`` depends on the path and ``Strict-Transport-Security`` on the
-#: transport, so they are set beside these in :meth:`SecurityMiddleware._harden_headers`.
+#: transport and on the name (:mod:`noust.core.hsts`), so they are set beside these in
+#: :meth:`SecurityMiddleware._harden_headers`.
 HARDENING_HEADERS: dict[str, str] = {
     "Content-Security-Policy": CONTENT_SECURITY_POLICY,
     "X-Content-Type-Options": "nosniff",
@@ -2116,8 +2116,10 @@ class SecurityMiddleware:
             connection.url.path, status_code, connection.url.query
         )
 
-        if self.config.require_https or is_secure_request(connection, self.config):
-            headers["Strict-Transport-Security"] = HSTS_VALUE
+        secure = self.config.require_https or is_secure_request(connection, self.config)
+        transport_security = header_for_connection(connection, secure=secure)
+        if transport_security is not None:
+            headers["Strict-Transport-Security"] = transport_security
 
     async def _deny(
         self,
@@ -2340,7 +2342,17 @@ def banner_address(host: str) -> str:
     return host
 
 
-def startup_banner(token: str, host: str, port: int, scheme: str) -> tuple[str, ...]:
+#: What the access token opens, as the banner says it: the machine the console runs on...
+BANNER_GRANTS_MACHINE = "full root access to this machine"
+#: ... or, in a container, the central and through it the servers it manages: the machine under the
+#: container is not the token's to open, and a banner that said so would be telling a NAS's owner that
+#: something they installed from a store is root on their NAS.
+BANNER_GRANTS_CENTRAL = "full access to this central, and through it to the servers it manages"
+
+
+def startup_banner(
+    token: str, host: str, port: int, scheme: str, grants: str = BANNER_GRANTS_MACHINE
+) -> tuple[str, ...]:
     """
     Build what the panel prints when it comes up.
 
@@ -2355,6 +2367,8 @@ def startup_banner(token: str, host: str, port: int, scheme: str) -> tuple[str, 
         host: Address the panel is bound to.
         port: Port it listens on.
         scheme: ``http`` or ``https``, matching what it serves.
+        grants: What the token opens, as :data:`BANNER_GRANTS_MACHINE` or
+            :data:`BANNER_GRANTS_CENTRAL` say it.
 
     Returns:
         The lines to print, in order.
@@ -2369,7 +2383,7 @@ def startup_banner(token: str, host: str, port: int, scheme: str) -> tuple[str, 
         f"Server: {scheme}://{host}:{port}",
         *loopback_access_lines(host, port, scheme=scheme),
         "Paste the token into the login form. It is never accepted in a URL.",
-        "Keep this token secure! It grants full root access to this machine.",
+        f"Keep this token secure! It grants {grants}.",
         rule,
     )
 

@@ -312,14 +312,16 @@ GUARANTEES: tuple[Guarantee, ...] = (
         "cookies are `HttpOnly`, `SameSite=Strict`, and `Secure` over TLS; every mutation made "
         "with a session carries a CSRF token. The end-to-end suite fails on any CSP violation "
         "and runs axe in both themes.",
-        "`web/server.py` (`HARDENING_HEADERS`, `CONTENT_SECURITY_POLICY`), "
+        "`web/server.py` (`HARDENING_HEADERS`, `CONTENT_SECURITY_POLICY`), `core/hsts.py` (when "
+        "the console says `Strict-Transport-Security`), "
         "`panel/e2e/` (the gate), `docs/security-console.md#the-browser`.",
         (
             "tests/test_console_headers.py::TestEveryKindOfAnswer",
             "tests/test_console_headers.py::TestTheTransport",
             "tests/test_console_headers.py::TestThePolicyItself",
             "tests/test_web_auth.py::test_security_headers_are_present",
-            "tests/test_web_auth.py::test_hsts_is_sent_when_https_is_required",
+            "tests/test_web_auth.py::test_hsts_is_sent_when_https_is_required_and_the_operator_asked_for_it",
+            "tests/test_console_hsts.py::TestWhatTheConsoleSends",
             "tests/test_web_auth.py::test_login_sets_httponly_samesite_cookie",
             "tests/test_web_auth.py::test_cookie_is_secure_over_https",
             "tests/test_architecture.py::TestSelfContained::test_no_external_assets",
@@ -517,6 +519,16 @@ INPUT_CLASSES: tuple[InputClass, ...] = (
         "lowercase letters, digits, hyphens and dots; labels of at most 63 characters and "
         "253 in all; scheme, path and port are cut before the check",
         ("tests/test_adversarial_inputs.py::TestDomains",),
+    ),
+    InputClass(
+        "The host and path of a request to the plain redirect port",
+        "the `Host` header and the request target of a connection to `NOUST_REDIRECT_PORT`",
+        "noust.validators.redirect:validate_redirect_host",
+        "the `Location` of a `308` to the console over HTTPS, in cleartext",
+        "a lower-case name, an IPv4 address or an IPv6 address in brackets (a port after it is "
+        "dropped), and a path with a query of visible ASCII; anything else is an empty `400` that "
+        "repeats nothing, and a name that ends in a number is refused",
+        ("tests/test_adversarial_inputs.py::TestWhatThePlainRedirectPortRepeats",),
     ),
     InputClass(
         "Environment variable names and values, and unit values",
@@ -725,12 +737,12 @@ def block_input_classes() -> str:
 
 def block_headers() -> str:
     """The headers every response carries, as the middleware sends them."""
+    from noust.core.hsts import VALUE as HSTS_VALUE
     from noust.web.server import (
         _DISABLED_FEATURES,
         _SELF_ONLY_FEATURES,
         CONTENT_SECURITY_POLICY,
         HARDENING_HEADERS,
-        HSTS_VALUE,
     )
 
     rows = ["| Header | Value |", "|---|---|"]
@@ -739,7 +751,9 @@ def block_headers() -> str:
             continue
         rows.append(f"| `{name}` | `{value}` |")
     rows.append(
-        f"| `Strict-Transport-Security` (over TLS, direct or through a declared proxy) | `{HSTS_VALUE}` |"
+        "| `Strict-Transport-Security` (over TLS, direct or through a declared proxy, and only on "
+        "the name `noust console expose` published the console on, unless `web.hsts` is `always`"
+        f" or `never`) | `{HSTS_VALUE}` |"
     )
     rows.append(
         "| `Cache-Control` | `no-store`, except hashed files under `/assets/` and the sign-in picture asked for by its own digest: `public, max-age=31536000, immutable` |"

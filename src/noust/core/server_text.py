@@ -249,6 +249,24 @@ CATALOG: dict[str, str] = {
         "has the limit from before 4.3 (1024 files)."
     ),
     "fleet.options_object": "The options of a fleet action are an object",
+    # -- The plain HTTP port that only redirects to the console (noust.central.redirect) -------
+    # None of these reaches a browser, which gets an empty 400 for a request that fails: they are
+    # what the log says when one of the port's two settings is wrong or the port cannot be opened.
+    "redirect.host": "The host is not a name or an address",
+    "redirect.host.hint": "Write the name or the address, with at most a port after it.",
+    "redirect.target": "The request is not for a path of the console",
+    "redirect.target.hint": ("Only a path and a query, as a browser writes them, are redirected."),
+    "redirect.port": "{name} is not a port",
+    "redirect.port.hint": "Write a number from 1 to 65535, or take {name} out.",
+    "redirect.port_open": "Cannot open port {port} for the redirect to the console",
+    "redirect.port_open.hint": (
+        "{reason}. Another program holds it: choose another with {setting}, or take it out. "
+        "The console itself is not affected."
+    ),
+    "redirect.port_console": "{setting} is the console's own port ({port})",
+    "redirect.port_console.hint": (
+        "The console speaks TLS on it: the redirect needs a port of its own."
+    ),
     # -- A fleet job's title (noust.core.fleet_job_titles): the name its console job carries ----
     # One sentence for one server and one for several, because the plural of "server" is not a
     # suffix in every language. The job's name is this text, so the console, a notice and the

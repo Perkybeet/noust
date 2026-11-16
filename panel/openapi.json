@@ -29367,6 +29367,24 @@
         "title": "FirstFactorProof",
         "type": "object"
       },
+      "FirstStart": {
+        "description": "The facts of a server's first start the sign-in screen needs.\n\nAttributes:\n    token_shown_by: Where the access token was shown: ``installer`` (the installer's own box,\n        on a server) or ``container_log`` (the log of the container, which has no installer).",
+        "properties": {
+          "token_shown_by": {
+            "enum": [
+              "installer",
+              "container_log"
+            ],
+            "title": "Token Shown By",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token_shown_by"
+        ],
+        "title": "FirstStart",
+        "type": "object"
+      },
       "FixOwnerRequest": {
         "description": "Request to give a database to its application's role.\n\nAttributes:\n    owner: The role; the one Noust provisioned for it when omitted.",
         "properties": {
@@ -59139,7 +59157,7 @@
         "type": "object"
       },
       "SelfUpdateOut": {
-        "description": "What this server can do about its own Noust, and how the last update went.\n\nAttributes:\n    current_version: The Noust answering.\n    method: How it was installed: ``apt``, ``dnf``, ``yum``, ``zypper``,\n        ``pip``, ``pipx``, ``source`` or ``unknown``.\n    supported: Whether ``POST /api/system/update`` can update it.\n    code: Why not, for a machine: ``unsupported_installation`` or\n        ``container_image``.\n    reason: Why not, in a sentence.\n    hint: What to run instead.\n    command: The command an update runs, exactly.\n    last_run: The last update's record (``id``, ``status``:\n        ``running``/``installed``/``succeeded``/``failed``,\n        ``from_version``, ``to_version``, ``tail``, ``job_id``...).",
+        "description": "What this server can do about its own Noust, and how the last update went.\n\nAttributes:\n    current_version: The Noust answering.\n    method: How it was installed: ``apt``, ``dnf``, ``yum``, ``zypper``,\n        ``pip``, ``pipx``, ``source`` or ``unknown``.\n    installed_from: The app store it was installed from (``ugreen-app-center``), whose new\n        versions arrive through it; None otherwise.\n    supported: Whether ``POST /api/system/update`` can update it.\n    code: Why not, for a machine: ``unsupported_installation``,\n        ``container_image`` or ``app_store``.\n    reason: Why not, in a sentence.\n    hint: What to run instead.\n    command: The command an update runs, exactly.\n    last_run: The last update's record (``id``, ``status``:\n        ``running``/``installed``/``succeeded``/``failed``,\n        ``from_version``, ``to_version``, ``tail``, ``job_id``...).",
         "properties": {
           "code": {
             "anyOf": [
@@ -59180,6 +59198,17 @@
               }
             ],
             "title": "Hint"
+          },
+          "installed_from": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Installed From"
           },
           "last_run": {
             "anyOf": [
@@ -60517,7 +60546,7 @@
         "type": "object"
       },
       "SessionInfo": {
-        "description": "Bootstrap information the console reads before it knows anything else.\n\nAnswered for an anonymous caller too, with ``authenticated=False``, so the\nconsole can decide between the sign-in screen and the shell from one\nrequest instead of treating a 401 as \"maybe not logged in yet\". An\nanonymous caller learns nothing about the server (ENS op.acc.6.7, G10):\nno hostname, no version, not whether a second factor is on - only the\nlabel the operator chose for the sign-in page.\n\nAttributes:\n    authenticated: Whether a usable credential was presented.\n    scope: The credential's 3.0 scope, or None when unauthenticated.\n    expires_at: Session expiry, ISO 8601, or None.\n    elevated_until: End of the sudo-mode confirmation window, ISO 8601,\n        or None when the session is not currently elevated.\n    totp_enabled: Whether this credential's sign-in asks for a second\n        factor: the account's own authenticator, or the console's for the\n        master token. False for an anonymous caller.\n    hostname: This machine's hostname, so an operator with several panels\n        open can tell them apart; the operator's sign-in label (empty by\n        default) for an anonymous caller.\n    version: The installed Noust version; empty for an anonymous caller.\n    csrf_header: Header name a mutation must echo the CSRF cookie in.\n    csrf_cookie: Name of the readable CSRF cookie.\n    central: This server's role and whether its sealed secrets are\n        locked, so the console hides what a hub does not do and offers\n        the unlock form; None for an anonymous caller.\n    assistant: Whether the built-in assistant is on and this caller may use it, with the\n        reason when not, so the console draws nothing when there is nothing to offer; None\n        for an anonymous caller.\n    login_label: What the operator chose to show on the sign-in page.\n    account: The account signed in, or None.\n    role: Its role, or the role a central forwarded.\n    roles: Every role the account holds, in order; empty for a credential that is no account.\n    grant: For the master token, how it holds the console.\n    permissions: Everything the credential may do.\n    mfa_required: The account must enrol an authenticator first.\n    notice: The usage notice to accept first, when one is pending.\n    accounts_exist: Whether this server has accounts; while it has none\n        the console offers to create the first.\n    security_profile: ``standard`` or ``ens-medium``.\n    idle_minutes: How long the session may go unused.\n    elevation_factors: What the credential can confirm sudo mode with:\n        ``totp``, ``passkey`` and ``backup_code`` for an account, those it\n        has; for the master token ``totp`` and ``passkey`` when it has them,\n        ``master_token`` while it has neither. Empty for an anonymous\n        caller and for an account with no second factor, which cannot\n        enter sudo mode.\n    elevation_requires_password: Whether confirming with a code also asks\n        for the account's password (``auth.sudo.require_password``, always\n        under ENS). A passkey confirms on its own either way.\n    elevation_idle_minutes: How long sudo mode stays open after the last\n        elevated action.\n    elevation_max_minutes: The longest it lasts from the confirmation.",
+        "description": "Bootstrap information the console reads before it knows anything else.\n\nAnswered for an anonymous caller too, with ``authenticated=False``, so the\nconsole can decide between the sign-in screen and the shell from one\nrequest instead of treating a 401 as \"maybe not logged in yet\". An\nanonymous caller learns nothing about the server (ENS op.acc.6.7, G10):\nno hostname, no version, not whether a second factor is on - only the\nlabel the operator chose for the sign-in page, and, while the server has no\naccount yet, that it has none and where the access token was shown\n(``first_start``): the one moment the token is how anybody gets in.\n\nAttributes:\n    authenticated: Whether a usable credential was presented.\n    scope: The credential's 3.0 scope, or None when unauthenticated.\n    expires_at: Session expiry, ISO 8601, or None.\n    elevated_until: End of the sudo-mode confirmation window, ISO 8601,\n        or None when the session is not currently elevated.\n    totp_enabled: Whether this credential's sign-in asks for a second\n        factor: the account's own authenticator, or the console's for the\n        master token. False for an anonymous caller.\n    hostname: This machine's hostname, so an operator with several panels\n        open can tell them apart; the operator's sign-in label (empty by\n        default) for an anonymous caller.\n    version: The installed Noust version; empty for an anonymous caller.\n    csrf_header: Header name a mutation must echo the CSRF cookie in.\n    csrf_cookie: Name of the readable CSRF cookie.\n    central: This server's role and whether its sealed secrets are\n        locked, so the console hides what a hub does not do and offers\n        the unlock form; None for an anonymous caller.\n    assistant: Whether the built-in assistant is on and this caller may use it, with the\n        reason when not, so the console draws nothing when there is nothing to offer; None\n        for an anonymous caller.\n    login_label: What the operator chose to show on the sign-in page.\n    account: The account signed in, or None.\n    role: Its role, or the role a central forwarded.\n    roles: Every role the account holds, in order; empty for a credential that is no account.\n    grant: For the master token, how it holds the console.\n    permissions: Everything the credential may do.\n    mfa_required: The account must enrol an authenticator first.\n    notice: The usage notice to accept first, when one is pending.\n    accounts_exist: Whether this server has accounts; while it has none\n        the console offers to create the first. An anonymous caller is only\n        ever told ``false``, and only while that is so.\n    first_start: For an anonymous caller, while the server has no account:\n        where the access token was shown, so the sign-in opens on it and\n        says where to find it. None for everyone else, and once there is an\n        account.\n    security_profile: ``standard`` or ``ens-medium``.\n    idle_minutes: How long the session may go unused.\n    elevation_factors: What the credential can confirm sudo mode with:\n        ``totp``, ``passkey`` and ``backup_code`` for an account, those it\n        has; for the master token ``totp`` and ``passkey`` when it has them,\n        ``master_token`` while it has neither. Empty for an anonymous\n        caller and for an account with no second factor, which cannot\n        enter sudo mode.\n    elevation_requires_password: Whether confirming with a code also asks\n        for the account's password (``auth.sudo.require_password``, always\n        under ENS). A passkey confirms on its own either way.\n    elevation_idle_minutes: How long sudo mode stays open after the last\n        elevated action.\n    elevation_max_minutes: The longest it lasts from the confirmation.",
         "properties": {
           "account": {
             "anyOf": [
@@ -60629,6 +60658,16 @@
               }
             ],
             "title": "Expires At"
+          },
+          "first_start": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FirstStart"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "grant": {
             "anyOf": [
@@ -71306,6 +71345,17 @@
               }
             ],
             "title": "Indexed Version"
+          },
+          "installed_from": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Installed From"
           },
           "latest_version": {
             "anyOf": [

@@ -949,11 +949,13 @@ class TunnelManager:
         """
         root = self.keys.secrets.root
         if sealing.is_sealed(root) and not sealing.is_unlocked(root):
+            from noust.core.docker.owners import central_command
+
             raise sealing.SecretsLockedError(
                 "This central is locked: its secrets are sealed, so no node can be reached",
                 details=(
-                    "Unlock it in the console, or with 'noust central unlock' on the "
-                    "central (docker exec -it noust noust central unlock in a container)."
+                    "Unlock it in the console, or with "
+                    f"'{central_command('central unlock')}' on the central."
                 ),
             )
 

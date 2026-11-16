@@ -70,7 +70,9 @@ Types, which forbid string-to-DOM sinks. The end-to-end suite fails on any CSP v
 every response carries the same headers whatever it answers: a page, the API, an asset, a 404, and
 a refusal made before routing (a host or an address that is not allowed, a rate limit, a body too
 large). `Strict-Transport-Security` is added when the request came over TLS (directly, or through a
-declared proxy); everything is `Cache-Control: no-store` except the content-hashed files under
+declared proxy) and the console is the owner of the name: the one `noust console expose` published it on,
+or every name when `web.hsts` is `always` (it is never sent with `includeSubDomains`, and `never` turns it
+off); everything is `Cache-Control: no-store` except the content-hashed files under
 `/assets/` and the picture of the sign-in screen asked for by its own digest (`?v=<sha256>`), which are
 immutable for a year. The exact values of every header are printed in
 [SECURITY-MODEL.md](SECURITY-MODEL.md#the-browser), generated from the code that sends them and

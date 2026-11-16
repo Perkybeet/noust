@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import os
 import posixpath
+import socket
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
@@ -47,10 +48,13 @@ if TYPE_CHECKING:
     from noust.core.store import NoustStore
 
 __all__ = [
+    "CONTAINER_MARKERS",
     "AppRecord",
     "OwnerIndex",
     "Registry",
+    "central_command",
     "own_container_ids",
+    "own_container_reference",
     "registry_from_store",
 ]
 
@@ -120,6 +124,59 @@ def own_container_ids(mountinfo: Path = Path("/proc/self/mountinfo")) -> frozens
     if names.SHORT_CONTAINER_ID.fullmatch(hostname):
         found.add(hostname)
     return frozenset(found)
+
+
+#: Files a container runtime puts in every container it makes, for when its own files in ``mountinfo``
+#: are not there to be read (another runtime, another way of mounting them).
+CONTAINER_MARKERS: tuple[Path, ...] = (Path("/.dockerenv"), Path("/run/.containerenv"))
+
+
+def own_container_reference(
+    mountinfo: Path = Path("/proc/self/mountinfo"),
+    markers: Iterable[Path] = CONTAINER_MARKERS,
+    hostname: str | None = None,
+) -> str | None:
+    """
+    Name the container this process runs in the way ``docker exec`` takes it.
+
+    A container does not know the name it was given, only its id and the host name it was started
+    with, and an id always reaches it: the first twelve digits of the id its files are kept under,
+    else the host name when that is the short id Docker gives by default, else (in a container
+    whose files are not seen) the host name it was started with.
+
+    Args:
+        mountinfo: The file that lists this process's mounts.
+        markers: What a container runtime leaves in the containers it makes.
+        hostname: The host name; this machine's when None.
+
+    Returns:
+        The reference, or None on a machine that is not a container.
+    """
+    found = own_container_ids(mountinfo)
+    full = sorted(identifier for identifier in found if len(identifier) == 64)
+    if full:
+        return full[0][:12]
+    if found:
+        return sorted(found)[0]
+    if any(marker.exists() for marker in markers):
+        return hostname or socket.gethostname()
+    return None
+
+
+def central_command(arguments: str) -> str:
+    """
+    Spell the command line that runs ``noust <arguments>`` on this central.
+
+    Args:
+        arguments: What follows ``noust``, such as ``web token --new``.
+
+    Returns:
+        ``docker exec -it <this container> noust <arguments>`` when Noust runs in a container,
+        which is where a person has to type it from, else ``noust <arguments>``.
+    """
+    reference = own_container_reference()
+    prefix = f"docker exec -it {reference} " if reference else ""
+    return f"{prefix}noust {arguments}"
 
 
 def registry_from_store(store: NoustStore, own_ids: Iterable[str] | None = None) -> Registry:

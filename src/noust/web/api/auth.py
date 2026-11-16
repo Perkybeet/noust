@@ -44,6 +44,7 @@ from noust.web.api.auth_accounts import AccountInfo
 from noust.web.api.auth_accounts import router as accounts_router
 from noust.web.api.central import SessionCentral, session_central
 from noust.web.api.deps import NoustErrorRoute, ensure_elevated, require_elevated
+from noust.web.api.first_start import FirstStart, session_first_start
 from noust.web.api.identity_proof import ensure_first_factor_proof
 from noust.web.auth import (
     CSRF_COOKIE_NAME,
@@ -306,7 +307,9 @@ class SessionInfo(BaseModel):
     request instead of treating a 401 as "maybe not logged in yet". An
     anonymous caller learns nothing about the server (ENS op.acc.6.7, G10):
     no hostname, no version, not whether a second factor is on - only the
-    label the operator chose for the sign-in page.
+    label the operator chose for the sign-in page, and, while the server has no
+    account yet, that it has none and where the access token was shown
+    (``first_start``): the one moment the token is how anybody gets in.
 
     Attributes:
         authenticated: Whether a usable credential was presented.
@@ -338,7 +341,12 @@ class SessionInfo(BaseModel):
         mfa_required: The account must enrol an authenticator first.
         notice: The usage notice to accept first, when one is pending.
         accounts_exist: Whether this server has accounts; while it has none
-            the console offers to create the first.
+            the console offers to create the first. An anonymous caller is only
+            ever told ``false``, and only while that is so.
+        first_start: For an anonymous caller, while the server has no account:
+            where the access token was shown, so the sign-in opens on it and
+            says where to find it. None for everyone else, and once there is an
+            account.
         security_profile: ``standard`` or ``ens-medium``.
         idle_minutes: How long the session may go unused.
         elevation_factors: What the credential can confirm sudo mode with:
@@ -375,6 +383,7 @@ class SessionInfo(BaseModel):
     mfa_required: bool = False
     notice: NoticeInfo | None = None
     accounts_exist: bool | None = None
+    first_start: FirstStart | None = None
     security_profile: str | None = None
     idle_minutes: int | None = None
     elevation_factors: list[str] = Field(default_factory=list)
@@ -1211,12 +1220,15 @@ def get_session_info(request: Request) -> SessionInfo:
     )
 
     if session is None:
+        has_accounts = token_manager.accounts_exist()
         return SessionInfo(
             authenticated=False,
             totp_enabled=False,
             hostname=policy.login_label,
             version="",
             login_label=policy.login_label or None,
+            accounts_exist=None if has_accounts else False,
+            first_start=session_first_start(has_accounts),
         )
 
     account = _account_of(session)

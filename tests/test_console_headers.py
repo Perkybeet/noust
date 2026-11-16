@@ -19,10 +19,11 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from noust.core.config import Config
+from noust.core.hsts import VALUE as HSTS_VALUE
 from noust.web.server import (
     CONTENT_SECURITY_POLICY,
     HARDENING_HEADERS,
-    HSTS_VALUE,
     PERMISSIONS_POLICY,
     create_app,
 )
@@ -103,10 +104,18 @@ class TestEveryKindOfAnswer:
 
 
 class TestTheTransport:
+    """
+    The transport decides whether ``Strict-Transport-Security`` can be sent at all; which name
+    it is sent on is tests/test_console_hsts.py's.
+    """
+
     def test_cleartext_has_no_hsts(self, sandbox: Path) -> None:
         assert "Strict-Transport-Security" not in client_for(sandbox).get("/health").headers
 
-    def test_tls_has_hsts(self, sandbox: Path) -> None:
+    def test_tls_has_hsts_where_the_operator_asked_for_it(
+        self, sandbox: Path, real_config: Config
+    ) -> None:
+        real_config.set("web.hsts", "always")
         client = TestClient(
             create_app(make_config(sandbox)),
             base_url="https://testserver",
@@ -115,14 +124,30 @@ class TestTheTransport:
 
         assert client.get("/health").headers["Strict-Transport-Security"] == HSTS_VALUE
 
-    def test_a_declared_proxy_can_say_the_request_was_tls(self, sandbox: Path) -> None:
+    def test_tls_alone_says_nothing_about_a_name_nobody_published(self, sandbox: Path) -> None:
+        client = TestClient(
+            create_app(make_config(sandbox)),
+            base_url="https://testserver",
+            client=("203.0.113.9", 50000),
+        )
+
+        assert "Strict-Transport-Security" not in client.get("/health").headers
+
+    def test_a_declared_proxy_can_say_the_request_was_tls(
+        self, sandbox: Path, real_config: Config
+    ) -> None:
+        real_config.set("web.hsts", "always")
         client = client_for(sandbox, peer="127.0.0.1", trusted_proxies=["127.0.0.1"])
 
         response = client.get("/health", headers={"X-Forwarded-Proto": "https"})
 
         assert response.headers["Strict-Transport-Security"] == HSTS_VALUE
 
-    def test_anyone_else_saying_so_changes_nothing(self, sandbox: Path) -> None:
+    def test_anyone_else_saying_so_changes_nothing(
+        self, sandbox: Path, real_config: Config
+    ) -> None:
+        real_config.set("web.hsts", "always")
+
         response = client_for(sandbox).get("/health", headers={"X-Forwarded-Proto": "https"})
 
         assert "Strict-Transport-Security" not in response.headers

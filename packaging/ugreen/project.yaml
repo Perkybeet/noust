@@ -1,0 +1,116 @@
+# Noust for the UGREEN App Center (UGOS Pro): the central, as a Docker app. The guide is
+# docs/ugreen.md; packaging/ugreen/build.sh packs it.
+# Reference: https://developer.ugnas.com/en/doc/tools/project-yaml.html
+spec_version: "2.1"
+# Reverse of noust.dev; the store never lets it change after the first listing.
+app_id: dev.noust.central
+# scripts/release.py keeps this equal to pyproject.toml and to the image tag in
+# rootfs_common/docker-compose.yaml.
+version: 4.2.1
+support_arch:
+  - amd64
+  - arm64
+product_series:
+  - nasync
+supports:
+  - pc
+is_docker_app: true
+depend_fw_version: 1.13.0.0000
+depend_docker_version: 1.7.0.0000
+# What the icon opens is http://<the NAS>:<this port>, and the store cannot be told to use HTTPS. The
+# console only speaks TLS, so this is the port that only redirects to it (NOUST_REDIRECT_PORT in
+# rootfs_common/docker-compose.yaml). It is fixed (UGOS does not let it change), UGOS does not warn
+# when another app has it, and so it is a number few apps use. The console's own port is the
+# NOUST_CONSOLE_PORT parameter below.
+port: 8442
+open_type: tab
+only_admin: true
+tag_types:
+  - system
+  - devtool
+# The central's whole job is reaching the servers its operator adds (SSH) and,
+# when asked, GitHub and the notification channels; said here rather than found.
+permissions:
+  - NETWORK.ACCESS_INTERNET
+privacy_policy_link:
+  - https://noust.dev/privacy/
+license_agreement_link:
+  - https://github.com/Perkybeet/noust/blob/main/LICENSE
+source_code_link:
+  - https://github.com/Perkybeet/noust
+technical_support_link:
+  - https://github.com/Perkybeet/noust/issues
+parameters:
+  # No default can be declared for a parameter, so it is required: the person types the port the
+  # console opens on. The compose file needs it for `ports:` and for NOUST_PUBLIC_HTTPS_PORT, which
+  # is how the redirect on the icon's port knows where the console is.
+  - key: NOUST_CONSOLE_PORT
+    type: number
+    required: true
+    changeable: true
+    i18n:
+      en-US:
+        name: Console port
+        description: The port the console opens on, at the address of this NAS. 8443 is the usual one. UGOS does not check that it is free; if another app has it, Noust shows as Disabled and you choose another here.
+      es-ES:
+        name: Puerto de la consola
+        description: El puerto en el que se abre la consola, en la dirección de este NAS. 8443 es el habitual. UGOS no comprueba que esté libre; si otra aplicación lo tiene, Noust aparece como Desactivado y aquí eliges otro.
+  - key: NOUST_ALLOW_IP
+    type: string
+    required: false
+    changeable: true
+    max_length: 512
+    i18n:
+      en-US:
+        name: Who may open the console
+        description: Addresses or networks separated by spaces, such as 192.0.2.0/24. Leave it empty for this machine and the private networks.
+      es-ES:
+        name: Quién puede abrir la consola
+        description: Direcciones o redes separadas por espacios, como 192.0.2.0/24. Déjalo vacío para este equipo y las redes privadas.
+  - key: NOUST_TLS_NAMES
+    type: string
+    required: false
+    changeable: true
+    max_length: 512
+    i18n:
+      en-US:
+        name: Names of the NAS for the certificate
+        description: The address and names you open the console with, separated by spaces, such as 192.0.2.10 nas.example.net. The container cannot see them by itself.
+      es-ES:
+        name: Nombres del NAS para el certificado
+        description: La dirección y los nombres con los que abres la consola, separados por espacios, como 192.0.2.10 nas.example.net. El contenedor no los ve por sí solo.
+i18n:
+  en-US:
+    name: Noust
+    description: >-
+      The central for your Linux servers. Add each server once and manage all of them from one
+      console: deployments with instant rollback, sites and certificates, databases, backups,
+      updates and alerts. The NAS only connects outward, over SSH tunnels that can reach each
+      server's console and nothing else, so nothing has to be opened on your router. Accounts
+      with two-factor sign-in and an audit trail of every action. In this app Noust manages other
+      servers; it does not run applications on the NAS itself, and it has no access to the NAS's
+      Docker. New versions arrive through the App Center. If Noust shows as Disabled, the console
+      port is taken by another app: change it in the app's settings. Free software under the
+      AGPL-3.0.
+    author: Yago López Prado
+    official: https://noust.dev
+    help: https://github.com/Perkybeet/noust/blob/main/docs/ugreen.md
+    publisher: Yago López Prado
+    publisher_link: https://noust.dev
+  es-ES:
+    name: Noust
+    description: >-
+      La central de tus servidores Linux. Añades cada servidor una vez y los gestionas todos
+      desde una sola consola: despliegues con vuelta atrás al instante, sitios y certificados,
+      bases de datos, copias de seguridad, actualizaciones y avisos. El NAS solo se conecta hacia
+      fuera, por túneles SSH que llegan a la consola de cada servidor y a nada más, así que no
+      hay que abrir nada en el router. Cuentas con doble factor y un registro de cada acción. En
+      esta aplicación Noust gestiona otros servidores; no ejecuta aplicaciones en el propio NAS y
+      no tiene acceso al Docker del NAS. Las versiones nuevas llegan por el Centro de Apps. Si
+      Noust aparece como Desactivado, el puerto de la consola lo tiene otra aplicación: cámbialo
+      en los ajustes de la app. Software libre bajo la AGPL-3.0.
+    author: Yago López Prado
+    official: https://noust.dev
+    help: https://github.com/Perkybeet/noust/blob/main/docs/ugreen.md
+    publisher: Yago López Prado
+    publisher_link: https://noust.dev

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from noust.web.server import startup_banner
+from noust.web.server import BANNER_GRANTS_CENTRAL, startup_banner
 
 
 def test_a_loopback_banner_carries_the_ssh_tunnel(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -53,3 +53,22 @@ def test_a_reachable_banner_has_no_tunnel_instructions() -> None:
 
     assert "ssh -L" not in banner
     assert "https://198.51.100.7:8080" in banner
+
+
+def test_in_a_container_the_token_is_said_to_open_the_central_not_the_machine() -> None:
+    """The machine is the NAS, and the token does not open it: it opens the central and its servers."""
+    banner = "\n".join(
+        startup_banner(
+            "wasm_tok", host="198.51.100.7", port=8443, scheme="https", grants=BANNER_GRANTS_CENTRAL
+        )
+    )
+
+    assert "full access to this central" in banner
+    assert "root" not in banner
+    assert "this machine" not in banner
+
+
+def test_the_token_opens_the_machine_unless_the_caller_says_otherwise() -> None:
+    banner = "\n".join(startup_banner("wasm_tok", host="198.51.100.7", port=8080, scheme="https"))
+
+    assert "It grants full root access to this machine." in banner

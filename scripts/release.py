@@ -183,6 +183,19 @@ SITES: tuple[Site, ...] = (
         label="container compose example",
         group=2,
     ),
+    Site(
+        path="packaging/ugreen/project.yaml",
+        pattern=r"^version: (\S+)",
+        template="version: {version}",
+        label="UGREEN App Center package",
+    ),
+    Site(
+        path="packaging/ugreen/rootfs_common/docker-compose.yaml",
+        pattern=r"^(\s*)image: ghcr\.io/perkybeet/noust:(\S+)",
+        template=r"\g<1>image: ghcr.io/perkybeet/noust:{version}",
+        label="UGREEN App Center package image",
+        group=2,
+    ),
 )
 
 #: Debian changelogs, each with its top entry at the current version.

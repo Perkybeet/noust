@@ -268,6 +268,17 @@ against the schema of 4.2.0.
   is an answer, not an error (`problem`: `not_forum`, `not_member`, `no_right`, `chat_unreachable`, `unreachable` or
   `refused`, with `detail` in Telegram's words), and a channel that is not Telegram's or has no bot yet is a `400`.
 
+- **What the sign-in screen is told before anybody has signed in, while the server has no account.**
+  `GET /api/auth/session` answers an anonymous caller `accounts_exist: false` and `first_start`
+  (`token_shown_by`: `installer`, or `container_log` for a central in a container, whose access token is in the
+  container's log and was shown by no installer). Once the server has an account both are `null` again, as they
+  always were for a caller who is not signed in, and a signed-in caller has no `first_start`.
+- **Where the new versions of a Noust installed from an app store arrive from.** `GET /api/system/version` and
+  `GET /api/system/update` carry `installed_from` (`ugreen-app-center`, or `null`). While it is set the version
+  check gives no `update_command` and no `refresh_command`, and `POST /api/system/update` answers `501` with the
+  error `app_store` (its `hint` says to update through the store), where a container answered `container_image`
+  with the command of Docker's.
+
 ### Changed, without breaking a client
 
 - **The listings of the Databases area on a central that deploys containers** answer `200` with what there is and
@@ -276,6 +287,9 @@ against the schema of 4.2.0.
 - **The verdict of `POST /api/apps/inspect` on a machine that only has Docker** says `how_it_runs.why.nothing_runs_here`
   for a project that would run natively (it advised `noust setup init`), and no longer names Railpack for a project it
   cannot build; the verdict and `ways` come from the same table.
+- **`Strict-Transport-Security` of the console** is sent only on the name `noust console expose` published it on
+  (setting `web.hsts`: `auto`, `always` or `never`), and no longer carries `includeSubDomains`. It used to be on
+  every response over TLS.
 - **The subject of an email about a thing that has a way back** is the same in every message about it
   (`[Noust] Application: shop.example.com (web-1)`, `[Noust] Deploy: ...`) and no longer carries how it went, and the
   later messages carry `In-Reply-To` and `References`. The webhook's payload does not change.

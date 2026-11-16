@@ -50,7 +50,7 @@ from jinja2 import Environment, TemplateNotFound
 from jinja2 import TemplateError as JinjaTemplateError
 
 from noust.central import require_server_role
-from noust.core import paths
+from noust.core import hsts, paths
 from noust.core.config import (
     APACHE_SITES_AVAILABLE,
     APACHE_SITES_ENABLED,
@@ -115,10 +115,8 @@ _CONTROL_TIMEOUT = 30
 DEFAULT_PROXY_PORT = 3000
 
 #: What ``Strict-Transport-Security`` says on the sites that opted in
-#: (``ssl.hsts``). A year, without ``includeSubDomains`` or ``preload``: those
-#: bind every subdomain of the domain, which an operator hosting other sites
-#: under it did not ask for.
-HSTS_VALUE = "max-age=31536000"
+#: (``ssl.hsts``): the console's value too, which :mod:`noust.core.hsts` holds.
+HSTS_VALUE = hsts.VALUE
 
 
 def hsts_header(config: Any) -> str:

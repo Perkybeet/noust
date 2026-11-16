@@ -61,6 +61,7 @@ from noust.validators import (
     once_at,
     package,
     port,
+    redirect,
     source,
 )
 
@@ -2713,3 +2714,210 @@ class TestThePageAQuestionToTheAssistantIsAskedFrom:
 
         if accepted and checked is not None:
             assert not CONTROL.search(str(checked))
+
+
+class TestWhatThePlainRedirectPortRepeats:
+    """
+    The port that only redirects (item 199) is a door in cleartext that builds a ``Location`` from
+    the ``Host`` and the target of whoever connects, so what it repeats is an allowlist, never an echo.
+    """
+
+    GOOD_HOSTS = [
+        ("nas.example.net", "nas.example.net"),
+        ("NAS.example.NET:8442", "nas.example.net"),
+        ("nas", "nas"),
+        ("192.0.2.10", "192.0.2.10"),
+        ("192.0.2.10:8442", "192.0.2.10"),
+        ("[2001:db8::1]", "[2001:db8::1]"),
+        ("[2001:DB8:0:0::1]:8442", "[2001:db8::1]"),
+        ("xn--nas-9la.example.net", "xn--nas-9la.example.net"),
+    ]
+
+    @pytest.mark.parametrize(("host", "expected"), GOOD_HOSTS)
+    def test_a_name_or_an_address_is_accepted_and_written_the_one_way(
+        self, host: str, expected: str
+    ) -> None:
+        accepted, checked = verdict(redirect.validate_redirect_host, host)
+
+        assert accepted and checked == expected
+
+    @pytest.mark.parametrize("payload", PAYLOADS)
+    def test_no_payload_is_a_host(self, payload: str) -> None:
+        accepted, checked = verdict(redirect.validate_redirect_host, payload)
+
+        if accepted:
+            assert re.fullmatch(r"[a-z0-9.\-]+|\[[0-9a-f:.]+\]", checked)
+
+    @pytest.mark.parametrize("payload", PAYLOADS)
+    @pytest.mark.parametrize("tail", ["", ":8442"])
+    def test_no_payload_after_a_name_is_a_host(self, payload: str, tail: str) -> None:
+        accepted, checked = verdict(
+            redirect.validate_redirect_host, "nas.example.net" + payload + tail
+        )
+
+        if accepted:
+            assert re.fullmatch(r"[a-z0-9.\-]+", checked)
+
+    @pytest.mark.parametrize(
+        "host",
+        [
+            "nas.example.net\n",
+            "nas.example.net\r\n",
+            "\nnas.example.net",
+            "nas.example.net:8442\n",
+            "[::1]\n",
+            "192.0.2.10\n",
+            "nas.example.net/",
+            "nas.example.net@evil.example",
+            "evil.example@nas.example.net",
+            "nas.example.net:8442@evil.example",
+            "nas.example.net%00",
+            "nas.example.net%2f",
+            "NAS\u2024example.net",
+            "\uff4eas.example.net",
+            "nas.example.net\u202e",
+            "nas.example.net\ufeff",
+            "xn--",
+            "-a.example",
+            "a-.example",
+            "a" * 64 + ".example",
+            "a." * 130 + "example",
+            "[::1]x",
+            "[::1]:",
+            "[::1]:0",
+            "[::1]:65536",
+            "[::1]:8442:1",
+            "[::ffff:999.1.1.1]",
+            "[1:2:3:4:5:6:7:8:9]",
+            "[fe80::1%25eth0]",
+            "0177.0.0.1",
+            "2130706433",
+            "0x7f000001",
+            "127.1",
+            "1.2.3.4.5",
+            "256.1.1.1",
+            None,
+            7,
+            b"nas.example.net",
+        ],
+    )
+    def test_what_is_not_exactly_a_name_or_an_address_is_refused_cleanly(
+        self, host: object
+    ) -> None:
+        accepted, _ = verdict(redirect.validate_redirect_host, host)
+
+        assert not accepted
+
+    @given(st.text(alphabet=NASTY + "abc012:[]", max_size=80))
+    @SETTINGS
+    def test_whatever_is_sent_it_answers_or_refuses_and_what_it_accepts_is_inert(
+        self, text: str
+    ) -> None:
+        accepted, checked = verdict(redirect.validate_redirect_host, text)
+
+        if accepted:
+            assert not CONTROL.search(checked)
+            assert not set(checked) & set("/\\?#@ %,;'\"<>")
+            assert re.fullmatch(r"[a-z0-9.\-]+|\[[0-9a-f:.]+\]", checked)
+
+    @pytest.mark.parametrize(
+        "target",
+        [
+            "/",
+            "/login",
+            "/a/b?c=d&e=f",
+            "/%2e%2e/x",
+            "//host/x",
+            "/a:b@c",
+            "/?q=%0d%0a",
+            "/" + "a" * 2000,
+        ],
+    )
+    def test_a_path_and_a_query_are_accepted_as_they_are(self, target: str) -> None:
+        accepted, checked = verdict(redirect.validate_redirect_target, target)
+
+        assert accepted and checked == target
+
+    @pytest.mark.parametrize("payload", PAYLOADS)
+    def test_no_payload_is_a_target(self, payload: str) -> None:
+        accepted, checked = verdict(redirect.validate_redirect_target, payload)
+
+        if accepted:
+            assert checked.startswith("/") and not CONTROL.search(checked)
+            assert not set(checked) & set(" \\#")
+
+    @pytest.mark.parametrize(
+        "target",
+        [
+            "",
+            "x",
+            "*",
+            "@evil.example",
+            "http://evil.example/",
+            "evil.example:443",
+            "/a b",
+            "/a\tb",
+            "/a\nb",
+            "/a\r\nSet-Cookie: x=1",
+            "/a\x00b",
+            "/a\\b",
+            "/a#b",
+            "/a\x7f",
+            "/\u00e9",
+            "/\u202e",
+            "/" + "a" * 2048,
+            None,
+            7,
+            b"/",
+        ],
+    )
+    def test_what_is_not_a_path_as_a_browser_writes_it_is_refused_cleanly(
+        self, target: object
+    ) -> None:
+        accepted, _ = verdict(redirect.validate_redirect_target, target)
+
+        assert not accepted
+
+    @given(st.text(alphabet=NASTY + "abc012", max_size=120))
+    @SETTINGS
+    def test_whatever_is_sent_a_target_it_accepts_is_one_line_of_visible_ascii(
+        self, text: str
+    ) -> None:
+        accepted, checked = verdict(redirect.validate_redirect_target, "/" + text)
+
+        if accepted:
+            assert checked.isascii() and checked.isprintable() and " " not in checked
+            assert not set(checked) & set("\\#")
+
+    @pytest.mark.parametrize("value", ["1", "8442", "65535"])
+    def test_a_port_in_ascii_decimal_is_a_port(self, value: str) -> None:
+        accepted, checked = verdict(redirect.validate_listener_port, "NOUST_REDIRECT_PORT", value)
+
+        assert accepted and checked == int(value)
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "",
+            "0",
+            "65536",
+            "-1",
+            "+8442",
+            " 8442",
+            "8442 ",
+            "8442\n",
+            "8_442",
+            "0x20fa",
+            "8442.0",
+            "1e3",
+            "\u0668\u0664\u0664\u0662",
+            "\uff18\uff14\uff14\uff12",
+            "0" * 40,
+            None,
+            8442,
+        ],
+    )
+    def test_what_int_would_take_and_is_not_a_port_is_refused(self, value: object) -> None:
+        accepted, _ = verdict(redirect.validate_listener_port, "NOUST_REDIRECT_PORT", value)
+
+        assert not accepted

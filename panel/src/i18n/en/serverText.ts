@@ -5636,4 +5636,26 @@ export const serverText = {
       text: "The update of {domain} was stopped: it ran longer than this server's maximum deployment time ({limit}). Nothing that was serving was touched. Raise the limit with 'noust config set deploy.max_minutes <minutes>' (0 is no limit).",
     },
   },
+  redirect: {
+    host: {
+      text: "The host is not a name or an address",
+      hint: "Write the name or the address, with at most a port after it.",
+    },
+    port: {
+      text: "{name} is not a port",
+      hint: "Write a number from 1 to 65535, or take {name} out.",
+    },
+    port_console: {
+      text: "{setting} is the console's own port ({port})",
+      hint: "The console speaks TLS on it: the redirect needs a port of its own.",
+    },
+    port_open: {
+      text: "Cannot open port {port} for the redirect to the console",
+      hint: "{reason}. Another program holds it: choose another with {setting}, or take it out. The console itself is not affected.",
+    },
+    target: {
+      text: "The request is not for a path of the console",
+      hint: "Only a path and a query, as a browser writes them, are redirected.",
+    },
+  },
 } as const;

@@ -80,6 +80,7 @@ def repo(tmp_path, monkeypatch):
         "rpm",
         "obs",
         "packaging/container",
+        "packaging/ugreen/rootfs_common",
     ):
         (tmp_path / directory).mkdir(parents=True)
 
@@ -97,6 +98,13 @@ def repo(tmp_path, monkeypatch):
         "FROM python:3.12-slim-bookworm\nARG NOUST_VERSION=0.15.8\n"
     )
     (tmp_path / "packaging/container/compose.yaml").write_text(
+        "services:\n  noust:\n    image: ghcr.io/perkybeet/noust:0.15.8\n"
+    )
+
+    (tmp_path / "packaging/ugreen/project.yaml").write_text(
+        'spec_version: "2.1"\napp_id: dev.noust.central\nversion: 0.15.8\n'
+    )
+    (tmp_path / "packaging/ugreen/rootfs_common/docker-compose.yaml").write_text(
         "services:\n  noust:\n    image: ghcr.io/perkybeet/noust:0.15.8\n"
     )
 
@@ -140,6 +148,21 @@ def test_the_image_follows(repo, version):
     )
 
 
+@pytest.mark.parametrize("version", ["1.0.0", "4.3.0", "10.0.0"])
+def test_the_package_of_the_app_store_follows(repo, version):
+    """The App Center package says the release's version and runs the release's image."""
+    assert release.bump(version, ["Released"]) == 0
+
+    project = (repo / "packaging/ugreen/project.yaml").read_text()
+    assert f"\nversion: {version}\n" in project
+    # The spec's own version is not the product's: it stays as it is.
+    assert 'spec_version: "2.1"' in project
+    assert (
+        f"image: ghcr.io/perkybeet/noust:{version}"
+        in (repo / "packaging/ugreen/rootfs_common/docker-compose.yaml").read_text()
+    )
+
+
 def test_the_indentation_of_setup_py_survives(repo):
     """The captured group is the indentation, and it has to come back."""
     release.bump("1.0.0", ["Released"])
@@ -164,7 +187,13 @@ def test_the_check_fails_on_drift(repo):
 
 @pytest.mark.parametrize(
     "path",
-    ["packaging/container/Dockerfile", "packaging/container/compose.yaml", "obs/noust.dsc"],
+    [
+        "packaging/container/Dockerfile",
+        "packaging/container/compose.yaml",
+        "packaging/ugreen/project.yaml",
+        "packaging/ugreen/rootfs_common/docker-compose.yaml",
+        "obs/noust.dsc",
+    ],
 )
 def test_the_check_fails_when_a_packaging_file_drifts(repo, path):
     """The files that carry the version outside pyproject.toml are held to the same rule."""

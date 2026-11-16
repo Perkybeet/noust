@@ -51732,6 +51732,21 @@ export interface components {
             password?: string | null;
         };
         /**
+         * FirstStart
+         * @description The facts of a server's first start the sign-in screen needs.
+         *
+         *     Attributes:
+         *         token_shown_by: Where the access token was shown: ``installer`` (the installer's own box,
+         *             on a server) or ``container_log`` (the log of the container, which has no installer).
+         */
+        FirstStart: {
+            /**
+             * Token Shown By
+             * @enum {string}
+             */
+            token_shown_by: "installer" | "container_log";
+        };
+        /**
          * FixOwnerRequest
          * @description Request to give a database to its application's role.
          *
@@ -67822,9 +67837,11 @@ export interface components {
          *         current_version: The Noust answering.
          *         method: How it was installed: ``apt``, ``dnf``, ``yum``, ``zypper``,
          *             ``pip``, ``pipx``, ``source`` or ``unknown``.
+         *         installed_from: The app store it was installed from (``ugreen-app-center``), whose new
+         *             versions arrive through it; None otherwise.
          *         supported: Whether ``POST /api/system/update`` can update it.
-         *         code: Why not, for a machine: ``unsupported_installation`` or
-         *             ``container_image``.
+         *         code: Why not, for a machine: ``unsupported_installation``,
+         *             ``container_image`` or ``app_store``.
          *         reason: Why not, in a sentence.
          *         hint: What to run instead.
          *         command: The command an update runs, exactly.
@@ -67841,6 +67858,8 @@ export interface components {
             current_version: string;
             /** Hint */
             hint?: string | null;
+            /** Installed From */
+            installed_from?: string | null;
             /** Last Run */
             last_run?: {
                 [key: string]: unknown;
@@ -68572,7 +68591,9 @@ export interface components {
          *     request instead of treating a 401 as "maybe not logged in yet". An
          *     anonymous caller learns nothing about the server (ENS op.acc.6.7, G10):
          *     no hostname, no version, not whether a second factor is on - only the
-         *     label the operator chose for the sign-in page.
+         *     label the operator chose for the sign-in page, and, while the server has no
+         *     account yet, that it has none and where the access token was shown
+         *     (``first_start``): the one moment the token is how anybody gets in.
          *
          *     Attributes:
          *         authenticated: Whether a usable credential was presented.
@@ -68604,7 +68625,12 @@ export interface components {
          *         mfa_required: The account must enrol an authenticator first.
          *         notice: The usage notice to accept first, when one is pending.
          *         accounts_exist: Whether this server has accounts; while it has none
-         *             the console offers to create the first.
+         *             the console offers to create the first. An anonymous caller is only
+         *             ever told ``false``, and only while that is so.
+         *         first_start: For an anonymous caller, while the server has no account:
+         *             where the access token was shown, so the sign-in opens on it and
+         *             says where to find it. None for everyone else, and once there is an
+         *             account.
          *         security_profile: ``standard`` or ``ens-medium``.
          *         idle_minutes: How long the session may go unused.
          *         elevation_factors: What the credential can confirm sudo mode with:
@@ -68653,6 +68679,7 @@ export interface components {
             elevation_requires_password: boolean;
             /** Expires At */
             expires_at?: string | null;
+            first_start?: components["schemas"]["FirstStart"] | null;
             /** Grant */
             grant?: string | null;
             /** Hostname */
@@ -74237,6 +74264,8 @@ export interface components {
             has_update: boolean;
             /** Indexed Version */
             indexed_version?: string | null;
+            /** Installed From */
+            installed_from?: string | null;
             /** Latest Version */
             latest_version?: string | null;
             /** Published Version */

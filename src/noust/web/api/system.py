@@ -28,7 +28,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from noust import __version__
-from noust.core import changelog, release_notes
+from noust.core import changelog, install_source, release_notes
 from noust.core.exceptions import DependencyError
 from noust.managers import setup_doctor
 from noust.managers.health import collect_health_report
@@ -172,6 +172,9 @@ class UpdateInfo(BaseModel):
     #: The CLI command that refreshes the package index, only while it is
     #: behind; ``POST /api/server/updates/refresh`` does the same.
     refresh_command: str | None = None
+    #: The app store this Noust was installed from (``ugreen-app-center``), when it was: its new
+    #: versions arrive through the store, so there is no command to run and the two above are None.
+    installed_from: str | None = None
     release_url: str | None = None
     #: True when a release newer than the installed one fixes a vulnerability:
     #: worth taking whatever else the update brings (checklist L-43).
@@ -631,27 +634,42 @@ def check_version(session: Annotated[dict, Depends(get_current_session)]) -> Upd
     from noust.core.update_checker import UpdateChecker, UpdateCheckInProgress
 
     if not UpdateChecker.enabled():
-        return UpdateInfo(current_version=__version__, has_update=False, status="disabled")
+        return UpdateInfo(
+            current_version=__version__,
+            has_update=False,
+            status="disabled",
+            installed_from=install_source.installed_from(),
+        )
 
     try:
         check = UpdateChecker.check()
     except UpdateCheckInProgress:
-        return UpdateInfo(current_version=__version__, has_update=False, status="checking")
+        return UpdateInfo(
+            current_version=__version__,
+            has_update=False,
+            status="checking",
+            installed_from=install_source.installed_from(),
+        )
     state = check.state
+    # An app store replaces the image with the version it reviewed: there is no command to give.
+    source = install_source.installed_from()
     return UpdateInfo(
         current_version=__version__,
+        installed_from=source,
         latest_version=check.installable,
         has_update=state == "update_available",
         published_version=check.published,
         update_state=state,
         indexed_version=check.indexed,
         announced_version=check.announced_version,
-        refresh_command=check.refresh_command,
+        refresh_command=None if source else check.refresh_command,
         # Only "update_available" names something installable: "on_the_way"
         # is a GitHub release the package manager has not built yet, and the
         # CLI banner (UpdateChecker._show_update_message) shows the command
         # for exactly the same state.
-        update_command=check.update_command if state == "update_available" else None,
+        update_command=(
+            check.update_command if state == "update_available" and source is None else None
+        ),
         release_url=check.release_url,
         security_update=check.security_update,
         security_version=check.security if check.security_update else None,
@@ -918,9 +936,11 @@ class SelfUpdateOut(BaseModel):
         current_version: The Noust answering.
         method: How it was installed: ``apt``, ``dnf``, ``yum``, ``zypper``,
             ``pip``, ``pipx``, ``source`` or ``unknown``.
+        installed_from: The app store it was installed from (``ugreen-app-center``), whose new
+            versions arrive through it; None otherwise.
         supported: Whether ``POST /api/system/update`` can update it.
-        code: Why not, for a machine: ``unsupported_installation`` or
-            ``container_image``.
+        code: Why not, for a machine: ``unsupported_installation``,
+            ``container_image`` or ``app_store``.
         reason: Why not, in a sentence.
         hint: What to run instead.
         command: The command an update runs, exactly.
@@ -931,6 +951,7 @@ class SelfUpdateOut(BaseModel):
 
     current_version: str
     method: str
+    installed_from: str | None = None
     supported: bool
     code: str | None = None
     reason: str | None = None

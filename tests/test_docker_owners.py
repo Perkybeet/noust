@@ -389,3 +389,71 @@ class TestWhatTheStoreRegistered:
         assert ("e" * 64) in found
         if own:
             assert "0123456789ab" in found
+
+
+class TestTheNameOfTheContainerNoustRunsIn:
+    """What a person types to reach a shell on the central says which container, not the one it was named in a guide."""
+
+    FILE = "1 2 0:1 /var/lib/docker/containers/{id}/hostname /etc/hostname rw - ext4\n"
+
+    def test_it_is_the_first_twelve_digits_of_the_id_docker_keeps_its_files_under(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        from noust.core.docker import owners
+
+        monkeypatch.setenv("HOSTNAME", "nas-central")
+        mountinfo = tmp_path / "mountinfo"
+        mountinfo.write_text(self.FILE.format(id="3f2a9c1b0d4e" + "0" * 52))
+
+        assert owners.own_container_reference(mountinfo, markers=()) == "3f2a9c1b0d4e"
+
+    def test_a_container_whose_files_are_not_seen_has_the_host_name_it_was_given(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        from noust.core.docker import owners
+
+        monkeypatch.delenv("HOSTNAME", raising=False)
+        marker = tmp_path / ".dockerenv"
+        marker.write_text("")
+
+        reference = owners.own_container_reference(
+            tmp_path / "none", markers=(marker,), hostname="central-nas"
+        )
+
+        assert reference == "central-nas"
+
+    def test_a_short_id_host_name_is_the_container_too(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        from noust.core.docker import owners
+
+        monkeypatch.setenv("HOSTNAME", "0123456789ab")
+
+        assert owners.own_container_reference(tmp_path / "none", markers=()) == "0123456789ab"
+
+    def test_a_machine_that_is_not_a_container_has_none(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        from noust.core.docker import owners
+
+        monkeypatch.setenv("HOSTNAME", "web-01")
+
+        assert owners.own_container_reference(tmp_path / "none", markers=(tmp_path / "x",)) is None
+
+    def test_in_a_container_the_command_goes_through_docker_exec(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from noust.core.docker import owners
+
+        monkeypatch.setattr(owners, "own_container_reference", lambda *a, **k: "3f2a9c1b0d4e")
+
+        assert owners.central_command("web token --new") == (
+            "docker exec -it 3f2a9c1b0d4e noust web token --new"
+        )
+
+    def test_anywhere_else_it_is_the_command_alone(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from noust.core.docker import owners
+
+        monkeypatch.setattr(owners, "own_container_reference", lambda *a, **k: None)
+
+        assert owners.central_command("web token --new") == "noust web token --new"

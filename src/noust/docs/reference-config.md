@@ -243,6 +243,7 @@ Every configuration key and the value it has until you change it. Set one with `
 | `web.enabled` | `false` |
 | `web.hooks_url` | `""` |
 | `web.host` | `"127.0.0.1"` |
+| `web.hsts` | `"auto"` |
 | `web.ip_whitelist` | `[]` |
 | `web.lockout_duration` | `900` |
 | `web.max_failed_attempts` | `5` |

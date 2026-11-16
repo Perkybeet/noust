@@ -103,6 +103,9 @@ The rest of this guide is on pages of its own:
 
 ## Install on a UGREEN NAS (UGOS Pro)
 
+The App Center has an app for it, with a form and an icon: [Noust on a UGREEN NAS](ugreen.md). It does not
+deploy on the NAS; what follows is the compose file, which can.
+
 1. Open **App Center** and install **Docker** if it is not there.
 2. Open **Docker > Project > Create**. Name it `noust`, keep the suggested path, and paste
    [`packaging/container/compose.yaml`](../packaging/container/compose.yaml) as the compose
@@ -154,6 +157,41 @@ you give the container the machine's Docker socket and ask it to deploy
 | `NOUST_DATA_DIR` | `/data` | Where everything lives. |
 | `NOUST_CENTRAL_ROLE` | `hub` | Set by the image: it has no nginx or systemd, so it deploys no native application. |
 | `NOUST_DEPLOY_HERE` | empty | `containers` lets the central deploy containers and Compose stacks on the machine's Docker, through the socket you mounted into it. Off unless you set it: [Deploy where the central runs](central-deploy-here.md). |
+| `NOUST_INSTALLED_FROM` | none | Set by the package of an app store (`ugreen-app-center`): says where new versions arrive from, so the console names the store instead of Docker's command and does not offer to update itself. Any other value is ignored. |
+| `NOUST_REDIRECT_PORT` | none | Opens one more port, in the container, that does nothing but redirect to the console over HTTPS: [A port that only redirects](#a-port-that-only-redirects). Without it nothing listens. |
+| `NOUST_PUBLIC_HTTPS_PORT` | the console's port | The console's port as a browser reaches it, when the container publishes it as another (`-p 18443:8443`): the container cannot know. Only what the redirect says. |
+
+### A port that only redirects
+
+Some app stores open an application at `http://<the NAS>:<a port>` and cannot be told to use HTTPS. The
+console speaks nothing but TLS, so the icon would open a page that never loads. For them the image can
+listen on one more port, in plain HTTP, that serves nothing: every request for `http://<host>:<port>/<path>?<query>`
+is answered with a `308` to `https://<host>:<the console's port as seen from outside>/<path>?<query>`.
+
+```bash
+docker run -d --name noust --restart unless-stopped \
+  -p 8443:8443 -p 8442:8442 -v noust-data:/data \
+  -e NOUST_REDIRECT_PORT=8442 \
+  ghcr.io/perkybeet/noust:latest
+```
+
+**It is not a way in without TLS.** It has no pages, no sign-in and no cookie, and nothing of the console
+is reachable through it: a request for the API, an asset or the event stream gets the same redirect, so a
+token typed into a page opened over it would be sent to HTTPS, not accepted there. What it does:
+
+| Request | Answer |
+|---|---|
+| `GET` or `HEAD` with a host that is a name, an IPv4 address or an IPv6 address in brackets | `308` to the same host on the console's port, with the same path and query, never cached |
+| Any other method | `405` with `Allow: GET, HEAD`; a body is never read or used |
+| A `Host` that is missing, repeated or not a name or an address, or a path that is not a path (`http://...`, `*`, a space, a backslash, a control character) | `400` with no body, which does not repeat what was sent |
+| A path longer than 2048 characters, a head longer than 8 KiB or 64 fields, a version other than HTTP/1 | `414`, `431`, `505` |
+| A client that `NOUST_ALLOW_IP` does not allow, more than 32 connections at once, or a request not finished in five seconds | the connection is closed and nothing is said |
+
+The host in the redirect is the one the browser asked for: a name you reached the NAS by stays that name.
+The port stays closed unless `NOUST_REDIRECT_PORT` is set, it must not be the console's own, and a port
+another program holds is said in the log while the console starts without it. Keep it off the internet like
+the console: it only forwards to a console that is not there either.
+[Noust on a UGREEN NAS](ugreen.md) uses it for the icon of the app.
 
 ## On a VPS
 

@@ -29,6 +29,7 @@ from starlette.websockets import WebSocketDisconnect
 
 from noust.cli.commands.web import add_start_arguments, build_security_config
 from noust.core import paths, totp
+from noust.core.config import Config
 from noust.core.exceptions import SecurityError
 from noust.web import auth as auth_module
 from noust.web.auth import (
@@ -612,17 +613,27 @@ def test_security_headers_are_present(sandbox: Path) -> None:
     assert "Strict-Transport-Security" not in headers
 
 
-def test_hsts_is_sent_when_https_is_required(sandbox: Path, tmp_path: Path) -> None:
-    """HSTS only appears once TLS is actually in play."""
+def test_hsts_is_sent_when_https_is_required_and_the_operator_asked_for_it(
+    sandbox: Path, tmp_path: Path, real_config: Config
+) -> None:
+    """
+    HSTS only appears once TLS is actually in play, and on a name the console owns.
+
+    A console that serves TLS itself says nothing of the name by default (item 198): which name it
+    is the owner of is the operator's to say, with ``web.hsts`` or by publishing it.
+    """
     cert = tmp_path / "web.crt"
     key = tmp_path / "web.key"
     cert.write_text("certificate")
     key.write_text("key")
-
     app = create_app(
         make_config(sandbox, require_https=True, ssl_certfile=str(cert), ssl_keyfile=str(key))
     )
     client = TestClient(app, base_url="https://testserver", client=("testclient", 50000))
+
+    assert "Strict-Transport-Security" not in client.get("/health").headers
+
+    real_config.set("web.hsts", "always")
 
     assert "max-age=" in client.get("/health").headers["Strict-Transport-Security"]
 

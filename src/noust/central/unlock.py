@@ -7,7 +7,7 @@ Unlocking a running central from a shell, over a local UNIX socket.
 The keys of a sealed store live in the memory of the process that serves the
 console, so unlocking has to reach that process. The console has its own
 form for it; this is the other door, for an operator with a shell on the
-central (``docker exec -it noust noust central unlock``, or a passphrase
+central (``docker exec -it <container> noust central unlock``, or a passphrase
 piped on standard input from a script): a UNIX socket in the state
 directory, 0600 in a 0700 directory, that answers only its own user and
 root (checked with ``SO_PEERCRED`` as well as by the file's mode). Whoever

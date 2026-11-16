@@ -555,6 +555,10 @@ tabs:
             title: Run a central
             type: guide
             summary: What a central is and what it cannot do, installing one on a NAS, a Docker host or a VPS, its first accounts and its certificate.
+          - source: docs/ugreen.md
+            slug: guides/fleet/ugreen
+            type: guide
+            summary: "Install Noust from the App Center of a UGREEN NAS: the form, the icon and the port that redirects, the certificate, changing the port, what the app does not do, how new versions arrive and how the package is built."
           - source: docs/central-servers.md
             slug: guides/fleet/add-servers
             type: guide
@@ -745,6 +749,10 @@ tabs:
             summary: Going back to an earlier Noust, and which releases can open which store.
       - title: Upgrading
         pages:
+          - source: docs/UPGRADING-4.3.md
+            slug: releases/upgrading-4.3
+            type: guide
+            summary: What changes in 4.3 for a console reached on a name that other services share, and how to clear what a browser remembered.
           - source: docs/UPGRADING-4.2.md
             slug: releases/upgrading-4.2
             type: guide

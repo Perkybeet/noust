@@ -932,12 +932,13 @@ def _locked_error(name: str) -> SecretsLockedError:
     Returns:
         The error.
     """
+    from noust.core.docker.owners import central_command
+
     return SecretsLockedError(
         f"The secrets are sealed and locked; {name} cannot be used",
         details=(
             "Unlock them with the passphrase: in the console (the Unlock form), or "
-            "'noust central unlock' on the central (docker exec -it noust noust central "
-            "unlock in a container)."
+            f"with '{central_command('central unlock')}' on the central."
         ),
     )
 

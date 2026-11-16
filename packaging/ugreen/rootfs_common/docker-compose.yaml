@@ -1,0 +1,46 @@
+services:
+  noust:
+    # Must match the tag of the tars packaging/ugreen/build.sh puts in rootfs_{amd64,arm64}/images
+    # and the version in project.yaml (scripts/release.py keeps all three); the store refuses `latest`.
+    image: ghcr.io/perkybeet/noust:4.2.1
+    container_name: noust
+    restart: unless-stopped
+    network_mode: bridge
+    ports:
+      # The console, on the port the person chose (the NOUST_CONSOLE_PORT parameter). 8443 is the
+      # port the image listens on inside.
+      - ${NOUST_CONSOLE_PORT}:8443
+      # What the icon opens: plain HTTP that only redirects to the console over HTTPS. It is the
+      # `port` of project.yaml, fixed, and the same number inside and outside.
+      - 8442:8442
+    volumes:
+      # A named volume, so Docker creates it with the image's owner (uid 10001);
+      # a folder the Docker suite creates would belong to root and the
+      # unprivileged container could not write it.
+      - noust-data:/data
+    environment:
+      TZ: ${TZ}
+      # The redirect listens here, and sends the browser to the console on the port it has from
+      # outside, which the container cannot know.
+      NOUST_REDIRECT_PORT: "8442"
+      NOUST_PUBLIC_HTTPS_PORT: ${NOUST_CONSOLE_PORT}
+      # Says where new versions arrive from: the console shows the App Center, not Docker's command.
+      NOUST_INSTALLED_FROM: ugreen-app-center
+      NOUST_ALLOW_IP: ${NOUST_ALLOW_IP}
+      NOUST_TLS_NAMES: ${NOUST_TLS_NAMES}
+    # The same confinement as packaging/container/compose.yaml: an unprivileged
+    # user, no capabilities, no privilege escalation, nothing writable outside
+    # /data and a small /tmp. No Docker socket: this app manages servers and
+    # does not deploy on the NAS (docs/central-deploy-here.md is the other way).
+    user: "10001:10001"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    stop_grace_period: 20s
+
+volumes:
+  noust-data:

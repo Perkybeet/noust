@@ -177,7 +177,7 @@ central that has been compromised, an application that has been compromised.
 
 **The guarantee.** The console loads nothing from any other origin and runs under a Content Security Policy with no inline script or style and Trusted Types. Every response, including those refused before routing, carries the same hardening headers (printed below). Session cookies are `HttpOnly`, `SameSite=Strict`, and `Secure` over TLS; every mutation made with a session carries a CSRF token. The end-to-end suite fails on any CSP violation and runs axe in both themes.
 
-**How it is enforced.** `web/server.py` (`HARDENING_HEADERS`, `CONTENT_SECURITY_POLICY`), `panel/e2e/` (the gate), `docs/security-console.md#the-browser`.
+**How it is enforced.** `web/server.py` (`HARDENING_HEADERS`, `CONTENT_SECURITY_POLICY`), `core/hsts.py` (when the console says `Strict-Transport-Security`), `panel/e2e/` (the gate), `docs/security-console.md#the-browser`.
 
 **What fails if it stops holding.**
 
@@ -185,7 +185,8 @@ central that has been compromised, an application that has been compromised.
   - `tests/test_console_headers.py::TestTheTransport`
   - `tests/test_console_headers.py::TestThePolicyItself`
   - `tests/test_web_auth.py::test_security_headers_are_present`
-  - `tests/test_web_auth.py::test_hsts_is_sent_when_https_is_required`
+  - `tests/test_web_auth.py::test_hsts_is_sent_when_https_is_required_and_the_operator_asked_for_it`
+  - `tests/test_console_hsts.py::TestWhatTheConsoleSends`
   - `tests/test_web_auth.py::test_login_sets_httponly_samesite_cookie`
   - `tests/test_web_auth.py::test_cookie_is_secure_over_https`
   - `tests/test_architecture.py::TestSelfContained::test_no_external_assets`
@@ -304,6 +305,7 @@ mode, so every statement there is a write that needs `databases.write` and sudo 
 | Application, service, database and file names | `name` of an application, service, database, database user, upload or backup file | `noust.validators.names:validate_app_name` | a directory under the apps directory, a unit file name, a SQL identifier | one path segment of letters, digits and `._@-`, starting with an alphanumeric, at most 64 characters (63 for SQL); never `.`, `..` or a reserved device name; a trailing newline is refused | `tests/test_adversarial_inputs.py::TestNamesThatBecomePathsUnitsAndSql` |
 | Paths inside a directory | persistent paths, release and backup member names, a file inside an application | `noust.validators.names:resolve_within` | a file the process opens or writes as root | a path that, resolved (symlinks included), is strictly inside the base directory | `tests/test_adversarial_inputs.py::TestPathContainment` |
 | Domains and host names | `domain` of an application, site, preview or node | `noust.validators.domain:validate_domain` | web server `server_name`, `certbot -d`, a directory and a unit name | lowercase letters, digits, hyphens and dots; labels of at most 63 characters and 253 in all; scheme, path and port are cut before the check | `tests/test_adversarial_inputs.py::TestDomains` |
+| The host and path of a request to the plain redirect port | the `Host` header and the request target of a connection to `NOUST_REDIRECT_PORT` | `noust.validators.redirect:validate_redirect_host` | the `Location` of a `308` to the console over HTTPS, in cleartext | a lower-case name, an IPv4 address or an IPv6 address in brackets (a port after it is dropped), and a path with a query of visible ASCII; anything else is an empty `400` that repeats nothing, and a name that ends in a number is refused | `tests/test_adversarial_inputs.py::TestWhatThePlainRedirectPortRepeats` |
 | Environment variable names and values, and unit values | `env_vars`, `.env` entries, a unit's description, command and working directory | `noust.validators.environment:validate_unit_value` | `EnvironmentFile=`, `Environment=` and every directive of a systemd unit | no control character, so a value cannot end its line; names are POSIX identifiers; a value is escaped for the quote it sits in | `tests/test_adversarial_inputs.py::TestEnvironmentAndUnitValues`<br>`tests/test_adversarial_inputs.py::TestTheUnitTemplateKeepsEveryValueOnItsOwnLine` |
 | Sources: Git remotes, refs, tags, commits and archives | `source`, `branch`, `tag`, `commit` of an application; an archive URL | `noust.validators.source:validate_source` | `git` and `git clone` arguments, a directory name, an outbound HTTP request | an http(s), ssh or git URL, an absolute local path or a download URL; never a remote helper (`ext::`, `fd::`), a value starting with `-`, a control character or a host inside the machine's own network | `tests/test_adversarial_inputs.py::TestSources`<br>`tests/test_adversarial_inputs.py::TestAPortInAWebAddress`<br>`tests/test_source_archive_hosts.py::TestTheDownload` |
 | Hosts a request is sent to | a notification URL, a backup destination host, a source archive URL, a repository index | `noust.core.outbound:require_public_host` | an outbound connection made as root | a host whose every address is outside loopback, private, link-local and the other networks of the machine, unless the operator named it | `tests/test_outbound.py::TestRequirePublicHost`<br>`tests/test_backup_destination_hosts.py::TestConfiguringADestination`<br>`tests/test_source_archive_hosts.py::TestTheRedirects` |
@@ -422,7 +424,7 @@ only what recovering an account takes.
 | `Cross-Origin-Resource-Policy` | `same-origin` |
 | `Permissions-Policy` | `accelerometer=(), bluetooth=(), browsing-topics=(), camera=(), display-capture=(self), geolocation=(), gyroscope=(), hid=(), interest-cohort=(), magnetometer=(), microphone=(), midi=(), payment=(), serial=(), usb=()` |
 | `X-Permitted-Cross-Domain-Policies` | `none` |
-| `Strict-Transport-Security` (over TLS, direct or through a declared proxy) | `max-age=31536000; includeSubDomains` |
+| `Strict-Transport-Security` (over TLS, direct or through a declared proxy, and only on the name `noust console expose` published the console on, unless `web.hsts` is `always` or `never`) | `max-age=31536000` |
 | `Cache-Control` | `no-store`, except hashed files under `/assets/` and the sign-in picture asked for by its own digest: `public, max-age=31536000, immutable` |
 
 The policy:

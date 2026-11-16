@@ -35,7 +35,9 @@ fleet has them, they are one click away from this central's console. What the co
 the commands refuse in the same words: *"Domains: not available here, which deploys containers and
 nothing else"*.
 
-A central that was not told to deploy here is exactly what it was, with Docker or without it.
+A central that was not told to deploy here is exactly what it was, with Docker or without it. The app of a NAS's
+store ([Noust on a UGREEN NAS](ugreen.md)) is one of those: it has no Docker socket, so it manages servers and
+does not deploy on the NAS. To deploy there, install the central with the compose file below instead.
 
 ## What you are agreeing to
 

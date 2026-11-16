@@ -306,6 +306,51 @@ class TestRun:
         stored = (central_env["console"] / "web-token").read_text()
         assert "noust_" not in stored
 
+    def test_the_first_start_says_what_the_token_opens_and_how_to_reach_this_container(
+        self, central_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "noust.core.docker.owners.own_container_reference", lambda *a, **k: "3f2a9c1b0d4e"
+        )
+
+        result = CliRunner().invoke(root_cli, ["central", "run"])
+
+        assert result.exit_code == 0, result.output
+        assert "full access to this central" in result.output
+        assert "root access" not in result.output
+        assert "docker exec -it 3f2a9c1b0d4e noust web token --new" in result.output
+        assert "docker exec -it noust " not in result.output
+        assert "In a container the address above is the container's own" in result.output
+
+    def test_outside_a_container_it_says_neither_docker_nor_the_published_port(
+        self, central_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "noust.core.docker.owners.own_container_reference", lambda *a, **k: None
+        )
+
+        first = CliRunner().invoke(root_cli, ["central", "run"])
+        again = CliRunner().invoke(root_cli, ["central", "run"])
+
+        assert first.exit_code == 0, first.output
+        assert "full root access to this machine" in first.output
+        assert "docker exec" not in first.output + again.output
+        assert "In a container the address above" not in first.output
+        assert "'noust web token --new' issues another" in first.output
+        assert "'noust web token --new' issues another" in again.output
+
+    def test_the_line_of_every_later_start_names_the_real_container_too(
+        self, central_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "noust.core.docker.owners.own_container_reference", lambda *a, **k: "3f2a9c1b0d4e"
+        )
+        CliRunner().invoke(root_cli, ["central", "run"])
+
+        again = CliRunner().invoke(root_cli, ["central", "run"])
+
+        assert "docker exec -it 3f2a9c1b0d4e noust web token --new" in again.output
+
     def test_it_serves_tls_on_every_interface_limited_to_private_networks(
         self, central_env: dict[str, Any]
     ) -> None:
@@ -409,3 +454,109 @@ class TestUnlockSocket:
             assert sealing.is_unlocked(sealed_root)
         finally:
             server.stop()
+
+
+@pytest.mark.allow_sockets
+class TestTheRedirectPort:
+    """``NOUST_REDIRECT_PORT``: the plain HTTP port that only says where the console is (item 199)."""
+
+    @staticmethod
+    def free_port() -> int:
+        import socket
+
+        with socket.socket() as probe:
+            probe.bind(("127.0.0.1", 0))
+            return int(probe.getsockname()[1])
+
+    @staticmethod
+    def ask(port: int, host: str = "nas.example.net") -> bytes:
+        import socket
+
+        with socket.create_connection(("127.0.0.1", port), timeout=5) as client:
+            client.sendall(f"GET /apps?x=1 HTTP/1.1\r\nHost: {host}\r\n\r\n".encode())
+            out = b""
+            try:
+                while chunk := client.recv(4096):
+                    out += chunk
+            except ConnectionResetError:
+                # Closed on without a word, with the request unread: the reset is the silence.
+                pass
+            return out
+
+    def serve_and_ask(
+        self, central_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch, port: int
+    ) -> tuple[Any, list[bytes]]:
+        heard: list[bytes] = []
+
+        def run_server(**kwargs: Any) -> None:
+            central_env["served"].append(kwargs)
+            heard.append(self.ask(port))
+
+        monkeypatch.setattr("noust.web.server.run_server", run_server)
+        return CliRunner().invoke(root_cli, ["central", "run"]), heard
+
+    def test_while_the_console_serves_the_port_redirects_to_it_and_afterwards_it_is_closed(
+        self, central_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        port = self.free_port()
+        monkeypatch.setenv("NOUST_REDIRECT_PORT", str(port))
+        monkeypatch.setenv("NOUST_PUBLIC_HTTPS_PORT", "18443")
+
+        result, heard = self.serve_and_ask(central_env, monkeypatch, port)
+
+        assert result.exit_code == 0, result.output
+        assert b"308 Permanent Redirect" in heard[0]
+        assert b"Location: https://nas.example.net:18443/apps?x=1\r\n" in heard[0]
+        assert f"Plain HTTP on port {port} only redirects" in result.output
+        with pytest.raises(OSError):
+            self.ask(port)
+
+    def test_without_the_variable_nothing_listens_and_nothing_is_said(
+        self, central_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("NOUST_REDIRECT_PORT", raising=False)
+
+        result = CliRunner().invoke(root_cli, ["central", "run"])
+
+        assert result.exit_code == 0, result.output
+        assert "redirects" not in result.output
+
+    def test_a_port_that_is_taken_is_said_and_the_console_still_serves(
+        self, central_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import socket
+
+        with socket.socket() as holder:
+            holder.bind((ALL_INTERFACES, 0))
+            holder.listen(1)
+            monkeypatch.setenv("NOUST_REDIRECT_PORT", str(holder.getsockname()[1]))
+
+            result = CliRunner().invoke(root_cli, ["central", "run"])
+
+        assert result.exit_code == 0, result.output
+        assert "Cannot open port" in result.output
+        assert len(central_env["served"]) == 1
+
+    @pytest.mark.parametrize("value", ["abc", "0", "8443"])
+    def test_a_value_that_cannot_be_used_is_said_and_the_console_still_serves(
+        self, central_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch, value: str
+    ) -> None:
+        monkeypatch.setenv("NOUST_REDIRECT_PORT", value)
+
+        result = CliRunner().invoke(root_cli, ["central", "run"])
+
+        assert result.exit_code == 0, result.output
+        assert "NOUST_REDIRECT_PORT" in result.output
+        assert len(central_env["served"]) == 1
+
+    def test_whoever_the_console_does_not_answer_is_not_answered_here_either(
+        self, central_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        port = self.free_port()
+        monkeypatch.setenv("NOUST_REDIRECT_PORT", str(port))
+        monkeypatch.setenv("NOUST_ALLOW_IP", "203.0.113.0/24")
+
+        result, heard = self.serve_and_ask(central_env, monkeypatch, port)
+
+        assert result.exit_code == 0, result.output
+        assert heard == [b""]

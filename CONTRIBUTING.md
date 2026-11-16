@@ -151,6 +151,12 @@ src/noust/
     templates.py    the one Jinja environment unit files, sites and pools are rendered with
     outbound.py     where a request may go (`require_public_host`) and what its path may be
                     (`path_segment`, `api_path`)
+    hsts.py         what `Strict-Transport-Security` says and when the console says it (`web.hsts`: only
+                    on the name `noust console expose` published, unless asked otherwise, never for
+                    the subdomains); the sites Noust writes send the same value
+    install_source.py  where a Noust installed from an app store gets its new versions
+                    (`NOUST_INSTALLED_FROM`, a closed list): the version check and the self-update
+                    publish it and give no command
     timeutil.py     the one clock: `utc_now_iso` (to the second or with its fraction, as each
                     column was written), `local_now_iso`, `utc_now`; no module keeps a `_now`
     app_lookup.py   "is there an application here" for what runs as the instance (the console's
@@ -229,6 +235,9 @@ src/noust/
                     journal). `require_server_role(key)` takes its decision and its words from it, and the
                     session publishes `features: {key: {available, reason}}`; a test fails on a call whose
                     key is not in the table and on a guarded key nobody calls
+    redirect.py     the plain HTTP port that only redirects to the console over HTTPS (`NOUST_REDIRECT_PORT`,
+                    for an app store that opens an address over HTTP): what it repeats of a request passes
+                    `validators/redirect.py` first, it reads no body, and the standard library is enough
     machine.py      the facts the table reads, each asked of the code that already knows it (the platform
                     detection, the web server managers, the door to Docker); the engine, the one slow fact,
                     is cached and refreshed behind the request
@@ -342,6 +351,10 @@ tests/integration/docker_run.py       everything Noust does with Docker, against
                             `noust-test-w3rd-*`, one engine at a time through `noust-docker`, not part of pytest
 packaging/install.sh        the one-line installer (POSIX sh, shellcheck-clean), published with a
                             signed SHA256SUMS; its platform table is generated, never edited
+packaging/ugreen/           the central as an app of the UGREEN App Center (docs/ugreen.md): its project, its
+                            compose file (no Docker socket) and `build.sh`, which packs it outside the
+                            repository; scripts/release.py keeps its version, and a package and the
+                            developer signature are never kept in the repository
 ```
 
 ### Layers
