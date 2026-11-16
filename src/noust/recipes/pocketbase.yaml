@@ -4,7 +4,7 @@
 #
 # It is listed and not deployable because no deployer of this release can run a
 # pre-built binary: the native build block (build.start) that would carry
-# `./pocketbase serve` belongs to the build lane. The pin below was read, not
+# `./pocketbase serve` does not exist yet. The pin below was read, not
 # typed: the SHA-256 is that of the file, of the checksums.txt the project
 # publishes with the release, and of the digest GitHub shows for the asset.
 #
@@ -34,4 +34,4 @@ repository: https://github.com/pocketbase/pocketbase
 license: MIT
 available: false
 unavailable_code: no_image
-unavailable_reason: "PocketBase ships as a single static binary with no container image, and this release has no deployer that runs a pre-built binary (the native build block that would carry its start command is the build lane's). Not available in this release; its verified v0.40.4 archive pin is recorded in the recipe file."
+unavailable_reason: "PocketBase ships as a single static binary with no container image, and this release has no deployer that runs a pre-built binary (a native build block that would carry its start command does not exist yet). Not available in this release; its verified v0.40.4 archive pin is recorded in the recipe file."
