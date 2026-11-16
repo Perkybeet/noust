@@ -8,6 +8,8 @@ import { appQuery, appsQuery } from "../../api/queries/apps";
 import type { App } from "../../api/queries/apps";
 import { certsQuery } from "../../api/queries/certs";
 import { appDomainsQuery } from "../../api/queries/domains";
+import { appAddressQuery } from "../../api/queries/apps";
+import { useContainerHost, useFeature } from "../central/features";
 import { firstDeploysQuery } from "../../api/queries/firstDeploys";
 import { queueQuery } from "../../api/queries/queue";
 import type { PageHeaderProps } from "../../app/PageHeader";
@@ -51,7 +53,7 @@ import { jobFailure } from "../../lib/errors";
  * would use (`displayAddress`): HTTPS unless the certificate list shows none covers it, and while
  * the list loads HTTPS, which is how Noust deploys by default.
  */
-function Facts({ app, address, t }: { app: App; address: Address; t: T }) {
+function Facts({ app, address, t }: { app: App; address: Address | string | null; t: T }) {
   const typeName = useTypeName();
   const type = typeName(app.app_type);
   // The port that answers: in zero-downtime mode green serves on the port after the one the record starts at.
@@ -63,9 +65,16 @@ function Facts({ app, address, t }: { app: App; address: Address; t: T }) {
     <span className="flex max-w-full min-w-0 items-center gap-x-3">
       {type !== null ? <span className="shrink-0">{type}</span> : null}
       {port ? <span className="shrink-0 whitespace-nowrap">{t.rich("appPages.layout.portFact", { port: <Mono>{port}</Mono> })}</span> : null}
-      <ExternalLink className="min-w-0" href={`${address.secure ? "https" : "http"}://${address.name}`} label={t("appPages.layout.liveSite", { domain: address.name })}>
-        <span translate="no">{address.name}</span>
-      </ExternalLink>
+      {/* A string is the address of a machine without a site, whole (`http://nas:8081`); null is an application that serves no web. */}
+      {address === null ? null : typeof address === "string" ? (
+        <ExternalLink className="min-w-0" href={address} label={t("appPages.layout.liveSite", { domain: address })}>
+          <span translate="no">{address}</span>
+        </ExternalLink>
+      ) : (
+        <ExternalLink className="min-w-0" href={`${address.secure ? "https" : "http"}://${address.name}`} label={t("appPages.layout.liveSite", { domain: address.name })}>
+          <span translate="no">{address.name}</span>
+        </ExternalLink>
+      )}
     </span>
   );
 }
@@ -223,8 +232,14 @@ export function AppLayout({ domain }: { domain: string }) {
 
 function AppPage({ domain, app, job }: { domain: string; app: UseQueryResult<App>; job: AppJob }) {
   const t = useT();
-  const certs = useQuery(certsQuery());
-  const names = useQuery(appDomainsQuery(domain));
+  // Where there are no names and no certificates of Noust's (a central that deploys on its machine's Docker), neither is asked, and the
+  // address in the facts line is the one the server says: a port of the machine.
+  const containerHost = useContainerHost();
+  const hasNames = useFeature("domains");
+  const hasCertificates = useFeature("certificates");
+  const certs = useQuery({ ...certsQuery(), enabled: hasCertificates });
+  const names = useQuery({ ...appDomainsQuery(domain), enabled: hasNames });
+  const machineAddress = useQuery({ ...appAddressQuery(domain), enabled: containerHost });
   const condition = useAppCondition(domain, app.data);
   const pending = usePendingChanges(domain);
   const matchRoute = useMatchRoute();
@@ -290,7 +305,11 @@ function AppPage({ domain, app, job }: { domain: string; app: UseQueryResult<App
           statusBelow: true,
           status: loaded ? <StatusPill state={view.state} label={view.label} /> : <Skeleton className="h-6 w-28 rounded-pill" />,
           ...(extras !== undefined ? { statusExtras: extras } : {}),
-          meta: loaded ? <Facts app={loaded} address={displayAddress(domain, names.data?.domains, certs.data)} t={t} /> : <FactsSkeleton />,
+          meta: loaded ? (
+            <Facts app={loaded} address={containerHost ? machineAddress.data?.url ?? null : displayAddress(domain, names.data?.domains, certs.data)} t={t} />
+          ) : (
+            <FactsSkeleton />
+          ),
           ...actions,
         }}
         {...(banner !== null ? { banner } : {})}

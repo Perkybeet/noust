@@ -15,16 +15,16 @@ export const APP_SCREENS: Strip = [
   tab(app, "logs", "nav.appTabs.logs.label", { keywords: "nav.appTabs.logs.keywords", intent: "use" }),
   tab(app, "metrics", "nav.appTabs.metrics.label", { keywords: "nav.appTabs.metrics.keywords", intent: "use" }),
   tab(app, "environment", "nav.appTabs.environment.label", { keywords: "nav.appTabs.environment.keywords", intent: "configure" }),
-  tab(app, "domains", "nav.appTabs.domains.label", { keywords: "nav.appTabs.domains.keywords", intent: "configure" }),
-  tab(app, "database", "databases.appTab.tabLabel", { keywords: "databases.appTab.tabKeywords", intent: "configure" }),
+  tab(app, "domains", "nav.appTabs.domains.label", { keywords: "nav.appTabs.domains.keywords", intent: "configure", feature: "domains" }),
+  tab(app, "database", "databases.appTab.tabLabel", { keywords: "databases.appTab.tabKeywords", intent: "configure", feature: "databases" }),
   // What used to be eighteen subsections of "Settings" is four pages, each of titled surfaces: the old names of the
   // subsections are the pages' search words, so the palette still finds "Previews" or "Mounts" by what it was called.
   tab(app, "code", "nav.appTabs.code.label", { keywords: "nav.appTabs.code.keywords", intent: "configure" }),
   tab(app, "triggers", "nav.appTabs.triggers.label", { keywords: "nav.appTabs.triggers.keywords", intent: "configure" }),
   tab(app, "resources", "nav.appTabs.resources.label", { keywords: "nav.appTabs.resources.keywords", intent: "configure" }),
-  tab(app, "access", "nav.appTabs.access.label", { keywords: "nav.appTabs.access.keywords", intent: "configure" }),
+  tab(app, "access", "nav.appTabs.access.label", { keywords: "nav.appTabs.access.keywords", intent: "configure", feature: "sites" }),
   // Off the strip: reached from what is wrong (Diagnose) or from "More actions" (Terminal, Files).
-  hidden("app.diagnose", "/apps/$domain/diagnose", "appPages.actions.diagnose", "app", { parent: "app", intent: "fix", feature: "applications", keywords: "nav.screens.diagnose.keywords" }),
+  hidden("app.diagnose", "/apps/$domain/diagnose", "appPages.actions.diagnose", "app", { parent: "app", intent: "fix", feature: "application_diagnosis", keywords: "nav.screens.diagnose.keywords" }),
   hidden("app.terminal", "/apps/$domain/terminal", "appPages.actions.terminal", "app", {
     parent: "app",
     intent: "fix",

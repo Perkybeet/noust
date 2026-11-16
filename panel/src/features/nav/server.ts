@@ -79,6 +79,10 @@ export const SERVER_SCREENS = strip(
       command: "server.docker.networksCommand",
     }),
     docker(server, "engine", "server.docker.engine", { column: "docker", feature: "docker_zone", fleetTo: "/fleet/docker/engine", permission: "docker.read", keywords: "server.docker.engineKeywords", command: "server.docker.engineCommand" }),
+    // Turning on the machine's Docker is asked of a hub, never of a server, so the table of functions has no key of its own for it:
+    // the console derives one from what the table says (features/central/features.ts). It is the only place that is not a function.
+    // Last of the Docker group: what the zone shows comes first, and this is where the access it needs is checked.
+    tab(server, "deploy-here", "server.tabs.deployHere", { column: "docker", feature: "deploy_here", permission: "docker.manage", keywords: "server.tabs.deployHereKeywords" }),
     tab(server, "files", "server.tabs.files", { column: "tools", keywords: "server.tabs.filesKeywords" }),
     // The machine written down in a file: what applying it would change here, before anything does.
     tab(server, "manifest", "manifestPreview.nav.label", { column: "tools", keywords: "manifestPreview.nav.keywords", command: "manifestPreview.nav.command", permission: "apps.read", feature: "applications" }),

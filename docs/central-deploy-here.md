@@ -165,6 +165,12 @@ The command exits with 1 when a check fails and with 0 when none does, and `--js
 same report the console reads (`POST /api/central/container-host/check`, for an administrator). A check that
 could not be made because an earlier one failed says **not checked yet**, never passed.
 
+The console has the same check on **Server > Deploy on this machine**, which a hub offers whether it was told to deploy
+here or not. Before it was told, the page says what it means (an administrator of the console can do what root can on the
+machine), shows the lines to add to the compose file, and offers **Run again** for after the container was restarted; once
+it was told, it runs the check when it is opened and lists each result with the change that fixes what failed. The console
+never turns it on: the page says so, and the lines are copied by the person who owns the machine.
+
 The folder check starts a small container from the central's own image, which the machine has
 because it is running, so it needs no network. If that is not possible it uses the image of Noust's
 helpers and pulls it once.

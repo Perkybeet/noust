@@ -12,6 +12,8 @@ import { Box } from "lucide-react";
 import type { App } from "../api/queries/apps";
 import type { T } from "../i18n";
 import type { Command } from "./CommandPalette";
+import type { FeatureKey } from "../features/central/features";
+import { appColumn } from "./columns";
 import { APP_TABS } from "./nav";
 import { isAdopted } from "../features/app/adopted";
 import { ADOPTED_TABS } from "../features/app/tabs";
@@ -24,9 +26,17 @@ import { ADOPTED_TABS } from "../features/app/tabs";
  * @param go - Opens a route of the console with its path parameters.
  * @returns One command per section of the application.
  */
-export function appSectionCommands(domain: string, app: App | undefined, t: T, go: (to: string, params?: Record<string, string>) => () => void): Command[] {
+export function appSectionCommands(
+  domain: string,
+  app: App | undefined,
+  t: T,
+  go: (to: string, params?: Record<string, string>) => () => void,
+  features?: (key: FeatureKey | undefined) => boolean,
+): Command[] {
   const params = { domain };
-  return APP_TABS.filter((tab) => tab.exact !== true && (app === undefined || !isAdopted(app) || ADOPTED_TABS.has(tab.to))).map(
+  // What the column draws is what the palette finds: a section whose function this machine does not have is in neither.
+  const offered = new Set(appColumn({ ...(features !== undefined ? { features } : {}) }, false).flatMap((group) => group.items.map((item) => item.to as string)));
+  return APP_TABS.filter((tab) => tab.exact !== true && (features === undefined || offered.has(tab.to)) && (app === undefined || !isAdopted(app) || ADOPTED_TABS.has(tab.to))).map(
     (tab): Command => ({
       id: `app-section:${tab.to}`,
       group: "Pages",

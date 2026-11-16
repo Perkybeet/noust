@@ -28,6 +28,16 @@ export function askedHowItRuns(inspection: Inspection): boolean {
   return inspection.ways?.choice === true;
 }
 
+/**
+ * Whether nothing in the source can run on this machine: the server says neither way is possible. The wizard then offers no way
+ * forward (it would deploy what cannot run): it says what is missing and the one fix, and Back is all there is. A server that does
+ * not say how things run (a node of 4.2) never gets here.
+ */
+export function nothingRuns(inspection: Inspection): boolean {
+  const ways = inspection.ways ?? null;
+  return ways !== null && ways.server.status !== "yes" && ways.container.status !== "yes";
+}
+
 /** Which form a type is, for the card that shows it chosen: a type the server does not name is judged by what it is. */
 export function chosenForm(ways: Ways | null, appType: string): WayForm {
   if (ways !== null && ways.container.app_type === appType) return "container";

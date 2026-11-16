@@ -33,6 +33,7 @@ import { SystemOutput } from "../../components/ui/SystemOutput";
 import type { WizardActionsProps } from "../../components/page/Wizard";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
+import { useContainerHost } from "../central/features";
 import { splitErrors } from "../settings/formErrors";
 import { normalizeDomain } from "../domains/names";
 import { useSiteAdoption } from "./AdoptSite";
@@ -115,16 +116,22 @@ function Found({ preview, t }: { preview: Adoption; t: T }) {
       ...(preview.containers.length > 0 ? {} : prose),
       hint: preview.running ? t("common.statusPill.running") : t("newApp.adopt.notRunning"),
     },
-    preview.site !== null
-      ? { label: t("newApp.adopt.site"), value: preview.site, hint: preview.site_name ? t("newApp.adopt.siteNamed", { name: preview.site_name }) : t("newApp.adopt.siteOperator") }
-      : { label: t("newApp.adopt.site"), value: t("newApp.adopt.noSite"), ...prose },
+    // Where Docker keeps the stack alive there is no site to look for and no unit to write: said as it is, in the rows that would have said both.
+    preview.kept_by === "docker"
+      ? { label: t("newApp.adopt.site"), value: t("containerHost.adopt.noSite"), ...prose }
+      : preview.site !== null
+        ? { label: t("newApp.adopt.site"), value: preview.site, hint: preview.site_name ? t("newApp.adopt.siteNamed", { name: preview.site_name }) : t("newApp.adopt.siteOperator") }
+        : { label: t("newApp.adopt.site"), value: t("newApp.adopt.noSite"), ...prose },
     preview.headless
       ? { label: t("newApp.adopt.port"), value: t("newApp.adopt.headless"), ...prose }
       : { label: t("newApp.adopt.port"), value: preview.port ?? null },
     { label: t("newApp.adopt.source"), value: preview.source },
     { label: t("newApp.adopt.branch"), value: preview.branch ?? null },
     { label: t("newApp.adopt.commit"), value: preview.commit ?? null },
-    { label: t("newApp.adopt.unit"), value: `${preview.unit}.service`, hint: t("newApp.adopt.unitHint") },
+    preview.kept_by === "docker"
+      ? { label: t("newApp.adopt.unit"), value: t("containerHost.adopt.dockerKeeps"), hint: t("containerHost.adopt.noUnit"), ...prose }
+      : { label: t("newApp.adopt.unit"), value: `${preview.unit}.service`, hint: t("newApp.adopt.unitHint") },
+    ...(preview.address !== null && preview.address !== undefined ? [{ label: t("newApp.deploy.address"), value: preview.address }] : []),
   ];
   return (
     <Card title={t("newApp.adopt.foundTitle")} description={t("newApp.adopt.foundDescription")}>
@@ -166,6 +173,7 @@ export interface AdoptionState {
 /** The stack adoption's form and its two presses. */
 function useStackAdoption(): AdoptionState {
   const t = useT();
+  const containerHost = useContainerHost();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<AdoptForm>(EMPTY);
@@ -238,8 +246,8 @@ function useStackAdoption(): AdoptionState {
   const content = (
     <div className="flex flex-col gap-5">
       <form id="adopt-stack" onSubmit={submit} noValidate className="flex flex-col gap-5">
-        <Field label={t("newApp.adopt.domain")} error={fieldError("domain", "domain")} description={t("newApp.adopt.domainDescription")}>
-          <Input mono value={form.domain} onValueChange={(value: string) => edit({ domain: value })} placeholder="shop.example.com" autoComplete="off" autoCapitalize="off" spellCheck={false} />
+        <Field label={containerHost ? t("common.words.name") : t("newApp.adopt.domain")} error={fieldError("domain", "domain")} description={containerHost ? t("containerHost.wizard.nameDescription") : t("newApp.adopt.domainDescription")}>
+          <Input mono value={form.domain} onValueChange={(value: string) => edit({ domain: value })} placeholder={containerHost ? "nextcloud" : "shop.example.com"} autoComplete="off" autoCapitalize="off" spellCheck={false} />
         </Field>
         <Field label={t("newApp.adopt.path")} error={fieldError("path", "path")} description={t("newApp.adopt.pathDescription")}>
           <Input mono value={form.path} onValueChange={(value: string) => edit({ path: value })} placeholder="/srv/shop" autoComplete="off" autoCapitalize="off" spellCheck={false} />

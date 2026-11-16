@@ -141,8 +141,9 @@ describe("3. the budgets", () => {
 
   it("keeps the sections of one area or resource to sixteen, an application's seventeen being the one accepted (NV-3)", () => {
     const parents = new Set(DESTS.filter((entry) => entry.kind === "tab").map((entry) => entry.parent ?? ""));
-    // The machine's sections include Docker's seven pages (item 189): twenty, the one other area over sixteen, for the reason in app/columns.test.ts.
-    for (const parent of parents) expect(tabsById(parent, EVERYTHING).length, `the sections of ${parent}`).toBeLessThanOrEqual(parent === "app" ? 17 : parent === "server" ? 20 : 16);
+    // The machine's sections include Docker's seven pages (item 189) and the page that says whether Noust deploys on it (item 188): twenty-one,
+    // the one other area over sixteen, for the reason in app/columns.test.ts.
+    for (const parent of parents) expect(tabsById(parent, EVERYTHING).length, `the sections of ${parent}`).toBeLessThanOrEqual(parent === "app" ? 17 : parent === "server" ? 21 : 16);
   });
 
   it("keeps Settings to eight sections a group, seven groups and twenty-six in all (NV-3)", () => {
@@ -674,6 +675,7 @@ describe("what the pages draw from the register", () => {
       "/server/docker/volumes",
       "/server/docker/networks",
       "/server/docker/engine",
+      "/server/deploy-here",
       "/server/files",
       "/server/manifest",
       "/server/central",

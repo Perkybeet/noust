@@ -284,6 +284,7 @@ def write_config(
     sandbox: Sandbox,
     *,
     central_role: str | None = None,
+    deploy_here: str | None = None,
     ssl_email: str = "ops@example.com",
     public_address: str | None = None,
 ) -> None:
@@ -295,6 +296,8 @@ def write_config(
         central_role: ``central.role`` to write (``server`` or ``hub``), for the
             fleet's E2E suite; omitted, this server has none, which is the same
             as ``server`` (see ``noust.central.role``).
+        deploy_here: ``central.deploy_here`` to write (``containers``), as ``noust config set`` writes it for a
+            hub that was told, outside the console, to deploy on its machine's Docker; omitted, it deploys nothing.
         ssl_email: The certificate contact address to write; ``--showcase`` gives its own
             agency's, so nothing this server writes to disk carries example.com.
         public_address: ``dns.public_addresses`` to declare, for ``--empty``: the address a
@@ -316,6 +319,8 @@ def write_config(
     }
     if central_role is not None:
         config["central"] = {"role": central_role}
+        if deploy_here is not None:
+            config["central"]["deploy_here"] = deploy_here
     if public_address is not None:
         config["dns"] = {"public_addresses": [public_address]}
     sandbox.config_file.write_text(yaml.safe_dump(config, sort_keys=True), encoding="utf-8")

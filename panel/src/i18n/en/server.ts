@@ -50,6 +50,8 @@ export const server = {
     foldersKeywords: "applications folder backups folder web server builds at once queue build directory",
     console: "Console",
     consoleKeywords: "console access publish expose domain https certificate public name nginx allow list",
+    deployHere: "Deploy on this machine",
+    deployHereKeywords: "docker nas socket compose root container host deploy here turn on enable permission",
   },
   verdict: {
     healthy: "Healthy",

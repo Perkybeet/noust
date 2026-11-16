@@ -8,7 +8,7 @@ import { DetailPage } from "../components/page/DetailPage";
 import { buttonClassName } from "../components/ui/Button";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ServerText } from "../components/ui/ServerText";
-import { featureAnswer, offers } from "../features/central/features";
+import { featureAnswer, offers, useFeature } from "../features/central/features";
 import type { FeatureKey } from "../features/central/features";
 import { VIEWS } from "../features/nav/views";
 import { useT } from "../i18n";
@@ -47,6 +47,8 @@ export function FeatureUnavailable({ entry, feature }: { entry: Dest; feature: F
   const area = areaOf(entry.to) ?? entry;
   const landing = areaLanding(area, ctx);
   const elsewhere = landing.to !== entry.to || landing.search !== undefined;
+  // What a hub refuses for being a hub, a hub that can be told to deploy on its machine's Docker can have: the way to the page that says how.
+  const deployHere = useFeature("deploy_here") && answer?.reason?.code === "features.hub_role" && entry.to !== "/server/deploy-here";
   const section = t(area.label);
   const server = hostname ?? t("fleet.selector.thisServer");
   return (
@@ -76,6 +78,11 @@ export function FeatureUnavailable({ entry, feature }: { entry: Dest; feature: F
             <Link to={fleetTarget(entry)} className={buttonClassName("primary", "md")}>
               {t("servers.unavailable.seeAll")}
             </Link>
+            {deployHere ? (
+              <Link to="/server/deploy-here" className={buttonClassName("secondary", "md")}>
+                {t("containerHost.central.deployHere")}
+              </Link>
+            ) : null}
             {elsewhere ? (
               <Link to={landing.to} {...(landing.search !== undefined ? { search: landing.search as never } : {})} className={buttonClassName("secondary", "md")}>
                 {t("servers.unavailable.open", { section: t(area.label) })}

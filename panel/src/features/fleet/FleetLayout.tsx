@@ -86,6 +86,7 @@ export function FleetLayout({ adding: addingProp, onAddingChange }: FleetLayoutP
   const central = useCentral();
   // A central that cannot deploy (a hub) says so once on the fleet's first page: what it manages is its servers' (item 187).
   const deploysHere = useFeature("applications");
+  const canDeployHere = useFeature("deploy_here");
   const servers = useServerList();
   const [addingState, setAddingState] = useState(false);
   const adding = addingProp ?? addingState;
@@ -134,7 +135,20 @@ export function FleetLayout({ adding: addingProp, onAddingChange }: FleetLayoutP
       <div className="flex flex-col gap-3">
         <CentralLockedNotice />
         {!deploysHere ? (
-          <Notice title={t("servers.fleet.hub.title")}>{empty ? t("servers.fleet.hub.noServers") : t("servers.fleet.hub.description")}</Notice>
+          <Notice
+            title={t("servers.fleet.hub.title")}
+            {...(canDeployHere
+              ? {
+                  action: (
+                    <Link to="/server/deploy-here" className={buttonClassName("secondary", "sm")}>
+                      {t("containerHost.central.deployHere")}
+                    </Link>
+                  ),
+                }
+              : {})}
+          >
+            {empty ? t("servers.fleet.hub.noServers") : t("servers.fleet.hub.description")}
+          </Notice>
         ) : null}
       </div>
     ) : null;

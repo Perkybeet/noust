@@ -51,6 +51,8 @@ export const server: Catalog<typeof en> = {
     foldersKeywords: "carpeta de aplicaciones carpeta de copias servidor web compilaciones a la vez cola directorio",
     console: "Consola",
     consoleKeywords: "consola acceso publicar exponer dominio https certificado nombre público nginx lista de permitidos",
+    deployHere: "Desplegar en esta máquina",
+    deployHereKeywords: "docker nas socket compose root contenedores anfitrión desplegar aquí encender activar permiso",
   },
   verdict: {
     healthy: "Correcto",

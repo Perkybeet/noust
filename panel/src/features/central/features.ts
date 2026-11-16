@@ -15,40 +15,16 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback } from "react";
 
 import { sessionQuery } from "../../api/queries/auth";
-import type { SessionInfo } from "../../api/queries/auth";
-import type { components } from "../../api/schema.gen";
+import { featureAnswer, isContainerHost, offers } from "./offers";
+import type { FeatureAnswer, FeatureKey } from "./offers";
 
-/** A function of the server's table: the keys of the answer, so a mistyped one fails to compile. */
-export type FeatureKey = keyof components["schemas"]["FeatureStates"];
+export { CONTAINER_HOST, featureAnswer, isContainerHost, offers } from "./offers";
+export type { DerivedKey, FeatureAnswer, FeatureKey } from "./offers";
 
-/** What the server says of one function: whether it works here, and why not. */
-export interface FeatureAnswer {
-  available: boolean;
-  /** The sentence for the first thing in the way, as the server says it (a code the console translates, and its English). */
-  reason: components["schemas"]["FeatureReason"] | null;
-}
-
-/**
- * Whether this Noust offers a function. Offered when there is nothing to ask (no key), when the session says nothing
- * of functions (a server that has no such table offers what its role always allowed), and when the function is
- * available; absent when the server says it is not.
- *
- * @param session The signed-in session; `undefined` before it is read.
- * @param key The function a destination or an action needs; `undefined` for one that needs none.
- */
-export function offers(session: SessionInfo | undefined, key: FeatureKey | undefined): boolean {
-  if (key === undefined) return true;
-  const states = session?.central?.features;
-  if (states === undefined || states === null) return true;
-  // A key the server's table does not know (an older server) is not a reason to hide anything.
-  const state = (states as Record<string, { available: boolean } | undefined>)[key];
-  return state === undefined || state.available;
-}
-
-/** The server's answer for one function, with the sentence for why not; null when the session says nothing of it. */
-export function featureAnswer(session: SessionInfo | undefined, key: FeatureKey): FeatureAnswer | null {
-  const states = session?.central?.features as Record<string, FeatureAnswer | undefined> | null | undefined;
-  return states?.[key] ?? null;
+/** Whether this central deploys containers on its machine's Docker, kept current with the session. */
+export function useContainerHost(): boolean {
+  const { data } = useQuery(sessionQuery());
+  return isContainerHost(data);
 }
 
 /** The filter as a function, stable between renders until the session changes: what the lists of the register take. */

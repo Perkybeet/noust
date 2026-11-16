@@ -15,7 +15,8 @@ import type { LimitsDraft } from "../app/settings/limits";
 import { domainProblem, normalizeDomain } from "../domains/names";
 import { containerBody, containerProblems, emptyDraft } from "../container/model";
 import type { ContainerDraft } from "../container/model";
-import { askedHowItRuns, keepsType, startedWithWay } from "./howItRuns";
+import { askedHowItRuns, keepsType, nothingRuns, startedWithWay } from "./howItRuns";
+import { FIRST_MACHINE_PORT, nameProblem } from "./machineAddress";
 import { generateSecret } from "./secrets";
 
 export type Inspection = ResponseOf<"/api/apps/inspect", "post">;
@@ -142,6 +143,8 @@ export function stepAsks(step: Step, kind: StartKind, { inspection, review, cont
         inspection.detected_types.length !== 1 ||
         // It can run directly on the server or in a container: that is a choice, and it is made here.
         askedHowItRuns(inspection) ||
+        // Nothing in it can run on this machine: that is said here, and there is no way forward from it.
+        nothingRuns(inspection) ||
         // This server cannot deploy it as it is: what to do first is said on this step.
         inspection.compatible === false ||
         // A container is built and run the way its section says (Dockerfile or Railpack, port,
@@ -615,6 +618,8 @@ export function initialReview(
     temporary?: string | null | undefined;
     /** The server already runs an application on a domain of the operator's own. */
     ownDomains?: boolean;
+    /** This central deploys on its machine's Docker: the port is one of the machine's, from the first one a NAS leaves free. */
+    containerHost?: boolean;
   },
   previous?: ReviewForm | null,
 ): ReviewForm {
@@ -625,7 +630,7 @@ export function initialReview(
       appType: inspection.app_type,
       ...initialAddress(defaults),
       webserver: defaults.webserver,
-      port: String(proposedPort(inspection.default_port, defaults.taken)),
+      port: String(proposedPort(defaults.containerHost === true ? FIRST_MACHINE_PORT : inspection.default_port, defaults.taken)),
       layout: "releases",
       persistentPaths: [],
       limits: draftOf({}),
@@ -740,7 +745,9 @@ export function withProposal(form: ReviewForm, inspection: Inspection, taken: Re
  * What is wrong with a domain for a new application, or null: not a domain the server takes,
  * or one already deployed here. The same check for every way of starting an application.
  */
-export function domainError(value: string, deployed: ReadonlySet<string>): string | null {
+export function domainError(value: string, deployed: ReadonlySet<string>, byName = false): string | null {
+  // Where there is no domain (a central that deploys on its machine's Docker) the application has a name, which is not an address.
+  if (byName) return nameProblem(value, deployed);
   const domain = normalizeDomain(value);
   const bad = domainProblem(domain);
   if (bad !== null) return bad;
@@ -759,6 +766,8 @@ export interface ReviewContext {
   ports: ReadonlyMap<number, string>;
   /** CPUs of this machine, for the CPU quota's upper bound; null while unknown. */
   cores: number | null;
+  /** This central deploys on its machine's Docker: the application has a name and a port, not a domain. */
+  containerHost?: boolean;
 }
 
 export type ReviewErrors = Record<string, string>;
@@ -816,7 +825,7 @@ export function reviewProblems(form: ReviewForm, context: ReviewContext): Review
   const errors: ReviewErrors = {};
   const locale = getLocale();
   if (form.appType === "") errors["appType"] = translate(locale, "newApp.validation.appType");
-  const domain = domainError(form.domain, context.domains);
+  const domain = domainError(form.domain, context.domains, context.containerHost === true);
   if (domain !== null) errors["domain"] = domain;
 
   if (hasPort(form.appType)) {
@@ -894,7 +903,7 @@ export function createAppBody(
   source: SourceForm,
   form: ReviewForm,
   proposal: PlatformProposal | null = null,
-  options: { composeDocument?: string } = {},
+  options: { composeDocument?: string; containerHost?: boolean } = {},
 ): CreateAppBody {
   const env: Record<string, string> = {};
   for (const row of form.env) {
@@ -930,9 +939,10 @@ export function createAppBody(
     app_type: form.appType,
     ...(hasPort(form.appType) ? { port: Number(form.port.trim()) } : {}),
     webserver: form.webserver,
-    ssl: form.ssl,
+    // No site and no certificate where there is no web server of Noust's: nothing to ask HTTPS or a www name of.
+    ssl: options.containerHost === true ? false : form.ssl,
     ...(container ? {} : { layout: form.layout }),
-    include_www: form.addressMode === "own" && form.includeWww && canIncludeWww(form.domain),
+    include_www: options.containerHost !== true && form.addressMode === "own" && form.includeWww && canIncludeWww(form.domain),
     ...(paths.length > 0 ? { persistent_paths: paths } : {}),
     ...(container ? { container: containerBody(form.container) } : {}),
     memory_max_mb: limits.memory_max_mb,

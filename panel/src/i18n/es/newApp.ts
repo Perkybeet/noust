@@ -335,6 +335,7 @@ export const newApp: Catalog<typeof en> = {
     nothingToInstall: "Nada que instalar",
     nothingToBuild: "Nada que compilar",
     noProcess: "Sin proceso: el servidor web sirve los archivos",
+    dockerRuns: "Lo ejecuta Docker",
     noExample: "No hay .env.example, así que no se ha propuesto ninguna variable.",
     variables: {
       one: "{count} variable en .env.example, {required} sin valor por defecto, {secrets} que parecen secretas.",

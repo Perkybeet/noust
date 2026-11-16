@@ -12,6 +12,7 @@ import { Notice } from "../../components/ui/Notice";
 import { useT } from "../../i18n";
 import type { Deployment, LastDeployment } from "../apps/data";
 import { deployMoment } from "../apps/data";
+import { useFeature } from "../central/features";
 import { ReclaimDialog } from "./ReclaimDialog";
 
 /** How many deploys the app's pages read at once: the overview's dots share the same request. */
@@ -101,8 +102,9 @@ export function useAppCondition(domain: string, app: App | undefined): AppCondit
  */
 export function AppBanner({ domain, condition, onDiagnose = false }: { domain: string; condition: AppCondition; onDiagnose?: boolean }) {
   const t = useT();
-  // On the Diagnose tab the way to diagnose is the page itself.
-  const diagnose = onDiagnose ? undefined : (
+  const canDiagnose = useFeature("application_diagnosis");
+  // On the Diagnose tab the way to diagnose is the page itself, and where the server cannot diagnose there is no way.
+  const diagnose = onDiagnose || !canDiagnose ? undefined : (
     <Link to="/apps/$domain/diagnose" params={{ domain }} className={buttonClassName("secondary", "sm")}>
       {t("appPages.banner.diagnose")}
     </Link>

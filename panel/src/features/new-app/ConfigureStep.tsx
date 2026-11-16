@@ -12,6 +12,7 @@ import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { ContainerFields } from "../container/ContainerFields";
 import { HowItRuns } from "./HowItRuns";
+import { nothingRuns } from "./howItRuns";
 import { InspectionReadout } from "./InspectionReadout";
 import { PersistentPathsField } from "./PersistentPathsField";
 import { PlatformProposalPanel } from "./PlatformProposalPanel";
@@ -64,6 +65,8 @@ export interface ConfigureStepProps {
   form: ReviewForm;
   errors: ReviewErrors;
   onChange: (form: ReviewForm) => void;
+  /** A central that deploys on its machine's Docker: no web server to choose and no port of the machine to ask here (the address step has it). */
+  containerHost?: boolean;
 }
 
 /**
@@ -72,7 +75,7 @@ export interface ConfigureStepProps {
  * free. What most deploys leave as it is (how deploys work, the folders kept between them, the
  * web server, the resource limits) is folded under "Advanced", open when one of them needs a fix.
  */
-export function ConfigureStep({ inspection, types, taken, cores, source, form, errors, onChange }: ConfigureStepProps) {
+export function ConfigureStep({ inspection, types, taken, cores, source, form, errors, onChange, containerHost = false }: ConfigureStepProps) {
   const t = useT();
   const set = (patch: Partial<ReviewForm>): void => {
     onChange({ ...form, ...patch });
@@ -132,7 +135,7 @@ export function ConfigureStep({ inspection, types, taken, cores, source, form, e
           </div>
         </Card>
       ) : (
-        <InspectionReadout inspection={inspection} types={types} source={source} />
+        <InspectionReadout inspection={inspection} types={types} source={source} hideVerdict={containerHost && nothingRuns(inspection)} />
       )}
 
       {proposal !== null ? (
@@ -149,7 +152,7 @@ export function ConfigureStep({ inspection, types, taken, cores, source, form, e
       <div className="flex flex-col gap-5">
         {pulled || typeInAdvanced ? null : typeField}
         {chosenNotice}
-        {hasPort(form.appType) ? (
+        {hasPort(form.appType) && !containerHost ? (
           <Field label={t("newApp.review.port")} error={errors["port"]} description={portNote(t, inspection, form, types, taken)} className="sm:max-w-80">
             <Input mono inputMode="numeric" value={form.port} onValueChange={(value: string) => set({ port: value })} autoComplete="off" />
           </Field>
@@ -172,7 +175,7 @@ export function ConfigureStep({ inspection, types, taken, cores, source, form, e
         variant="card"
         defaultOpen={advancedErrors}
         label={t("newApp.review.advanced")}
-        summary={advancedSummary(t, form)}
+        summary={containerHost ? t("containerHost.wizard.advancedSummary") : advancedSummary(t, form)}
       >
         <div className="flex flex-col gap-6">
           {typeInAdvanced ? typeField : null}
@@ -192,21 +195,23 @@ export function ConfigureStep({ inspection, types, taken, cores, source, form, e
               <PersistentPathsField rows={form.persistentPaths} errors={errors} onChange={(persistentPaths) => set({ persistentPaths })} />
             </Subsection>
           ) : null}
-          <div className="flex flex-col gap-1.5">
-            <span aria-hidden="true" className="text-13 font-medium text-fg">
-              {t("newApp.review.webServer")}
-            </span>
-            <SegmentedControl<WebServer>
-              label={t("newApp.review.webServer")}
-              options={[
-                { value: "nginx", label: "nginx" },
-                { value: "apache", label: "Apache" },
-              ]}
-              value={form.webserver}
-              onValueChange={(webserver) => set({ webserver })}
-              className="self-start"
-            />
-          </div>
+          {containerHost ? null : (
+            <div className="flex flex-col gap-1.5">
+              <span aria-hidden="true" className="text-13 font-medium text-fg">
+                {t("newApp.review.webServer")}
+              </span>
+              <SegmentedControl<WebServer>
+                label={t("newApp.review.webServer")}
+                options={[
+                  { value: "nginx", label: "nginx" },
+                  { value: "apache", label: "Apache" },
+                ]}
+                value={form.webserver}
+                onValueChange={(webserver) => set({ webserver })}
+                className="self-start"
+              />
+            </div>
+          )}
           <ResourceLimitsFields draft={form.limits} cores={cores} errors={errors} onChange={(limits) => set({ limits })} />
         </div>
       </Disclosure>

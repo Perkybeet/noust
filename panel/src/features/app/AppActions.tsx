@@ -14,6 +14,8 @@ import { SplitButton } from "../../components/ui/SplitButton";
 import { SM_UP, useMediaQuery } from "../../components/ui/useMediaQuery";
 import { useT } from "../../i18n";
 import { hasUnit } from "../apps/AppRowActions";
+import { hasFiles } from "../apps/data";
+import { useFeature } from "../central/features";
 import { isAdopted } from "./adopted";
 import { useCloneApp, usePromoteApp } from "../promotion/useAppTransfers";
 import { FrozenDeployDialog } from "../apps/FrozenDeployDialog";
@@ -89,6 +91,8 @@ export function useAppHeaderActions(
   const { node } = useNode();
   const { openRollback } = useRollback();
   // The terminal is offered to whoever may open it; the server decides again when it is asked.
+  // What the server cannot diagnose (a central that deploys on its machine's Docker) is not offered: the table says whether it can.
+  const diagnoses = useFeature("application_diagnosis");
   const canOpenTerminal = useHasPermission("apps.terminal") === true;
   const promote = usePromoteApp(app);
   const clone = useCloneApp(app);
@@ -125,16 +129,18 @@ export function useAppHeaderActions(
   const overflow = (
     <>
       {/* Off the tab strip (eight tabs at most), one click away from every tab. */}
-      <MenuItem icon={<OBJECT_ICONS.diagnose />} onClick={() => void navigate({ to: "/apps/$domain/diagnose", params: { domain } })}>
-        {t("appPages.actions.diagnose")}
-      </MenuItem>
+      {diagnoses ? (
+        <MenuItem icon={<OBJECT_ICONS.diagnose />} onClick={() => void navigate({ to: "/apps/$domain/diagnose", params: { domain } })}>
+          {t("appPages.actions.diagnose")}
+        </MenuItem>
+      ) : null}
       {canOpenTerminal ? (
         <MenuItem icon={<OBJECT_ICONS.terminal />} onClick={() => void navigate({ to: "/apps/$domain/terminal", params: { domain } })}>
           {t("appPages.actions.terminal")}
         </MenuItem>
       ) : null}
       {/* The files are what a shell as the application is: the same permission. */}
-      {canOpenTerminal && unit && !adopted ? (
+      {canOpenTerminal && hasFiles(app) && !adopted ? (
         <MenuItem icon={<OBJECT_ICONS.file />} onClick={() => void navigate({ to: "/apps/$domain/files", params: { domain } })}>
           {t("runtime.files.title")}
         </MenuItem>

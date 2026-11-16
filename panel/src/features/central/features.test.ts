@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import type { SessionInfo } from "../../api/queries/auth";
 import { SESSION } from "../../test/fakes";
-import { featureAnswer, offers } from "./features";
+import { featureAnswer, isContainerHost, offers } from "./features";
 
 const REASON = { code: "features.hub_role", params: { feature: "Databases", command: "noust config set central.role server" }, text: "Databases: not available on this central, which is a hub" };
 
-function session(features: NonNullable<NonNullable<SessionInfo["central"]>["features"]> | null | undefined): SessionInfo {
-  return { ...SESSION, central: { role: "hub", sealed: false, locked: false, ...(features !== undefined ? { features } : {}) } };
+function session(features: NonNullable<NonNullable<SessionInfo["central"]>["features"]> | null | undefined, deployHere?: string): SessionInfo {
+  return { ...SESSION, central: { role: "hub", sealed: false, locked: false, ...(deployHere !== undefined ? { deploy_here: deployHere } : {}), ...(features !== undefined ? { features } : {}) } };
 }
 
 /** A table where every function but the ones named works. */
@@ -47,5 +47,41 @@ describe("featureAnswer", () => {
     expect(featureAnswer(hub, "databases")?.reason?.code).toBe("features.hub_role");
     expect(featureAnswer(hub, "firewall")?.reason).toBeNull();
     expect(featureAnswer(SESSION, "databases")).toBeNull();
+  });
+});
+
+describe("the page that turns on the machine's Docker", () => {
+  const hubReason = { ...REASON, code: "features.hub_role" };
+  const refused = (code: string): NonNullable<NonNullable<SessionInfo["central"]>["features"]> =>
+    new Proxy({}, { get: (_, key: string) => (key === "applications" ? { available: false, reason: { ...hubReason, code } } : { available: true, reason: null }) }) as never;
+
+  it("is offered to a hub that does not deploy yet, because the table says the one thing in the way is that it is a hub", () => {
+    expect(offers(session(refused("features.hub_role")), "deploy_here")).toBe(true);
+  });
+
+  it("is offered to a central that deploys already: it is where the machine's Docker is checked again", () => {
+    expect(offers(session(without(), "containers"), "deploy_here")).toBe(true);
+  });
+
+  it("is not offered to a server, which deploys without being asked", () => {
+    expect(offers(session(without()), "deploy_here")).toBe(false);
+    expect(offers(SESSION, "deploy_here")).toBe(false);
+  });
+
+  it("is not offered where applications are refused for another reason than being a hub, which turning on Docker would not change", () => {
+    expect(offers(session(refused("features.needs_systemd")), "deploy_here")).toBe(false);
+  });
+
+  it("is not offered by a server that publishes no table, and hides nothing before the session is read", () => {
+    expect(offers(session(null), "deploy_here")).toBe(false);
+    expect(offers(session(undefined), "deploy_here")).toBe(false);
+    expect(offers(undefined, "deploy_here")).toBe(true);
+  });
+
+  it("says a central deploys on its machine's Docker only when the session says it was told to", () => {
+    expect(isContainerHost(session(without(), "containers"))).toBe(true);
+    expect(isContainerHost(session(without(), ""))).toBe(false);
+    expect(isContainerHost(session(without()))).toBe(false);
+    expect(isContainerHost(undefined)).toBe(false);
   });
 });

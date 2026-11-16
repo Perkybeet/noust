@@ -20,6 +20,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
+from . import container_host
 from .arguments import parse_args
 from .assistant_seed import seed_assistant
 from .backup_destinations import seed_showcase_backup_destination, use_showcase_diagnose_paths
@@ -100,6 +101,7 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
     write_config(
         sandbox,
         central_role=args.central_role,
+        deploy_here=args.deploy_here,
         ssl_email=ssl_email,
         public_address=EMPTY_PUBLIC_ADDRESS if args.empty else None,
     )
@@ -127,6 +129,9 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
             *(programs if programs is not None else (*INSTALLED_PROGRAMS, *SERVER_PROGRAMS)),
             "docker",
         )
+    if args.deploy_here is not None and programs is not None and "docker" not in programs:
+        # The central of a NAS that was told to deploy has the machine's Docker at hand (its image carries the client).
+        programs = (*programs, "docker")
     set_runner(make_runner(units, ports, domains, certs, sandbox.systemd_dir, programs=programs))
     # Managers report progress on stdout, which belongs to the one JSON line
     # the caller parses.
@@ -140,6 +145,11 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
             from noust.core.store import get_store
 
             get_store(sandbox.store_file)
+            if args.deploy_here is not None:
+                # What a hub that deploys on its machine's Docker has: the NAS's engine, and one application on it.
+                container_host.install(sandbox.apps_dir, fault=args.docker_fault)
+                container_host.seed_deployed_app(sandbox.apps_dir)
+                container_host.seed_sources(sandbox.var / "www" / "src")
             seeded_units: dict[str, Unit] = {}
             seeded_ports: dict[str, int] = {}
             seeded_domains: dict[str, str] = {}
@@ -185,7 +195,9 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
     certs.extend(seeded_certs)
     # The VPS the Server area manages (/api/server): see model_server_host.
     host = model_server_host(sandbox, args.hostname or socket.gethostname(), units, profile)
-    if args.docker and not args.empty:
+    if args.deploy_here is not None:
+        container_host.give_the_client()
+    if args.docker and not args.empty and args.deploy_here is None:
         # The engine the Docker zone looks at, over the applications that were just seeded.
         from noust.core.store import get_store
 

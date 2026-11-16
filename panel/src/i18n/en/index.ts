@@ -37,6 +37,7 @@ export { common } from "./common";
 export { complianceSetup } from "./complianceSetup";
 export { composeSettings } from "./composeSettings";
 export { connections } from "./connections";
+export { containerHost } from "./containerHost";
 export { consoleAccess } from "./consoleAccess";
 export { containers } from "./containers";
 export { cron } from "./cron";

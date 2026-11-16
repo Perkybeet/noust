@@ -115,6 +115,7 @@ const COLUMN_OBJECT: Readonly<Record<string, ObjectName>> = {
   "server.services": "service",
   "server.webserver": "site",
   "server.software": "packages",
+  "server.deploy-here": "passkey",
   "server.files": "file",
   "server.folders": "build",
   "server.console": "domain",

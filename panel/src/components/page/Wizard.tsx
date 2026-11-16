@@ -13,7 +13,8 @@ import type { WizardStep } from "./Stepper";
 
 export interface WizardActionsProps {
   back?: { label?: string; onClick: () => void };
-  next: {
+  /** Absent where there is no way forward (nothing can run here): Back alone is drawn, never a button that does nothing. */
+  next?: {
     label?: string;
     onClick: () => void;
     loading?: boolean;
@@ -50,22 +51,24 @@ export function WizardActions({ back, next, missing, onMissing, className }: Wiz
         ) : (
           <span />
         )}
-        <Button
-          variant="primary"
-          loading={next.loading ?? false}
-          {...(next.onPress !== undefined ? { onPointerDown: next.onPress } : {})}
-          onClick={() => {
-            if (blocked) {
-              setPointed(true);
-              onMissing?.();
-              return;
-            }
-            setPointed(false);
-            next.onClick();
-          }}
-        >
-          {next.label ?? t("common.wizard.next")}
-        </Button>
+        {next === undefined ? null : (
+          <Button
+            variant="primary"
+            loading={next.loading ?? false}
+            {...(next.onPress !== undefined ? { onPointerDown: next.onPress } : {})}
+            onClick={() => {
+              if (blocked) {
+                setPointed(true);
+                onMissing?.();
+                return;
+              }
+              setPointed(false);
+              next.onClick();
+            }}
+          >
+            {next.label ?? t("common.wizard.next")}
+          </Button>
+        )}
       </div>
     </div>
   );

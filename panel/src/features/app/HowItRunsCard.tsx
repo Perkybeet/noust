@@ -35,6 +35,9 @@ export function HowItRunsCard({ app, t }: { app: App; t: T }) {
   // Offered by the register's one filter, like every link to a place: where the server has no Docker the link is not given.
   const offers = useScopeOffers();
   const mayOpenDocker = mayReadDocker && offers("docker_zone");
+  // The other way is said only where the machine can do it (the same filter): one that only has Docker cannot run it directly.
+  const canRunInContainer = offers("container_deploy");
+  const canRunDirectly = offers("native_deploy");
   const data = runs.data;
   if (data === undefined) {
     // A server without the route (a node of 4.2) has nothing to say, and always had none; any other failure is said.
@@ -46,6 +49,7 @@ export function HowItRunsCard({ app, t }: { app: App; t: T }) {
   const staticSite = appStatus(app.status).state === "static";
   const words = runsWords(data, staticSite);
   const server = data.form === "server";
+  const otherWay = server ? canRunInContainer : canRunDirectly;
   const service = app.unit ? app.unit.replace(/\.service$/, "") : null;
   const folder = folderOf(app);
   const items: KeyValueItem[] = [{ label: t("appPages.overview.howForm"), value: t(words.form), mono: false, copy: false }];
@@ -77,7 +81,8 @@ export function HowItRunsCard({ app, t }: { app: App; t: T }) {
     >
       <div className="flex flex-col gap-4">
         <KeyValueList items={items} />
-        <p className="max-w-measure text-12 text-pretty text-fg-muted">{t(server ? "appPages.overview.howToContainer" : "appPages.overview.howToServer")}</p>
+        {/* The other way is said only where the machine can do it: a machine that only has Docker has no way to run it directly. */}
+        {otherWay ? <p className="max-w-measure text-12 text-pretty text-fg-muted">{t(server ? "appPages.overview.howToContainer" : "appPages.overview.howToServer")}</p> : null}
       </div>
     </SurfaceSection>
   );

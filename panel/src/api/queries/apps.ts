@@ -40,6 +40,7 @@ export const appKeys = {
   migrationPlan: (domain: string) => ["app", domain, "migration-plan"] as const,
   deletion: (domain: string) => ["app", domain, "deletion"] as const,
   runs: (domain: string) => ["app", domain, "runs"] as const,
+  address: (domain: string) => ["app", domain, "address"] as const,
 };
 
 export const appsQuery = () =>
@@ -59,6 +60,19 @@ export const appRunsQuery = (domain: string) =>
   queryOptions({
     queryKey: appKeys.runs(domain),
     queryFn: ({ signal }) => request("get", "/api/apps/{domain}/runs", { params: { domain }, signal }),
+  });
+
+/** Where an application is reached from outside: its domain behind a site, or a port of the machine where there is no web server (a NAS's central). */
+export type AppAddress = ResponseOf<"/api/apps/{domain}/address", "get">;
+
+/**
+ * The address of an application as the server says it, with what the NAS's own reverse proxy needs to be told. It changes with a
+ * deploy that moves the port, which refreshes everything under the app.
+ */
+export const appAddressQuery = (domain: string) =>
+  queryOptions({
+    queryKey: appKeys.address(domain),
+    queryFn: ({ signal }) => request("get", "/api/apps/{domain}/address", { params: { domain }, signal }),
   });
 
 /**

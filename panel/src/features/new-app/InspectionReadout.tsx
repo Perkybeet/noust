@@ -74,7 +74,18 @@ function Verdict({ inspection, types }: { inspection: Inspection; types: readonl
  * What the inspection found, before any choice: the source and revision, and the commands the
  * detected type's deployer would run, exactly as it would run them.
  */
-export function InspectionReadout({ inspection, types, source }: { inspection: Inspection; types: readonly AppTypeOption[]; source: string }) {
+export function InspectionReadout({
+  inspection,
+  types,
+  source,
+  hideVerdict = false,
+}: {
+  inspection: Inspection;
+  types: readonly AppTypeOption[];
+  source: string;
+  /** The way it runs says it better: on a machine that only has Docker, the toolchain a verdict asks to install is not what is missing. */
+  hideVerdict?: boolean;
+}) {
   const t = useT();
   const local = sourceKind(source) === "local";
   const keys = inspection.env_keys;
@@ -120,7 +131,7 @@ export function InspectionReadout({ inspection, types, source }: { inspection: I
           <p className="px-4 py-3 text-13 text-pretty text-fg">{t("newApp.readout.noType")}</p>
         ) : (
           <div className="flex flex-col gap-3 px-4 py-3">
-            <Verdict inspection={inspection} types={types} />
+            {hideVerdict ? null : <Verdict inspection={inspection} types={types} />}
             <p className="text-13 text-pretty text-fg">
               {inspection.package_manager
                 ? t.rich("newApp.readout.looksLikeUsing", {
@@ -138,7 +149,7 @@ export function InspectionReadout({ inspection, types, source }: { inspection: I
             <dl className="flex flex-col rounded-control border border-border bg-bg-sunken px-3 py-1.5">
               <Command step={t("newApp.readout.install")} argv={inspection.install_command.join(" ")} none={t("newApp.readout.nothingToInstall")} />
               <Command step={t("newApp.readout.build")} argv={inspection.build_command.join(" ")} none={t("newApp.readout.nothingToBuild")} />
-              <Command step={t("common.words.start")} argv={inspection.start_command} none={t("newApp.readout.noProcess")} />
+              <Command step={t("common.words.start")} argv={inspection.start_command} none={t(inspection.app_type === "container" || inspection.app_type === "docker-compose" ? "newApp.readout.dockerRuns" : "newApp.readout.noProcess")} />
             </dl>
             <p className="text-12 text-fg-muted">
               {keys.length === 0

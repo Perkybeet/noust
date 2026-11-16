@@ -93,9 +93,9 @@ export function recipeVariableField(name: string): string {
  * What is wrong with a recipe's form: the domain, then each required variable that has no value,
  * each on its own field so the step can point at it.
  */
-export function recipeProblems(form: RecipeForm, deployed: ReadonlySet<string>, required: readonly string[] = [], rootEquivalent = false): Record<string, string> {
+export function recipeProblems(form: RecipeForm, deployed: ReadonlySet<string>, required: readonly string[] = [], rootEquivalent = false, byName = false): Record<string, string> {
   const errors: Record<string, string> = {};
-  const domain = domainError(form.domain, deployed);
+  const domain = domainError(form.domain, deployed, byName);
   if (domain !== null) errors["domain"] = domain;
   for (const name of required) {
     if ((form.env[name] ?? "").trim() === "") errors[recipeVariableField(name)] = translate(getLocale(), "newApp.recipes.envRequired");

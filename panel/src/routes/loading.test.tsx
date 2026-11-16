@@ -127,6 +127,7 @@ const PAGES: readonly (readonly [route: string, address: string])[] = [
   ["/fleet/docker/networks", "/fleet/docker/networks"],
   ["/fleet/docker/stacks", "/fleet/docker/stacks"],
   ["/fleet/docker/volumes", "/fleet/docker/volumes"],
+  ["/server/deploy-here", "/server/deploy-here"],
   ["/server/docker", "/server/docker"],
   ["/server/docker/compose/$name", "/server/docker/compose/shop-example-com"],
   ["/server/docker/containers", "/server/docker/containers"],
@@ -239,6 +240,7 @@ const NOTHING_TO_WAIT_FOR: Readonly<Record<string, string>> = {
   "/integrations/github/callback": "reads the address GitHub sent the browser back to, not the server",
   "/integrations/gitlab/callback": "reads the address GitLab sent the browser back to, not the server",
   "/server/central": "on the central itself it is one sentence that points to each server's own page; on a server it manages, the gate and the permissions read show their skeleton",
+  "/server/deploy-here": "what it says and the lines to add are written from the first frame; the check starts a container, so it runs when a person asks for it (or, on a central told to deploy, once when the page opens, and its own skeleton shows)",
   "/server/manifest": "a form: the manifest is pasted into it, and nothing is read until a preview is asked for",
   "/settings/manifest": "the old address of the manifest: it lands on Server > Manifest, a form",
 };

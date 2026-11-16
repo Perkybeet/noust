@@ -27,15 +27,19 @@ import { Card } from "../../components/ui/Card";
 import { Mono } from "../../components/ui/Mono";
 import { textLinkClassName } from "../../components/ui/TextLink";
 import { translate, useT } from "../../i18n";
-import type { T } from "../../i18n";
+import type { PlainKey, T } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { useHasFleet, useServerList } from "../../nodes/servers";
 import { useNode } from "../../nodes/useNode";
 import { normalizeDomain } from "../domains/names";
 import { imageProblem } from "../container/model";
 import { AddressFields } from "./AddressFields";
+import { MachineAddress } from "./MachineAddress";
+import { stackPort } from "./machineAddress";
+import { useContainerHost } from "../central/features";
 import { ConfigureStep } from "./ConfigureStep";
 import { DeployStep, deploySummary, howItRunsItem } from "./DeployStep";
+import { nothingRuns } from "./howItRuns";
 import type { Ways } from "./howItRuns";
 import type { OpenSteps } from "./DeployStep";
 import type { DeployKind } from "./DeployStep";
@@ -149,6 +153,11 @@ function readText(file: File): Promise<string> {
     reader.onerror = () => reject(reader.error ?? new Error("unreadable"));
     reader.readAsText(file);
   });
+}
+
+/** The actions of a step with no way forward: Back alone, where there is one. */
+function onlyBack(back: WizardActionsProps["back"]): WizardActionsProps {
+  return back !== undefined ? { back } : {};
 }
 
 /** A step's errors put in place of what that step said before, the other steps' left alone. */
@@ -317,6 +326,8 @@ export function NewAppWizard() {
   const typeList = types.data?.types ?? [];
 
   const cores = system.data?.cpu.cores ?? null;
+  // A central that deploys on its machine's Docker has no domain to ask for: the application has a name and a port of the machine.
+  const containerHost = useContainerHost();
   const context = useMemo(() => {
     const list = apps.data?.apps ?? [];
     const domains = new Set(list.map((app) => app.domain));
@@ -326,8 +337,9 @@ export function NewAppWizard() {
       cores,
       // A server with a domain of the operator's own in use is asked for one; one without is not.
       ownDomains: hasOwnDomain(domains),
+      containerHost,
     };
-  }, [apps.data, cores]);
+  }, [apps.data, cores, containerHost]);
 
   // Every step this start has, in order, which is what the stepper lists. Database: not for a
   // static site (nothing runs to read it), nor a monorepo or a compose project, which provision
@@ -343,11 +355,14 @@ export function NewAppWizard() {
   // summary of the last, with the way to open it.
   const steps = withServerStep(order, serverStep.enabled);
 
+  // Where there is no domain to ask for, the step that asks the name and the port says how the application opens.
+  const labelOf = (id: Step): PlainKey => (id === "address" && containerHost ? "containerHost.wizard.addressTitle" : STEP_LABELS[id]);
+
   const go = (next: Step): void => {
     setMoved(true);
     setStep(next);
     const index = steps.indexOf(next);
-    announce(t("newApp.steps.announce", { number: String(index + 1), total: String(steps.length), label: t(STEP_LABELS[next]) }));
+    announce(t("newApp.steps.announce", { number: String(index + 1), total: String(steps.length), label: t(labelOf(next)) }));
   };
 
   // A new step starts at its heading, so the next Tab and a screen reader begin there.
@@ -371,7 +386,7 @@ export function NewAppWizard() {
 
   /** The review a source proposes, with where it answers: the temporary address where there is no domain of the operator's yet. */
   const reviewFor = (inspection: Inspection, temporary: string, previous: ReviewForm | null, image?: string): ReviewForm =>
-    initialReview(inspection, { webserver: defaultWebserver, taken: context.ports, temporary, ownDomains: context.ownDomains, ...(image !== undefined ? { image } : {}) }, previous);
+    initialReview(inspection, { webserver: defaultWebserver, taken: context.ports, temporary, ownDomains: context.ownDomains, containerHost, ...(image !== undefined ? { image } : {}) }, previous);
 
   /**
    * The first step after the source that has something to ask, in the order of the start: where it
@@ -380,6 +395,8 @@ export function NewAppWizard() {
    */
   const stepAfterSource = (inspection: Inspection, proposed: ReviewForm): Step => {
     const ask = { inspection, review: proposed, context: { ...context, temporaryAvailable: proposed.temporaryDomain !== "" } };
+    // Nothing in the source can run here: the step that says what is missing is the first thing seen, before an address is asked for.
+    if (nothingRuns(inspection)) return "configure";
     const steps = withDatabaseStep(WIZARD_STEPS.code, databaseAvailable && !NO_DATABASE_STEP_TYPES.has(proposed.appType));
     return steps.slice(1).find((id) => stepAsks(id, "code", ask)) ?? "deploy";
   };
@@ -618,11 +635,11 @@ export function NewAppWizard() {
 
   const deploy = (): void => {
     if (kind === "recipe") {
-      if (recipe !== null && recipeForm !== null) create.mutate({ ...recipeBody(recipe, recipeForm), ...destination.body });
+      if (recipe !== null && recipeForm !== null) create.mutate({ ...recipeBody(recipe, recipeForm), ...(containerHost ? { ssl: false, include_www: false } : {}), ...destination.body });
     } else if (kind === "import") {
       if (loaded !== null && importForm !== null) importing.mutate(importBody(loaded.document, importForm));
     } else if (review !== null && inspected !== null) {
-      const body = createAppBody(inspected.for, review, inspected.inspection.platform_proposal ?? null, inspected.document !== undefined ? { composeDocument: inspected.document } : {});
+      const body = createAppBody(inspected.for, review, inspected.inspection.platform_proposal ?? null, { ...(inspected.document !== undefined ? { composeDocument: inspected.document } : {}), containerHost });
       // The database is the operator's choice whether or not the step was passed over: the
       // choice stays "none" until it is opened.
       create.mutate({ ...(allSteps.includes("database") ? withDatabase(body, database) : body), ...destination.body });
@@ -636,7 +653,7 @@ export function NewAppWizard() {
   // What is wrong with each kind's form, found fresh on every render so Continue can say it.
   const codeErrors = review !== null ? reviewProblems(review, context) : {};
   const requiredRecipeVariables = recipe !== null ? requiredVariables(recipe) : [];
-  const recipeFound = recipeForm !== null ? recipeProblems(recipeForm, context.domains, requiredRecipeVariables, recipe?.root_equivalent != null) : {};
+  const recipeFound = recipeForm !== null ? recipeProblems(recipeForm, context.domains, requiredRecipeVariables, recipe?.root_equivalent != null, containerHost) : {};
 
   // "Try a demo" (the Overview of a server with nothing on it) is a recipe deployed on its
   // temporary address from one press: once the recipe is open and has nothing left to ask, it
@@ -879,7 +896,7 @@ export function NewAppWizard() {
               onSubmit={() => {
                 const actions = sourceActions();
                 if (actions.missing !== undefined) actions.onMissing?.();
-                else actions.next.onClick();
+                else actions.next?.onClick();
               }}
               github={githubStatus}
               githubReading={github.isPending}
@@ -955,8 +972,9 @@ export function NewAppWizard() {
         };
 
       case "address": {
-        const title = t("newApp.steps.address");
-        const description = t("newApp.review.addressDescription");
+        // Where there is no domain, the step says how it opens: a port of the machine, with the address it makes.
+        const title = t(containerHost ? "containerHost.wizard.addressTitle" : "newApp.steps.address");
+        const description = t(containerHost ? "containerHost.wizard.addressDescription" : "newApp.review.addressDescription");
         if (kind === "import" && loaded !== null && importForm !== null) {
           return {
             title,
@@ -983,16 +1001,31 @@ export function NewAppWizard() {
             description,
             content: (
               <div className="flex flex-col gap-6">
-                <AddressFields
-                  value={review}
-                  onChange={(patch) => {
-                    const next = { ...review, ...patch };
-                    setReview(next);
-                    setReviewErrors((previous) => revalidated(previous, "address", reviewProblems(next, context)));
-                  }}
-                  error={reviewErrors["domain"]}
-                  dns={dns}
-                />
+                {containerHost ? (
+                  <MachineAddress
+                    name={review.domain}
+                    port={review.port}
+                    onChange={(patch) => {
+                      const next = { ...review, ...patch };
+                      setReview(next);
+                      setReviewErrors((previous) => revalidated(previous, "address", reviewProblems(next, context)));
+                    }}
+                    errors={{ domain: reviewErrors["domain"], port: reviewErrors["port"] }}
+                    taken={context.ports}
+                    {...(review.appType === "docker-compose" ? { stack: { port: stackPort(inspected?.inspection ?? null) } } : {})}
+                  />
+                ) : (
+                  <AddressFields
+                    value={review}
+                    onChange={(patch) => {
+                      const next = { ...review, ...patch };
+                      setReview(next);
+                      setReviewErrors((previous) => revalidated(previous, "address", reviewProblems(next, context)));
+                    }}
+                    error={reviewErrors["domain"]}
+                    dns={dns}
+                  />
+                )}
                 <DestinationFields destination={destination} />
               </div>
             ),
@@ -1016,13 +1049,15 @@ export function NewAppWizard() {
               source={inspected.for.source.trim()}
               form={review}
               errors={reviewErrors}
+              containerHost={containerHost}
               onChange={(next) => {
                 setReview(next);
                 setReviewErrors((previous) => revalidated(previous, "configure", reviewProblems(next, context)));
               }}
             />
           ),
-          actions: checked("configure", codeErrors, setReviewErrors),
+          // Where nothing can run there is no way forward and none is drawn: Back, and what the step says is missing.
+          actions: nothingRuns(inspected.inspection) ? onlyBack(back("configure")) : checked("configure", codeErrors, setReviewErrors),
         };
 
       case "setup": {
@@ -1058,16 +1093,31 @@ export function NewAppWizard() {
           content: (
             <div className="flex flex-col gap-6">
               <RecipeFacts recipe={recipe} types={typeList} />
-              <AddressFields
-                value={recipeForm}
-                onChange={(patch) => {
-                  const next = { ...recipeForm, ...patch };
-                  setRecipeForm(next);
-                  setRecipeErrors((previous) => revalidated(previous, "setup", recipeProblems(next, context.domains, requiredRecipeVariables, recipe.root_equivalent != null), "recipe"));
-                }}
-                error={recipeErrors["domain"]}
-                dns={dns}
-              />
+              {containerHost ? (
+                <MachineAddress
+                  nameOnly
+                  name={recipeForm.domain}
+                  port=""
+                  onChange={(patch) => {
+                    const next = { ...recipeForm, ...(patch.domain !== undefined ? { domain: patch.domain } : {}) };
+                    setRecipeForm(next);
+                    setRecipeErrors((previous) => revalidated(previous, "setup", recipeProblems(next, context.domains, requiredRecipeVariables, recipe.root_equivalent != null, containerHost), "recipe"));
+                  }}
+                  errors={{ domain: recipeErrors["domain"] }}
+                  taken={context.ports}
+                />
+              ) : (
+                <AddressFields
+                  value={recipeForm}
+                  onChange={(patch) => {
+                    const next = { ...recipeForm, ...patch };
+                    setRecipeForm(next);
+                    setRecipeErrors((previous) => revalidated(previous, "setup", recipeProblems(next, context.domains, requiredRecipeVariables, recipe.root_equivalent != null, containerHost), "recipe"));
+                  }}
+                  error={recipeErrors["domain"]}
+                  dns={dns}
+                />
+              )}
               <DestinationFields destination={destination} />
               <RecipeVariables
                 recipe={recipe}
@@ -1075,7 +1125,7 @@ export function NewAppWizard() {
                 errors={recipeErrors}
                 onChange={(next) => {
                   setRecipeForm(next);
-                  setRecipeErrors((previous) => revalidated(previous, "setup", recipeProblems(next, context.domains, requiredRecipeVariables, recipe.root_equivalent != null), "recipe"));
+                  setRecipeErrors((previous) => revalidated(previous, "setup", recipeProblems(next, context.domains, requiredRecipeVariables, recipe.root_equivalent != null, containerHost), "recipe"));
                 }}
               />
             </div>
@@ -1168,14 +1218,14 @@ export function NewAppWizard() {
             ...(passedOver.includes("configure") ? { configure: () => go("configure") } : {}),
             ...(passedOver.includes("variables") ? { variables: () => go("variables") } : {}),
           };
-          const made = deploySummary(t, inspected.for, inspected.inspection, typeList, review, open);
+          const made = deploySummary(t, inspected.for, inspected.inspection, typeList, review, open, containerHost);
           summary = made.items;
           details = made.details;
           if (allSteps.includes("database")) summary = [...summary, databaseSummary(t, database, undefined)];
           if (destination.needed) summary = [...summary, placeSummary(t, destination)];
           domain = review.domain;
         } else if (kind === "recipe" && recipe !== null && recipeForm !== null) {
-          const made = recipeSummary(t, recipe, recipeForm);
+          const made = recipeSummary(t, recipe, recipeForm, containerHost);
           summary = destination.needed ? [...made.items, placeSummary(t, destination)] : made.items;
           details = made.details;
           domain = recipeForm.domain;
@@ -1267,7 +1317,7 @@ export function NewAppWizard() {
           title: t("newApp.page.title"),
           description: t("newApp.page.description"),
         }}
-        steps={steps.map((id) => ({ id, label: t(STEP_LABELS[id]) }))}
+        steps={steps.map((id) => ({ id, label: t(labelOf(id)) }))}
         current={current}
         {...(locked ? {} : { onSelectStep: (id: string) => go(id as Step) })}
         title={view?.title ?? ""}

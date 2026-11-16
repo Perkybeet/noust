@@ -110,12 +110,12 @@ function setupItems(t: T, recipe: Recipe): KeyValueItem[] {
  * What is about to be deployed from a recipe: what it is, where it will answer and which variables
  * it has, first; what it sets up besides (its database, the folders it keeps) behind "Details".
  */
-export function recipeSummary(t: T, recipe: Recipe, form: RecipeForm): Summary {
+export function recipeSummary(t: T, recipe: Recipe, form: RecipeForm, containerHost = false): Summary {
   const set = Object.values(form.env).filter((value) => value.trim() !== "").length;
   return {
     items: [
       { label: t("newApp.recipes.recipe"), value: recipe.title, mono: false, copy: false, hint: recipe.description },
-      addressItem(t, form),
+      addressItem(t, form, undefined, containerHost ? { port: null } : undefined),
       {
         label: t("newApp.deploy.environment"),
         value: set > 0 ? t("newApp.recipes.summaryVariables", { count: set }) : t("newApp.recipes.summaryGenerated"),

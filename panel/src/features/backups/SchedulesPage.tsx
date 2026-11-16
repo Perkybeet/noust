@@ -19,8 +19,10 @@ import { Mono } from "../../components/ui/Mono";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
+import { useContainerHost } from "../central/features";
 import { calendarWords } from "../cron/data";
 import { BackupsListPage } from "./BackupsListPage";
+import { CentralSchedule } from "./CentralSchedule";
 import { ScheduleDialog } from "./ScheduleDialog";
 import { useBackupActions } from "./useBackupActions";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
@@ -78,6 +80,8 @@ export function SchedulesPage() {
   const serverDefault = schedules.data?.default_retention_count;
   const hasApps = (apps.data?.apps.length ?? 0) > 0;
   const empty = schedules.data?.schedules.length === 0;
+  // A central with no timers runs its own schedules: this is where a person sees that they do, and what came due while it was off.
+  const containerHost = useContainerHost();
 
   const columns: Column<BackupSchedule>[] = [
     { id: "domain", header: t("backups.fields.application"), cell: (row) => row.domain, sortValue: (row) => row.domain },
@@ -192,6 +196,7 @@ export function SchedulesPage() {
       {...(hasApps ? { primaryAction: newButton("primary") } : {})}
     >
       {content}
+      {containerHost ? <CentralSchedule /> : null}
       {creating ? <ScheduleDialog open onOpenChange={(next) => !next && setCreating(false)} /> : null}
       {editing !== null ? <ScheduleDialog key={editing.domain} existing={editing} open onOpenChange={(next) => !next && setEditing(null)} /> : null}
       <ConfirmDialog

@@ -124,7 +124,7 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void, onV
       go,
     );
 
-    if (appDomain !== null) pages.push(...appSectionCommands(appDomain, currentApp, t, go));
+    if (appDomain !== null) pages.push(...appSectionCommands(appDomain, currentApp, t, go, features));
 
     const applications: Command[] = onFleet
       ? (fleetApps?.items ?? []).flatMap((row): Command[] => {

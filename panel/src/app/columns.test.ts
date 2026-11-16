@@ -133,8 +133,10 @@ describe("every area and every resource has sections to list", () => {
     for (const { name, kind, groups } of columns()) {
       const count = groups.flatMap((group) => group.items).length;
       // The Server column holds Docker's seven pages as flat entries of a group of their own (item 189, the zone's own decision: it is
-      // the machine's, and each page is one a person goes to every day or every week), which takes it from fourteen to twenty-one.
-      expect(count, name).toBeLessThanOrEqual(kind === "app" ? 17 : kind === "server" ? 21 : 16);
+      // the machine's, and each page is one a person goes to every day or every week), which takes it from fourteen to twenty-one, and
+      // the page that says whether Noust deploys on that Docker (item 188) is the twenty-second: it is drawn only where a hub is, or
+      // where a central was told to (`deploy_here`), and the entries that are never there together are not read as one column.
+      expect(count, name).toBeLessThanOrEqual(kind === "app" ? 17 : kind === "server" ? 22 : 16);
     }
   });
 });
@@ -251,11 +253,15 @@ describe("the column of an area", () => {
       "/server/docker/volumes",
       "/server/docker/networks",
       "/server/docker/engine",
+      // Last of the group, and not a page of Docker's: it says whether Noust deploys on this Docker, and is its own function (item 188).
+      "/server/deploy-here",
     ]);
-    // With All servers the same seven are the fleet's own pages: one list of every server's, with the server as a column.
-    expect(docker("fleet", () => true)).toEqual(["/fleet/docker", "/fleet/docker/stacks", "/fleet/docker/containers", "/fleet/docker/images", "/fleet/docker/volumes", "/fleet/docker/networks", "/fleet/docker/engine"]);
+    // With All servers the same seven are the fleet's own pages: one list of every server's, with the server as a column. The eighth has no
+    // fleet face of its own, so it opens the table of servers like every section of a machine that has none (item 196: never fewer than a server).
+    expect(docker("fleet", () => true)).toEqual(["/fleet/docker", "/fleet/docker/stacks", "/fleet/docker/containers", "/fleet/docker/images", "/fleet/docker/volumes", "/fleet/docker/networks", "/fleet/docker/engine", "/fleet/server/deploy-here"]);
     // A server whose table says it cannot do it offers none of them, in any list: what cannot be done is not given as an option.
-    expect(docker("server", (key) => key !== "docker_zone")).toEqual([]);
+    expect(docker("server", (key) => key !== "docker_zone")).toEqual(["/server/deploy-here"]);
+    expect(docker("server", (key) => key !== "docker_zone" && key !== "deploy_here")).toEqual([]);
   });
 
   it("draws the same sections of an area from All servers as from a server, each at its address under /fleet", () => {

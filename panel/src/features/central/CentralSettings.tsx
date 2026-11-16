@@ -15,6 +15,7 @@ import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import { useServerList } from "../../nodes/servers";
 import { useCentral } from "./central";
+import { useContainerHost, useFeature } from "./features";
 import { UnlockForm } from "./UnlockForm";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
@@ -34,6 +35,9 @@ export function CentralSettings() {
   // The count of servers is the one fact of this card that waits for the network.
   const reading = !loaded && !failed;
   const name = session?.hostname ?? "";
+  // A hub is asked whether it deploys on its machine's Docker, and says it does when it was told to; the way to the page that checks it is here.
+  const containerHost = useContainerHost();
+  const canDeployHere = useFeature("deploy_here");
 
   const seal = central.locked
     ? { state: "warning" as const, label: t("servers.central.seal.locked") }
@@ -49,7 +53,21 @@ export function CentralSettings() {
             { label: t("common.words.name"), value: <Mono>{name}</Mono>, copy: name === "" ? false : name, mono: true },
             {
               label: t("servers.central.identity.role"),
-              value: central.role === "hub" ? t("servers.central.identity.roleHub") : t("servers.central.identity.roleServer"),
+              value:
+                central.role !== "hub" ? (
+                  t("servers.central.identity.roleServer")
+                ) : containerHost ? (
+                  t("containerHost.central.roleContainers")
+                ) : canDeployHere ? (
+                  <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                    <span>{t("servers.central.identity.roleHub")}</span>
+                    <TextLink to="/server/deploy-here" size="ui">
+                      {t("containerHost.central.deployHere")}
+                    </TextLink>
+                  </span>
+                ) : (
+                  t("servers.central.identity.roleHub")
+                ),
               copy: false,
               mono: false,
             },

@@ -335,6 +335,7 @@ export const newApp = {
     nothingToInstall: "Nothing to install",
     nothingToBuild: "Nothing to build",
     noProcess: "No process: the web server serves the files",
+    dockerRuns: "Docker runs it",
     noExample: "No .env.example, so no variables were proposed.",
     variables: {
       one: "{count} variable in .env.example, {required} without a default, {secrets} that look secret.",

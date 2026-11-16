@@ -12,6 +12,7 @@ import { LogoMark } from "../../components/ui/LogoTile";
 import { StatusGlyph, StatusPill } from "../../components/ui/StatusPill";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { isAdopted } from "../../features/app/adopted";
+import { hasFiles } from "../../features/apps/data";
 import { RECENT_APP_DEPLOYS } from "../../features/app/AppBanner";
 import { appViewOf } from "../../features/app/appView";
 import { usePendingChanges } from "../../features/app/PendingChanges";
@@ -27,7 +28,7 @@ import { useOrganization } from "../../features/teams/useOrganization";
 import { useT } from "../../i18n";
 import { useNodeCapability } from "../../nodes/capability";
 import { NODE_STATE, nodeStatus, useServerList } from "../../nodes/servers";
-import { useNode, useSwitchNode } from "../../nodes/useNode";
+import { useNode, useScopeOffers, useSwitchNode } from "../../nodes/useNode";
 import { appColumn, areaColumn, resourceColumn } from "../columns";
 import { ColumnList } from "./ColumnList";
 import { ResourceHead } from "./ColumnHead";
@@ -60,7 +61,14 @@ export function AppColumn({ domain }: { domain: string }) {
   const building = (deploys.data?.items ?? []).filter((item) => item.status === "running" || item.status === "queued").length;
   const unapplied = (pending.data?.items ?? []).filter((item) => item.area === "environment").length;
   const counts = { ...(building > 0 ? { "/apps/$domain/deployments": building } : {}), ...(unapplied > 0 ? { "/apps/$domain/environment": unapplied } : {}) };
-  const groups = toListGroups(appColumn({ can }, app.data !== undefined && isAdopted(app.data)), t, { domain }, counts);
+  // What the machine cannot do (a central that deploys on its machine's Docker has no domains to manage) is not one of its sections.
+  const features = useScopeOffers();
+  // The server refuses the files of a container or a stack (they are the images' and volumes'), so that section is not one of theirs.
+  const noFiles = app.data !== undefined && !hasFiles(app.data);
+  const groups = toListGroups(appColumn({ can, features }, app.data !== undefined && isAdopted(app.data)), t, { domain }, counts).map((group) => ({
+    ...group,
+    items: noFiles ? group.items.filter((item) => item.key !== "app.files") : group.items,
+  }));
   // The state the page's header draws: a job running on the application is its state, and one that is gone (a first deploy that
   // failed undoes the application) has none, whatever the last answer kept in the cache said.
   const job = useAppJob(domain);

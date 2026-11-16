@@ -18,6 +18,7 @@ import { stepWords } from "../app/stepWords";
 import { containerSummary } from "../container/summary";
 import { normalizeDomain } from "../domains/names";
 import { chosenForm, reasonInTheSource } from "./howItRuns";
+import { machineUrl } from "./machineAddress";
 import type { Ways } from "./howItRuns";
 import { JobOutcome } from "./JobOutcome";
 import { useDeploymentLanding } from "./useDeploymentLanding";
@@ -51,7 +52,18 @@ export function addressItem(
   t: T,
   form: { domain: string; ssl: boolean; includeWww: boolean; addressMode?: AddressMode },
   onChange?: () => void,
+  machine?: { port: string | null },
 ): KeyValueItem {
+  // Where there is no domain (a central that deploys on its machine's Docker) the address is a port of the machine, or the one Noust chooses.
+  if (machine !== undefined) {
+    const where = machine.port !== null ? machineUrl(window.location.hostname, machine.port) : null;
+    return {
+      label: t("newApp.deploy.address"),
+      value: where ?? t("containerHost.wizard.choosesPort"),
+      ...(where !== null ? { copy: where } : { mono: false, copy: false }),
+      ...(onChange !== undefined ? { hint: <ChangeButton t={t} what={t("newApp.deploy.address")} onClick={onChange} /> } : {}),
+    };
+  }
   const domain = normalizeDomain(form.domain);
   const url = `${form.ssl ? "https" : "http"}://${domain}`;
   const temporary = form.addressMode === "temporary";
@@ -149,6 +161,7 @@ export function deploySummary(
   types: readonly AppTypeOption[],
   form: ReviewForm,
   open: OpenSteps = {},
+  containerHost = false,
 ): Summary {
   const variables = form.env.filter((row) => row.name.trim() !== "");
   const revision = revisionOf(t, source.branch.trim() || inspection.branch, inspection.commit);
@@ -167,6 +180,8 @@ export function deploySummary(
           },
         ];
   const container: KeyValueItem[] = form.appType === "container" ? containerSummary(t, form.container) : [];
+  // There is no web server of Noust's on a machine that only has Docker: nothing to say of one.
+  const webServer: KeyValueItem[] = containerHost ? [] : [{ label: t("newApp.deploy.webServer"), value: form.webserver === "apache" ? "Apache" : "nginx", mono: false, copy: false }];
   const type = typeName(types, form.appType);
   return {
     items: [
@@ -183,14 +198,15 @@ export function deploySummary(
       },
       // Said when the server says how it can run: a person finds out how it will run before it does.
       ...(inspection.ways != null ? [howItRunsItem(t, inspection.ways, form.appType, open.configure)] : []),
-      addressItem(t, form, open.address),
+      addressItem(t, form, open.address, containerHost ? { port: hasPort(form.appType) ? form.port.trim() : null } : undefined),
       variablesItem(t, variables, open.variables),
     ],
     details: [
       { label: t("newApp.deploy.source"), value: source.source.trim(), ...(revision !== null ? { hint: revision } : {}) },
       ...(hasPort(form.appType) ? [{ label: t("newApp.deploy.port"), value: form.port.trim() }] : []),
       ...container,
-      { label: t("newApp.deploy.webServer"), value: form.webserver === "apache" ? "Apache" : "nginx", mono: false, copy: false },
+      // There is no web server of Noust's on a machine that only has Docker: nothing to say of one.
+      ...webServer,
       ...deploys,
     ],
   };

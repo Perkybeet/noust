@@ -140,15 +140,16 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
   const total = servers.nodes.length + (deploysHere ? 1 : 0);
   const needing = servers.nodes.filter((candidate) => NODE_STATE[nodeStatus(candidate)].state !== "running" && NODE_STATE[nodeStatus(candidate)].state !== "unknown").length;
 
+  // A hub that deploys on its own machine (item 188) is also `centralMark`, and its badge says "Hub": the label says the same word.
   const label =
     selection.kind === "all"
       ? t("fleet.selector.triggerAll")
       : trouble
         ? t("fleet.selector.triggerWithStatus", { name: serverName, status: t(trouble.label) })
-        : node === null && centralMark
-          ? t("fleet.selector.triggerCentral", { name: serverName })
-          : node === null && role === "hub"
-            ? t("fleet.selector.triggerHub", { name: serverName })
+        : node === null && role === "hub"
+          ? t("fleet.selector.triggerHub", { name: serverName })
+          : node === null && centralMark
+            ? t("fleet.selector.triggerCentral", { name: serverName })
             : t("fleet.selector.trigger", { name: serverName });
 
   const choose = (chosen: unknown): void => {

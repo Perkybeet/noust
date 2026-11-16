@@ -12,6 +12,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from .assistant_seed import MODES as ASSISTANT_MODES
+from .container_host import FAULTS
 from .host_profile import PROFILES
 
 # ---------------------------------------------------------------------------
@@ -156,6 +157,27 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--deploy-here",
+        choices=("containers",),
+        default=None,
+        help=(
+            "with --central-role hub on a container profile, write central.deploy_here the way the owner's "
+            "compose file does and give the machine the NAS's Docker (an engine of 24.0, the stacks it already "
+            "runs, and one application Noust deployed there): the central that deploys containers on its "
+            "machine. Left out, the hub is as it has always been and does not deploy"
+        ),
+    )
+    parser.add_argument(
+        "--docker-fault",
+        choices=FAULTS,
+        default=None,
+        help=(
+            "with --deploy-here, something wrong with the NAS for the deploy-here check to find: 'folder' (the "
+            "applications' folder is not at the same path inside the container and on the machine) or 'group' "
+            "(Noust's account may not open Docker's socket)"
+        ),
+    )
+    parser.add_argument(
         "--seal",
         action="store_true",
         help=(
@@ -198,6 +220,15 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         parser.error("--profile chooses one of --showcase's datasets; add --showcase")
     if args.shown_version is not None and not re.fullmatch(r"\d+\.\d+\.\d+", args.shown_version):
         parser.error(f"--shown-version takes a version like 4.1.0, not {args.shown_version}")
+    if args.deploy_here is not None and args.central_role != "hub":
+        # A server deploys here without being told: the setting is the hub's, and saying it of a server is a mistake.
+        parser.error(
+            "--deploy-here is what a hub that was told to deploy on its machine's Docker has; add --central-role hub"
+        )
+    if args.docker_fault is not None and args.deploy_here is None:
+        parser.error(
+            "--docker-fault is something wrong with the NAS's Docker; add --deploy-here containers"
+        )
     try:
         loopback = ipaddress.ip_address(args.host).is_loopback
     except ValueError:

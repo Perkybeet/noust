@@ -97,6 +97,7 @@ import { Route as ConsoleServerSystemRouteImport } from "./routes/_console/serve
 import { Route as ConsoleServerTerminalRouteImport } from "./routes/_console/server/terminal"
 import { Route as ConsoleServerUpdatesRouteImport } from "./routes/_console/server/updates"
 import { Route as ConsoleServerWebserverRouteImport } from "./routes/_console/server/webserver"
+import { Route as ConsoleServerDeployHereRouteImport } from "./routes/_console/server_/deploy-here"
 import { Route as ConsoleServicesIndexRouteImport } from "./routes/_console/services/index"
 import { Route as ConsoleServicesNameRouteImport } from "./routes/_console/services/$name"
 import { Route as ConsoleSettingsIndexRouteImport } from "./routes/_console/settings/index"
@@ -668,6 +669,11 @@ const ConsoleServerWebserverRoute = ConsoleServerWebserverRouteImport.update({
   id: "/webserver",
   path: "/webserver",
   getParentRoute: () => ConsoleServerRoute,
+} as any)
+const ConsoleServerDeployHereRoute = ConsoleServerDeployHereRouteImport.update({
+  id: "/server_/deploy-here",
+  path: "/server/deploy-here",
+  getParentRoute: () => ConsoleRoute,
 } as any)
 const ConsoleServicesIndexRoute = ConsoleServicesIndexRouteImport.update({
   id: "/services/",
@@ -1469,6 +1475,7 @@ export interface FileRoutesByFullPath {
   "/server/terminal": typeof ConsoleServerTerminalRoute
   "/server/updates": typeof ConsoleServerUpdatesRoute
   "/server/webserver": typeof ConsoleServerWebserverRoute
+  "/server/deploy-here": typeof ConsoleServerDeployHereRoute
   "/services/$name": typeof ConsoleServicesNameRoute
   "/settings/about": typeof ConsoleSettingsAboutRoute
   "/settings/access": typeof ConsoleSettingsAccessRoute
@@ -1677,6 +1684,7 @@ export interface FileRoutesByTo {
   "/server/terminal": typeof ConsoleServerTerminalRoute
   "/server/updates": typeof ConsoleServerUpdatesRoute
   "/server/webserver": typeof ConsoleServerWebserverRoute
+  "/server/deploy-here": typeof ConsoleServerDeployHereRoute
   "/services/$name": typeof ConsoleServicesNameRoute
   "/settings/about": typeof ConsoleSettingsAboutRoute
   "/settings/access": typeof ConsoleSettingsAccessRoute
@@ -1892,6 +1900,7 @@ export interface FileRoutesById {
   "/_console/server/terminal": typeof ConsoleServerTerminalRoute
   "/_console/server/updates": typeof ConsoleServerUpdatesRoute
   "/_console/server/webserver": typeof ConsoleServerWebserverRoute
+  "/_console/server_/deploy-here": typeof ConsoleServerDeployHereRoute
   "/_console/services/$name": typeof ConsoleServicesNameRoute
   "/_console/settings/about": typeof ConsoleSettingsAboutRoute
   "/_console/settings/access": typeof ConsoleSettingsAccessRoute
@@ -2110,6 +2119,7 @@ export interface FileRouteTypes {
     | "/server/terminal"
     | "/server/updates"
     | "/server/webserver"
+    | "/server/deploy-here"
     | "/services/$name"
     | "/settings/about"
     | "/settings/access"
@@ -2318,6 +2328,7 @@ export interface FileRouteTypes {
     | "/server/terminal"
     | "/server/updates"
     | "/server/webserver"
+    | "/server/deploy-here"
     | "/services/$name"
     | "/settings/about"
     | "/settings/access"
@@ -2532,6 +2543,7 @@ export interface FileRouteTypes {
     | "/_console/server/terminal"
     | "/_console/server/updates"
     | "/_console/server/webserver"
+    | "/_console/server_/deploy-here"
     | "/_console/services/$name"
     | "/_console/settings/about"
     | "/_console/settings/access"
@@ -3299,6 +3311,13 @@ declare module "@tanstack/react-router" {
       fullPath: "/server/webserver"
       preLoaderRoute: typeof ConsoleServerWebserverRouteImport
       parentRoute: typeof ConsoleServerRoute
+    }
+    "/_console/server_/deploy-here": {
+      id: "/_console/server_/deploy-here"
+      path: "/server/deploy-here"
+      fullPath: "/server/deploy-here"
+      preLoaderRoute: typeof ConsoleServerDeployHereRouteImport
+      parentRoute: typeof ConsoleRoute
     }
     "/_console/services/": {
       id: "/_console/services/"
@@ -4642,6 +4661,7 @@ interface ConsoleRouteChildren {
   ConsoleDomainsPortsRoute: typeof ConsoleDomainsPortsRoute
   ConsoleDomainsTunnelsRoute: typeof ConsoleDomainsTunnelsRoute
   ConsoleProjectsTeamsRoute: typeof ConsoleProjectsTeamsRoute
+  ConsoleServerDeployHereRoute: typeof ConsoleServerDeployHereRoute
   ConsoleServicesNameRoute: typeof ConsoleServicesNameRoute
   ConsoleTeamsTeamRoute: typeof ConsoleTeamsTeamRouteWithChildren
   ConsoleAppsIndexRoute: typeof ConsoleAppsIndexRoute
@@ -4706,6 +4726,7 @@ const ConsoleRouteChildren: ConsoleRouteChildren = {
   ConsoleDomainsPortsRoute: ConsoleDomainsPortsRoute,
   ConsoleDomainsTunnelsRoute: ConsoleDomainsTunnelsRoute,
   ConsoleProjectsTeamsRoute: ConsoleProjectsTeamsRoute,
+  ConsoleServerDeployHereRoute: ConsoleServerDeployHereRoute,
   ConsoleServicesNameRoute: ConsoleServicesNameRoute,
   ConsoleTeamsTeamRoute: ConsoleTeamsTeamRouteWithChildren,
   ConsoleAppsIndexRoute: ConsoleAppsIndexRoute,

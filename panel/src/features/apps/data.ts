@@ -25,6 +25,14 @@ export function hasUnit(app: Pick<AppInfo, "status" | "app_type">): boolean {
   return appStatus(app.status).state !== "static" && app.app_type !== "static";
 }
 
+/**
+ * Whether the app has files to browse. A stack or a container runs from images and volumes, and the server refuses its files
+ * (`managers/app_files.py`: "runs in containers"): the places that lead to the files do not offer them there.
+ */
+export function hasFiles(app: Pick<AppInfo, "status" | "app_type">): boolean {
+  return hasUnit(app) && app.app_type !== "docker-compose" && app.app_type !== "container";
+}
+
 /** The types whose name the registry gives as English words and not as a product's (Next.js, Node.js): the console says them itself. */
 const DESCRIBED_TYPES: Readonly<Record<string, PlainKey>> = {
   static: "common.typeNames.static",

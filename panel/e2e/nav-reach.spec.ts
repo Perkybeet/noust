@@ -23,7 +23,8 @@ import type { Page, Response } from "@playwright/test";
 
 import { DESTS, REDIRECTS, isStaged, paletteEntries } from "../src/app/nav";
 import type { Dest } from "../src/app/nav";
-import type { FeatureKey } from "../src/features/central/features";
+import { offers } from "../src/features/central/offers";
+import type { FeatureKey } from "../src/features/central/offers";
 import type { PlainKey } from "../src/i18n";
 import { english } from "./catalog";
 import { depthOf } from "./clicks";
@@ -216,11 +217,10 @@ const NOT_ON_THIS_MACHINE: Readonly<Record<string, string>> = {
  * offered by any list, so it is not looked for either (item 187).
  */
 async function offersOf(page: Page): Promise<(key: FeatureKey | undefined) => boolean> {
-  const states = await page.evaluate(async () => {
-    const session = (await (await fetch("/api/auth/session")).json()) as { central?: { features?: Record<string, { available: boolean }> | null } };
-    return session.central?.features ?? null;
-  });
-  return (key) => key === undefined || states === null || states[key]?.available !== false;
+  // The console's own filter, read from the pure module the browser's lists read it from: a function the console derives from the table
+  // (the page that turns on the machine's Docker, the engines) is answered the same here as there.
+  const session = await page.evaluate(async () => (await fetch("/api/auth/session")).json() as Promise<unknown>);
+  return (key) => offers(session as Parameters<typeof offers>[0], key);
 }
 
 /** The most clicks a screen may take from the Overview: three, and four when a resource is opened first. */

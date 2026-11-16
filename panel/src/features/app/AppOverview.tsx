@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
-import { appLogsQuery, appQuery, webhookDeliveriesQuery } from "../../api/queries/apps";
+import { appAddressQuery, appLogsQuery, appQuery, webhookDeliveriesQuery } from "../../api/queries/apps";
 import type { App } from "../../api/queries/apps";
 import { certsQuery } from "../../api/queries/certs";
 import type { Cert } from "../../api/queries/certs";
@@ -54,7 +54,9 @@ import { PreviewLogsDrawer } from "./settings/PreviewLogsDrawer";
 import { previewName, previewStatus } from "./settings/previews";
 import { AdoptedOverview } from "./AdoptedOverview";
 import { FirstDeploy } from "./FirstDeploy";
+import { useContainerHost, useFeature } from "../central/features";
 import { HowItRunsCard } from "./HowItRunsCard";
+import { PublishOutside } from "./PublishOutside";
 import { useAppJob } from "./useAppJob";
 import { isAdopted } from "./adopted";
 import { RECENT_APP_DEPLOYS } from "./AppBanner";
@@ -354,7 +356,9 @@ function useReadings(app: App, t: T) {
  * to change its limits. Its CPU and memory are the highlights', against those limits.
  */
 function Health({ app, t }: { app: App; t: T }) {
-  const certs = useQuery(certsQuery());
+  // A machine with no certificates of Noust's (the table says so) has none to read, and says nothing of one.
+  const hasCertificates = useFeature("certificates");
+  const certs = useQuery({ ...certsQuery(), enabled: hasCertificates });
   const staticSite = appStatus(app.status).state === "static";
   // Running now and not enabled at boot: after a restart of the server it stays stopped.
   const service = app.unit ? app.unit.replace(/\.service$/, "") : null;
@@ -374,7 +378,7 @@ function Health({ app, t }: { app: App; t: T }) {
       <Card padding="sm">
         <div className="grid grid-cols-2 gap-x-8 gap-y-4">
           <Fact label={t("appPages.overview.uptimeLabel")}>{uptimeFact(app, t)}</Fact>
-          <Fact label={t("appPages.overview.certificateLabel")}>{certificateFact(findCertificate(certs.data, app.domain), certs.error, t)}</Fact>
+          {hasCertificates ? <Fact label={t("appPages.overview.certificateLabel")}>{certificateFact(findCertificate(certs.data, app.domain), certs.error, t)}</Fact> : null}
         </div>
         {noBoot ? (
           <InlineMessage
@@ -522,8 +526,14 @@ function Previews({ domain, t }: { domain: string; t: T }) {
 /** The names the app answers on, and whether a push deploys it: what reaches it and what starts it, in two lines. */
 function Reach({ app, t }: { app: App; t: T }) {
   const domain = app.domain;
-  const names = useQuery(appDomainsQuery(domain));
-  const certs = useQuery(certsQuery());
+  // A central that deploys on its machine's Docker has no names and no certificates of Noust's: it is reached at a port of the
+  // machine, which the server says (`/address`), and what is asked of the names is never asked.
+  const containerHost = useContainerHost();
+  const hasNames = useFeature("domains");
+  const hasCertificates = useFeature("certificates");
+  const names = useQuery({ ...appDomainsQuery(domain), enabled: hasNames });
+  const certs = useQuery({ ...certsQuery(), enabled: hasCertificates });
+  const machineAddress = useQuery({ ...appAddressQuery(domain), enabled: containerHost });
   const deliveries = useQuery({
     ...webhookDeliveriesQuery(domain),
     enabled: app.webhook_enabled,
@@ -534,7 +544,17 @@ function Reach({ app, t }: { app: App; t: T }) {
   const more = Math.max(0, entries.length - 1);
 
   let answers: ReactNode;
-  if (names.isError && names.data === undefined) {
+  if (containerHost) {
+    const url = machineAddress.data?.url ?? null;
+    answers =
+      machineAddress.data === undefined ? (
+        <Skeleton className="h-4 w-64" />
+      ) : url !== null ? (
+        t.rich("containerHost.publish.reach", { address: <Mono key="address">{url}</Mono> })
+      ) : (
+        t("containerHost.publish.noWeb")
+      );
+  } else if (names.isError && names.data === undefined) {
     answers = (
       <ErrorBlock
         compact
@@ -614,9 +634,11 @@ function Reach({ app, t }: { app: App; t: T }) {
           <OBJECT_ICONS.domain aria-hidden="true" className="size-icon-md text-fg-muted" />
         }
         actions={
-          <TextLink to="/apps/$domain/domains" params={{ domain }} size="ui">
-            {t("appPages.overview.manageDomains")}
-          </TextLink>
+          containerHost ? undefined : (
+            <TextLink to="/apps/$domain/domains" params={{ domain }} size="ui">
+              {t("appPages.overview.manageDomains")}
+            </TextLink>
+          )
         }
       >
         <div className="text-13 text-fg">{answers}</div>
@@ -714,6 +736,7 @@ export function AppOverview({ domain }: { domain: string }) {
   useDocumentTitle(t("appPages.overview.documentTitle", { domain }), 1);
   const app = useQuery(appQuery(domain));
   const job = useAppJob(domain);
+  const containerHost = useContainerHost();
 
   // The layout owns the load failure and the not-found page; this shows the shape meanwhile.
   if (app.data === undefined)
@@ -744,6 +767,7 @@ export function AppOverview({ domain }: { domain: string }) {
           {/* Three fifths: a unit, an account and a folder are paths and names that a narrow column would cut into lines. */}
           <HowItRunsCard app={app.data} t={t} />
           <Reach app={app.data} t={t} />
+          {containerHost ? <PublishOutside domain={domain} /> : null}
           <Previews domain={domain} t={t} />
         </div>
         {/* Two fifths: the two facts of the health each have room for their label and their value in Spanish too. */}
