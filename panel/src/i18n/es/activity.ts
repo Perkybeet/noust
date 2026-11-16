@@ -3,7 +3,7 @@ import type { Catalog } from "../types";
 
 export const activity: Catalog<typeof en> = {
   title: "Actividad",
-  description: "Qué ha pasado y quién lo hizo, lo más reciente primero.",
+  description: "Lo que se ha ejecutado en este servidor y lo que se ha cambiado desde la consola, lo más reciente primero, para seguir la marcha del servidor. Para saber quién usó qué privilegio está el registro de auditoría.",
   couldNotLoad: "No se pudo cargar la actividad",
   auditForbidden: "El registro de auditoría no está abierto a esta sesión, así que solo se muestran las tareas.",
   emptyTitle: "Todavía no se ha ejecutado nada",

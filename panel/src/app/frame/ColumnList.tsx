@@ -39,11 +39,10 @@ export interface ListGroup {
 }
 
 // The current section is the raised piece under it (SlidingIndicator), which slides to the one chosen;
-// the others rise when the pointer is over them.
+// the others only take the column's tone under the pointer (hover-tone, on hover-ground-column below).
 const ITEM =
-  "group elev-lift relative flex min-h-8 items-center gap-2.5 rounded-control px-2.5 py-1 text-13 leading-snug text-fg-muted " +
-  "hover:bg-surface-raised hover:text-fg focus-visible:-outline-offset-2 " +
-  "aria-[current=page]:bg-transparent aria-[current=page]:text-fg aria-[current=page]:hover:transform-none aria-[current=page]:hover:shadow-none";
+  "group hover-tone relative flex min-h-8 items-center gap-2.5 rounded-control px-2.5 py-1 text-13 leading-snug text-fg-muted " +
+  "focus-visible:-outline-offset-2 aria-[current=page]:text-fg";
 
 /**
  * The column's body: the groups of a resource's sections under one raised piece, so it slides to the
@@ -62,7 +61,7 @@ export function ColumnList({ label, groups, currentKey }: { label: string; group
   const current = currentKey === undefined ? currentItem(all, route, search) : all.find((item) => item.key === currentKey);
   return (
     // A section is another page of the same area: the focus stays on its link (data-keep-focus), as it does on a strip of tabs.
-    <nav aria-label={label} data-keep-focus="" className="relative isolate flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-3 pb-4 scroll-thin">
+    <nav aria-label={label} data-keep-focus="" className="hover-ground-column relative isolate flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-3 pb-4 scroll-thin">
       <SlidingIndicator className="rounded-control bg-surface" />
       {groups.map((group, position) => {
         const headingId = `${ids}-${String(position)}`;

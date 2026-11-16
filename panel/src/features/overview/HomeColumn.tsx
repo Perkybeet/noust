@@ -31,7 +31,7 @@ function PanelList() {
         <p className="display min-w-0 truncate text-24 text-fg">{t("nav.overview.label")}</p>
       </div>
       <p className="shrink-0 px-5 pb-1.5 text-13 font-medium text-fg-muted">{t("overview.panels.list")}</p>
-      <nav aria-label={t("overview.panels.list")} className="relative isolate flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3 pb-4 scroll-thin">
+      <nav aria-label={t("overview.panels.list")} className="hover-ground-column relative isolate flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3 pb-4 scroll-thin">
         {/* The raised piece slides to the panel that is opened, as in the main bar and in every other list on the side. */}
         <SlidingIndicator className="rounded-control bg-surface" />
         {panels.map((panel) => {
@@ -43,7 +43,7 @@ function PanelList() {
               to={panel.scope === "fleet" ? "/fleet" : "/"}
               search={(panel.builtin ? {} : { panel: panel.id }) as never}
               {...(open ? { "aria-current": "page" as const } : {})}
-              className={cx("relative flex items-start gap-3 rounded-control px-2.5 py-2 text-13", open ? "text-fg" : "text-fg-muted hover:bg-rail-hover hover:text-fg")}
+              className={cx("hover-tone relative flex items-start gap-3 rounded-control px-2.5 py-2 text-13", open ? "text-fg" : "text-fg-muted")}
             >
               <Icon aria-hidden="true" className={cx("mt-0.5 size-icon-md shrink-0", open ? "text-accent-fg" : "text-fg-faint")} />
               <span className="min-w-0">
@@ -58,7 +58,7 @@ function PanelList() {
         <Link
           to="/"
           search={{ panel: "new" } as never}
-          className="relative mt-1 flex items-center gap-3 rounded-control px-2.5 py-2 text-13 text-fg-muted hover:bg-rail-hover hover:text-fg"
+          className="hover-tone relative mt-1 flex items-center gap-3 rounded-control px-2.5 py-2 text-13 text-fg-muted"
         >
           <ICONS.add aria-hidden="true" className="size-icon-md shrink-0 text-accent-fg" />
           {t("overview.panels.newPanel")}

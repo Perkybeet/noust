@@ -153,9 +153,14 @@ export function Crumbs({ className }: { className?: string }) {
           // foot, and drawn here they cut the names of the two that matter ("wrenfield…", "Deployme…").
           const farUp = index < steps.length - 2;
           const firstShown = index === steps.length - 2;
+          // Beside a main bar that has its words (from 1200 px: item 157) the area at the root of a deep trail is named twice, in the
+          // bar and in the column's way back, and the room the bar and the column take is what the trail's names are cut for. In
+          // a top bar narrower than 52rem (a laptop with both bars open) the root gives way, with its chevron, so the page's names are read whole.
+          const root = steps.length > 2 && index === 0;
+          const afterRoot = steps.length > 2 && index === 1;
           return (
-            <li key={step.id} className={cx("items-center gap-1", farUp ? "hidden sm:flex" : "flex", last || step.resource ? "min-w-0" : "shrink-0")}>
-              {index > 0 ? <ChevronRight aria-hidden="true" className={cx("size-icon-sm shrink-0 text-fg-faint", firstShown && "hidden sm:block")} /> : null}
+            <li key={step.id} className={cx("items-center gap-1", farUp ? "hidden sm:flex" : "flex", root && "@max-[52rem]:hidden", last || step.resource ? "min-w-0" : "shrink-0")}>
+              {index > 0 ? <ChevronRight aria-hidden="true" className={cx("size-icon-sm shrink-0 text-fg-faint", firstShown && "hidden sm:block", afterRoot && "@max-[52rem]:hidden")} /> : null}
               {last ? (
                 <span aria-current="page" {...translate} className="min-w-0 truncate font-semibold text-fg">
                   {label}

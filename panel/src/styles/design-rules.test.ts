@@ -16,7 +16,7 @@ import { describe, expect, it } from "vitest";
 import eslintConfig from "../../eslint.config.js?raw";
 import baseline from "./design-baseline.json";
 import appCss from "./app.css?raw";
-import { ARBITRARY_DIMENSION, COLOUR_FUNCTION, DESIGN_RULES, EXCEPTION, KIT_HEIGHTS, countRules, heightViolations, heightsUsed, lintViolations } from "./designRules";
+import { ARBITRARY_DIMENSION, COLOUR_FUNCTION, DESIGN_RULES, EXCEPTION, KIT_HEIGHTS, countRules, heightViolations, heightsUsed, hoverViolations, lintViolations } from "./designRules";
 import fontsCss from "./fonts.css?raw";
 import tokensCss from "./tokens.css?raw";
 import { STRUCTURE_RULES } from "./designStructure";
@@ -366,6 +366,27 @@ describe("the three heights, by role", () => {
     expect(wrong, "A piece takes the height of its role (styles/designRules.ts, KIT_HEIGHTS)").toEqual([]);
   });
 
+  it("keeps an option under the pointer from looking chosen: the chosen one is the one raised piece (item 197)", () => {
+    // Every file that mounts the sliding indicator has one chosen option, and the others take a tone and never a height.
+    const wrong = [...SOURCES].flatMap(([path, source]) => hoverViolations(path, source));
+    expect(wrong, "An option under the pointer takes hover-tone (docs/DESIGN.md E-4)").toEqual([]);
+    const mounting = [...SOURCES].filter(([, source]) => /<SlidingIndicator\b/.test(source)).map(([path]) => path);
+    expect(mounting, "the files the rule reads").toEqual(expect.arrayContaining(["components/ui/Tabs.tsx", "app/LinkTabs.tsx", "components/page/SegmentedControl.tsx", "app/frame/ColumnList.tsx", "app/frame/Rail.tsx"]));
+  });
+
+  it("says in one utility what an option under the pointer becomes, and which one is left out", () => {
+    const utility = /@utility hover-tone \{([\s\S]*?)\n\}/.exec(appCss)?.[1] ?? "";
+    expect(utility, "hover-tone exists").not.toBe("");
+    // Flat: a tone and the text colour, never a height.
+    expect(utility).toMatch(/background-color: var\(--hover-ground, var\(--bg-sunken-deep\)\)/);
+    expect(utility).toMatch(/color: var\(--hover-text, var\(--text\)\)/);
+    expect(utility).not.toMatch(/transform|box-shadow/);
+    // The chosen option is left out by what it says of itself, in every way a tab, a link and a radio say it.
+    for (const chosen of ['[aria-current="page"]', '[aria-checked="true"]', "[data-active]", "[data-checked]", '[data-status="active"]']) {
+      expect(utility, chosen).toContain(chosen);
+    }
+  });
+
   it("has every role in the table drawn by the file it names", () => {
     const missing = Object.entries(KIT_HEIGHTS)
       .filter(([path, heights]) => {
@@ -395,7 +416,7 @@ describe("the three heights, by role", () => {
     it("fails a panel that is raised and a button that is carved", () => {
       expect(heightViolations("components/ui/Card.tsx", '<div className="elev-raised">')).toHaveLength(1);
       expect(heightViolations("components/ui/Button.tsx", '<button className="elev-carved">')).toHaveLength(1);
-      expect(heightViolations("components/ui/Dialog.tsx", '<div className="elev-lift">')).toHaveLength(1);
+      expect(heightViolations("components/ui/Dialog.tsx", '<div className="elev-rest">')).toHaveLength(1);
     });
 
     it("fails a piece that has no role and draws a height", () => {
@@ -412,10 +433,22 @@ describe("the three heights, by role", () => {
       expect([...heightsUsed('"elev-carved-fine"')]).toEqual(["carved"]);
       expect([...heightsUsed('"elev-raised-accent"')]).toEqual(["raised"]);
       expect([...heightsUsed('"elev-raised-chosen"')]).toEqual(["raised"]);
-      expect([...heightsUsed('"elev-lift"')]).toEqual(["raised"]);
       expect([...heightsUsed('"elev-rest"')]).toEqual(["raised"]);
       expect([...heightsUsed('"elev-seated"')]).toEqual(["seated"]);
       expect(heightsUsed('"elevation"').size).toBe(0);
+    });
+
+    it("fails an option that rises, or takes a raised piece's ground, under the pointer in a row that has a chosen one", () => {
+      const mounted = (classes: string): string => `<SlidingIndicator /><a className="${classes}">`;
+      expect(hoverViolations("app/Nav.tsx", mounted("elev-lift hover:text-fg"))).toEqual([expect.stringContaining("elev-lift")]);
+      expect(hoverViolations("app/Nav.tsx", mounted("hover:bg-surface-raised"))).toHaveLength(1);
+      expect(hoverViolations("app/Nav.tsx", mounted("hover:not-data-disabled:bg-surface-raised"))).toHaveLength(1);
+    });
+
+    it("lets an option take a tone, and a file with no chosen option draw its own hover", () => {
+      expect(hoverViolations("app/Nav.tsx", '<SlidingIndicator /><a className="hover-tone">')).toEqual([]);
+      expect(hoverViolations("app/Nav.tsx", '<SlidingIndicator variant="flat" /><li className="data-highlighted:bg-bg-sunken">')).toEqual([]);
+      expect(hoverViolations("components/ui/Card.tsx", '<div className="hover:bg-surface-raised">')).toEqual([]);
     });
   });
 });

@@ -23,7 +23,7 @@ export async function firstRun(page: Page, server: RunningServer): Promise<void>
   await page.goto(`${server.url}/login?with=token`);
   await page.getByLabel("Access token").fill(server.token);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: "Create the administrator" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Create your administrator account" })).toBeVisible();
   await page.getByLabel("Username").fill("admin");
   await page.getByLabel("Password", { exact: true }).fill(FIRST_RUN_PASSWORD);
   await page.getByRole("button", { name: "Create administrator" }).click();

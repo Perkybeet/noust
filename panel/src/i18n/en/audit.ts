@@ -26,7 +26,8 @@ export const audit = {
   page: {
     documentTitle: "Audit log",
     title: "Events",
-    description: "Every privileged action, newest first: who, with which role, from where, on what, and how it ended.",
+    description: "Every privileged action, in a record that shows if anybody alters it: who, with which role, from where, on what and how it ended. To follow the work as it happens, use {activity}.",
+    activityLink: "Activity",
     export: "Export",
     review: "Record a review",
     filterLabel: "Filter the audit log",

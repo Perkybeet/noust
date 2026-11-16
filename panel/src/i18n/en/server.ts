@@ -135,6 +135,10 @@ export const server = {
   overview: {
     loading: "Loading the server",
     label: "the server",
+    fleet: {
+      title: "More than one server?",
+      description: "A fleet is several servers you manage from one console, each with its own applications, certificates and backups. Add one and this server becomes the one that manages them; it keeps running what it runs today.",
+    },
     supportUntil: "Supported until {date}",
     supportEnding: { one: "Support ends in {count} day ({date})", other: "Support ends in {count} days ({date})" },
     supportEnded: "Out of support since {date}",

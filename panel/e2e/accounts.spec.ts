@@ -127,7 +127,7 @@ serial("the first administrator is made from the console in one form, signed in,
   await page.getByLabel("Two-factor code").fill(consoleServer.secondFactor());
   await page.getByRole("button", { name: "Verify" }).click();
 
-  await expect(page.getByRole("heading", { level: 1, name: "Create the administrator" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Create your administrator account" })).toBeVisible();
   await stillness(page);
   await expectNoA11yViolations(page, "the first administrator");
   // The person's name and email are one disclosure away; which field signs in is said where it is typed.

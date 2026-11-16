@@ -38,21 +38,35 @@ export function Joint({ className }: { className?: string }) {
  * for a screen reader and the joint is what is drawn. The list is named by the title, so a group is
  * something a screen reader can jump to.
  */
-export function AreaGroup({ title, folded = false, className, children }: { title: PlainKey | undefined; folded?: boolean; className?: string; children: ReactNode }) {
+export function AreaGroup({
+  title,
+  folded = false,
+  tight = false,
+  className,
+  children,
+}: {
+  title: PlainKey | undefined;
+  folded?: boolean;
+  /** The group is in the main bar, which has to fit a laptop's short screen: its title takes less height there. */
+  tight?: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
   const t = useT();
   const id = useId();
   return (
     <section className={cx("flex flex-col", className)}>
       {title === undefined ? null : folded ? (
-        <div className="mt-2.5 mb-1.5 w-8 self-center">
+        <div className={cx("mt-2.5 mb-1.5 w-8 self-center", tight && "short:mt-1.5 short:mb-1")}>
           <Joint />
           <p id={id} className="sr-only">
             {t(title)}
           </p>
         </div>
       ) : (
-        <div className="mt-3 mb-1 flex w-full items-center gap-2 pl-3">
-          <p id={id} className="shrink-0 text-12 text-fg-muted">
+        // On a short window (a laptop's 768 or 720px) the main bar's title takes less room, and under 736px it gives way to its joint (the name stays for a screen reader).
+        <div className={cx("mt-3 mb-1 flex w-full items-center gap-2 pl-3", tight && "short:mt-1.5 short:mb-0.5 shorter:mt-2 shorter:mb-1 shorter:pl-0")}>
+          <p id={id} className={cx("shrink-0 text-12 text-fg-muted", tight && "shorter:sr-only")}>
             {t(title)}
           </p>
           <Joint className="min-w-4 flex-1" />

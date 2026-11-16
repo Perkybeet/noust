@@ -116,7 +116,7 @@ async function slideOf(target: Locator): Promise<{ enter: string; exit: string; 
   });
 }
 
-/** The folded bar of a window under 1440 px: 68px, opened over the page by its button without moving it. */
+/** The folded bar of a window under 1200 px: 68px, opened over the page by its button without moving it. */
 async function foldedBarOpensOverThePage(page: Page): Promise<void> {
   const rail = page.locator('[data-frame="rail"]');
   expect(Math.round((await boxOf(rail)).width)).toBe(68);
@@ -228,20 +228,42 @@ test.describe("the main bar and the column", () => {
     await expect(page.getByRole("button", { name: "Unfold the bar" })).toBeVisible();
   });
 
-  for (const width of [1366, 1280, 1024]) {
+  for (const width of [1199, 1100, 1024]) {
     test(`at ${String(width)} px is folded, opens over the page without pushing it, and closes by Escape or a press outside`, async ({ page, consoleServer }) => {
       await openAt(page, consoleServer, width, `${APP}/logs`);
       await foldedBarOpensOverThePage(page);
     });
   }
 
-  test("at 1280 px keeps the column beside the folded bar and the page in what is left, with axe watching", async ({ page, consoleServer }) => {
-    await openAt(page, consoleServer, 1280, `${APP}/logs`);
-    await expect(column(page, "Application sections")).toBeVisible();
+  // A laptop is 1280 or 1366 px wide (item 157): the bar is read in words there, and both bars still leave the page room.
+  for (const width of [1200, 1280, 1366]) {
+    test(`at ${String(width)} px reads the bar in words with the column beside it and the page in what is left, with axe watching`, async ({ page, consoleServer }) => {
+      await openAt(page, consoleServer, width, `${APP}/logs`);
+      const bar = mainBar(page);
+      expect(Math.round((await boxOf(page.locator('[data-frame="rail"]'))).width)).toBe(208);
+      for (const title of TITLES) await expect(groupTitle(bar, title)).toBeVisible();
+      await expect(bar.getByText("Applications", { exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Fold the bar" })).toHaveAttribute("aria-expanded", "true");
+      await expect(column(page, "Application sections")).toBeVisible();
+      expect(Math.round((await boxOf(page.locator('[data-frame="column"]'))).width)).toBe(256);
+      // What is left for the page is what the two bars leave, and it neither scrolls sideways nor is covered.
+      const main = await boxOf(page.getByRole("main"));
+      expect(main.width).toBeGreaterThanOrEqual(width - 208 - 256 - 24);
+      expect(await overflowsSideways(page)).toBe(false);
+      await expect(page.locator('[data-frame="veil"]')).toHaveCount(0);
+      await settle(page);
+      await expectNoA11yViolations(page, `an application, the frame at ${String(width)}`);
+    });
+  }
+
+  test("at 1280 px the bar can still be folded to icons by whoever prefers them, and the choice is kept", async ({ page, consoleServer }) => {
+    await openAt(page, consoleServer, 1280, "/apps");
+    await page.getByRole("button", { name: "Fold the bar" }).click();
     expect(Math.round((await boxOf(page.locator('[data-frame="rail"]'))).width)).toBe(68);
-    expect(await overflowsSideways(page)).toBe(false);
-    await settle(page);
-    await expectNoA11yViolations(page, "an application, the frame at 1280");
+    await expect(page.locator('[data-frame="veil"]')).toHaveCount(0);
+    await page.reload();
+    expect(Math.round((await boxOf(page.locator('[data-frame="rail"]'))).width)).toBe(68);
+    await expect(page.getByRole("button", { name: "Unfold the bar" })).toBeVisible();
   });
 
   test("offers no choice of bar: the account menu has the theme, the language and the width, and nothing about bars", async ({ page, consoleServer }) => {
@@ -449,20 +471,23 @@ test.describe("the raised piece of the current item", () => {
     expectSameBox(await boxOf(piece), await boxOf(target));
   });
 
-  test("the trail of a deployment's page is read whole at 1440 and at 1366, beside the machine's name and the search", async ({ page, consoleServer }) => {
+  test("the trail of a deployment's page is read whole at 1440, 1366 and 1280, beside the machine's name and the search", async ({ page, consoleServer }) => {
     // The room of the bar is the page's column, with an application's second column taking 264px of it: the search box and
     // the theme give way to the trail, not the other way round. The domain of the video's recording, as long as the seed has.
     const domain = "clientes.example.com";
     await openAt(page, consoleServer, 1440, `/apps/${domain}`);
     const newest = ((await (await page.request.get(`/api/deployments?domain=${domain}&limit=1`)).json()) as { items: { id: number }[] }).items[0];
     if (newest === undefined) throw new Error(`the seed has no deployment of ${domain}`);
-    for (const width of [1440, 1366]) {
+    for (const width of [1440, 1366, 1280]) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto(`/apps/${domain}/deployments/${String(newest.id)}`);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       await settle(page);
       const crumbs = page.getByRole("banner").getByRole("navigation", { name: "Breadcrumb" });
       await expect(crumbs.getByRole("link", { name: "Deployments" })).toBeVisible();
+      // With both bars open the root of a deep trail ("Applications", which the bar and the column say already) gives way, so the names that matter are whole.
+      if (width >= 1440) await expect(crumbs.getByRole("link", { name: "Applications" })).toBeVisible();
+      else await expect(crumbs.getByRole("link", { name: "Applications" })).toBeHidden();
       // No step of the trail is cut: every one shows the whole of its text.
       const cut = await crumbs.locator("li a, li span").evaluateAll((nodes) =>
         nodes.filter((node) => node instanceof HTMLElement && node.scrollWidth > node.clientWidth + 1).map((node) => node.textContent),
@@ -517,12 +542,12 @@ test.describe("the raised piece of the current item", () => {
     await settle(page);
     await page.screenshot({ path: out("aplicaciones-1920") });
 
-    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.setViewportSize({ width: 1100, height: 800 });
     await page.goto(APP);
     await settle(page);
-    await page.screenshot({ path: out("aplicacion-1280") });
+    await page.screenshot({ path: out("aplicacion-1100") });
     await page.getByRole("button", { name: "Unfold the bar" }).click();
-    await page.screenshot({ path: out("aplicacion-1280-abierta") });
+    await page.screenshot({ path: out("aplicacion-1100-abierta") });
     await page.keyboard.press("Escape");
 
     await page.setViewportSize({ width: 390, height: 844 });

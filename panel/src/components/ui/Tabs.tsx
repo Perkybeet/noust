@@ -75,8 +75,8 @@ export function Tab({ value, children, count, disabled = false }: TabProps) {
       disabled={disabled}
       className={cx(
         "group relative flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-control px-3 text-13 font-medium whitespace-nowrap text-fg-muted outline-none select-none",
-        // The active tab is the indicator under it; the others rise when the pointer is over them.
-        "elev-lift hover:not-data-disabled:bg-surface-raised hover:not-data-disabled:text-fg data-active:bg-transparent data-active:text-fg data-active:hover:transform-none data-active:hover:shadow-none",
+        // The active tab is the indicator under it, the only raised piece of the row; the others only take a tone under the pointer.
+        "hover-tone data-active:text-fg",
         "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus",
         "data-disabled:cursor-not-allowed data-disabled:opacity-50",
       )}

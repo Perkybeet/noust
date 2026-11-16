@@ -128,6 +128,7 @@ export const overview: Catalog<typeof en> = {
     twoFactor: {
       title: "Protege tu cuenta",
       description: "Un código de tu móvil además del token de acceso, para que un token filtrado no baste para entrar.",
+      descriptionAccount: "Sin un segundo factor, tu cuenta no puede confirmar acciones delicadas, como eliminar una aplicación. Basta con un código de tu móvil.",
       action: "Seguridad",
     },
   },

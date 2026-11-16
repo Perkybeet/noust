@@ -6,6 +6,7 @@ import { renderConsole } from "../../test/console";
 import { ANONYMOUS, SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RecordedCall } from "../../test/fakes";
 import { holdAccessToken, takeAccessToken } from "./accessProof";
+import { factorOffer, putOff, returnOf, standing } from "./later";
 
 const ENROLLMENT = {
   secret: "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP",
@@ -94,7 +95,7 @@ describe("the first account", () => {
     backend.on("POST /api/auth/elevate", () => json(200, { elevated_until: Date.now() / 1000 + 900 }));
     holdAccessToken("noust_tok_just_typed");
     const { user } = renderConsole("/setup");
-    await screen.findByRole("heading", { level: 1, name: "Create the administrator" });
+    await screen.findByRole("heading", { level: 1, name: "Create your administrator account" });
     await user.type(screen.getByLabelText(/^Username/), "ana");
     await user.type(screen.getByLabelText(/^Password/), "a long passphrase here");
     await user.click(screen.getByRole("button", { name: "Create administrator" }));
@@ -112,7 +113,7 @@ describe("the first account", () => {
     backend.on("POST /api/auth/elevate", () => problem(401, "invalid_totp", "Invalid two-factor code."));
     holdAccessToken("noust_tok_just_typed");
     const { user } = renderConsole("/setup");
-    await screen.findByRole("heading", { level: 1, name: "Create the administrator" });
+    await screen.findByRole("heading", { level: 1, name: "Create your administrator account" });
     await user.type(screen.getByLabelText(/^Username/), "ana");
     await user.type(screen.getByLabelText(/^Password/), "a long passphrase here");
     await user.click(screen.getByRole("button", { name: "Create administrator" }));
@@ -124,7 +125,7 @@ describe("the first account", () => {
   it("asks for a name and a password, signs in with them and offers to protect the account, which can wait", { timeout: 30_000 }, async () => {
     const backend = newServer();
     const { user, container, location } = renderConsole("/setup?next=%2Fbackups");
-    await screen.findByRole("heading", { level: 1, name: "Create the administrator" });
+    await screen.findByRole("heading", { level: 1, name: "Create your administrator account" });
     await expectNoAxeViolations(container, { page: true });
     // What each field is for, where it is typed: the username signs in; who it belongs to is a click away.
     const username = screen.getByLabelText(/^Username/);
@@ -237,5 +238,102 @@ describe("the first account", () => {
       expect(location().pathname).toBe("/backups");
     });
     expect(backend.callsTo("POST /api/auth/accounts")).toHaveLength(0);
+  });
+
+  describe("what the page says of itself and of leaving it (item 158)", () => {
+    it("says the account is the person's own, and what the other account's password is for", { timeout: 30_000 }, async () => {
+      newServer({ split: true });
+      const { user } = renderConsole("/setup");
+      expect(await screen.findByText(/The one you create now is yours, the administrator's/)).toBeInTheDocument();
+      // The administrator is the person at the screen: its password is theirs to change, not "the person's".
+      expect(screen.getByLabelText(/^Password/)).toHaveAccessibleDescription(/^Long and unique\. You can change it later from your account/);
+      expect(screen.queryByText(/The person changes it/)).toBeNull();
+      await user.type(screen.getByLabelText(/^Username/), "ana");
+      await user.type(screen.getByLabelText(/^Password/), "a long passphrase here");
+      await user.click(screen.getByRole("button", { name: "Create administrator" }));
+      await screen.findByRole("heading", { level: 1, name: "Add a security officer" });
+      // The security officer is another person's account: whoever holds it changes the password.
+      expect(screen.getByLabelText(/^Password/)).toHaveAccessibleDescription(/^Whoever holds this account changes it after signing in/);
+    });
+
+    it("tells a person who is not the administrator that Not now changes nothing, and that the offer comes back once", async () => {
+      newServer();
+      renderConsole("/setup");
+      expect(await screen.findByText(/If you do not manage this server, choose Not now: nothing changes, and this offer comes back once, a week from now\./)).toBeInTheDocument();
+    });
+
+    it("remembers Not now in this browser, so the next sign-in does not bring the page back", async () => {
+      newServer();
+      const { user } = renderConsole("/setup?next=%2Fbackups");
+      expect(standing("account")).toBe("new");
+      await user.click(await screen.findByRole("button", { name: "Not now" }));
+      expect(standing("account")).toBe("waiting");
+    });
+
+    it("remembers Set up later for that account, and for no other", { timeout: 30_000 }, async () => {
+      newServer();
+      const { user, location } = renderConsole("/setup?next=%2Fbackups");
+      await user.type(await screen.findByLabelText(/^Username/), "ana");
+      await user.type(screen.getByLabelText(/^Password/), "a long passphrase here");
+      await user.click(screen.getByRole("button", { name: "Create administrator" }));
+      await screen.findByRole("heading", { level: 1, name: "Protect your account" });
+      await user.click(await screen.findByRole("button", { name: "Set up later" }));
+      await waitFor(() => {
+        expect(location().pathname).toBe("/backups");
+      });
+      expect(standing(factorOffer("ana"))).toBe("waiting");
+      expect(standing(factorOffer("marcos"))).toBe("new");
+      // The first account's offer was made and answered by making the account: it is not put off.
+      expect(standing("account")).toBe("new");
+    });
+  });
+
+  describe("the second factor coming back (item 158)", () => {
+    /** An account that exists, signed in, with no second factor yet. */
+    function existingAccount(over: Record<string, unknown> = {}) {
+      const account = { ...ACCOUNT, mfa_enabled: false, owner: false };
+      const session = { ...SESSION, grant: null, role: "admin", accounts_exist: true, account, mfa_required: false, totp_enabled: false, ...over };
+      return fakeBackend({ ...signedInRoutes(session), "GET /api/compliance": () => json(200, compliance(false)), "POST /api/auth/2fa/enroll": () => json(200, ENROLLMENT) });
+    }
+
+    it("opens on the second factor alone, with no steps to count and no administrator to make", async () => {
+      existingAccount();
+      const { container } = renderConsole("/setup?step=protect&next=%2Fbackups");
+      expect(await screen.findByRole("heading", { level: 1, name: "Protect your account" })).toBeInTheDocument();
+      expect(screen.queryByRole("list", { name: /steps/i })).toBeNull();
+      expect(screen.queryByLabelText(/^Username/)).toBeNull();
+      expect(screen.queryByRole("button", { name: "Not now" })).toBeNull();
+      expect(await screen.findByText("JBSW Y3DP EHPK 3PXP JBSW Y3DP EHPK 3PXP")).toBeInTheDocument();
+      await expectNoAxeViolations(container, { page: true });
+    });
+
+    it("lets it be put off again, and then it does not come back a third time", async () => {
+      existingAccount();
+      putOff(factorOffer("ana"), Date.now() - 8 * 24 * 60 * 60 * 1000);
+      expect(returnOf(factorOffer("ana"))).toBe(true);
+      const { user, location } = renderConsole("/setup?step=protect&next=%2Fbackups");
+      // The authenticator's code replaces the first draw of the step (which offers the ways): the button is the one that stays.
+      await screen.findByText("JBSW Y3DP EHPK 3PXP JBSW Y3DP EHPK 3PXP");
+      await user.click(screen.getByRole("button", { name: "Set up later" }));
+      await waitFor(() => {
+        expect(location().pathname).toBe("/backups");
+      });
+      expect(standing(factorOffer("ana"))).toBe("spent");
+    });
+
+    it("sends a person who is already protected, or has no account, straight on: a stale link strands nobody", async () => {
+      existingAccount({ account: { ...ACCOUNT, mfa_enabled: true } });
+      const protectedOne = renderConsole("/setup?step=protect&next=%2Fbackups");
+      await waitFor(() => {
+        expect(protectedOne.location().pathname).toBe("/backups");
+      });
+      protectedOne.unmount();
+
+      newServer();
+      const token = renderConsole("/setup?step=protect&next=%2Fbackups");
+      await waitFor(() => {
+        expect(token.location().pathname).toBe("/backups");
+      });
+    });
   });
 });

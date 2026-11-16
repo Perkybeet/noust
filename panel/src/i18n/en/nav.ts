@@ -140,7 +140,7 @@ export const nav = {
     logs: { label: "Logs", keywords: "journal output" },
     metrics: { label: "Metrics", keywords: "cpu memory charts" },
     environment: { label: "Variables", keywords: "env environment secrets dotenv" },
-    domains: { label: "Domains", keywords: "certificate ssl www names alias redirect" },
+    domains: { label: "Domains", keywords: "certificate ssl www names alias redirect website site upload size limit max client_max_body_size 413 large files" },
     code: {
       label: "Code and build",
       keywords: "settings source repository git branch tag build install start command container image compose runtime sandbox cache packages deploy key credential",
@@ -251,7 +251,7 @@ export const nav = {
     recipes: { label: "Recipes", command: "Recipes" },
     installedRecipes: { label: "Installed recipes", keywords: "recipes installed update available", command: "Installed recipes" },
     teams: { keywords: "people members roles organise group workspace" },
-    terminal: { keywords: "shell ssh console command line" },
+    terminal: { keywords: "shell ssh console command line run once one-off migrate manage.py artisan rake commands" },
     files: { keywords: "browse edit upload download folder" },
     diagnose: { keywords: "troubleshoot why down broken health check" },
     firewall: { keywords: "ufw firewalld nftables iptables rules allow deny open close port" },

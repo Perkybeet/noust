@@ -1,7 +1,7 @@
 /** Strings of the console's activity area: the merged jobs and audit log timeline. */
 export const activity = {
   title: "Activity",
-  description: "What happened and who did it, newest first.",
+  description: "What ran on this server and what was changed from the console, newest first, to follow the work. To know who used which privilege, there is the audit log.",
   couldNotLoad: "Could not load activity",
   auditForbidden: "The audit log is not open to this session, so only jobs are shown.",
   emptyTitle: "Nothing has run yet",

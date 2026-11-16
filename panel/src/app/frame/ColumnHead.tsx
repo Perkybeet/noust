@@ -60,7 +60,7 @@ export function ResourceHead({ back, title, mark, icon: Icon, state, kind, serve
         to={back.to}
         {...(back.search !== undefined ? { search: back.search as never } : {})}
         activeOptions={{ exact: true }}
-        className="group -ml-0.5 inline-flex h-8 items-center gap-1 rounded-control pr-2 pl-1 text-13 font-medium text-fg-muted hover:bg-rail-hover hover:text-fg"
+        className="group hover-tone hover-ground-column -ml-0.5 inline-flex h-8 items-center gap-1 rounded-control pr-2 pl-1 text-13 font-medium text-fg-muted"
       >
         <ChevronLeft aria-hidden="true" className="size-icon-md text-fg-faint group-hover:text-fg-muted" />
         {back.label}
@@ -80,7 +80,7 @@ export function ResourceHead({ back, title, mark, icon: Icon, state, kind, serve
                   <button
                     type="button"
                     aria-label={siblingsLabel ?? t("nav.column.switch")}
-                    className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-control text-fg-faint hover:bg-surface-raised hover:text-fg"
+                    className="hover-tone hover-ground-column flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-control text-fg-faint"
                   >
                     <ChevronsUpDown aria-hidden="true" className="size-icon-sm" />
                   </button>

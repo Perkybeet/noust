@@ -62,8 +62,8 @@ export function LinkTabs({ label, tabs, className }: LinkTabsProps) {
               resetScroll={false}
               className={cx(
                 "group relative flex h-8 items-center rounded-control px-3 text-13 font-medium whitespace-nowrap text-fg-muted outline-none",
-                // The current section is the indicator under it; the others rise when the pointer is over them.
-                "elev-lift hover:bg-surface-raised hover:text-fg data-[status=active]:bg-transparent data-[status=active]:text-fg data-[status=active]:hover:transform-none data-[status=active]:hover:shadow-none",
+                // The current section is the indicator under it, the only raised piece of the row; the others only take a tone under the pointer.
+                "hover-tone data-[status=active]:text-fg",
                 "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus",
               )}
             >

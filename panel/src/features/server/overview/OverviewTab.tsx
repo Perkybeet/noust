@@ -15,6 +15,7 @@ import type { OverviewAttentionItem } from "../../../api/queries/overview";
 import { machineQuery } from "../../../api/queries/system";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { SurfaceSection } from "../../../components/page/SurfaceSection";
+import { AddServerCard } from "./AddServerCard";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { DataTable } from "../../../components/ui/DataTable";
@@ -207,6 +208,7 @@ function OverviewLayout({ summary }: { summary: ServerSummary | undefined }) {
         <TopProcesses />
         <NotWell items={items} total={attention.total} loading={summary === undefined || attention.loading} />
       </div>
+      <AddServerCard />
     </div>
   );
 }

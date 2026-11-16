@@ -17,7 +17,7 @@ export function BottomBar({ onOpenMore }: { onOpenMore: () => void }) {
   const areas = useAreas();
   const kept = KEPT.flatMap((id) => areas.groups.flat().filter((item) => item.entry.id === id));
   return (
-    <nav aria-label={t("nav.bottomBar.label")} className="fixed inset-x-0 bottom-0 z-sticky bg-bg-rail px-2 py-1.5">
+    <nav aria-label={t("nav.bottomBar.label")} className="hover-ground-rail fixed inset-x-0 bottom-0 z-sticky bg-bg-rail px-2 py-1.5">
       <ul className="relative isolate flex items-stretch gap-0.5">
         <SlidingIndicator className="rounded-control bg-surface" />
         {kept.map((item) => (
@@ -29,7 +29,7 @@ export function BottomBar({ onOpenMore }: { onOpenMore: () => void }) {
           <button
             type="button"
             onClick={onOpenMore}
-            className="group elev-lift relative flex h-14 w-full cursor-pointer flex-col items-center justify-start gap-0.5 rounded-control px-1 pt-1.5 text-12 font-medium text-fg-muted hover:bg-surface-raised hover:text-fg focus-visible:-outline-offset-2"
+            className="group hover-tone relative flex h-14 w-full cursor-pointer flex-col items-center justify-start gap-0.5 rounded-control px-1 pt-1.5 text-12 font-medium text-fg-muted focus-visible:-outline-offset-2"
           >
             <Menu aria-hidden="true" className="size-icon-lg shrink-0 text-fg-faint group-hover:text-fg-muted" />
             <span className="max-w-full text-center leading-4">{t("nav.bottomBar.more")}</span>

@@ -80,15 +80,15 @@ export interface SettingsLayoutProps {
 }
 
 // The current section is the raised piece under it (SlidingIndicator), which slides to the one chosen;
-// the others rise when the pointer is over them.
+// the others only take a tone under the pointer (hover-tone), on the page's own stone.
 const LINK =
-  "group elev-lift relative flex items-center rounded-control px-2.5 text-13 text-fg-muted outline-none " +
-  "hover:bg-surface-raised hover:text-fg focus-visible:outline-2 focus-visible:outline-focus " +
-  "data-[status=active]:bg-transparent data-[status=active]:font-medium data-[status=active]:text-fg data-[status=active]:hover:transform-none data-[status=active]:hover:shadow-none";
+  "group hover-tone relative flex items-center rounded-control px-2.5 text-13 text-fg-muted outline-none " +
+  "focus-visible:outline-2 focus-visible:outline-focus " +
+  "data-[status=active]:font-medium data-[status=active]:text-fg";
 
 function NavList({ items, phone, labelledBy }: { items: readonly SettingsNavItem[]; phone: boolean; labelledBy?: string }) {
   return (
-    <div className="relative isolate">
+    <div className="hover-ground-page relative isolate">
       <SlidingIndicator className="rounded-control bg-surface" />
       <ul className="flex flex-col gap-0.5" {...(labelledBy !== undefined ? { "aria-labelledby": labelledBy } : {})}>
       {items.map((item) => (
@@ -98,7 +98,7 @@ function NavList({ items, phone, labelledBy }: { items: readonly SettingsNavItem
             params={item.params as never}
             {...(item.search !== undefined ? { search: item.search as never } : {})}
             activeOptions={{ exact: item.exact ?? false, includeSearch: false }}
-            className={cx(LINK, phone ? "h-11 justify-between" : "h-8", item.danger === true && "text-fail hover:text-fail data-[status=active]:text-fail")}
+            className={cx(LINK, phone ? "h-11 justify-between" : "h-8", item.danger === true && "hover-text-fail text-fail data-[status=active]:text-fail")}
           >
             <span className="flex min-w-0 items-center gap-2.5">
               {item.icon !== undefined ? (

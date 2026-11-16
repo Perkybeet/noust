@@ -22,7 +22,7 @@ const TEXT_PAIRS: [string, string][] = [
   ["on-fail", "fail-strong"],
   // The ground of the frame: the rail and the second column are stone of their own, and what is written on them
   // is text, muted text, the accent of the current item and, over a hovered item, the same.
-  ...["bg-rail", "bg-column", "rail-hover"].flatMap((bg): [string, string][] => [
+  ...["bg-rail", "bg-column", "rail-hover", "column-hover"].flatMap((bg): [string, string][] => [
     ["text", bg],
     ["text-muted", bg],
   ]),
@@ -205,7 +205,7 @@ describe("design tokens", () => {
   it.each(THEMES)("draws the icon of an item of the frame, which is a graphic and not text, at 3:1 on the bar, the column and a hovered item in %s", (theme) => {
     // The icons are `text-faint`, which is 4.5:1 on the page and on every panel; on the darkest stone of the bar it is
     // 4.4 in light, which is all that a graphic needs (WCAG 1.4.11) and more than the 3:1 it is held to here.
-    for (const ground of ["bg-rail", "bg-column", "rail-hover"]) {
+    for (const ground of ["bg-rail", "bg-column", "rail-hover", "column-hover"]) {
       expect(contrastRatio(colour(theme, "text-faint"), colour(theme, ground)), `text-faint on ${ground}`).toBeGreaterThanOrEqual(3);
     }
   });
@@ -214,10 +214,29 @@ describe("design tokens", () => {
     // C-11: the current item is the raised piece (the sliding indicator draws it in `surface`, with its light edge and
     // its joint). What it is told apart from is the stone of the main bar, the second column and an item the pointer is
     // on; its label (`text`) and its icon (`accent-text`) are held on it at 4.5:1 by the text pairs above.
-    for (const ground of ["bg-rail", "bg-column", "rail-hover"]) {
+    for (const ground of ["bg-rail", "bg-column", "rail-hover", "column-hover"]) {
       expect(contrastRatio(colour(theme, "surface"), colour(theme, ground)), `surface against ${ground}`).toBeGreaterThan(1.1);
     }
     expect(colour(theme, "surface")).not.toBe(colour(theme, "surface-raised"));
+  });
+
+  it.each(THEMES)("gives an option under the pointer a tone that is seen and is not the chosen piece's, on every ground it sits on, in %s (item 197)", (theme) => {
+    // The hover is a step off its own ground (seen) and a longer step from the chosen piece's `surface` than from the
+    // ground (so the two are never mistaken); the carved rail of tabs and segments deepens to `bg-sunken-deep`.
+    const hovers: [hover: string, ground: string][] = [
+      ["rail-hover", "bg-rail"],
+      ["column-hover", "bg-column"],
+      ["bg-sunken-deep", "bg-sunken"],
+      ["bg-sunken", "bg"],
+    ];
+    for (const [hover, ground] of hovers) {
+      const step = contrastRatio(colour(theme, hover), colour(theme, ground));
+      expect(step, `${hover} against ${ground}`).toBeGreaterThanOrEqual(1.07);
+      expect(contrastRatio(colour(theme, "surface"), colour(theme, hover)), `the chosen piece against ${hover}`).toBeGreaterThanOrEqual(step);
+      // What is written on it stays legible: the full text colour, and the muted one it replaces.
+      expect(contrastRatio(colour(theme, "text"), colour(theme, hover)), `text on ${hover}`).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(colour(theme, "text-muted"), colour(theme, hover)), `text-muted on ${hover}`).toBeGreaterThanOrEqual(4.5);
+    }
   });
 
   it.each(THEMES)("keeps every surface, edge and text colour a stone in %s: grey with a trace of green, never a hue", (theme) => {
@@ -235,6 +254,7 @@ describe("design tokens", () => {
       "surface-hover",
       "surface-active",
       "rail-hover",
+      "column-hover",
       "edge",
       "joint",
       "border",

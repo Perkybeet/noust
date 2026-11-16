@@ -28,7 +28,8 @@ export const audit: Catalog<typeof en> = {
   page: {
     documentTitle: "Auditoría",
     title: "Eventos",
-    description: "Cada acción con privilegios, la más reciente primero: quién, con qué rol, desde dónde, sobre qué y cómo terminó.",
+    description: "Cada acción con privilegios, en un registro que delata cualquier alteración: quién, con qué rol, desde dónde, sobre qué y cómo terminó. Para ver qué pasa en el servidor ahora mismo, usa {activity}.",
+    activityLink: "Actividad",
     export: "Exportar",
     review: "Registrar una revisión",
     filterLabel: "Filtrar el registro de auditoría",

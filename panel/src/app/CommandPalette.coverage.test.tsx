@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import * as en from "../i18n/en";
+import * as es from "../i18n/es";
 import type { PlainKey } from "../i18n";
 import { filterCommands } from "./CommandPalette";
 import type { Command } from "./CommandPalette";
@@ -93,6 +94,36 @@ describe("the palette over the register", () => {
     const apps = commands.find((command) => command.id === "page:/apps");
     expect(apps?.detail).toBeUndefined();
     expect(apps?.shortcut).toEqual(["g", "a"]);
+  });
+
+  it("finds what the first round of simulated users typed and found nothing for (item 160)", () => {
+    const of = (id: string): string => ids.get(id) ?? `no screen ${id}`;
+    // Running a command once, the way a deploy's migration is: the shell, by what the person calls it.
+    for (const query of ["migrate", "manage.py", "artisan", "one-off", "run once", "commands"]) {
+      expect(found(commands, query), `"${query}"`).toContain(of("server.terminal"));
+    }
+    // The size of what can be uploaded, which is a line of the web server's file: Sites, by every word it goes by.
+    for (const query of ["upload", "upload size", "client_max_body_size", "413", "large files", "max body"]) {
+      expect(found(commands, query), `"${query}"`).toContain(of("domains.sites"));
+    }
+  });
+
+  it("says the same in Spanish: una vez, subida, tamaño máximo, comando suelto", () => {
+    const spanish = (key: string): string => {
+      let node: unknown = es;
+      for (const part of key.split(".")) node = (node as Record<string, unknown> | undefined)?.[part];
+      if (typeof node !== "string") throw new Error(`the Spanish catalog has no text for "${key}"`);
+      return node;
+    };
+    const list = paletteEntries({ t: (key: PlainKey) => spanish(key), can: () => true, when: { organised: true, fleet: true } });
+    const palette = pageCommands(list, () => () => undefined);
+    const id = (entry: string): string => `page:${list.find((candidate) => candidate.id === entry)?.to ?? "none"}`;
+    for (const query of ["una vez", "migrate", "comando suelto", "ejecutar"]) {
+      expect(found(palette, query), `"${query}"`).toContain(id("server.terminal"));
+    }
+    for (const query of ["subida", "tamaño máximo", "archivos grandes", "client_max_body_size", "413"]) {
+      expect(found(palette, query), `"${query}"`).toContain(id("domains.sites"));
+    }
   });
 
   it("leaves out what a role cannot see, in the palette too", () => {

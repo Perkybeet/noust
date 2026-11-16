@@ -1,6 +1,7 @@
 import { ExternalLink, Info, Link2, Pencil, Play, Plus, Power, RotateCw, Search, WrapText } from "lucide-react";
 import { Ellipsis } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 
 import {
   Badge,
@@ -54,7 +55,8 @@ import {
 import type { Column, LogLine, ScreenSource, Status } from "../components/ui";
 import { Logo } from "../components/brand/Logo";
 import { Terminal } from "../lib/terminal/terminal";
-import { Item, Row, Section, Stage } from "./gallery";
+import { cx } from "../lib/cx";
+import { BothThemes, Item, Row, Section, Stage } from "./gallery";
 import type { SampleApp } from "./sample";
 import { SAMPLE_APPS, SAMPLE_BUILD_LOG, ago, nextJournalLine, sampleDayWithGaps, sampleMetrics, sampleWeekMetrics } from "./sample";
 import { ICONS } from "../components/ui/icons";
@@ -402,6 +404,58 @@ function Overlays() {
   );
 }
 
+/**
+ * The three states of an option in a row or a list that has a chosen one (docs/DESIGN.md E-5): the chosen one is the one
+ * raised piece, the one under the pointer (held there by `data-force`) only takes a tone, and the one at rest is flat. On
+ * each stone an option sits on, in both themes, so the hover can be told from the choice by looking.
+ */
+const OPTION_PIECE = "relative flex items-center rounded-control bg-surface elev-rest font-medium text-fg";
+const OPTION = "hover-tone relative flex items-center rounded-control font-medium text-fg-muted";
+
+function OptionStrip({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <Item label={label}>
+      <div className="elev-carved flex w-fit items-stretch gap-0.5 rounded-card bg-bg-sunken p-0.5">{children}</div>
+    </Item>
+  );
+}
+
+function OptionStates() {
+  const piece = OPTION_PIECE;
+  const option = OPTION;
+  return (
+    <BothThemes>
+      <div className="flex flex-col gap-6" data-testid="option-states">
+        <OptionStrip label="Tabs and segments: the chosen one, one under the pointer, one at rest">
+          <span className={cx(piece, "h-8 px-3 text-13")}>Logs</span>
+          <span data-force="hover" className={cx(option, "h-8 px-3 text-13")}>
+            Metrics
+          </span>
+          <span className={cx(option, "h-8 px-3 text-13")}>Environment</span>
+        </OptionStrip>
+        <Item label="The main bar">
+          <div className="hover-ground-rail flex w-56 flex-col gap-0.5 rounded-wall bg-bg-rail p-3">
+            <span className={cx(piece, "h-10 gap-3 px-3 text-14")}>Applications</span>
+            <span data-force="hover" className={cx(option, "h-10 gap-3 px-3 text-14")}>
+              Databases
+            </span>
+            <span className={cx(option, "h-10 gap-3 px-3 text-14")}>Domains</span>
+          </div>
+        </Item>
+        <Item label="The second column">
+          <div className="hover-ground-column flex w-56 flex-col gap-0.5 rounded-wall bg-bg-column p-3">
+            <span className={cx(piece, "min-h-8 px-2.5 py-1 text-13")}>Deployments</span>
+            <span data-force="hover" className={cx(option, "min-h-8 px-2.5 py-1 text-13")}>
+              Logs
+            </span>
+            <span className={cx(option, "min-h-8 px-2.5 py-1 text-13")}>Metrics</span>
+          </div>
+        </Item>
+      </div>
+    </BothThemes>
+  );
+}
+
 function Navigation() {
   return (
     <Section
@@ -454,6 +508,7 @@ function Navigation() {
           </Tabs>
         </div>
       </Stage>
+      <OptionStates />
       <Stage>
         <Row>
           <Item label="Menu">

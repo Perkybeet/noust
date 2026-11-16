@@ -8,10 +8,12 @@ import { renderConsole } from "../../test/console";
 import { ANONYMOUS, SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RecordedCall } from "../../test/fakes";
 import { takeAccessToken } from "./accessProof";
+import { factorOffer, putOff, standing } from "./later";
 import { toBase64url } from "./webauthn";
 
 const TOKEN = "noust_secret_token";
 const CODE = "123456";
+const DAY = 24 * 60 * 60 * 1000;
 
 /** Before sign-in the server names itself only by the label its operator chose. */
 const SIGNED_OUT = { ...ANONYMOUS, hostname: "web-01 (production)", version: "", login_label: "web-01 (production)" };
@@ -265,7 +267,8 @@ describe("sign-in with an account", () => {
     expect(screen.queryByText(/Noust console/)).toBeNull();
   });
 
-  it("sends a new server's first sign-in with the token to create its first accounts", async () => {
+  /** A server with no accounts, entered with the access token. */
+  async function signInWithTheToken() {
     let signedIn = false;
     const compat = { ...SESSION, grant: "compat", accounts_exist: false };
     fakeBackend({
@@ -276,14 +279,103 @@ describe("sign-in with an account", () => {
         return json(200, { success: true, expires_in: 60, csrf_token: "c", session_token: null, grant: "compat" });
       },
     });
-    const { user, location } = renderConsole("/login");
-    await useAccessToken(user);
-    await user.type(screen.getByLabelText("Access token"), TOKEN);
-    await user.click(screen.getByRole("button", { name: "Sign in" }));
-    await screen.findByRole("heading", { level: 1, name: "Create the administrator" });
+    const harness = renderConsole("/login");
+    await harness.user.click(await screen.findByRole("button", { name: "Access token" }));
+    await screen.findByRole("heading", { level: 1, name: "Sign in with the access token" });
+    await harness.user.type(screen.getByLabelText("Access token"), TOKEN);
+    await harness.user.click(screen.getByRole("button", { name: "Sign in" }));
+    return harness;
+  }
+
+  it("sends a new server's first sign-in with the token to create its first accounts", async () => {
+    const { location } = await signInWithTheToken();
+    await screen.findByRole("heading", { level: 1, name: "Create your administrator account" });
     expect(location().pathname).toBe("/setup");
     // The token that signed in is kept, for that page to confirm it's the person with it, once.
     expect(takeAccessToken()).toBe(TOKEN);
+  });
+
+  it("does not send the next sign-in with the token to the first accounts again once the person said Not now (item 158)", async () => {
+    putOff("account", Date.now() - 2 * DAY);
+    const { location } = await signInWithTheToken();
+    await waitFor(() => {
+      expect(location().pathname).toBe("/");
+    });
+    expect(screen.queryByRole("heading", { level: 1, name: "Create your administrator account" })).toBeNull();
+    // Nothing is kept for a page that is not coming.
+    expect(takeAccessToken()).toBeNull();
+  });
+
+  it("offers the first accounts once more a week after Not now, and not a third time (item 158)", async () => {
+    putOff("account", Date.now() - 8 * DAY);
+    const { location } = await signInWithTheToken();
+    await screen.findByRole("heading", { level: 1, name: "Create your administrator account" });
+    expect(location().pathname).toBe("/setup");
+    expect(standing("account")).toBe("spent");
+  });
+
+  /** An account that has no second factor, signing in on its password. */
+  function signInWithoutFactor() {
+    let signedIn = false;
+    const bare = { ...ANA, account: { ...ACCOUNT, mfa_enabled: false, backup_codes_remaining: 0 }, totp_enabled: false, mfa_required: false };
+    fakeBackend({
+      ...signedInRoutes(bare),
+      "GET /api/auth/session": () => json(200, signedIn ? bare : SIGNED_OUT),
+      "POST /api/auth/login": () => {
+        signedIn = true;
+        return json(200, { success: true, expires_in: 60, csrf_token: "c", session_token: null, account: bare.account });
+      },
+    });
+    return renderConsole("/login");
+  }
+
+  it("brings an account's second factor back a week after Set up later, on its next sign-in, and once (item 158)", async () => {
+    putOff(factorOffer("ana"), Date.now() - 8 * DAY);
+    const { user, location } = signInWithoutFactor();
+    await passwordStep(user);
+    await screen.findByRole("heading", { level: 1, name: "Protect your account" });
+    expect(location().pathname).toBe("/setup");
+    expect(location().search).toMatchObject({ step: "protect" });
+    expect(standing(factorOffer("ana"))).toBe("spent");
+  });
+
+  it("does not bring it back before the week, nor to an account that never put it off", async () => {
+    putOff(factorOffer("ana"), Date.now() - 2 * DAY);
+    const first = signInWithoutFactor();
+    await passwordStep(first.user);
+    await waitFor(() => {
+      expect(first.location().pathname).not.toBe("/login");
+    });
+    expect(first.location().pathname).toBe("/");
+    first.unmount();
+
+    window.localStorage.clear();
+    const second = signInWithoutFactor();
+    await passwordStep(second.user);
+    await waitFor(() => {
+      expect(second.location().pathname).not.toBe("/login");
+    });
+    expect(second.location().pathname).toBe("/");
+  });
+
+  it("tells whoever arrives without the installer's link where the token is and the command that issues it (item 158)", async () => {
+    accountBackend();
+    renderConsole("/login");
+    await screen.findByLabelText("Username or email");
+    // A fixed sentence, the same on every server: the page does not say whether there are accounts.
+    expect(screen.getByText(/First time on this server\? Sign in with the access token the installer printed/)).toBeInTheDocument();
+    expect(screen.getByText("noust web token --new")).toBeInTheDocument();
+    expect(screen.getByText(/Lost it\? Issue a new one on the server; the old one stops working\./)).toBeInTheDocument();
+  });
+
+  it("does not frighten the person who reaches the token from the form: it says what to do first (item 158)", async () => {
+    accountBackend();
+    const { user } = renderConsole("/login");
+    await useAccessToken(user);
+    expect(screen.getByText(/Just installed Noust\? Sign in with it and create your own account/)).toBeInTheDocument();
+    // The warning about using it once there are accounts is said where it is known to be true: signed in with it, beside the account.
+    expect(screen.queryByText(/Once there are accounts/)).toBeNull();
+    expect(screen.queryByText(/recorded as a warning/)).toBeNull();
   });
 
   it("keeps the token for nothing else: a sign-in that does not lead to the first administrator forgets it", async () => {
@@ -439,7 +531,7 @@ describe("the access token", () => {
     expect(doors.getByRole("button", { name: "Access token" })).toBeInTheDocument();
     await useAccessToken(user);
     expect(screen.getByLabelText("Access token")).toHaveFocus();
-    expect(screen.getByText(/The access token is the key of whoever is root on this machine\./)).toBeInTheDocument();
+    expect(screen.getByText(/It is the key of whoever is root on this machine, so keep it for emergencies afterwards/)).toBeInTheDocument();
     expect(screen.queryByText("For recovery only")).toBeNull();
   });
 
@@ -475,7 +567,7 @@ describe("the access token", () => {
     });
     expect(screen.getByText("The installer printed it once, in a box. Paste it here.")).toBeInTheDocument();
     // Whoever follows the installer's link needs no talk of recovery.
-    expect(screen.queryByText(/The access token is the key of whoever is root/)).toBeNull();
+    expect(screen.queryByText(/It is the key of whoever is root/)).toBeNull();
     expect(screen.queryByText("For recovery only")).toBeNull();
   });
 

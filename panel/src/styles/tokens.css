@@ -42,7 +42,10 @@
   --surface-raised: light-dark(#fbfcfa, #323a36);
   --surface-hover: light-dark(#fbfcfa, #323a36);
   --surface-active: light-dark(#d9ddd5, #232927);
-  --rail-hover: light-dark(#d5d9d1, #1e2421);
+  /* What the stone of the frame becomes under the pointer: a step off its own ground, flat (docs/DESIGN.md 2.6, E-4). The
+     chosen item is a raised piece in `surface`, which neither of these may resemble: one is a tone, the other a piece. */
+  --rail-hover: light-dark(#bfc4bb, #1e2421);
+  --column-hover: light-dark(#cbd0c8, #202624);
 
   /* The two edges of every height: the light one on top, the dark joint beneath. */
   --edge: light-dark(#ffffff, #444c47);

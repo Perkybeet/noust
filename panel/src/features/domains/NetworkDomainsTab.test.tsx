@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
-import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
+import { SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 
 beforeEach(() => {
@@ -329,6 +329,41 @@ describe("an application's Domains tab, beyond its names", () => {
     await waitFor(() => {
       expect(backend.callsTo("GET /api/jobs/j1").length).toBeGreaterThan(0);
     });
+  });
+});
+
+describe("where an application's upload limit lives (item 160)", () => {
+  const SITE = { name: APP, site_name: APP, webserver: "nginx", enabled: true, config_path: `/etc/nginx/sites-available/${APP}`, has_ssl: true, noust_managed: true, server_names: [APP], app: APP };
+
+  it("links to the Structure of the application's own site, which is where Max upload size is set", async () => {
+    tab({ "GET /api/sites": () => json(200, { sites: [{ ...SITE, app: "other.example.com", name: "other.example.com", site_name: "other.example.com" }, SITE], total: 2, webserver: "nginx" }) });
+    const section = await screen.findByRole("region", { name: "Upload size" });
+    expect(within(section).getByText(/limited by the web server, and a bigger one is refused with a 413 error/)).toBeInTheDocument();
+    const link = within(section).getByRole("link", { name: "Open the site's Structure" });
+    expect(link).toHaveAttribute("href", `/domains/sites/${APP}?view=structure`);
+  });
+
+  it("opens the site's file as text where the web server has no structure view", async () => {
+    tab({ "GET /api/sites": () => json(200, { sites: [{ ...SITE, webserver: "caddy" }], total: 1, webserver: "caddy" }) });
+    const section = await screen.findByRole("region", { name: "Upload size" });
+    expect(within(section).getByRole("link", { name: "Open the site's Structure" })).toHaveAttribute("href", `/domains/sites/${APP}`);
+  });
+
+  it("is not on the page when the application has no site to link to, nor where the server has no sites to offer", async () => {
+    const first = tab({ "GET /api/sites": () => json(200, { sites: [], total: 0, webserver: "nginx" }) });
+    await screen.findByRole("region", { name: `Domains of ${APP}` });
+    await waitFor(() => {
+      expect(first.backend.callsTo("GET /api/sites").length).toBeGreaterThan(0);
+    });
+    expect(screen.queryByRole("region", { name: "Upload size" })).toBeNull();
+    first.unmount();
+
+    // A function the server says it cannot do is not offered, and the page never asks about it.
+    const withoutSites = { ...SESSION, central: { role: "server", sealed: false, locked: false, features: { sites: { available: false, reason: null } } } };
+    const second = tab({ "GET /api/auth/session": () => json(200, withoutSites), "GET /api/sites": () => json(200, { sites: [SITE], total: 1, webserver: "nginx" }) });
+    await screen.findByRole("region", { name: `Domains of ${APP}` });
+    expect(screen.queryByRole("region", { name: "Upload size" })).toBeNull();
+    expect(second.backend.callsTo("GET /api/sites")).toHaveLength(0);
   });
 });
 

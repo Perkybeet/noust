@@ -212,6 +212,18 @@ describe("Settings > Audit log", () => {
     expect(backend.callsTo("POST /api/audit/reviews")[0]?.body).toMatchObject({ notes: "Nothing unexpected" });
   });
 
+  it("says how it differs from Activity, and opens it (item 160)", async () => {
+    auditBackend();
+    renderConsole("/settings/audit");
+    await findLoadedRegion("Audit events");
+    // What this page is: every privileged action, in a record that shows if anybody alters it. And where the other one is.
+    expect(screen.getByText(/in a record that shows if anybody alters it/)).toBeInTheDocument();
+    const section = screen.getByRole("heading", { name: "Events" }).closest("section");
+    if (section === null) throw new Error("no section");
+    expect(within(section).getByText(/To follow the work as it happens, use/)).toBeInTheDocument();
+    expect(within(section).getByRole("link", { name: "Activity" })).toHaveAttribute("href", "/activity");
+  });
+
   it("speaks Spanish", async () => {
     await act(() => setLocale("es"));
     auditBackend();

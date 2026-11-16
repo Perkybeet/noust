@@ -36,7 +36,7 @@ export function AreasSheet({
   const areas = useAreas();
   return (
     <Drawer open={open} onOpenChange={onOpenChange} placement="bottom" title={t("nav.sheet.title")} finalFocus={finalFocus ?? true}>
-      <nav aria-label={t("nav.landmarks.main")} className="relative isolate flex flex-col px-3">
+      <nav aria-label={t("nav.landmarks.main")} className="hover-ground-page relative isolate flex flex-col px-3">
         <SlidingIndicator className="rounded-control bg-surface" />
         {areas.groups.map((group) => (
           <AreaGroup key={group[0]?.entry.id} title={GROUP_TITLES[group[0]?.entry.group ?? ""]} className="[&>ul]:grid [&>ul]:grid-cols-2 [&>ul]:gap-1">
@@ -57,7 +57,7 @@ export function AreasSheet({
               type="button"
               onClick={onOpenAccount}
               aria-haspopup="dialog"
-              className="group elev-lift flex h-11 w-full cursor-pointer items-center gap-2.5 rounded-control px-3 text-left text-14 font-medium text-fg-muted hover:bg-surface-raised hover:text-fg focus-visible:-outline-offset-2"
+              className="group hover-tone flex h-11 w-full cursor-pointer items-center gap-2.5 rounded-control px-3 text-left text-14 font-medium text-fg-muted focus-visible:-outline-offset-2"
             >
               <OBJECT_ICONS.account aria-hidden="true" className="size-icon-lg shrink-0 text-fg-faint group-hover:text-fg-muted" />
               <span className="min-w-0 flex-1 truncate">{t("nav.sheet.account")}</span>
@@ -68,7 +68,7 @@ export function AreasSheet({
               type="button"
               onClick={onReport}
               aria-haspopup="dialog"
-              className="group elev-lift flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-control px-3 py-1 text-left text-14 font-medium text-fg-muted hover:bg-surface-raised hover:text-fg focus-visible:-outline-offset-2"
+              className="group hover-tone flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-control px-3 py-1 text-left text-14 font-medium text-fg-muted focus-visible:-outline-offset-2"
             >
               <Bug aria-hidden="true" className="size-icon-lg shrink-0 text-fg-faint group-hover:text-fg-muted" />
               <span className="min-w-0 flex-1 text-pretty">{t("shell.help.report")}</span>

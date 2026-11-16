@@ -179,21 +179,18 @@ function Counts({ counts, folded }: { counts: AreaCounts; folded: boolean }) {
 
 /**
  * The current item is the raised piece under it, which slides to the one chosen (SlidingIndicator, in
- * the list that holds the links); the others rise when the pointer is over them. `aria-current` is the
- * item's own state, set from the one answer `areaOf` gives, so an area stays current beneath its own
- * pages and a link never has to guess from its address.
+ * the list that holds the links); the others only take the bar's tone under the pointer (hover-tone, on the
+ * hover-ground-rail of the list). `aria-current` is the item's own state, set from the one answer `areaOf`
+ * gives, so an area stays current beneath its own pages and a link never has to guess from its address.
  */
-const ROW =
-  "group elev-lift relative flex items-center rounded-control text-fg-muted " +
-  "hover:bg-surface-raised hover:text-fg focus-visible:-outline-offset-2 " +
-  "aria-[current=page]:bg-transparent aria-[current=page]:text-fg aria-[current=page]:hover:transform-none aria-[current=page]:hover:shadow-none";
+const ROW = "group hover-tone relative flex items-center rounded-control text-fg-muted focus-visible:-outline-offset-2 aria-[current=page]:text-fg";
 
 export type AreaLinkVariant = "rail" | "folded" | "sheet" | "bottom";
 
 const VARIANT: Record<AreaLinkVariant, string> = {
   // Less room on the right than on the left: the longest name (Tareas programadas) fits the bar whole in Spanish.
-  rail: "h-10 gap-3 pr-2 pl-3 text-14 font-medium",
-  folded: "size-11 justify-center text-14 font-medium",
+  rail: "h-10 gap-3 pr-2 pl-3 text-14 font-medium short:h-9",
+  folded: "size-11 justify-center text-14 font-medium short:size-10",
   // The phone's sheet of areas: two to a row, each as tall as a thumb needs.
   sheet: "h-11 gap-2.5 px-3 text-14 font-medium",
   // A name that needs two lines (Bases de datos) takes them, from the top, so every icon of the foot is on one line.

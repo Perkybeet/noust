@@ -492,7 +492,7 @@ export function NavDemo() {
       <nav
         aria-label="Navigation demo"
         data-testid="nav-demo"
-        className={cx("relative isolate flex flex-col gap-0.5 rounded-wall bg-bg-rail p-3", folded ? "w-16" : "w-60")}
+        className={cx("hover-ground-rail relative isolate flex flex-col gap-0.5 rounded-wall bg-bg-rail p-3", folded ? "w-16" : "w-60")}
       >
         <SlidingIndicator className="rounded-control bg-surface" />
         {NAV_ITEMS.map((item, index) => (
@@ -504,10 +504,10 @@ export function NavDemo() {
               aria-label={folded ? item.label : undefined}
               onClick={() => setCurrent(item.id)}
               className={cx(
-                "elev-lift relative flex h-10 w-full cursor-pointer items-center gap-3 rounded-control px-3 text-14 font-medium outline-none",
+                "hover-tone relative flex h-10 w-full cursor-pointer items-center gap-3 rounded-control px-3 text-14 font-medium outline-none",
                 "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus",
                 folded && "justify-center px-0",
-                current === item.id ? "text-fg" : "text-fg-muted hover:bg-rail-hover hover:text-fg",
+                current === item.id ? "text-fg" : "text-fg-muted",
               )}
             >
               <item.Icon aria-hidden="true" className={cx("size-icon-md shrink-0", current === item.id && "text-accent-fg")} />

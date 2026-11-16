@@ -144,6 +144,10 @@ export const server: Catalog<typeof en> = {
   overview: {
     loading: "Cargando el servidor",
     label: "el servidor",
+    fleet: {
+      title: "¿Tienes más de un servidor?",
+      description: "Una flota son varios servidores que gestionas desde una sola consola, cada uno con sus aplicaciones, certificados y copias. Al añadir uno, este servidor pasa a gestionarlos y sigue ejecutando lo que ejecuta hoy.",
+    },
     supportUntil: "Con soporte hasta el {date}",
     supportEnding: { one: "El soporte termina en {count} día ({date})", other: "El soporte termina en {count} días ({date})" },
     supportEnded: "Fuera de soporte desde el {date}",

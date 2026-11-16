@@ -53,8 +53,9 @@ export function SegmentedControl<V extends string>({ label, options, value, onVa
           className={cx(
             "relative inline-flex min-w-9 cursor-pointer items-center justify-center rounded-control text-12 font-medium text-fg-muted select-none",
             fill ? "min-h-11 min-w-0 flex-1 flex-col gap-0.5 px-1 py-1" : "h-7 px-2.5",
-            // The chosen one is the indicator under it; the others rise when the pointer is over them.
-            option.value === value ? "text-fg" : "elev-lift hover:text-fg hover:bg-surface-raised",
+            // The chosen one is the indicator under it, the only raised piece of the group; the others only take a tone under the pointer.
+            "hover-tone",
+            option.value === value && "text-fg",
             "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus",
           )}
         >

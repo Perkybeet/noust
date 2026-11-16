@@ -5,6 +5,8 @@ import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import {
+  NODES,
+  SESSION,
   fakeBackend,
   json,
   onNode,
@@ -717,5 +719,57 @@ describe("the Files and System sections", () => {
       screen.getByRole("heading", { name: "Reboot and shutdown" }),
     ).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
+  });
+});
+
+describe("the way to a fleet from a server on its own (item 160)", () => {
+  const alone = { "GET /api/nodes": () => json(200, { items: [] }) };
+
+  it("says what a fleet is and opens Add a server, on a server that has none", async () => {
+    server("/server", alone);
+    // The page draws its frame while the machine's readings arrive and again with them: the section is asked for in what is on screen now.
+    await screen.findByRole("link", { name: "Add a server" });
+    await waitFor(() => {
+      const card = screen.getByRole("heading", { name: "More than one server?" }).closest("section");
+      if (card === null) throw new Error("the section is not drawn yet");
+      expect(card).toHaveTextContent(/A fleet is several servers you manage from one console/);
+      expect(within(card).getByRole("link", { name: "Add a server" })).toHaveAttribute("href", "/fleet/servers?add=true");
+    });
+    await expectNoAxeViolations(screen.getByRole("main"));
+  });
+
+  it("says it in Spanish", async () => {
+    server("/server", alone);
+    await screen.findByRole("heading", { name: "More than one server?" });
+    await act(async () => {
+      await setLocale("es");
+    });
+    await waitFor(() => {
+      const card = screen.getByRole("heading", { name: "¿Tienes más de un servidor?" }).closest("section");
+      if (card === null) throw new Error("the section is not drawn yet");
+      expect(card).toHaveTextContent(/Una flota son varios servidores que gestionas desde una sola consola/);
+      expect(within(card).getByRole("link", { name: "Añadir un servidor" })).toBeInTheDocument();
+    });
+  });
+
+  it("is not there where the console already holds a fleet: a server with servers, or a hub", async () => {
+    const first = server("/server", { "GET /api/nodes": () => json(200, { items: NODES }) });
+    await screen.findByRole("heading", { level: 1, name: "web-01" });
+    await waitFor(() => {
+      expect(first.backend.callsTo("GET /api/nodes").length).toBeGreaterThan(0);
+    });
+    expect(screen.queryByRole("heading", { name: "More than one server?" })).toBeNull();
+    first.unmount();
+
+    const hub = { ...SESSION, central: { role: "hub", sealed: false, locked: false } };
+    server("/server", { ...alone, "GET /api/auth/session": () => json(200, hub) });
+    await screen.findByRole("heading", { level: 1 });
+    expect(screen.queryByRole("heading", { name: "More than one server?" })).toBeNull();
+  });
+
+  it("is not there for whoever may not manage a fleet", async () => {
+    server("/server", { ...alone, "GET /api/auth/session": () => json(200, { ...SESSION, permissions: (SESSION.permissions ?? []).filter((permission) => permission !== "fleet.manage") }) });
+    await screen.findByRole("heading", { level: 1, name: "web-01" });
+    expect(screen.queryByRole("heading", { name: "More than one server?" })).toBeNull();
   });
 });

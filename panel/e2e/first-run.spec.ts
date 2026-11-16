@@ -68,7 +68,7 @@ test("from the installer's link to a live page in four clicks, with nothing to r
   await page.getByRole("button", { name: "Sign in" }).click();
 
   // 2. A server with no accounts: one form, a username and a password.
-  await expect(page.getByRole("heading", { level: 1, name: "Create the administrator" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Create your administrator account" })).toBeVisible();
   await page.getByLabel("Username").fill("admin");
   await page.getByLabel("Password", { exact: true }).fill("a-long-password-for-the-first-run");
   await settle(page);
@@ -125,7 +125,7 @@ test.describe("on a phone", () => {
     await page.getByLabel("Access token").fill(server.token);
     await page.getByRole("button", { name: "Sign in" }).click();
 
-    await expect(page.getByRole("heading", { level: 1, name: "Create the administrator" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Create your administrator account" })).toBeVisible();
     await page.getByLabel("Username").fill("admin");
     await page.getByLabel("Password", { exact: true }).fill("a-long-password-for-the-first-run");
     await settle(page);

@@ -89,7 +89,7 @@ export function Shell() {
   const [paletteReady, setPaletteReady] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
-  // The main bar opened over the page, where there is no room for it beside (1024 to 1439 px).
+  // The main bar opened over the page, where there is no room for it beside (1024 to 1199 px).
   const [railOpen, setRailOpen] = useState(false);
   const returnFocus = useRef<HTMLElement | null>(null);
   // Choosing a page in the menu hands focus to that page's heading, not back to the button.

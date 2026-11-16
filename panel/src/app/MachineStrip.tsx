@@ -165,7 +165,7 @@ function ServerStrip({ className, showName }: { className?: string | undefined; 
       {...(machine === undefined && !isError ? { "aria-busy": true } : {})}
       // From a tablet up a lone server's strip keeps room for the machine's name, which nothing else in the bar says. Beside the
       // selector of a fleet it has no name to keep: the trail has the room, and the readings come back when there is some over.
-      className={cx("@container min-w-0", showName && "md:min-w-36", className)}
+      className={cx("@container min-w-0", showName && "md:min-w-36 @max-[52rem]:md:min-w-28", className)}
     >
       <div className="flex items-center gap-2 @min-[26rem]:gap-4">
         {/* The readings wrap on one line and what does not fit is cut off whole, from the right: the words

@@ -3,7 +3,7 @@
  * per browser, read before anything is drawn, followed across tabs. Two choices:
  *
  * - whether the main bar is folded to icons, which only matters where there is room to choose
- *   (app/navLayout.ts: from 1440 px; below it the bar is always folded);
+ *   (app/navLayout.ts: from 1200 px; below it the bar is always folded);
  * - the width of the page, comfortable or the whole width there is.
  *
  * There is no choice of presentation any more: the frame is always the main bar and the context

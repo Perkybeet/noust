@@ -138,7 +138,7 @@ export const nav: Catalog<typeof en> = {
     logs: { label: "Registros", keywords: "journal salida logs" },
     metrics: { label: "Métricas", keywords: "cpu memoria gráficas metrics" },
     environment: { label: "Variables", keywords: "env entorno secretos environment dotenv" },
-    domains: { label: "Dominios", keywords: "certificado ssl www nombres alias redirección domains" },
+    domains: { label: "Dominios", keywords: "certificado ssl www nombres alias redirección domains sitio web subida tamaño máximo límite archivos grandes 413 client_max_body_size upload size limit" },
     code: {
       label: "Código y compilación",
       keywords: "ajustes origen repositorio git rama etiqueta compilar instalar arrancar orden contenedor imagen compose runtime aislamiento caché paquetes clave de despliegue credencial source build",
@@ -252,7 +252,7 @@ export const nav: Catalog<typeof en> = {
     recipes: { label: "Recetas", command: "Recetas" },
     installedRecipes: { label: "Recetas instaladas", keywords: "recetas instaladas actualización disponible recipes installed update", command: "Recetas instaladas" },
     teams: { keywords: "personas miembros roles organizar agrupar espacio de trabajo people members group workspace" },
-    terminal: { keywords: "shell ssh consola línea de comandos console command line" },
+    terminal: { keywords: "shell ssh consola línea de comandos console command line ejecutar una vez comando suelto migrate manage.py artisan rake comandos run once" },
     files: { keywords: "explorar editar subir descargar carpeta browse edit upload download folder" },
     diagnose: { keywords: "diagnosticar por qué caído roto salud comprobar troubleshoot why down broken health check" },
     firewall: { keywords: "cortafuegos ufw firewalld nftables iptables reglas permitir denegar abrir cerrar puerto" },

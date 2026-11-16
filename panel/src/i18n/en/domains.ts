@@ -37,7 +37,7 @@ export const domains = {
       tab: "Sites",
       title: "Sites",
       description: "The web server's file for each name, written by Noust or by hand.",
-      keywords: "web server nginx apache vhost server block configuration",
+      keywords: "web server nginx apache vhost server block configuration upload size limit max body client_max_body_size 413 large files megabytes",
     },
     certificates: {
       tab: "Certificates",
@@ -110,6 +110,11 @@ export const domains = {
 
   appTab: {
     documentTitle: "Domains - {domain}",
+    upload: {
+      title: "Upload size",
+      description: "The biggest file a visitor can send to this application is limited by the web server, and a bigger one is refused with a 413 error. The limit is set in the site's Structure, as Max upload size.",
+      open: "Open the site's Structure",
+    },
     roleToSr: "to ",
     dnsDialogTitleDefault: "DNS",
     dnsDialogTitle: "Where {name} points",
@@ -544,8 +549,8 @@ export const domains = {
     expiresIn: { one: "Expires in {count} day", other: "Expires in {count} days" },
     expired: { one: "Expired {count} day ago", other: "Expired {count} days ago" },
     expiryUnknown: "Its expiry is not known: certbot does not manage it.",
-    serverBodyField: "Max body size",
-    serverBodyHelp: "For every location of this server that does not set its own. Empty: nginx's default, 1m.",
+    serverBodyField: "Max upload size",
+    serverBodyHelp: "The largest request accepted, such as a file somebody uploads (client_max_body_size). For every location of this server that does not set its own. Empty: nginx's default, 1m.",
     returnsNote: "This server answers every request itself with {code} {destination}.",
     locationsTitle: "Locations, in the order nginx tries them",
     locationsTitleApache: "Locations and proxy rules, in the order Apache applies them",
@@ -570,7 +575,7 @@ export const domains = {
     targetOther: "Answered by the web server",
     readTimeoutField: "Read timeout",
     readTimeoutHelp: "Such as 90s. Empty: 60s.",
-    bodyField: "Max body size",
+    bodyField: "Max upload size",
     bodyHelp: "Such as 20m. Empty: the server's.",
     rateLimitField: "Rate limit",
     rateLimitHelp: "As limit_req takes it; the zone is declared in nginx.conf.",

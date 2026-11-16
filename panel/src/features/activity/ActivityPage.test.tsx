@@ -111,6 +111,13 @@ async function activityAt(routes: Record<string, RouteHandler> = {}, path = "/ac
 }
 
 describe("the activity timeline", () => {
+  it("says how it differs from the audit log, and opens it (item 160)", async () => {
+    await activityAt();
+    // To follow the work: what ran and what was changed. Who used which privilege is the other page's, one press away.
+    expect(screen.getByText(/to follow the work\. To know who used which privilege, there is the audit log\./)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Audit log" })).toHaveAttribute("href", "/settings/audit");
+  });
+
   it("merges the jobs history and the audit log, newest first", async () => {
     const { table } = await activityAt();
     await within(table).findByText("shop.example.com");

@@ -30,9 +30,9 @@ function FoldButton({ folded, open, controls, onPress }: { folded: boolean; open
       aria-label={folded && !open ? label : undefined}
       onClick={onPress}
       className={cx(
-        "group elev-lift relative flex cursor-pointer items-center rounded-control text-14 font-medium text-fg-muted hover:bg-surface-raised hover:text-fg",
+        "group hover-tone relative flex cursor-pointer items-center rounded-control text-14 font-medium text-fg-muted",
         "focus-visible:-outline-offset-2",
-        folded && !open ? "size-11 justify-center" : "h-10 gap-3 px-3",
+        folded && !open ? "size-11 justify-center short:size-10" : "h-10 gap-3 px-3 short:h-9",
       )}
     >
       <Icon aria-hidden="true" className="size-icon-lg shrink-0 text-fg-faint group-hover:text-fg-muted" />
@@ -50,9 +50,9 @@ function FoldButton({ folded, open, controls, onPress }: { folded: boolean; open
 
 /**
  * The main bar: the areas with their icon and their name, in groups that carry a small title and a
- * joint, Settings under them, and its own control at the foot. It is drawn unfolded from 1440 px (an
+ * joint, Settings under them, and its own control at the foot. It is drawn unfolded from 1200 px (an
  * icon is not a name: thirteen of them are not understood at first, and a phone has no tooltip) and folds
- * to icons by a button, which keeps the choice; folded, a group is only its joint. From 1024 to 1439 px
+ * to icons by a button, which keeps the choice; folded, a group is only its joint. From 1024 to 1199 px
  * there is no room for it unfolded: it is folded and opens over the page without pushing it, and closes
  * by a choice, by Escape or by pressing the veil.
  *
@@ -96,7 +96,7 @@ export function Rail({ layout, open, onOpenChange }: { layout: NavLayout; open: 
       <aside
         aria-label={t("nav.rail.landmark")}
         className={cx(
-          "flex h-dvh flex-col bg-bg-rail py-3.5",
+          "hover-ground-rail flex h-dvh flex-col bg-bg-rail py-3.5 short:py-2.5",
           folded ? "items-center px-0" : "px-3",
           over ? "fixed top-0 left-0 z-overlay w-rail border-r border-border-strong" : "sticky top-0",
         )}
@@ -105,7 +105,7 @@ export function Rail({ layout, open, onOpenChange }: { layout: NavLayout; open: 
           to={homeTarget}
           aria-label={t("shell.sidebarOverview")}
           className={cx(
-            "flex h-11 shrink-0 items-center rounded-control",
+            "flex h-11 shrink-0 items-center rounded-control short:h-10",
             folded ? "w-11 justify-center" : "px-2.5",
           )}
         >
@@ -114,11 +114,11 @@ export function Rail({ layout, open, onOpenChange }: { layout: NavLayout; open: 
         <nav
           id={navId}
           aria-label={t("nav.landmarks.main")}
-          className={cx("relative isolate mt-3 flex min-h-0 flex-1 flex-col overflow-y-auto scroll-thin", folded ? "items-center" : "-mx-1 px-1")}
+          className={cx("relative isolate mt-3 flex min-h-0 flex-1 flex-col overflow-y-auto scroll-thin short:mt-1.5", folded ? "items-center" : "-mx-1 px-1")}
         >
           <SlidingIndicator className="rounded-control bg-surface" />
           {areas.groups.map((group) => (
-            <AreaGroup key={group[0]?.entry.id} title={GROUP_TITLES[group[0]?.entry.group ?? ""]} folded={folded}>
+            <AreaGroup key={group[0]?.entry.id} title={GROUP_TITLES[group[0]?.entry.group ?? ""]} folded={folded} tight>
               {group.map((item) => (
                 <li key={item.entry.id}>
                   <AreaLink item={item} variant={variant} {...closeOver} />
@@ -126,13 +126,13 @@ export function Rail({ layout, open, onOpenChange }: { layout: NavLayout; open: 
               ))}
             </AreaGroup>
           ))}
-          <ul className="mt-auto pt-3">
+          <ul className="mt-auto pt-3 short:pt-1.5">
             <li>
               <AreaLink item={areas.settings} variant={variant} {...closeOver} />
             </li>
           </ul>
         </nav>
-        <div className={cx("mt-2 flex shrink-0 flex-col gap-1", folded && "items-center")}>
+        <div className={cx("mt-2 flex shrink-0 flex-col gap-1 short:mt-1", folded && "items-center")}>
           <FoldButton folded={layout.rail === "folded"} open={over} controls={navId} onPress={press} />
         </div>
       </aside>

@@ -59,6 +59,7 @@ import {
   issuerName,
 } from "./certificates";
 import { JobBanner } from "./JobBanner";
+import { UploadLimitSection } from "./UploadLimitSection";
 import { useCertificateRefresh } from "./useCertificateJobs";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ICONS } from "../../components/ui/icons";
@@ -680,6 +681,7 @@ export function AppDomainsTab({ domain }: { domain: string }) {
 
       <AppDnsSection domain={domain} />
 
+      <UploadLimitSection domain={domain} />
 
       <AddDomainDialog
         app={domain}

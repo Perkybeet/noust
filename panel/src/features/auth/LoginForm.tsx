@@ -29,7 +29,9 @@ import { hasMessage, useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { forgetAccessToken, holdAccessToken } from "./accessProof";
 import { AuthFrame } from "./AuthFrame";
+import { factorOffer, offerTo, returnOf } from "./later";
 import { signInWithPasskey } from "./passkeys";
+import { pendingChecks } from "./requireSession";
 import { rememberSignIn } from "./signInFacts";
 import type { SignInFacts } from "./signInFacts";
 import { SsoButtons, useLocalSignIn, usePasswordReset, useSsoProviders } from "./SsoButtons";
@@ -76,12 +78,23 @@ function formatWait(seconds: number): string {
   return `${String(minutes)}:${String(rest).padStart(2, "0")}`;
 }
 
+/** Where a sign-in goes: on to the page asked for, or to the first accounts (`step` says which of its steps opens). */
+export type AfterSignIn = { to: "next" } | { to: "/setup"; step?: "protect" };
+
 /**
- * Where a signed-in operator goes: on a server with no accounts yet, arriving at the overview,
- * the offer to create the first ones; otherwise `next`. A deep link is never taken over.
+ * Where a signed-in operator goes: on a server with no accounts yet, arriving at the overview, the offer to
+ * create the first ones (unless this browser was told "Not now" within the week: `later.ts`); an account that
+ * put its second factor off a week ago, the offer of it once more; otherwise `next`. A deep link is never
+ * taken over. Making either offer is what spends its one return, so asking is not free: call it once per sign-in.
  */
-export function afterSignIn(session: SessionInfo | undefined, next: string): { to: "/setup" | "next" } {
-  if (next === "/" && session?.grant === "compat" && session.accounts_exist === false) return { to: "/setup" };
+export function afterSignIn(session: SessionInfo | undefined, next: string): AfterSignIn {
+  if (next !== "/" || session === undefined) return { to: "next" };
+  if (session.grant === "compat" && session.accounts_exist === false) return offerTo("account") ? { to: "/setup" } : { to: "next" };
+  const account = session.account;
+  // Only an account that signed in without checks owed (the console sends one with checks to them first) and that is not protected.
+  if (account !== null && account !== undefined && !pendingChecks(session) && !account.mfa_enabled && !session.totp_enabled && returnOf(factorOffer(account.username))) {
+    return { to: "/setup", step: "protect" };
+  }
   return { to: "next" };
 }
 
@@ -265,8 +278,9 @@ export function LoginForm({ next, expired, initialWay, recoveryHelp = false, sso
     rememberSignIn(answer);
     const session = await queryClient.query({ ...sessionQuery(), staleTime: 0 });
     announce(t("auth.signedIn"));
-    if (afterSignIn(session, destination).to === "/setup") {
-      await navigate({ to: "/setup", search: { next: destination }, replace: true });
+    const after = afterSignIn(session, destination);
+    if (after.to === "/setup") {
+      await navigate({ to: "/setup", search: { next: destination, ...(after.step !== undefined ? { step: after.step } : {}) }, replace: true });
       return;
     }
     // Not the first administrator: the token has nothing to be kept for.
@@ -906,9 +920,18 @@ export function LoginForm({ next, expired, initialWay, recoveryHelp = false, sso
     );
   }
 
+  // For whoever arrives without the installer's link (item 158): where the token is and the command that issues one. A fixed
+  // sentence, the same on every server, because this page does not know whether the server has accounts and must not say.
+  const firstTime = (
+    <div className="flex flex-col gap-2">
+      <p className="max-w-measure-help text-12 text-pretty text-fg-muted">{t("auth.firstTime.hint")}</p>
+      <CommandHint label={t("auth.firstTime.lost")} command="noust web token --new" reason="solo-terminal" />
+    </div>
+  );
+
   // The words of a refusal are the form's own: the first thing in it, where a screen reader reads the form from.
   return (
-    <AuthFrame title={t("auth.area")} description={t("auth.account.description")}>
+    <AuthFrame title={t("auth.area")} description={t("auth.account.description")} footer={firstTime}>
       <div className="flex flex-col gap-5">
         {accountForm(true)}
         <OtherWays doors={doors} label={t("auth.ways.label")} />

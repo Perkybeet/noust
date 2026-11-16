@@ -35,7 +35,7 @@ export const domains: Catalog<typeof en> = {
       tab: "Sitios",
       title: "Sitios",
       description: "El archivo del servidor web de cada nombre, escrito por Noust o a mano.",
-      keywords: "servidor web nginx apache vhost configuración",
+      keywords: "servidor web nginx apache vhost configuración subida subir tamaño máximo límite archivos grandes 413 client_max_body_size megas upload size limit",
     },
     certificates: {
       tab: "Certificados",
@@ -108,6 +108,11 @@ export const domains: Catalog<typeof en> = {
 
   appTab: {
     documentTitle: "Dominios - {domain}",
+    upload: {
+      title: "Tamaño de las subidas",
+      description: "El archivo más grande que un visitante puede enviar a esta aplicación lo limita el servidor web, y uno mayor se rechaza con un error 413. El límite se fija en la estructura del sitio, como «Tamaño máximo de subida».",
+      open: "Abrir la estructura del sitio",
+    },
     roleToSr: "a ",
     dnsDialogTitleDefault: "DNS",
     dnsDialogTitle: "Adónde apunta {name}",
@@ -542,8 +547,8 @@ export const domains: Catalog<typeof en> = {
     expiresIn: { one: "Caduca en {count} día", other: "Caduca en {count} días" },
     expired: { one: "Caducó hace {count} día", other: "Caducó hace {count} días" },
     expiryUnknown: "No se sabe cuándo caduca: certbot no lo gestiona.",
-    serverBodyField: "Tamaño máximo del cuerpo",
-    serverBodyHelp: "Para cada location de este servidor que no fije el suyo. Vacío: el de nginx, 1m.",
+    serverBodyField: "Tamaño máximo de subida",
+    serverBodyHelp: "La petición más grande que se acepta, como un archivo que alguien sube (client_max_body_size). Para cada location de este servidor que no fije el suyo. Vacío: el de nginx, 1m.",
     returnsNote: "Este servidor responde él mismo a cada petición con {code} {destination}.",
     locationsTitle: "Locations, en el orden en que nginx las prueba",
     locationsTitleApache: "Locations y reglas de proxy, en el orden en que Apache las aplica",
@@ -568,7 +573,7 @@ export const domains: Catalog<typeof en> = {
     targetOther: "La responde el servidor web",
     readTimeoutField: "Tiempo de lectura",
     readTimeoutHelp: "Como 90s. Vacío: 60s.",
-    bodyField: "Tamaño máximo del cuerpo",
+    bodyField: "Tamaño máximo de subida",
     bodyHelp: "Como 20m. Vacío: el del servidor.",
     rateLimitField: "Límite de peticiones",
     rateLimitHelp: "Como lo recibe limit_req; la zona se declara en nginx.conf.",

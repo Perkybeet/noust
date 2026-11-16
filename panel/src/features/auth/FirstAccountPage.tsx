@@ -22,6 +22,7 @@ import type { Account } from "../settings/accounts/api";
 import { takeAccessToken } from "./accessProof";
 import { AuthFrame } from "./AuthFrame";
 import { SecondFactor } from "./GatePage";
+import { factorOffer, putOff } from "./later";
 import { pendingChecks } from "./requireSession";
 import { useSignOut } from "./useSignOut";
 
@@ -124,7 +125,12 @@ function AccountForm({ accountRole, submitLabel, onCreated }: AccountFormProps) 
           }}
         />
       </Field>
-      <Field label={t("auth.firstAccount.password")} description={t("auth.firstAccount.passwordHint")} error={missing.password ?? errors.fields.password}>
+      {/* The administrator is the person at the screen; a security officer is another person's account, and it is theirs who change it. */}
+      <Field
+        label={t("auth.firstAccount.password")}
+        description={t(accountRole === "admin" ? "auth.firstAccount.passwordHint" : "auth.firstAccount.passwordHintOther")}
+        error={missing.password ?? errors.fields.password}
+      >
         <Input
           ref={passwordRef}
           type="password"
@@ -171,6 +177,11 @@ function AccountForm({ accountRole, submitLabel, onCreated }: AccountFormProps) 
 export interface FirstAccountPageProps {
   /** Where "Not now" and "Set up later" go. */
   next: string;
+  /**
+   * `protect` opens on the second factor of an account that already exists: the offer coming back a week after
+   * "Set up later" (item 158). Without it the page is the first accounts, from the administrator on.
+   */
+  start?: "protect";
 }
 
 /**
@@ -181,15 +192,17 @@ export interface FirstAccountPageProps {
  * offered its second factor, which it may leave for later unless something requires it (and then
  * the console's own gate has it enrol before anything else).
  */
-export function FirstAccountPage({ next }: FirstAccountPageProps) {
+export function FirstAccountPage({ next, start }: FirstAccountPageProps) {
   const t = useT();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { signOut, pending: signingOut } = useSignOut();
-  const [step, setStep] = useState<Step>("admin");
+  const [step, setStep] = useState<Step>(start ?? "admin");
   const [admin, setAdmin] = useState<Credentials | null>(null);
   const [failedAccount, setFailedAccount] = useState<{ name: string; error: unknown } | null>(null);
-  useDocumentTitle(t("auth.firstAccount.documentTitle"));
+  // The offer coming back is one step and not a sequence: there is no administrator to create and nothing to count.
+  const returning = start === "protect";
+  useDocumentTitle(returning ? t("auth.firstAccount.protectTitle") : t("auth.firstAccount.documentTitle"));
 
   // A framework that splits an administrator's duties needs the other account too; asked once,
   // here, and not at all where nothing asks for it.
@@ -200,6 +213,17 @@ export function FirstAccountPage({ next }: FirstAccountPageProps) {
   const leave = async (): Promise<void> => {
     const { node, pathname } = nodeOfConsolePath(next);
     await navigate(node === null ? { href: next, replace: true } : { to: pathname, search: { node }, replace: true });
+  };
+
+  // "Not now" and "Set up later" are remembered by this browser, so they are not asked again at every sign-in: they come back once, a week on (later.ts).
+  const putOffAccount = (): void => {
+    putOff("account");
+    void leave();
+  };
+  const putOffFactor = (): void => {
+    const account = session?.account;
+    if (account !== null && account !== undefined) putOff(factorOffer(account.username));
+    void leave();
   };
 
   // The account just made signs in, with what was typed to make it, and the token's session goes.
@@ -248,17 +272,20 @@ export function FirstAccountPage({ next }: FirstAccountPageProps) {
       title={title}
       description={description}
       footer={
-        <div className="flex flex-col items-start gap-4">
+        <div className="flex flex-col items-start gap-2">
           {step === "admin" ? (
-            <Button variant="ghost" size="sm" onClick={() => void leave()}>
-              {t("auth.firstAccount.notNow")}
-            </Button>
+            <>
+              <Button variant="ghost" size="sm" onClick={putOffAccount}>
+                {t("auth.firstAccount.notNow")}
+              </Button>
+              <p className="max-w-measure-help text-12 text-pretty text-fg-muted">{t("auth.firstAccount.notNowHelp")}</p>
+            </>
           ) : null}
         </div>
       }
     >
       <div className="flex flex-col gap-6">
-        <Stepper orientation="horizontal" steps={steps} current={step} />
+        {returning ? null : <Stepper orientation="horizontal" steps={steps} current={step} />}
         {failedAccount !== null ? (
           <div className="flex flex-col gap-3">
             <ErrorBlock live compact error={failedAccount.error} title={t("auth.firstAccount.signInFailed", { name: failedAccount.name })} />
@@ -308,7 +335,7 @@ export function FirstAccountPage({ next }: FirstAccountPageProps) {
             </Button>
           </div>
         ) : session?.authenticated === true ? (
-          <SecondFactor session={session} onDone={leave} optional={{ onSkip: () => void leave() }} />
+          <SecondFactor session={session} onDone={leave} optional={{ onSkip: putOffFactor }} />
         ) : null}
       </div>
     </AuthFrame>

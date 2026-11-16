@@ -333,8 +333,26 @@ export type Height = "carved" | "seated" | "raised";
 const HEIGHT_UTILITIES: readonly (readonly [Height, RegExp])[] = [
   ["carved", /(?<![\w-])elev-carved(?:-fine)?(?![\w-])/],
   ["seated", /(?<![\w-])elev-seated(?![\w-])/],
-  ["raised", /(?<![\w-])(?:elev-raised(?:-accent|-fail|-chosen)?|elev-rest|elev-lift)(?![\w-])/],
+  ["raised", /(?<![\w-])(?:elev-raised(?:-accent|-fail|-chosen)?|elev-rest)(?![\w-])/],
 ];
+
+/**
+ * What an option under the pointer must not become (docs/DESIGN.md 2.6, E-4; item 197). A row of options has one
+ * raised piece, the chosen one (the sliding indicator), so an option that rises, or takes the ground of a raised piece,
+ * under the pointer reads as chosen. A file that mounts the indicator draws its options with `hover-tone`.
+ */
+const OPTION_BECOMES_A_PIECE: readonly (readonly [string, RegExp])[] = [
+  ["rises under the pointer (elev-lift)", /(?<![\w-])elev-lift(?![\w-])/],
+  ["takes the ground of a raised piece under the pointer", /(?<![\w-])hover:(?:[a-z-]+:)*bg-surface-raised(?![\w-])/],
+];
+
+/** What is wrong with the options of one file: it mounts the sliding indicator and an option of it hovers like the chosen one. */
+export function hoverViolations(path: string, source: string): string[] {
+  if (!/<SlidingIndicator\b/.test(source)) return [];
+  return OPTION_BECOMES_A_PIECE.filter(([, pattern]) => pattern.test(source)).map(
+    ([what]) => `${path} mounts the sliding indicator and an option ${what}: use hover-tone (docs/DESIGN.md E-4)`,
+  );
+}
 
 /**
  * The height each piece of the kit has by its role (docs/DESIGN.md 2.6): what is typed or chosen
@@ -356,10 +374,10 @@ export const KIT_HEIGHTS: Readonly<Record<string, readonly Height[]>> = {
   "components/assistant/ProposalCard.tsx": ["carved"],
   "components/ui/FirstUse.tsx": ["carved"],
   "components/ui/LogoTile.tsx": ["carved"],
-  "components/page/SegmentedControl.tsx": ["carved", "raised"],
-  "components/page/SettingsLayout.tsx": ["raised"],
-  "components/ui/Tabs.tsx": ["carved", "raised"],
-  "app/LinkTabs.tsx": ["carved", "raised"],
+  // the rails of options: the track is carved, the chosen option is the sliding indicator and the rest take a tone, no height
+  "components/page/SegmentedControl.tsx": ["carved"],
+  "components/ui/Tabs.tsx": ["carved"],
+  "app/LinkTabs.tsx": ["carved"],
   // seated: what is read
   "components/ui/Card.tsx": ["seated"],
   "components/page/PolicyMatrix.tsx": ["seated"],
@@ -392,15 +410,10 @@ export const KIT_HEIGHTS: Readonly<Record<string, readonly Height[]>> = {
   "components/ui/Button.tsx": ["raised"],
   "components/ui/IconButton.tsx": ["raised"],
   "components/ui/ChoiceCards.tsx": ["raised"],
-  // the frame: every item of a bar and of the second column is flat until the pointer is on it and the
-  // current one is the sliding indicator's raised piece; the choice of bar is a carved rail of raised options
-  "app/frame/Rail.tsx": ["raised"],
-  "app/frame/areas.tsx": ["raised"],
-  "app/frame/BottomBar.tsx": ["raised"],
-  "app/frame/AreasSheet.tsx": ["raised"],
-  // the phone's selector at the top of the page: one raised button that opens the sheet of the column's list
+  // the frame: every item of a bar and of the second column is flat and only takes a tone under the pointer
+  // (hover-tone), so none draws a height of its own; the current one is the sliding indicator's raised piece.
+  // The phone's selector at the top of the page is one raised button that opens the sheet of the column's list
   "app/frame/SectionSelector.tsx": ["raised"],
-  "app/frame/ColumnList.tsx": ["raised"],
   "app/Topbar.tsx": ["carved"],
   "app/Shell.tsx": ["seated"],
   "app/ThemeSwitch.tsx": ["carved"],

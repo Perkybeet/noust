@@ -125,6 +125,7 @@ export const overview = {
     twoFactor: {
       title: "Protect your account",
       description: "A code from your phone on top of the access token, so a leaked token alone cannot sign in.",
+      descriptionAccount: "Without a second factor your account cannot confirm delicate actions, such as deleting an application. A code from your phone is enough.",
       action: "Security",
     },
   },

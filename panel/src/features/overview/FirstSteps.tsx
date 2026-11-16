@@ -104,7 +104,11 @@ export function FirstSteps({ backupsScheduled }: { backupsScheduled: boolean }) 
             key: "twoFactor",
             icon: <OBJECT_ICONS.signInSecurity />,
             title: "overview.firstSteps.twoFactor.title",
-            description: "overview.firstSteps.twoFactor.description",
+            // Said of the account when there is one, which is what a person who made theirs at the door is looking at; of the token only when the token is all there is (item 158).
+            description:
+              session.data.account === null || session.data.account === undefined
+                ? "overview.firstSteps.twoFactor.description"
+                : "overview.firstSteps.twoFactor.descriptionAccount",
             action: "overview.firstSteps.twoFactor.action",
             to: "/account/security",
             done: false,

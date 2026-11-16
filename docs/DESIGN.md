@@ -18,7 +18,7 @@ Where the system lives:
 | Page header and URL tabs | `panel/src/app/PageHeader.tsx`, `panel/src/app/LinkTabs.tsx` |
 | The frame: the main bar, the second column, the phone's bar and section selector, the breadcrumbs | `panel/src/app/frame/`, with the layout rules in `panel/src/app/navLayout.ts` and the saved choices in `panel/src/app/preferences.ts` |
 | The executable specification | the gallery, `/__design` (development builds only; `panel/src/dev/`) |
-| Enforcement | `styles/tokens.test.ts`, `styles/design-rules.test.ts`, `styles/design-structure.test.ts`, `styles/setting-copy.test.ts`, `styles/concept-doors.test.ts`, `styles/dead-class.test.ts`, `i18n/verbs.test.ts`, `i18n/glossary.test.ts`, `eslint.config.js`, `e2e/design-contract.spec.ts`, `e2e/indicator.spec.ts`, `e2e/field-edge.spec.ts`, `e2e/tab-switch-layout.spec.ts`, `e2e/leave-guard.spec.ts`, `e2e/settings-length.spec.ts`, `e2e/home-arrange.spec.ts`, `e2e/home-customise-length.spec.ts` |
+| Enforcement | `styles/tokens.test.ts`, `styles/design-rules.test.ts`, `styles/design-structure.test.ts`, `styles/setting-copy.test.ts`, `styles/concept-doors.test.ts`, `styles/dead-class.test.ts`, `i18n/verbs.test.ts`, `i18n/glossary.test.ts`, `eslint.config.js`, `e2e/design-contract.spec.ts`, `e2e/indicator.spec.ts`, `e2e/field-edge.spec.ts`, `e2e/tab-switch-layout.spec.ts`, `e2e/leave-guard.spec.ts`, `e2e/settings-length.spec.ts`, `e2e/home-arrange.spec.ts`, `e2e/home-customise-length.spec.ts`, `e2e/arrival.spec.ts` |
 
 The brand (the mark, its violet, its construction) is `docs/brand/BRAND.md`. Copy rules and the
 English/Spanish glossary are `panel/src/i18n/README.md`. This document says how the console
@@ -109,7 +109,8 @@ where height is luminance:
 | `--surface-raised` | `#fbfcfa` / `#323a36` | Raised: buttons, option cards; also menus, popovers and toasts |
 | `--surface-hover` | `#fbfcfa` / `#323a36` | A row that opens something, under the pointer |
 | `--surface-active` | `#d9ddd5` / `#232927` | Pressed; a skeleton's ground |
-| `--rail-hover` | `#d5d9d1` / `#1e2421` | An item of the navigation bar under the pointer |
+| `--rail-hover` | `#bfc4bb` / `#1e2421` | An item of the main bar (and of the phone's bar) under the pointer: a step off the bar's stone, flat (E-5) |
+| `--column-hover` | `#cbd0c8` / `#202624` | An item of the second column under the pointer, flat (E-5) |
 | `--edge`, `--joint` | `#ffffff`, `#b0b7ad` / `#444c47`, `#0e1110` | The light edge on top of a height and the dark joint under it (2.6) |
 | `--carved-shade`, `--carved-lip` | `#767f77`, `#ffffff` / `#0e1110`, `#7e8880` | The two edges of a field's hollow: the shadow along its top inside and the lit lip below. One of them is 3:1 against the page, a panel and a raised surface in each theme (C-12) |
 | `--border` | `#c8cdc5` / `#3a423d` | Hairlines that separate content |
@@ -331,7 +332,7 @@ every `--elev-*` and fails on one).
 |---|---|---|---|
 | **Carved** (`elev-carved`, `elev-carved-fine`) | Sunk in: where something is typed or chosen inside | `--bg-sunken`, shadow on top, light below; deeper (`--bg-sunken-deep`) under the pointer | `Input`, `Textarea`, `Select`'s trigger, `Combobox`, `Checkbox`, a `Switch`'s track, the tracks of `SegmentedControl`, `Tabs` and `LinkTabs`, the search box (these have the strong edge of C-12); `Progress` and `Meter`, `LogoTile`, a command in an empty state (the fine one) |
 | **Seated** (`elev-seated`) | A low slab: what is read | `--surface`, a light edge on top and a joint of 1px beneath. It does not react to the pointer; a row of a table is flat | `Card`, `DataTable`, `Dialog`, `Drawer`, `Menu`, `Popover`, the lists of `Select` and `Combobox`, `Toast`, `Disclosure`, `StatTile`, `JobProgress`, `FleetCourses`, a `Kbd`, a state pill at `md` |
-| **Raised** (`elev-raised`, `-accent`, `-fail`, `-chosen`, `elev-lift`, `elev-rest`) | What is pressed | `--surface-raised` and a joint of 2px. It rises 1px under the pointer (joint 3px) and sinks 1px when pressed (joint 1px) | `Button` (the primary with the accent's own edge, the danger button with the failure's), `IconButton`, the options of `ChoiceCards` (the chosen one with the accent as a ring), the thumb of a `Switch`, the chosen item of a row of tabs or segments (the sliding indicator), a fleet slab that opens a page |
+| **Raised** (`elev-raised`, `-accent`, `-fail`, `-chosen`, `elev-rest`) | What is pressed | `--surface-raised` and a joint of 2px. It rises 1px under the pointer (joint 3px) and sinks 1px when pressed (joint 1px) | `Button` (the primary with the accent's own edge, the danger button with the failure's), `IconButton`, the options of `ChoiceCards` (the chosen one with the accent as a ring), the thumb of a `Switch`, the chosen item of a row of tabs or segments (the sliding indicator), a fleet slab that opens a page |
 
 - **E-1** A component takes the height of its role and no other. *Enforced by:*
   `styles/design-rules.test.ts` reads `KIT_HEIGHTS` (`styles/designRules.ts`), the role of every kit
@@ -339,9 +340,9 @@ every `--elev-*` and fails on one).
   has cases that must be caught (a raised panel, a carved button).
 - **E-2** A feature does not draw heights: a panel is a `Card`, a pressed piece a `Button`, a field a
   `Field`. *Enforced by:* the ratchet rule `elev-outside-kit`.
-- **E-3** Only what is pressed moves under the pointer. An item that is flat until the pointer is on
-  it (`elev-lift`) rises the same 1px; what is read does not react, so that a panel never suggests
-  it can be pressed. A row that opens something changes its tone, flat.
+- **E-3** Only what is pressed moves under the pointer; what is read does not react, so that a panel
+  never suggests it can be pressed. A row that opens something changes its tone, flat. An option of a
+  row or a list that has a chosen one is not pressed in this sense (E-5).
 - **E-4** Stacking is named, and nothing else sets a `z-index`:
 
 | Utility | Value | What |
@@ -351,6 +352,23 @@ every `--elev-*` and fails on one).
 | `z-overlay` | 50 | Dialog, drawer, menu, popover, tooltip, select |
 | `z-toast` | 60 | Toasts |
 | `z-skip` | 70 | The skip link |
+
+- **E-5** An option under the pointer takes a tone and never a form. In a row or a list that has a chosen
+  option (the tabs, the segments, the main bar, the second column, a settings list) the chosen one is
+  the one raised piece, the sliding indicator, so an option that rose, or took the ground of a raised
+  piece, when the pointer reached it read as chosen (owner item 197). Under the pointer an option goes
+  one step off the stone it sits on, flat (no lift, no edge, no joint), and its text goes from the muted
+  colour to the full one: nothing else. The step is `hover-tone` (`app.css`), the one utility every such
+  option uses; the stone it steps off is named by the container (`hover-ground-rail` for the bars,
+  `hover-ground-column` for the second column, `hover-ground-page` for a list on the page or a sheet),
+  and a carved rail of tabs or segments deepens to `--bg-sunken-deep` by default. The chosen option is
+  left out by what it says of itself (`aria-current`, `data-active`, `data-checked`,
+  `data-status="active"`), the disabled one too, and a destructive item keeps its colour
+  (`hover-text-fail`). The gallery shows each state beside the chosen one (`/__design`, Tabs, Segmented
+  control and Navigation). *Enforced by:* `styles/design-rules.test.ts` (a file that mounts the sliding
+  indicator fails on `elev-lift`, which no longer exists, and on `hover:bg-surface-raised`; the utility
+  is read for what it leaves out) and `styles/tokens.test.ts` (each hover tone is seen against its own
+  ground, farther from the chosen piece than from the ground, and legible).
 
 ### 2.7 Motion
 
@@ -564,19 +582,24 @@ stylesheets are scanned for the same.
 | `--measure`, `--measure-help` | 68ch, 52ch | Prose, help |
 
 - **L-3** Layout breakpoints: `sm` (640px), `lg` (1024px), and the navigation's own, which are the
-  frame's and not a page's: 1024 and 1440px (`navLayout.ts`). Below 640 is a phone (one column, tables as
+  frame's and not a page's: 1024 and 1200px (`navLayout.ts`). Below 640 is a phone (one column, tables as
   card rows); below 1024 the areas are at the foot of the screen, "More" opens a sheet with all of them in
   their groups, and the column is a section selector at the top of the page that opens a sheet with the
-  same list; from 1024 the main bar and the column are always both there, because two open bars need
-  about 1410px: from 1024 to 1439 the main bar is folded to icons and unfolds over the page without
-  pushing it, and from 1440 it is unfolded and the saved fold decides. `md` and `xl` only hide columns or
+  same list; from 1024 the main bar and the column are always both there: from 1024 to 1199 the main bar
+  is folded to icons (two open bars take 464px) and unfolds over the page without pushing it, and from
+  1200 it is unfolded, with its words, and the saved fold decides (a laptop is 1280 or 1366px wide and
+  leaves the page 816 or 902px; item 157). The bar is as tall as it is wide: below 896px of window height
+  (the `short` variant of `app.css`) its rows are 36px and its group titles take less room, and below 736px
+  (`shorter`) a title gives way to its joint (its name stays for a screen reader), so a laptop's 768 or
+  720px shows the whole bar, Settings included, without scrolling it. `md` and `xl` only hide columns or
   widen grids.
 - **L-4** A page never scrolls sideways at 390px or at 200% zoom; only a table, a log or a tab
   strip scrolls inside itself.
 - **L-5** The root keeps the scrollbar's room (`html { scrollbar-gutter: stable }`), and so do
   dialog bodies and drawers (`scroll-stable`): a short tab after a long one, or a dialog that
   grows, never slides the page by a scrollbar's width.
-- **L-6** Reference viewports for screenshots and tests: 390, 1440 and 1920.
+- **L-6** Reference viewports for screenshots and tests: 390, 1440 and 1920, and 1280 for the laptop, where
+  both bars are open and the page has 816px (a page that needs more scrolls inside its table, never sideways).
 
 ---
 
@@ -930,6 +953,19 @@ new password, a sealed central. All of them are the same slab.
 - The other ways to sign in are `AuthDoors`: the password form first and, under it, two or three equal
   doors (passkey, your company when one is configured, access token). A door opens its way in the form's
   place, with a link back to the password.
+- **The first time is said in a sentence that is the same on every server** (item 158). The sign-in does not
+  know whether the server has accounts and must not say (an unauthenticated answer never carries it), so the
+  account form's footer says, always, where the access token is (the one the installer printed, under the
+  other ways in) and shows the one command that issues another, with what it costs (the old one stops).
+  What warns of using the token once there are accounts is said where it is true, signed in with it, and
+  never before the first account. The first-account page says the account is the person's own, and what each
+  password hint is for (the administrator's is the person at the screen; a security officer's is another
+  person's).
+- **"Not now" and "Set up later" are put off, not refused** (item 158). The browser remembers each with its
+  moment (`features/auth/later.ts`, one key, never the server: the person is deciding for the place they
+  are in), and the offer comes back once, a week later, on the next sign-in, and never a third time; the
+  places that already say it (Home's list, the account's page, the list of accounts) go on saying it. What
+  was never put off is not brought back: nobody said "later" to it.
 
 ### Patterns shared by the templates
 
@@ -1110,6 +1146,8 @@ It is hidden when the current route has no entry in the list.
 **`LinkTabs`** (`count` per tab) and **`Tabs`**. Sibling views of one subject: a carved rail with the
 current one as the raised piece that slides (M-5). `LinkTabs` (the state is the URL) by default; `Tabs`
 only where a URL makes no sense. Eight tabs at most. A row wider than its screen scrolls inside the rail.
+A tab that is not the current one only takes a tone under the pointer (E-5): the current one is the only
+piece in the row.
 
 **`DataTable`** (`mobile` `"cards" | "scroll"`, column `card` `"title" | "status" | "meta" |
 "control" | "hidden"`, `density`, `layout` `"auto" | "fixed"`, `rowActions`, `onRowActivate`,
@@ -1375,7 +1413,7 @@ opens it, a click that ends a text selection opens nothing, and `highlightId` ma
 context is about), **`SystemOutput`**: the system's output,
 verbatim, copyable. **`Mono`**: a system value. **`ServerText`** (`coded`, `text`, `part`): a sentence the server says as a code, in the console's language, with a command set in `Mono` and the server's English when the console has no entry; it draws no element of its own, so it takes the type of the paragraph it is in (a notice, a field's error, a row's help), never a box of its own, and a system error is still shown verbatim beside it (Principle 5). **`Kbd`**: a key. **`CommandHint`**: the CLI
 equivalent. **`RelativeTime`**: "3 min ago" with the exact moment in a tooltip.
-**`SegmentedControl`**: one of a few exclusive views (a chart range). An option may carry a `count` (a number
+**`SegmentedControl`**: one of a few exclusive views (a chart range); an option that is not chosen takes a tone under the pointer (E-5). An option may carry a `count` (a number
 after its name, in its own text so the name a screen reader reads has a space before it): the servers of a
 fleet's list, with how many applications each has.
 
@@ -1897,7 +1935,7 @@ Four questions, answered in four places: **where am I** (the scope selector, and
 - **NV-17** Toast, inbox, activity. A toast acknowledges what the operator just did and is not visible on screen; what failed on its own or needs a decision stays in the inbox until resolved; Activity is the history. *Enforced by:* `e2e/inbox.spec.ts` (a failing alert is in the inbox after its toast is gone, and is acknowledged in the row).
 - **NV-18** Changing the structure. Structure and look do not change in one release. A structural change ships in a major version; every URL that changes redirects, the old names stay as keywords, and the release notes carry the table of where each thing is now. *Enforced by:* `routes/redirects.test.tsx` (the `REDIRECTS` table of `app/nav.ts`).
 - **NV-19** Icons. One icon for each object the console is about, from one map of the kit (`components/ui/objectIcons.ts`, `OBJECT_ICONS`): the register reads it (`features/nav/icons.ts` says which object each area and each section of a list on the side is), and so do the sections' heads (`Section icon`) and the buttons that act on an object, so a screen, a heading and a button of one thing look like one thing. The sidebar, the lists on the side (Settings, an application's settings, the account) and the palette draw it at 16px (`size-icon-md`) in the quiet colour of the list (`text-fg-faint`, `text-fg` on the current section: colour is for state), red only on the destructive section, and `aria-hidden`. A tab has none of its own, because no strip draws one (its width is the budget): the palette shows the icon of its area. No two entries of one list share an icon (I-5). *Enforced by:* `nav.register.test.ts` (the table holds the areas and the sections and nothing else; none repeats in a list); `components/page/SettingsLayout.test.tsx`; `components/page/Section.test.tsx`.
-- **NV-20** The frame. One main bar and one second column from 1024px, whatever the person likes: there is no presentation to choose, no "one bar" and no switch for it, and the account menu has none. By width, below 1024px the areas are a bar at the foot (four areas and "More", which opens a sheet with all of them in their groups, then Settings and the account) and the column is the section selector at the top of the page, which opens a sheet with the same list (never tabs); from 1024 to 1439px the main bar is folded to icons and unfolds over the page without pushing it (its button says Close, Escape and a press outside dismiss it), because two open bars need about 1410px; and from 1440px it is unfolded and the saved choices (the fold, the width of the page) decide. The main bar is drawn unfolded by default, with an icon and a name, because thirteen icons are not understood at first and a phone has no tooltip; its groups carry a small title in sentence case and a joint (a dark line with the lit edge under it, the joint between two courses of the wall), which is all there is of a group when the bar is folded; it folds by a button with `aria-expanded`, and a folded icon says its name on hover and on focus. Nothing folds by use. *Enforced by:* `app/navLayout.test.ts` (every edge of the width rules); `app/preferences.test.ts`; `app/frame/frame.test.tsx`; `e2e/frame.spec.ts` (the widths 1920, 1440, 1280 and 390, with the keyboard and with reduced motion, both themes).
+- **NV-20** The frame. One main bar and one second column from 1024px, whatever the person likes: there is no presentation to choose, no "one bar" and no switch for it, and the account menu has none. By width, below 1024px the areas are a bar at the foot (four areas and "More", which opens a sheet with all of them in their groups, then Settings and the account) and the column is the section selector at the top of the page, which opens a sheet with the same list (never tabs); from 1024 to 1199px the main bar is folded to icons and unfolds over the page without pushing it (its button says Close, Escape and a press outside dismiss it), because below 1200px two open bars (464px) leave the page too little; and from 1200px it is unfolded, with its words, and the saved choices (the fold, the width of the page) decide: whoever prefers icons folds the bar and the browser remembers it (item 157: a laptop is 1280 or 1366px wide, and a bar of icons nobody has met was not read). The main bar is drawn unfolded by default, with an icon and a name, because thirteen icons are not understood at first and a phone has no tooltip; its groups carry a small title in sentence case and a joint (a dark line with the lit edge under it, the joint between two courses of the wall), which is all there is of a group when the bar is folded; it folds by a button with `aria-expanded`, and a folded icon says its name on hover and on focus. Nothing folds by use. *Enforced by:* `app/navLayout.test.ts` (every edge of the width rules); `app/preferences.test.ts`; `app/frame/frame.test.tsx`; `e2e/frame.spec.ts` (the widths 1920, 1440, 1366, 1280, 1200, 1199, 1024 and 390, with the keyboard and with reduced motion, both themes); `e2e/arrival.spec.ts` (the bar's words and the page's room at 1200, 1280, 1366 and 1440).
 - **NV-21** The frame moves with the person. The raised piece of the current item slides to the new one when the route changes (the browser's back and forward too), in the main bar and in the second column, each with its own piece, by the move curve of 2.7 and never with `ease-in-out`; it does not slide when the page loads, when the bar folds or the window resizes, or with reduced motion. *Enforced by:* `components/ui/SlidingIndicator.test.tsx`; `e2e/frame.spec.ts` (the transition that runs, its duration and where it ends).
 - **NV-22** Every area has a column, and so has every resource a person enters. An area with several pages lists them; an area that is one page lists its fixed views, presets of its own filters that live in the address and save nothing (`features/nav/views.ts`); Home lists its panels. Where a resource is entered (an application, a database, a service, a team, a server on a fleet) the column slides to its sections with the way back to the area ("‹ Applications") and a switch to its siblings, so a person jumps to another without going back to the list; the new list comes in decelerating and the old goes out accelerating and in less time, and with reduced motion it is instant. The column never disappears and a third never appears, so the content does not jump from one side to the other between two areas. Names come from the register: the same entries, drawn in the column, in the phone's sheet and in the palette. *Enforced by:* `app/columns.test.ts` (every area of the register has a column, and a resource's has its area's way back); `app/nav.register.test.ts`; `app/frame/frame.test.tsx` and `e2e/frame.spec.ts` (the slide, its two durations, reduced motion).
 - **NV-23** Tabs only change the view of one thing. A strip of tabs never lists the pages of an area or the sections of a resource: that is the column's (NV-22). What stays a strip is the choice between ways of looking at the same object on the same page (a site's Text, Structure and Diagram; a zone's Records, DNSSEC and Delegation), each a view of one thing. A page whose sections were tabs in 4.1 (Alerts, Backups, Catalog, Projects, Fleet, Account, Domains, a database, a service, the views of Server) has them in the column. *Enforced by:* ratchet `link-tabs-in-feature` (`LinkTabs` written outside the kit and the shell: 15 files to 2 in 4.2, Home's and the Map's, which the Home lane removes); `app/columns.test.ts` (a section of a resource is not a tab of its page).
@@ -2322,7 +2360,7 @@ NOUST_E2E_STATIC=/tmp/noust-dev-build npx playwright test design-contract tab-sw
 
 | Family | Tokens |
 |---|---|
-| Surface | `--bg-rail`, `--bg-column`, `--bg`, `--bg-sunken`, `--bg-sunken-deep`, `--surface`, `--surface-raised`, `--surface-hover`, `--surface-active`, `--rail-hover` |
+| Surface | `--bg-rail`, `--bg-column`, `--bg`, `--bg-sunken`, `--bg-sunken-deep`, `--surface`, `--surface-raised`, `--surface-hover`, `--surface-active`, `--rail-hover`, `--column-hover` |
 | Edge | `--edge`, `--joint`, `--carved-shade`, `--carved-lip`, `--border`, `--border-strong` |
 | Text | `--text`, `--text-muted`, `--text-faint` |
 | Interactive | `--accent`, `--accent-hover`, `--accent-soft`, `--accent-text`, `--accent-edge`, `--accent-joint`, `--on-accent`, `--focus`, `--selection`, `--match` |

@@ -1,6 +1,6 @@
 /**
  * The frame of the console at each of its widths, drawn by the real shell (docs/DESIGN.md, NV-1, NV-20):
- * the main bar and the context column from 1024 px (folded to icons below 1440), and a phone's bar at the
+ * the main bar and the context column from 1024 px (folded to icons below 1200), and a phone's bar at the
  * foot below it; jsdom's own width is 1024 px, and the others are given by resizing the window. There is
  * no other presentation to choose. What a browser alone can say (the slide, the pixels) is
  * e2e/frame.spec.ts's.
@@ -70,7 +70,7 @@ describe("the main bar", () => {
   });
 
   it("keeps the titles for a screen reader when it is folded, and draws only the joints", async () => {
-    await shellAt("/apps", 1366);
+    await shellAt("/apps", 1100);
     const nav = main();
     for (const title of TITLES) {
       const text = within(nav).getAllByText(title).find((candidate) => candidate.tagName === "P");
@@ -175,7 +175,32 @@ describe("the main bar", () => {
   });
 });
 
-describe("from 1440 px, the main bar and the column both open", () => {
+describe("a laptop's width (item 157)", () => {
+  it.each([1200, 1280, 1366])("reads the bar in words at %i px, with the column of the resource beside it, and nothing opens over the page", async (width) => {
+    await shellAt("/apps/shop.example.com", width);
+    const nav = main();
+    // The names are drawn, not left to a tooltip: the group titles are visible text and the fold button offers to fold.
+    for (const title of TITLES) expect(within(nav).getAllByText(title).find((text) => text.tagName === "P")).not.toHaveClass("sr-only");
+    expect(screen.getByRole("button", { name: "Fold the bar" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.queryByRole("button", { name: "Unfold the bar" })).toBeNull();
+    const column = await screen.findByRole("navigation", { name: "Application sections" });
+    expect(column.closest('[data-frame="column"]')).not.toBeNull();
+    expect(document.querySelector('[data-frame="veil"]')).toBeNull();
+  });
+
+  it("lets whoever wants icons fold the bar at these widths, and keeps the choice in the browser", async () => {
+    const { user } = await shellAt("/apps", 1280);
+    await user.click(screen.getByRole("button", { name: "Fold the bar" }));
+    expect(window.localStorage.getItem("noust.rail")).toBe("folded");
+    expect(screen.getByRole("button", { name: "Unfold the bar" })).toBeInTheDocument();
+    // Folded by choice, not for want of room: pressing it unfolds beside the page and nothing opens over it.
+    await user.click(screen.getByRole("button", { name: "Unfold the bar" }));
+    expect(window.localStorage.getItem("noust.rail")).toBeNull();
+    expect(document.querySelector('[data-frame="veil"]')).toBeNull();
+  });
+});
+
+describe("from 1200 px, the main bar and the column both open", () => {
   it("is a bar of areas with their names", async () => {
     await shellAt("/", 1440);
     expect(within(main()).getByRole("link", { name: "Applications" })).toBeVisible();
@@ -279,7 +304,7 @@ describe("from 1440 px, the main bar and the column both open", () => {
   });
 });
 
-describe("from 1024 to 1439 px, the main bar is folded and the column is beside it", () => {
+describe("from 1024 to 1199 px, the main bar is folded and the column is beside it", () => {
   it("has the column of a resource beside the folded bar at 1024 px, where 4.1 drew one bar", async () => {
     await shellAt("/apps/shop.example.com");
     expect(document.querySelector('[data-frame="rail"]')).not.toBeNull();
@@ -290,7 +315,7 @@ describe("from 1024 to 1439 px, the main bar is folded and the column is beside 
   });
 
   it("opens over the page by its button, which then says Close; Escape closes it", async () => {
-    const { user } = await shellAt("/", 1366);
+    const { user } = await shellAt("/", 1100);
     const open = screen.getByRole("button", { name: "Unfold the bar" });
     expect(open).toHaveAttribute("aria-expanded", "false");
     await user.click(open);
@@ -314,7 +339,7 @@ describe("from 1024 to 1439 px, the main bar is folded and the column is beside 
   });
 
   it("closes over a choice: going to an area puts the bar back", async () => {
-    const { user } = await shellAt("/", 1366);
+    const { user } = await shellAt("/", 1100);
     await user.click(screen.getByRole("button", { name: "Unfold the bar" }));
     await user.click(within(main()).getByRole("link", { name: "Databases" }));
     await screen.findByRole("heading", { level: 1, name: "Databases" });
@@ -322,7 +347,7 @@ describe("from 1024 to 1439 px, the main bar is folded and the column is beside 
   });
 
   it("closes by pressing the veil", async () => {
-    const { user } = await shellAt("/", 1366);
+    const { user } = await shellAt("/", 1100);
     await user.click(screen.getByRole("button", { name: "Unfold the bar" }));
     const veil = document.querySelector<HTMLElement>('[data-frame="veil"]');
     if (veil === null) throw new Error("no veil");
@@ -330,14 +355,14 @@ describe("from 1024 to 1439 px, the main bar is folded and the column is beside 
     expect(document.querySelector('[data-frame="veil"]')).toBeNull();
   });
 
-  it("follows the window across 1440: the choice saved there is what is drawn above it", async () => {
-    await shellAt("/", 1440);
+  it("follows the window across 1200: the choice saved there is what is drawn above it", async () => {
+    await shellAt("/", 1366);
     act(() => {
       setRailFold("folded");
     });
     expect(screen.getByRole("button", { name: "Unfold the bar" })).toBeInTheDocument();
-    resizeTo(1366);
-    // Below 1440 it is folded whatever was saved, and its button opens it over the page.
+    resizeTo(1100);
+    // Below 1200 it is folded whatever was saved, and its button opens it over the page.
     expect(screen.getByRole("button", { name: "Unfold the bar" })).toBeInTheDocument();
     act(() => {
       setRailFold("expanded");

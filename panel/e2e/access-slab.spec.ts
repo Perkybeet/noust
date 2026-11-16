@@ -263,7 +263,7 @@ for (const size of SIZES) {
       // The first account: reached the way the installer's link reaches it, with the token and its second factor.
       await signInWithToken(page, consoleServer);
       if (new URL(page.url()).pathname !== "/setup") await page.goto("/setup");
-      await expect(page.getByRole("heading", { level: 1, name: "Create the administrator" })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: "Create your administrator account" })).toBeVisible();
       await settle(page);
       await expectSlab(page, size.width);
       await capture(page, project, size.name, "first-account");

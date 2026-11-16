@@ -5,6 +5,15 @@
 @import "uplot/dist/uPlot.min.css" layer(components);
 
 /*
+ * The height of the window, for the one thing that has to fit it: the main bar (item 157, docs/DESIGN.md L-3). A laptop is 1366x768
+ * or 1280x720, and the bar is read in words from 1200px, so its rows and the titles of its groups take less height there and the
+ * whole bar, Settings included, is on screen without scrolling it. `short` is under 56rem (896px, where the bar no longer fits at
+ * its full size), `shorter` under 46rem (736px, where a group's title gives way to its joint alone).
+ */
+@custom-variant short (@media (max-height: 56rem));
+@custom-variant shorter (@media (max-height: 46rem));
+
+/*
  * Tailwind is re-pointed at the tokens. The default palette, type scale, shadows and radii
  * are removed so a raw `bg-red-500` or `text-sm` cannot compile: every colour and size on
  * screen comes from tokens.css.
@@ -28,6 +37,7 @@
   --color-bg-sunken: var(--bg-sunken);
   --color-bg-sunken-deep: var(--bg-sunken-deep);
   --color-rail-hover: var(--rail-hover);
+  --color-column-hover: var(--column-hover);
   --color-edge: var(--edge);
   --color-joint: var(--joint);
   --color-carved-shade: var(--carved-shade);
@@ -418,8 +428,10 @@
  *   elev-carved-fine  the same for what nobody presses: a track, a meter, a logo's tile, a copied value
  *   elev-seated    a low slab: panels, tables, dialogs, menus. It does not react to the pointer
  *   elev-raised    what is pressed: it rises 1px under the pointer and sinks 1px when pressed
- *   elev-lift      flat until the pointer is over it, then it rises like a raised piece (a list
- *                  item, a tab, a segment); the chosen one is the SlidingIndicator, which is raised
+ *
+ * An option of a row or a list (a tab, a segment, a section of the column) is not pressed in this sense: the
+ * chosen one is the SlidingIndicator, the one raised piece, and the others take a tone under the pointer
+ * (`hover-tone`, below), never a height.
  */
 @utility elev-carved {
   box-shadow: var(--elev-carved);
@@ -504,20 +516,50 @@
   }
 }
 
-@utility elev-lift {
+/*
+ * Under the pointer, an option that is not the chosen one (docs/DESIGN.md 2.6, E-4): its ground takes a step off the
+ * surface it sits on and its text goes to the full text colour. Flat: no rise, no edge, no joint, because the one
+ * thing in a row of options that is a piece is the chosen one (the sliding indicator), and an option that took its form
+ * under the pointer looked chosen (item 197). The chosen option is left out by what it says of itself, so no item
+ * needs a rule of its own to keep the hover off it. The ground is the carved rail's by default (tabs, segments); the
+ * surfaces that are another stone name theirs, and a destructive item keeps its colour.
+ */
+@utility hover-tone {
   transition:
-    transform var(--duration-press) var(--ease-standard),
-    box-shadow var(--duration-press) var(--ease-standard),
     background-color var(--duration-press) var(--ease-standard),
     color var(--duration-press) var(--ease-standard);
-  &:where(:not(:disabled, [data-disabled], [aria-disabled="true"])):is(:hover, [data-force="hover"]) {
-    transform: translateY(-1px);
-    box-shadow: var(--elev-raised-high);
+  &:where(
+      :not(
+        :disabled,
+        [data-disabled],
+        [aria-disabled="true"],
+        [aria-current="page"],
+        [aria-checked="true"],
+        [data-active],
+        [data-checked],
+        [data-status="active"]
+      )
+    ):is(:hover, [data-force="hover"]) {
+    background-color: var(--hover-ground, var(--bg-sunken-deep));
+    color: var(--hover-text, var(--text));
   }
-  &:where(:not(:disabled, [data-disabled], [aria-disabled="true"])):is(:active, [data-force="pressed"]) {
-    transform: translateY(1px);
-    box-shadow: var(--elev-raised-pressed);
-  }
+}
+
+@utility hover-ground-rail {
+  --hover-ground: var(--rail-hover);
+}
+
+@utility hover-ground-column {
+  --hover-ground: var(--column-hover);
+}
+
+/* The page's own stone, for a list of options that sits on it and not on a bar. */
+@utility hover-ground-page {
+  --hover-ground: var(--bg-sunken);
+}
+
+@utility hover-text-fail {
+  --hover-text: var(--fail);
 }
 
 /*

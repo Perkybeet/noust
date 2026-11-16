@@ -28,6 +28,7 @@ import { Select } from "../../components/ui/Select";
 import { StatusGlyph, StatusPill, stateTextClass } from "../../components/ui/StatusPill";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { Textarea } from "../../components/ui/Textarea";
+import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { downloadAddress } from "../../lib/clipboard";
@@ -387,7 +388,14 @@ export function AuditPage({ search, onSearchChange }: AuditPageProps) {
       <TrailNotice t={t} />
       <Section
         title={t("audit.page.title")} icon={OBJECT_ICONS.audit}
-        description={t("audit.page.description")}
+        // Said against its neighbour (item 160): this page is the record kept for reviews; to follow the work as it happens is Activity.
+        description={t.rich("audit.page.description", {
+          activity: (
+            <TextLink key="activity" to="/activity">
+              {t("audit.page.activityLink")}
+            </TextLink>
+          ),
+        })}
         actions={
           <>
             <Menu
