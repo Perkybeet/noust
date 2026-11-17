@@ -380,6 +380,7 @@ def check_address(
     address: str,
     *,
     allowed_hosts: Iterable[str] | None = None,
+    consented: Iterable[str] = (),
     resolver: Callable[[str], tuple[str, ...]] | None = None,
 ) -> Endpoint:
     """
@@ -389,6 +390,8 @@ def check_address(
         address: The base address, such as ``https://api.example.org/v1``.
         allowed_hosts: The hosts the operator listed as allowed though internal; the live
             ``security.allow_private_hosts`` when None.
+        consented: Hosts the operator consented to for this call alone (the assistant's own
+            consent to its provider's host), on top of the list: they open nothing else.
         resolver: How to resolve a name; the module's own, looked up now, when None.
 
     Returns:
@@ -431,7 +434,10 @@ def check_address(
         raise _bad_address(address) from exc
     allowed = frozenset(
         str(entry).lower()
-        for entry in (outbound.trusted_hosts() if allowed_hosts is None else allowed_hosts)
+        for entry in (
+            *(outbound.trusted_hosts() if allowed_hosts is None else allowed_hosts),
+            *consented,
+        )
     )
     # Judged on the addresses resolved here, once, and returned: what is dialled is what was judged.
     lookup = resolver or outbound.resolve_host
@@ -730,6 +736,7 @@ class ProviderClient:
         *,
         api_key: str = "",
         allowed_hosts: Iterable[str] | None = None,
+        consented_hosts: Iterable[str] = (),
         read_timeout: float = 60.0,
         total_timeout: float = 300.0,
         max_retries: int = 3,
@@ -745,6 +752,8 @@ class ProviderClient:
             api_key: The key, when the provider asks for one. Sent only in ``Authorization``.
             allowed_hosts: Hosts allowed though internal; the live ``security.allow_private_hosts``
                 when None, read at every request.
+            consented_hosts: Hosts the operator consented to for this provider alone, on top of
+                the list (``Settings.consented_hosts``).
             read_timeout: Seconds a read may wait for the provider.
             total_timeout: Seconds a whole request may take, retries and waits included.
             max_retries: How many times a 429 or a 5xx is tried again.
@@ -759,6 +768,7 @@ class ProviderClient:
         self.streaming = streaming
         self._api_key = api_key
         self._allowed = allowed_hosts
+        self._consented = tuple(consented_hosts)
         self._read_timeout = read_timeout
         self._total_timeout = total_timeout
         self._max_retries = max_retries
@@ -1241,7 +1251,9 @@ class _Exchange:
             ProviderError: It could not be made.
         """
         client = self._client
-        endpoint = check_address(client.base_url, allowed_hosts=client._allowed)
+        endpoint = check_address(
+            client.base_url, allowed_hosts=client._allowed, consented=client._consented
+        )
         connection: http.client.HTTPConnection
         if endpoint.scheme == "https":
             connection = _SecureConnection(endpoint, client._read_timeout)

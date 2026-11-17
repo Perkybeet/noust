@@ -878,6 +878,13 @@ class SupportSectionOut(BaseModel):
     collected: bool
 
 
+class SupportReplacementOut(BaseModel):
+    """One name the report replaced: ``real`` became ``alias`` wherever it was."""
+
+    real: str
+    alias: str
+
+
 class SupportReportOut(BaseModel):
     """The support report an operator pastes into an issue (``noust support report``)."""
 
@@ -887,6 +894,10 @@ class SupportReportOut(BaseModel):
     #: The whole report as Markdown, ready to copy.
     markdown: str
     sections: list[SupportSectionOut]
+    #: What was replaced and with what when ``hide_domains`` was asked, longest name first, so that what
+    #: a client adds to the same report (the console's browser adds its page and its errors) is replaced the
+    #: same way. Empty when domains were not hidden.
+    replacements: list[SupportReplacementOut] = []
 
 
 @router.get("/support-report", response_model=SupportReportOut)

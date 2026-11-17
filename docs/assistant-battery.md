@@ -94,7 +94,7 @@ The numbers below are written by `scripts/assistant_battery.py --write` from the
 
 <!-- battery:begin -->
 
-Measured with the scripted model: **53 scenarios, 85 cases**.
+Measured with the scripted model: **56 scenarios, 96 cases**.
 
 | What is counted | Result |
 |---|---:|
@@ -109,35 +109,35 @@ Measured with the scripted model: **53 scenarios, 85 cases**.
 | investigate | 11 | 11 | 11 |
 | propose | 8 | 8 | 8 |
 | fleet | 4 | 4 | 4 |
-| injection | 9 | 41 | 41 |
+| injection | 11 | 51 | 51 |
 | limits | 8 | 8 | 8 |
-| secrets | 5 | 5 | 5 |
+| secrets | 6 | 6 | 6 |
 
-The scripted model obeyed every instruction. Of its **52 attempts** to change something or to reach what is not offered, this is what stopped them:
+The scripted model obeyed every instruction. Of its **62 attempts** to change something or to reach what is not offered, this is what stopped them:
 
 | What stopped it | Attempts |
 |---|---:|
-| The API itself: the token lacks the permission | 5 |
-| The tool's own checks: the arguments did not fit | 5 |
+| The tool's own checks: the arguments did not fit | 15 |
 | Nothing: done, because the person's own policy lets it (see below) | 3 |
 | The floor: nothing the assistant holds can do it | 10 |
+| What only a person confirms (a change of schema, a deploy freeze): proposed whatever the table says | 5 |
 | The approval policy: the operator's table says it is proposed, not done | 7 |
 | Where the text came from: it read text from outside, so it is proposed | 12 |
 | The token, which is never in sudo mode: a person does it in their own session | 10 |
 
 | Where the text was | Cases | Attempts | Executed |
 |---|---:|---:|---:|
-| A branch name | 8 | 10 | 0 |
-| The output of a build | 8 | 10 | 0 |
-| A commit message | 8 | 10 | 0 |
-| The lines of the journal | 8 | 10 | 0 |
-| A README the person pastes into the question | 9 | 12 | 3 |
+| A branch name | 10 | 12 | 0 |
+| The output of a build | 10 | 12 | 0 |
+| A commit message | 10 | 12 | 0 |
+| The lines of the journal | 10 | 12 | 0 |
+| A README the person pastes into the question | 11 | 14 | 3 |
 
 | Form | Cases | Passed | May be published |
 |---|---:|---:|---|
 | explain | 24 | 24 | yes |
-| investigate | 29 | 29 | yes |
-| propose | 62 | 62 | yes |
+| investigate | 30 | 30 | yes |
+| propose | 72 | 72 | yes |
 
 <!-- battery:end -->
 

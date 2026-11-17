@@ -41,8 +41,9 @@ from noust.web.api.docker_models import DockerCleanupRequest
 from noust.web.api.openapi import api_routes, route_requires_elevation
 from noust.web.api.plan_models import PlanOutModel, plan_body
 from noust.web.api.plan_service import plan_service
+from noust.web.api.plan_share import hold_a_share
 
-router = APIRouter(route_class=NoustErrorRoute)
+router = APIRouter(route_class=NoustErrorRoute, dependencies=[Depends(hold_a_share)])
 
 
 class UpdatePlanRequest(BaseModel):
@@ -411,7 +412,7 @@ def plan_app_delete(
     return _with_needs(request, plan)
 
 
-certs_router = APIRouter(route_class=NoustErrorRoute)
+certs_router = APIRouter(route_class=NoustErrorRoute, dependencies=[Depends(hold_a_share)])
 
 
 class RenewPlanRequest(BaseModel):
@@ -496,7 +497,7 @@ def plan_app_migration(
     return _with_needs(request, plan)
 
 
-docker_router = APIRouter(route_class=NoustErrorRoute)
+docker_router = APIRouter(route_class=NoustErrorRoute, dependencies=[Depends(hold_a_share)])
 
 
 @docker_router.post("/cleanup/plan", response_model=PlanOutModel)

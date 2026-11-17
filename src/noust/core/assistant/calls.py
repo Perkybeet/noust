@@ -19,8 +19,10 @@ the environment of the resource. The answer is one of three:
 
 Where the policy says "does it" the assistant still only proposes a call that carries a value that
 is not the person's or Noust's (:mod:`noust.core.assistant.provenance`), a call made in a
-conversation that has read text from outside, and a call past the hour's limit on changes. None of
-this widens anything: it is the policy's answer or something stricter.
+conversation that has read text from outside, and a call past the hour's limit on changes. And what
+only a person confirms (going back past a change of schema, deploying past a freeze, making or lifting
+a freeze) is only proposed, whatever the cell says: the policy's floor decides it, not this module. None
+of this widens anything: it is the policy's answer or something stricter.
 """
 
 from __future__ import annotations
@@ -33,6 +35,7 @@ from noust.core.caller_policy import (
     ASSISTANT_NEVER_REASONS,
     NEVER,
     PRODUCTION,
+    VERDICT_ASSISTANT_PERSON,
     VERDICT_ASSISTANT_STRONG,
     CallerPolicy,
     Verdict,
@@ -87,8 +90,8 @@ class Decision:
             is proposed; ``refused`` for one that is not offered.
         why: The reason in a word, which is the end of the sentence's code
             (``assistant.proposal.why.<why>``): ``reads``, ``policy_alone``, ``policy_propose``,
-            ``needs_sudo``, ``needs_second``, ``foreign_value``, ``read_outside``, ``actions_limit``,
-            ``floor``, ``policy_never`` or ``not_offered``.
+            ``needs_sudo``, ``needs_second``, ``person_decides``, ``foreign_value``, ``read_outside``,
+            ``actions_limit``, ``floor``, ``policy_never`` or ``not_offered``.
         verdict: What the policy said.
         floor: For a refusal: it is the floor, which nobody changes, and not a cell of the table.
     """
@@ -125,6 +128,7 @@ def decide(
     tainted: bool,
     second_person: bool,
     actions_allowed: bool = True,
+    confirms: str | None = None,
     policy: CallerPolicy | None = None,
 ) -> Decision:
     """
@@ -139,12 +143,16 @@ def decide(
         second_person: A second person has to approve this very call (the four-eyes rule is on and
             covers it).
         actions_allowed: The hour's limit on changes has room.
+        confirms: The confirmation of a person the call carries
+            (:func:`noust.core.operation_classes.confirmation_in`), or None.
         policy: The policy of who calls; the server's when None.
 
     Returns:
         The decision.
     """
-    verdict = (policy or CallerPolicy()).decide(ASSISTANT, environment, operation, needed)
+    verdict = (policy or CallerPolicy()).decide(
+        ASSISTANT, environment, operation, needed, confirms=confirms
+    )
     if operation.kind == PUBLIC_CLASS or operation.permission in NEUTRAL_PERMISSIONS:
         # Somebody's own session, tokens and second factor, and the right to use the assistant
         # itself, are not what it is for.
@@ -156,6 +164,11 @@ def decide(
             if second_person:
                 return Decision(PROPOSE, TWO, "needs_second", verdict)
             return Decision(PROPOSE, YOU, "needs_sudo", verdict)
+        if verdict.reason == VERDICT_ASSISTANT_PERSON:
+            # What only a person confirms is shown to them and carried out by them, not refused.
+            if second_person:
+                return Decision(PROPOSE, TWO, "needs_second", verdict)
+            return Decision(PROPOSE, ASK, "person_decides", verdict)
         floor = verdict.reason in ASSISTANT_NEVER_REASONS
         return Decision(REFUSE, REFUSED, "floor" if floor else "policy_never", verdict, floor=floor)
     if not operation.changes:

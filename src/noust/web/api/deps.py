@@ -56,6 +56,7 @@ from noust.core import descriptors
 from noust.core.access import AccessConflictError, AccessError, AccessNotFoundError
 from noust.core.accounts import AccountNotFoundError, AuthenticationFailed
 from noust.core.applock import AppBusyError
+from noust.core.callers import PERSON, caller_of
 from noust.core.docker.errors import (
     DockerBlockedError,
     DockerOwnedError,
@@ -101,6 +102,7 @@ from noust.core.exceptions import (
     PermissionError as NoustPermissionError,
 )
 from noust.core.sealing import SealError, SecretsLockedError, WrongPassphraseError
+from noust.core.server_text import say
 from noust.core.teams import (
     ResourceNotFoundError,
     TeamConflictError,
@@ -1019,6 +1021,31 @@ async def require_elevated(
             :func:`ensure_elevated`.
     """
     ensure_elevated(request, session)
+    return session
+
+
+async def require_person(session: dict[str, Any] = Depends(require_auth)) -> dict[str, Any]:
+    """
+    Refuse a caller that is not a person, where a router asks for one.
+
+    The built-in assistant is the owner's own conversation and the approval policy is edited by whoever
+    answers for the server: a token, even one its owner gave those permissions, is the class the policy
+    judges and not one that may use the first or rewrite the second. Which class a request is comes
+    from the credential that authenticated it (:func:`noust.core.callers.caller_of`), never from
+    anything the caller says.
+
+    Args:
+        session: The authenticated session payload.
+
+    Returns:
+        The session payload, as ``require_auth`` does.
+
+    Raises:
+        PermissionError: 403 with the sentence ``callers.person_only`` for a token or the assistant's
+            own token.
+    """
+    if caller_of(session) != PERSON:
+        raise NoustPermissionError.from_text(say("callers.person_only"))
     return session
 
 

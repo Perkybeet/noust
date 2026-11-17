@@ -127,6 +127,12 @@ export const serverText: Catalog<typeof en> = {
       text: "Se apagó el asistente, así que lo que estaba haciendo se detuvo",
       hint: "Quien tenga el permiso settings.manage lo vuelve a encender en los ajustes del asistente.",
     },
+    outcome: {
+      other_call: {
+        text: "La llamada que se hizo no es la que muestra la propuesta",
+        hint: "El registro de auditoría tiene {made} bajo el identificador de esta propuesta, y la propuesta es {shown}. No se anota nada como hecho.",
+      },
+    },
     probe: {
       answers: {
         text: "El proveedor en {host} contesta",
@@ -148,6 +154,14 @@ export const serverText: Catalog<typeof en> = {
       },
     },
     proposal: {
+      operation_mismatch: {
+        text: "La ruta de la propuesta no es una llamada de la operación para la que es",
+        hint: "Una propuesta guarda la plantilla de su operación, y su ruta tiene una parte de ruta por cada parámetro de ella.",
+      },
+      path_rewritten: {
+        text: "Esa ruta no es de las que un navegador envía tal como están escritas",
+        hint: "Una ruta con un '..', un '.', un '//' o una barra invertida se reescribe antes de enviarse, así que la llamada hecha no sería la que muestra la propuesta.",
+      },
       why: {
         actions_limit: {
           text: "El asistente llegó al tope de cambios de esta hora, así que pregunta",
@@ -160,6 +174,9 @@ export const serverText: Catalog<typeof en> = {
         },
         needs_sudo: {
           text: "Esto pide que confirmes que eres tú (modo sudo), así que lo haces con tu propia sesión",
+        },
+        person_decides: {
+          text: "Esto confirma algo que solo confirma una persona (un cambio de esquema, un despliegue pasada una congelación o la congelación misma), así que pregunta aunque tu política lo dejara hacer solo",
         },
         policy_alone: {
           text: "Tu política de aprobación deja que el asistente haga esto sin preguntar",
@@ -331,6 +348,10 @@ export const serverText: Catalog<typeof en> = {
       },
     },
     turn: {
+      account_busy: {
+        text: "Ya tienes {limit} respuestas escribiéndose",
+        hint: "Espera a que acabe una, o para una, y pregunta otra vez.",
+      },
       busy: {
         text: "El asistente está contestando a todas las personas que puede a la vez",
         hint: "Prueba otra vez en un momento.",
@@ -441,6 +462,12 @@ export const serverText: Catalog<typeof en> = {
         text: "Un servidor de nombres es un servicio del que depende todo internet: si cae, caen todos los nombres que sirve",
         hint: "Pon al menos dos, en servidores de redes distintas, y mantén actualizados sus sistemas operativos.",
       },
+    },
+  },
+  callers: {
+    person_only: {
+      text: "Esto es para una persona: un token de acceso no puede hacerlo, tenga lo que tenga",
+      hint: "Entra en la consola con tu propia cuenta.",
     },
   },
   controls: {
@@ -2028,6 +2055,10 @@ export const serverText: Catalog<typeof en> = {
     waf_install: { text: "Instalar el cortafuegos de aplicaciones web" },
   },
   plans: {
+    credential_busy: {
+      text: "Ya tienes {limit} simulaciones en marcha",
+      hint: "Espera a que acabe una y vuelve a pedirlo.",
+    },
     blocked: {
       refused: {
         text: "Lo rechazaría: {reason}",

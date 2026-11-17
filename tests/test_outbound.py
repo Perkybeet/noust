@@ -243,3 +243,45 @@ class TestAPathOnAnApiHost:
     @pytest.mark.parametrize("value", [5, 42, "42"])
     def test_a_numeric_id_is_a_segment_too(self, value: object) -> None:
         assert outbound.path_segment(value) == str(value)
+
+
+class TestAPathABrowserSendsAsItIs:
+    """The path of a call the person's browser makes: what it sends is what the card shows (item 171)."""
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/api/apps/shop.example.com/restart",
+            "/api/teams/ops/notifications/channels/alerts",
+            "/api/apps/a%20b%2Fc/logs",
+            "/api/apps/a..b/restart",
+        ],
+    )
+    def test_a_path_that_is_only_segments_is_returned_as_it_is(self, path: str) -> None:
+        assert outbound.request_path(path) == path
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/api/teams/../notifications/channels/alerts",
+            "/api/teams/./x",
+            "/api/teams/%2e%2e/x",
+            "/api/teams/.%2E/x",
+            "/api/teams/x/..",
+            "/api/apps//restart",
+            "/api/apps/x/",
+            "/api\\apps\\x",
+            "/api/apps/x?y=1",
+            "/api/apps/x#y",
+            "api/apps/x",
+            "//evil.example.com/x",
+            "",
+            "/api/apps/a b/restart",
+            "/api/apps/x\n/restart",
+        ],
+    )
+    def test_a_path_a_browser_would_rewrite_or_that_is_more_than_a_path_is_refused(
+        self, path: str
+    ) -> None:
+        with pytest.raises(outbound.UnsafePath):
+            outbound.request_path(path)

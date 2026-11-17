@@ -28,7 +28,7 @@ from noust.web.assistant.identity import AssistantIdentity
 from noust.web.permissions.access import AccessManager
 from noust.web.server import get_token_manager
 from tests.support.scripted_model import Reply, ScriptedModel
-from tests.support.teams_support import World, build_world, make_person
+from tests.support.teams_support import World, build_world, make_person, sign_in
 
 pytestmark = pytest.mark.allow_sockets
 
@@ -94,7 +94,7 @@ def turn_on(world: World, model: ScriptedModel) -> None:
 
 
 def session_of(world: World, who: str) -> dict[str, Any]:
-    response = world.client.get("/api/auth/session", headers=world.people[who].headers)
+    response = sign_in(world, world.people[who].username).client.get("/api/auth/session")
     assert response.status_code == 200, response.text
     return response.json()["assistant"]
 
@@ -268,11 +268,11 @@ class TestUsage:
         meter = UsageMeter(Limits(), {}, "USD")
         meter.record_step(chat.id, omar.id, "tiny", Usage(1000, 100))
         meter.record_step("someone-elses", 999, "tiny", Usage(500, 50, estimated=True))
-        document = world.client.get(
-            "/api/assistant/usage",
-            headers=world.people["omar"].headers,
-            params={"conversation": chat.id},
-        ).json()
+        document = (
+            sign_in(world, "omar")
+            .client.get("/api/assistant/usage", params={"conversation": chat.id})
+            .json()
+        )
         assert document["conversation"]["steps"] == 1
         assert document["conversation"]["prompt_tokens"] == 1000
         assert document["month"]["steps"] == 2
@@ -281,11 +281,11 @@ class TestUsage:
 
     def test_a_conversation_that_is_not_the_callers_is_not_shown(self, world: World) -> None:
         other = Conversations().create(get_token_manager().accounts.find("root-admin").id)
-        document = world.client.get(
-            "/api/assistant/usage",
-            headers=world.people["omar"].headers,
-            params={"conversation": other.id},
-        ).json()
+        document = (
+            sign_in(world, "omar")
+            .client.get("/api/assistant/usage", params={"conversation": other.id})
+            .json()
+        )
         assert document["conversation"] is None
 
     def test_whoever_reads_the_settings_sees_what_it_cost_without_using_it(
@@ -323,9 +323,7 @@ class TestUsage:
         assert plain.json()["actions_last_hour"] is None
 
     def test_the_callers_own_numbers_are_still_for_whoever_uses_it(self, world: World) -> None:
-        document = world.client.get(
-            "/api/assistant/usage", headers=world.people["omar"].headers
-        ).json()
+        document = sign_in(world, "omar").client.get("/api/assistant/usage").json()
 
         assert document["actions_last_hour"] == 0
 
@@ -359,29 +357,31 @@ class TestConversations:
 
     def test_a_person_lists_reads_and_deletes_their_own(self, world: World) -> None:
         _chats, _account, identifier = self.make(world, "omar")
-        headers = world.people["omar"].headers
-        listed = world.client.get("/api/assistant/conversations", headers=headers).json()
+        omar = sign_in(world, "omar")
+        listed = omar.client.get("/api/assistant/conversations").json()
         assert [c["id"] for c in listed] == [identifier]
-        read = world.client.get(f"/api/assistant/conversations/{identifier}", headers=headers)
+        read = omar.client.get(f"/api/assistant/conversations/{identifier}")
         assert read.status_code == 200
         assert read.json()["messages"][0]["content"] == "Why is shop down from 203.0.113.7?"
-        gone = world.client.delete(f"/api/assistant/conversations/{identifier}", headers=headers)
+        gone = omar.client.delete(
+            f"/api/assistant/conversations/{identifier}", headers=omar.headers
+        )
         assert gone.json() == {"deleted": True}
-        assert world.client.get("/api/assistant/conversations", headers=headers).json() == []
+        assert omar.client.get("/api/assistant/conversations").json() == []
 
     def test_another_person_gets_what_a_conversation_that_does_not_exist_gets(
         self, world: World
     ) -> None:
         _chats, _account, identifier = self.make(world, "omar")
-        headers = world.people["admin"].headers
-        theirs = world.client.get(f"/api/assistant/conversations/{identifier}", headers=headers)
-        nothing = world.client.get("/api/assistant/conversations/nope", headers=headers)
+        other = sign_in(world, "root-admin")
+        theirs = other.client.get(f"/api/assistant/conversations/{identifier}")
+        nothing = other.client.get("/api/assistant/conversations/nope")
         assert theirs.status_code == nothing.status_code == 404
         assert theirs.json()["error"] == nothing.json()["error"]
-        assert world.client.delete(
-            f"/api/assistant/conversations/{identifier}", headers=headers
+        assert other.client.delete(
+            f"/api/assistant/conversations/{identifier}", headers=other.headers
         ).json() == {"deleted": False}
-        assert world.client.get("/api/assistant/conversations", headers=headers).json() == []
+        assert other.client.get("/api/assistant/conversations").json() == []
 
     def test_deleting_one_takes_back_its_token_and_is_on_the_record(
         self, world: World, events: list[tuple[str, dict[str, Any]]]
@@ -390,9 +390,8 @@ class TestConversations:
         issued = AssistantIdentity().issue(account, identifier)
         live = {"Authorization": f"Bearer {issued.token}"}
         assert world.client.get("/api/apps", headers=live).status_code == 200
-        world.client.delete(
-            f"/api/assistant/conversations/{identifier}", headers=world.people["omar"].headers
-        )
+        omar = sign_in(world, "omar")
+        omar.client.delete(f"/api/assistant/conversations/{identifier}", headers=omar.headers)
         assert world.client.get("/api/apps", headers=live).status_code == 401
         assert events[-1][0] == "assistant.conversation.delete"
 

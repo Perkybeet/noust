@@ -844,6 +844,7 @@ AssistantSettingsOut = TypedDict("AssistantSettingsOut", {
     "model": Required[str],
     "preset": Required[str],
     "prices": Required[dict[str, "PriceModel"]],
+    "private_host": NotRequired[str],
     "probe": NotRequired[Union["ProbeOut", None]],
     "probed_at": NotRequired[Union[str, None]],
     "updated_at": NotRequired[Union[str, None]],
@@ -7865,6 +7866,7 @@ PolicyFloor = TypedDict("PolicyFloor", {
 })
 
 PolicyOperations = TypedDict("PolicyOperations", {
+    "person": NotRequired[int],
     "strong": Required[int],
     "total": Required[int],
 })
@@ -11419,10 +11421,16 @@ SupportNoticeResponse = TypedDict("SupportNoticeResponse", {
     "version": NotRequired[Union[str, None]],
 })
 
+SupportReplacementOut = TypedDict("SupportReplacementOut", {
+    "alias": Required[str],
+    "real": Required[str],
+})
+
 SupportReportOut = TypedDict("SupportReportOut", {
     "generated_at": Required[str],
     "hide_domains": Required[bool],
     "markdown": Required[str],
+    "replacements": NotRequired[list["SupportReplacementOut"]],
     "sections": Required[list["SupportSectionOut"]],
     "version": Required[str],
 })

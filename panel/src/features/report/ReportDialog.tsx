@@ -16,6 +16,8 @@ import { archive, archiveName, reportFiles, DESCRIPTION_FILE } from "./bundle";
 import { browserBlock, currentFacts } from "./browserBlock";
 import { reportLink } from "./githubUrl";
 import type { ReportFields } from "./githubUrl";
+import { hideDomains, hidingFrom } from "./hideDomains";
+import type { Hiding } from "./hideDomains";
 import { supportReportQuery } from "./queries";
 import { redact } from "./redact";
 import { StepDone } from "./StepDone";
@@ -38,11 +40,11 @@ interface Made {
   blocked: boolean;
 }
 
-/** Hides every secret in the person's own text, and counts them. */
-function masked(draft: WhatDraft, version: string): { fields: ReportFields; hidden: number } {
-  const title = redact(draft.title.trim());
-  const happened = redact(draft.happened.trim());
-  const reproduce = redact(draft.reproduce.trim());
+/** Hides every secret in the person's own text, and counts them; the domains too, when the person asked. */
+function masked(draft: WhatDraft, version: string, hiding: Hiding): { fields: ReportFields; hidden: number } {
+  const title = redact(hideDomains(draft.title.trim(), hiding));
+  const happened = redact(hideDomains(draft.happened.trim(), hiding));
+  const reproduce = redact(hideDomains(draft.reproduce.trim(), hiding));
   return {
     fields: { title: title.text, version, area: draft.area, whatHappened: happened.text, reproduce: reproduce.text },
     hidden: title.holes + happened.holes + reproduce.holes,
@@ -72,18 +74,22 @@ export default function ReportDialog({ request, onClose }: { request: ReportRequ
   const [openedAt] = useState(() => new Date());
   const name = archiveName(openedAt);
   const [includeSupport, setIncludeSupport] = useState(true);
-  const [hideDomains, setHideDomains] = useState(false);
+  const [domainsHidden, setDomainsHidden] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
   const happenedRef = useRef<HTMLDivElement>(null);
   const images = useImages(step === "what" && made === null);
-  const support = useQuery({ ...supportReportQuery(hideDomains), enabled: includeSupport });
+  // Asked for the names it replaced too when the support report itself is left out: the browser's file hides the same ones.
+  const support = useQuery({ ...supportReportQuery(domainsHidden), enabled: includeSupport || domainsHidden });
   useAnnounceChange(step, t(`report.steps.${step}`));
 
   const version = session?.version ?? support.data?.version ?? "";
-  const { fields, hidden } = useMemo(() => masked(draft, version), [draft, version]);
+  // The names the server replaced, which the browser replaces the same way in what it adds; anything shaped like one when they could not be had.
+  const hiding = useMemo(() => hidingFrom(domainsHidden, support.data?.replacements), [domainsHidden, support.data]);
+  const { fields, hidden } = useMemo(() => masked(draft, version, hiding), [draft, version, hiding]);
   const link = useMemo(() => reportLink(fields), [fields]);
   // What the browser knows is read when the person gets to the step that shows it, not while they are typing.
-  const [browser, setBrowser] = useState(() => browserBlock(currentFacts(page, version === "" ? null : version, t.locale, recentErrors())));
+  const [facts, setFacts] = useState(() => currentFacts(page, version === "" ? null : version, t.locale, recentErrors()));
+  const browser = useMemo(() => browserBlock(facts, hiding), [facts, hiding]);
   const files = reportFiles({
     support: includeSupport && support.data !== undefined ? support.data.markdown : null,
     browser,
@@ -113,7 +119,7 @@ export default function ReportDialog({ request, onClose }: { request: ReportRequ
       happenedRef.current?.querySelector("textarea")?.focus();
       return;
     }
-    setBrowser(browserBlock(currentFacts(page, version === "" ? null : version, t.locale, recentErrors())));
+    setFacts(currentFacts(page, version === "" ? null : version, t.locale, recentErrors()));
     setStep("send");
   };
 
@@ -236,8 +242,8 @@ export default function ReportDialog({ request, onClose }: { request: ReportRequ
             <StepSend
               includeSupport={includeSupport}
               onIncludeSupport={setIncludeSupport}
-              hideDomains={hideDomains}
-              onHideDomains={setHideDomains}
+              hideDomains={domainsHidden}
+              onHideDomains={setDomainsHidden}
               support={support}
               files={files}
               cutName={cutName}

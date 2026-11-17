@@ -333,7 +333,8 @@ CREATE TABLE IF NOT EXISTS assistant_settings (
     probe TEXT NOT NULL DEFAULT '{}',
     probed_at TEXT,
     updated_at TEXT NOT NULL,
-    updated_by TEXT NOT NULL DEFAULT ''
+    updated_by TEXT NOT NULL DEFAULT '',
+    private_host TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS assistant_conversations (
     id TEXT PRIMARY KEY,
@@ -417,6 +418,7 @@ CREATE TABLE IF NOT EXISTS assistant_proposals (
     body TEXT,
     fingerprint TEXT NOT NULL,
     request_id TEXT NOT NULL,
+    template TEXT NOT NULL DEFAULT '',
     permission TEXT NOT NULL DEFAULT '',
     environment TEXT NOT NULL DEFAULT 'production',
     server TEXT NOT NULL DEFAULT '',
@@ -440,6 +442,14 @@ CREATE TABLE IF NOT EXISTS assistant_proposals (
 CREATE INDEX IF NOT EXISTS idx_assistant_proposals_conversation
     ON assistant_proposals(conversation_id, seq);
 """
+# ``assistant_proposals.template`` is the route's template the call was classified by, kept beside
+# the path so that what the person's browser carried out is held to that operation, and
+# ``assistant_settings.private_host`` is the host and port of a provider on this machine or the
+# operator's network that the operator consented to this server calling (the assistant's own
+# consent, gone with the provider or with turning the assistant off). Both are in the
+# ``CREATE TABLE`` above and not in the list below: the tables are new in 4.3, which no published
+# store has, so only a store of an unpublished build of 4.3 lacks the columns (drop its
+# ``assistant_*`` tables and open it again: they hold conversations kept for a month).
 ASSISTANT_COLUMNS: list[Column] = []
 
 # Owned by the Docker lane that updates images and edits a stack's Compose (item 189).

@@ -38,7 +38,6 @@ import re
 import sqlite3
 import sys
 import time
-import urllib.parse
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
@@ -84,12 +83,14 @@ from noust.core.assistant.settings import AssistantKeyError, AssistantSettings, 
 from noust.core.audit import record as audit_record
 from noust.core.caller_policy import Verdict
 from noust.core.config import REDACTED
-from noust.core.exceptions import NoustError
+from noust.core.exceptions import DomainError, NoustError, ValidationError
+from noust.core.operation_classes import confirmation_in
 from noust.core.paths import docs_directories
 from noust.core.scrubbing import hide_secrets, names_a_secret
 from noust.core.server_text import ServerText, say
 from noust.core.store import NoustStore
 from noust.core.teams.scope import Scope, bind
+from noust.validators.domain import validate_domain
 from noust.web.assistant import context as page_context
 from noust.web.assistant.bridge import ApiBridge
 from noust.web.assistant.identity import (
@@ -109,6 +110,7 @@ from noust.web.assistant.toolbox import (
     proxy_path,
 )
 from noust.web.mcp import guardrails
+from noust.web.mcp.tools import PathParameterRefused, fill_path
 
 __all__ = ["TokenCache", "TurnContext", "TurnRunner"]
 
@@ -136,6 +138,7 @@ WHY_CODES: dict[str, str] = {
     "policy_alone": "assistant.proposal.why.policy_alone",
     "needs_sudo": "assistant.proposal.why.needs_sudo",
     "needs_second": "assistant.proposal.why.needs_second",
+    "person_decides": "assistant.proposal.why.person_decides",
     "foreign_value": "assistant.proposal.why.foreign_value",
     "read_outside": "assistant.proposal.why.read_outside",
     "actions_limit": "assistant.proposal.why.actions_limit",
@@ -258,7 +261,12 @@ def default_client(settings: Settings, key: str) -> ProviderClient:
     Returns:
         The client of the provider.
     """
-    return ProviderClient(settings.base_url, settings.model, api_key=key)
+    return ProviderClient(
+        settings.base_url,
+        settings.model,
+        api_key=key,
+        consented_hosts=settings.consented_hosts,
+    )
 
 
 _DOCS: list[DocIndex] = []
@@ -1192,6 +1200,7 @@ class TurnRunner:
             tainted=self.tainted,
             second_person=self._second_person(prepared) if changes else False,
             actions_allowed=actions_ok,
+            confirms=confirmation_in(prepared.arguments),
         )
 
     def _change(self, prepared: Prepared) -> _Result:
@@ -1275,11 +1284,12 @@ class TurnRunner:
         if not prepared.plan:
             return None
         method, _, template = prepared.plan.partition(" ")
-        path = template
-        for name in _PATH_PARAMETER.findall(template):
-            if name not in prepared.arguments:
-                return None
-            path = path.replace("{" + name + "}", _quote(str(prepared.arguments[name])))
+        if any(name not in prepared.arguments for name in _PATH_PARAMETER.findall(template)):
+            return None
+        try:
+            path = fill_path(template, prepared.arguments)
+        except PathParameterRefused:
+            return None
         if prepared.server:
             path = proxy_path(prepared.server, path)
         assert self.token is not None  # noqa: S101 - set before any tool runs
@@ -1336,6 +1346,7 @@ class TurnRunner:
             klass=decision.klass,
             method=prepared.method,
             path=prepared.path,
+            template=prepared.template,
             query=[list(pair) for pair in prepared.query],
             body=prepared.body,
             fingerprint=fingerprint,
@@ -1410,6 +1421,7 @@ class TurnRunner:
             "tool": prepared.name,
             "method": prepared.method,
             "path": prepared.path,
+            "template": prepared.template,
             "query": [list(pair) for pair in prepared.query],
             "body": prepared.body,
             "fingerprint": snapshot(
@@ -1631,10 +1643,29 @@ def _tool_details(prepared: Prepared) -> dict[str, Any]:
     """
     details: dict[str, Any] = {"tool": prepared.name}
     if prepared.domain:
-        details["domain"] = prepared.domain
+        details["domain"] = audited_domain(prepared.domain)
     if prepared.server:
         details["server"] = prepared.server
     return details
+
+
+def audited_domain(value: str) -> str:
+    """
+    Args:
+        value: What the model put in the field that names an application.
+
+    Returns:
+        The domain when it is one Noust would accept as it stands (case and the blanks around it aside),
+        and otherwise only that it was not one and how long it was: the trail is not where what a model
+        wrote into a field is kept to be read later.
+    """
+    try:
+        checked = validate_domain(value)
+    except (DomainError, ValidationError):
+        return f"(not a domain, {len(value)} characters)"
+    if checked != value.strip().lower():
+        return f"(not a domain, {len(value)} characters)"
+    return checked
 
 
 def _shown_step(step: Mapping[str, Any]) -> dict[str, Any]:
@@ -1733,14 +1764,3 @@ def _route_missing(decoded: Any) -> bool:
         and decoded.get("detail") == "Not Found"
         and "error" not in decoded
     )
-
-
-def _quote(value: str) -> str:
-    """
-    Args:
-        value: A value that becomes a segment of a path.
-
-    Returns:
-        It quoted as one segment.
-    """
-    return urllib.parse.quote(value, safe="")

@@ -170,6 +170,14 @@ class TestReadingTheTable:
         assert root["strong"] == root["total"] - 1
         assert rows["apps.manage"]["operations"]["strong"] > 0
 
+    def test_it_says_how_much_of_a_row_is_a_persons_decision_whole(self, app: Any) -> None:
+        # Making and lifting a deploy freeze: the assistant only proposes them whatever its cell says, so a
+        # console that draws "does it" for the row says there are two it does not apply to.
+        sam = Person(app, "sam", "security")
+        rows = {r["permission"]: r for r in sam.get(URL).json()["rows"]}
+        assert rows["apps.deploy"]["operations"]["person"] == 2
+        assert rows["apps.operate"]["operations"]["person"] == 0
+
     def test_the_profile_that_asks_for_it_raises_the_floor_of_a_token_in_production(
         self, app: Any, real_config: Any
     ) -> None:
@@ -357,17 +365,22 @@ class TestGivingMoreFreedomAsksForASecondPerson:
         assert schema["paths"][URL]["get"]["x-noust-permission"] == "settings.read"
 
 
-class TestACallerThatIsNotAPersonCannotChangeItBeyondItsOwnCell:
-    def test_a_token_whose_cell_is_never_is_refused_and_an_assistant_always_is(
+class TestOnlyAPersonChangesTheTable:
+    def test_a_token_does_not_change_it_whatever_it_holds_and_whatever_its_cell_says(
         self, app: Any, store: NoustStore, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         sam = Person(app, "sam", "security")
         client = TestClient(app, client=("testclient", 50002))
-        body = change("token", "production", "apps.deploy", "alone")
+        body = change("token", "production", "apps.deploy", "never")
         script = issue(sam.account, "script", "security.manage", "settings.read", elevated=True)
-        assert client.put(URL, json=body, headers=script).status_code == 200
+        # A token holds security.manage and was issued for sudo mode, and its cell for that permission
+        # is "does it": the table is a person's all the same, so it cannot lift its own "never".
+        refused = client.put(URL, json=body, headers=script)
+        assert refused.status_code == 403
+        assert refused.json()["coded"]["code"] == "callers.person_only"
         CallerPolicy(store).set_cells([("token", "production", "security.manage", "never")], by="x")
         assert client.put(URL, json=body, headers=script).status_code == 403
+        assert CallerPolicy(store).cell("token", "production", "apps.deploy").chosen is None
         helper = issue(
             sam.account,
             "helper",
@@ -377,9 +390,9 @@ class TestACallerThatIsNotAPersonCannotChangeItBeyondItsOwnCell:
             assistant=True,
             monkeypatch=monkeypatch,
         )
-        refused = client.put(URL, json=body, headers=helper)
-        assert refused.status_code == 403
-        assert refused.json()["error"] == "approval_floor"
+        assert client.put(URL, json=body, headers=helper).status_code == 403
+        # What it may do is read the table.
+        assert client.get(URL, headers=script).status_code == 200
 
 
 @pytest.fixture

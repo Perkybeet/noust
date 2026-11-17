@@ -323,10 +323,23 @@ async function send(
  *
  * @throws ApiError for any non-2xx answer or when the server cannot be reached.
  */
-export async function api<T>(method: Method, path: string, body?: unknown, init: ApiInit = {}): Promise<T> {
+export function api<T>(method: Method, path: string, body?: unknown, init: ApiInit = {}): Promise<T> {
   // Resolved once, before the first await: a retry after "Confirm it's you" or a rate limit
   // goes to the same server, even if the operator switched in the meantime.
-  const node = activeNode();
+  return apiOn<T>(activeNode(), method, path, body, init);
+}
+
+/**
+ * Calls the API on a given server, whichever one is selected by now.
+ *
+ * For a call that belongs to a server chosen earlier than the click that sends it (a proposal of the
+ * assistant, made while the person looked at one server and approved after they moved to another):
+ * `null` is this server, and a path that already goes through the central's proxy keeps going to the
+ * server it names.
+ *
+ * @throws ApiError for any non-2xx answer or when the server cannot be reached.
+ */
+export async function apiOn<T>(node: string | null, method: Method, path: string, body?: unknown, init: ApiInit = {}): Promise<T> {
   const target = nodeApiPath(node, path);
   const answeredBy = target === path ? nodeOfProxyPath(path) : node;
   return (await send(method, target, body, init, answeredBy, true)) as T;

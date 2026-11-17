@@ -3153,7 +3153,7 @@ noust assistant configure [OPTIONS]
 | `--key-stdin` | Read the provider's key from one line of standard input. NOUST_ASSISTANT_API_KEY is read when this is not given. Never an argument. |  |
 | `--location` | Where a public provider keeps what it is sent, when you have a contract that says so. An address on this machine or your network says it itself. |  |
 | `--flow-reason` | Why a provider outside is an authorized flow (the contract, the data processing agreement). The ENS profile asks for it before the assistant is turned on with one. |  |
-| `--allow-private-host` | Say that this server may call the provider's host though it is on this machine or your network: the host is added to security.allow_private_hosts. |  |
+| `--allow-private-host` | Say that this server may call the provider's host and port though they are on this machine or your network. It is kept with the assistant's settings and holds for the assistant alone: it goes with the provider and with turning the assistant off. |  |
 | `--personal-data`, `--no-personal-data` | Disguise emails and addresses with markers before they are sent (always on for a provider that is not on this machine or your network). |  |
 | `--limit` | Change a limit: steps_per_turn, input_tokens_per_conversation, spend_per_conversation, spend_per_month, actions_per_hour. Never removed. |  |
 | `--price` | What a model costs per million tokens, in the currency below. Replaces the price table. Without one there is no limit on spending, only on tokens. |  |
@@ -3189,7 +3189,7 @@ noust assistant enable [OPTIONS]
 | `--key-stdin` | Read the provider's key from one line of standard input. NOUST_ASSISTANT_API_KEY is read when this is not given. Never an argument. |  |
 | `--location` | Where a public provider keeps what it is sent, when you have a contract that says so. An address on this machine or your network says it itself. |  |
 | `--flow-reason` | Why a provider outside is an authorized flow (the contract, the data processing agreement). The ENS profile asks for it before the assistant is turned on with one. |  |
-| `--allow-private-host` | Say that this server may call the provider's host though it is on this machine or your network: the host is added to security.allow_private_hosts. |  |
+| `--allow-private-host` | Say that this server may call the provider's host and port though they are on this machine or your network. It is kept with the assistant's settings and holds for the assistant alone: it goes with the provider and with turning the assistant off. |  |
 | `--personal-data`, `--no-personal-data` | Disguise emails and addresses with markers before they are sent (always on for a provider that is not on this machine or your network). |  |
 | `--limit` | Change a limit: steps_per_turn, input_tokens_per_conversation, spend_per_conversation, spend_per_month, actions_per_hour. Never removed. |  |
 | `--price` | What a model costs per million tokens, in the currency below. Replaces the price table. Without one there is no limit on spending, only on tokens. |  |

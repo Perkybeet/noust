@@ -18,6 +18,7 @@ function settings(overrides: Partial<AssistantSettings> = {}): AssistantSettings
     prices: { "tiny-model": { input_per_million: 0.08, output_per_million: 0.4 } },
     currency: "EUR",
     calls_tools: true,
+    private_host: "",
     updated_by: "marta",
     ...overrides,
   };

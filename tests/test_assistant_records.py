@@ -50,6 +50,7 @@ def call(**extra: object) -> dict:
         "klass": "ask",
         "method": "POST",
         "path": "/api/apps/api.example.org/restart",
+        "template": "/api/apps/{domain}/restart",
         "query": [],
         "body": None,
         "fingerprint": "f" * 64,
@@ -189,6 +190,64 @@ class TestProposals:
         again = Proposals(store).get(proposal.id, 1)
         assert again is not None and again.body == {"force": True}
 
+    def test_it_keeps_the_operation_it_is_for_beside_the_call(
+        self, store: NoustStore, conversation: str
+    ) -> None:
+        proposal = self.make(store, conversation)
+
+        again = Proposals(store).get(proposal.id, 1)
+
+        assert again is not None
+        assert (again.method, again.template) == ("POST", "/api/apps/{domain}/restart")
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/api/teams/../notifications/channels/alerts",
+            "/api/teams/%2e%2E/notifications/channels/alerts",
+            "/api/apps/./x/restart",
+            "/api/apps//restart",
+            "/api/apps\\x\\restart",
+            "/api/apps/x/restart?force=1",
+            "api/apps/x/restart",
+            "//evil.example.com/restart",
+        ],
+    )
+    def test_a_path_a_browser_would_rewrite_is_never_kept(
+        self, store: NoustStore, conversation: str, path: str
+    ) -> None:
+        # What the card shows is what is classified; what leaves the browser must be the same call.
+        with pytest.raises(ProposalError, match="browser"):
+            self.make(store, conversation, path=path)
+        assert Proposals(store).for_conversation(conversation, 1) == []
+
+    def test_a_proposal_without_its_operation_is_refused(
+        self, store: NoustStore, conversation: str
+    ) -> None:
+        with pytest.raises(ProposalError, match="operation"):
+            self.make(store, conversation, template="")
+
+    def test_a_path_that_is_not_an_instance_of_its_template_is_refused(
+        self, store: NoustStore, conversation: str
+    ) -> None:
+        # The segments of the path must be those of the template, one part for each parameter.
+        with pytest.raises(ProposalError, match="operation"):
+            self.make(store, conversation, template="/api/apps/{domain}/stop")
+        with pytest.raises(ProposalError, match="operation"):
+            self.make(store, conversation, template="/api/apps/{domain}/{other}/restart")
+
+    def test_through_a_servers_proxy_the_servers_own_template_is_what_is_kept(
+        self, store: NoustStore, conversation: str
+    ) -> None:
+        proposal = self.make(
+            store,
+            conversation,
+            path="/api/nodes/web-2/api/apps/api.example.org/restart",
+            server="web-2",
+        )
+
+        assert proposal.template == "/api/apps/{domain}/restart"
+
     def test_each_proposal_has_its_own_request_id_which_is_one_a_header_may_carry(self) -> None:
         a, b = new_request_id(), new_request_id()
         assert a != b
@@ -256,7 +315,9 @@ class TestProposals:
         self, store: NoustStore, conversation: str
     ) -> None:
         a = self.make(store, conversation)
-        b = self.make(store, conversation, path="/api/apps/x/stop")
+        b = self.make(
+            store, conversation, path="/api/apps/x/stop", template="/api/apps/{domain}/stop"
+        )
         proposals = Proposals(store)
         proposals.transition(a.id, 1, "done", by="marta")
         assert [p.id for p in proposals.untold(conversation, 1)] == [a.id]

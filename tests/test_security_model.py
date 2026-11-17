@@ -88,8 +88,8 @@ class TestEveryPromiseCanBeFalsified:
             assert guarantee.limit.strip(), guarantee.title
             assert guarantee.failure.strip() and guarantee.mechanism.strip(), guarantee.title
 
-    def test_there_are_eleven_guarantees_numbered_in_order(self, script: ModuleType) -> None:
-        assert [item.number for item in script.GUARANTEES] == list(range(1, 12))
+    def test_there_are_twelve_guarantees_numbered_in_order(self, script: ModuleType) -> None:
+        assert [item.number for item in script.GUARANTEES] == list(range(1, 13))
 
     def test_every_guard_of_an_input_class_can_be_called(self, script: ModuleType) -> None:
         assert script.missing_guards() == []
@@ -190,10 +190,10 @@ class TestPromisesMadeInProse:
         for target in re.findall(r"\]\((?!https?://|#|mailto:)([^)#]+)(?:#[^)]*)?\)", page):
             assert (DOC.parent / target).exists(), target
 
-    def test_the_guarantee_headings_are_the_eleven(self, page: str) -> None:
+    def test_the_guarantee_headings_are_the_twelve(self, page: str) -> None:
         headings = re.findall(r"^### (\d+)\. ", page, flags=re.MULTILINE)
 
-        assert headings == [str(number) for number in range(1, 12)]
+        assert headings == [str(number) for number in range(1, 13)]
 
 
 class TestTheOtherDocumentsPointHere:

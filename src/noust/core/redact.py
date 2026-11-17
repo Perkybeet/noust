@@ -251,6 +251,42 @@ def known_credentials() -> list[str]:
         return []
 
 
+def stored_secret_values(secrets: Any = None) -> list[str]:
+    """
+    Collect the secrets Noust keeps for the services it reaches: the private half of each deploy key and the
+    password of each registry account.
+
+    Best effort, like :func:`app_secret_values`: a store or a file that cannot be read is logged and
+    skipped, because what is asked is to remove, and a partly scrubbed text is better than none.
+
+    Args:
+        secrets: The secret store; the process-wide one when None.
+
+    Returns:
+        The secret values found: each private key whole and by its lines, each password.
+    """
+    from noust.core.deploy_keys import KEYS_FOLDER, PRIVATE_LEAVES, DeployKeyStore
+    from noust.core.registry_store import RegistryStore, secret_name_for
+    from noust.core.secrets import SecretStore
+
+    values: list[str] = []
+    try:
+        vault = secrets if secrets is not None else SecretStore()
+        for key in DeployKeyStore().keys():
+            for leaf in PRIVATE_LEAVES:
+                text = vault.read(f"{KEYS_FOLDER}/{key.name}/{leaf}")
+                if text:
+                    values.append(text)
+                    values.extend(line for line in text.splitlines() if len(line.strip()) >= 20)
+        for login in RegistryStore().list():
+            password = vault.read(secret_name_for(login.name))
+            if password:
+                values.append(password)
+    except (NoustError, OSError, sqlite3.Error) as exc:
+        logger.warning("Could not read the deploy keys or registry accounts to scrub them: %s", exc)
+    return values
+
+
 def app_secret_values(domain: str) -> list[str]:
     """
     Collect the secrets of a deployed application.

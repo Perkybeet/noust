@@ -33,6 +33,11 @@ from noust.core.timeutil import local_now_iso
 #: Longest key name; it is also a directory name under the secrets.
 MAX_NAME_LENGTH = 63
 
+#: Where the secret halves of a key are in the secret store: ``deploy-keys/<name>/<leaf>``, for the leaves
+#: in :data:`PRIVATE_LEAVES` the private text and for the others the public line.
+KEYS_FOLDER = "deploy-keys"
+PRIVATE_LEAVES = ("key", "next_key")
+
 #: What a key's name may be: it names a directory, so no dot first and no slash.
 _NAME = re.compile(r"[a-z0-9][a-z0-9._-]{0,62}")
 

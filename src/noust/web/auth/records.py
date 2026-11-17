@@ -109,6 +109,12 @@ ENS_TOKEN_EXCLUDED = frozenset(
     {Permission.ROOT_EQUIVALENT, Permission.ACCOUNTS_MANAGE, Permission.SECURITY_MANAGE}
 )
 
+#: What no API token holds, whatever its owner holds and whatever it was asked for: the built-in
+#: assistant is its owner's own conversation, and a token (narrowed to some teams, to some permissions
+#: and to what the approval policy lets a token do) would read through it what it cannot read and act
+#: through it where the policy says a token never acts.
+TOKEN_NEVER_HOLDS = frozenset({Permission.ASSISTANT_USE})
+
 
 def _api_enabled() -> bool:
     """

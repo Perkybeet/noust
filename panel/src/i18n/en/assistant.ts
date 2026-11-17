@@ -171,6 +171,9 @@ export const assistant = {
       send: "Send the question",
       foot: "It is an AI and it can be wrong. What changes something, you approve.",
     },
+    notSentPath: "Not sent: the address of this call, {path}, is not one a browser sends as it is written, so what left would not be the call shown here.",
+    notSentServer: "Not sent: the address of this call, {path}, does not go to the server this proposal is for.",
+    notSentHint: "Nothing was changed. Reject the proposal and ask again.",
   },
   palette: { ask: "Ask the AI assistant" },
 } as const;

@@ -27,10 +27,12 @@ import re
 import sqlite3
 from dataclasses import dataclass, replace
 from typing import Any
+from urllib.parse import unquote
 
 from noust.core.assistant.records import Proposal, ProposalError, Proposals
 from noust.core.audit import get_log
 from noust.core.exceptions import NoustError
+from noust.web.assistant.routing import route_of_decoded
 
 __all__ = ["Seen", "followed", "seen_in_audit"]
 
@@ -52,11 +54,15 @@ class Seen:
         audited: The audit trail is on and could be read.
         found: It has a line for the call.
         status: The status the line says (``ok`` is a success), when it says one.
+        other: When it has no line for the call but has one with the proposal's identifier by the same
+            person, that other call as ``METHOD path``: the browser made something else than the card
+            showed.
     """
 
     audited: bool
     found: bool = False
     status: int | None = None
+    other: str | None = None
 
 
 def seen_in_audit(proposal: Proposal, actor: str) -> Seen:
@@ -84,15 +90,27 @@ def seen_in_audit(proposal: Proposal, actor: str) -> Seen:
         logger.warning("The audit trail could not be read for a proposal: %s", exc)
         return Seen(audited=False)
     action = f"api.{proposal.method.lower()}"
+    # The trail records the path as the server received it, decoded; the proposal keeps it as it is sent.
+    shown = unquote(proposal.path)
+    other: str | None = None
     for entry in entries:
-        if entry.get("action") != action or entry.get("resource") != proposal.path:
-            continue
         if entry.get("actor") != actor:
             continue
-        result = str(entry.get("result") or "")
-        error = _ERROR_RESULT.fullmatch(result)
-        return Seen(audited=True, found=True, status=int(error.group(1)) if error else None)
-    return Seen(audited=True)
+        resource = str(entry.get("resource") or "")
+        if (
+            entry.get("action") == action
+            and resource == shown
+            and (
+                not proposal.template
+                or route_of_decoded(proposal.method, resource) == proposal.template
+            )
+        ):
+            result = str(entry.get("result") or "")
+            error = _ERROR_RESULT.fullmatch(result)
+            return Seen(audited=True, found=True, status=int(error.group(1)) if error else None)
+        verb = str(entry.get("action") or "").removeprefix("api.").upper()
+        other = other or f"{verb} {resource}"[:200]
+    return Seen(audited=True, other=other)
 
 
 def followed(

@@ -8,6 +8,8 @@
  */
 
 import type { ErrorEntry } from "../../lib/errorBuffer";
+import { OFF, hideDomains } from "./hideDomains";
+import type { Hiding } from "./hideDomains";
 import { redact } from "./redact";
 
 /** What the block is made of, before it is written down. */
@@ -79,12 +81,14 @@ export function browserName(userAgent: string): string {
  * Writes the block of the browser.
  *
  * @param facts - What the browser knows.
+ * @param hiding - How the domains are hidden, when the person asked to hide them: the page and every error go through it
+ * as the support report does, so the option holds for this file too.
  * @returns The JSON, masked, and how many secrets it hid.
  */
-export function browserBlock(facts: BrowserFacts): BrowserBlock {
+export function browserBlock(facts: BrowserFacts, hiding: Hiding = OFF): BrowserBlock {
   let holes = 0;
   const hide = (text: string): string => {
-    const result = redact(text);
+    const result = redact(hideDomains(text, hiding));
     holes += result.holes;
     return result.text;
   };

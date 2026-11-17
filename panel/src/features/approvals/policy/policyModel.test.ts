@@ -14,7 +14,7 @@ function row(permission: string, over: Partial<PolicyRow> = {}): PolicyRow {
     description: permission,
     key: false,
     changed: false,
-    operations: { total: 10, strong: 1 },
+    operations: { total: 10, strong: 1, person: 0 },
     cells: [cell("token", "production"), cell("token", "other"), cell("assistant", "production"), cell("assistant", "other")],
     ...over,
   };

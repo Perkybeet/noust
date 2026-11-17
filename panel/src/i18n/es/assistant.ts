@@ -168,6 +168,9 @@ export const assistant: Catalog<typeof en> = {
       send: "Enviar la pregunta",
       foot: "Es una IA y puede equivocarse. Lo que cambia algo, lo apruebas tú.",
     },
+    notSentPath: "No se envió: la dirección de esta llamada, {path}, no es de las que un navegador envía tal como están escritas, así que lo que saliera no sería la llamada que ves aquí.",
+    notSentServer: "No se envió: la dirección de esta llamada, {path}, no va al servidor al que corresponde esta propuesta.",
+    notSentHint: "No se ha cambiado nada. Rechaza la propuesta y vuelve a pedirlo.",
   },
   palette: { ask: "Preguntar al asistente de IA" },
 } as const;

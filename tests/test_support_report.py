@@ -337,6 +337,25 @@ def test_hide_domains_replaces_domains_unit_names_and_the_host_everywhere(
     assert "replaced" in markdown.splitlines()[2]
 
 
+def test_hide_domains_says_what_it_replaced_so_what_the_browser_adds_is_replaced_the_same(
+    store: NoustStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(socket, "gethostname", lambda: "vps-arenna-01")
+
+    hidden = reporter(store, runner(), hide_domains=True).build().to_dict()
+    shown = reporter(store, runner()).build().to_dict()
+
+    pairs = {item["real"]: item["alias"] for item in hidden["replacements"]}
+    assert pairs[DOMAIN].startswith("app-") and pairs[OTHER].startswith("app-")
+    assert pairs["shop-example-com"] == pairs[DOMAIN]
+    assert pairs["vps-arenna-01"] == "host"
+    # The longest first, so a domain is replaced whole before a name inside it.
+    lengths = [len(item["real"]) for item in hidden["replacements"]]
+    assert lengths == sorted(lengths, reverse=True)
+    # What is not hidden has nothing to replace.
+    assert shown["replacements"] == []
+
+
 def test_without_hide_domains_the_report_says_how_to_hide_them(store: NoustStore) -> None:
     markdown = reporter(store).build().to_markdown()
 

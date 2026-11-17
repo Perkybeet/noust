@@ -338,6 +338,31 @@ def api_path(path: str) -> str:
     return path
 
 
+def request_path(path: str) -> str:
+    """
+    Check the path of a call that a browser will send exactly as it is written.
+
+    A browser takes the dot segments out of a path before it sends it, and a backslash is a slash to
+    it, so a path that holds one is a different request than the one that was written down. The same
+    rules as :func:`api_path`, for a path with no query (a call's query is kept apart), and with no
+    empty segment either.
+
+    Args:
+        path: What follows the host: starts with one ``/`` and has no query.
+
+    Returns:
+        The path, unchanged.
+
+    Raises:
+        UnsafePath: It is not a plain path (see :func:`api_path`), carries a query, or has an empty
+            segment (``//``, or a trailing ``/``).
+    """
+    api_path(path)
+    if "?" in path or "" in path.split("/")[1:]:
+        raise UnsafePath(f"Not a path a browser sends as it is written: {path!r}")
+    return path
+
+
 def path_segment(value: str | int) -> str:
     """
     Turn a name into one segment of a request path.

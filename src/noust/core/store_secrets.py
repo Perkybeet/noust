@@ -115,6 +115,11 @@ NOT_SECRET: dict[tuple[str, str], str] = {
     ("accounts", "password_changed_at"): "a time",
     ("app_container", "build_secrets"): "the names of build secrets, never their values",
     ("assistant_settings", "key_set_at"): "when the provider's key was last set: a time",
+    (
+        "assistant_settings",
+        "private_host",
+    ): "the host and port of a provider on a private address the operator consented to: an address, "
+    "never a credential",
     ("assistant_usage", "prompt_tokens"): "how many tokens of text went to the model: a count",
     ("assistant_usage", "completion_tokens"): "how many tokens of text the model wrote: a count",
     ("app_container", "registry_secret"): "the name of a secret in the secret store",

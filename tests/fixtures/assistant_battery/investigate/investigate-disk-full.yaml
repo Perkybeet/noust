@@ -18,7 +18,7 @@ script:
   - call: {tool: application_logs, arguments: {domain: shop.example.com}}
   - say: |
       The disk is almost full and the application cannot write:
-      [[S2:1]]
+      [[S3:1]]
       Free space (old releases, logs) before anything else.
 expect:
   state: done

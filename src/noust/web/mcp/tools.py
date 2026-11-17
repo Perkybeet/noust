@@ -28,11 +28,11 @@ route may need a permission in :data:`FORBIDDEN_PERMISSIONS`.
 from __future__ import annotations
 
 import re
-import urllib.parse
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from noust.core.outbound import UnsafePath, path_segment
 from noust.web.permissions import Permission
 
 P = Permission
@@ -146,25 +146,59 @@ def _apps(answer: Any) -> Any:
     }
 
 
-def _env_names(answer: Any) -> Any:
+_ENV_NOTE = "Values are never shown to a client."
+_ENV_LINE = re.compile(r"\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_.-]*)\s*=")
+
+
+def env_names(answer: Any) -> Any:
     """
+    Reduce whatever reads variables to their names.
+
+    The one place that does it, for ``list_environment_variables`` and for every other read the
+    assistant makes that carries variables (an application's environment and its file, a preview's, a
+    team's, a project's, an environment's, the server's): a value that is not known to be a secret
+    and has no shape of one cannot be told from any other text, so no value is given at all.
+
     Args:
-        answer: ``GET /api/apps/{domain}/env``.
+        answer: What the route answered: the application's environment (``variables`` a mapping and
+            ``secrets`` beside it), a list of variables (``variables`` a list of objects with a
+            ``name``), or the text of an env file.
 
     Returns:
-        The names of the variables and which of them are secret. Never a
-        value, whatever the answer carried.
+        The names and which of them are secret, with the application, label or scope the answer was
+        about. Never a value, a comment or a default, whatever the answer carried.
     """
+    result: dict[str, Any] = {"domain": None, "variables": [], "note": _ENV_NOTE}
+    if isinstance(answer, str):
+        names = sorted(
+            {
+                m.group(1)
+                for line in answer.splitlines()
+                if (m := _ENV_LINE.match(line)) and not line.lstrip().startswith("#")
+            }
+        )
+        result["variables"] = [{"name": name, "secret": False} for name in names]
+        return result
+    if not isinstance(answer, dict):
+        return result
+    result["domain"] = answer.get("domain")
+    for key in ("label", "scope"):
+        if isinstance(answer.get(key), str):
+            result[key] = answer[key]
     variables = answer.get("variables", {})
-    classes = answer.get("secrets", {})
-    return {
-        "domain": answer.get("domain"),
-        "variables": [
-            {"name": name, "secret": bool((classes.get(name) or {}).get("secret", False))}
-            for name in sorted(variables)
-        ],
-        "note": "Values are never shown to a client.",
-    }
+    classes = answer.get("secrets") or {}
+    named: dict[str, bool] = {}
+    if isinstance(variables, dict):
+        for name in variables:
+            named[str(name)] = bool((classes.get(name) or {}).get("secret", False))
+    elif isinstance(variables, list):
+        for item in variables:
+            if isinstance(item, dict) and isinstance(item.get("name"), str):
+                secrecy = item.get("secrecy")
+                flag = secrecy.get("secret") if isinstance(secrecy, dict) else item.get("secret")
+                named[item["name"]] = bool(flag)
+    result["variables"] = [{"name": name, "secret": named[name]} for name in sorted(named)]
+    return result
 
 
 def _log_text(answer: Any) -> Any:
@@ -245,7 +279,7 @@ TOOLS: tuple[Tool, ...] = (
         "GET",
         "/api/apps/{domain}/env",
         GROUP_INSPECT,
-        shape=_env_names,
+        shape=env_names,
         hidden=frozenset({"unmask"}),
     ),
     Tool(
@@ -642,6 +676,81 @@ def _type_problem(schema: Mapping[str, Any], value: Any) -> str | None:
     return None
 
 
+class PathParameterRefused(ValueError):
+    """
+    A value of a path parameter that cannot be one part of a path.
+
+    The message is written for whoever made the call (a model), to correct it.
+    """
+
+
+def _segment(name: str, value: Any) -> str:
+    """
+    Args:
+        name: The path parameter.
+        value: What the caller gave it.
+
+    Returns:
+        The value as one part of a path.
+
+    Raises:
+        PathParameterRefused: It is empty, ``.``, ``..`` or holds a control character: a browser
+            takes a dot segment out of a path before it sends it, so the request that leaves would
+            be another operation than the one the path was made for.
+    """
+    try:
+        return path_segment(str(value))
+    except UnsafePath:
+        raise PathParameterRefused(
+            f"Argument {name!r} cannot be one part of a path: it is empty, '.', '..' or holds a "
+            "control character. Give the name itself."
+        ) from None
+
+
+def fill_path(template: str, values: Mapping[str, Any]) -> str:
+    """
+    Put the values of a route's parameters in its template, each as one part of the path.
+
+    The one place a path is made out of a template, for the MCP endpoint, the assistant and the
+    simulation of what a proposal would do: a value that what carries the request could take for
+    something else (``..``) is refused here and not guarded against later.
+
+    Args:
+        template: A route's template such as ``/api/apps/{domain}/restart``.
+        values: The value of each parameter the template names.
+
+    Returns:
+        The path.
+
+    Raises:
+        PathParameterRefused: A value cannot be one part of a path.
+    """
+    path = template
+    for name in _PARAMETER.findall(template):
+        path = path.replace("{" + name + "}", _segment(name, values[name]))
+    return path
+
+
+def path_problem(tool: Tool, arguments: Mapping[str, Any]) -> str | None:
+    """
+    Check the path parameters of a call before anything else is said about it.
+
+    Args:
+        tool: The tool.
+        arguments: What the model sent.
+
+    Returns:
+        A sentence saying which argument cannot be one part of a path, or None when all can.
+    """
+    for name in tool.path_parameters:
+        if name in arguments:
+            try:
+                _segment(name, arguments[name])
+            except PathParameterRefused as refused:
+                return str(refused)
+    return None
+
+
 def build_request(
     tool: Tool, openapi: Mapping[str, Any], arguments: Mapping[str, Any]
 ) -> tuple[str, dict[str, Any], dict[str, Any] | None]:
@@ -655,13 +764,13 @@ def build_request(
 
     Returns:
         ``(path, query, body)``; the body is None for a route without one.
+
+    Raises:
+        PathParameterRefused: A path parameter cannot be one part of a path.
     """
     operation = openapi["paths"][tool.path][tool.method.lower()]
     query_names = {p["name"] for p in operation.get("parameters", []) if p.get("in") == "query"}
-    path = tool.path
-    for name in tool.path_parameters:
-        value = urllib.parse.quote(str(arguments[name]), safe="")
-        path = path.replace("{" + name + "}", value)
+    path = fill_path(tool.path, {name: arguments[name] for name in tool.path_parameters})
     query = {k: v for k, v in arguments.items() if k in query_names}
     has_body = "requestBody" in operation
     body = (

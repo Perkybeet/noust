@@ -49,14 +49,16 @@ from noust.web.api.assistant_models import (
     TurnUsageOut,
 )
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, caller_account
+from noust.web.api.deps import NoustErrorRoute, caller_account, require_person
 from noust.web.api.plan_models import PlanOutModel
 from noust.web.auth import actor_label
 from noust.web.permissions.principal import actor_of, permissions_of, scope_of
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(route_class=NoustErrorRoute)
+# Every route here is the person's own conversation: asking, the proposals, and deciding them. A token acts
+# for its owner narrowed to what the policy says a token may do, so it does not talk to the assistant.
+router = APIRouter(route_class=NoustErrorRoute, dependencies=[Depends(require_person)])
 
 #: The longest question.
 MAX_QUESTION = 4_000
@@ -817,6 +819,24 @@ def report_outcome(
         )
     who = actor_label(session)
     seen = seen_in_audit(proposal, who)
+    if seen.audited and not seen.found and seen.other is not None:
+        # The browser sent another call than the card showed, under the proposal's identifier: said to
+        # the person, and kept on the trail for whoever looks at what the assistant did.
+        audit_record(
+            "assistant.outcome",
+            actor=actor_of(session),
+            target=f"conversation:{conversation_id[:8]}",
+            outcome="failure",
+            details={"proposal": proposal.id[:12], "tool": proposal.tool, "state": "other_call"},
+        )
+        raise ValidationError.from_text(
+            say(
+                "assistant.outcome.other_call",
+                made=seen.other,
+                shown=f"{proposal.method} {proposal.path}",
+            ),
+            field="proposal",
+        )
     if seen.audited and not seen.found:
         raise ValidationError(
             "The audit trail has no record of this call being made",

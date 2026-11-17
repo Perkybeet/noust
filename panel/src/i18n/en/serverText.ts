@@ -138,6 +138,12 @@ export const serverText = {
       text: "The assistant was turned off, so what it was doing stopped",
       hint: "A person with the settings.manage permission turns it on again in the assistant's settings.",
     },
+    outcome: {
+      other_call: {
+        text: "The call that was made is not the call the proposal shows",
+        hint: "The audit trail has {made} under this proposal's identifier, and the proposal is {shown}. Nothing is recorded as done.",
+      },
+    },
     probe: {
       answers: {
         text: "The provider at {host} answers",
@@ -159,6 +165,14 @@ export const serverText = {
       },
     },
     proposal: {
+      operation_mismatch: {
+        text: "The proposal's path is not a call of the operation it is for",
+        hint: "A proposal keeps the template of its operation, and its path has one part of a path for each parameter of it.",
+      },
+      path_rewritten: {
+        text: "That path is not one a browser sends as it is written",
+        hint: "A path with a '..', a '.', a '//' or a backslash is rewritten before it is sent, so the call made would not be the one the proposal shows.",
+      },
       why: {
         actions_limit: {
           text: "The assistant reached its limit of changes for this hour, so it asks",
@@ -171,6 +185,9 @@ export const serverText = {
         },
         needs_sudo: {
           text: "This asks you to confirm it is you (sudo mode), so you do it with your own session",
+        },
+        person_decides: {
+          text: "This confirms something only a person confirms (a change of schema, a deploy past a freeze, or a freeze itself), so it asks even where your policy would let it be done alone",
         },
         policy_alone: {
           text: "Your approval policy lets the assistant do this without asking",
@@ -342,6 +359,10 @@ export const serverText = {
       },
     },
     turn: {
+      account_busy: {
+        text: "You already have {limit} answers being written",
+        hint: "Wait for one to end, or stop one, and ask again.",
+      },
       busy: {
         text: "The assistant is answering as many people as it may at once",
         hint: "Try again in a moment.",
@@ -452,6 +473,12 @@ export const serverText = {
         text: "A name server is a service the whole internet depends on: if it is down, every name it serves is down",
         hint: "Run at least two, on servers in different networks, and keep their operating systems updated.",
       },
+    },
+  },
+  callers: {
+    person_only: {
+      text: "This is for a person: an access token cannot do it, whatever it holds",
+      hint: "Sign in to the console with your own account.",
     },
   },
   controls: {
@@ -2039,6 +2066,10 @@ export const serverText = {
     waf_install: { text: "Install the web application firewall" },
   },
   plans: {
+    credential_busy: {
+      text: "You already have {limit} plans being made",
+      hint: "Wait for one to end and ask again.",
+    },
     blocked: {
       refused: {
         text: "It would be refused: {reason}",

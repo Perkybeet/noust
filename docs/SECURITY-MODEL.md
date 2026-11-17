@@ -289,6 +289,26 @@ central that has been compromised, an application that has been compromised.
 
 **What it does not cover.** It is a mapping of controls to settings, not a certification, and the organisational measures stay the organisation's.
 
+### 12. The built-in assistant proposes, a person decides, and what bounds it is not the model
+
+**The failure it answers.** A model that reads text anybody can write can be talked into anything: [LLM01, prompt injection](https://genai.owasp.org/llmrisk/llm01-prompt-injection/) is the first risk of the OWASP list for applications of language models. What protects somebody must not depend on the model behaving.
+
+**The guarantee.** The assistant acts with a token of its own that never holds a permission of its floor, never sudo mode and never the permission to use the assistant; it is for people, so an API token cannot use it and the table of the approval policy is edited by a person alone. What changes something is judged by what the API publishes of its operation and by the policy, and is proposed for a person to carry out with their own session unless the operator's table lets it be done alone; what only a person confirms (a change of schema, a deploy freeze) is never done alone. A proposal is the call that is shown: a path a browser would rewrite is refused where it is made, the call carried out is held to the operation that was proposed and the browser refuses to send an address that is not the card's. Variables reach the model as names, the provider's key stays with the provider it was given for and what the model writes into a field is not put on the audit trail.
+
+**How it is enforced.** `web/assistant/` (the loop, the tools, the identity), `core/caller_policy.py`, `core/assistant/` (the settings, the masking), `web/api/deps.py` (`require_person`) and `panel/src/features/assistant/runProposal.ts`; the operator's side is `docs/assistant.md` and `docs/security-approvals.md`.
+
+**What fails if it stops holding.**
+
+  - `tests/test_assistant_dotdot.py::TestThePairsTheAuditFound::test_there_are_pairs_and_every_one_of_them_is_refused_before_it_is_a_proposal`
+  - `tests/test_assistant_people_only.py::TestTheAssistantIsForPeople::test_a_token_the_policy_forbids_does_not_act_through_the_assistant`
+  - `tests/test_assistant_people_only.py::TestThePolicyIsEditedByPeople::test_a_token_cannot_lift_its_own_never`
+  - `tests/test_assistant_person_decides.py::TestWhatTheModelTries::test_lifting_a_freeze_is_proposed_and_the_freeze_stays`
+  - `tests/test_assistant_variables.py::TestTheModelIsSentNoValue::test_variables_that_look_like_nothing_do_not_reach_the_provider`
+  - `tests/test_assistant_key_and_consent.py::TestTheKeyDoesNotFollowTheAddress::test_a_new_address_without_a_key_sends_the_provider_nothing_it_was_given`
+  - `tests/test_assistant_battery_injection.py::test_the_scenario`
+
+**What it does not cover.** It bounds what a misled model can do, it does not stop a model from being misled or from saying something wrong, and what a person approves is the person's: a card that is read badly is approved badly. The battery says what it tests and what it does not (`docs/assistant-battery.md`).
+
 <!-- /generated:guarantees -->
 
 ## Where text from a person reaches the machine

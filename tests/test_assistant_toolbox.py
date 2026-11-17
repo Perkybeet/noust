@@ -22,7 +22,7 @@ from noust.core.assistant_floor import ASSISTANT_FLOOR
 from noust.core.store import NoustStore
 from noust.web.assistant.toolbox import (
     FLEET_TOOLS,
-    OUTSIDE_TOOLS,
+    INSIDE_TOOLS,
     Reach,
     Toolbox,
     ToolProblem,
@@ -167,20 +167,48 @@ class TestACallThatFits:
         assert got.domain == DOMAIN
         assert got.needed == ("apps.operate",)
 
-    def test_what_the_state_of_noust_says_is_not_from_outside(
+    def test_what_a_read_returns_is_from_outside_whichever_tool_reads_it(
         self, openapi: dict[str, Any]
     ) -> None:
-        assert not box(openapi).prepare("list_certificates", {}).outside
-        assert box(openapi).prepare("get_deployment", {"deployment_id": 3}).outside
+        # The names of an application, of a certificate or of a backup are written by whoever made them,
+        # and the output of a health check carries the programs' own lines: nothing is trusted by being
+        # listed as state. What is not from outside is what Noust itself ships.
+        toolbox = box(openapi)
+        assert toolbox.prepare("list_certificates", {}).outside
+        assert toolbox.prepare("server_health", {}).outside
+        assert toolbox.prepare("get_deployment", {"deployment_id": 3}).outside
 
-    def test_the_outside_tools_are_the_ones_that_return_text_written_by_others(self) -> None:
-        assert {
-            "application_logs",
-            "deployment_log",
-            "job_log",
-            "diagnose_application",
-        } <= OUTSIDE_TOOLS
-        assert READS - OUTSIDE_TOOLS >= {"list_certificates", "list_backups", "server_health"}
+    def test_the_two_that_are_not_are_what_noust_ships_and_a_tool_that_is_new_is_from_outside(
+        self, openapi: dict[str, Any], tmp_path: Path
+    ) -> None:
+        # A tool nobody classified is a read like the others: from outside. The exceptions are a short list.
+        assert INSIDE_TOOLS == frozenset({"search_docs", "find_operation"})
+        (tmp_path / "a.md").write_text("# Page\n\nSomething about backups.\n")
+        toolbox = box(
+            openapi, reach=Reach(server="*", servers=("web-2",)), docs=DocIndex([tmp_path])
+        )
+        checked = 0
+        for described in toolbox.definitions():
+            name = described["function"]["name"]
+            parameters = described["function"]["parameters"]
+            if name == "call_operation" or name in INSIDE_TOOLS:
+                continue
+            samples = {"integer": 3, "string": "x"}
+            args = {
+                field: samples.get(parameters["properties"][field].get("type"), "x")
+                for field in parameters.get("required", [])
+            }
+            if "server" in parameters["properties"]:
+                args["server"] = "web-2"
+            if "confirm" in parameters["properties"]:
+                args["confirm"] = True
+            prepared = toolbox.prepare(name, args)
+            if prepared.read_only:
+                assert prepared.outside, name
+                checked += 1
+        assert checked >= 15
+        for name in INSIDE_TOOLS:
+            assert not toolbox.prepare(name, {"query": "backups"}).outside
 
     def test_what_does_not_fit_is_said_for_the_model_to_correct(
         self, openapi: dict[str, Any]

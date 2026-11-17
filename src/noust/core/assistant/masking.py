@@ -57,14 +57,16 @@ def server_secret_values(api_key: str = "") -> list[str]:
         api_key: The provider's key, which the model must never be sent back.
 
     Returns:
-        Noust's own credentials and the secret variables of every application, whoever may see
-        the application: this only removes, it discloses nothing. An application whose secrets
+        Noust's own credentials, the private half of every deploy key, the password of every
+        registry account and the secret variables of every application, whoever may see the
+        application: this only removes, it discloses nothing. An application whose secrets
         cannot be read is skipped (logged by the reader); the shapes still apply to its text.
     """
-    from noust.core.redact import app_secret_values
+    from noust.core.redact import app_secret_values, stored_secret_values
     from noust.core.store import get_store
 
     values = list(known_credentials())
+    values.extend(stored_secret_values())
     if api_key:
         values.append(api_key)
     for app in get_store().list_apps():

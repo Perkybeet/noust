@@ -188,6 +188,88 @@ class TestTheServerDoesNotTakeTheBrowsersWord:
         )
         assert outcome(lab, conversation, proposal, status=200).status_code == 400
 
+    def test_another_operation_made_with_the_proposals_identifier_is_named_and_audited(
+        self, lab: Lab
+    ) -> None:
+        # What a browser that rewrote the path would have done: the line of the audit trail carries the
+        # proposal's identifier and is another call than the one the card showed.
+        conversation, proposal = proposed_restart(lab)
+        lab.marta.client.request(
+            "POST",
+            f"/api/apps/{SHOP}/stop",
+            headers=lab.marta.headers(**proposal["call"]["headers"]),
+        )
+
+        response = outcome(lab, conversation, proposal, status=200)
+
+        assert response.status_code == 400
+        assert "not the call the proposal shows" in response.text
+        assert f"POST /api/apps/{SHOP}/stop" in response.text
+        assert lab.proposals(conversation)[0].state == "waiting"
+        said = [e for e in lab.audit_events() if e.get("action") == "assistant.outcome"]
+        assert said and said[-1]["details"]["state"] == "other_call"
+        assert said[-1]["result"] == "failure"
+
+    def test_the_audit_trail_names_a_path_decoded_and_so_is_the_proposals_compared(
+        self, lab: Lab
+    ) -> None:
+        # ``+`` is kept encoded in a path made of a name; the line of the audit trail has it decoded.
+        from noust.core.assistant.records import Proposals, Turns
+
+        lab.configure()
+        conversation = lab.conversation()
+        account = int(lab.marta.account.id)
+        turn = Turns(lab.store).begin(conversation, account, question="x", model="m", location="eu")
+        proposal = Proposals(lab.store).create(
+            conversation,
+            turn.id,
+            account,
+            tool="restart_application",
+            klass="ask",
+            method="POST",
+            path="/api/apps/a%2Bb.example.com/restart",
+            template="/api/apps/{domain}/restart",
+            query=[],
+            body=None,
+            fingerprint="f" * 64,
+            permission="apps.operate",
+            environment="production",
+            server="",
+            title={"code": "assistant.act.restart_application", "params": {}},
+            effect="Restart an application",
+            why={"code": "assistant.proposal.why.policy_propose", "params": {}},
+            facts=[],
+            plan=None,
+            needs={"elevation": False, "second_person": False},
+        )
+        lab.marta.client.post(
+            proposal.path, headers=lab.marta.headers(**{"X-Noust-Request-Id": proposal.request_id})
+        )
+
+        response = lab.marta.post(
+            f"/api/assistant/conversations/{conversation}/proposals/{proposal.id}/outcome",
+            {"fingerprint": proposal.fingerprint, "status": 200},
+        )
+
+        assert response.status_code == 200, response.text
+        assert (response.json()["state"], response.json()["verified"]) == ("done", True)
+
+    def test_a_call_is_held_to_the_operation_the_proposal_kept(self, lab: Lab) -> None:
+        # The path is the proposal's own, but the operation the server routes it to is not the one the
+        # proposal was classified by: it is not given as what was proposed.
+        conversation, proposal = proposed_restart(lab)
+        carry_out(lab, proposal)
+        with lab.store._transaction() as cursor:
+            cursor.execute(
+                "UPDATE assistant_proposals SET template = ? WHERE id = ?",
+                ("/api/apps/{domain}/stop", proposal["id"]),
+            )
+
+        response = outcome(lab, conversation, proposal, status=200)
+
+        assert response.status_code == 400
+        assert lab.proposals(conversation)[0].state == "waiting"
+
     def test_it_must_be_the_exact_call(self, lab: Lab) -> None:
         conversation, proposal = proposed_restart(lab)
         carry_out(lab, proposal)

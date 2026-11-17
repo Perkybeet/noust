@@ -204,7 +204,9 @@ _VALUE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
             rf"\b(?:noust_tok_|{re.escape(legacy_names.API_TOKEN_PREFIX)})[A-Za-z0-9_\-]{{16,}}"
         ),
     ),
-    ("telegram bot token", re.compile(r"\b[0-9]{8,10}:[A-Za-z0-9_\-]{30,}\b")),
+    # With the word "bot" in front of it when it is in the address of the Bot API (``/bot<id>:<token>/``): there is
+    # no boundary between the word and the digits, so the token alone is not found there.
+    ("telegram bot token", re.compile(r"\b(?:bot)?[0-9]{8,10}:[A-Za-z0-9_\-]{30,}\b")),
     # Provider API keys of the form "sk-" followed by at least 32 more
     # characters. Checked after Stripe, which uses "sk_" (underscore) rather
     # than "sk-" (hyphen), so the two shapes cannot collide.

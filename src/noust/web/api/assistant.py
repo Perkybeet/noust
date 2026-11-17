@@ -33,7 +33,13 @@ from noust.core.audit import record as audit_record
 from noust.core.exceptions import PermissionError as NoustPermissionError
 from noust.core.server_text import say
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import CodedText, NoustErrorRoute, caller_account, require_elevated
+from noust.web.api.deps import (
+    CodedText,
+    NoustErrorRoute,
+    caller_account,
+    require_elevated,
+    require_person,
+)
 from noust.web.auth import actor_label
 from noust.web.permissions.principal import actor_of
 from noust.web.pydantic_compat import dump_set_fields
@@ -112,6 +118,10 @@ class AssistantSettingsOut(BaseModel):
         probe: What the probe last found; None when it has not run since the provider changed.
         probed_at: When.
         calls_tools: The model was found to call tools, so it may investigate.
+        private_host: The host and port of a provider on this machine or the operator's network that the
+            operator consented to this server calling, or empty. It is the assistant's own consent: it is
+            kept with these settings, and goes with the provider and with turning the assistant off, so
+            it is said again to turn the assistant on.
         updated_at: When the settings last changed.
         updated_by: Who changed them.
     """
@@ -132,6 +142,7 @@ class AssistantSettingsOut(BaseModel):
     probe: ProbeOut | None = None
     probed_at: str | None = None
     calls_tools: bool
+    private_host: str = ""
     updated_at: str | None = None
     updated_by: str
 
@@ -146,7 +157,9 @@ class AssistantSettingsIn(BaseModel):
         preset: A provider preset (``GET /api/assistant/presets``): it fills the address.
         base_url: The provider's address, up to its version.
         model: The model's name.
-        api_key: The key; an empty text takes it away. Sealed when stored, never given back.
+        api_key: The key; an empty text takes it away. Sealed when stored, never given back. A request that
+            moves the assistant to another origin (scheme, host or port) without a key of its own empties
+            the one that is kept and turns the assistant off: a key was given for one provider.
         location: Where the data ends up, for a public provider the operator has a contract with.
         flow_reason: Why a provider outside is an authorized flow.
         mask_personal: Whether emails and addresses are disguised; only a provider of one's own
@@ -154,9 +167,10 @@ class AssistantSettingsIn(BaseModel):
         limits: Limits to change, by name; the others stay.
         prices: The whole price table.
         currency: What the prices are in.
-        allow_private_host: Consent that this server calls the provider's host though it is on
-            this machine or the network: the host is listed in ``security.allow_private_hosts``. Left out, or
-            null, there is no consent (false).
+        allow_private_host: Consent that this server calls the provider's host and port though they are on
+            this machine or the network. It is kept with the assistant's settings and holds for its requests
+            to that address alone (it does not touch ``security.allow_private_hosts``); it goes with the
+            provider and with turning the assistant off. Left out, or null, there is no consent (false).
         probe: Probe the provider after saving a change to it. Left out, or null, it is probed (true).
     """
 
@@ -387,6 +401,20 @@ def _settings_out(settings: Any) -> AssistantSettingsOut:
     return AssistantSettingsOut(**document)
 
 
+def _turned_off(session: dict[str, Any]) -> None:
+    """
+    Say on the audit trail that the assistant is off, and take back what it was acting with.
+
+    Args:
+        session: The authenticated session that turned it off, or whose change did.
+    """
+    from noust.web.assistant.identity import AssistantIdentity
+
+    audit_record("assistant.disable", actor=actor_of(session), target="setting:assistant")
+    AssistantIdentity().revoke_all(actor=actor_of(session))
+    _stop_turns()
+
+
 def _stop_turns() -> None:
     """Ask every turn that is being answered to stop, and forget the tokens held for them: it was turned off."""
     from noust.web.assistant.turns import registry, tokens
@@ -454,7 +482,6 @@ def put_settings(
     """
     from noust.core.assistant.probe import probe_configured
     from noust.core.assistant.settings import AssistantSettings
-    from noust.web.assistant.identity import AssistantIdentity
 
     fields = {k: v for k, v in dump_set_fields(body).items() if v is not None}
     enabled = fields.pop("enabled", None)
@@ -462,14 +489,24 @@ def put_settings(
     consent = bool(fields.pop("allow_private_host", False))
     who = actor_label(session)
     store = AssistantSettings()
+    before = store.read()
     if fields or consent:
-        store.update(actor=who, allow_private_host=consent, **fields)
+        after = store.update(actor=who, allow_private_host=consent, **fields)
+        cleared = before.has_key and not after.has_key and "api_key" not in fields
         audit_record(
             "assistant.settings",
             actor=actor_of(session),
             target="setting:assistant",
-            details={"changed": sorted(fields), "key_set": "api_key" in fields},
+            details={
+                "changed": sorted(fields),
+                "key_set": "api_key" in fields,
+                # The provider moved to another origin without a key of its own: the key stays with
+                # the provider it was given for, and the assistant is off until one is given.
+                "dropped": "the provider key" if cleared else "",
+            },
         )
+        if before.enabled and not after.enabled and enabled is None:
+            _turned_off(session)
     current = store.read()
     if (
         probe_after
@@ -489,9 +526,7 @@ def put_settings(
         audit_record("assistant.enable", actor=actor_of(session), target="setting:assistant")
     elif enabled is False:
         store.disable(actor=who)
-        audit_record("assistant.disable", actor=actor_of(session), target="setting:assistant")
-        AssistantIdentity().revoke_all(actor=actor_of(session))
-        _stop_turns()
+        _turned_off(session)
     return _settings_out(store.read())
 
 
@@ -682,7 +717,9 @@ def usage(
 # -- conversations ---------------------------------------------------------------------------------
 
 
-@router.get("/conversations", response_model=list[ConversationOut])
+@router.get(
+    "/conversations", response_model=list[ConversationOut], dependencies=[Depends(require_person)]
+)
 def list_conversations(
     session: Annotated[dict, Depends(get_current_session)],
 ) -> list[ConversationOut]:
@@ -702,7 +739,11 @@ def list_conversations(
     ]
 
 
-@router.get("/conversations/{conversation_id}", response_model=ConversationDetailOut)
+@router.get(
+    "/conversations/{conversation_id}",
+    response_model=ConversationDetailOut,
+    dependencies=[Depends(require_person)],
+)
 def get_conversation(
     conversation_id: str, session: Annotated[dict, Depends(get_current_session)]
 ) -> ConversationDetailOut:
@@ -753,7 +794,11 @@ def get_conversation(
     )
 
 
-@router.delete("/conversations/{conversation_id}", response_model=DeletedOut)
+@router.delete(
+    "/conversations/{conversation_id}",
+    response_model=DeletedOut,
+    dependencies=[Depends(require_person)],
+)
 def delete_conversation(
     conversation_id: str, session: Annotated[dict, Depends(get_current_session)]
 ) -> DeletedOut:

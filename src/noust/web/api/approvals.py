@@ -63,6 +63,7 @@ from noust.core.accounts.approvals import (
 from noust.core.caller_policy import NEVER, PROPOSE
 from noust.core.callers import ASSISTANT, PERSON, caller_of
 from noust.core.compliance import explain
+from noust.core.operation_classes import confirmation_in
 from noust.core.server_text import Param, ServerText, say
 from noust.core.teams import current_scope, scoped_store
 from noust.web.api import caller_gate
@@ -684,6 +685,16 @@ async def require_approval(
     held = False
     if caller != PERSON:
         requirement = route_requirement(method, rule_template, needed)
+        confirms = None
+        if caller == ASSISTANT:
+            # What a person confirms is what the body and the query of the call say: read here, where the
+            # call is judged, so the assistant's token cannot carry one past the policy by any road.
+            if raw is None:
+                raw = await request.body()
+            body = _json_body(raw)
+            confirms = confirmation_in(
+                {**(body if isinstance(body, dict) else {}), **request.query_params}
+            )
         judgement = await caller_gate.judge(
             request,
             session,
@@ -694,6 +705,7 @@ async def require_approval(
             approval_when=requirement["when"] if requirement else None,
             four_eyes_action=rule.action if rule is not None else None,
             proxied=proxied,
+            confirms=confirms,
         )
         if judgement.verdict.value == NEVER:
             caller_gate.refuse(request, session, judgement)

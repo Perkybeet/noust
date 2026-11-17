@@ -35,7 +35,7 @@ from noust.core.caller_policy import (
 from noust.core.callers import POLICED
 from noust.core.operation_classes import CHANGE_PERMISSIONS, classify_schema
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, require_elevated
+from noust.web.api.deps import NoustErrorRoute, require_elevated, require_person
 from noust.web.permissions.principal import audit_actor
 from noust.web.pydantic_compat import bounded_list, dump_model
 
@@ -89,10 +89,14 @@ class PolicyOperations(BaseModel):
         strong: Of those, the ones that ask for sudo mode or for a second person every time: the built-in
             assistant never does them, whatever its cell says, and a token does them only as its own sudo
             mode allows.
+        person: Of those, the ones that are a person's decision whole (making or lifting a deploy freeze):
+            the built-in assistant only proposes them, whatever its cell says, so "does it" in this row is
+            for the rest.
     """
 
     total: int
     strong: int
+    person: int = 0
 
 
 class PolicyRowInfo(BaseModel):
@@ -213,7 +217,7 @@ class PolicyChange(BaseModel):
     reset: list[PolicyCellRef] = bounded_list(MAX_CELLS)
 
 
-def _operations(request: Request) -> dict[str, tuple[int, int]]:
+def _operations(request: Request) -> dict[str, tuple[int, int, int]]:
     """
     Count what each permission governs, from the API's own schema, once per application.
 
@@ -221,20 +225,25 @@ def _operations(request: Request) -> dict[str, tuple[int, int]]:
         request: The request, for its application.
 
     Returns:
-        Permission to ``(operations that change something, of which strong)``.
+        Permission to ``(operations that change something, of which strong, of which a person's
+        decision whole)``.
     """
     app = request.app
     schema = app.openapi()
     cached = getattr(app.state, _CLASSES_ATTRIBUTE, None)
     if cached is None or cached[0] is not schema:
-        counts: dict[str, tuple[int, int]] = {}
+        counts: dict[str, tuple[int, int, int]] = {}
         for found in classify_schema(schema).values():
             if found.changes and found.permission in CHANGE_PERMISSIONS:
-                total, strong = counts.get(found.permission, (0, 0))
-                counts[found.permission] = (total + 1, strong + int(found.strong))
+                total, strong, person = counts.get(found.permission, (0, 0, 0))
+                counts[found.permission] = (
+                    total + 1,
+                    strong + int(found.strong),
+                    person + int(found.person_decides),
+                )
         cached = (schema, counts)
         setattr(app.state, _CLASSES_ATTRIBUTE, cached)
-    counted: dict[str, tuple[int, int]] = cached[1]
+    counted: dict[str, tuple[int, int, int]] = cached[1]
     return counted
 
 
@@ -259,7 +268,7 @@ def _cell(cell: Cell) -> PolicyCellInfo:
     )
 
 
-def _row(row: Row, counts: dict[str, tuple[int, int]]) -> PolicyRowInfo:
+def _row(row: Row, counts: dict[str, tuple[int, int, int]]) -> PolicyRowInfo:
     """
     Args:
         row: A row of the policy.
@@ -268,14 +277,14 @@ def _row(row: Row, counts: dict[str, tuple[int, int]]) -> PolicyRowInfo:
     Returns:
         How the API shows it.
     """
-    total, strong = counts.get(row.permission, (0, 0))
+    total, strong, person = counts.get(row.permission, (0, 0, 0))
     return PolicyRowInfo(
         permission=row.permission,
         area=row.area,
         description=row.description,
         key=row.key,
         changed=any(cell.chosen is not None for cell in row.cells),
-        operations=PolicyOperations(total=total, strong=strong),
+        operations=PolicyOperations(total=total, strong=strong, person=person),
         cells=[_cell(cell) for cell in row.cells],
     )
 
@@ -327,7 +336,7 @@ def get_approval_policy(
     return table(request)
 
 
-@router.put("", response_model=ApprovalPolicyTable)
+@router.put("", response_model=ApprovalPolicyTable, dependencies=[Depends(require_person)])
 def put_approval_policy(
     body: PolicyChange,
     request: Request,
@@ -511,7 +520,7 @@ def _owner_of(record: dict[str, Any]) -> str | None:
     return account.username if account is not None else None
 
 
-@router.post("/preview", response_model=PolicyPreview)
+@router.post("/preview", response_model=PolicyPreview, dependencies=[Depends(require_person)])
 def preview_approval_policy(
     body: PolicyChange, session: dict[str, Any] = Depends(get_current_session)
 ) -> PolicyPreview:

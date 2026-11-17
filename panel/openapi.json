@@ -4954,7 +4954,7 @@
         "type": "object"
       },
       "AssistantSettingsIn": {
-        "description": "What to change; what is left out stays.\n\nAttributes:\n    enabled: True turns the assistant on (after a probe found the provider answering), False\n        turns it off and revokes its tokens.\n    preset: A provider preset (``GET /api/assistant/presets``): it fills the address.\n    base_url: The provider's address, up to its version.\n    model: The model's name.\n    api_key: The key; an empty text takes it away. Sealed when stored, never given back.\n    location: Where the data ends up, for a public provider the operator has a contract with.\n    flow_reason: Why a provider outside is an authorized flow.\n    mask_personal: Whether emails and addresses are disguised; only a provider of one's own\n        may have it off.\n    limits: Limits to change, by name; the others stay.\n    prices: The whole price table.\n    currency: What the prices are in.\n    allow_private_host: Consent that this server calls the provider's host though it is on\n        this machine or the network: the host is listed in ``security.allow_private_hosts``. Left out, or\n        null, there is no consent (false).\n    probe: Probe the provider after saving a change to it. Left out, or null, it is probed (true).",
+        "description": "What to change; what is left out stays.\n\nAttributes:\n    enabled: True turns the assistant on (after a probe found the provider answering), False\n        turns it off and revokes its tokens.\n    preset: A provider preset (``GET /api/assistant/presets``): it fills the address.\n    base_url: The provider's address, up to its version.\n    model: The model's name.\n    api_key: The key; an empty text takes it away. Sealed when stored, never given back. A request that\n        moves the assistant to another origin (scheme, host or port) without a key of its own empties\n        the one that is kept and turns the assistant off: a key was given for one provider.\n    location: Where the data ends up, for a public provider the operator has a contract with.\n    flow_reason: Why a provider outside is an authorized flow.\n    mask_personal: Whether emails and addresses are disguised; only a provider of one's own\n        may have it off.\n    limits: Limits to change, by name; the others stay.\n    prices: The whole price table.\n    currency: What the prices are in.\n    allow_private_host: Consent that this server calls the provider's host and port though they are on\n        this machine or the network. It is kept with the assistant's settings and holds for its requests\n        to that address alone (it does not touch ``security.allow_private_hosts``); it goes with the\n        provider and with turning the assistant off. Left out, or null, there is no consent (false).\n    probe: Probe the provider after saving a change to it. Left out, or null, it is probed (true).",
         "properties": {
           "allow_private_host": {
             "anyOf": [
@@ -5117,7 +5117,7 @@
         "type": "object"
       },
       "AssistantSettingsOut": {
-        "description": "What is chosen for the assistant. The key is never in it.\n\nAttributes:\n    enabled: The assistant is on.\n    configured: A provider and a model were chosen.\n    preset: The provider preset it was chosen from, or empty.\n    base_url: The provider's address.\n    model: The model's name.\n    has_key: A key is kept (sealed); it is never given back.\n    key_set_at: When the key was set.\n    location: Where the data ends up: ``machine``, ``network``, ``eu``, ``outside`` or\n        ``unknown`` (the provider's documentation does not say).\n    flow_reason: Why a provider outside is an authorized flow, under the ENS profile.\n    mask_personal: Emails and addresses are disguised with markers before they are sent: always\n        for a provider that is not on this machine or the operator's network.\n    limits: The ceilings, each always a number.\n    prices: What each model costs.\n    currency: What the prices and the spending limits are in.\n    probe: What the probe last found; None when it has not run since the provider changed.\n    probed_at: When.\n    calls_tools: The model was found to call tools, so it may investigate.\n    updated_at: When the settings last changed.\n    updated_by: Who changed them.",
+        "description": "What is chosen for the assistant. The key is never in it.\n\nAttributes:\n    enabled: The assistant is on.\n    configured: A provider and a model were chosen.\n    preset: The provider preset it was chosen from, or empty.\n    base_url: The provider's address.\n    model: The model's name.\n    has_key: A key is kept (sealed); it is never given back.\n    key_set_at: When the key was set.\n    location: Where the data ends up: ``machine``, ``network``, ``eu``, ``outside`` or\n        ``unknown`` (the provider's documentation does not say).\n    flow_reason: Why a provider outside is an authorized flow, under the ENS profile.\n    mask_personal: Emails and addresses are disguised with markers before they are sent: always\n        for a provider that is not on this machine or the operator's network.\n    limits: The ceilings, each always a number.\n    prices: What each model costs.\n    currency: What the prices and the spending limits are in.\n    probe: What the probe last found; None when it has not run since the provider changed.\n    probed_at: When.\n    calls_tools: The model was found to call tools, so it may investigate.\n    private_host: The host and port of a provider on this machine or the operator's network that the\n        operator consented to this server calling, or empty. It is the assistant's own consent: it is\n        kept with these settings, and goes with the provider and with turning the assistant off, so\n        it is said again to turn the assistant on.\n    updated_at: When the settings last changed.\n    updated_by: Who changed them.",
         "properties": {
           "base_url": {
             "title": "Base Url",
@@ -5187,6 +5187,11 @@
             },
             "title": "Prices",
             "type": "object"
+          },
+          "private_host": {
+            "default": "",
+            "title": "Private Host",
+            "type": "string"
           },
           "probe": {
             "anyOf": [
@@ -45166,8 +45171,13 @@
         "type": "object"
       },
       "PolicyOperations": {
-        "description": "How many operations of the API a row governs.\n\nAttributes:\n    total: Operations that change something with this permission.\n    strong: Of those, the ones that ask for sudo mode or for a second person every time: the built-in\n        assistant never does them, whatever its cell says, and a token does them only as its own sudo\n        mode allows.",
+        "description": "How many operations of the API a row governs.\n\nAttributes:\n    total: Operations that change something with this permission.\n    strong: Of those, the ones that ask for sudo mode or for a second person every time: the built-in\n        assistant never does them, whatever its cell says, and a token does them only as its own sudo\n        mode allows.\n    person: Of those, the ones that are a person's decision whole (making or lifting a deploy freeze):\n        the built-in assistant only proposes them, whatever its cell says, so \"does it\" in this row is\n        for the rest.",
         "properties": {
+          "person": {
+            "default": 0,
+            "title": "Person",
+            "type": "integer"
+          },
           "strong": {
             "title": "Strong",
             "type": "integer"
@@ -66339,6 +66349,25 @@
         "title": "SupportNoticeResponse",
         "type": "object"
       },
+      "SupportReplacementOut": {
+        "description": "One name the report replaced: ``real`` became ``alias`` wherever it was.",
+        "properties": {
+          "alias": {
+            "title": "Alias",
+            "type": "string"
+          },
+          "real": {
+            "title": "Real",
+            "type": "string"
+          }
+        },
+        "required": [
+          "real",
+          "alias"
+        ],
+        "title": "SupportReplacementOut",
+        "type": "object"
+      },
       "SupportReportOut": {
         "description": "The support report an operator pastes into an issue (``noust support report``).",
         "properties": {
@@ -66353,6 +66382,14 @@
           "markdown": {
             "title": "Markdown",
             "type": "string"
+          },
+          "replacements": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SupportReplacementOut"
+            },
+            "title": "Replacements",
+            "type": "array"
           },
           "sections": {
             "items": {

@@ -171,7 +171,7 @@ first.
   conversation and in a month (against a price table the operator writes) and changes in an hour, said at 80 % and
   cut between steps. Conversations are kept per account, masked, for `retention.assistant_days` (30). Turning it
   off revokes every token it holds.
-- **A battery decides whether it ships.** [assistant-battery.md](assistant-battery.md) says what 53 scenarios with
+- **A battery decides whether it ships.** [assistant-battery.md](assistant-battery.md) says what 56 scenarios with
   deterministic oracles test (secrets, actions, approval, injection through a journal, a build log, a commit
   message and a branch name, limits and the fleet), the four defects it found and what it does not say.
 - **Under a security profile**, `security.assistant_flows` (asked by ENS MEDIA and ALTA) lets it be turned on only

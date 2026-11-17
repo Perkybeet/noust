@@ -38,7 +38,11 @@ class FakeReporter:
             ReportSection("journal", "Journal", "(left out)", collected=False),
         )
         return SupportReport(
-            "3.4.0", "2026-10-13T10:00:00Z", self.options["hide_domains"], sections
+            "3.4.0",
+            "2026-10-13T10:00:00Z",
+            self.options["hide_domains"],
+            sections,
+            replacements=(("shop.example.com", "app-1"),) if self.options["hide_domains"] else (),
         )
 
 
@@ -82,12 +86,14 @@ def test_the_journal_is_left_out_for_a_credential_that_may_not_reveal_secrets(
 def test_the_journal_is_read_for_a_credential_that_may(monkeypatch: pytest.MonkeyPatch) -> None:
     api = client(monkeypatch, [Permission.SERVER_READ, Permission.SECRETS_REVEAL])
 
-    api.get("/api/system/support-report?lines=30&hide_domains=true")
-
+    hidden = api.get("/api/system/support-report?lines=30&hide_domains=true")
     options = FakeReporter.built[-1]
     assert options["journal_left_out"] is None
     assert options["journal_lines"] == 30
     assert options["hide_domains"] is True
+    # What was replaced is told, for whatever else goes in the same report (the console's browser).
+    assert hidden.json()["replacements"] == [{"real": "shop.example.com", "alias": "app-1"}]
+    assert api.get("/api/system/support-report").json()["replacements"] == []
 
 
 def test_asking_for_no_lines_leaves_the_journal_out_and_says_why(

@@ -137,6 +137,14 @@ rows: `apps.manage`, `server.manage`, `databases.manage`...), `alone` is not off
 doing what it does there until it is given a value that is offered, because a token issued to act in sudo
 mode is a decision somebody already made.
 
+**What only a person confirms.** Going back past a change of the database's schema (`schema_changed_ok`),
+deploying past a freeze (`frozen_ok`), and making or lifting a deploy freeze are decisions of a person, so the
+assistant never does them on its own either, whatever its `apps.deploy` cell says: the policy answers `never`
+for them (`403 approval_floor` if its token sends one) and the loop proposes the call for the person to carry
+out. The model is not offered the two flags. A token is judged as it always was: a pipeline that deploys past a
+freeze today does tomorrow. The table says how many operations of a row are a person's decision whole
+(`operations.person`).
+
 **ENS.** The control `token_production_approval` (asked by ENS MEDIA and ALTA, `security.token_production_approval`
 for anyone) makes `propose` the least a token's cell in production can be, and what the operator chose before
 is kept and applies again if it goes away.
@@ -147,8 +155,11 @@ supervising her own tool, which is not the second person the rule asks for). A c
 still asks for another person. A token, the master token and a central never decide. The request says who
 called: the class, the token, the environment, the application and the client the token said it was.
 
-**Who changes it.** `security.manage` and sudo mode (`PUT /api/config/approval-policy`; `noust approvals
-policy set PERMISSION CALLER ENVIRONMENT VALUE` as root). Giving a token or the assistant more freedom than it
+**Who changes it.** A **person** with `security.manage` and sudo mode (`PUT /api/config/approval-policy`;
+`noust approvals policy set PERMISSION CALLER ENVIRONMENT VALUE` as root). Editing the table, and asking what an
+edit would do, refuse a token and the assistant's token (`403`, "This is for a person"): the table governs that
+class, so a token that held `security.manage` and was issued for sudo mode could otherwise take its own "never"
+out. Reading it is open to whoever reads the settings. Giving a token or the assistant more freedom than it
 has waits for a second person where the server asks for one; taking it away does not. Before saving, the
 console shows what it would change and to which credentials (`POST /api/config/approval-policy/preview`). In the console it is
 **Settings > Approval policy**: one table for each area, a padlock where the assistant never does it, a key where the row asks you to confirm it is you

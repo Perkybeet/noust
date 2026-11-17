@@ -149,6 +149,7 @@ async def judge(
     approval_when: str | None,
     four_eyes_action: str | None,
     proxied: bool,
+    confirms: str | None = None,
 ) -> Judgement:
     """
     Judge a call from a caller that is not a person.
@@ -163,6 +164,8 @@ async def judge(
         approval_when: When a four-eyes rule covers the route (``always`` or a condition on the body).
         four_eyes_action: The action of the four-eyes rule that matched the call's body, if one did.
         proxied: Whether the call is forwarded to another server.
+        confirms: The confirmation of a person the call carries (``frozen_ok``, ``schema_changed_ok``), read
+            from its body and its query: the assistant never does a call that has one on its own.
 
     Returns:
         The judgement.
@@ -177,7 +180,9 @@ async def judge(
     )
     escalated = escalated_permission(four_eyes_action)
     environment, domain = await where(request, method, template, proxied=proxied)
-    verdict = CallerPolicy().decide(caller, environment, operation, needed, escalated=escalated)
+    verdict = CallerPolicy().decide(
+        caller, environment, operation, needed, escalated=escalated, confirms=confirms
+    )
     needs = tuple(dict.fromkeys([*needed, *([escalated] if escalated else [])]))
     return Judgement(verdict, needs, domain, operation)
 

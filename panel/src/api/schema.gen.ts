@@ -37940,7 +37940,9 @@ export interface components {
          *         preset: A provider preset (``GET /api/assistant/presets``): it fills the address.
          *         base_url: The provider's address, up to its version.
          *         model: The model's name.
-         *         api_key: The key; an empty text takes it away. Sealed when stored, never given back.
+         *         api_key: The key; an empty text takes it away. Sealed when stored, never given back. A request that
+         *             moves the assistant to another origin (scheme, host or port) without a key of its own empties
+         *             the one that is kept and turns the assistant off: a key was given for one provider.
          *         location: Where the data ends up, for a public provider the operator has a contract with.
          *         flow_reason: Why a provider outside is an authorized flow.
          *         mask_personal: Whether emails and addresses are disguised; only a provider of one's own
@@ -37948,9 +37950,10 @@ export interface components {
          *         limits: Limits to change, by name; the others stay.
          *         prices: The whole price table.
          *         currency: What the prices are in.
-         *         allow_private_host: Consent that this server calls the provider's host though it is on
-         *             this machine or the network: the host is listed in ``security.allow_private_hosts``. Left out, or
-         *             null, there is no consent (false).
+         *         allow_private_host: Consent that this server calls the provider's host and port though they are on
+         *             this machine or the network. It is kept with the assistant's settings and holds for its requests
+         *             to that address alone (it does not touch ``security.allow_private_hosts``); it goes with the
+         *             provider and with turning the assistant off. Left out, or null, there is no consent (false).
          *         probe: Probe the provider after saving a change to it. Left out, or null, it is probed (true).
          */
         AssistantSettingsIn: {
@@ -38008,6 +38011,10 @@ export interface components {
          *         probe: What the probe last found; None when it has not run since the provider changed.
          *         probed_at: When.
          *         calls_tools: The model was found to call tools, so it may investigate.
+         *         private_host: The host and port of a provider on this machine or the operator's network that the
+         *             operator consented to this server calling, or empty. It is the assistant's own consent: it is
+         *             kept with these settings, and goes with the provider and with turning the assistant off, so
+         *             it is said again to turn the assistant on.
          *         updated_at: When the settings last changed.
          *         updated_by: Who changed them.
          */
@@ -38044,6 +38051,11 @@ export interface components {
             prices: {
                 [key: string]: components["schemas"]["PriceModel"];
             };
+            /**
+             * Private Host
+             * @default
+             */
+            private_host: string;
             probe?: components["schemas"]["ProbeOut"] | null;
             /** Probed At */
             probed_at?: string | null;
@@ -60207,8 +60219,16 @@ export interface components {
          *         strong: Of those, the ones that ask for sudo mode or for a second person every time: the built-in
          *             assistant never does them, whatever its cell says, and a token does them only as its own sudo
          *             mode allows.
+         *         person: Of those, the ones that are a person's decision whole (making or lifting a deploy freeze):
+         *             the built-in assistant only proposes them, whatever its cell says, so "does it" in this row is
+         *             for the rest.
          */
         PolicyOperations: {
+            /**
+             * Person
+             * @default 0
+             */
+            person: number;
             /** Strong */
             strong: number;
             /** Total */
@@ -71620,6 +71640,16 @@ export interface components {
             version?: string | null;
         };
         /**
+         * SupportReplacementOut
+         * @description One name the report replaced: ``real`` became ``alias`` wherever it was.
+         */
+        SupportReplacementOut: {
+            /** Alias */
+            alias: string;
+            /** Real */
+            real: string;
+        };
+        /**
          * SupportReportOut
          * @description The support report an operator pastes into an issue (``noust support report``).
          */
@@ -71630,6 +71660,11 @@ export interface components {
             hide_domains: boolean;
             /** Markdown */
             markdown: string;
+            /**
+             * Replacements
+             * @default []
+             */
+            replacements: components["schemas"]["SupportReplacementOut"][];
             /** Sections */
             sections: components["schemas"]["SupportSectionOut"][];
             /** Version */

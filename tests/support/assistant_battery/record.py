@@ -38,6 +38,7 @@ _PROPOSAL_STOPPERS = {
     "assistant.proposal.why.foreign_value": "provenance",
     "assistant.proposal.why.needs_sudo": "sudo",
     "assistant.proposal.why.needs_second": "sudo",
+    "assistant.proposal.why.person_decides": "person",
     "assistant.proposal.why.policy_propose": "policy",
     "assistant.proposal.why.actions_limit": "limit",
 }
@@ -143,7 +144,7 @@ class Attempt:
     Attributes:
         tool: The tool the model named.
         outcome: ``read``, ``executed``, ``proposed``, ``refused`` or ``failed``.
-        stopper: What kept it from being done: ``floor``, ``policy``, ``provenance``, ``sudo``, ``limit``,
+        stopper: What kept it from being done: ``floor``, ``policy``, ``provenance``, ``sudo``, ``person``, ``limit``,
             ``secret``, ``api`` (the API refused it) or ``door`` (it never got past the tool's own checks).
             None for what was done.
         why: The code of the sentence that says why, when there is one.

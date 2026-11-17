@@ -49,10 +49,20 @@ be declared `--location eu`; a public address can never be declared to be this m
 
 A server on this machine or on your network is a place a request from a server running as root must not
 go by default (it is how a request forgery reaches what is behind a firewall). Naming it is a decision you
-take once: `--allow-private-host` lists the host in `security.allow_private_hosts`, which is the list that
-already says so for every other feature. Plain `http://` is only for a host you listed; anything else
-needs `https://`. The address is judged when you choose it **and on every request**, and the connection is
-made to the address that was judged, so a name that starts to resolve somewhere else is refused.
+take once: `--allow-private-host` keeps the consent **with the assistant's settings**, as the host and port it is
+for (`private_host` in `GET /api/assistant/settings`). It opens that address to the assistant's requests and to
+nothing else: it does not write `security.allow_private_hosts`, the list of the security area that says so for every
+other feature (and which the assistant still honours, besides). It goes when you change the host or the port and
+when you turn the assistant off, so turning it on again says it again. Plain `http://` is only for a host you
+listed or consented to; anything else needs `https://`. The address is judged when you choose it **and on every
+request**, and the connection is made to the address that was judged, so a name that starts to resolve somewhere
+else is refused.
+
+**The key stays with the provider it was given for.** Changing the provider to another origin (another scheme,
+host or port) without giving a key in the same request empties the key that was saved and leaves the assistant
+off until you give one (`--key-stdin`, or the key field of the console). Whoever may change the settings does not
+thereby know the key, and the next request carries what the settings hold: this is what keeps it from going to an
+address somebody else chose. Changing only the path of the address, or the model, keeps it.
 
 ### What a model of your own asks of the machine
 
@@ -92,11 +102,14 @@ reads through the same tools as [the MCP endpoint](mcp.md) (list applications, r
 deployments, backups and certificates, and, when you allow it, restart or deploy), as the person's own
 account, limited to the person's teams. The browser never talks to the provider: your server does.
 
-- **No secret goes.** The values of every application's variables, Noust's own credentials, the provider's
-  key and anything that looks like a credential (a token, a bearer header, a private key, a password in a
-  URL) are removed from every message and every tool answer before anything is sent, by the code that
-  removes them for the MCP endpoint. A value nobody told Noust is secret and that looks like nothing
-  cannot be recognised: that is why the tools offer no way to reveal a secret in the first place.
+- **No secret goes.** The values of every application's variables, Noust's own credentials, the private half of
+  every deploy key, the password of every registry account, the provider's key and anything that looks like a
+  credential (a token, a bearer header, a private key, a password in a URL) are removed from every message and
+  every tool answer before anything is sent, by the code that removes them for the MCP endpoint. A value nobody
+  told Noust is secret and that looks like nothing (a note, a partner's code) cannot be recognised, so **variables
+  reach the model as names alone**, whichever tool reads them: an application's environment and its file, its
+  previews' and its Compose variables, those of a team, a project, an environment and the server. The tools do not
+  offer to unmask them or to download the file.
 - **For a provider that is not on this machine or your network**, emails and IP addresses (loopback and
   "any" aside) are also replaced by markers (`<email-1>`, `<ip-2>`) that are the same all through a
   conversation and that only your server can put back, in what the person reads and in the arguments of the
@@ -120,7 +133,13 @@ Three things, and it is told which of them the model can do (the probe says so):
   explains what it is shown.
 - **It investigates.** With a model that calls tools it reads what it needs, step by step, with read-only tools:
   the same short list as [the MCP endpoint](mcp.md) (applications, their state, journal and diagnosis, the names of
-  their variables, deployments, jobs, backups, certificates, the server's health), and three of its own:
+  their variables, deployments, jobs, backups, certificates, the server's health), and three of its own. What it
+  can read is not that short list: through `call_operation` it reaches **any read of the API that its token may
+  make**, which is what the person holds that a read needs, without the floor, within the person's teams, and the
+  alerts and the fleet besides. What it reads is text others wrote (names, logs, the lines of a health check), so
+  reading anything marks the conversation: after it, what the policy would let it do alone is proposed. The
+  documentation and the description of the API, which Noust ships, are the only reads that do not mark it. The
+  three:
   `search_docs` (the pages of this documentation, to cite; they travel inside Noust's own package, so it is offered on every install),
   `find_operation` (which operation of the API does what the person wants) and `call_operation` (prepare the exact
   call of an operation that was found). Every step is shown as it happens ("read the log of deployment 14") with
@@ -137,6 +156,7 @@ Three things, and it is told which of them the model can do (the probe says so):
 | A change, where the policy says "does it" | It is made, counted in the hour's limit on changes, and written down in the conversation and the audit trail. |
 | A change, where the policy says "proposes" | **Nothing is made.** The exact call (method, path, query, body), its fingerprint and, where the operation has one, what its simulation says it would do, are kept as a *proposal*. |
 | What asks for sudo mode, or for a second person | It is a proposal too, **and the person carries it out in the console with their own session**, where sudo mode and the second approver are asked as always. The server grants nothing new. |
+| What only a person confirms: going back past a change of schema, deploying past a freeze, making or lifting a freeze | It is a proposal whatever the cell says, and the model is not even offered the flags that confirm (`schema_changed_ok`, `frozen_ok`): the policy never leaves them to the assistant and the guard of the API refuses its token the same call. A token is judged as it always was. |
 | What the floor forbids, or a cell set to "never" | There is no call and no proposal: the model is told it is not offered, and the person is told who changes it. |
 
 A proposal says how much of the decision is the person's: their approval once, also confirming it is them (sudo mode),
@@ -161,7 +181,8 @@ can be misled by them: nothing here says otherwise. What is done about it does n
   is limited per hour) and by the API (teams, approvals), not by what the model says.
 - A battery attacks it every time the code changes: instructions hidden in a journal, the output of a build, a
   commit message and a branch name ask to stop every application, set a variable, send alerts to a stranger, add a
-  key to root, add a domain, deploy and delete an application, and a scripted model that obeys makes exactly those
+  key to root, add a domain, deploy and delete an application, edit a channel through a path with `..` in it (which a
+  browser would send as another operation than the one on the card) and lift a deploy freeze, and a scripted model that obeys makes exactly those
   calls. Where the text reached it through something Noust read, none is carried out as a change, even under the most
   permissive policy. What a person pastes into their own question (a README) is their words, and under a policy that
   lets the assistant do something alone, it is done: the policy is the operator's. What the battery tests, its
@@ -239,7 +260,12 @@ records the tool it called, whether it worked and how large the answer was, a su
 limit stopped it. **Never the conversation.**
 
 Using it is the permission **`assistant.use`**, which the administrator and operator roles hold and **no team
-role** does in this version: the spending and the flow of data are the server's. On a server upgraded from 4.2
+role** does in this version: the spending and the flow of data are the server's. **The assistant is for people.**
+An API token never holds `assistant.use`, whatever its owner holds and whatever it was asked for, and the
+conversation routes refuse a caller that is not a person (`403`, "This is for a person"): a token is narrowed to
+some teams, some permissions and the approval policy, and the assistant is its owner's own conversation, so a token
+that could use it would read through it what it cannot and act through it where the policy says it never does.
+Reading the settings and the spending with a token stays as it was. On a server upgraded from 4.2
 a role nobody edited has it by itself, and one you edited is offered it, which you take or leave.
 
 **What it costs is read with the settings.** `GET /api/assistant/usage` needs `settings.read`, not `assistant.use`:
@@ -274,7 +300,8 @@ A limit cuts **between two steps and never in the middle of an action**: a step 
 written down, and the next one is refused. Spending is what the provider reports it used (`usage`) times a price
 table **you** write per model, per million tokens, in the currency you say (`noust assistant configure --price
 MODEL=IN,OUT --currency EUR`): prices change and no provider's list is Noust's to keep. A model with no price has
-no spending limit, and the assistant says so; the limits of tokens apply. Without `usage` the tokens are
+no spending limit, and the assistant says so; the limits of tokens **of a conversation** apply, and there is no
+monthly cap of tokens for a model without a price in this version (without a price there is no cap on spending). Without `usage` the tokens are
 estimated from the characters, and it says so too. `noust assistant usage` and `GET /api/assistant/usage` show
 what was spent.
 

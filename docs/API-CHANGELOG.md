@@ -25,6 +25,34 @@ them before the rest):
 API version 1. No operation is removed or deprecated, and `python scripts/api_compat.py` keeps passing
 against the schema of 4.2.0.
 
+### Breaking changes
+
+Security fixes of the built-in assistant (item 171). None removes an operation or changes a schema, and
+`python scripts/api_compat.py` keeps passing; each is what a client written against 4.2 could notice.
+
+- **The assistant is for people.** An API token no longer holds `assistant.use`, whatever it was issued with, so
+  `POST /api/assistant/conversations`, the turns, the proposals and `GET`/`DELETE /api/assistant/conversations`
+  refuse it with `403`, "This is for a person" (code `callers.person_only`). Reading the settings, the presets and
+  the spending (`GET /api/assistant/usage` without `conversation`) with a token is as it was. A token issued to use
+  the assistant keeps its record and stops holding the permission; nothing is revoked.
+- **The approval policy is edited by a person.** `PUT /api/config/approval-policy` and
+  `POST /api/config/approval-policy/preview` refuse a token and the assistant's token with the same `403`, though
+  the token holds `security.manage` and was issued for sudo mode. `GET` is as it was.
+- **`allow_private_host` is the assistant's own consent.** It no longer adds the host to
+  `security.allow_private_hosts`; it is kept with the assistant's settings, for that host and port, and goes when
+  the provider changes and when the assistant is turned off (it is said again in the request that turns it on). What
+  the security list allows still counts for the assistant.
+- **A change of provider without a key empties the key.** `PUT /api/assistant/settings` that moves the provider to
+  another origin (scheme, host or port) without `api_key` in the same request takes away the key that was saved and
+  turns the assistant off (`has_key: false`, `enabled: false` in the answer).
+- **A path parameter that is `.`, `..`, empty or holds a control character is refused** by the tools of the MCP
+  endpoint (and by the assistant's) with a sentence the model can correct, where it used to be sent as it was and
+  could be taken for another operation by whatever carried the request. The assistant also refuses a value that
+  makes the server route the path to another operation (an encoded slash).
+- **Two more reasons for a `429`.** `POST /api/assistant/conversations/{id}/turns` answers `429` with the code
+  `assistant.turn.account_busy` when the account already has two answers being written, and the routes of plans
+  (`POST .../plan`) answer `429` when a credential already has two being made.
+
 ### Added
 
 - **Copies that were made and have not reached a destination** (item 201). The listing of every kind of
@@ -288,6 +316,13 @@ against the schema of 4.2.0.
   check gives no `update_command` and no `refresh_command`, and `POST /api/system/update` answers `501` with the
   error `app_store` (its `hint` says to update through the store), where a container answered `container_image`
   with the command of Docker's.
+- **What the assistant's settings say of the consent to call a host of your own, and what the console's report
+  says it replaced** (item 171). `GET` and `PUT /api/assistant/settings` carry `private_host`, the host and port
+  the operator consented to this server calling for the assistant (`localhost:11434`), or empty. `GET
+  /api/system/support-report` carries `replacements`, each a `real` name and the `alias` it became, longest first,
+  when `hide_domains` was asked, so what a client adds to the same report is replaced the same way. Each row of `GET
+  /api/config/approval-policy` has `operations.person`, how many of its operations are a person's decision whole
+  (making and lifting a deploy freeze): the assistant only proposes them whatever its cell says.
 
 - **The plan of an operation** (item 183). An operation that has one says where it is in its own OpenAPI entry,
   `x-noust-plan` (`method`, `path`, `operation`), and the plan is a `POST` that changes nothing, runs nothing that

@@ -325,6 +325,19 @@ class QueueFullError(NoustError):
         self.limit = limit
 
 
+class ShareHeldError(QueueFullError):
+    """A credential already holds as many of a limited resource as it may: ask again when one ends."""
+
+    def __init__(self, text: ServerText, *, limit: int = 0):
+        """
+        Args:
+            text: The sentence that says so.
+            limit: How many it may hold at once.
+        """
+        super().__init__(text.text, text.hint or "", limit=limit)
+        self.coded = text
+
+
 class AssistantBusyError(QueueFullError):
     """The built-in assistant is answering as many people as it may at once: ask again in a moment."""
 

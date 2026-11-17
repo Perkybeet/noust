@@ -24,4 +24,4 @@ script: []
 expect:
   state: done
   attempts: 2
-  stoppers: [api, door]
+  stoppers: [door, door]

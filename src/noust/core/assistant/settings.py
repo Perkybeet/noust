@@ -14,14 +14,22 @@ checks below (rule 4).
 **The provider is judged when it is chosen** (:func:`noust.core.assistant.client.check_address`),
 and again on every request the client makes. An address on this machine or the operator's network
 is refused until the operator consents, by name, to this server calling it: ``allow_private_host``
-adds the host to ``security.allow_private_hosts``, which is the list that already says so for every
-other feature. Where the data ends up (``location``) is told by the address when it is the
-operator's own (loopback is this machine, a private network is theirs) and declared by the
-operator when it is public: a public address can never be "this machine".
+keeps the consent here, with the settings, as the host and port it is for (``private_host``). It
+is the assistant's own: it opens that address to the assistant's requests and to nothing else, it
+goes with the provider (a change of host or port) and with turning the assistant off, and it never
+touches ``security.allow_private_hosts``, the list of the security area that says so for every
+feature of the server (which the assistant still honours). Where the data ends up (``location``) is
+told by the address when it is the operator's own (loopback is this machine, a private network is
+theirs) and declared by the operator when it is public: a public address can never be "this
+machine".
 
 **The key** is sealed with :mod:`noust.core.at_rest` under a domain of its own, bound to this row,
 beside the configuration's other secrets. It is opened by :meth:`AssistantSettings.api_key` for
 the client and by nothing else, and what is read back says only that there is one and since when.
+It was given for one provider: a request that moves the assistant to another origin (scheme, host
+or port) without bringing a key of its own empties it, and the assistant stays off until one is
+given, so whoever may change the settings cannot have the next request carry a key they do not know
+to an address of theirs.
 
 **Personal data is disguised for any provider that is not the operator's**
 (``mask_personal_effective``): the operator may turn the disguise off for a model of their own and
@@ -37,13 +45,13 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlsplit
 
 from noust.core import at_rest, channel_secrets, outbound
 from noust.core import config as config_module
 from noust.core.assistant import presets as preset_table
 from noust.core.assistant.client import ProviderError, check_address
 from noust.core.assistant.limits import Limits, Price
-from noust.core.config import Config
 from noust.core.exceptions import ValidationError
 from noust.core.secret_detection import mask_secret_shapes
 from noust.core.timeutil import utc_now_iso
@@ -97,6 +105,9 @@ class Settings:
         currency: What the prices and the spending limits are in.
         probe: What the probe last found (a dictionary of facts and sentences), or ``{}``.
         probed_at: When.
+        private_host: The host and port the operator consented to this server calling though it is
+            on this machine or their network (``localhost:11434``), or ``""``. The assistant's own
+            consent: it holds for the provider at that address and for nothing else.
         updated_at: When the settings last changed.
         updated_by: Who changed them.
     """
@@ -117,6 +128,14 @@ class Settings:
     probed_at: str | None = None
     updated_at: str | None = None
     updated_by: str = ""
+    private_host: str = ""
+
+    @property
+    def consented_hosts(self) -> tuple[str, ...]:
+        """The host the operator consented to, when the provider is still the one it was for."""
+        if self.private_host and self.private_host == _host_port(self.base_url):
+            return (urlsplit(self.base_url).hostname or "",)
+        return ()
 
     @property
     def configured(self) -> bool:
@@ -156,6 +175,7 @@ class Settings:
             "probe": self.probe,
             "probed_at": self.probed_at,
             "calls_tools": self.calls_tools,
+            "private_host": self.private_host,
             "updated_at": self.updated_at,
             "updated_by": self.updated_by,
         }
@@ -182,6 +202,40 @@ def _word(name: str, value: Any, *, longest: int, low: int = 1) -> str:
             field=name,
         )
     return text
+
+
+def _host_port(address: str) -> str:
+    """
+    Args:
+        address: A provider's address already judged, or ``""``.
+
+    Returns:
+        ``host:port`` of it, the port its scheme implies when it names none; ``""`` for no address.
+    """
+    if not address:
+        return ""
+    parts = urlsplit(address)
+    port = parts.port or (443 if parts.scheme.lower() == "https" else 80)
+    return f"{(parts.hostname or '').lower()}:{port}"
+
+
+def _origin(address: str) -> tuple[str, str, int] | None:
+    """
+    Args:
+        address: A provider's address already judged, or ``""``.
+
+    Returns:
+        Its scheme, host and port: the origin a key is given to. None for no address.
+    """
+    if not address:
+        return None
+    parts = urlsplit(address)
+    scheme = parts.scheme.lower()
+    return (
+        scheme,
+        (parts.hostname or "").lower(),
+        parts.port or (443 if scheme == "https" else 80),
+    )
 
 
 def _own_side_location(addresses: tuple[str, ...]) -> str | None:
@@ -252,6 +306,7 @@ class AssistantSettings:
             probed_at=row["probed_at"],
             updated_at=row["updated_at"],
             updated_by=row["updated_by"],
+            private_host=row["private_host"],
         )
 
     def api_key(self) -> str:
@@ -314,9 +369,9 @@ class AssistantSettings:
             limits: Limits to change, by name.
             prices: The whole price table, by model.
             currency: What the prices are in.
-            allow_private_host: Consent that this server calls the provider's host though it is on
-                this machine or the operator's network: the host is added to
-                ``security.allow_private_hosts``.
+            allow_private_host: Consent that this server calls the provider's host and port
+                though they are on this machine or the operator's network. It is kept with these
+                settings and holds for the assistant's requests to that address alone.
 
         Returns:
             The settings as they are now.
@@ -336,14 +391,32 @@ class AssistantSettings:
         declared = location if location is not _UNSET else (chosen.location if chosen else None)
         resulting_location = current.location
         if address is not None:
-            endpoint = self._judge(address, allow_private_host)
+            endpoint, consent = self._judge(address, allow_private_host, current)
             own = _own_side_location(endpoint.addresses)
             if own is not None:
                 resulting_location = own
             else:
                 resulting_location = self._public_location(declared or "unknown")
-            values.update(base_url=address, location=resulting_location, probe="{}", probed_at=None)
-        elif declared is not None and location is not _UNSET:
+            values.update(
+                base_url=address,
+                location=resulting_location,
+                private_host=consent,
+                probe="{}",
+                probed_at=None,
+            )
+            if (
+                current.has_key
+                and api_key is _UNSET
+                and _origin(address) != _origin(current.base_url)
+            ):
+                # The key was given for the provider it was given to: it does not travel to another
+                # origin, and nothing runs on without one until a new key is given.
+                values.update(self._sealed(""))
+                values["enabled"] = 0
+        elif allow_private_host and current.configured:
+            _endpoint, consent = self._judge(current.base_url, True, current)
+            values["private_host"] = consent
+        if address is None and declared is not None and location is not _UNSET:
             if current.location in preset_table.OWN_SIDE:
                 resulting_location = current.location
             else:
@@ -408,7 +481,7 @@ class AssistantSettings:
                 "Run the probe first: it has not found the provider answering",
                 details="The probe asks the provider for its models and for a call to a toy tool.",
             )
-        self._judge(current.base_url, False)
+        self._judge(current.base_url, False, current)
         self._require_declared_flow(current)
         self._write({"enabled": 1}, actor)
         return self.read()
@@ -451,7 +524,8 @@ class AssistantSettings:
         Returns:
             The settings as they are now.
         """
-        self._write({"enabled": 0}, actor)
+        # The consent to call a host of one's own goes with the assistant being on: it is said again to turn it on.
+        self._write({"enabled": 0, "private_host": ""}, actor)
         return self.read()
 
     def record_probe(self, result: Mapping[str, Any]) -> None:
@@ -492,34 +566,34 @@ class AssistantSettings:
         return declared
 
     @staticmethod
-    def _judge(address: str, allow_private_host: bool) -> Any:
+    def _judge(address: str, allow_private_host: bool, current: Settings) -> tuple[Any, str]:
         """
-        Judge a provider's address, adding its host to the allowed ones when the operator consents.
+        Judge a provider's address, taking the operator's consent for its host and port when it is given.
 
         Args:
             address: The provider's address.
-            allow_private_host: The operator's consent.
+            allow_private_host: The operator's consent, said in this request.
+            current: The settings as they are: the consent already given counts for the same host and
+                port, and for no other.
 
         Returns:
-            The judged endpoint.
+            The judged endpoint and the consent that holds for it afterwards: the host and port when the
+            address is one of this machine or the operator's network that was consented to, ``""`` otherwise.
 
         Raises:
             ProviderError: The address cannot be called.
         """
+        held = _host_port(address)
+        host = (urlsplit(address).hostname or "") if held else ""
+        already = (host,) if current.private_host and current.private_host == held else ()
         try:
-            return check_address(address)
+            endpoint = check_address(address, consented=already)
         except ProviderError as refusal:
             if refusal.code != "assistant.provider.destination_refused" or not allow_private_host:
                 raise
-        from urllib.parse import urlsplit
-
-        host = urlsplit(address).hostname or ""
-        config = Config()
-        listed = [str(entry) for entry in (config.get("security.allow_private_hosts") or [])]
-        if host.lower() not in {entry.lower() for entry in listed}:
-            config.set("security.allow_private_hosts", [*listed, host])
-            config.write()
-        return check_address(address)
+        else:
+            return endpoint, held if already else ""
+        return check_address(address, consented=[host]), held
 
     @staticmethod
     def _sealed(api_key: str) -> dict[str, Any]:

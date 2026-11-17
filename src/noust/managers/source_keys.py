@@ -61,6 +61,7 @@ from noust.core import audit, sealing
 from noust.core.deploy_keys import (
     GENERATED,
     IMPORTED,
+    KEYS_FOLDER,
     DeployKey,
     DeployKeyStore,
     validate_name,
@@ -79,7 +80,7 @@ from noust.validators.ssh import generate_ssh_key, get_public_key, is_ssh_url, s
 logger = logging.getLogger(__name__)
 
 #: Where a key's files are, under the secrets: ``deploy-keys/<name>/<leaf>``.
-NAMESPACE = "deploy-keys"
+NAMESPACE = KEYS_FOLDER
 PRIVATE = "key"
 PUBLIC = "key.pub"
 NEXT_PRIVATE = "next_key"

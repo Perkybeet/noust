@@ -208,6 +208,40 @@ ESCALATIONS: dict[str, str] = {
 }
 
 
+#: The fields of a call that say "yes, I know" for a person: going back past a change of the database's
+#: schema (Noust puts the code back and never the data) and deploying past a freeze. What a person decides
+#: is not something the built-in assistant does on its own, whatever cell of the approval policy says.
+PERSON_CONFIRMATIONS: frozenset[str] = frozenset({"schema_changed_ok", "frozen_ok"})
+
+#: The operations that are a person's decision whole: making a deploy freeze and lifting one. A freeze is
+#: what an operator puts to stop deploys, so the same code that is stopped does not lift it.
+PERSON_ROUTES: frozenset[tuple[str, str]] = frozenset(
+    {("POST", "/api/deploy-freezes"), ("DELETE", "/api/deploy-freezes/{freeze_id}")}
+)
+
+_TRUE_WORDS = frozenset({"1", "true", "t", "yes", "y", "on"})
+
+
+def confirmation_in(arguments: Mapping[str, Any] | None) -> str | None:
+    """
+    Say which confirmation of a person a call carries.
+
+    Args:
+        arguments: The call's body and query together, or only one of them; None for none.
+
+    Returns:
+        The name of the first field of :data:`PERSON_CONFIRMATIONS` that is on (``true``, or a word a
+        query string says it with), or None when the call carries none.
+    """
+    if not arguments:
+        return None
+    for name in sorted(PERSON_CONFIRMATIONS):
+        value = arguments.get(name)
+        if value is True or (isinstance(value, str) and value.strip().lower() in _TRUE_WORDS):
+            return name
+    return None
+
+
 class Unclassified(ValueError):
     """An operation, or a permission, that nobody decided what kind it is."""
 
@@ -263,6 +297,11 @@ class OperationClass:
     def strong(self) -> bool:
         """Whether a person has to do it, in their own session."""
         return self.kind == STRONG
+
+    @property
+    def person_decides(self) -> bool:
+        """Whether the operation is a decision that is a person's whole (:data:`PERSON_ROUTES`)."""
+        return (self.method, self.path) in PERSON_ROUTES
 
 
 def classify_parts(
@@ -410,6 +449,8 @@ __all__ = [
     "HTTP_METHODS",
     "NEUTRAL_PERMISSIONS",
     "OWN",
+    "PERSON_CONFIRMATIONS",
+    "PERSON_ROUTES",
     "PUBLIC_CLASS",
     "READ",
     "READS_BY_POST",
@@ -423,6 +464,7 @@ __all__ = [
     "classify",
     "classify_parts",
     "classify_schema",
+    "confirmation_in",
     "escalated_permission",
     "sudo_rows",
 ]

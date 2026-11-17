@@ -297,6 +297,33 @@ describe("reporting a problem from the help menu", () => {
     expect(within(harness.dialog).queryByRole("button", { name: "Download and open GitHub" })).toBeNull();
   });
 
+  it("replaces the domains in the browser's file and in what the person wrote, as the server did in the support report", async () => {
+    backend({
+      "GET /api/system/support-report": () => json(200, { ...SUPPORT, hide_domains: true, replacements: [{ real: "shop.example.com", alias: "app-1" }] }),
+    });
+    const open = vi.fn(() => ({ opener: {} }) as unknown as Window);
+    vi.stubGlobal("open", open);
+    recordError("request", "GET /api/apps/shop.example.com/logs 500");
+    const harness = await openFromHelp("/databases");
+    await harness.user.type(within(harness.dialog).getByRole("textbox", { name: "Title" }), "shop.example.com is grey");
+    await harness.user.type(within(harness.dialog).getByRole("textbox", { name: "What happened" }), "Opening the logs of shop.example.com never loads.");
+    await harness.user.click(within(harness.dialog).getByRole("button", { name: "Next: what is sent" }));
+    await harness.user.click(await within(harness.dialog).findByRole("checkbox", { name: /Replace domains/ }));
+    await waitFor(() => {
+      expect(within(harness.dialog).getByRole("checkbox", { name: /Replace domains/ })).toBeChecked();
+    });
+    await harness.user.click(await within(harness.dialog).findByRole("button", { name: "Next: on GitHub" }));
+    await harness.user.click(within(harness.dialog).getByRole("button", { name: "Download and open GitHub" }));
+
+    const archive = new TextDecoder().decode(downloads[0]?.bytes);
+    const browser = archive.slice(archive.indexOf("browser.json"));
+    expect(browser).toContain("GET /api/apps/app-1/logs 500");
+    expect(archive).not.toContain("shop.example.com");
+    const opened = new URL((open.mock.calls[0] as unknown as [string])[0]);
+    expect(opened.searchParams.get("title")).toBe("[Console] app-1 is grey");
+    expect(opened.searchParams.get("what-happened")).toBe("Opening the logs of app-1 never loads.");
+  });
+
   it("can download and open again from the end, and says so when the browser did not open the tab", async () => {
     backend();
     const open = vi.fn(() => null);

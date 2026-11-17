@@ -32,7 +32,7 @@ from noust.core.store import (
     Site,
 )
 from noust.core.teams import Scope, Target, TeamStore
-from noust.web.auth import SecurityConfig
+from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from noust.web.server import create_app, get_token_manager
 
 PASSWORD = "correct horse battery staple"
@@ -89,6 +89,49 @@ class World:
             The headers that act as it.
         """
         return self.people[name].headers
+
+
+class SignedIn:
+    """
+    An account signed in to the console in a browser of its own: a person, which an API token is not.
+
+    Attributes:
+        client: The browser, holding the session's cookies.
+        csrf: What a change made with the cookie carries as the CSRF header.
+    """
+
+    def __init__(self, app: Any, username: str) -> None:
+        """
+        Args:
+            app: The console.
+            username: An account made with :func:`make_person` (its password is the shared one).
+        """
+        self.client = TestClient(app, client=("testclient", 50000))
+        response = self.client.post(
+            "/api/auth/login", json={"username": username, "password": PASSWORD}
+        )
+        assert response.status_code == 200, response.text
+        self.csrf = response.json()["csrf_token"]
+
+    @property
+    def headers(self) -> dict[str, str]:
+        """What a change made with the session carries."""
+        return {CSRF_HEADER_NAME: self.csrf}
+
+
+def sign_in(world: World, username: str) -> SignedIn:
+    """
+    Sign an account in, as a person: the call of a person is not an API token's, and what is for
+    people only (the built-in assistant, the approval policy) refuses a token.
+
+    Args:
+        world: The world the account is in.
+        username: The account.
+
+    Returns:
+        The browser it signed in with.
+    """
+    return SignedIn(world.client.app, username)
 
 
 def make_person(

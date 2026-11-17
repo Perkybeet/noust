@@ -22,7 +22,9 @@ back; once decided, the model is told what became of it at its next turn, once.
 from __future__ import annotations
 
 import json
+import re
 import secrets
+import urllib.parse
 import uuid
 from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, field, replace
@@ -30,7 +32,9 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from noust.core.exceptions import ValidationError
+from noust.core.outbound import UnsafePath, request_path
 from noust.core.scrubbing import hide_secrets, scrub_text
+from noust.core.server_text import say
 from noust.core.timeutil import utc_now
 
 if TYPE_CHECKING:
@@ -69,6 +73,30 @@ _FORWARD: dict[str, tuple[str, ...]] = {
 
 _MAX_TEXT = 60_000
 _MAX_OUTPUT = 8_000
+
+_TEMPLATE_PARAMETER = re.compile(r"\{[^{}/]+\}")
+
+
+def _instance_of(path: str, template: str, server: str) -> bool:
+    """
+    Args:
+        path: The path of a call, as the browser will send it (through the central for a server).
+        template: The route's template, the server's own when the call is for a server.
+        server: The server it is for, or ``""``.
+
+    Returns:
+        Whether the path is the template with one part of a path in place of each parameter. A
+        question about the record's own consistency; which route the server gives a path to is
+        :func:`noust.web.assistant.routing.route_of`'s.
+    """
+    inner = path
+    if server:
+        prefix = f"/api/nodes/{urllib.parse.quote(server, safe='')}"
+        if not path.startswith(prefix + "/api/"):
+            return False
+        inner = path[len(prefix) :]
+    parts = _TEMPLATE_PARAMETER.split(template)
+    return re.fullmatch("[^/]+".join(re.escape(part) for part in parts), inner) is not None
 
 
 class ProposalError(ValidationError):
@@ -496,6 +524,8 @@ class Proposal:
         state: One of :data:`PROPOSAL_STATES`.
         method: The HTTP method of the call.
         path: Its path, as the console's browser will send it (through the central for a server).
+        template: The route's template the call is for, which the card is classified by and what
+            is carried out is held to (the server's own route when the call is for a server).
         query: Its query, as pairs.
         body: Its JSON body, or None.
         fingerprint: The SHA-256 of the exact call, the one the approvals use.
@@ -536,6 +566,7 @@ class Proposal:
     body: Any
     fingerprint: str
     request_id: str
+    template: str = ""
     permission: str = ""
     environment: str = "production"
     server: str = ""
@@ -559,8 +590,9 @@ class Proposal:
 
 _PROPOSAL_COLUMNS = (
     "id, conversation_id, turn_id, account_id, seq, tool, klass, state, method, path, query, body, "
-    "fingerprint, request_id, permission, environment, server, title, effect, why, facts, plan, needs, "
-    "created_at, decided_at, decided_by, result, output, status, approval, job_id, verified, told"
+    "fingerprint, request_id, template, permission, environment, server, title, effect, why, facts, "
+    "plan, needs, created_at, decided_at, decided_by, result, output, status, approval, job_id, "
+    "verified, told"
 )
 _PROPOSAL_SELECT = f"SELECT {_PROPOSAL_COLUMNS} FROM assistant_proposals "  # noqa: S608 - this module's own names
 
@@ -588,6 +620,7 @@ def _proposal(row: Mapping[str, Any]) -> Proposal:
         body=_load(row["body"], None),
         fingerprint=row["fingerprint"],
         request_id=row["request_id"],
+        template=row["template"],
         permission=row["permission"],
         environment=row["environment"],
         server=row["server"],
@@ -623,6 +656,7 @@ class Proposals(_Records):
         klass: str,
         method: str,
         path: str,
+        template: str,
         query: Sequence[Sequence[str]],
         body: Any,
         fingerprint: str,
@@ -653,6 +687,7 @@ class Proposals(_Records):
             klass: ``ask``, ``you``, ``two`` or ``alone``.
             method: The call's method.
             path: Its path, ready for the browser.
+            template: The route's template the call is for.
             query: Its query pairs.
             body: Its JSON body.
             fingerprint: The call's fingerprint.
@@ -676,12 +711,24 @@ class Proposals(_Records):
             The proposal.
 
         Raises:
-            ValidationError: The state or the class is not one a proposal has.
+            ValidationError: The state or the class is not one a proposal has, the path is one a
+                browser would rewrite before it sent it (so the call that left would not be the one
+                that was shown), or it is not a call of the operation the proposal is for.
         """
         if state not in PROPOSAL_STATES:
             raise ProposalError(f"{state!r} is not a state of a proposal", field="state")
         if klass not in ("ask", "you", "two", "alone"):
             raise ProposalError(f"{klass!r} is not a class of a proposal", field="klass")
+        try:
+            request_path(path)
+        except UnsafePath:
+            raise ProposalError.from_text(
+                say("assistant.proposal.path_rewritten"), field="path"
+            ) from None
+        if not template or not _instance_of(path, template, server):
+            raise ProposalError.from_text(
+                say("assistant.proposal.operation_mismatch"), field="template"
+            )
         now = self._now()
         identifier = uuid.uuid4().hex
         request_id = new_request_id()
@@ -694,10 +741,10 @@ class Proposals(_Records):
             seq = int(cursor.fetchone()[0]) + 1
             cursor.execute(
                 "INSERT INTO assistant_proposals (id, conversation_id, turn_id, account_id, seq, tool, "
-                "klass, state, method, path, query, body, fingerprint, request_id, permission, "
-                "environment, server, title, effect, why, facts, plan, needs, created_at, decided_at, "
-                "decided_by, result, output, status, approval) VALUES "
-                "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "klass, state, method, path, query, body, fingerprint, request_id, template, "
+                "permission, environment, server, title, effect, why, facts, plan, needs, created_at, "
+                "decided_at, decided_by, result, output, status, approval) VALUES "
+                "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     identifier,
                     conversation_id,
@@ -713,6 +760,7 @@ class Proposals(_Records):
                     _dump(body),
                     fingerprint,
                     request_id,
+                    template[:2000],
                     permission,
                     environment,
                     server[:253],

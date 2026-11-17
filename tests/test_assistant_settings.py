@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 from noust.core import outbound
-from noust.core.assistant.client import ProviderError
+from noust.core.assistant.client import ProviderError, check_address
 from noust.core.assistant.limits import Limits, Price
 from noust.core.assistant.settings import AssistantKeyError, AssistantSettings
 from noust.core.config import Config
@@ -106,7 +106,7 @@ class TestChoosingAProvider:
         assert caught.value.code == "assistant.provider.destination_refused"
         assert settings.read().configured is False
 
-    def test_the_consent_lists_the_host_and_the_place_is_this_machine(
+    def test_the_consent_is_kept_with_the_settings_and_the_place_is_this_machine(
         self, settings: AssistantSettings
     ) -> None:
         Config().set("security.allow_private_hosts", ["nas.example.net"])
@@ -114,7 +114,10 @@ class TestChoosingAProvider:
             preset="ollama", model="llama3", actor="ana", allow_private_host=True
         )
         assert read.location == "machine"
-        assert Config().get("security.allow_private_hosts") == ["nas.example.net", "localhost"]
+        assert read.private_host == "localhost:11434"
+        assert read.consented_hosts == ("localhost",)
+        # The list that says which hosts any feature of the server may call is the security area's.
+        assert Config().get("security.allow_private_hosts") == ["nas.example.net"]
 
     def test_a_host_on_the_network_is_the_operators_network(
         self, settings: AssistantSettings
@@ -230,6 +233,170 @@ class TestTheKey:
     def test_the_key_is_not_in_the_configuration_file(self, settings: AssistantSettings) -> None:
         settings.update(base_url="https://models.example.org/v1", model="m", actor="a", api_key=KEY)
         assert KEY not in str(Config().to_dict())
+
+
+class TestTheKeyStaysWithItsProvider:
+    """The key was given for one provider: a request that points the assistant elsewhere does not carry it along."""
+
+    OTHER = "https://other.example.net/v1"
+
+    def with_key(self, settings: AssistantSettings, **extra: str | bool) -> AssistantSettings:
+        settings.update(
+            base_url="https://models.example.org/v1", model="m", actor="a", api_key=KEY, **extra
+        )
+        settings.record_probe({"reachable": True, "tools": True})
+        settings.enable(actor="a")
+        return settings
+
+    @pytest.mark.parametrize(
+        "address",
+        [
+            OTHER,
+            "https://models.example.org:8443/v1",
+            "https://models2.example.org/v1",
+        ],
+        ids=["another host", "another port", "a host that only starts the same"],
+    )
+    def test_another_origin_without_a_new_key_empties_the_key_and_turns_it_off(
+        self, settings: AssistantSettings, address: str
+    ) -> None:
+        self.with_key(settings)
+
+        read = settings.update(base_url=address, actor="b")
+
+        assert read.has_key is False
+        assert read.key_set_at is None
+        assert settings.api_key() == ""
+        assert read.enabled is False
+        assert read.base_url == address
+
+    def test_another_scheme_is_another_origin(self, settings: AssistantSettings) -> None:
+        # Plain http is allowed to a host the operator listed: the host is the same, the origin is not.
+        Config().set("security.allow_private_hosts", ["models.example.org"])
+        self.with_key(settings)
+
+        read = settings.update(base_url="http://models.example.org/v1", actor="b")
+
+        assert read.has_key is False and read.enabled is False
+
+    def test_a_preset_that_leads_elsewhere_is_another_origin_too(
+        self, settings: AssistantSettings
+    ) -> None:
+        self.with_key(settings)
+
+        read = settings.update(preset="mistral", actor="b")
+
+        assert read.has_key is False and read.enabled is False
+
+    def test_the_new_key_given_in_the_same_request_is_the_one_kept(
+        self, settings: AssistantSettings
+    ) -> None:
+        self.with_key(settings)
+
+        read = settings.update(base_url=self.OTHER, api_key="sk-another-9d8c7b6a5f4e", actor="b")
+
+        assert read.has_key is True
+        assert settings.api_key() == "sk-another-9d8c7b6a5f4e"
+
+    @pytest.mark.parametrize(
+        "address",
+        ["https://models.example.org/v2", "https://MODELS.example.org:443/other/v1/"],
+    )
+    def test_the_same_origin_keeps_the_key_whatever_the_path(
+        self, settings: AssistantSettings, address: str
+    ) -> None:
+        self.with_key(settings)
+
+        read = settings.update(base_url=address, actor="b")
+
+        assert read.has_key is True
+        assert settings.api_key() == KEY
+
+    def test_a_provider_that_never_had_a_key_is_not_turned_off_for_having_none(
+        self, settings: AssistantSettings
+    ) -> None:
+        settings.update(base_url="https://models.example.org/v1", model="m", actor="a")
+        settings.record_probe({"reachable": True, "tools": True})
+        settings.enable(actor="a")
+
+        read = settings.update(base_url=self.OTHER, actor="b")
+
+        assert read.has_key is False
+        assert read.enabled is True
+
+
+class TestTheConsentOfAPrivateHost:
+    """A provider on this machine or the network is called only because the operator said so, and only that one."""
+
+    LOCAL = "http://localhost:11434/v1"
+
+    def consented(self, settings: AssistantSettings) -> AssistantSettings:
+        settings.update(base_url=self.LOCAL, model="llama3", actor="ana", allow_private_host=True)
+        return settings
+
+    def test_it_lets_the_assistant_call_the_host_and_no_other_feature(
+        self, settings: AssistantSettings
+    ) -> None:
+        read = self.consented(settings).read()
+
+        assert check_address(self.LOCAL, consented=read.consented_hosts).host == "localhost"
+        with pytest.raises(ProviderError) as other_feature:
+            check_address(self.LOCAL)
+        assert other_feature.value.code == "assistant.provider.destination_refused"
+        assert Config().get("security.allow_private_hosts") in (None, [])
+
+    def test_it_is_for_that_host_and_that_port(self, settings: AssistantSettings) -> None:
+        self.consented(settings)
+
+        with pytest.raises(ProviderError) as caught:
+            settings.update(base_url="http://localhost:9999/v1", actor="b")
+
+        assert caught.value.code == "assistant.provider.destination_refused"
+        assert settings.read().base_url == self.LOCAL
+
+    def test_it_does_not_follow_the_assistant_to_another_provider(
+        self, settings: AssistantSettings
+    ) -> None:
+        self.consented(settings)
+
+        read = settings.update(base_url="https://models.example.org/v1", actor="b")
+
+        assert read.private_host == ""
+        assert read.consented_hosts == ()
+        with pytest.raises(ProviderError):
+            settings.update(base_url=self.LOCAL, actor="b")
+
+    def test_it_goes_when_the_assistant_is_turned_off(self, settings: AssistantSettings) -> None:
+        self.consented(settings)
+        settings.record_probe({"reachable": True, "tools": True})
+        settings.enable(actor="ana")
+
+        read = settings.disable(actor="ana")
+
+        assert read.private_host == ""
+        # Turning it on again is a new consent, said in the request that turns it on.
+        with pytest.raises(ProviderError) as caught:
+            settings.enable(actor="ana")
+        assert caught.value.code == "assistant.provider.destination_refused"
+        settings.update(allow_private_host=True, actor="ana")
+        assert settings.enable(actor="ana").enabled is True
+
+    def test_what_the_security_area_lists_still_counts_for_the_assistant(
+        self, settings: AssistantSettings
+    ) -> None:
+        Config().set("security.allow_private_hosts", ["localhost"])
+
+        read = settings.update(base_url=self.LOCAL, model="llama3", actor="ana")
+
+        assert read.location == "machine"
+        assert read.private_host == ""
+
+    def test_the_public_settings_say_which_host_was_consented_to(
+        self, settings: AssistantSettings
+    ) -> None:
+        read = self.consented(settings).read()
+
+        assert read.to_public()["private_host"] == "localhost:11434"
 
 
 class TestPersonalData:

@@ -21,7 +21,10 @@ changes something, in both environments. A test walks the whole catalogue and ho
 **The floor, which no table lifts.** What the assistant never does (:data:`~noust.core.assistant_floor.ASSISTANT_FLOOR`: the secrets, the
 terminals and the machine, the accounts, the audit, the configuration and the policy itself) is ``never`` and fixed. What asks for sudo mode or for a second person
 every time (:class:`~noust.core.operation_classes.OperationClass` ``strong``) is never done by the
-assistant, whatever a cell says: it prepares the call and a person makes it, in their own session. For a
+assistant, whatever a cell says: it prepares the call and a person makes it, in their own session. So is what
+only a person confirms (:data:`~noust.core.operation_classes.PERSON_CONFIRMATIONS`: going back past a change of
+schema, deploying past a freeze, and making or lifting a freeze): a cell of ``apps.deploy`` that lets the
+assistant deploy says nothing of that. For a
 token the sudo mode it was issued with (``allow_elevated``) is still what lets it pass a route that asks
 for it: ``alone`` here means the table asks for nothing more, never that sudo mode is not needed.
 
@@ -97,11 +100,17 @@ VERDICT_TABLE = "table"
 VERDICT_ASSISTANT_FLOOR = "assistant_floor"
 VERDICT_ASSISTANT_STRONG = "assistant_strong"
 VERDICT_ASSISTANT_OWN = "assistant_own"
+VERDICT_ASSISTANT_PERSON = "assistant_person"
 
 #: The verdicts that are the assistant's floor and not a cell of the table: no choice of the operator
 #: changes them.
 ASSISTANT_NEVER_REASONS: frozenset[str] = frozenset(
-    {VERDICT_ASSISTANT_FLOOR, VERDICT_ASSISTANT_STRONG, VERDICT_ASSISTANT_OWN}
+    {
+        VERDICT_ASSISTANT_FLOOR,
+        VERDICT_ASSISTANT_STRONG,
+        VERDICT_ASSISTANT_OWN,
+        VERDICT_ASSISTANT_PERSON,
+    }
 )
 
 _RANK = {value: rank for rank, value in enumerate(VALUES)}
@@ -597,6 +606,7 @@ class CallerPolicy:
         needed: Iterable[str],
         *,
         escalated: str | None = None,
+        confirms: str | None = None,
     ) -> Verdict:
         """
         Judge one call.
@@ -608,6 +618,9 @@ class CallerPolicy:
             needed: Every permission the call needs.
             escalated: The permission of the write, when a body made a read route a write
                 (:func:`noust.core.operation_classes.escalated_permission`).
+            confirms: The confirmation of a person the call carries
+                (:func:`noust.core.operation_classes.confirmation_in`), or None. The assistant never
+                does a call that has one on its own; a token is judged as it always was.
 
         Returns:
             What the policy says: ``alone``, ``propose`` or ``never``, and why.
@@ -619,9 +632,15 @@ class CallerPolicy:
         if escalated is not None:
             permissions.append(escalated)
         if caller == ASSISTANT:
-            floor = self._assistant_floor(operation, permissions)
+            floor = self._assistant_floor(operation, permissions, confirms)
             if floor is not None:
-                return Verdict(NEVER, floor, caller, where, _first_forbidden(permissions))
+                return Verdict(
+                    NEVER,
+                    floor,
+                    caller,
+                    where,
+                    _first_forbidden(permissions) or (permissions[0] if permissions else None),
+                )
         changes = operation.changes or escalated is not None
         if not changes:
             return Verdict(ALONE, VERDICT_NOT_A_CHANGE, caller, where)
@@ -638,11 +657,14 @@ class CallerPolicy:
         return Verdict(decider.value, VERDICT_TABLE, caller, where, decider.permission)
 
     @staticmethod
-    def _assistant_floor(operation: OperationClass, permissions: list[str]) -> str | None:
+    def _assistant_floor(
+        operation: OperationClass, permissions: list[str], confirms: str | None = None
+    ) -> str | None:
         """
         Args:
             operation: What the operation is.
             permissions: Every permission the call needs, the escalated one included.
+            confirms: The confirmation of a person the call carries, if it carries one.
 
         Returns:
             The floor that forbids the call to the assistant, or None when none does.
@@ -655,6 +677,8 @@ class CallerPolicy:
             return VERDICT_ASSISTANT_STRONG
         if operation.kind == OWN and operation.method not in SAFE_METHODS:
             return VERDICT_ASSISTANT_OWN
+        if operation.changes and (operation.person_decides or confirms is not None):
+            return VERDICT_ASSISTANT_PERSON
         return None
 
 

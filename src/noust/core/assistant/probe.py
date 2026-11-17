@@ -271,6 +271,7 @@ def probe_configured(store: Any, current: Any) -> ProbeResult:
         current.base_url,
         current.model,
         api_key=store.api_key(),
+        consented_hosts=current.consented_hosts,
         read_timeout=30.0,
         total_timeout=90.0,
         max_retries=1,

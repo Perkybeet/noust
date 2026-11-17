@@ -45,6 +45,7 @@ from noust.web.mcp.tools import (
     build_request,
     check_arguments,
     input_schema,
+    path_problem,
 )
 from noust.web.permissions.principal import actor_of, permissions_of
 from noust.web.permissions.registry import permission_for_route
@@ -417,7 +418,7 @@ class McpServer:
         """
         openapi = caller.app.openapi()
         schema = input_schema(openapi, tool)
-        problem = check_arguments(schema, arguments)
+        problem = path_problem(tool, arguments) or check_arguments(schema, arguments)
         domain = (
             str(arguments.get(tool.domain_field))
             if tool.domain_field and arguments.get(tool.domain_field)

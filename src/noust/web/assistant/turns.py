@@ -14,7 +14,9 @@ stream carries.
 
 At most :data:`MAX_RUNNING` turns run at once, in the whole server: the assistant is a way of spending
 somebody's money and the server's threads, and what it is asked in a crowd waits for its turn to be
-asked again. A turn can be cancelled by its person, and turning the assistant off cancels every turn.
+asked again. And at most :data:`MAX_PER_ACCOUNT` of them are one person's, so that an account that asks in
+several conversations at the same time does not hold the whole server's share. A turn can be cancelled by
+its person, and turning the assistant off cancels every turn.
 """
 
 from __future__ import annotations
@@ -28,12 +30,16 @@ from noust.core.exceptions import AssistantBusyError
 from noust.core.server_text import say
 from noust.web.assistant.loop import TokenCache, TurnRunner
 
-__all__ = ["MAX_RUNNING", "TurnRegistry", "publisher", "registry", "tokens"]
+__all__ = ["MAX_PER_ACCOUNT", "MAX_RUNNING", "TurnRegistry", "publisher", "registry", "tokens"]
 
 logger = logging.getLogger(__name__)
 
 #: The most turns answered at once in the whole server.
 MAX_RUNNING = 4
+
+#: The most of them that are one account's: two conversations at once is what a person does, and no more of the
+#: server's share than that.
+MAX_PER_ACCOUNT = 2
 
 
 class _Running:
@@ -47,12 +53,15 @@ class _Running:
 class TurnRegistry:
     """The turns running in this process."""
 
-    def __init__(self, limit: int = MAX_RUNNING) -> None:
+    def __init__(self, limit: int = MAX_RUNNING, per_account: int | None = None) -> None:
         """
         Args:
             limit: The most turns that run at once.
+            per_account: The most of them that are one account's; :data:`MAX_PER_ACCOUNT`, read when a
+                turn starts, when None.
         """
         self._limit = limit
+        self._per_account = per_account
         self._running: dict[str, _Running] = {}
         self._lock = threading.Lock()
 
@@ -64,10 +73,20 @@ class TurnRegistry:
             runner: The turn.
 
         Raises:
-            AssistantBusyError: The server is already answering as many as it may.
+            AssistantBusyError: The account already has as many turns as it may, or the server is
+                already answering as many as it may; each says so in its own sentence.
         """
         turn_id = runner.turn.id
+        mine = int(runner.ctx.account.id)
+        share = self._per_account if self._per_account is not None else MAX_PER_ACCOUNT
         with self._lock:
+            held = sum(
+                1 for item in self._running.values() if int(item.runner.ctx.account.id) == mine
+            )
+            if held >= share:
+                raise AssistantBusyError(
+                    say("assistant.turn.account_busy", limit=share), limit=share
+                )
             if len(self._running) >= self._limit:
                 raise AssistantBusyError(say("assistant.turn.busy"), limit=self._limit)
             thread = threading.Thread(

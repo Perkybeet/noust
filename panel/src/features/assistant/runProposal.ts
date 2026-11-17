@@ -6,10 +6,13 @@
  * never what the browser saw.
  */
 
-import { ApiError, ApprovalPendingError, ElevationCancelledError, api } from "../../api/client";
+import { ApiError, ApprovalPendingError, ElevationCancelledError, apiOn } from "../../api/client";
 import type { Method } from "../../api/client";
+import { nodeOfProxyPath } from "../../api/nodeScope";
 import { reportOutcome } from "../../api/queries/assistantChat";
 import type { OutcomeBody } from "../../api/queries/assistantChat";
+import { getLocale } from "../../app/locale";
+import { translate } from "../../i18n/translate";
 import { asProposal } from "./model";
 import type { Proposal } from "./model";
 
@@ -22,13 +25,57 @@ export function callTarget(proposal: Proposal): string {
   return text === "" ? proposal.call.path : `${proposal.call.path}?${text}`;
 }
 
+/** A proposal this console will not send, and why: said to the person, who changes nothing by it. */
+export class ProposalNotSent extends Error {
+  /** What the person can do instead. */
+  readonly hint: string;
+
+  constructor(message: string, hint: string) {
+    super(message);
+    this.name = "ProposalNotSent";
+    this.hint = hint;
+  }
+}
+
+function addressOf(target: string, origin: string): URL | null {
+  try {
+    return new URL(target, origin);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Whether what this console would send is what the card shows. A browser takes the dot segments out of an address and reads a
+ * backslash as a slash before it sends, so the call that leaves is not always the one the card names, and the card is what the
+ * person judged. The address must come out of the browser's own parser exactly as it went in, on this origin, and go to the
+ * server the proposal says (not the one that is selected by now).
+ */
+function refusal(proposal: Proposal): ProposalNotSent | null {
+  const origin = window.location.origin;
+  const shown = proposal.call.path;
+  const sent = addressOf(callTarget(proposal), origin);
+  const locale = getLocale();
+  const hint = translate(locale, "assistant.panel.notSentHint");
+  if (sent?.origin !== origin || sent.pathname !== shown) {
+    return new ProposalNotSent(translate(locale, "assistant.panel.notSentPath", { path: shown }), hint);
+  }
+  if (nodeOfProxyPath(shown) !== (proposal.server === "" ? null : proposal.server)) {
+    return new ProposalNotSent(translate(locale, "assistant.panel.notSentServer", { path: shown }), hint);
+  }
+  return null;
+}
+
 /** What the person's call came to, as the server is told. Null when the person did not go through with it (they closed "Confirm it's you"). */
 export async function carryOut(proposal: Proposal): Promise<OutcomeBody | null> {
+  const refused = refusal(proposal);
+  if (refused !== null) throw refused;
   const method = METHODS.find((candidate) => candidate === proposal.call.method.toUpperCase());
   if (method === undefined) return { fingerprint: proposal.fingerprint, status: 400, output: `The call of this proposal is a ${proposal.call.method}, which the console does not make.` };
   let status = 0;
   try {
-    const answer = await api<unknown>(method, callTarget(proposal), proposal.call.body ?? undefined, {
+    // To the server the proposal is for, not the one that is selected by now: the person may have moved to another since.
+    const answer = await apiOn<unknown>(null, method, callTarget(proposal), proposal.call.body ?? undefined, {
       headers: proposal.call.headers,
       onResponse: (response) => {
         status = response.status;

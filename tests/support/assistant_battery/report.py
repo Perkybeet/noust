@@ -277,6 +277,7 @@ def render_table(report: Mapping[str, Any]) -> str:
         "policy": "The approval policy: the operator's table says it is proposed, not done",
         "provenance": "Where the text came from: it read text from outside, so it is proposed",
         "sudo": "The token, which is never in sudo mode: a person does it in their own session",
+        "person": "What only a person confirms (a change of schema, a deploy freeze): proposed whatever the table says",
         "limit": "A limit: the hour's changes",
         "secret": "A credential in the call: it is not offered at all",
         "api": "The API itself: the token lacks the permission",

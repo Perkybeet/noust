@@ -157,8 +157,10 @@ def _options(command: Any) -> Any:
             click.option(
                 "--allow-private-host",
                 is_flag=True,
-                help="Say that this server may call the provider's host though it is on this "
-                "machine or your network: the host is added to security.allow_private_hosts.",
+                help="Say that this server may call the provider's host and port though they are "
+                "on this machine or your network. It is kept with the assistant's settings and "
+                "holds for the assistant alone: it goes with the provider and with turning the "
+                "assistant off.",
             ),
             click.option(
                 "--personal-data/--no-personal-data",
@@ -234,14 +236,31 @@ def _configure(
     if table is not None:
         changes["prices"] = table
     store = AssistantSettings()
+    before = store.read()
     if changes or allow_private_host:
-        store.update(actor=actor, allow_private_host=allow_private_host, **changes)
+        after = store.update(actor=actor, allow_private_host=allow_private_host, **changes)
+        cleared = before.has_key and not after.has_key and "api_key" not in changes
         record(
             "assistant.settings",
             "setting:assistant",
-            {"changed": sorted(changes), "key_set": "api_key" in changes},
+            {
+                "changed": sorted(changes),
+                "key_set": "api_key" in changes,
+                "dropped": "the provider key" if cleared else "",
+            },
         )
         ctx.logger.success("Saved.")
+        if cleared:
+            # A key is given for one provider: it does not travel to another address on its own.
+            ctx.logger.warning(
+                "The provider's key was taken away because the address moved to another origin, "
+                "and the assistant is off. Give the key again with --key-stdin."
+            )
+        if before.enabled and not after.enabled:
+            from noust.cli.web_state import assistant_identity
+
+            record("assistant.disable", "setting:assistant")
+            assistant_identity().revoke_all()
     current = store.read()
     if (
         current.configured

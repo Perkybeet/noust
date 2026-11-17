@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import urllib.parse
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from noust.core.assistant.docsearch import DocIndex
@@ -42,28 +42,35 @@ from noust.core.assistant_floor import ASSISTANT_FLOOR
 from noust.core.operation_classes import (
     NEUTRAL_PERMISSIONS,
     OWN,
+    PERSON_CONFIRMATIONS,
     PUBLIC_CLASS,
     OperationClass,
     classify_schema,
 )
+from noust.web.assistant.routing import runs_as
 from noust.web.mcp import guardrails
 from noust.web.mcp.tools import (
     GROUP_CONTROL,
     GROUP_INSPECT,
     TOOLS,
+    PathParameterRefused,
     Tool,
     build_request,
     check_arguments,
+    env_names,
+    fill_path,
     input_schema,
+    path_problem,
 )
 from noust.web.permissions.registry import permission_for_route
 
 __all__ = [
     "ACT_CODES",
     "FLEET_TOOLS",
-    "OUTSIDE_TOOLS",
+    "INSIDE_TOOLS",
     "OWN_TOOLS",
     "STEP_CODES",
+    "VARIABLE_READS",
     "Prepared",
     "Reach",
     "ToolProblem",
@@ -75,23 +82,46 @@ __all__ = [
 #: The tools of its own.
 OWN_TOOLS: tuple[str, ...] = ("search_docs", "find_operation", "call_operation")
 
-#: The tools whose answer is text somebody else wrote (logs, what a diagnosis quotes from them,
-#: commit messages and branch names, a job's own words). Having read one marks a conversation: what
-#: the assistant is told to do afterwards is not done on its own.
-OUTSIDE_TOOLS = frozenset(
+#: What the model is never offered to say in a call, as the MCP hides what it hides: the confirmations a
+#: person gives (going back past a change of schema, deploying past a freeze). The model prepares the call
+#: and the person, who sees it, decides; a field that confirms is theirs. The policy holds the same line
+#: where the call is judged (:data:`noust.core.operation_classes.PERSON_CONFIRMATIONS`), whoever sends it.
+ASSISTANT_HIDDEN: frozenset[str] = PERSON_CONFIRMATIONS
+
+#: The reads whose answer carries variables: an application's environment and its file, its Compose
+#: variables and its previews', and those of a team, a project, an environment and the server. Whatever tool
+#: they are asked through, they reach the model as names alone (:func:`noust.web.mcp.tools.env_names`): a value
+#: nobody knows is a secret and that has no shape of one cannot be told from any other text. A test walks
+#: the API for every ``GET`` that carries variables, so a route added tomorrow is not left out.
+VARIABLE_READS: frozenset[tuple[str, str]] = frozenset(
     {
-        "application_logs",
-        "deployment_log",
-        "job_log",
-        "diagnose_application",
-        "get_deployment",
-        "list_deployments",
-        "get_application",
-        "get_job",
-        "list_jobs",
-        "list_releases",
+        ("GET", "/api/apps/{domain}/compose/variables"),
+        ("GET", "/api/apps/{domain}/env"),
+        ("GET", "/api/apps/{domain}/env/file"),
+        ("GET", "/api/apps/{domain}/previews/variables"),
+        ("GET", "/api/teams/{team}/projects/{project}/environments/{environment}/variables"),
+        ("GET", "/api/teams/{team}/projects/{project}/variables"),
+        ("GET", "/api/teams/{team}/variables"),
+        ("GET", "/api/variables/server"),
     }
 )
+
+#: What a read of variables is never offered to ask for: the values in clear, or the file as a download.
+_VARIABLE_HIDDEN: frozenset[str] = frozenset({"unmask", "unmasked", "download"})
+
+#: What the MCP hides in the tool of each route, which a call to that route made by its path hides too: the
+#: same operation reached by its name or by its address is the same operation.
+_MCP_HIDDEN: dict[tuple[str, str], frozenset[str]] = {
+    (tool.method, tool.path): tool.hidden for tool in TOOLS if tool.hidden
+}
+
+#: The only tools whose answer is not text somebody else wrote: what Noust ships (its documentation and the
+#: description of its own API). Everything else a tool reads is from outside: the names of an application, a
+#: certificate or a backup are written by whoever made them, a health check carries the programs' own lines, a
+#: job quotes what a build printed. Having read any of it marks a conversation: what the assistant is told to do
+#: afterwards is not done on its own. The list is of what is trusted, so a tool added tomorrow is from outside
+#: until somebody argues otherwise here.
+INSIDE_TOOLS = frozenset({"search_docs", "find_operation"})
 
 #: What a central offers to look at its servers together.
 FLEET_TOOLS: tuple[Tool, ...] = (
@@ -371,7 +401,9 @@ class Toolbox:
         self._ops = shared_index(openapi)
         tools = [*TOOLS, *(FLEET_TOOLS if reach.server == "*" else ())]
         self._named: dict[str, Tool] = {
-            tool.name: tool for tool in tools if self._tool_offered(tool)
+            tool.name: replace(tool, hidden=tool.hidden | ASSISTANT_HIDDEN)
+            for tool in tools
+            if self._tool_offered(tool)
         }
 
     # -- what is on offer ------------------------------------------------------------------------
@@ -518,7 +550,7 @@ class Toolbox:
             ToolProblem: The arguments do not fit, or a destructive tool was not confirmed.
         """
         server = self._server_of(tool, arguments)
-        problem = check_arguments(self._schema(tool), arguments)
+        problem = _path_problem(tool, arguments) or check_arguments(self._schema(tool), arguments)
         if problem:
             raise ToolProblem(problem)
         if tool.destructive and arguments.get("confirm") is not True:
@@ -536,7 +568,10 @@ class Toolbox:
         Returns:
             The call.
         """
-        path, query, body = build_request(tool, self._openapi, sent)
+        try:
+            path, query, body = build_request(tool, self._openapi, sent)
+        except PathParameterRefused as refused:
+            raise ToolProblem(str(refused)) from None
         operation = self._ops.class_of(tool.method, tool.path)
         found = self._ops.get(tool.method, tool.path)
         permission = permission_for_route(tool.method, tool.path) or ""
@@ -570,7 +605,7 @@ class Toolbox:
             arguments=sent,
             summary=found.summary if found else "",
             read_only=tool.read_only,
-            outside=tool.name in OUTSIDE_TOOLS or tool.name == "call_operation",
+            outside=tool.read_only,
             log=bool(tool.extra.get("log")),
             plan=_plan(self._openapi, tool),
             step_code=step_code,
@@ -635,10 +670,16 @@ class Toolbox:
             template,
             GROUP_INSPECT if read_only else GROUP_CONTROL,
             read_only=read_only,
+            hidden=_MCP_HIDDEN.get((method, template), frozenset())
+            | ASSISTANT_HIDDEN
+            | (_VARIABLE_HIDDEN if (method, template) in VARIABLE_READS else frozenset()),
+            shape=env_names if (method, template) in VARIABLE_READS else None,
         )
         merged = {**parameters, **body}
         server = self._server_of(tool, dict(arguments))
-        problem = check_arguments(_without(input_schema(self._openapi, tool), "approval"), merged)
+        problem = _path_problem(tool, merged) or check_arguments(
+            _without(input_schema(self._openapi, tool), "approval"), merged
+        )
         if problem:
             raise ToolProblem(problem)
         return self._build(tool, merged, server)
@@ -883,6 +924,33 @@ def classify_schema_safely(openapi: Mapping[str, Any]) -> dict[tuple[str, str], 
             except Unclassified:
                 continue
     return found
+
+
+def _path_problem(tool: Tool, arguments: Mapping[str, Any]) -> str | None:
+    """
+    Args:
+        tool: A tool, named or made for ``call_operation``.
+        arguments: What the model sent.
+
+    Returns:
+        What is wrong with the path its parameters make, for the model: a value that cannot be one
+        part of a path, or one that makes the server route the path to another operation than the
+        tool's. Said before anything else about the call, so it does not depend on what else is
+        missing from it. A read is not held to the second: it has no card, and the token that makes
+        it holds what the route it reaches needs.
+    """
+    problem = path_problem(tool, arguments)
+    if problem or tool.method == "GET" or not all(n in arguments for n in tool.path_parameters):
+        return problem
+    path = fill_path(tool.path, {name: arguments[name] for name in tool.path_parameters})
+    if runs_as(tool.method, path, tool.path):
+        return None
+    # The card is classified by the template and what runs is whatever the server routes the path
+    # to: a value that splits into parts (an encoded slash) makes them two operations.
+    return (
+        f"With these values {tool.method} {tool.path} would reach another operation: a name cannot "
+        "hold a '/' or anything else that splits it into parts. Give the name itself."
+    )
 
 
 def _without(schema: dict[str, Any], key: str) -> dict[str, Any]:

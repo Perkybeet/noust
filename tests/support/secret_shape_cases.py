@@ -71,6 +71,14 @@ CASES: tuple[ShapeCase, ...] = (
     _token("sendgrid key", "SG.abcdefghijklmnop.qrstuvwxyz0123456789"),
     _token("npm token", "npm_" + "a1B2c3D4" * 4 + "e5F6"),
     _token("telegram bot token", "110201543:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw"),
+    # The Bot API is called with the token behind the word "bot", with no boundary between them.
+    _token("telegram bot token with its prefix", "bot110201543:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw"),
+    _hides(
+        "telegram bot token in the address of the Bot API",
+        "POST https://api.telegram.org/bot110201543:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw/sendMessage",
+        f"POST https://api.telegram.org/{MASK}/sendMessage",
+    ),
+    _keeps("a number and a short word are not a bot token", "retry 110201543:ok in 5 minutes"),
     _token("noust token", "noust_tok_abcdefghijklmnop0123456789"),
     _token("token of before 3.0", "wasm_tok_abcdefghijklmnop0123456789"),
     _token("provider api key", "sk-" + "abcdefghij" * 4),

@@ -66,6 +66,7 @@ from noust.web.auth.records import (
     ENS_TOKEN_EXCLUDED,
     LEGACY_TOKEN_CEILING,
     LEGACY_TOKEN_WINDOW_DAYS,
+    TOKEN_NEVER_HOLDS,
     _api_enabled,
     _json_list,
     _validated_networks,
@@ -1501,6 +1502,7 @@ class TokenManager:
         restricted_tokens = policy.requires("restricted_tokens")
         if restricted_tokens:
             permissions = permissions - ENS_TOKEN_EXCLUDED
+        permissions = permissions - TOKEN_NEVER_HOLDS
         allow_elevated = record.get("allow_elevated")
         notice = policy.notice_version
         return {

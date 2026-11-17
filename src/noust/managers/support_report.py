@@ -101,12 +101,16 @@ class SupportReport:
         generated_at: When, ISO 8601 in UTC.
         hide_domains: Whether domains and the host's name were replaced.
         sections: The parts, in reading order.
+        replacements: What was replaced and with what, ``(real, alias)`` longest first, when
+            domains were hidden: whatever else goes in the same report (the console's browser adds
+            its own page and errors) is replaced the same way, so one name is one alias everywhere.
     """
 
     version: str
     generated_at: str
     hide_domains: bool
     sections: tuple[ReportSection, ...] = field(default_factory=tuple)
+    replacements: tuple[tuple[str, str], ...] = ()
 
     def to_markdown(self) -> str:
         """
@@ -142,7 +146,8 @@ class SupportReport:
 
         Returns:
             ``version``, ``generated_at``, ``hide_domains``, ``markdown`` (what
-            :meth:`to_markdown` renders) and ``sections`` (key, title, body, collected).
+            :meth:`to_markdown` renders), ``sections`` (key, title, body, collected) and
+            ``replacements`` (``real`` and ``alias`` of each name replaced; empty when none was).
         """
         return {
             "version": self.version,
@@ -158,6 +163,7 @@ class SupportReport:
                 }
                 for s in self.sections
             ],
+            "replacements": [{"real": real, "alias": alias} for real, alias in self.replacements],
         }
 
 
@@ -252,7 +258,8 @@ class SupportReporter:
             ),
             self._journal_section(),
         ]
-        mask = self._masker(apps)
+        aliases = self._aliases(apps) if self.hide_domains else []
+        mask = self._masker(apps, aliases)
         return SupportReport(
             version=__version__,
             generated_at=self._now().strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -260,6 +267,7 @@ class SupportReporter:
             sections=tuple(
                 ReportSection(s.key, s.title, mask(s.body), s.collected) for s in sections
             ),
+            replacements=tuple(aliases),
         )
 
     def _section(self, key: str, title: str, collect: Callable[[], str]) -> ReportSection:
@@ -281,12 +289,13 @@ class SupportReporter:
             # A NoustError's text already carries its details.
             return ReportSection(key, title, f"(not collected: {exc})", collected=False)
 
-    def _masker(self, apps: list[App]) -> Callable[[str], str]:
+    def _masker(self, apps: list[App], aliases: list[tuple[str, str]]) -> Callable[[str], str]:
         """
         Build the one function every section's text goes through before it leaves.
 
         Args:
-            apps: The applications, whose secrets and names are masked.
+            apps: The applications, whose secrets are masked.
+            aliases: The names to replace and with what (:meth:`_aliases`), none when domains are shown.
 
         Returns:
             A function from text to masked text.
@@ -294,7 +303,6 @@ class SupportReporter:
         scrubber = redact.Scrubber(redact.known_credentials())
         for app in apps:
             scrubber.add(redact.app_secret_values(app.domain))
-        aliases = self._aliases(apps) if self.hide_domains else []
 
         def mask(text: str) -> str:
             text = mask_secret_shapes(scrubber.scrub(text))

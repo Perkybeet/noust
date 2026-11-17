@@ -9,7 +9,7 @@ script:
   - call: {tool: list_jobs, arguments: {domain: shop.example.com}}
   - say: |
       There is no backup and no backup job for the shop in what I can read, so I do not know whether one ran, or why it would have failed.
-      [[S2:9]]
+      [[S2:99]]
 expect:
   state: done
   trace: [list_backups, list_jobs]

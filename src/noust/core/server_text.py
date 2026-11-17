@@ -2288,6 +2288,27 @@ CATALOG: dict[str, str] = {
     ),
     "assistant.unavailable.account": "The assistant acts for a person, and this is not an account",
     "assistant.unavailable.account.hint": "Sign in with your own account.",
+    # -- What a proposal of the assistant may be, and what the person's browser did with one.
+    "assistant.proposal.path_rewritten": "That path is not one a browser sends as it is written",
+    "assistant.proposal.path_rewritten.hint": (
+        "A path with a '..', a '.', a '//' or a backslash is rewritten before it is sent, so the "
+        "call made would not be the one the proposal shows."
+    ),
+    "assistant.proposal.operation_mismatch": (
+        "The proposal's path is not a call of the operation it is for"
+    ),
+    "assistant.proposal.operation_mismatch.hint": (
+        "A proposal keeps the template of its operation, and its path has one part of a path for "
+        "each parameter of it."
+    ),
+    "assistant.outcome.other_call": "The call that was made is not the call the proposal shows",
+    "assistant.outcome.other_call.hint": (
+        "The audit trail has {made} under this proposal's identifier, and the proposal is "
+        "{shown}. Nothing is recorded as done."
+    ),
+    # -- A place that is for a person (the built-in assistant, the approval policy).
+    "callers.person_only": "This is for a person: an access token cannot do it, whatever it holds",
+    "callers.person_only.hint": "Sign in to the console with your own account.",
     # -- What the assistant read (noust.web.assistant.toolbox): one sentence for each thing it looked
     # at, in the past, for the list of "what it read" that the person keeps in view.
     "assistant.step.list_applications": "Read the list of applications",
@@ -2342,6 +2363,10 @@ CATALOG: dict[str, str] = {
     "assistant.proposal.why.needs_second": (
         "This asks a second person to approve it, and you cannot be the second"
     ),
+    "assistant.proposal.why.person_decides": (
+        "This confirms something only a person confirms (a change of schema, a deploy past a "
+        "freeze, or a freeze itself), so it asks even where your policy would let it be done alone"
+    ),
     "assistant.proposal.why.foreign_value": (
         "It carries a value that is neither yours nor Noust's, so it asks even where your policy "
         "would let it be done alone"
@@ -2365,6 +2390,8 @@ CATALOG: dict[str, str] = {
     "assistant.turn.interrupted.hint": "Ask again: what it already read is not kept.",
     "assistant.turn.busy": "The assistant is answering as many people as it may at once",
     "assistant.turn.busy.hint": "Try again in a moment.",
+    "assistant.turn.account_busy": "You already have {limit} answers being written",
+    "assistant.turn.account_busy.hint": "Wait for one to end, or stop one, and ask again.",
     "assistant.turn.running": "This conversation is still answering",
     "assistant.turn.running.hint": "Wait for it to end, or cancel it.",
     "assistant.turn.failed": "The assistant could not finish this answer: {reason}",
@@ -2373,6 +2400,8 @@ CATALOG: dict[str, str] = {
     "assistant.turn.too_long.hint": "Ask again with a narrower question, or look at it by hand.",
     # -- What an operation would do, before it does it (noust.core.plans, noust.deployers.plans).
     # What would stop it: the reason is the operation's own sentence, said as it said it.
+    "plans.credential_busy": "You already have {limit} plans being made",
+    "plans.credential_busy.hint": "Wait for one to end and ask again.",
     "plans.blocked.refused": "It would be refused: {reason}",
     "plans.blocked.refused.hint": "{fix}",
     "plans.blocked.refused_plain": "It would be refused: {reason}",
