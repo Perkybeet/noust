@@ -1,0 +1,1 @@
+function e(e,t){let n=e?.[t];return typeof n==`string`?n:``}function t(e,t){let n=e?.[t];return typeof n==`number`&&Number.isFinite(n)?n:null}function n(e,t){return e?.[t]===!0}function r(e,t){return e?.[t]===!1}export{e as i,n,t as r,r as t};

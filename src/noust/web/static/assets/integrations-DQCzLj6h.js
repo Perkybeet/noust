@@ -1,0 +1,1 @@
+import{n as e}from"./OwnSections-OrJ38121.js";var t=e;export{t as component};

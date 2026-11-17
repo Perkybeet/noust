@@ -1,0 +1,1 @@
+function e(e){return typeof e==`string`&&e!==``}function t(t,n){return e(n)?t(n===`ugreen-app-center`?`settings.about.version.viaStore`:`settings.about.version.viaStoreOther`):null}export{t};

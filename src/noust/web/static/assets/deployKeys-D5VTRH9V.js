@@ -1,0 +1,1 @@
+import{Go as e,vo as t}from"./routes-CuXP_NEd.js";var n={server:[`deploy-keys`,`server`]},r=()=>e({queryKey:n.server,queryFn:({signal:e})=>t(`get`,`/api/deploy-keys/server`,{signal:e}),staleTime:3e4});function i(){return t(`post`,`/api/deploy-keys/server`)}export{n,r,i as t};

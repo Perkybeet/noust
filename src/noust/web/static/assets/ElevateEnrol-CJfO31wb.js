@@ -1,0 +1,1 @@
+import{n as e}from"./GatePage-Cj8RHtap.js";import{Nr as t}from"./routes-work-8asmFgM_.js";var n=t();function r({session:t,onDone:r}){return(0,n.jsx)(e,{session:t,onDone:r})}export{r as default};
