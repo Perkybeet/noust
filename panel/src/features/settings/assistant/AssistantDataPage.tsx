@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { isApiError } from "../../../api/errors";
 import { assistantKeys, assistantSettingsQuery, assistantUsageQuery, saveAssistantSettings } from "../../../api/queries/assistant";
 import type { AssistantSettings } from "../../../api/queries/assistant";
 import { useDocumentTitle } from "../../../app/documentTitle";
@@ -18,7 +19,6 @@ import { ServerText } from "../../../components/ui/ServerText";
 import { SkeletonCard } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import { formatCount } from "../../../lib/format";
-import { useAssistantSession } from "../../assistant/useAssistantSession";
 import { LimitsFields } from "./LimitsFields";
 import { draftFrom, isOwn, limitsBody } from "./model";
 import type { Draft } from "./model";
@@ -49,10 +49,11 @@ function DataForm({ settings }: { settings: AssistantSettings }) {
   const t = useT();
   const queryClient = useQueryClient();
   const canManage = useCan("settings.manage");
-  // What was spent is read with the permission to use the assistant: whoever only manages it is not told what it cannot read, so the
-  // section is not drawn for them and nothing is asked that the server would refuse.
-  const mayRead = useAssistantSession() !== null;
-  const usage = useQuery({ ...assistantUsageQuery(null), enabled: mayRead });
+  // What was spent in the month is the instance's, read with the settings: whoever administers the assistant sees it though they do not
+  // use it. Whoever sees only some teams is refused it (403 instance_scope_required), and then the section is not drawn.
+  const mayRead = useCan("settings.read");
+  const usage = useQuery({ ...assistantUsageQuery(null), enabled: mayRead, retry: false });
+  const refused = isApiError(usage.error) && usage.error.status === 403 && usage.error.error === "instance_scope_required";
   const saved = draftFrom(settings);
   const [draft, setDraft] = useState<Draft>(saved);
   const own = isOwn(saved.origin);
@@ -79,8 +80,10 @@ function DataForm({ settings }: { settings: AssistantSettings }) {
           onCheckedChange={(checked) => setDraft({ ...draft, mask: checked })}
         />
       </SurfaceSection>
-      {mayRead ? (
+      {/* Drawn once the month is known, so a refusal never shows an empty section that then goes away. */}
+      {mayRead && !refused && (month !== undefined || usage.isError) ? (
         <SurfaceSection title={t("assistantSettings.dataPage.month")} icon={OBJECT_ICONS.activity}>
+          {usage.isError ? <ErrorBlock compact error={usage.error} title={t("assistantSettings.dataPage.monthFailed")} /> : null}
           {month !== undefined ? (
             <KeyValueList
               items={[

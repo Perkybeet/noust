@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { setLocale } from "../../../app/locale";
 import { expectNoAxeViolations } from "../../../test/axe";
 import { FakeEventSource, json, problem } from "../../../test/fakes";
+import { nasSession } from "../../../test/nas";
 import type { RouteHandler } from "../../../test/fakes";
 import { confirmation, retentionOutcome } from "./InstantRollback";
 import { planItems } from "./MigrationPlanView";
@@ -295,6 +296,16 @@ describe("zero-downtime deploys, as a feature of the page", () => {
     expect(await within(card).findByText("Two copies of the app run at once for a few seconds.")).toBeInTheDocument();
     expect(within(card).getByRole("list", { name: "Copies of the app" })).toBeInTheDocument();
     expect(within(card).getByText("Live")).toBeInTheDocument();
+  });
+});
+
+describe("zero-downtime deploys on a machine with no web server to switch in", () => {
+  it("are not offered, and the server is not asked about them: the table of functions says they are not there", async () => {
+    const { backend } = await deploys(RELEASE_APP, { "GET /api/auth/session": () => json(200, { ...nasSession(), elevated_until: "2999-01-01T00:00:00+00:00" }) });
+    // The rest of the page is what it was: the way back and the startup check do not need a web server.
+    expect(within(part("Instant rollback")).getByText("On")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Zero-downtime deploys" })).not.toBeInTheDocument();
+    expect(backend.callsTo(`GET /api/apps/${DOMAIN}/zero-downtime`)).toHaveLength(0);
   });
 });
 

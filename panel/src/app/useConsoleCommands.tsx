@@ -18,7 +18,8 @@ import { announce } from "./Announcer";
 import { appSectionCommands } from "./appCommands";
 import { helpFor, helpUrl } from "./help";
 import { nodeOfConsolePath } from "./nodeRoute";
-import type { FeatureKey } from "../features/central/features";
+import { DATABASES_NEED } from "../features/central/offers";
+import type { FeatureNeed } from "../features/central/features";
 import { useHasFleet, useServerList } from "../nodes/servers";
 import { allServersTarget, useConsoleContext, useNode, useScopeOffers, useSwitchNode } from "../nodes/useNode";
 import type { Command } from "./CommandPalette";
@@ -34,8 +35,8 @@ import type { AppVerb } from "./verbCommands";
 import { OBJECT_ICONS } from "../components/ui/objectIcons";
 
 /** The actions of the palette that make something on the server chosen, and the function each asks of it. */
-const NEEDS_A_SERVER: Readonly<Record<string, FeatureKey>> = {
-  "action:new-database": "databases",
+const NEEDS_A_SERVER: Readonly<Record<string, FeatureNeed>> = {
+  "action:new-database": DATABASES_NEED,
   "action:new-backup": "application_backups",
   "action:add-name": "domains",
   "action:open-port": "published_ports",

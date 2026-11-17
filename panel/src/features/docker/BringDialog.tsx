@@ -34,15 +34,16 @@ export function BringDialog({ stack, onClose }: BringDialogProps) {
   const { node } = useNode();
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
-  // What would be registered, asked once when the dialog opens and never applied: `preview` changes nothing.
+  // What would be registered, asked once when the dialog opens: the preview is its own route, which only rehearses Compose's start and
+  // takes no sudo mode, so looking asks nobody who they are. Who they are is asked when the stack is brought, below.
   const preview = useQuery({
     queryKey: ["docker", "stack", stack, "bring-preview"],
-    queryFn: () => request("post", "/api/docker/stacks/{name}/bring", { params: { name: stack ?? "" }, body: { preview: true, accept_recreate: false } }),
+    queryFn: () => request("post", "/api/docker/stacks/{name}/bring/preview", { params: { name: stack ?? "" }, body: { accept_recreate: false } }),
     enabled: stack !== null,
     staleTime: 0,
     gcTime: 0,
     retry: false,
-    // A preview is a root-equivalent request: it is asked when the dialog opens and not again because the window was focused.
+    // Compose's rehearsal runs once, not again because the window was focused.
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });

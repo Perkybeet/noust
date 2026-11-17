@@ -10,7 +10,8 @@ import { useT } from "../../../i18n";
 import type { PlainKey } from "../../../i18n";
 import { ICONS } from "../../ui/icons";
 import { OBJECT_ICONS } from "../../ui/objectIcons";
-import type { FeatureKey } from "../../../features/central/features";
+import { DATABASES_NEED } from "../../../features/central/offers";
+import type { FeatureNeed } from "../../../features/central/features";
 import { useScopeOffers } from "../../../nodes/useNode";
 import { useCan } from "../../page/permissions";
 
@@ -21,7 +22,7 @@ interface Shortcut {
   /** What the account must hold to be offered it. */
   needs: string;
   /** The function of the server's table it does: a server that cannot do it is not offered the shortcut (item 187). */
-  feature?: FeatureKey;
+  feature?: FeatureNeed;
   to: string;
   search?: Record<string, string | boolean>;
 }
@@ -29,7 +30,7 @@ interface Shortcut {
 /** In the order a tile fills: a small one has four, a wide one eight. */
 const SHORTCUTS: readonly Shortcut[] = [
   { id: "app", label: "widgets.actions.newApp", icon: ICONS.add, needs: "apps.deploy", to: "/apps/new" },
-  { id: "database", label: "widgets.actions.newDatabase", icon: OBJECT_ICONS.database, needs: "databases.write", feature: "databases", to: "/databases" },
+  { id: "database", label: "widgets.actions.newDatabase", icon: OBJECT_ICONS.database, needs: "databases.write", feature: DATABASES_NEED, to: "/databases" },
   { id: "backup", label: "common.words.backUpNow", icon: OBJECT_ICONS.backup, needs: "backups.run", feature: "application_backups", to: "/backups" },
   // A shortcut opens what it says: the dialog that opens a port, the one that adds a name (the pages open them on `?new`).
   { id: "port", label: "widgets.actions.openPort", icon: OBJECT_ICONS.port, needs: "server.host_access", feature: "published_ports", to: "/network", search: { new: true } },

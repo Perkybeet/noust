@@ -26,11 +26,19 @@ export function hasUnit(app: Pick<AppInfo, "status" | "app_type">): boolean {
 }
 
 /**
- * Whether the app has files to browse. A stack or a container runs from images and volumes, and the server refuses its files
- * (`managers/app_files.py`: "runs in containers"): the places that lead to the files do not offer them there.
+ * Whether a type runs from images and volumes. The server refuses the files of a stack and of a container (`managers/app_files.py`:
+ * "runs in containers"), so the console never asks for them: this is the one place that says which types those are.
+ */
+export function runsInContainers(appType: string | null | undefined): boolean {
+  return appType === "docker-compose" || appType === "container";
+}
+
+/**
+ * Whether the app has files to browse: the places that lead to the files (the column, the menu) do not offer them where the server
+ * refuses them, and the page of the files says why when its address is typed anyway.
  */
 export function hasFiles(app: Pick<AppInfo, "status" | "app_type">): boolean {
-  return hasUnit(app) && app.app_type !== "docker-compose" && app.app_type !== "container";
+  return hasUnit(app) && !runsInContainers(app.app_type);
 }
 
 /** The types whose name the registry gives as English words and not as a product's (Next.js, Node.js): the console says them itself. */

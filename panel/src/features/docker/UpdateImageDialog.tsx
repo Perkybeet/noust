@@ -55,6 +55,8 @@ export function UpdateImageDialog({ image, onClose, onQueued }: UpdateImageDialo
   const data = plan.data;
   const facts = (update: DockerImageUpdate): KeyValueItem[] => [
     { label: t("docker.update.reference"), value: update.reference ?? imageName(image), mono: true },
+    // Where the image comes from, as the server says it: a registry is the only thing that has a new version to take.
+    { label: t("docker.update.origin"), value: t(`docker.source.${image.source}`), mono: false, copy: false as const },
     ...(update.current_version !== null && update.current_version !== undefined && update.current_version !== "" ? [{ label: t("docker.update.runs"), value: update.current_version, mono: true }] : []),
     ...(update.latest_version !== null && update.latest_version !== undefined && update.latest_version !== "" ? [{ label: t("docker.update.latest"), value: update.latest_version, mono: true }] : []),
     ...(update.checked_at !== null && update.checked_at !== undefined ? [{ label: t("docker.update.looked"), value: <RelativeTime value={update.checked_at} />, mono: false, copy: false as const }] : []),

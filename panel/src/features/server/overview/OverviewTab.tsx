@@ -31,6 +31,7 @@ import { TextLink } from "../../../components/ui/TextLink";
 import { useT } from "../../../i18n";
 import { formatBytes, formatBytesPair, formatDuration, formatPercent } from "../../../lib/format";
 import { NodeCapabilityGate } from "../../../nodes/capability";
+import { useScopeOffers } from "../../../nodes/useNode";
 import { AttentionRows } from "../../inbox/AttentionRows";
 import { useAttention } from "../../inbox/useAttention";
 import { serverItems } from "../attention";
@@ -201,11 +202,13 @@ function TopProcesses() {
 function OverviewLayout({ summary }: { summary: ServerSummary | undefined }) {
   const attention = useAttention();
   const items = serverItems(attention.items);
+  // The processes are the machine's own: where Noust sees only its container the card is not drawn, and what is not well has the row.
+  const hasProcesses = useScopeOffers()("system_processes");
   return (
     <div className="flex min-w-0 flex-col gap-6">
       {summary !== undefined ? <Readings summary={summary} /> : <ReadingsSkeleton />}
-      <div className="grid min-w-0 items-start gap-6 lg:grid-cols-2">
-        <TopProcesses />
+      <div className={hasProcesses ? "grid min-w-0 items-start gap-6 lg:grid-cols-2" : "grid min-w-0 items-start gap-6"}>
+        {hasProcesses ? <TopProcesses /> : null}
         <NotWell items={items} total={attention.total} loading={summary === undefined || attention.loading} />
       </div>
       <AddServerCard />

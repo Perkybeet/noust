@@ -734,6 +734,8 @@ export const settings: Catalog<typeof en> = {
       securityRelease: "La versión {version} corrige una vulnerabilidad de seguridad",
       securityReleaseDescription: "Instálala pronto, sea lo que sea que traiga además. Hasta entonces este servidor ejecuta el código vulnerable.",
       whatItFixes: "Qué corrige la {version}",
+      viaStore: "Las versiones nuevas llegan por el Centro de Apps del NAS.",
+      viaStoreOther: "Las versiones nuevas llegan por la tienda de aplicaciones desde la que se instaló este Noust.",
     },
     whatsNew: {
       title: "Novedades",

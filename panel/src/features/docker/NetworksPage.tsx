@@ -15,6 +15,7 @@ import { ErrorBlock } from "../../components/page/QueryState";
 import { Badge } from "../../components/ui/Badge";
 import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
+import { EmptyCell } from "../../components/ui/EmptyCell";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Mono } from "../../components/ui/Mono";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
@@ -31,6 +32,24 @@ import { Unavailable } from "./Unavailable";
 
 export function visibleNetworks(items: readonly DockerNetwork[], search: DockerListProps["search"]): DockerNetwork[] {
   return items.filter((item) => textMatches(search.q, item.name, item.driver, item.project, ...(item.containers ?? [])) && ownerMatches(item.owner, search.owner) && (search.project === undefined || item.project === search.project));
+}
+
+/**
+ * The address range of a network: its first subnet, with its gateway for whoever points at it, and how many more it has. Docker's own
+ * host and none networks have none, and a dash with the reason says so.
+ */
+export function SubnetCell({ ranges }: { ranges: DockerNetwork["ranges"] }) {
+  const t = useT();
+  const first = ranges[0];
+  if (first === undefined) return <EmptyCell reason={t("docker.networks.noRange")} />;
+  return (
+    <span className="flex min-w-0 items-baseline gap-2">
+      <Mono truncate title={first.gateway === "" ? first.subnet : t("docker.networks.gateway", { gateway: first.gateway })}>
+        {first.subnet}
+      </Mono>
+      {ranges.length > 1 ? <span className="shrink-0 text-12 text-fg-muted">{t("docker.networks.moreRanges", { count: ranges.length - 1 })}</span> : null}
+    </span>
+  );
 }
 
 export function NetworksPage({ search, onSearchChange }: DockerListProps) {
@@ -61,8 +80,15 @@ export function NetworksPage({ search, onSearchChange }: DockerListProps) {
       card: "meta",
       hideBelow: "md",
       sortValue: (row) => row.containers?.length ?? 0,
-      cell: (row) => ((row.containers?.length ?? 0) === 0 ? t("docker.columns.nobody") : <Mono truncate>{(row.containers ?? []).join(", ")}</Mono>),
+      // A count, which fits any width; the names are in the title of the cell, in the search and in each container's own page.
+      cell: (row) =>
+        (row.containers?.length ?? 0) === 0 ? (
+          t("docker.columns.nobody")
+        ) : (
+          <span title={(row.containers ?? []).join(", ")}>{t("docker.networks.containersCount", { count: row.containers?.length ?? 0 })}</span>
+        ),
     },
+    { id: "subnet", header: t("docker.columns.subnet"), card: "meta", hideBelow: "lg", width: "w-44", cell: (row) => <SubnetCell ranges={row.ranges} /> },
   ];
   const total = data?.items?.length ?? 0;
   return (

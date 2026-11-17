@@ -11,7 +11,15 @@
  * A ceremony the browser refuses is reported with its own words (a DOMException's name and
  * message), never paraphrased: "NotAllowedError: The operation either timed out or was not
  * allowed" is what the operator needs to search for.
+ *
+ * A page has one passkey window at a time, and the browser is the one that says when the last one
+ * is over, a moment after its promise settles. The two ceremonies below go through one gate
+ * (`ceremony`) that never lets two overlap, and that asks again, a few times and briefly, when the
+ * browser answers that the previous one is still closing.
  */
+
+import { getLocale } from "../../app/locale";
+import { translate } from "../../i18n";
 
 /** JSON as the server sends it (`CeremonyOptions.public_key`). */
 export type JsonObject = Record<string, unknown>;
@@ -175,13 +183,19 @@ export class CeremonyError extends Error {
   readonly detail: string;
   /** The operator closed the browser's prompt or it timed out: nothing to report loudly. */
   readonly cancelled: boolean;
+  /**
+   * What the console says above the browser's words when it knows why they came (the browser was still
+   * closing another passkey window). `describeError` reads it like the fix an API error carries.
+   */
+  readonly hint?: string;
 
-  constructor(reason: string, message: string) {
+  constructor(reason: string, message: string, hint?: string) {
     super(message);
     this.name = "CeremonyError";
     this.reason = reason;
     this.detail = message === "" ? reason : `${reason}: ${message}`;
     this.cancelled = reason === "NotAllowedError" || reason === "AbortError";
+    if (hint !== undefined) this.hint = hint;
   }
 }
 
@@ -192,15 +206,139 @@ function ceremonyError(cause: unknown): CeremonyError {
   return new CeremonyError("Error", String(cause));
 }
 
-/** Creates a passkey from the server's creation options; the returned JSON goes back to it. */
-export async function createPasskey(json: JsonObject): Promise<JsonObject> {
+/**
+ * The browser refused a ceremony because it still had another one open: what it says is the name of a
+ * DOMException that says "operation" or "state" and a message that says "pending". Matched on both, so
+ * a refusal of another kind that happens to say "pending" is not asked again.
+ *
+ * What each browser says:
+ * - Chrome, Edge and the other Chromium browsers: `OperationError: A request is already pending.` (what
+ *   an operator met in production, and Blink's `PENDING_REQUEST`). An older Chromium gave the same words
+ *   as an `InvalidStateError`, which is why both names are matched.
+ * - Safari and Firefox: not measured here. WebKit's own reports of a second request while one is open
+ *   say `InvalidStateError: A credential picker operation is already in progress`, which does not say
+ *   "pending" and is therefore shown as it came and not asked again; a version of either that answers
+ *   an `OperationError` or `InvalidStateError` with "pending" in it is matched here by its word.
+ * Nothing else is taken for it: `NotAllowedError` is the operator closing the window, and a
+ * `SecurityError` is a name the page may not bind a passkey to, which no waiting mends.
+ */
+export function isPendingRefusal(cause: unknown): boolean {
+  // Read by its fields: the error of a frame or of a test's DOM is not an `instanceof Error` of this realm.
+  if (typeof cause !== "object" || cause === null) return false;
+  const { name, message } = cause as { name?: unknown; message?: unknown };
+  return (name === "OperationError" || name === "InvalidStateError") && typeof message === "string" && /pending/i.test(message);
+}
+
+type Pause = (milliseconds: number) => Promise<void>;
+
+const realPause: Pause = (milliseconds) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
+
+let pause: Pause = realPause;
+
+/** For tests: what waits between two attempts, so none of them waits for a clock. `null` puts the real one back. */
+export function setCeremonyPause(replacement: Pause | null): void {
+  pause = replacement ?? realPause;
+}
+
+/** The waits before each new attempt after a "pending" answer: 1.75 seconds in all, a little longer each time. */
+export const PENDING_RETRY_DELAYS_MS: readonly number[] = [250, 500, 1000];
+
+async function withRetries<T>(call: () => Promise<T>, signal: AbortSignal): Promise<T> {
+  for (let retry = 0; ; retry += 1) {
+    try {
+      return await call();
+    } catch (cause: unknown) {
+      const error = ceremonyError(cause);
+      if (!isPendingRefusal(cause)) throw error;
+      const delay = PENDING_RETRY_DELAYS_MS[retry];
+      // Still pending after the last wait: the browser's words, with what the console knows of them above.
+      if (delay === undefined) throw new CeremonyError(error.reason, error.message, translate(getLocale(), "auth.passkeyStillClosing"));
+      await pause(delay);
+      if (signal.aborted) throw new CeremonyError("AbortError", "");
+    }
+  }
+}
+
+/** The ceremony that holds the page's one passkey window: `conditional` is the field's autofill, which an explicit one displaces. */
+interface Slot {
+  readonly conditional: boolean;
+  abort: () => void;
+  /** Settled once the browser has answered (or refused), whatever the answer was. */
+  done: Promise<void>;
+}
+
+let slot: Slot | null = null;
+
+/**
+ * The most an explicit ceremony waits for the autofill it ended to say so. A browser answers an aborted
+ * ceremony at once; one that never does would otherwise hold the sign-in button for ever, and what is asked
+ * of it after this is still covered by the retry of a "pending" answer.
+ */
+export const SETTLE_LIMIT_MS = 2000;
+
+async function endedWithin(previous: Slot): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const limit = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, SETTLE_LIMIT_MS);
+  });
   try {
+    await Promise.race([previous.done, limit]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * The one door of every ceremony. At most one is open: an autofill (conditional) one is ended, with its
+ * own `AbortController`, and waited for before an explicit one or another autofill starts; an explicit
+ * one is never displaced, so a second explicit call, or an autofill that would take its place, is
+ * refused as cancelled without the browser hearing of it. The slot is taken before the first `await`,
+ * so two calls in one tick cannot both pass.
+ */
+function ceremony<T>(conditional: boolean, caller: AbortSignal | undefined, call: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  const before = slot;
+  if (before !== null && !before.conditional) {
+    return Promise.reject(new CeremonyError("AbortError", "Another passkey window is already open."));
+  }
+  const own = new AbortController();
+  const forward = (): void => {
+    own.abort();
+  };
+  if (caller?.aborted === true) own.abort();
+  else caller?.addEventListener("abort", forward, { once: true });
+  const mine: Slot = { conditional, abort: forward, done: Promise.resolve() };
+  slot = mine;
+  const run = (async (): Promise<T> => {
+    try {
+      if (before !== null) {
+        before.abort();
+        await endedWithin(before);
+      }
+      if (own.signal.aborted) throw new CeremonyError("AbortError", "");
+      return await withRetries(() => call(own.signal), own.signal);
+    } finally {
+      caller?.removeEventListener("abort", forward);
+      // Freed before the caller's own continuation runs, which may well ask for the next ceremony.
+      if (slot === mine) slot = null;
+    }
+  })();
+  mine.done = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
+/** Creates a passkey from the server's creation options; the returned JSON goes back to it. */
+export function createPasskey(json: JsonObject): Promise<JsonObject> {
+  return ceremony(false, undefined, async () => {
     const credential = await navigator.credentials.create({ publicKey: creationOptions(json) });
     if (credential === null) throw new CeremonyError("NotAllowedError", "");
     return credentialJson(credential);
-  } catch (cause: unknown) {
-    throw ceremonyError(cause);
-  }
+  });
 }
 
 export interface GetOptions {
@@ -210,18 +348,16 @@ export interface GetOptions {
 }
 
 /** Asks for a passkey (sign-in or confirmation); the returned JSON goes back to the server. */
-export async function getPasskey(json: JsonObject, { mediation, signal }: GetOptions = {}): Promise<JsonObject> {
-  try {
+export function getPasskey(json: JsonObject, { mediation, signal }: GetOptions = {}): Promise<JsonObject> {
+  return ceremony(mediation === "conditional", signal, async (own) => {
     const credential = await navigator.credentials.get({
       publicKey: requestOptions(json),
       ...(mediation !== undefined ? { mediation } : {}),
-      ...(signal !== undefined ? { signal } : {}),
+      signal: own,
     });
     if (credential === null) throw new CeremonyError("NotAllowedError", "");
     return credentialJson(credential);
-  } catch (cause: unknown) {
-    throw ceremonyError(cause);
-  }
+  });
 }
 
 /** What a new passkey could be called: the browser and the system it runs on (product names, not translated). */

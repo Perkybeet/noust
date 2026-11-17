@@ -1,8 +1,10 @@
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
 import { sessionQuery } from "../api/queries/auth";
 import { signInAppearanceQuery } from "../api/queries/signInImage";
 import { FramedRoutePending } from "../app/RoutePending";
+import { hasNoAccounts } from "../features/auth/firstStart";
 import { LoginPage } from "../features/auth/LoginPage";
 import { safeNext } from "../features/auth/session";
 import { ssoErrorOf, ssoTicketOf } from "../features/auth/sso";
@@ -49,11 +51,14 @@ function LoginRoute() {
   // known shape and a reason is one of the server's words, and nothing else is read as either.
   const ticket = ssoTicketOf(sso);
   const ssoError = ssoErrorOf(reasonWord);
+  // A server with no account has none to sign in with: the page opens on the access token, as the installer's link does.
+  const { data: session } = useQuery(sessionQuery());
+  const opensOnToken = method === "token" || hasNoAccounts(session);
   return (
     <LoginPage
       next={safeNext(next)}
       expired={reason === "expired"}
-      {...(method === "token" ? { initialMode: "token" as const } : {})}
+      {...(opensOnToken ? { initialMode: "token" as const } : {})}
       {...(ticket !== undefined ? { sso: ticket } : {})}
       {...(ssoError !== undefined ? { ssoError } : {})}
     />

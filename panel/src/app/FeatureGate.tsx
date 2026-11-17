@@ -9,7 +9,7 @@ import { buttonClassName } from "../components/ui/Button";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ServerText } from "../components/ui/ServerText";
 import { featureAnswer, offers, useFeature } from "../features/central/features";
-import type { FeatureKey } from "../features/central/features";
+import type { FeatureNeed } from "../features/central/features";
 import { VIEWS } from "../features/nav/views";
 import { useT } from "../i18n";
 import { useServerList } from "../nodes/servers";
@@ -23,7 +23,7 @@ import { useRenderedPathname } from "./renderedPath";
  * What the page on screen needs of the server: its section's function, or (an area made of views, such as Logs) the
  * function of the view the address names. Undefined when it needs none.
  */
-function needed(entry: Dest, search: Readonly<Record<string, unknown>>): FeatureKey | undefined {
+function needed(entry: Dest, search: Readonly<Record<string, unknown>>): FeatureNeed | undefined {
   const views = VIEWS[entry.id];
   if (views === undefined) return entry.feature;
   // A view is the page with a search; the one the address names, or the first when it names none.
@@ -37,7 +37,7 @@ function needed(entry: Dest, search: Readonly<Record<string, unknown>>): Feature
  * server cannot do, so a click never gets here): what it is, why this server does not have it in the words the server's table
  * says, and the way out. It is a calm page and not a failure, with no "Try again" that could never work (item 187).
  */
-export function FeatureUnavailable({ entry, feature }: { entry: Dest; feature: FeatureKey }) {
+export function FeatureUnavailable({ entry, feature }: { entry: Dest; feature: FeatureNeed }) {
   const t = useT();
   const { hostname } = useServerList();
   const features = useScopeOffers();

@@ -20,6 +20,7 @@ import { AttentionActionButton } from "../../../features/inbox/AttentionActionBu
 import { attentionIcon } from "../../../features/inbox/attentionIcons";
 import { useRowPress } from "../../../features/inbox/useRowPress";
 import { attentionAction, attentionTarget } from "../../../features/overview/attentionTarget";
+import type { Offered } from "../../../features/overview/attentionTarget";
 import { itemTitle, originLabel, reasonDetail, reasonText } from "../../../features/overview/attentionWords";
 import { sinceOf } from "../../../features/overview/homeData";
 import type { ActivityLine, HomeAttention } from "../../../features/overview/homeData";
@@ -51,10 +52,10 @@ const ATTENTION_ROWS = 8;
  * pressed, `useRowPress`); one whose button does something else (taking an alert) names the screen with the name, which is
  * stretched over the line, so a press anywhere on it opens the screen that deals with it (item 161).
  */
-function subjectOf(t: T, entry: HomeAttention, link: boolean) {
+function subjectOf(t: T, entry: HomeAttention, link: boolean, offered: Offered | undefined) {
   const title = itemTitle(t, entry.item);
   const name = title.mono ? <Mono>{title.text}</Mono> : title.translate ? title.text : <span translate="no">{title.text}</span>;
-  const target = attentionTarget(entry.item);
+  const target = attentionTarget(entry.item, offered);
   if (target === null || !link) return name;
   const node = entry.server === null ? undefined : entry.server.node;
   return (
@@ -85,8 +86,11 @@ export function AttentionRow({ t, entry, showServer }: { t: T; entry: HomeAttent
   const detail = item.reasons.map((reason) => reasonDetail(t, reason)).find((candidate) => candidate !== null) ?? null;
   const since = sinceOf(item);
   const node = server === null ? undefined : server.node;
-  const target = attentionTarget(item);
-  const buttonLeads = attentionAction(item)?.mode === "open";
+  // What this machine does not offer is not a place to lead to; the line of another server is judged by that server, which is not asked here.
+  const scopeOffered = useScopeOffers();
+  const offered = server === null ? scopeOffered : undefined;
+  const target = attentionTarget(item, offered);
+  const buttonLeads = attentionAction(item, offered)?.mode === "open";
   const press = useRowPress(buttonLeads ? target : null, { node });
   return (
     <li
@@ -97,7 +101,7 @@ export function AttentionRow({ t, entry, showServer }: { t: T; entry: HomeAttent
       <Glyph state={state} />
       <span className={cx("hidden w-12 shrink-0 text-12 font-semibold w-wide:block", stateTextClass(state))}>{fail ? t("widgets.attention.failure") : t("common.statusPill.warning")}</span>
       <span className="sr-only w-wide:hidden">{fail ? t("overview.attention.srFailure") : t("overview.attention.srWarning")}</span>
-      <span className="min-w-0 flex-1 truncate text-13 font-medium text-fg w-wide:w-44 w-wide:flex-none w-xwide:w-56">{subjectOf(t, entry, !buttonLeads)}</span>
+      <span className="min-w-0 flex-1 truncate text-13 font-medium text-fg w-wide:w-44 w-wide:flex-none w-xwide:w-56">{subjectOf(t, entry, !buttonLeads, offered)}</span>
       {showServer && server !== null ? (
         <span translate="no" className="hidden shrink-0 rounded-chip bg-bg-sunken px-1.5 text-12 text-fg-muted w-xwide:inline">
           {server.name}
@@ -180,7 +184,7 @@ export function AttentionLink({ scope }: Pick<WidgetBodyProps, "scope">) {
 
 /** The six figures of the server: each is a link to where the whole of it is. */
 /** The function of the server's table each figure of the panel reads; a figure that reads none is about the machine. */
-const FIGURE_FEATURE: Readonly<Record<string, FeatureKey | undefined>> = { apps: "applications", deploys: "applications", certificates: "certificates", backups: "application_backups" };
+const FIGURE_FEATURE: Readonly<Record<string, FeatureKey | undefined>> = { apps: "applications", deploys: "applications", certificates: "certificates", backups: "application_backups", updates: "system_updates" };
 
 export function FiguresBody() {
   const t = useT();

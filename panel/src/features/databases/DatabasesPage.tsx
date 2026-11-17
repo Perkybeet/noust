@@ -209,7 +209,7 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
       variant="firstUse"
       icon={<OBJECT_ICONS.database />}
       title={t("databases.list.emptyTitle")}
-      description={running ? t("databases.list.emptyDescription") : t("databases.list.emptyNoEngine")}
+      description={running ? t("databases.list.emptyDescription") : t(serverList.system.available ? "databases.list.emptyNoEngine" : "databases.list.emptyNoSystemEngine")}
       // The header already holds "New database": a page whose first thing is missing offers the engine to make it on, which is the one thing that cannot be got from the header.
       {...(running
         ? {}

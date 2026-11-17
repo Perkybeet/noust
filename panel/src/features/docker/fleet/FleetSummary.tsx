@@ -24,6 +24,7 @@ import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import { Attention } from "../SummaryPage";
+import { useLookForNewVersions } from "../useLookForNewVersions";
 import { fleetServersOf } from "./servers";
 
 /** What a server's row of the engine view says: whether Docker is usable, why not, and the versions it has. */
@@ -55,8 +56,10 @@ export function FleetSummary() {
       };
     });
   }, [summary.data, servers, t]);
+  // The look for new versions is asked of every server at once, with its plan first; what each found is said under the header.
+  const look = useLookForNewVersions({ fleet: true });
   return (
-    <DashboardPage header={{ title: t("docker.summary.title"), description: t("docker.fleet.summary.description") }}>
+    <DashboardPage header={{ title: t("docker.summary.title"), description: t("docker.fleet.summary.description"), secondaryActions: look.button }}>
       {summary.isError && summaryRows === undefined ? (
         <ErrorBlock error={summary.error} title={t("docker.summary.failed")} onRetry={() => void summary.refetch()} retrying={summary.isRefetching} />
       ) : summaryRows === undefined ? (
@@ -65,6 +68,7 @@ export function FleetSummary() {
         </LoadingRegion>
       ) : (
         <Sections surfaces>
+          {look.notice}
           <ScopeLine scope={{ kind: "all", servers }} serverTarget={open} />
           <SurfaceSection title={t("docker.attention.title")} icon={OBJECT_ICONS.alert} {...(items.length > 0 ? { description: t("docker.attention.description") } : {})} flush>
             {items.length > 0 ? (
@@ -80,6 +84,7 @@ export function FleetSummary() {
           </SurfaceSection>
         </Sections>
       )}
+      {look.dialog}
     </DashboardPage>
   );
 }

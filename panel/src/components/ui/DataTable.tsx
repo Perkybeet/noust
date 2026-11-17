@@ -660,7 +660,8 @@ function CardRows<T>({
                     <div className="min-w-0 truncate text-14 font-medium text-fg">{title}</div>
                   )}
                   {values.length > 0 ? (
-                    <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5 text-12 text-fg-muted">
+                    // 4px between lines: two links of a card that wrap are 20px tall each, and WCAG 2.2's target size (24px, or room around) needs it.
+                    <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1 text-12 text-fg-muted">
                       {values.map(({ column, content }) => (
                         // Each fact has its own place, apart from the next by room and not by a mark: a mark inside the
                         // fact wrapped alone to a line of its own when the line was full.

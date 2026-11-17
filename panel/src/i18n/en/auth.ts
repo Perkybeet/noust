@@ -81,10 +81,13 @@ export const auth = {
     lostIt: "Lost it? Issue a new one on the server",
     lostItCost: "A new token cancels the old one: the one in use stops working.",
     passkeyRequiredTitle: "The access token has a passkey now",
+    descriptionLog: "Noust wrote it once in the container's log, in a box, the first time it started. Open that log and paste the token here.",
   },
   firstTime: {
     hint: "First time on this server? Sign in with the access token the installer printed, under “Other ways to sign in”, and create your own account.",
     lost: "Lost it? Issue a new one on the server; the old one stops working.",
+    hintLog: "First time on this server? Sign in with the access token in the container's log, under “Other ways to sign in”, and create your own account.",
+    whichContainer: "The log of the first start says which container is Noust's.",
   },
   legal: {
     line: "© 2024-2026 Yago López Prado. Free software under the {license}.",
@@ -362,4 +365,5 @@ export const auth = {
   },
   signOutFailed: "Sign out failed",
   signedOut: "Signed out",
+  passkeyStillClosing: "The browser was still closing another passkey window. Try again.",
 } as const;

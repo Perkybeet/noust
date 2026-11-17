@@ -408,6 +408,10 @@ export const fleet = {
       label: "Build on one server, run on others",
       description: "One server builds the application once; every other server receives that release and switches to it behind its startup check.",
     },
+    docker_images_check: {
+      label: "Look for new versions of the images",
+      description: "Each server asks the registries whether the images its containers use have a newer version. Nothing is downloaded unless you ask for it.",
+    },
   },
   bulk: {
     title: "Run an action on several servers",

@@ -79,12 +79,15 @@ export function InspectionReadout({
   types,
   source,
   hideVerdict = false,
+  hidePlan = false,
 }: {
   inspection: Inspection;
   types: readonly AppTypeOption[];
   source: string;
   /** The way it runs says it better: on a machine that only has Docker, the toolchain a verdict asks to install is not what is missing. */
   hideVerdict?: boolean;
+  /** What was read stays, and the plan of a service of the system (install, build, start) and the variables go: nothing would run it. */
+  hidePlan?: boolean;
 }) {
   const t = useT();
   const local = sourceKind(source) === "local";
@@ -146,16 +149,20 @@ export function InspectionReadout({
                 </span>
               ) : null}
             </p>
-            <dl className="flex flex-col rounded-control border border-border bg-bg-sunken px-3 py-1.5">
-              <Command step={t("newApp.readout.install")} argv={inspection.install_command.join(" ")} none={t("newApp.readout.nothingToInstall")} />
-              <Command step={t("newApp.readout.build")} argv={inspection.build_command.join(" ")} none={t("newApp.readout.nothingToBuild")} />
-              <Command step={t("common.words.start")} argv={inspection.start_command} none={t(inspection.app_type === "container" || inspection.app_type === "docker-compose" ? "newApp.readout.dockerRuns" : "newApp.readout.noProcess")} />
-            </dl>
-            <p className="text-12 text-fg-muted">
-              {keys.length === 0
-                ? t("newApp.readout.noExample")
-                : t("newApp.readout.variables", { count: keys.length, required: formatCount(required, t.locale), secrets: formatCount(secrets, t.locale) })}
-            </p>
+            {hidePlan ? null : (
+              <>
+                <dl className="flex flex-col rounded-control border border-border bg-bg-sunken px-3 py-1.5">
+                  <Command step={t("newApp.readout.install")} argv={inspection.install_command.join(" ")} none={t("newApp.readout.nothingToInstall")} />
+                  <Command step={t("newApp.readout.build")} argv={inspection.build_command.join(" ")} none={t("newApp.readout.nothingToBuild")} />
+                  <Command step={t("common.words.start")} argv={inspection.start_command} none={t(inspection.app_type === "container" || inspection.app_type === "docker-compose" ? "newApp.readout.dockerRuns" : "newApp.readout.noProcess")} />
+                </dl>
+                <p className="text-12 text-fg-muted">
+                  {keys.length === 0
+                    ? t("newApp.readout.noExample")
+                    : t("newApp.readout.variables", { count: keys.length, required: formatCount(required, t.locale), secrets: formatCount(secrets, t.locale) })}
+                </p>
+              </>
+            )}
           </div>
         )}
       </div>

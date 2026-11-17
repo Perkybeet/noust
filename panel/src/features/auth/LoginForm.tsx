@@ -29,6 +29,7 @@ import { hasMessage, useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { forgetAccessToken, holdAccessToken } from "./accessProof";
 import { AuthFrame } from "./AuthFrame";
+import { hasNoAccounts, newTokenCommand, tokenShownBy } from "./firstStart";
 import { factorOffer, offerTo, returnOf } from "./later";
 import { signInWithPasskey } from "./passkeys";
 import { pendingChecks } from "./requireSession";
@@ -192,7 +193,10 @@ export function LoginForm({ next, expired, initialWay, recoveryHelp = false, sso
   }, []);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { error: sessionError } = useQuery(sessionQuery());
+  const { data: session, error: sessionError } = useQuery(sessionQuery());
+  // Where the token was shown the first time, while the server has no account: said as the server says it, and the neutral words otherwise.
+  const shownBy = tokenShownBy(session);
+  const newToken = newTokenCommand(shownBy);
   const providers = useSsoProviders();
   // With passwords turned off for single sign-on, the account form is a way back, not the way in.
   const localSignIn = useLocalSignIn();
@@ -700,12 +704,14 @@ export function LoginForm({ next, expired, initialWay, recoveryHelp = false, sso
     return (
       <AuthFrame
         title={t("auth.token.title")}
-        description={t("auth.token.description")}
-        back={back}
+        description={shownBy === "container_log" ? t("auth.token.descriptionLog") : t("auth.token.description")}
+        // A server with no account has no form to go back to: the account one asks for what nobody has yet.
+        {...(hasNoAccounts(session) && rootWay === "password" ? {} : { back })}
         footer={
           <div className="flex flex-col gap-2">
             {/* `noust web token` alone only reports: it is --new that gives a token, and it ends the one in use. */}
-            <CommandHint label={t("auth.token.lostIt")} command="noust web token --new" reason="solo-terminal" />
+            <CommandHint label={t("auth.token.lostIt")} command={newToken} reason="solo-terminal" />
+            {shownBy === "container_log" ? <p className="max-w-measure-help text-12 text-pretty text-fg-muted">{t("auth.firstTime.whichContainer")}</p> : null}
             <p className="max-w-measure-help text-12 text-pretty text-fg-muted">{t("auth.token.lostItCost")}</p>
           </div>
         }
@@ -920,12 +926,14 @@ export function LoginForm({ next, expired, initialWay, recoveryHelp = false, sso
     );
   }
 
-  // For whoever arrives without the installer's link (item 158): where the token is and the command that issues one. A fixed
-  // sentence, the same on every server, because this page does not know whether the server has accounts and must not say.
+  // For whoever arrives without the installer's link (item 158): where the token is and the command that issues one. While the
+  // server has no account it says where the token was shown, and the command that is run where it was; once there is one the page
+  // is not told, so it says what it always said, which is true on every server.
   const firstTime = (
     <div className="flex flex-col gap-2">
-      <p className="max-w-measure-help text-12 text-pretty text-fg-muted">{t("auth.firstTime.hint")}</p>
-      <CommandHint label={t("auth.firstTime.lost")} command="noust web token --new" reason="solo-terminal" />
+      <p className="max-w-measure-help text-12 text-pretty text-fg-muted">{shownBy === "container_log" ? t("auth.firstTime.hintLog") : t("auth.firstTime.hint")}</p>
+      <CommandHint label={t("auth.firstTime.lost")} command={newToken} reason="solo-terminal" />
+      {shownBy === "container_log" ? <p className="max-w-measure-help text-12 text-pretty text-fg-muted">{t("auth.firstTime.whichContainer")}</p> : null}
     </div>
   );
 

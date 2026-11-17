@@ -152,16 +152,28 @@ export function ImageMenu({
   return <ObjectMenu name={name} actions={actions} viaOwner={verbs.viaOwner ? viaOwnerOf(image.owner, t) : undefined} />;
 }
 
-export function VolumeMenu({ volume, onRemove }: { volume: DockerVolume; onRemove: (subject: RemoveSubject) => void }) {
+export function VolumeMenu({ volume, onRemove, onCopy }: { volume: DockerVolume; onRemove: (subject: RemoveSubject) => void; onCopy: (volume: DockerVolume) => void }) {
   const t = useT();
-  return removeOnly(
-    volumeVerbs(volume),
-    volume.name,
-    { target: { kind: "volume", ref: volume.name }, name: volume.name, owner: volume.owner, sizeBytes: volume.size_bytes, usedBy: volume.used_by, anonymous: volume.anonymous },
-    volume.owner,
-    onRemove,
-    t,
-  );
+  const verbs = volumeVerbs(volume);
+  const actions: ObjectAction[] = verbs.direct.flatMap((verb): ObjectAction[] => {
+    switch (verb) {
+      case "backup":
+        return [{ id: verb, label: t("docker.volumes.copy.now"), icon: <OBJECT_ICONS.backup />, onSelect: () => onCopy(volume) }];
+      case "remove":
+        return [
+          {
+            id: verb,
+            label: t("docker.menu.remove"),
+            icon: <ICONS.delete />,
+            destructive: true,
+            onSelect: () => onRemove({ target: { kind: "volume", ref: volume.name }, name: volume.name, owner: volume.owner, sizeBytes: volume.size_bytes, usedBy: volume.used_by, anonymous: volume.anonymous }),
+          },
+        ];
+      default:
+        return [];
+    }
+  });
+  return <ObjectMenu name={volume.name} actions={actions} viaOwner={verbs.viaOwner ? viaOwnerOf(volume.owner, t) : undefined} />;
 }
 
 /** A stack's menu: start, stop and restart as a whole, for what nobody of Noust made. An application's stack leads to the application. */

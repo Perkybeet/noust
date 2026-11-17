@@ -291,6 +291,36 @@ describe("the files of an application", () => {
   });
 });
 
+describe("the files of an application that runs in containers", () => {
+  it("are not read when the address is typed: the page says where they are, and the server is not asked for a listing it refuses", async () => {
+    screenWidth(1440);
+    const backend = fakeBackend(
+      appRoutes(
+        { app_type: "container" },
+        {
+          "GET /api/auth/session": () => json(200, { ...ELEVATED, permissions: [...(ELEVATED.permissions ?? []), "docker.read"] }),
+          [`GET /api/apps/${TAB_DOMAIN}/files`]: () => problem(400, "validationerror", "runs in containers: its files are the images' and volumes'"),
+        },
+      ),
+    );
+    renderConsole(`/apps/${TAB_DOMAIN}/files`);
+    expect(await screen.findByRole("heading", { name: "Its files are the containers'" })).toBeInTheDocument();
+    expect(screen.getByText(/runs from images and volumes, so there is no folder of its own to browse/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "New folder" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Could not read the folder")).not.toBeInTheDocument();
+    expect(backend.callsTo(`GET /api/apps/${TAB_DOMAIN}/files`)).toHaveLength(0);
+  });
+
+  it("lead to the containers of the application in the Docker zone", async () => {
+    screenWidth(1440);
+    fakeBackend(appRoutes({ app_type: "docker-compose" }, { "GET /api/auth/session": () => json(200, { ...ELEVATED, permissions: [...(ELEVATED.permissions ?? []), "docker.read"] }) }));
+    renderConsole(`/apps/${TAB_DOMAIN}/files`);
+    const link = await screen.findByRole("link", { name: "See its containers" });
+    expect(link).toHaveAttribute("href", expect.stringContaining("/server/docker/containers"));
+    expect(link.getAttribute("href")).toContain(`app=${TAB_DOMAIN}`);
+  });
+});
+
 describe("the folder in the URL", () => {
   it("is kept clean: no leading slash, no dots, no empty parts", () => {
     expect(cleanFolder("/a//b/../c/./d/")).toBe("a/b/c/d");

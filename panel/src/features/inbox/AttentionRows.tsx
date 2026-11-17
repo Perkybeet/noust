@@ -6,6 +6,7 @@ import { RelativeTime } from "../../components/page/RelativeTime";
 import { Mono } from "../../components/ui/Mono";
 import type { T } from "../../i18n";
 import { cx } from "../../lib/cx";
+import { useScopeOffers } from "../../nodes/useNode";
 import { DetailLine, SeverityGlyph, itemTitle, originLabel, reasonDetail, reasonText, validUntilText } from "../overview/attentionWords";
 import { attentionAction, attentionTarget } from "../overview/attentionTarget";
 import { AttentionActionButton } from "./AttentionActionButton";
@@ -26,8 +27,10 @@ function whenOf(item: OverviewAttentionItem): string | null {
  * no hover to reveal it.
  */
 export function AttentionRow({ t, item, onNavigate }: { t: T; item: OverviewAttentionItem; onNavigate?: (() => void) | undefined }) {
-  const target = attentionTarget(item);
-  const buttonLeads = attentionAction(item)?.mode === "open";
+  // A screen this machine does not offer is not one an item leads to: it says what is wrong and nothing more.
+  const offered = useScopeOffers();
+  const target = attentionTarget(item, offered);
+  const buttonLeads = attentionAction(item, offered)?.mode === "open";
   const press = useRowPress(buttonLeads ? target : null, { onNavigate });
   const when = whenOf(item);
   const severity = item.severity === "fail" ? "fail" : "warn";

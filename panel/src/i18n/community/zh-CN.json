@@ -19836,7 +19836,7 @@
   "docker.images.empty.title": "Docker 还没有镜像",
   "docker.images.empty.description": "拉取或构建镜像后,它会显示在这里。",
   "docker.volumes.title": "卷",
-  "docker.volumes.description": "每个容器的数据存放在哪里、每个卷属于谁以及谁在使用它。",
+  "docker.volumes.description": "Docker 把数据存放在哪里、归谁所有、占用多少空间,以及是否有备份。",
   "docker.volumes.searchLabel": "搜索卷",
   "docker.volumes.filterLabel": "筛选卷",
   "docker.volumes.count": "{shown} / {total} 个卷",
@@ -20195,7 +20195,7 @@
   "containerHost.deployHere.able.cannotPreviews": "Pull request 预览：它们需要 Web 服务器。",
   "containerHost.deployHere.able.cannotScheduled": "应用的计划任务：它们需要 systemd。",
   "containerHost.deployHere.able.cannotRelay": "通过中继无停机更新：它需要 Web 服务器。",
-  "containerHost.deployHere.able.cannotDatabases": "数据库：此控制台在集群中的服务器上管理它们，而不是在这台机器上。",
+  "containerHost.deployHere.able.cannotDatabases": "系统自带的数据库引擎、其定时备份、按时间点恢复以及向网络开放数据库:这些都需要 systemd,而这台机器没有。",
   "containerHost.deployHere.able.cannotMachine": "机器的服务、防火墙、时钟和软件：它们属于机器本身。",
   "containerHost.adopt.noSite": "无：这台机器没有 Noust 的 Web 服务器，该堆栈通过它自己的文件发布的端口访问",
   "containerHost.adopt.dockerKeeps": "Docker 通过其容器的重启策略保持它运行",
@@ -20266,5 +20266,78 @@
   "containerHost.schedule.missed": {
     "other": "Noust 关闭期间有 {count} 次运行到期：Noust 恢复后已运行一次。"
   },
-  "containerHost.schedule.problem": "无法安排：{problem}"
+  "containerHost.schedule.problem": "无法安排：{problem}",
+  "docker.compose.why.owned": "这个堆栈由数据库引擎或 Noust 自身维护:请在管理它的地方修改。",
+  "fleet.actions.docker_images_check.label": "查找镜像的新版本",
+  "fleet.actions.docker_images_check.description": "每台服务器会向镜像仓库询问其容器所用的镜像是否有更新的版本。除非你要求,否则不会下载任何内容。",
+  "containerHost.deployHere.able.canDatabases": "在容器中创建数据库引擎,包括其数据库和用户,并可备份与恢复。",
+  "dbServers.add.containerOnly": "在 Noust 的容器中运行的数据库引擎,使用该引擎的官方镜像,运行在这台机器的 Docker 上。你已有的内容都不会被移动。",
+  "dbServers.noSystem.title": "仅限 Noust 在容器中运行的引擎",
+  "databases.list.emptyNoSystemEngine": "这里没有运行任何数据库引擎。请先在容器中创建一个,再在其上创建数据库。",
+  "runtime.files.containersTitle": "它的文件在容器之中",
+  "runtime.files.containersBody": "{domain} 由镜像和卷运行,因此没有可浏览的专属文件夹。它的内容在其容器和卷中;它的文件夹里只有 Compose 文件和 Noust 写入的内容。",
+  "runtime.files.seeContainers": "查看它的容器",
+  "docker.stack.versionsKept": {
+    "other": "已保存 {count} 个版本,由 Noust 保管"
+  },
+  "docker.stack.volumesUncopied": "{count} 个没有备份",
+  "docker.stack.volumesCopied": "全部都有备份",
+  "docker.columns.cpu": "处理器",
+  "docker.columns.memory": "内存",
+  "docker.columns.copy": "备份状态",
+  "docker.columns.subnet": "子网",
+  "docker.containers.usagePending": "正在加载资源占用",
+  "docker.volumes.copy.scheduled": "已计划,{when}",
+  "docker.volumes.copy.scheduledNone": "已计划,尚未执行",
+  "docker.volumes.copy.copiedOnly": "{when},未计划",
+  "docker.volumes.copy.none": "没有备份",
+  "docker.volumes.copy.now": "立即备份…",
+  "docker.volumes.copy.title": "立即备份 {name}",
+  "docker.volumes.copy.description": "由这台机器用下面的命令进行备份。",
+  "docker.volumes.copy.never": "它还没有任何备份。",
+  "docker.volumes.copy.last": "最近一次备份是在 {when}。",
+  "docker.volumes.copy.unknown": "这台服务器没有说明是否有备份",
+  "docker.volumes.unprotected.title": {
+    "other": "{count} 个卷里有数据但没有备份"
+  },
+  "docker.volumes.unprotected.body": "如果出了问题,这些卷里的内容将无法恢复。",
+  "docker.volumes.unprotected.bodySized": "如果出了问题,这 {size} 数据将无法恢复。",
+  "docker.volumes.unprotected.schedule": "计划备份",
+  "docker.networks.noRange": "Docker 没有给这个网络分配地址范围",
+  "docker.networks.gateway": "网关 {gateway}",
+  "docker.networks.moreRanges": {
+    "other": "另外 {count} 个"
+  },
+  "docker.update.origin": "来源",
+  "docker.source.registry": "镜像仓库",
+  "docker.source.built_noust": "由 Noust 在这台机器上构建",
+  "docker.source.built_other": "在这台机器上构建",
+  "docker.source.unknown": "来源未知",
+  "docker.versions.fleet.title": "在所有服务器上查找新版本",
+  "docker.versions.fleet.description": "每台服务器会向镜像仓库询问其容器所用的镜像,并保存查到的结果。除非你要求,否则不会下载任何内容。这个中心自己的 Docker 不在其中:请在它自己的页面查看。",
+  "docker.versions.fleet.planning": "正在计算哪些服务器会执行查找",
+  "docker.versions.fleet.planFailed": "无法计算哪些服务器会执行查找",
+  "docker.versions.fleet.running": "正在所有服务器上查找新版本",
+  "docker.versions.fleet.succeeded": "已在所有服务器上查找新版本",
+  "docker.versions.fleet.failed": "部分服务器上的新版本查找失败",
+  "docker.versions.fleet.resultLabel": "每台服务器的查找结果",
+  "docker.versions.fleet.found": {
+    "other": "{server}:已查看 {count} 个镜像,其中 {newer} 个有新版本"
+  },
+  "docker.versions.fleet.foundNone": {
+    "other": "{server}:已查看 {count} 个镜像,没有新版本"
+  },
+  "assistant.usage.actions": "过去一小时的更改",
+  "assistant.usage.actionsValue": "{used} / {cap}",
+  "assistantSettings.dataPage.monthFailed": "无法读取本月的费用",
+  "auth.token.descriptionLog": "Noust 在首次启动时把它在容器日志里写了一次,放在一个方框中。打开该日志,把令牌粘贴到这里。",
+  "auth.firstTime.hintLog": "第一次使用这台服务器?请在“其他登录方式”下用容器日志中的访问令牌登录,然后创建你自己的账户。",
+  "auth.firstTime.whichContainer": "首次启动的日志会说明哪个容器是 Noust 的。",
+  "settings.about.version.viaStore": "新版本会通过 NAS 的应用中心提供。",
+  "settings.about.version.viaStoreOther": "新版本会通过安装此 Noust 的应用商店提供。",
+  "docker.networks.containersCount": {
+    "other": "{count} 个容器"
+  },
+  "auth.passkeyStillClosing": "浏览器还在关闭另一个通行密钥窗口。请再试一次。",
+  "dbServers.noSystem.line": "存放数据库的程序:Noust 在容器中运行的实例,可以选择其他版本。"
 }

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { resetLocale, setLocale } from "../../app/locale";
 import { loadCatalog } from "../../i18n";
 import type { AppInfo, Deployment } from "./data";
-import { appLimits, appNameOf, appReading, deployMoment, hasFiles, latestDeployByDomain, previewParentOf, readsApps, typeName } from "./data";
+import { appLimits, appNameOf, appReading, deployMoment, hasFiles, latestDeployByDomain, previewParentOf, readsApps, runsInContainers, typeName } from "./data";
 
 function deploy(id: number, domain: string, status = "success"): Deployment {
   return { id, domain, status, triggered_by: "cli", has_log: true, started_at: "2026-09-25T10:00:00", finished_at: null, rollback_available: false, schema_changed: false, cancelled: false };
@@ -109,6 +109,20 @@ describe("previewParentOf", () => {
 describe("appNameOf", () => {
   it("is the domain with dots as dashes", () => {
     expect(appNameOf("shop.example.com")).toBe("shop-example-com");
+  });
+});
+
+describe("runsInContainers", () => {
+  it("is true for a stack and a container, whose files the server refuses, and false for everything else, a static site included", () => {
+    expect(runsInContainers("docker-compose")).toBe(true);
+    expect(runsInContainers("container")).toBe(true);
+    for (const type of ["nodejs", "static", "python", "nextjs", ""]) expect(runsInContainers(type), type).toBe(false);
+  });
+
+  it("is what hasFiles leaves out besides what has no unit: one answer to which applications have files", () => {
+    for (const type of ["nodejs", "docker-compose", "container", "python"]) {
+      expect(hasFiles({ status: "running", app_type: type }), type).toBe(!runsInContainers(type));
+    }
   });
 });
 

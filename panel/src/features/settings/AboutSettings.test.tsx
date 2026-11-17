@@ -56,6 +56,36 @@ describe("Settings > About", () => {
     await expectNoAxeViolations(container);
   });
 
+  it("says the NAS's App Center brings the new versions when Noust was installed from it, and offers neither a link to update nor a command", { timeout: 20_000 }, async () => {
+    fakeBackend({
+      ...aboutRoutes({ current_version: "4.3.0", latest_version: "4.3.1", has_update: true, installed_from: "ugreen-app-center", release_url: "https://github.com/Perkybeet/noust/releases/tag/v4.3.1" }),
+      "GET /api/system/update": () => json(200, { current_version: "4.3.0", method: "unknown", installed_from: "ugreen-app-center", supported: false, code: "app_store", reason: "Noust was installed from the app store of the NAS." }),
+    });
+    renderConsole("/settings/about");
+    const version = await screen.findByRole("region", { name: "Version" });
+    expect(await within(version).findByText("Version 4.3.1 can be installed")).toBeInTheDocument();
+    expect(within(version).getByText("New versions arrive through the App Center of the NAS.")).toBeInTheDocument();
+    expect(within(version).queryByRole("link", { name: "Update Noust" })).not.toBeInTheDocument();
+    expect(within(version).queryByRole("button", { name: /Refresh the package index/ })).not.toBeInTheDocument();
+    expect(within(version).getByRole("link", { name: /What is new in 4.3.1/ })).toBeInTheDocument();
+  });
+
+  it("says it in Spanish for an installation that an app store updates", { timeout: 20_000 }, async () => {
+    fakeBackend(aboutRoutes({ current_version: "4.3.0", latest_version: "4.3.1", has_update: true, installed_from: "ugreen-app-center" }));
+    await act(() => setLocale("es"));
+    renderConsole("/settings/about");
+    expect(await screen.findByText("Las versiones nuevas llegan por el Centro de Apps del NAS.")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Actualizar Noust" })).not.toBeInTheDocument();
+  });
+
+  it("is what it was for an installation no store updates: the link to the Server's Updates", { timeout: 20_000 }, async () => {
+    fakeBackend(aboutRoutes({ current_version: "4.3.0", latest_version: "4.3.1", has_update: true, installed_from: null }));
+    renderConsole("/settings/about");
+    const version = await screen.findByRole("region", { name: "Version" });
+    expect(await within(version).findByRole("link", { name: "Update Noust" })).toHaveAttribute("href", "/server/updates");
+    expect(within(version).queryByText(/App Center/)).not.toBeInTheDocument();
+  });
+
   it("reports a problem from the console itself, not from a page of GitHub", { timeout: 20_000 }, async () => {
     fakeBackend(aboutRoutes({ current_version: "4.0.0", latest_version: "4.0.0", has_update: false }));
     const { user } = renderConsole("/settings/about");

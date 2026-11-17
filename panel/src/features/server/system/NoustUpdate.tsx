@@ -20,6 +20,7 @@ import { Skeleton } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
 import { useNodeCapability } from "../../../nodes/capability";
+import { storeUpdateWords } from "../../../lib/installedFrom";
 import { useNode } from "../../../nodes/useNode";
 import { reportActionError } from "../../apps/useAppActions";
 import { selfUpdateQuery } from "../../settings/GeneralSettings.model";
@@ -81,10 +82,15 @@ function Panel() {
         </p>
         {available && known.release_url !== null && known.release_url !== undefined ? <ExternalLink href={known.release_url}>{t("server.noust.whatsNew")}</ExternalLink> : null}
         {available && !supported && refusal !== undefined ? (
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <p className="max-w-measure text-13 text-pretty text-fg">{refusal.reason ?? t("server.noust.notFromHere")}</p>
-            {refusal.hint !== null && refusal.hint !== undefined ? <CopyValue value={refusal.hint} label={t("server.noust.copyCommand")} /> : null}
-          </div>
+          storeUpdateWords(t, refusal.installed_from) !== null ? (
+            // An app store updates it: the console says so and shows no command, which is not what updates this installation.
+            <p className="max-w-measure text-13 text-pretty text-fg">{storeUpdateWords(t, refusal.installed_from)}</p>
+          ) : (
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <p className="max-w-measure text-13 text-pretty text-fg">{refusal.reason ?? t("server.noust.notFromHere")}</p>
+              {refusal.hint !== null && refusal.hint !== undefined ? <CopyValue value={refusal.hint} label={t("server.noust.copyCommand")} /> : null}
+            </div>
+          )
         ) : null}
       </div>
     </SurfaceSection>

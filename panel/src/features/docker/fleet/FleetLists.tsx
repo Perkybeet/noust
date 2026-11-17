@@ -24,9 +24,10 @@ import type { T } from "../../../i18n";
 import { formatBytes } from "../../../lib/format";
 import { NothingMatched, ownerMatches, textMatches, useListFilters } from "../lists";
 import type { DockerListProps } from "../lists";
-import { imageName, versionKindOf } from "../model";
-import { ContainerPill, OwnerCell, StackPill } from "../pieces";
+import { imageName, versionKindOf, volumeCopyOf } from "../model";
+import { COPY_RANK, ContainerPill, CopyCell, OwnerCell, StackPill } from "../pieces";
 import { stateMatches } from "../ContainersPage";
+import { useLookForNewVersions } from "../useLookForNewVersions";
 import { fleetServersOf } from "./servers";
 
 /** The page of one thing on its own server: a container's, a stack's; the list for the rest. */
@@ -94,6 +95,7 @@ const SPECS = {
     idOf: (row: FleetVolume) => `${row.node}/${row.name}`,
     columns: (t: T): Column<FleetVolume>[] => [
       { id: "name", header: t("docker.columns.volume"), card: "title", sortValue: (row) => row.name, cell: (row) => <Mono truncate>{row.anonymous ? row.name.slice(0, 12) : row.name}</Mono> },
+      { id: "copy", header: t("docker.columns.copy"), card: "meta", hideBelow: "lg", fixed: true, sortValue: (row) => COPY_RANK[volumeCopyOf(row).state], cell: (row) => <CopyCell volume={row} /> },
       { id: "owner", header: t("docker.columns.owner"), card: "meta", cell: (row) => <OwnerCell owner={row.owner} /> },
       { id: "usedBy", header: t("docker.columns.usedBy"), card: "meta", hideBelow: "md", cell: (row) => ((row.used_by?.length ?? 0) === 0 ? t("docker.columns.nobody") : <Mono truncate>{(row.used_by ?? []).join(", ")}</Mono>) },
     ],
@@ -124,9 +126,13 @@ function FleetDockerList<R extends FleetRow>({ spec, search, onSearchChange }: D
   const rows = useMemo(() => all?.filter((row) => spec.keep(row, search)), [all, spec, search]);
   const columns = useMemo(() => spec.columns(t), [spec, t]);
   const total = all?.length ?? 0;
+  // Only the images are looked at for new versions, and with All servers the look is the fleet's: it plans first, then asks each server.
+  const look = useLookForNewVersions({ fleet: true });
+  const looks = spec.kind === "images";
   return (
     <ListPage
-      header={{ title: t(`docker.${spec.kind}.title`), description: t(`docker.fleet.${spec.kind}.description`) }}
+      header={{ title: t(`docker.${spec.kind}.title`), description: t(`docker.fleet.${spec.kind}.description`), ...(looks ? { primaryAction: look.button } : {}) }}
+      {...(looks && look.notice !== null ? { notice: look.notice } : {})}
       filters={
         <div className="flex min-w-0 flex-col gap-3">
           <ScopeLine scope={{ kind: "all", servers }} serverTarget={(server) => ({ to: `/server/docker/${spec.kind}`, search: { node: server.name } })} />
@@ -159,6 +165,7 @@ function FleetDockerList<R extends FleetRow>({ spec, search, onSearchChange }: D
           empty={total === 0 ? <EmptyState variant="inline" title={t(`docker.fleet.${spec.kind}.empty`)} /> : <NothingMatched onClear={() => onSearchChange({})} />}
         />
       )}
+      {looks ? look.dialog : null}
     </ListPage>
   );
 }

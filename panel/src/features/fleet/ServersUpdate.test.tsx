@@ -90,6 +90,36 @@ describe("updating from the list of servers", () => {
     expect(backend.callsTo("POST /api/fleet/actions")[0]?.body).toMatchObject({ action: "noust_update", targets: { nodes: ["web-2", "db-1", "old-1"] } });
   });
 
+  it("says an app store brings the new versions on the server installed from one, with no button, and leaves it out of the update of all (item 198)", { timeout: 40_000 }, async () => {
+    // db-1 and old-1 are behind; db-1 is a NAS installed from the App Center of the NAS, which updates it.
+    const behind = (version: string) => ({
+      ...SUMMARY_VIEW,
+      items: SUMMARY_VIEW.items.map((item: Fields) => ({
+        ...item,
+        noust: { ...(item["noust"] as Fields), latest_version: version, update_state: "update_available", ...(item["node"] === "db-1" ? { installed_from: "ugreen-app-center", update_command: null } : {}) },
+      })),
+    });
+    const backend = fakeBackend({
+      ...fleetRoutes(),
+      "GET /api/fleet/summary": () => json(200, behind("2.2.0")),
+      "POST /api/fleet/actions": () => json(200, { plan: NOUST_PLAN, job: null }),
+    });
+    const { user } = renderConsole("/fleet/servers");
+    const table = await screen.findByRole("list", { name: "Servers of this fleet" });
+    const store = await rowOf(table, "db-1");
+    expect(within(store).getByText("New versions arrive through the App Center of the NAS.")).toBeInTheDocument();
+    expect(within(store).queryByRole("button", { name: /^Update to/ })).not.toBeInTheDocument();
+    expect(within(await rowOf(table, "old-1")).getByRole("button", { name: "Update to 2.2.0" })).toBeInTheDocument();
+    // What the header updates is what the fleet can update: the server a store updates is not among them.
+    await user.click(await screen.findByRole("button", { name: "Update Noust on all" }));
+    const dialog = await screen.findByRole("dialog", { name: "Run an action on several servers" });
+    await user.click(within(dialog).getByRole("button", { name: "Show the plan" }));
+    await waitFor(() => {
+      expect(backend.callsTo("POST /api/fleet/actions")).toHaveLength(1);
+    });
+    expect((backend.callsTo("POST /api/fleet/actions")[0]?.body as { targets: { nodes: string[] } }).targets.nodes).not.toContain("db-1");
+  });
+
   it("draws no button in the header when every server is current", { timeout: 30_000 }, async () => {
     fakeBackend({ ...fleetRoutes(), "GET /api/fleet/summary": () => json(200, summaryOffering("2.0.0", "up_to_date")) });
     renderConsole("/fleet/servers");

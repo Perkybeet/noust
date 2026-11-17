@@ -20,6 +20,7 @@ import { useT } from "../../../i18n";
 import { formatMonth } from "../../../lib/format";
 import { MissingSoftware } from "../../server/software/MissingSoftware";
 import { releaseOf, supportLine, supportOf } from "../servers";
+import { useDatabaseServers } from "./useDatabaseServers";
 
 export interface OtherVersionDialogProps {
   open: boolean;
@@ -54,6 +55,8 @@ export function suggestedName(flavour: string, version: string): string {
 export function OtherVersionDialog({ open, onOpenChange, onQueued, flavour: preset }: OtherVersionDialogProps) {
   const t = useT();
   const queryClient = useQueryClient();
+  // Where the machine has no engine of its own this is not "another version" but the first engine there is.
+  const { system } = useDatabaseServers();
   const catalog = useQuery({ ...instanceCatalogQuery(), enabled: open });
   const engines: readonly CatalogEngine[] = catalog.data?.engines ?? [];
   const now = useMemo(() => new Date(), []);
@@ -161,8 +164,8 @@ export function OtherVersionDialog({ open, onOpenChange, onQueued, flavour: pres
         }
       }}
       size="md"
-      title={t("dbServers.other.title")}
-      description={t("dbServers.other.description")}
+      title={t(system.available ? "dbServers.other.title" : "dbServers.add.title")}
+      description={t(system.available ? "dbServers.other.description" : "dbServers.add.containerOnly")}
       footer={
         <>
           <Button onClick={() => onOpenChange(false)}>{t("common.words.cancel")}</Button>

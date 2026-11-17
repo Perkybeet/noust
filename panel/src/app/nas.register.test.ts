@@ -7,8 +7,7 @@
 import { describe, expect, it } from "vitest";
 
 import { offers } from "../features/central/features";
-import { SESSION } from "../test/fakes";
-import { hubSession, nasSession } from "../test/nas";
+import { hubSession, nasSession, serverSession } from "../test/nas";
 import { areaLanding, dest, paletteEntries, sidebarFor, tabsById } from "./nav";
 import type { NavContext } from "./nav";
 
@@ -21,12 +20,12 @@ const bar = (session: Parameters<typeof offers>[0]): string[] => sidebarFor(cont
 describe("the bar of a hub that deploys containers on its machine's Docker", () => {
   const items = bar(nasSession());
 
-  it("has what the table says it can do: applications, their logs, the catalog, tunnels, backups and the Docker of the machine", () => {
-    for (const id of ["apps", "logs", "catalog", "network", "backups", "server", "alerts", "activity"]) expect(items, `the bar lacks ${id}`).toContain(id);
+  it("has what the table says it can do: applications, their logs, the catalog, tunnels, backups, the databases in containers and the Docker of the machine", () => {
+    for (const id of ["apps", "logs", "catalog", "network", "backups", "server", "alerts", "activity", "databases"]) expect(items, `the bar lacks ${id}`).toContain(id);
   });
 
-  it("has none of what needs systemd or a web server of the machine, nor Databases, whose pages ask the machine's own databases", () => {
-    for (const id of ["cron", "security", "databases"]) expect(items, `the bar has ${id}`).not.toContain(id);
+  it("has none of what needs systemd or a web server of the machine", () => {
+    for (const id of ["cron", "security"]) expect(items, `the bar has ${id}`).not.toContain(id);
   });
 
   it("opens Logs at the logs of the applications, since the machine has no journal to open it at", () => {
@@ -47,6 +46,22 @@ describe("the Server column of that machine", () => {
 
   it("does not offer a service, the web server, the software, a console of its own or a terminal", () => {
     for (const to of ["/server/services", "/server/webserver", "/server/software", "/server/console", "/server/terminal"]) expect(column, `${to} is there`).not.toContain(to);
+  });
+
+  it("does not offer the processes, the updates or the files of the machine: Noust sees its container there, and the table says so", () => {
+    for (const to of ["/server/processes", "/server/updates", "/server/files"]) expect(column, `${to} is there`).not.toContain(to);
+  });
+});
+
+describe("the databases of that machine", () => {
+  it("are offered as an area, with their engines and each database, though the machine has no database engine of its own", () => {
+    expect(paths(tabsById("databases", context(nasSession())))).toContain("/databases/engines");
+    expect(bar(nasSession())).toContain("databases");
+    expect(dest("database").feature).toEqual(["databases", "database_instances"]);
+  });
+
+  it("are not offered where neither the system's engines nor the ones in containers work", () => {
+    expect(bar(hubSession())).not.toContain("databases");
   });
 });
 
@@ -77,9 +92,13 @@ describe("a hub that was not told to deploy", () => {
 });
 
 describe("a server", () => {
-  it("is not offered the page that turns on the machine's Docker: it deploys without being asked", () => {
-    const server = context(SESSION);
-    // A server that publishes no table is offered what its role always allowed, and the page that says how to turn on Docker for a hub is not one of them.
+  it("is not offered the page that turns on the machine's Docker: its table says it is a hub's, and it deploys without being asked", () => {
+    const server = context(serverSession());
     expect(paths(tabsById("server", server))).not.toContain("/server/deploy-here");
+  });
+
+  it("is offered the processes, the updates and the files of its machine, which the table says it has", () => {
+    const column = paths(tabsById("server", context(serverSession())));
+    for (const to of ["/server/processes", "/server/updates", "/server/files"]) expect(column, `${to} is not there`).toContain(to);
   });
 });

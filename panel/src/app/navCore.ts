@@ -6,7 +6,7 @@
  * sidebar and the tests read. docs/DESIGN.md, NV-1.
  */
 
-import type { FeatureKey } from "../features/central/features";
+import type { FeatureNeed } from "../features/central/features";
 import type { PlainKey } from "../i18n";
 import type { FileRouteTypes } from "../routeTree.gen";
 import { INTERIM_ROWS } from "./redirects";
@@ -80,7 +80,7 @@ export interface Dest {
    * does not offer it, in the bar, the column, the tabs, the palette and the shortcuts alike (item 187). The sections of a
    * resource carry their resource's.
    */
-  feature?: FeatureKey;
+  feature?: FeatureNeed;
   when?: When;
   /** Capabilities of the resource (a database's engine): shown when it has any of them. */
   needs?: readonly string[];
@@ -192,7 +192,7 @@ export interface NavContext {
   /** What the resource can do (a database's engine): a tab with `needs` is offered when it has any. Absent: all. */
   capabilities?: readonly string[];
   /** Whether the server offers a function (`useOffers`). Absent: every destination is offered, whatever it needs. */
-  features?: (key: FeatureKey | undefined) => boolean;
+  features?: (need: FeatureNeed | undefined) => boolean;
   /** Include the screens that are only a route so far; for the register's own tests. */
   staged?: boolean;
 }

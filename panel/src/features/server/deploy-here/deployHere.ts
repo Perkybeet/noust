@@ -51,6 +51,7 @@ type Key = keyof components["schemas"]["FeatureStates"];
 export const CAN: readonly { text: PlainKey; keys: readonly Key[] }[] = [
   { text: "containerHost.deployHere.able.canContainers", keys: ["container_deploy", "applications", "application_environments"] },
   { text: "containerHost.deployHere.able.canStacks", keys: ["recipes"] },
+  { text: "containerHost.deployHere.able.canDatabases", keys: ["database_instances"] },
   { text: "containerHost.deployHere.able.canUpdates", keys: ["releases", "rollbacks"] },
   { text: "containerHost.deployHere.able.canBackups", keys: ["application_backups", "volume_backups"] },
   { text: "containerHost.deployHere.able.canTunnels", keys: ["tunnels", "dns_accounts", "dns_records"] },
@@ -58,13 +59,10 @@ export const CAN: readonly { text: PlainKey; keys: readonly Key[] }[] = [
 ];
 
 /**
- * What the table says works on such a machine and the console has no page for there, so that it is neither promised nor said to be refused.
- * The engines Noust runs in containers are listed on the Engines page, which asks the machine's own databases first and is refused
- * (`GET /api/databases/servers` answers 409 where `databases` is not available), so Databases is not offered on a machine that only
- * has Docker. The day the listing reads the instances alone, this goes and the engines are said. `deploy_here` is this page itself:
- * the table says a hub has it, and a page does not list itself among what it turns on.
+ * What the table says works on such a machine and is neither promised nor said to be refused here. Only `deploy_here`: it is this page
+ * itself, which the table gives to a hub, and a page does not list itself among what it turns on.
  */
-export const NOT_SHOWN: readonly Key[] = ["database_instances", "deploy_here"];
+export const NOT_SHOWN: readonly Key[] = ["deploy_here"];
 
 /** What it does not do there, by the functions of the table that say it cannot: they need systemd or a web server, which the machine does not have. */
 export const CANNOT: readonly { text: PlainKey; keys: readonly Key[] }[] = [

@@ -29,7 +29,7 @@ import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { useNodeCapability } from "../../nodes/capability";
 import { useHasFleet } from "../../nodes/servers";
-import { useNode } from "../../nodes/useNode";
+import { useNode, useScopeOffers } from "../../nodes/useNode";
 import { useAttention } from "../inbox/useAttention";
 import { serverItems, verdictOf } from "./attention";
 import type { Verdict } from "./attention";
@@ -103,6 +103,8 @@ function Layout() {
   const overview = section.title === null && (pathname === "/server" || pathname === "/server/");
   const { data: sessionHostname } = useQuery({ ...sessionQuery(), select: (session) => session.hostname });
   const power = usePowerDialog();
+  // Rebooting is the machine's: where the table says there is no power to ask for (a container sees its own container, not the server), it is not offered.
+  const mayPower = useScopeOffers()("power");
   const hasJob = useHasServerJob();
   const hasFleet = useHasFleet();
   const capability = useNodeCapability(SERVER_CAPABILITY);
@@ -163,7 +165,7 @@ function Layout() {
           actions: (
             <>
               <span ref={setSlot} className="contents" />
-              {available && rebootHere ? (
+              {available && rebootHere && mayPower ? (
                 <Button icon={<RotateCw aria-hidden="true" />} onClick={() => power.open("reboot")}>
                   {t("server.header.reboot")}
                 </Button>

@@ -195,4 +195,33 @@ describe("a new application on a machine that only has Docker (items 187 and 188
     expect(screen.queryByRole("button", { name: /^Deploy/ })).not.toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
   });
+
+  it("shows no plan of the toolchain, no choice of type and nothing to set when nothing can run natively, only what was read, what is missing and the fix", { timeout: 60_000 }, async () => {
+    const { harness } = wizard(NOTHING);
+    await fromTheSource(harness.user);
+    await screen.findByRole("heading", { level: 2, name: "Configuration" });
+
+    // What was read stays: it is why a Dockerfile is missing.
+    expect(screen.getByText(/Looks like a Node\.js app/)).toBeInTheDocument();
+    // The plan of a service of the system (install, build, start) is not what this machine would do, and the type is not a choice here.
+    for (const word of ["Install", "Build", "Start"]) expect(screen.queryByText(word)).not.toBeInTheDocument();
+    expect(screen.queryByText("npm ci")).not.toBeInTheDocument();
+    expect(screen.queryByText("npm start")).not.toBeInTheDocument();
+    expect(screen.queryByText("App type")).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(screen.queryByText("Advanced")).not.toBeInTheDocument();
+    expect(screen.queryByText(/No \.env\.example|variables in \.env\.example/)).not.toBeInTheDocument();
+    // The summary beside it does not say the source runs on the server: it runs nowhere here.
+    expect(screen.queryByText("Directly on the server")).not.toBeInTheDocument();
+  });
+
+  it("keeps the plan of a repository that does run here: its Dockerfile is what Noust builds", { timeout: 60_000 }, async () => {
+    const { harness } = wizard(DOCKERFILE);
+    await fromTheSource(harness.user);
+    await screen.findByRole("heading", { level: 2, name: "How it opens" });
+    await harness.user.type(screen.getByLabelText("Name"), "vault");
+    await harness.user.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByRole("heading", { level: 2, name: "Configuration" });
+    expect(screen.getByText("Advanced")).toBeInTheDocument();
+  });
 });

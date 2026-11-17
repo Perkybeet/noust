@@ -7,9 +7,10 @@ import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { ANONYMOUS, SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RecordedCall } from "../../test/fakes";
+import { CREDENTIAL, installPasskeyBrowser } from "../../test/passkeyBrowser";
 import { takeAccessToken } from "./accessProof";
 import { factorOffer, putOff, standing } from "./later";
-import { toBase64url } from "./webauthn";
+import { setCeremonyPause, toBase64url } from "./webauthn";
 
 const TOKEN = "noust_secret_token";
 const CODE = "123456";
@@ -422,6 +423,7 @@ function stubCredentials(get: () => Promise<unknown>): void {
 
 describe("sign-in with a passkey", () => {
   afterEach(() => {
+    setCeremonyPause(null);
     vi.unstubAllGlobals();
     Reflect.deleteProperty(navigator, "credentials");
   });
@@ -501,6 +503,51 @@ describe("sign-in with a passkey", () => {
     expect(location().pathname).toBe("/backups");
     expect(backend.callsTo("POST /api/auth/passkeys/login/options")[0]?.body).toEqual({ conditional: false, challenge: CHALLENGE });
     expect(backend.callsTo("POST /api/auth/passkeys/login")[0]?.body).toMatchObject({ bearer: false, challenge: CHALLENGE });
+  });
+
+  it("ends the autofill's window, waits for the browser to close it, and opens the explicit one after it (item 202)", { timeout: 20_000 }, async () => {
+    let signedIn = false;
+    const backend = fakeBackend({
+      ...signedInRoutes(ANA),
+      "GET /api/auth/session": () => json(200, signedIn ? ANA : SIGNED_OUT),
+      "POST /api/auth/passkeys/login/options": () => json(200, { public_key: { challenge: "AQID", rpId: "localhost" }, expires_in: 300 }),
+      "POST /api/auth/passkeys/login": () => {
+        signedIn = true;
+        return json(200, { success: true, expires_in: 60, csrf_token: "c", session_token: null, account: ACCOUNT });
+      },
+    });
+    // Chrome: the autofill's window ends when it is aborted, and for a moment after it the next one is refused as pending.
+    const web = installPasskeyBrowser({ settlesOnAbort: true, closesSlowly: true });
+    vi.stubGlobal("PublicKeyCredential", Object.assign(vi.fn(), { isConditionalMediationAvailable: () => Promise.resolve(true) }));
+    const waits: number[] = [];
+    setCeremonyPause((milliseconds) => {
+      waits.push(milliseconds);
+      web.finishClosing();
+      return Promise.resolve();
+    });
+
+    const { user, location } = renderConsole("/login?next=%2Fbackups");
+    // The autofill is open in the username field before anything is pressed.
+    await waitFor(() => {
+      expect(web.windows).toHaveLength(1);
+    });
+    expect(web.windows[0]?.options).toMatchObject({ mediation: "conditional" });
+    await user.click(await screen.findByRole("button", { name: "Passkey" }));
+    await user.click(await screen.findByRole("button", { name: "Sign in with a passkey" }));
+    await waitFor(() => {
+      expect(web.windows).toHaveLength(2);
+    });
+    expect(web.windows[0]?.options.signal?.aborted).toBe(true);
+    web.windows[1]?.settle({ value: CREDENTIAL });
+    await screen.findByRole("heading", { level: 1, name: "Backups" });
+    expect(location().pathname).toBe("/backups");
+    // Never two windows at once; the one that was refused as pending was asked again after the wait, and the person saw no error.
+    expect(web.overlaps).toBe(0);
+    expect(web.calls.map((call) => call.kind)).toEqual(["get", "get", "get"]);
+    expect(web.calls.map((call) => call.refused)).toEqual([false, true, false]);
+    expect(waits).toEqual([250]);
+    expect(screen.queryByText("Could not sign in with a passkey")).toBeNull();
+    expect(backend.callsTo("POST /api/auth/passkeys/login")).toHaveLength(1);
   });
 
   it("says nothing when the operator closes the browser's prompt", async () => {

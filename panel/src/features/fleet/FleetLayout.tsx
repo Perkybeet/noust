@@ -17,7 +17,7 @@ import { useFeature } from "../central/features";
 import { CentralLockedNotice } from "../central/CentralLockedNotice";
 import { AddServer } from "./enroll/AddServer";
 import { FleetActionsProvider, useFleetActions } from "./BulkActionDialog";
-import { noustOf, noustUpdatable, originOf } from "./data";
+import { noustOf, noustUpdatableFrom, originOf } from "./data";
 import { useFleetView } from "./parts";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
@@ -52,7 +52,7 @@ function UpdateAll() {
   const view = useFleetView("summary");
   const actions = useFleetActions();
   // A bulk action never runs on the central itself: it updates last, from its own page, so it can watch every server come back.
-  const nodes = (view.data?.items ?? []).filter((row) => !originOf(row).local && noustUpdatable(noustOf(row).state)).map((row) => originOf(row).node);
+  const nodes = (view.data?.items ?? []).filter((row) => !originOf(row).local && noustUpdatableFrom(noustOf(row))).map((row) => originOf(row).node);
   if (nodes.length === 0) return null;
   return (
     <Can permission="fleet.manage">

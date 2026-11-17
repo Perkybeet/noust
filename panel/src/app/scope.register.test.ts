@@ -23,7 +23,7 @@ import {
 import type { Dest, NavContext } from "./nav";
 import { fleetPathOf, isCentralOnlyPath, serverPathOfFleet } from "./nodeRoute";
 import { VIEWS } from "../features/nav/views";
-import type { FeatureKey } from "../features/central/features";
+import type { FeatureKey, FeatureNeed } from "../features/central/features";
 
 /**
  * The scope is in the address and the sections are the same with both (item 196), and what a server cannot do is offered by no list (item
@@ -33,13 +33,23 @@ import type { FeatureKey } from "../features/central/features";
 
 const AREAS = DESTS.filter((entry) => entry.kind === "area" && entry.group !== "pinned");
 
+/** The functions a destination asks for: one, or a list of which any is enough. */
+const keysOf = (need: FeatureNeed | undefined): readonly FeatureKey[] => (need === undefined ? [] : typeof need === "string" ? [need] : need);
+
 /** Every function some destination of the register asks for. */
-const KEYS: readonly FeatureKey[] = [...new Set([...DESTS.map((entry) => entry.feature), ...Object.values(VIEWS).flatMap((views) => views.map((view) => view.feature))].filter((key): key is FeatureKey => key !== undefined))].sort();
+const KEYS: readonly FeatureKey[] = [...new Set([...DESTS.flatMap((entry) => keysOf(entry.feature)), ...Object.values(VIEWS).flatMap((views) => views.flatMap((view) => keysOf(view.feature)))])].sort();
+
+/** What a server offers when the functions it works are the ones `works` says: a list asks for any one of them, as the filter does. */
+const working = (works: (key: FeatureKey) => boolean): NavContext => ({ features: (need) => keysOf(need).length === 0 || keysOf(need).some(works) });
 
 /** What a server offers when only one function is missing. */
-const without = (missing: FeatureKey): NavContext => ({ features: (key) => key !== missing });
+const without = (missing: FeatureKey): NavContext => working((key) => key !== missing);
 
-const hasKey = (entry: Dest, key: FeatureKey): boolean => entry.feature === key;
+/** What a server offers when these functions are missing. */
+const lacking = (...missing: FeatureKey[]): NavContext => working((key) => !missing.includes(key));
+
+/** Whether a destination needs that function and nothing else can stand in for it: it cannot be offered without it. */
+const hasKey = (entry: Dest, key: FeatureKey): boolean => keysOf(entry.feature).length === 1 && keysOf(entry.feature)[0] === key;
 
 describe("the same address in both scopes", () => {
   it("is /fleet followed by the server's address, and back", () => {
@@ -195,8 +205,24 @@ describe("what a server cannot do is offered by no list (item 187)", () => {
     });
   }
 
+  it("offers a destination that asks for any of several functions while one of them works, and leaves it out when none does", () => {
+    const either = ["databases", "database_instances"] as const;
+    for (const entry of DESTS.filter((candidate) => keysOf(candidate.feature).length > 1)) expect(keysOf(entry.feature), `${entry.id} asks for one list`).toEqual(either);
+    const bar = (ctx: NavContext): string[] => sidebarFor(ctx).flat().map((entry) => entry.id);
+    // A machine that only has Docker: no engine of its own, the ones Noust runs in containers.
+    expect(bar(lacking("databases"))).toContain("databases");
+    expect(bar(lacking("database_instances"))).toContain("databases");
+    expect(bar(lacking(...either))).not.toContain("databases");
+    const engines = (ctx: NavContext): string[] => tabsById("databases", ctx).map((item) => item.to);
+    expect(engines(lacking("databases"))).toContain("/databases/engines");
+    expect(engines(lacking(...either))).not.toContain("/databases/engines");
+    const sections = (ctx: NavContext): string[] => paletteEntries({ t: (word) => word, ...ctx }).map((entry) => entry.id);
+    expect(sections(lacking("databases"))).toContain("databases");
+    expect(sections(lacking(...either))).not.toContain("databases");
+  });
+
   it("opens an area at the first section the server can do, and drops the area when it can do none", () => {
-    const hub: NavContext = { features: (key) => !["applications", "published_ports", "tunnels", "firewall", "databases", "scheduled_jobs", "domains", "sites", "certificates", "dns_accounts", "noust_dns", "application_backups", "volume_backups", "services", "sites", "console_exposure", "software", "root_shell", "system_clock", "process_monitor", "status_page", "recipes", "system_logs", "server_security"].includes(key ?? "") };
+    const hub = lacking("applications", "published_ports", "tunnels", "firewall", "databases", "database_instances", "scheduled_jobs", "domains", "sites", "certificates", "dns_accounts", "noust_dns", "application_backups", "volume_backups", "services", "console_exposure", "software", "root_shell", "system_clock", "process_monitor", "status_page", "recipes", "system_logs", "server_security");
     // Network's first section is the published ports, which a hub does not have: it opens at what it has.
     expect(areaLanding(dest("network"), hub).to).toBe("/network/listening");
     expect(areaLanding(dest("network"), {}).to).toBe("/network");
@@ -210,15 +236,15 @@ describe("what a server cannot do is offered by no list (item 187)", () => {
   });
 
   it("opens Logs at the system's lines on a machine with no applications, and drops it where there is no journal either", () => {
-    const noApps: NavContext = { features: (key) => key !== "applications" };
+    const noApps = lacking("applications");
     expect(areaLanding(dest("logs"), noApps)).toEqual({ to: "/logs", search: { source: "system" } });
-    const nothing: NavContext = { features: (key) => key !== "applications" && key !== "system_logs" };
+    const nothing = lacking("applications", "system_logs");
     expect(areaOffered(dest("logs"), nothing)).toBe(false);
   });
 
   it("finds the entry a page belongs to, so the page of a section the server cannot do is known", () => {
     expect(entryAt("/network/tunnels")?.feature).toBe("tunnels");
-    expect(entryAt("/databases/postgresql/clientes/data")?.feature).toBe("databases");
+    expect(entryAt("/databases/postgresql/clientes/data")?.feature).toEqual(["databases", "database_instances"]);
     expect(entryAt("/apps/shop.example.com/logs")?.feature).toBe("applications");
     expect(entryAt("/server/services/noust-web/logs")?.feature).toBe("services");
     expect(entryAt("/")?.feature).toBeUndefined();

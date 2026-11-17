@@ -116,6 +116,8 @@ export const assistant = {
     steps: "Steps of this turn",
     tokensValue: "{used} of {cap}",
     stepsValue: "{used} of {cap}",
+    actions: "Changes in the last hour",
+    actionsValue: "{used} of {cap}",
     near: "Near the limit: {value}. Whoever administers the assistant changes it.",
     help: "The limits of this conversation",
     helpTitle: "The limits",

@@ -39,7 +39,7 @@ import { stackPort } from "./machineAddress";
 import { useContainerHost } from "../central/features";
 import { ConfigureStep } from "./ConfigureStep";
 import { DeployStep, deploySummary, howItRunsItem } from "./DeployStep";
-import { nothingRuns } from "./howItRuns";
+import { noWayRuns, nothingRuns } from "./howItRuns";
 import type { Ways } from "./howItRuns";
 import type { OpenSteps } from "./DeployStep";
 import type { DeployKind } from "./DeployStep";
@@ -1374,7 +1374,8 @@ function SoFar({
   items.push({ label: t("newApp.deploy.address"), value: domain !== undefined && domain.trim() !== "" ? normalizeDomain(domain) : null, copy: false });
   if (kind === "code" && review !== null) {
     items.push({ label: t("newApp.deploy.type"), value: review.appType === "" ? null : nameOf(review.appType), mono: false, copy: false });
-    if (ways !== null && review.appType !== "") items.push(howItRunsItem(t, ways, review.appType));
+    // Where neither way can run the source it says so on the step, and the summary claims no way the source does not have.
+    if (ways !== null && review.appType !== "" && !noWayRuns(ways)) items.push(howItRunsItem(t, ways, review.appType));
   }
   // Stacked, not side by side: the summary's column is narrow beside the step.
   return (

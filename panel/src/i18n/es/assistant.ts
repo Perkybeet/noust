@@ -113,6 +113,8 @@ export const assistant: Catalog<typeof en> = {
     steps: "Pasos de este turno",
     tokensValue: "{used} de {cap}",
     stepsValue: "{used} de {cap}",
+    actions: "Cambios en la última hora",
+    actionsValue: "{used} de {cap}",
     near: "Cerca del tope: {value}. Lo cambia quien administra el asistente.",
     help: "Los topes de esta conversación",
     helpTitle: "Los topes",

@@ -9,9 +9,9 @@ import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
-import { dockerStackQuery } from "../../api/queries/docker";
-import { dockerComposeQuery, dockerComposeVersionsQuery } from "../../api/queries/dockerChanges";
-import { Can, useCan } from "../../components/page/permissions";
+import { dockerStackQuery, dockerVolumesQuery } from "../../api/queries/docker";
+import { dockerComposeVersionsQuery } from "../../api/queries/dockerChanges";
+import { Can } from "../../components/page/permissions";
 import type { DockerContainer } from "../../api/queries/docker";
 import { DetailPage } from "../../components/page/DetailPage";
 import { LoadingRegion } from "../../components/page/LoadingRegion";
@@ -34,7 +34,7 @@ import { NodeCapabilityGate } from "../../nodes/capability";
 import { useNode } from "../../nodes/useNode";
 import { useStackVerb } from "./actions";
 import { BringDialog } from "./BringDialog";
-import { COMPOSE_WHY_CODES, ownerOf, ownerTarget, stackVerbs } from "./model";
+import { COMPOSE_WHY_CODES, ownerOf, ownerTarget, stackVerbs, volumeCopyOf } from "./model";
 import { ContainerLink, ContainerPill, StackPill } from "./pieces";
 import { DOCKER_CAPABILITY } from "./SummaryPage";
 import { Unavailable } from "./Unavailable";
@@ -65,16 +65,21 @@ export function StackPage({ name }: { name: string }) {
   const [stopping, setStopping] = useState(false);
   const [bringing, setBringing] = useState<string | null>(null);
   const theirs = owner !== null && owner.kind === "nobody";
-  // Whether the document is edited from here is the server's to say, and reading it is a reveal: whoever may not edit is not asked for it.
-  // The versions are of a document Noust keeps; of any other the server answers a 409, which the browser would report as an error.
-  const can = useCan();
-  const mayEdit = can("docker.manage") && can("secrets.reveal");
-  const compose = useQuery({ ...dockerComposeQuery(name), enabled: detail?.available === true && owner !== null && !theirs && mayEdit });
-  const editable = compose.data?.editable === true;
-  const versions = useQuery({ ...dockerComposeVersionsQuery(name), enabled: editable });
+  // The history of the document is read whatever the stack is: it says whether the document is edited from here and, when it is not,
+  // why (the server's code), and its items are empty for a document Noust does not keep. It is read from the versions and not from the
+  // document: reading the document is a reveal, and looking at a stack is not.
+  const versions = useQuery({ ...dockerComposeVersionsQuery(name), enabled: detail?.available === true && owner !== null });
+  const editable = versions.data?.editable === true;
   const saved = versions.data?.items ?? [];
-  const whyCode = compose.data === undefined || editable ? null : (COMPOSE_WHY_CODES.find((code) => code === compose.data.why_code) ?? null);
+  const whyCode = versions.data === undefined || editable ? null : (COMPOSE_WHY_CODES.find((code) => code === versions.data.why_code) ?? null);
+  // A reason the console has no words for (a newer server) is said as the server says it.
+  const whyElse = versions.data === undefined || editable || whyCode !== null || versions.data.why === "" ? null : versions.data.why;
   const last = saved[0];
+  // Whether what the stack keeps is in a copy: the volumes it touches, said as they are in the list of volumes.
+  const volumeList = useQuery({ ...dockerVolumesQuery(), enabled: detail?.available === true });
+  const held = (volumeList.data?.items ?? []).filter((volume) => touches.volumes.includes(volume.name));
+  const uncopied = held.filter((volume) => volumeCopyOf(volume).state === "none").length;
+  const allCopied = held.length > 0 && held.every((volume) => ["scheduled", "copied"].includes(volumeCopyOf(volume).state));
   const verbs = stack === null || stack === undefined ? null : stackVerbs(stack);
   const columns: Column<DockerContainer>[] = [
     { id: "name", header: t("docker.columns.container"), card: "title", cell: (row) => <ContainerLink name={row.name} /> },
@@ -112,19 +117,25 @@ export function StackPage({ name }: { name: string }) {
   const files = stack?.config_files ?? [];
   const facts: KeyValueItem[] = [
     ...(stack?.working_dir !== undefined && stack.working_dir !== "" ? [{ label: t("docker.stack.folder"), value: stack.working_dir, mono: true }] : []),
-    { label: t("docker.stack.volumes"), value: touches.volumes.length === 0 ? t("docker.container.facts.none") : touches.volumes.join(", "), mono: touches.volumes.length > 0 },
+    {
+      label: t("docker.stack.volumes"),
+      value: touches.volumes.length === 0 ? t("docker.container.facts.none") : touches.volumes.join(", "),
+      mono: touches.volumes.length > 0,
+      ...(uncopied > 0 ? { hint: t("docker.stack.volumesUncopied", { count: uncopied }) } : allCopied ? { hint: t("docker.stack.volumesCopied") } : {}),
+    },
     { label: t("docker.stack.networks"), value: touches.networks.length === 0 ? t("docker.container.facts.none") : touches.networks.join(", "), mono: touches.networks.length > 0 },
   ];
   // The document the stack runs from: where it is, when it was last edited and how many are saved to go back to.
   const composeRows: KeyValueItem[] = [
     ...(files.length > 0 ? [{ label: t("docker.stack.composeFile"), value: files.join(", "), mono: true }] : []),
-    // A stack nobody made has no document of Noust's; one Noust keeps has its edits; the rest has no document to speak of.
+    // A stack nobody made has no document of Noust's; one Noust keeps has its edits, and its history is read even when the document is
+    // edited elsewhere; the rest has no document to speak of, and the reason is the line under the title.
     ...(theirs
       ? [
           { label: t("docker.stack.lastEdit"), value: t("docker.stack.neverSeen"), mono: false, copy: false as const },
           { label: t("docker.stack.savedDocuments"), value: t("docker.container.facts.none"), mono: false, copy: false as const },
         ]
-      : editable
+      : editable || saved.length > 0
         ? [
             {
               label: t("docker.stack.lastEdit"),
@@ -139,7 +150,8 @@ export function StackPage({ name }: { name: string }) {
               label: t("docker.stack.savedDocuments"),
               mono: false,
               copy: false as const,
-              value: saved.length === 0 ? t("docker.container.facts.none") : t("docker.stack.versions", { count: saved.length }),
+              // A version that can be put back says so; the history of a document that is edited elsewhere is only read.
+              value: saved.length === 0 ? t("docker.container.facts.none") : t(editable ? "docker.stack.versions" : "docker.stack.versionsKept", { count: saved.length }),
               ...(saved.length === 0 ? { hint: t("docker.stack.noVersions") } : {}),
             },
           ]
@@ -179,7 +191,7 @@ export function StackPage({ name }: { name: string }) {
             <SurfaceSection
               title={t("docker.stack.composeTitle")}
               icon={OBJECT_ICONS.compose}
-              description={theirs ? t("docker.stack.composeTheirs") : whyCode !== null ? t(`docker.compose.why.${whyCode}`) : t("docker.stack.composeLine")}
+              description={theirs ? t("docker.stack.composeTheirs") : whyCode !== null ? t(`docker.compose.why.${whyCode}`) : (whyElse ?? t("docker.stack.composeLine"))}
               {...(!editable
                 ? {}
                 : {

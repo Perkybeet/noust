@@ -14,6 +14,7 @@ import {
   signedInRoutes,
 } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
+import { serverSession } from "../../test/nas";
 import {
   FAIL2BAN,
   attentionFor,
@@ -29,8 +30,9 @@ import {
 beforeEach(onDesktop);
 
 function server(path: string, extra: Record<string, RouteHandler> = {}) {
+  // A server says what its table does: everything works there but the page that turns on a machine's Docker, which is a hub's.
   const backend = fakeBackend({
-    ...signedInRoutes(),
+    ...signedInRoutes(serverSession()),
     ...serverRoutes(),
     ...extra,
   });
