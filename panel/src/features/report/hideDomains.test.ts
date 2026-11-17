@@ -7,7 +7,7 @@ import { OFF, hideDomains, hidingFrom } from "./hideDomains";
 const PAIRS = [
   { real: "shop.example.com", alias: "app-1" },
   { real: "shop-example-com", alias: "app-1" },
-  { real: "vps-arenna-01", alias: "host" },
+  { real: "vps-example-01", alias: "host" },
 ];
 
 describe("replacing the names the server replaced", () => {
@@ -16,7 +16,7 @@ describe("replacing the names the server replaced", () => {
   });
 
   it("puts the alias the server used where the name was, wherever it is", () => {
-    const text = "GET /api/apps/shop.example.com/logs 500 (unit shop-example-com on vps-arenna-01)";
+    const text = "GET /api/apps/shop.example.com/logs 500 (unit shop-example-com on vps-example-01)";
 
     expect(hideDomains(text, { kind: "names", pairs: PAIRS })).toBe("GET /api/apps/app-1/logs 500 (unit app-1 on host)");
   });
