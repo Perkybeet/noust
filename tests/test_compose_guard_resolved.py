@@ -194,7 +194,7 @@ class TestWhatTheFileBringsInFromElsewhere:
         assert len(findings.refused) == 1
         assert "other application" in findings.refused[0]
 
-    def test_a_secret_from_a_file_outside_the_application_is_warned_about(self) -> None:
+    def test_a_secret_from_a_file_outside_the_application_is_refused(self) -> None:
         document = {
             "services": {"web": {"image": "nginx", "secrets": ["cert"]}},
             "secrets": {"cert": {"file": "/etc/ssl/private/cert.pem"}},
@@ -202,8 +202,8 @@ class TestWhatTheFileBringsInFromElsewhere:
 
         findings = inspect_compose(document, APP)
 
-        assert findings.refused == []
-        assert findings.warned == [
+        assert findings.warned == []
+        assert findings.refused == [
             "service web mounts /etc/ssl/private/cert.pem from this server as a secret, "
             "outside the application"
         ]
@@ -250,7 +250,7 @@ class TestTheResolvedModel:
 
         assert merged.warned == raw.warned
         assert merged.refused == raw.refused
-        assert len(raw.warned) == 2
+        assert len(raw.refused) == 2
 
     def test_what_only_the_model_shows_is_added(self) -> None:
         raw = inspect_compose(stack(), APP)
@@ -387,10 +387,21 @@ class TestTheDeployerJudgesWhatComposeResolves:
         runner = FakeRunner()
         compose = stack_at(tmp_path, store, runner)
 
-        with pytest.raises(DeploymentError, match="asks for root"):
+        with pytest.raises(DeploymentError, match="reaches what no stack may reach"):
             compose._check_host_privileges({"include": ["/etc/noust/x.yaml"], "services": {}})
 
         # An include that leaves the application is not read, not even to say what is in it.
+        assert runner.calls == []
+
+    def test_an_include_outside_the_application_that_is_nobodys_asks_for_root(
+        self, tmp_path: Path, store: NoustStore
+    ) -> None:
+        runner = FakeRunner()
+        compose = stack_at(tmp_path, store, runner)
+
+        with pytest.raises(DeploymentError, match="asks for root"):
+            compose._check_host_privileges({"include": ["/srv/shared/x.yaml"], "services": {}})
+
         assert runner.calls == []
 
     def test_an_exception_lets_the_hidden_service_through_and_says_so(

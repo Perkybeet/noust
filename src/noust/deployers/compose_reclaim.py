@@ -405,6 +405,7 @@ def plan_reclaim(
     )
     # Starting the unit runs ``up -d`` on the file as it is now, which may
     # have been edited since the stack last ran under Noust.
+    # The application is registered already: what it runs with is its own, not an adoption's to accept.
     guard_running_stack(deployer, running=True, dry_run=dry_run, changes=changes)
     project = deployer._pinned_project() or compose_project_name(
         deployer.app_path, deployer.compose_path

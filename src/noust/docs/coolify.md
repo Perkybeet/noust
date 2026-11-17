@@ -235,7 +235,10 @@ convert, then go on as with any Compose file).
   and prints the figures; on commit `e7934729` of Coolify's repository (386 templates), 357 convert
   to a document nothing refuses and 27 are refused for exactly that (21 mount the Docker socket, 7
   run privileged, one both); two are not valid YAML as written (an anchor merged where a list is).
-  Images are not pinned: the analysis says so, and a tag can be pinned by digest before deploying.
+  These figures were measured with the guard of 4.2; since 4.3 it also refuses devices, capabilities
+  such as `SYS_ADMIN`, the host's namespaces and any path of the server outside the application, so
+  more templates are refused. Images are not pinned: the analysis says so, and a tag can be pinned by
+  digest before deploying.
   Dokploy's templates are converted the same way ([dokploy.md](dokploy.md#a-template-from-dokploys-catalogue)).
 
 Coolify and its templates are Apache-2.0; a template's own authors keep their rights in it. Noust

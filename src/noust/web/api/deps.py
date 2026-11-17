@@ -491,6 +491,10 @@ def error_response(exc: NoustError) -> JSONResponse:
     if isinstance(exc, DockerPlanChangedError):
         # The plan as it is now, to be shown again.
         content["plan"] = exc.plan.to_dict()
+    host_access = getattr(exc, "host_access", None)
+    if host_access:
+        # What adopting would accept, one line of the compose file each, for the console to list.
+        content["host_access"] = list(host_access)
     # A full queue says when to ask again: builds take minutes, not seconds.
     headers = {"Retry-After": "30"} if isinstance(exc, QueueFullError) else None
     return JSONResponse(status_code=status_for(exc), content=content, headers=headers)

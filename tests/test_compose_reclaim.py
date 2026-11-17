@@ -484,7 +484,12 @@ def unit_starts(docker: Docker) -> list[tuple[str, ...]]:
 @pytest.fixture
 def adopted(root: Path, docker: Docker, web: NginxManager, store: NoustStore, units: Path) -> Path:
     """Proggest adopted: a unit enabled and not started, its containers up."""
+    from noust.deployers.helpers.sandbox import set_compose_exception
+
     adopt(root, web)
+    # Adopting a stack that runs with the Docker socket records the exception for it; what these tests
+    # are about is a stack that has none, so what the guard says of a file edited since is the guard's.
+    set_compose_exception(DOMAIN, allowed=False, actor="alice", store=store)
     docker.calls.clear()
     return root
 

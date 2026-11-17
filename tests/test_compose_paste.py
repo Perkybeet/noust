@@ -115,10 +115,29 @@ class TestWhatRefusesIt:
         assert not found.deployable
         assert any(needle in problem for problem in found.refused)
 
-    def test_a_remote_build_context_is_not_refused(self) -> None:
-        found = analyze_document("services:\n  a:\n    build: https://github.com/o/r.git#main\n")
+    @pytest.mark.parametrize(
+        "context",
+        [
+            "https://github.com/o/r.git#main",
+            "git://example.invalid/r.git",
+            "git@example.invalid:o/r.git",
+            "oci://example.invalid/r:1",
+        ],
+    )
+    def test_a_remote_build_context_is_refused_because_nothing_checks_where_it_goes(
+        self, context: str
+    ) -> None:
+        found = analyze_document(f"services:\n  a:\n    build: {context}\n")
 
-        assert found.deployable
+        assert not found.deployable
+        assert any("download from the network" in problem for problem in found.refused)
+
+    def test_a_remote_include_is_refused_too(self) -> None:
+        found = analyze_document(
+            "include: ['git://example.invalid/r.git']\nservices:\n  a:\n    image: x:1\n"
+        )
+
+        assert not found.deployable
 
     def test_the_stacks_own_env_file_is_fine(self) -> None:
         assert analyze_document("services:\n  a:\n    image: x:1\n    env_file: .env\n").deployable

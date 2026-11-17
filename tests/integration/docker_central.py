@@ -474,6 +474,17 @@ def scenario_reach(harness: Any, engine: Any) -> Any:
                 "    network_mode: host\n    command: httpd -f -p 18204 -h /www\n"
             ),
         )
+        # The host's network is something a new stack is refused unless the application has an exception: the
+        # scenario is about reaching such a service, so the exception is recorded first, as an operator does.
+        central.noust(
+            "app",
+            "sandbox",
+            "compose-exception",
+            "hostnet.nas.test",
+            "--reason",
+            "the scenario reaches a service on the host's network",
+            "--yes",
+        )
         done = central.noust(
             "create",
             "-d",

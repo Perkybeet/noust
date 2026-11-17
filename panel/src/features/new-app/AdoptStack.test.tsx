@@ -70,6 +70,7 @@ describe("the adoption's form", () => {
       site: "proggest",
       preview: true,
       accept_recreate: false,
+      accept_host_access: false,
     });
   });
 });

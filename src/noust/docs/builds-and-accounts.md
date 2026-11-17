@@ -46,9 +46,11 @@ noust app sandbox disable shop.example.com --reason "..."   # build as root: rec
   the rest of the machine hidden. `noust app migrate` is the way to full separation. Their
   `test` builds a copy of the tracked files as they are in that tree, uncommitted changes
   included, and lists those changes so they can be committed.
-- **Docker Compose** builds run inside the Docker daemon. A new stack with `privileged: true` or
-  the Docker socket mounted is refused unless `noust app sandbox compose-exception DOMAIN`
-  records why it needs them.
+- **Docker Compose** builds run inside the Docker daemon. A new stack that asks for what gives the
+  server to a container (`privileged: true`, the Docker socket, a device, a path of the server outside
+  the application, a capability such as `SYS_ADMIN`...) is refused unless
+  `noust app sandbox compose-exception DOMAIN` records why it needs them; a stack that already had it
+  is only warned about. [The whole list](compose.md#what-a-stack-may-ask-of-the-server).
 - **Fail closed**: where the self-test fails (containers and WSL without mount namespaces), a
   build stops with the evidence and never falls back to root; `disable` with a reason is the
   explicit way to build that application as root.

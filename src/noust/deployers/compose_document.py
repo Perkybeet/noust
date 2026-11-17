@@ -257,12 +257,18 @@ def check_document(domain: str, text: str, *, store: NoustStore | None = None) -
     """
     store = store or get_store()
     app = _stack(domain, store)
-    analysis = analyze_document(text)
+    current = (_directory(app, store) / COMPOSE_FILE).read_text(encoding="utf-8")
+    # What the stack's document is refused for already is not new: it is warned about, never
+    # stopped, and only what this text adds is refused.
+    try:
+        already = analyze_document(current).refused
+    except ValidationError:
+        already = []
+    analysis = analyze_document(text, already=already)
     # The variables are judged against the stack's own values, the way an update will judge
     # them: a document that asks for DB_PASSWORD when the stack has none stops there, minutes
     # into a build, so it is said now.
     report = compose_variables.judge(load_compose(text), read_app_env(app), file=COMPOSE_FILE)
-    current = (_directory(app, store) / COMPOSE_FILE).read_text(encoding="utf-8")
     return DocumentCheck(
         analysis=analysis,
         missing=[variable.name for variable in report.missing],

@@ -5677,4 +5677,102 @@ export const serverText = {
       hint: "Its access level for a central is below admin, and a copy carries away the .env and the databases of every application, which is more than a deploy level promises. On {node}, as root, run 'noust fleet access --level admin' to allow it, or leave the copies where they are.",
     },
   },
+  compose_guard: {
+    mount_link: {
+      text: "{who} mounts {source} from this server, through the link {link} that leads to {target}, outside the application",
+    },
+    path_unresolved: {
+      text: "{who} names {source}, which cannot be followed to a place on this server (a loop of links, a directory that cannot be read or a name that is not a path): what it would give cannot be judged",
+    },
+    runtime_socket: {
+      text: "{who} mounts the socket of a container runtime ({source}): it can start a container with this server's root filesystem",
+    },
+    door_noust: {
+      text: "{who} names {source} in {key}: that is Noust's own configuration and secrets, which no stack may read",
+    },
+    door_contains_noust: {
+      text: "{who} names {source} in {key}: that contains {directory}, where Noust keeps its configuration and secrets, which no stack may read",
+    },
+    door_all_apps: {
+      text: "{who} names {source} in {key}: that contains every application's files, the other applications' included, which no stack may read",
+    },
+    door_other_app: {
+      text: "{who} names {source} in {key}: that is another application's files, which no stack may read",
+    },
+    door_outside: {
+      text: "{who} names {source} in {key}, outside the application: Docker would read a file of this server that is not part of the repository",
+    },
+    door_link: {
+      text: "{who} names {source} in {key}, through the link {link} that leads to {target}, outside the application",
+    },
+    remote_context: {
+      text: "{who} builds from {source}, which Docker would download from the network: nothing on this server checks where that goes",
+    },
+    remote_include: {
+      text: "the compose file includes {source}, which Compose would download from the network: nothing on this server checks where that goes",
+    },
+    devices: {
+      text: "{who} is given the host device {device}",
+    },
+    capabilities_machine: {
+      text: "{who} adds the capability {capability}, which gives it this server",
+    },
+    cgroup_parent: {
+      text: "{who} runs in the cgroup {parent} of this server, outside the limits Docker gives it",
+    },
+    runtime: {
+      text: "{who} runs with the runtime {runtime}, not Docker's own: what that does with the container is not what Docker's runtime does",
+    },
+    build_privileged: {
+      text: "{who} builds with elevated privileges (build.privileged): the build can reach this server",
+    },
+    build_host_network: {
+      text: "{who} builds on this server's own network (build.network: host)",
+    },
+    provider: {
+      text: "{who} runs the program {provider} of this server when the stack starts, outside any container",
+    },
+    project_names: {
+      text: "the compose file names its own project {name} (name: or COMPOSE_PROJECT_NAME) and this application's is {project}: everything the stack makes is named after its project",
+    },
+    project_taken: {
+      text: "the compose file runs the stack as the project {name}, which belongs to {owner}: Compose would take over what that project has",
+    },
+    volume_taken: {
+      text: "{who} uses the volume {name}, which belongs to {owner}, not to this application",
+    },
+    network_taken: {
+      text: "{who} uses the network {name}, which belongs to {owner}, not to this application",
+    },
+    container_taken: {
+      text: "{who} names its container {name}, which belongs to {owner}, not to this application",
+    },
+    image_taken: {
+      text: "{who} runs the image {name}, which {owner} built: its code is not this application's to run",
+    },
+    external_volume: {
+      text: "{who} uses the volume {name}, which this stack does not make: it gives the stack whatever somebody else keeps there",
+    },
+    external_network: {
+      text: "{who} uses the network {name}, which this stack does not make: it joins the stack to whatever else is on that network",
+    },
+    paths_unresolved: {
+      text: "the compose file names paths of this server through variables and Docker Compose could not resolve the stack ({problem}): where they lead cannot be judged",
+    },
+    adopt_host_access: {
+      text: "Adopting {domain} puts under Noust a stack whose containers have what is on this server",
+      hint: "{lines}\n\nEach line above gives a container something of this server, and adopting the stack is equivalent to root: it is recorded as accepted, with who and when, as the compose exception of {domain}. Go on knowing that: {command}",
+    },
+    adopted_host_access: {
+      text: "Recorded as accepted by {who}: the containers of {domain} keep what they have of this server ({count}). To take it back: {command}",
+    },
+    asks_for_root: {
+      text: "{domain}'s compose file asks for root on this server",
+      hint: "{lines}\n\nThe compose file comes from the repository and Docker runs it as root: what is listed above gives a container this server, and the stack did not run with it before. Remove it, or record why this stack needs it and deploy again: {command}",
+    },
+    asks_for_what_no_stack_may: {
+      text: "{domain}'s compose file reaches what no stack may reach",
+      hint: "{lines}\n\nWhat belongs to another application or to Noust (its files, its volumes, its images, its project) is not for a stack to use, and no exception allows it. Remove it from the compose file.",
+    },
+  },
 } as const;

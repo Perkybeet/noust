@@ -26,6 +26,7 @@ from pathlib import Path
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.core.audit.actor import cli_actor
 from noust.core.docker.gate import DockerGate
 from noust.core.docker.models import OwnerKind
 from noust.core.exceptions import ValidationError
@@ -382,6 +383,12 @@ def _show_bringing(logger: Logger, found: Bringing) -> None:
     is_flag=True,
     help="Bring it even if starting the stack the way Noust would recreates something.",
 )
+@click.option(
+    "--accept-host-access",
+    is_flag=True,
+    help="Bring it although the stack runs with what gives this server to a container: recorded "
+    "as accepted, with your name, as the application's compose exception.",
+)
 @click.option("--preview", is_flag=True, help="Say what would be registered and register nothing.")
 @click.option("--yes", "-y", is_flag=True, help="Bring it without asking.")
 @json_option("Print what was found, or done, as JSON.")
@@ -391,6 +398,7 @@ def stack_bring(
     name: str,
     app_name: str | None,
     accept_recreate: bool,
+    accept_host_access: bool,
     preview: bool,
     yes: bool,
 ) -> None:
@@ -403,8 +411,15 @@ def stack_bring(
     from several files, is said not to be brought, with why.
     """
     bringer = StackBringer(_gate())
+    accepted_by = cli_actor().label if accept_host_access else ""
     try:
-        shown = bringer.preview(name, name=app_name, accept_recreate=accept_recreate)
+        shown = bringer.preview(
+            name,
+            name=app_name,
+            accept_recreate=accept_recreate,
+            accept_host_access=accept_host_access,
+            accepted_by=accepted_by,
+        )
     except AdoptionRefusedError as refused:
         ctx.logger.error(f"{refused.message}: {refused.details}")
         ctx.logger.info(refused.output or "")
@@ -422,6 +437,8 @@ def stack_bring(
         name,
         name=app_name,
         accept_recreate=accept_recreate,
+        accept_host_access=accept_host_access,
+        accepted_by=accepted_by,
         trigger=DeploymentTrigger.CLI.value,
     )
     if ctx.json_output:

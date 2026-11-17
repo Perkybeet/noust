@@ -5666,4 +5666,102 @@ export const serverText: Catalog<typeof en> = {
       hint: "Su nivel de acceso para una central está por debajo de admin, y una copia se lleva el .env y las bases de datos de todas las aplicaciones, que es más de lo que promete el nivel deploy. En {node}, como root, ejecuta 'noust fleet access --level admin' para permitirlo, o deja las copias donde están.",
     },
   },
+  compose_guard: {
+    mount_link: {
+      text: "{who}: monta {source} de este servidor, a través del enlace {link} que lleva a {target}, fuera de la aplicación",
+    },
+    path_unresolved: {
+      text: "{who}: nombra {source}, que no se puede seguir hasta un lugar de este servidor (un bucle de enlaces, un directorio que no se puede leer o un nombre que no es una ruta): no se puede juzgar qué daría",
+    },
+    runtime_socket: {
+      text: "{who}: monta el socket de un motor de contenedores ({source}): puede arrancar un contenedor con el sistema de archivos raíz de este servidor",
+    },
+    door_noust: {
+      text: "{who}: nombra {source} en {key}: es la configuración y los secretos propios de Noust, que ninguna pila puede leer",
+    },
+    door_contains_noust: {
+      text: "{who}: nombra {source} en {key}: contiene {directory}, donde Noust guarda su configuración y sus secretos, que ninguna pila puede leer",
+    },
+    door_all_apps: {
+      text: "{who}: nombra {source} en {key}: contiene los archivos de todas las aplicaciones, también los de las demás, que ninguna pila puede leer",
+    },
+    door_other_app: {
+      text: "{who}: nombra {source} en {key}: son los archivos de otra aplicación, que ninguna pila puede leer",
+    },
+    door_outside: {
+      text: "{who}: nombra {source} en {key}, fuera de la aplicación: Docker leería un archivo de este servidor que no es del repositorio",
+    },
+    door_link: {
+      text: "{who}: nombra {source} en {key}, a través del enlace {link} que lleva a {target}, fuera de la aplicación",
+    },
+    remote_context: {
+      text: "{who}: construye desde {source}, que Docker descargaría de la red: nada en este servidor comprueba adónde va esa petición",
+    },
+    remote_include: {
+      text: "el archivo compose incluye {source}, que Compose descargaría de la red: nada en este servidor comprueba adónde va esa petición",
+    },
+    devices: {
+      text: "{who}: recibe el dispositivo {device} del servidor",
+    },
+    capabilities_machine: {
+      text: "{who}: añade la capacidad {capability}, que le da este servidor",
+    },
+    cgroup_parent: {
+      text: "{who}: se ejecuta en el cgroup {parent} de este servidor, fuera de los límites que Docker le da",
+    },
+    runtime: {
+      text: "{who}: se ejecuta con el runtime {runtime} y no con el de Docker: lo que ese runtime hace con el contenedor no es lo que hace el de Docker",
+    },
+    build_privileged: {
+      text: "{who}: construye con privilegios elevados (build.privileged): la construcción puede llegar a este servidor",
+    },
+    build_host_network: {
+      text: "{who}: construye en la red propia de este servidor (build.network: host)",
+    },
+    provider: {
+      text: "{who}: ejecuta el programa {provider} de este servidor al arrancar la pila, fuera de cualquier contenedor",
+    },
+    project_names: {
+      text: "el archivo compose da a la pila su propio proyecto {name} (name: o COMPOSE_PROJECT_NAME) y el de esta aplicación es {project}: todo lo que crea la pila lleva el nombre de su proyecto",
+    },
+    project_taken: {
+      text: "el archivo compose ejecuta la pila como el proyecto {name}, que es de {owner}: Compose se haría con lo que ese proyecto tiene",
+    },
+    volume_taken: {
+      text: "{who}: usa el volumen {name}, que es de {owner}, no de esta aplicación",
+    },
+    network_taken: {
+      text: "{who}: usa la red {name}, que es de {owner}, no de esta aplicación",
+    },
+    container_taken: {
+      text: "{who}: da a su contenedor el nombre {name}, que es de {owner}, no de esta aplicación",
+    },
+    image_taken: {
+      text: "{who}: ejecuta la imagen {name}, que construyó {owner}: su código no es de esta aplicación",
+    },
+    external_volume: {
+      text: "{who}: usa el volumen {name}, que esta pila no crea: le da lo que otra persona guarde ahí",
+    },
+    external_network: {
+      text: "{who}: usa la red {name}, que esta pila no crea: la une a todo lo demás que haya en esa red",
+    },
+    paths_unresolved: {
+      text: "el archivo compose nombra rutas de este servidor mediante variables y Docker Compose no pudo resolver la pila ({problem}): no se puede juzgar adónde llevan",
+    },
+    adopt_host_access: {
+      text: "Adoptar {domain} pone bajo Noust una pila cuyos contenedores tienen lo que hay en este servidor",
+      hint: "{lines}\n\nCada línea de arriba da a un contenedor algo de este servidor, y adoptar la pila equivale a ser root: queda registrado como aceptado, con quién y cuándo, como la excepción de compose de {domain}. Si aun así quieres adoptarla: {command}",
+    },
+    adopted_host_access: {
+      text: "Registrado como aceptado por {who}: los contenedores de {domain} conservan lo que tienen de este servidor ({count}). Para retirarlo: {command}",
+    },
+    asks_for_root: {
+      text: "El archivo compose de {domain} pide ser root en este servidor",
+      hint: "{lines}\n\nEl archivo compose viene del repositorio y Docker lo ejecuta como root: lo de arriba da este servidor a un contenedor, y la pila no funcionaba con ello antes. Quítalo, o registra por qué lo necesita esta pila y vuelve a desplegar: {command}",
+    },
+    asks_for_what_no_stack_may: {
+      text: "El archivo compose de {domain} llega a lo que ninguna pila puede alcanzar",
+      hint: "{lines}\n\nLo que es de otra aplicación o de Noust (sus archivos, sus volúmenes, sus imágenes, su proyecto) no es para que lo use una pila, y ninguna excepción lo permite. Quítalo del archivo compose.",
+    },
+  },
 };

@@ -55,7 +55,8 @@ this is never switched on from the console. Two conditions keep it honest:
 
 - the central stays what it is: it runs as an unprivileged user (uid 10001, no capabilities, a
   read-only file system), and only gains the group that owns Docker's socket;
-- a stack that is privileged or mounts the Docker socket is refused for a new deployment unless
+- a stack that asks for what gives the machine to a container (privileged, the Docker socket, a
+  device, a path of the server outside the application...) is refused for a new deployment unless
   you recorded an exception for that application, with a reason: the applications you deploy do not
   get what the central has by default.
 

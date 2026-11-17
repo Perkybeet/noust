@@ -472,6 +472,7 @@ Arguments: `domain`
 | `--site` | The site file serving the domain (found by its names otherwise). |  |
 | `--port` | The port to register (the compose file's web port otherwise). |  |
 | `--accept-recreate` | Adopt even if starting the stack as Noust would recreate something. |  |
+| `--accept-host-access` | Adopt although the stack runs with what gives this server to a container (a device, the Docker socket, a path of the server): recorded as accepted, with your name, as the application's compose exception. |  |
 | `--yes`, `-y` | Adopt without asking. |  |
 | `--json` | Print what was adopted as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
@@ -9277,6 +9278,7 @@ Arguments: `name`
 |---|---|---|
 | `--name` | What it is called in the list of applications. |  |
 | `--accept-recreate` | Bring it even if starting the stack the way Noust would recreates something. |  |
+| `--accept-host-access` | Bring it although the stack runs with what gives this server to a container: recorded as accepted, with your name, as the application's compose exception. |  |
 | `--preview` | Say what would be registered and register nothing. |  |
 | `--yes`, `-y` | Bring it without asking. |  |
 | `--json` | Print what was found, or done, as JSON. |  |

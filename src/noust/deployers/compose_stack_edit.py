@@ -32,7 +32,7 @@ from __future__ import annotations
 import os
 import re
 import stat
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -55,13 +55,15 @@ from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import App, AppType, NoustStore, get_store
 from noust.core.utils import domain_to_app_name
 from noust.deployers import compose_document
-from noust.deployers.helpers import compose_variables, sandbox
+from noust.deployers.helpers import compose_variables, compose_verdict, sandbox
 from noust.deployers.helpers.app_env import read_app_env
 from noust.deployers.helpers.compose_guard import (
     ComposeFindings,
+    GuardContext,
     inspect_compose,
     merge_findings,
 )
+from noust.deployers.helpers.compose_owners import Owners
 from noust.managers.docker_image_versions import ImageVersions
 from noust.managers.site_history import unified_diff
 from noust.recipes.deploy import COMPOSE_FILE, recipe_source_dir
@@ -818,6 +820,12 @@ class StackEditor:
             for line in found.diff.splitlines()
             if line.startswith("-") and not line.startswith("---")
         )
+        # What the text itself asks of the host is judged before Compose is asked to read it: Compose
+        # reads an include and an env_file of the server before it judges anything, and its errors come
+        # back word for word.
+        if self._stopped_by_the_text(target, text, current, found):
+            found.valid = False
+            return found
         model, output = self._resolve(target, text)
         if model is None:
             line = _line_of(output, text)
@@ -863,6 +871,71 @@ class StackEditor:
         """
         return resolve_document(self.runner, target.project, text, target.cwd)
 
+    def _context(self, target: _Target) -> GuardContext:
+        """
+        Args:
+            target: Where the stack's document is.
+
+        Returns:
+            What the guard needs to judge a document of this stack the way a deployment does: where
+            it reads from, the project it runs as and whose Docker objects are.
+        """
+        return GuardContext(
+            app_path=target.cwd,
+            project_dir=target.path.parent if target.kind == "file" else target.cwd,
+            domain=target.app.domain,
+            project=target.project,
+            owners=Owners.of_store(self.store, target.app.domain),
+        )
+
+    def _stopped_by_the_text(
+        self, target: _Target, text: str, current: str, found: EditCheck
+    ) -> bool:
+        """
+        Judge what the text asks of the host before Compose reads it, and say so when it stops.
+
+        Args:
+            target: Where the stack's document is.
+            text: The candidate.
+            current: What the stack has now.
+            found: The judgement, to which this adds a problem for each line that stops it.
+
+        Returns:
+            Whether something the stack did not have, and no exception allows, stops it.
+        """
+        try:
+            document = load_compose(text)
+            before = load_compose(current)
+        except yaml.YAMLError:
+            return False
+        context = self._context(target)
+        findings = inspect_compose(document, target.cwd, context=context)
+        already = inspect_compose(before, target.cwd, context=context).refused
+        exception = sandbox.get_compose_exception(target.app.domain, store=self.store)
+        verdict = compose_verdict.decide(findings, already=already, exception=exception)
+        if not verdict.stop:
+            return False
+        self._problems(findings, verdict.stop, found)
+        found.checks.append(CheckLine("privileges", False, f"{len(verdict.stop)} found"))
+        return True
+
+    @staticmethod
+    def _problems(findings: ComposeFindings, sentences: Sequence[str], found: EditCheck) -> None:
+        """
+        Put each sentence that stops a document among the problems of its judgement.
+
+        Args:
+            findings: What the guard found, which knows the service each sentence is about.
+            sentences: The ones that stop it.
+            found: The judgement.
+        """
+        for sentence in sentences:
+            key = findings.keys.get(sentence)
+            service = (
+                key[0].removeprefix("service ") if key and key[0].startswith("service ") else None
+            )
+            found.problems.append(Problem("privileges", sentence, service=service))
+
     def _privileges(
         self,
         target: _Target,
@@ -875,8 +948,8 @@ class StackEditor:
         Apply the guard to the document and to the model Compose resolves it to.
 
         What the stack already runs with is not new, and an exception recorded for the stack lets it
-        through with the reason said, as the deployer treats them: the deployer judges it again when the
-        update runs, and this is what lets a person know before.
+        through with the reason said, as the deployer treats them (one verdict, which the deployer
+        applies again when the update runs): this is what lets a person know before.
 
         Args:
             target: Where the stack's document is.
@@ -886,37 +959,33 @@ class StackEditor:
             found: The judgement, to which this adds.
         """
         where = target.cwd
+        context = self._context(target)
         findings: ComposeFindings = merge_findings(
-            inspect_compose(document, where), inspect_compose(model, where)
+            inspect_compose(document, where, context=context),
+            inspect_compose(model, where, context=context),
         )
-        refused = list(findings.refused)
         found.warnings.extend(findings.warned)
-        if not refused:
+        if not findings.refused:
             found.checks.append(CheckLine("privileges", True, ""))
             return
         exception = sandbox.get_compose_exception(target.app.domain, store=self.store)
-        already: set[str] = set()
-        if exception is None:
-            already = set(self._refused_in(target, current))
-        added = [sentence for sentence in refused if sentence not in already]
-        for sentence in refused:
-            if exception is not None:
-                found.warnings.append(
-                    f"{sentence}; allowed for {target.app.domain} by {exception.allowed_by} "
-                    f"({exception.reason})"
-                )
-            elif sentence in already:
-                found.warnings.append(f"{sentence}: the stack runs with this already")
-        if exception is not None or not added:
+        verdict = compose_verdict.decide(
+            findings, already=self._refused_in(target, current), exception=exception
+        )
+        for sentence in verdict.excused:
+            found.warnings.append(
+                f"{sentence}; allowed for {target.app.domain} by "
+                f"{exception.allowed_by if exception else ''} "
+                f"({exception.reason if exception else ''})"
+            )
+        found.warnings.extend(
+            f"{sentence}: the stack runs with this already" for sentence in verdict.had
+        )
+        if not verdict.stop:
             found.checks.append(CheckLine("privileges", True, "allowed"))
             return
-        for sentence in added:
-            key = findings.keys.get(sentence)
-            service = (
-                key[0].removeprefix("service ") if key and key[0].startswith("service ") else None
-            )
-            found.problems.append(Problem("privileges", sentence, service=service))
-        found.checks.append(CheckLine("privileges", False, f"{len(added)} found"))
+        self._problems(findings, verdict.stop, found)
+        found.checks.append(CheckLine("privileges", False, f"{len(verdict.stop)} found"))
 
     def _refused_in(self, target: _Target, text: str) -> list[str]:
         """
@@ -932,9 +1001,10 @@ class StackEditor:
         except yaml.YAMLError:
             return []
         model, _output = self._resolve(target, text)
-        findings = inspect_compose(document, target.cwd)
+        context = self._context(target)
+        findings = inspect_compose(document, target.cwd, context=context)
         if model is not None:
-            findings = merge_findings(findings, inspect_compose(model, target.cwd))
+            findings = merge_findings(findings, inspect_compose(model, target.cwd, context=context))
         return list(findings.refused)
 
     def _images(

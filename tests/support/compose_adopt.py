@@ -162,8 +162,17 @@ def web(tmp_path: Path, docker: Docker, store: NoustStore) -> NginxManager:
 
 
 def adopt(root: Path, web: NginxManager, **options: Any) -> Any:
+    """
+    Adopt the Proggest stack, as an operator who accepts what it runs with.
+
+    The stack mounts the Docker socket and runs with it, so adopting it has to be told what that gives
+    this server (``accept_host_access``); the tests that are about something else say yes, and the
+    ones about that say what they want.
+    """
     from noust.deployers.compose_adopt import adopt_stack
 
+    options.setdefault("accept_host_access", True)
+    options.setdefault("accepted_by", "alice")
     return adopt_stack(DOMAIN, root, web=web, **options)
 
 

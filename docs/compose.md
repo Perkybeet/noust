@@ -87,8 +87,9 @@ cat new.yml | noust app compose replace shop.example.com --from -
 ```
 
 - **The guard is the creation's.** The same analysis that refuses a pasted document refuses a
-  replacement: root on the host (`privileged`, the Docker socket), a `build:` or an `env_file:` that
-  points at files a document does not have. A variable the document **requires**
+  replacement ([what it refuses](#what-a-stack-may-ask-of-the-server)): what gives the server away, a
+  `build:` or an `env_file:` that points at files a document does not have. What the stack's current
+  document is refused for already is only warned about: a replacement is refused for what it adds. A variable the document **requires**
   (`${NAME:?message}`) that the stack has no value for is refused too, naming it and the
   `noust env set` that gives it. Nothing is written until it all passes, and a document identical to
   the one the stack has changes nothing.
@@ -419,6 +420,79 @@ with the same `docker compose up --dry-run` adoption uses, and a start that woul
 something is refused with Compose's output until you accept it (`--accept-recreate`,
 `accept_recreate` in the API).
 
+## What a stack may ask of the server
+
+The compose file comes from a repository, or is pasted, or is edited, and Docker runs it as root. What
+it asks of the server is judged before Docker runs it, and what is found is one of three things.
+
+**Refused for a new stack**, unless the application has an exception recorded by who may
+(`noust app sandbox compose-exception DOMAIN --reason '...'`, which is root-equivalent: sudo mode, and
+never a team role nor a central whose node did not allow host access). It can be recorded before the
+first deployment.
+
+- What gives the machine to a container: `privileged`; the Docker socket, or the socket of another
+  container runtime; `devices` and `device_cgroup_rules`; the capabilities `ALL`, `SYS_ADMIN`,
+  `SYS_PTRACE`, `SYS_MODULE`, `SYS_RAWIO`, `SYS_BOOT`, `DAC_READ_SEARCH`, `NET_ADMIN`, `BPF` and
+  `PERFMON`; `pid`, `ipc`, `uts`, `userns_mode`, `cgroup` and `network_mode` of the host;
+  `security_opt` that turns confinement off (`seccomp`, `apparmor`, `label`, `systempaths`);
+  `cgroup_parent`; a `runtime` other than Docker's own; `provider:` (a program the machine runs when
+  the stack starts); `build.privileged` and `build.network: host`.
+- Any path of the server outside the application: a bind mount, the file of a secret or a config, an
+  `env_file`, a build context, an additional context, a build secret, an SSH key, an `include` (with its
+  own `env_file` and `project_directory`), an `extends` file, and a volume whose `driver_opts.device` is
+  a path. Not a list of bad paths: everything that is not the application's own tree.
+- The volumes or the namespace of a container that is not the stack's (`volumes_from: container:x`,
+  `network_mode: container:x`).
+- What Docker or Compose would download from the network: a build context or an include that is a URL,
+  a `git@` address, `github.com/...` or `oci://...`. Nothing on this server checks where it goes. Run
+  against Docker Compose 2.40.3 and 5.7.1, a `git://` or `oci://` include is fetched as Compose reads the
+  file, before anything of Noust's sees the stack, and the program a `provider:` names runs when the stack
+  starts; an `https://` include is read as a path and fails.
+- A `name:` or `COMPOSE_PROJECT_NAME` that is not the application's project, and a volume or a network
+  that is `external` and nobody's (one an operator made by hand): it gives the stack something from
+  outside.
+
+**Refused with no exception that can allow it**: what is not the application's to take.
+
+- Noust's own configuration, store and backups, and another application's files, reached through a door
+  that has no reason to read them: an `env_file`, a build context, a build secret, an `include`.
+- What belongs to another application or to Noust: its project, an `external` volume or network, a
+  `container_name`, an `image` it built. The store decides whose each is.
+- In a pasted document, a download.
+
+A bind mount of Noust's state or of another application's files is refused like the rest of the paths,
+and an exception can allow it.
+
+**Said, never stopped**: capabilities that do not give the machine, a port published on every address,
+an image that moves.
+
+**Noust's own environment never reaches Compose or a build.** Compose fills `${NAME}` and reads
+`secrets: {x: {environment: NAME}}` from the environment of the process that runs it, so `docker compose`
+and `docker build` are started without any `NOUST_*` variable of Noust's process (a token, the sealing key,
+the data directory): a `${NOUST_TOKEN}` in a compose file is an empty string now. What you have in the
+environment for yourself (`DOCKER_HOST`, `COMPOSE_*`, a variable of your own) and the stack's `.env` go on
+as before.
+
+A path is judged by what Docker will mount, not by how it is spelled. A repository can hold a link, and
+the daemon follows it: `./host` that points at `/` is `/`. Every link on the way is followed, and a link
+inside the application that leads out of it is refused saying where it leads; what cannot be followed (a
+loop of links, a directory that cannot be read) is refused rather than guessed. An update does not make a
+link that its own commits added or changed look like something the stack already had.
+
+**What an application in production keeps.** Whatever the stack already had, unchanged, is warned about
+in the deploy log and never stops an update, a redeploy or a rollback. Only what the update adds is
+refused, unless the application has an exception. After upgrading, `noust health` and the compliance
+control list the stacks that carry something a new stack would be refused: record why each needs it with
+the command above, or take it out of its compose file. The Docker zone's editor and
+`noust app compose replace` judge a document the same way, the editor before Compose is asked to read it.
+
+**Adopting a stack that runs with any of this** puts under Noust something whose containers have the
+server. The preview lists each line ("gives a container something of this server"), and adopting it needs
+saying so: `noust app adopt DOMAIN --path DIR --accept-host-access` (`accept_host_access` in the API and
+in the Docker zone), which needs the root-equivalent permission and records the lines, with who and when,
+as the application's compose exception. Take it back with `noust app sandbox compose-exception DOMAIN
+--revoke`.
+
 ## Other things that changed for Compose
 
 - **`noust create --force` and a directory that holds data.** A Compose stack keeps its data
@@ -439,10 +513,12 @@ something is refused with Compose's output until you accept it (`--accept-recrea
   starting.
 - **Volume names** resolve to what Docker really created (`<project>_<key>`, or the `name:` the
   volume gives itself), so a volume backup no longer mounts an empty new one.
-- **Project names.** An adopted stack passes its project with `-p` everywhere, including the unit.
-- **The build sandbox and the compose file check** are unchanged: Compose builds run inside the
-  Docker daemon, a new stack with `privileged` containers or the Docker socket mounted is
-  refused unless the application has an exception, and an existing one is warned. See
+- **Project names.** Every command passes its project with `-p`: the one the store records (an
+  adopted stack passes it everywhere, including the unit), else the one the stack names itself
+  (`name:` or `COMPOSE_PROJECT_NAME`, which keeps the volumes it already has), else the one Compose
+  derives from the directory. A project that is another application's or Noust's cannot be taken.
+- **The build sandbox and the compose file check**: Compose builds run inside the Docker daemon, so
+  what the file asks of the server is judged first, as the next section says. See
   [releases.md](builds-and-accounts.md#builds-in-the-sandbox).
 - **The check judges what Compose resolves the file to**, not only the `services` the file spells
   out: a service brought in by an `include` or an `extends`, a `jobs` entry, a service under any
@@ -451,7 +527,9 @@ something is refused with Compose's output until you accept it (`--accept-recrea
   an `extends` whose file is outside the application (a link inside it that leads out counts) is
   refused before Compose reads it, and a file that includes or extends and that Compose cannot
   resolve is refused rather than guessed. Noust asks Compose with
-  `docker compose --profile "*" config --format json`, which changes nothing.
+  `docker compose --profile "*" config --format json`, which changes nothing, once before anything
+  is built and once more when the stack's own `.env` is written, so a path made of a variable is
+  judged by the value it will have: one that Compose still cannot resolve is refused.
 - **Deleting an adopted application keeps its directory** (see [above](compose-adopt.md#deleting-an-adopted-stack)).
 - **Ignored webhook deliveries** carry the `ignored_tag` reason for applications that follow
   tags.

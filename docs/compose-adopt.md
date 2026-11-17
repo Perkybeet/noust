@@ -55,6 +55,12 @@ Where the code is > **A running stack**.
    the running containers differ from the compose file (another project, file, profile or
    environment). Bring the stack up the way it is meant to run, or adopt with `--accept-recreate`
    after reading it.
+   The same proof lets it keep what it runs with, so a stack whose containers have what a new stack
+   would be refused (the Docker socket, a device, a path of the server) is not refused for it. But
+   adopting it puts that under Noust, so the preview lists each line and adopting needs
+   `--accept-host-access` (`accept_host_access` in the API): it needs the root-equivalent
+   permission, and records the lines, with who and when, as the application's compose exception
+   ([the list](compose.md#what-a-stack-may-ask-of-the-server)).
 3. **Finds the site.** The file in `sites-available` whose `server_name` lists the domain. If
    its name is not the domain, the name is recorded (`site_name`). The site is yours: it is shown
    as "the operator's, never rewritten".

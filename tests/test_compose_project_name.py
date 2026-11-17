@@ -257,7 +257,8 @@ def test_compose_project_name_in_the_project_env_is_not_overridden(tmp_path: Pat
     assert compose_project_name(app_path, compose_path) is None
 
 
-def test_argv_carries_no_project_flag_for_a_stack_that_names_itself(tmp_path: Path) -> None:
+def test_argv_carries_the_name_a_stack_gives_itself(tmp_path: Path) -> None:
+    """Every command passes ``-p``; a stack that names itself keeps the name it has always run under."""
     app_path = tmp_path / "shop-example-com"
     app_path.mkdir()
     (app_path / "docker-compose.yml").write_text("name: myshop\nservices: {}\n")
@@ -267,8 +268,14 @@ def test_argv_carries_no_project_flag_for_a_stack_that_names_itself(tmp_path: Pa
 
     argv = deployer._compose("up", "-d")
 
-    assert "-p" not in argv
-    assert argv[:4] == ["docker", "compose", "-f", str(app_path / "docker-compose.yml")]
+    assert argv[:6] == [
+        "docker",
+        "compose",
+        "-p",
+        "myshop",
+        "-f",
+        str(app_path / "docker-compose.yml"),
+    ]
 
 
 def test_down_finds_the_compose_file_and_keeps_volumes(tmp_path: Path) -> None:

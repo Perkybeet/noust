@@ -74,6 +74,9 @@ export function adoptBody(form: AdoptForm, extra: { preview: boolean; acceptRecr
     path: form.path.trim(),
     preview: extra.preview,
     accept_recreate: extra.acceptRecreate,
+    // Accepting what gives the server to a container is a decision of its own, asked for where the
+    // refusal lists each line; until then the server refuses and says them.
+    accept_host_access: false,
     ...(composeFile !== undefined ? { compose_file: composeFile } : {}),
     ...(site !== undefined ? { site } : {}),
     ...(source !== undefined ? { source } : {}),

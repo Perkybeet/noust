@@ -63,12 +63,12 @@ class TestInspect:
         assert len(findings.refused) == 1
         assert "Docker socket" in findings.refused[0]
 
-    def test_the_hosts_namespaces_and_capabilities_are_warned_about(self) -> None:
+    def test_what_gives_the_machine_is_refused_and_what_does_not_is_only_said(self) -> None:
         findings = inspect_compose(
             stack(
                 pid="host",
                 network_mode="host",
-                cap_add=["SYS_ADMIN"],
+                cap_add=["SYS_ADMIN", "NET_BIND_SERVICE"],
                 devices=["/dev/kvm"],
                 security_opt=["apparmor:unconfined"],
                 volumes=["/etc/letsencrypt:/certs:ro", f"{APP}/uploads:/uploads", "./ok:/ok"],
@@ -76,15 +76,15 @@ class TestInspect:
             APP,
         )
 
-        assert findings.refused == []
-        assert findings.warned == [
-            "service web mounts /etc/letsencrypt from this server, outside the application",
+        assert findings.refused == [
             "service web shares the host's pid",
             "service web shares the host's network_mode",
-            "service web adds capabilities: SYS_ADMIN",
-            "service web is given host devices",
+            "service web adds the capability SYS_ADMIN, which gives it this server",
+            "service web is given the host device /dev/kvm",
             "service web turns its confinement off (apparmor:unconfined)",
+            "service web mounts /etc/letsencrypt from this server, outside the application",
         ]
+        assert findings.warned == ["service web adds capabilities: NET_BIND_SERVICE"]
 
     @pytest.mark.parametrize(
         "source",
@@ -146,8 +146,8 @@ class TestInspect:
     def test_a_relative_path_that_climbs_out_is_outside(self) -> None:
         findings = inspect_compose(stack(volumes=["../../../tmp/x:/x"]), APP)
 
-        assert findings.refused == []
-        assert findings.warned == [
+        assert findings.warned == []
+        assert findings.refused == [
             "service web mounts ../../../tmp/x from this server, outside the application"
         ]
 

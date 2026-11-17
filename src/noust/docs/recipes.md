@@ -178,8 +178,8 @@ noust compose check docker-compose.yml        # or - for standard input; --json 
 It lists the services, the images, the published ports and the variables the document reads (which
 have a default, which need a value, the message of a `${NAME:?message}`), and what refuses it or is
 only worth knowing. A document is refused what a repository's Compose file is already refused (a
-privileged container, the Docker socket) and also a `build:` context or an `env_file:` it does not
-have; it is warned about an image that moves, one pinned by tag only and a port on every address.
+privileged container, the Docker socket, a device, a path of the server outside the application, a
+download) and also a `build:` context or an `env_file:` it does not have; it is warned about an image that moves, one pinned by tag only and a port on every address.
 `POST /api/compose/analyze` is the same analysis; `POST /api/apps` takes `compose_document` for the
 document itself, analyses it again (the preview is a convenience, the guard is the deployment's),
 writes it beside the recipes' sources and deploys it with the Compose deployer behind nginx, with the

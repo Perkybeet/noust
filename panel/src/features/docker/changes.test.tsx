@@ -187,7 +187,7 @@ describe("bringing a stack to Noust", () => {
     expect(within(dialog).getByText("What would not come back after a restart")).toBeInTheDocument();
     expect(within(dialog).getByText("nextcloud-setup-1")).toBeInTheDocument();
     // Looking changes nothing: the first request is a preview.
-    expect(backend.callsTo("POST /api/docker/stacks/nextcloud/bring")[0]?.body).toEqual({ preview: true, accept_recreate: false });
+    expect(backend.callsTo("POST /api/docker/stacks/nextcloud/bring")[0]?.body).toEqual({ preview: true, accept_recreate: false, accept_host_access: false });
   });
 
   it("registers it under the name that was typed, never recreating a container", async () => {
@@ -198,7 +198,7 @@ describe("bringing a stack to Noust", () => {
     await waitFor(() => {
       expect(registered()).toHaveLength(1);
     });
-    expect(registered()[0]?.body).toEqual({ preview: false, accept_recreate: false, name: "cloud" });
+    expect(registered()[0]?.body).toEqual({ preview: false, accept_recreate: false, accept_host_access: false, name: "cloud" });
   });
 
   it("offers to bring only a stack nobody made", async () => {

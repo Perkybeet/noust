@@ -42,7 +42,8 @@ from noust.core.exceptions import ValidationError
 from noust.core.fs import get_fs
 from noust.core.recipe_sources import recipe_source_dir
 from noust.core.store import NoustStore
-from noust.deployers.helpers.compose_guard import inspect_compose
+from noust.deployers.helpers import compose_verdict
+from noust.deployers.helpers.compose_guard import GuardContext, inspect_compose
 from noust.deployers.helpers.compose_ports import parse_ports
 from noust.recipes.deploy import COMPOSE_FILE
 from noust.recipes.model import FLOATING_TAGS
@@ -124,7 +125,9 @@ class PastedCompose:
         return not self.refused
 
 
-def analyze_document(document: str, *, provided: Collection[str] = ()) -> PastedCompose:
+def analyze_document(
+    document: str, *, provided: Collection[str] = (), already: Collection[str] = ()
+) -> PastedCompose:
     """
     Read a pasted Compose document and say what it is, running nothing.
 
@@ -133,6 +136,9 @@ def analyze_document(document: str, *, provided: Collection[str] = ()) -> Pasted
         provided: Files that will sit beside the document when it is deployed from a folder
             (``files/app.env``): an ``env_file`` that names one is not refused. A converted
             template writes the files it mounts, and a pasted document has none.
+        already: What the stack this document replaces is already refused for (the findings of
+            its current document): a stack is never stopped for what it had, so these are said
+            as warnings, and whatever else the guard refuses stays refused.
 
     Returns:
         Its services and variables, and what refuses or warns about it.
@@ -175,9 +181,11 @@ def analyze_document(document: str, *, provided: Collection[str] = ()) -> Pasted
             )
         _read_service(str(name), spec, result, frozenset(_relative(p) for p in provided))
     result.variables = _variables(document, services)
-    findings = inspect_compose(parsed, Path("/var/www/apps/app"))
-    result.refused.extend(findings.refused)
-    result.warned.extend(findings.warned)
+    app = Path("/var/www/apps/app")
+    findings = inspect_compose(parsed, app, context=GuardContext(app, pasted=True))
+    verdict = compose_verdict.decide(findings, already=already)
+    result.refused.extend(verdict.stop)
+    result.warned.extend([*findings.warned, *verdict.had])
     return result
 
 

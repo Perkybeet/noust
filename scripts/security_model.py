@@ -128,8 +128,14 @@ GUARANTEES: tuple[Guarantee, ...] = (
         "first sandboxed build a canary proves the sandbox holds, and the build stops, instead "
         "of running as root, when it does not (failing closed). Building as root is a "
         "per-application decision recorded with a name and a reason. A Compose stack is refused "
-        "`privileged`, the Docker socket and a bind mount of Noust's state or of another "
-        "application's files unless an exception is recorded.",
+        "what gives the machine to a container (`privileged`, the Docker socket, a device, a "
+        "capability such as `SYS_ADMIN`, the host's namespaces, confinement switched off, a path "
+        "of the server outside the application however a link spells it) unless an exception is "
+        "recorded; it is refused, with no exception that can allow it, Noust's state, another "
+        "application's files and anything that belongs to another application. What a stack "
+        "already had is warned about and never stopped. Compose and image builds are started "
+        "without Noust's own environment (`NOUST_*`), which a compose file could otherwise "
+        "interpolate.",
         "`noust.core.runner.SandboxSpec` and `deployers/helpers/sandbox.py`; "
         "`deployers/helpers/compose_guard.py` for Compose; `docs/threat-model.md#builds`.",
         (
@@ -143,6 +149,14 @@ GUARANTEES: tuple[Guarantee, ...] = (
             "tests/test_compose_guard.py::TestInspect::test_the_docker_socket_is_refused_in_either_syntax",
             "tests/test_compose_guard.py::TestInspect::test_noust_own_state_is_refused_named_or_contained",
             "tests/test_compose_guard.py::TestInspect::test_another_applications_files_are_refused",
+            "tests/test_compose_guard_links.py::TestALinkThatLeavesTheApplication::test_says_where_the_link_leads",
+            "tests/test_compose_guard_host.py::TestAnApplicationInProductionKeepsUpdating::test_a_stack_that_adds_it_is_refused",
+            "tests/test_compose_guard_host.py::TestAnApplicationInProductionKeepsUpdating::test_a_stack_that_had_it_is_updated_with_a_warning",
+            "tests/test_compose_guard_doors.py::TestADoorThatReachesNoustOrAnotherApplication::test_is_refused_and_no_exception_allows_it",
+            "tests/test_compose_guard_identity.py::TestTheProject::test_the_project_of_another_application_cannot_be_taken",
+            "tests/test_compose_guard_update.py::TestTheUpdate::test_the_same_line_is_refused_when_the_update_is_what_put_the_link_there",
+            "tests/test_compose_exception_who.py::TestNoTeamRole::test_the_permission_is_not_one_a_team_can_own",
+            "tests/test_compose_environment.py::TestTheRealRunner::test_compose_is_started_without_what_is_noust_s",
             "tests/test_monorepo_identity.py::TestANewMonorepo::test_it_is_given_an_account_of_its_own",
             "tests/test_repository_symlinks.py::test_the_seam_refuses_to_chmod_through_a_link",
         ),

@@ -3605,11 +3605,13 @@ DockerBringOut = TypedDict("DockerBringOut", {
 })
 
 DockerBringPreviewRequest = TypedDict("DockerBringPreviewRequest", {
+    "accept_host_access": NotRequired[bool],
     "accept_recreate": NotRequired[bool],
     "name": NotRequired[Union[str, None]],
 })
 
 DockerBringRequest = TypedDict("DockerBringRequest", {
+    "accept_host_access": NotRequired[bool],
     "accept_recreate": NotRequired[bool],
     "name": NotRequired[Union[str, None]],
     "preview": NotRequired[bool],
@@ -13136,6 +13138,7 @@ NoustWebApiAccessRolesResponse = TypedDict("NoustWebApiAccessRolesResponse", {
 })
 
 NoustWebApiAppAdoptAdoptRequest = TypedDict("NoustWebApiAppAdoptAdoptRequest", {
+    "accept_host_access": NotRequired[bool],
     "accept_recreate": NotRequired[bool],
     "branch": NotRequired[Union[str, None]],
     "compose_file": NotRequired[Union[str, None]],
@@ -13148,6 +13151,7 @@ NoustWebApiAppAdoptAdoptRequest = TypedDict("NoustWebApiAppAdoptAdoptRequest", {
 })
 
 NoustWebApiAppAdoptAdoptResponse = TypedDict("NoustWebApiAppAdoptAdoptResponse", {
+    "accepted_by": NotRequired[str],
     "address": NotRequired[Union[str, None]],
     "adopted": Required[bool],
     "app_name": Required[str],
@@ -13161,6 +13165,7 @@ NoustWebApiAppAdoptAdoptResponse = TypedDict("NoustWebApiAppAdoptAdoptResponse",
     "domain": Required[str],
     "dry_run": Required[str],
     "headless": Required[bool],
+    "host_access": NotRequired[list[str]],
     "kept_by": NotRequired[str],
     "port": Required[Union[int, None]],
     "project": Required[Union[str, None]],

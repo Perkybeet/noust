@@ -228,6 +228,22 @@ def _inside(path: str, root: str) -> bool:
     return where == top or where.startswith(top.rstrip("/") + "/")
 
 
+def _repository_of(reference: str) -> str:
+    """
+    Args:
+        reference: An image as a compose file spells it: ``repository``, ``repository:tag``,
+            ``host:5000/repository@sha256:...``.
+
+    Returns:
+        The repository, without its tag or its digest.
+    """
+    repository = reference.partition("@")[0]
+    last = repository.rsplit("/", 1)[-1]
+    if ":" in last:
+        repository = repository[: len(repository) - len(last) + last.index(":")]
+    return repository
+
+
 def _common(owners: Iterable[Owner]) -> Owner:
     """
     Args:
@@ -456,6 +472,75 @@ class OwnerIndex:
         else:
             projects.add(names.project_of_directory(PurePosixPath(app.path).name))
         return {project for project in projects if project}
+
+    # -- what a compose file names before anything was made of it ---------------------------------
+
+    def _app_by_prefix(self, name: str, separators: str) -> AppRecord | None:
+        """
+        Args:
+            name: The name of an object.
+            separators: The characters Compose puts between a project and the rest of a name.
+
+        Returns:
+            The application whose project the name starts with, the longest project first (``shop``
+            and ``shop-eu`` are two projects, and ``shop-eu_data`` is the second's); None for none.
+        """
+        best: tuple[int, AppRecord] | None = None
+        for app in self._apps:
+            for project in self._projects_of(app):
+                if any(name.startswith(project + separator) for separator in separators) and (
+                    best is None or len(project) > best[0]
+                ):
+                    best = (len(project), app)
+        return best[1] if best is not None else None
+
+    def of_reference(self, kind: str, name: str) -> Owner:
+        """
+        Say whose an object is that a compose file names, from the name alone.
+
+        A stack that asks for ``name: shop-example-com``, an external volume ``shop-example-com_data``,
+        a ``container_name`` or an ``image`` the other application built is asking for what another
+        application owns, and nothing has been made of it yet for a label to say so: the names Compose
+        gives (``<project>_<name>``, ``<project>-<service>``) and the ones Noust gives are all there is,
+        and the store, which knows each application's project, is the authority on both.
+
+        Args:
+            kind: ``project``, ``volume``, ``network``, ``container`` or ``image``.
+            name: The name as the file spells it.
+
+        Returns:
+            The application, the database engine or Noust it belongs to; nobody when it matches none
+            (a volume an operator made by hand is nobody's).
+        """
+        if not name:
+            return NOBODY
+        for engine in self.registry.engines:
+            project = names.instance_project(engine)
+            if name in (project, names.instance_container(engine)) or (
+                kind in ("volume", "network") and name.startswith(f"{project}-")
+            ):
+                return Owner(OwnerKind.DATABASE, engine, project)
+        if kind == "project":
+            app = self._app_of_project(name)
+        elif kind in ("volume", "network"):
+            app = self._app_by_prefix(name, "_")
+        elif kind == "container":
+            app = self._app_by_prefix(name, "-_")
+        else:
+            repository = _repository_of(name)
+            app = next(
+                (
+                    candidate
+                    for candidate in self.registry.apps
+                    if repository == names.image_repository(candidate.app_name)
+                ),
+                None,
+            ) or self._app_by_prefix(repository, "-")
+        if app is not None:
+            return Owner(OwnerKind.APP, app.domain)
+        if name.startswith((names.IMAGE_PREFIX, "noust_")):
+            return Owner(OwnerKind.NOUST, "central")
+        return NOBODY
 
     def of_project(self, name: str, working_dir: str = "") -> Owner:
         """

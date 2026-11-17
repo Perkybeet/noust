@@ -60,6 +60,7 @@ from noust.core.exceptions import DeploymentError, NoustError, ServiceError
 from noust.core.fs import is_rehearsal
 from noust.core.logger import Logger
 from noust.core.runner import CommandRunner, get_runner
+from noust.core.server_text import ServerText, say
 from noust.core.store import (
     _COMPOSE_PROJECT,
     AppLayout,
@@ -72,6 +73,8 @@ from noust.core.store import (
 from noust.core.utils import domain_to_app_name
 from noust.deployers.docker_compose import DockerComposeDeployer, compose_project_name
 from noust.deployers.helpers import edge as edges
+from noust.deployers.helpers import sandbox as build_sandbox
+from noust.deployers.helpers.compose_owners import declared_project
 from noust.deployers.helpers.compose_ports import loopback_only
 from noust.deployers.helpers.registration import StoreRegistrar
 from noust.deployers.helpers.target import claim_deploy_target
@@ -140,10 +143,19 @@ class AdoptionRefusedError(DeploymentError):
         output: Compose's own output for the rehearsed ``up``, verbatim.
         changes: The lines of it that would create, recreate or remove
             something.
+        host_access: The lines of the compose file that give this server to a container, when that
+            is what the stack has to accept before it is adopted.
     """
 
     def __init__(
-        self, message: str, *, details: str, output: str, changes: tuple[str, ...] = ()
+        self,
+        message: str,
+        *,
+        details: str,
+        output: str = "",
+        changes: tuple[str, ...] = (),
+        host_access: tuple[str, ...] = (),
+        coded: ServerText | None = None,
     ) -> None:
         """
         Args:
@@ -151,10 +163,13 @@ class AdoptionRefusedError(DeploymentError):
             details: How to go on.
             output: Compose's output, verbatim.
             changes: The lines that would change something.
+            host_access: The lines that give this server to a container.
+            coded: The same sentence as a code, for the console to translate.
         """
-        super().__init__(message, details=details)
+        super().__init__(message, details=details, coded=coded)
         self.output = output
         self.changes = changes
+        self.host_access = host_access
 
 
 @dataclass(frozen=True)
@@ -238,6 +253,10 @@ class AdoptionPlan:
             None where a site serves it, and for a stack that serves no web.
         restart_loss: What a restart of the machine would not bring back, said where nothing but Docker
             brings it back; empty on a server, whose unit starts the whole stack at boot.
+        host_access: The lines of the compose file that give this server to a container and that
+            adopting records as accepted (the application's compose exception); empty when there are
+            none or an exception was recorded already.
+        accepted_by: Who accepted them.
     """
 
     domain: str
@@ -262,6 +281,8 @@ class AdoptionPlan:
     kept_by: str = KEPT_BY_UNIT
     address: str | None = None
     restart_loss: tuple[LostOnRestart, ...] = ()
+    host_access: tuple[str, ...] = ()
+    accepted_by: str = ""
 
     @property
     def unit(self) -> str:
@@ -279,6 +300,7 @@ class AdoptionPlan:
         data["changes"] = list(self.changes)
         data["warnings"] = list(self.warnings)
         data["restart_loss"] = [dataclasses.asdict(item) for item in self.restart_loss]
+        data["host_access"] = list(self.host_access)
         return data
 
 
@@ -749,6 +771,8 @@ def plan_adoption(
     site: str | None = None,
     port: int | None = None,
     accept_recreate: bool = False,
+    accept_host_access: bool = False,
+    accepted_by: str = "",
     runner: CommandRunner | None = None,
     store: NoustStore | None = None,
     web: NginxManager | None = None,
@@ -768,6 +792,11 @@ def plan_adoption(
         port: The port to register; the compose file's when None.
         accept_recreate: Adopt even when the rehearsed ``up`` would change
             something, which is then a warning.
+        accept_host_access: Adopt although the stack runs with what gives this server to a container
+            (the lines of its compose file that the guard refuses a new stack): the plan carries them
+            and adopting records them as the application's compose exception, in the name of
+            ``accepted_by``. Whoever says so is equivalent to root.
+        accepted_by: Who accepts it, for the record.
         runner: The runner docker and git go through.
         store: The store checked for the domain.
         web: The web server's manager sites are looked for with.
@@ -781,7 +810,8 @@ def plan_adoption(
             not a git checkout (or a checkout has no source), its unit's name is
             taken, or the site is ambiguous.
         AdoptionRefusedError: The rehearsed ``up`` failed or would change
-            something, and that was not accepted.
+            something, or the stack runs with what gives this server to a container, and that was
+            not accepted.
     """
     domain = validate_domain(domain)
     runner = runner if runner is not None else get_runner()
@@ -870,12 +900,27 @@ def plan_adoption(
         accept_recreate=accept_recreate,
         started_by=tuple(sorted({c.compose_version for c in containers if c.compose_version})),
     )
-    guard_running_stack(
+    # The project the stack runs under is the one adopting pins: the guard judges the file against it.
+    deployer._stored_project = project or declared_project(compose_path) or ""
+    host_access = guard_running_stack(
         deployer,
         running=any(c.state == "running" for c in containers),
         dry_run=dry_run,
         changes=changes,
     )
+    if host_access and not accept_host_access:
+        raise _refused_for_host_access(domain, path, host_access)
+    if host_access:
+        accepted_by = accepted_by or "adoption"
+        warnings.append(
+            say(
+                "compose_guard.adopted_host_access",
+                who=accepted_by,
+                domain=domain,
+                count=len(host_access),
+                command=f"noust app sandbox compose-exception {domain} --revoke",
+            ).text
+        )
     if changes:
         warnings.append("Accepted: the next start or update changes " + "; ".join(changes) + ".")
     for line in _starting_lines(dry_run):
@@ -940,6 +985,31 @@ def plan_adoption(
         kept_by=KEPT_BY_DOCKER if docker_keeps_it else KEPT_BY_UNIT,
         address=address,
         restart_loss=lost,
+        host_access=host_access,
+        accepted_by=accepted_by if host_access else "",
+    )
+
+
+def _refused_for_host_access(domain: str, path: Path, lines: Sequence[str]) -> AdoptionRefusedError:
+    """
+    Make the refusal that shows what adopting would accept, line by line.
+
+    Args:
+        domain: The application.
+        path: The directory the stack runs from.
+        lines: What the compose file gives this server to a container with.
+
+    Returns:
+        The refusal, with the sentence a console translates and the lines it lists.
+    """
+    said = say(
+        "compose_guard.adopt_host_access",
+        domain=domain,
+        lines="\n".join(f"- {line}" for line in lines),
+        command=f"noust app adopt {domain} --path {path} --accept-host-access",
+    )
+    return AdoptionRefusedError(
+        said.text, details=said.hint or "", host_access=tuple(lines), coded=said
     )
 
 
@@ -1038,16 +1108,15 @@ def guard_running_stack(
     running: bool,
     dry_run: str,
     changes: Sequence[str],
-) -> None:
+) -> tuple[str, ...]:
     """
     Apply the host privilege guard to a stack Noust is about to take charge of.
 
-    The one rule adopting a stack and handing one back share. What the guard
-    refuses (``privileged``, the Docker socket) is accepted only from a stack
-    proven to run with it: containers made from this file running, and an
-    ``up`` that would neither recreate nor start anything. Otherwise the file
-    is a new stack's, and taking charge of it would start what it asks for
-    as root.
+    The one rule adopting a stack and handing one back share. What the guard refuses (``privileged``,
+    the Docker socket, a device, a path of the server...) is accepted only from a stack proven to run
+    with it: containers made from this file running, and an ``up`` that would neither recreate nor
+    start anything. Otherwise the file is a new stack's, and taking charge of it would start what it
+    asks for as root.
 
     Args:
         deployer: The deployer, with the compose file discovered.
@@ -1055,17 +1124,24 @@ def guard_running_stack(
         dry_run: Compose's output for the rehearsed ``up``.
         changes: The lines of it that would change something (accepted).
 
+    Returns:
+        What the stack is proven to run with that the guard refuses a new stack, and the
+        application has no exception for: the lines adopting has to be told about. Empty for a stack
+        that runs with none, and for an application that has an exception already.
+
     Raises:
-        DeploymentError: The file asks for root the stack is not proven to
-            have, without an exception.
+        DeploymentError: The file asks for what the stack is not proven to have, without an
+            exception.
     """
     document = deployer._load_compose_document()
     proven = running and not changes and not _starting_lines(dry_run)
     # What runs unchanged from this file is proven, and the file is on disk, so what Compose
     # resolves it to is asked as well: an include's service is as proven as the file's own.
-    deployer._check_host_privileges(
-        document, accepted=deployer._refusals_in(document, resolve=True) if proven else []
-    )
+    refusals = deployer._refusals_in(document, resolve=True) if proven else []
+    deployer._check_host_privileges(document, accepted=refusals)
+    if build_sandbox.get_compose_exception(deployer.domain, store=deployer.store) is not None:
+        return ()
+    return tuple(refusals)
 
 
 def _another_compose(runner: CommandRunner, started_by: Sequence[str]) -> str:
@@ -1236,6 +1312,14 @@ def adopt(
             )
             created = False
             try:
+                if plan.host_access:
+                    build_sandbox.set_compose_exception(
+                        plan.domain,
+                        allowed=True,
+                        actor=plan.accepted_by or trigger,
+                        reason=_exception_reason(plan),
+                        store=store,
+                    )
                 store.set_app_compose_project(plan.domain, plan.project)
                 store.set_app_site_name(plan.domain, plan.site_name)
                 if plan.kept_by == KEPT_BY_UNIT:
@@ -1268,10 +1352,25 @@ def adopt(
             "site": plan.site,
             "commit": plan.commit,
             "accepted_changes": list(plan.changes),
+            "accepted_host_access": list(plan.host_access),
         },
     )
     return AdoptionResult(
         plan=plan, adopted=True, unit=plan.unit, deployment_id=recorder.deployment_id
+    )
+
+
+def _exception_reason(plan: AdoptionPlan) -> str:
+    """
+    Args:
+        plan: The adoption.
+
+    Returns:
+        The reason recorded for the compose exception adopting makes: that the stack already ran with
+        these lines, which are listed, so the exception says what it covers.
+    """
+    return "Adopted while running with what gives this server to a container: " + "; ".join(
+        plan.host_access
     )
 
 
@@ -1304,6 +1403,10 @@ def _undo(
         services: The manager the unit is removed with; None when none was created.
         log: Where what could not be undone is reported.
     """
+    if plan.host_access:
+        build_sandbox.set_compose_exception(
+            plan.domain, allowed=False, actor=plan.accepted_by or "adoption", store=store
+        )
     if services is not None:
         try:
             services.delete_service(plan.app_name)
@@ -1325,6 +1428,8 @@ def adopt_stack(
     site: str | None = None,
     port: int | None = None,
     accept_recreate: bool = False,
+    accept_host_access: bool = False,
+    accepted_by: str = "",
     trigger: str = DeploymentTrigger.CLI.value,
     job_id: str | None = None,
     runner: CommandRunner | None = None,
@@ -1343,6 +1448,8 @@ def adopt_stack(
         site: The site file that serves the domain.
         port: The port to register.
         accept_recreate: Adopt even when the rehearsed ``up`` would change something.
+        accept_host_access: Adopt although the stack runs with what gives this server to a container.
+        accepted_by: Who accepts it, for the record.
         trigger: Who asked, for the history row.
         job_id: The background job adopting, when one is.
         runner: The runner docker, git and systemd go through.
@@ -1364,6 +1471,8 @@ def adopt_stack(
         site=site,
         port=port,
         accept_recreate=accept_recreate,
+        accept_host_access=accept_host_access,
+        accepted_by=accepted_by,
         runner=runner,
         store=store,
         web=web,

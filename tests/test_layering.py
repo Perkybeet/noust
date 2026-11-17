@@ -138,7 +138,7 @@ OVERSIZE_MODULES = {
     "noust.core.config": 3732,
     "noust.core.runner": 4425,
     "noust.core.store": 5898,
-    "noust.deployers.docker_compose": 4304,
+    "noust.deployers.docker_compose": 4299,
     "noust.deployers.lifecycle": 4846,
     "noust.managers.backup_manager": 4571,
     "noust.managers.database.base": 3336,

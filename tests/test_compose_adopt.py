@@ -90,7 +90,7 @@ def test_the_project_is_read_from_the_labels_of_the_running_containers(
 ) -> None:
     from noust.deployers.compose_adopt import plan_adoption
 
-    plan = plan_adoption(DOMAIN, root, web=web)
+    plan = plan_adoption(DOMAIN, root, web=web, accept_host_access=True)
 
     assert plan.project == PROJECT
     assert plan.project_from == "containers"
@@ -133,7 +133,7 @@ def test_containers_of_another_compose_file_do_not_name_the_project(
         compose.read_text().replace("      - /var/run/docker.sock:/var/run/docker.sock:ro\n", "")
     )
 
-    plan = plan_adoption(DOMAIN, root, web=web)
+    plan = plan_adoption(DOMAIN, root, web=web, accept_host_access=True)
 
     # Nothing runs from this file: the name Compose itself would give it.
     assert plan.project == "proggest-src"
@@ -175,7 +175,7 @@ def test_containers_made_through_a_mounted_copy_of_the_directory_are_the_stacks(
 
     stack = _coolify_stack(tmp_path, docker)
 
-    plan = plan_adoption(DOMAIN, stack, web=web)
+    plan = plan_adoption(DOMAIN, stack, web=web, accept_host_access=True)
 
     assert plan.project == "uuwy0zylbu2ihnctn9tr20ej"
     assert plan.project_from == "containers"
@@ -217,7 +217,7 @@ def test_two_running_projects_from_one_file_are_refused(
     docker.containers.append(("b" * 64, "copy-web", "running", "copy", compose, str(root)))
 
     with pytest.raises(DeploymentError, match="more than one Compose project") as raised:
-        plan_adoption(DOMAIN, root, web=web)
+        plan_adoption(DOMAIN, root, web=web, accept_host_access=True)
     assert "copy" in raised.value.details and PROJECT in raised.value.details
 
 
@@ -316,7 +316,7 @@ def test_the_site_serving_the_domain_is_found_by_the_names_it_serves(
 ) -> None:
     from noust.deployers.compose_adopt import plan_adoption
 
-    plan = plan_adoption(DOMAIN, root, web=web)
+    plan = plan_adoption(DOMAIN, root, web=web, accept_host_access=True)
 
     assert plan.site == "proggest"
     assert plan.site_name == "proggest"
@@ -330,7 +330,7 @@ def test_a_site_named_after_the_domain_records_no_site_name(
     (web.sites_enabled / "proggest").unlink()
     (web.sites_available / "proggest").rename(web.sites_available / DOMAIN)
 
-    plan = plan_adoption(DOMAIN, root, web=web)
+    plan = plan_adoption(DOMAIN, root, web=web, accept_host_access=True)
 
     assert plan.site == DOMAIN
     assert plan.site_name is None
@@ -342,7 +342,7 @@ def test_a_named_site_that_does_not_serve_the_domain_is_refused(
     from noust.deployers.compose_adopt import plan_adoption
 
     with pytest.raises(DeploymentError, match=r"does not answer on proggest\.es"):
-        plan_adoption(DOMAIN, root, web=web, site="default")
+        plan_adoption(DOMAIN, root, web=web, accept_host_access=True, site="default")
 
 
 def test_two_sites_serving_the_domain_need_the_operator_to_choose(
@@ -354,10 +354,13 @@ def test_two_sites_serving_the_domain_need_the_operator_to_choose(
     (web.sites_enabled / "proggest-old").symlink_to(web.sites_available / "proggest-old")
 
     with pytest.raises(DeploymentError, match="--site") as raised:
-        plan_adoption(DOMAIN, root, web=web)
+        plan_adoption(DOMAIN, root, web=web, accept_host_access=True)
     assert "proggest-old" in raised.value.details
 
-    assert plan_adoption(DOMAIN, root, web=web, site="proggest").site_name == "proggest"
+    assert (
+        plan_adoption(DOMAIN, root, web=web, accept_host_access=True, site="proggest").site_name
+        == "proggest"
+    )
 
 
 def test_no_site_is_a_warning_not_a_refusal(
@@ -368,7 +371,7 @@ def test_no_site_is_a_warning_not_a_refusal(
     (web.sites_enabled / "proggest").unlink()
     (web.sites_available / "proggest").unlink()
 
-    plan = plan_adoption(DOMAIN, root, web=web)
+    plan = plan_adoption(DOMAIN, root, web=web, accept_host_access=True)
 
     assert plan.site is None
     assert any("No site" in warning for warning in plan.warnings)
@@ -382,7 +385,7 @@ def test_a_domain_already_deployed_is_refused(
     store.create_app(App(domain=DOMAIN, app_type="docker-compose", app_path=str(root)))
 
     with pytest.raises(DeploymentError, match="already deployed"):
-        plan_adoption(DOMAIN, root, web=web)
+        plan_adoption(DOMAIN, root, web=web, accept_host_access=True)
 
 
 def test_a_directory_with_no_repository_is_planned_with_no_source(
@@ -395,7 +398,7 @@ def test_a_directory_with_no_repository_is_planned_with_no_source(
 
     shutil.rmtree(root / ".git")
 
-    plan = plan_adoption(DOMAIN, root, web=web)
+    plan = plan_adoption(DOMAIN, root, web=web, accept_host_access=True)
 
     assert plan.source == ""
     assert plan.branch is None
@@ -414,7 +417,7 @@ def test_a_source_for_a_directory_with_no_repository_is_refused(
     shutil.rmtree(root / ".git")
 
     with pytest.raises(DeploymentError, match="not a git checkout"):
-        plan_adoption(DOMAIN, root, web=web, source=REMOTE)
+        plan_adoption(DOMAIN, root, web=web, accept_host_access=True, source=REMOTE)
 
 
 def test_a_stack_with_no_repository_is_adopted_and_nothing_changes(
@@ -446,7 +449,7 @@ def test_a_relative_or_missing_path_is_refused(
     with pytest.raises(DeploymentError, match="absolute"):
         plan_adoption(DOMAIN, Path("opt/proggest"), web=web)
     with pytest.raises(DeploymentError, match="does not exist"):
-        plan_adoption(DOMAIN, tmp_path / "missing", web=web)
+        plan_adoption(DOMAIN, tmp_path / "missing", web=web, accept_host_access=True)
 
 
 def test_a_compose_file_outside_the_directory_is_refused(
@@ -455,7 +458,9 @@ def test_a_compose_file_outside_the_directory_is_refused(
     from noust.deployers.compose_adopt import plan_adoption
 
     with pytest.raises(DeploymentError, match="not a path inside the application"):
-        plan_adoption(DOMAIN, root, web=web, compose_file="../other/compose.yml")
+        plan_adoption(
+            DOMAIN, root, web=web, accept_host_access=True, compose_file="../other/compose.yml"
+        )
 
 
 # -- Adopting ---------------------------------------------------------------------
@@ -638,7 +643,9 @@ def test_the_command_shows_the_plan_and_adopts_when_confirmed(
     monkeypatch.setattr(compose_adopt, "_default_web", lambda: web)
 
     result = CliRunner().invoke(
-        root_cli, ["app", "adopt", DOMAIN, "--path", str(root)], input="y\n"
+        root_cli,
+        ["app", "adopt", DOMAIN, "--path", str(root), "--accept-host-access"],
+        input="y\n",
     )
 
     assert result.exit_code == 0, result.output
@@ -660,7 +667,9 @@ def test_the_command_adopts_nothing_when_not_confirmed(
     monkeypatch.setattr(compose_adopt, "_default_web", lambda: web)
 
     result = CliRunner().invoke(
-        root_cli, ["app", "adopt", DOMAIN, "--path", str(root)], input="n\n"
+        root_cli,
+        ["app", "adopt", DOMAIN, "--path", str(root), "--accept-host-access"],
+        input="n\n",
     )
 
     assert result.exit_code != 0
@@ -681,7 +690,8 @@ def test_the_command_prints_json(
     monkeypatch.setattr(compose_adopt, "_default_web", lambda: web)
 
     result = CliRunner().invoke(
-        root_cli, ["app", "adopt", DOMAIN, "--path", str(root), "--yes", "--json"]
+        root_cli,
+        ["app", "adopt", DOMAIN, "--path", str(root), "--accept-host-access", "--yes", "--json"],
     )
 
     assert result.exit_code == 0, result.output
@@ -723,14 +733,17 @@ def test_the_api_previews_then_adopts(
     client = adopt_client(elevated=True)
 
     preview = client.post(
-        "/api/apps/adopt", json={"domain": DOMAIN, "path": str(root), "preview": True}
+        "/api/apps/adopt",
+        json={"domain": DOMAIN, "path": str(root), "preview": True, "accept_host_access": True},
     )
     assert preview.status_code == 200, preview.text
     assert preview.json()["adopted"] is False
     assert preview.json()["project"] == PROJECT
     assert store.get_app(DOMAIN) is None
 
-    done = client.post("/api/apps/adopt", json={"domain": DOMAIN, "path": str(root)})
+    done = client.post(
+        "/api/apps/adopt", json={"domain": DOMAIN, "path": str(root), "accept_host_access": True}
+    )
     assert done.status_code == 200, done.text
     assert done.json()["adopted"] is True
     assert done.json()["deployment_id"] is not None

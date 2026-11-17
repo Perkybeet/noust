@@ -565,6 +565,75 @@ class TestJudgingADocument:
         assert again.problems[0].code == "compose"
 
 
+class TestTheTextIsJudgedBeforeComposeReadsIt:
+    """What the text asks of the server stops it before Compose is asked to resolve it (finding 3)."""
+
+    ENV_OF_ANOTHER = DOCUMENT.replace(
+        "    ports:", "    env_file: /var/www/apps/other-example-com/shared/.env\n    ports:"
+    )
+
+    def configs(self, box: DockerMachine) -> list[tuple[str, ...]]:
+        return [call for call in box.calls if "config" in call]
+
+    def test_an_env_file_of_another_application_is_refused_without_asking_compose(
+        self, edit: StackEditor, box: DockerMachine
+    ) -> None:
+        found = edit.check(PROJECT, self.ENV_OF_ANOTHER)
+
+        assert found.valid is False
+        assert [p.code for p in found.problems] == ["privileges"]
+        assert "another application's files" in found.problems[0].message
+        assert found.problems[0].service == "web"
+        assert self.configs(box) == []
+
+    def test_an_include_that_leaves_the_application_is_not_read_to_say_what_is_in_it(
+        self, edit: StackEditor, box: DockerMachine
+    ) -> None:
+        text = "include:\n  - /etc/noust/compose.yaml\n" + DOCUMENT
+
+        found = edit.check(PROJECT, text)
+
+        assert found.valid is False
+        assert found.problems[0].code == "privileges"
+        assert self.configs(box) == []
+
+    def test_a_build_context_of_noust_state_is_refused_for_good(
+        self, store: NoustStore, stack: App, box: DockerMachine
+    ) -> None:
+        from noust.deployers.helpers import sandbox
+
+        sandbox.set_compose_exception(DOMAIN, allowed=True, actor="ana", reason="x", store=store)
+        text = DOCUMENT.replace("    ports:", "    build:\n      context: /etc/noust\n    ports:")
+
+        found = editor(box, store, stack.app_path).check(PROJECT, text)
+
+        assert found.valid is False
+        assert "Noust's own configuration and secrets" in found.problems[0].message
+
+    def test_what_the_stack_already_had_is_not_stopped_there(
+        self, store: NoustStore, tmp_path: Path
+    ) -> None:
+        stack = make_stack(store, tmp_path)
+        old = self.ENV_OF_ANOTHER
+        (recipe_source_dir(APP_NAME, store) / COMPOSE_FILE).write_text(old)
+        box = machine(stack.app_path)
+
+        found = editor(box, store, stack.app_path).check(
+            PROJECT, old.replace("nginx:1.27", "nginx:1.28")
+        )
+
+        assert found.valid is True
+        assert any("the stack runs with this already" in warning for warning in found.warnings)
+
+    def test_a_text_that_asks_for_nothing_is_resolved_as_always(
+        self, edit: StackEditor, box: DockerMachine
+    ) -> None:
+        found = edit.check(PROJECT, NEWER)
+
+        assert found.valid is True
+        assert self.configs(box) != []
+
+
 class TestTheHistory:
     def test_the_first_save_keeps_what_the_stack_had_so_there_is_something_to_go_back_to(
         self, store: NoustStore, edit: StackEditor

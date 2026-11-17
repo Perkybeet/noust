@@ -27,6 +27,9 @@ from noust.deployers import compose_adopt
 from noust.deployers.compose_adopt import AdoptionRefusedError
 from noust.web.api.deps import ErrorResponse, NoustErrorRoute, error_response, require_elevated
 from noust.web.api.docker_change_models import DockerBringRestartOut
+from noust.web.auth import actor_label
+from noust.web.permissions import Permission
+from noust.web.permissions.enforce import PermissionDenied, has_permission
 
 router = APIRouter(route_class=NoustErrorRoute)
 
@@ -55,6 +58,13 @@ class AdoptRequest(BaseModel):
     accept_recreate: bool = Field(
         default=False,
         description="Adopt even when starting the stack as Noust would recreate something",
+    )
+    accept_host_access: bool = Field(
+        default=False,
+        description="Adopt although the stack runs with what gives this server to a container "
+        "(a device, the Docker socket, a path of the server). It is recorded as the "
+        "application's compose exception, with who accepted it, and needs the root-equivalent "
+        "permission",
     )
     preview: bool = Field(default=False, description="Answer what would be done; change nothing")
 
@@ -103,6 +113,12 @@ class AdoptResponse(BaseModel):
         description="What a restart of the machine would not bring back, said where nothing but "
         "Docker brings it back",
     )
+    host_access: list[str] = Field(
+        default_factory=list,
+        description="The lines of the compose file that give this server to a container and that "
+        "adopting recorded as accepted: the application's compose exception",
+    )
+    accepted_by: str = Field(default="", description="Who accepted them")
 
 
 @router.post(
@@ -126,6 +142,15 @@ def adopt_app(body: AdoptRequest, session: Annotated[dict, Depends(require_eleva
         DeploymentError: The domain is deployed, the directory is not a
             usable checkout, or the site is ambiguous.
     """
+    if body.accept_host_access and not has_permission(session, Permission.ROOT_EQUIVALENT):
+        # What the stack runs with is root on this server: accepting it is the exception of the
+        # compose guard, which no team role and no central without host access can record.
+        raise PermissionDenied(
+            "permission_denied",
+            Permission.ROOT_EQUIVALENT,
+            "Adopting a stack that runs with what gives this server to a container is root-equivalent",
+            "Ask an administrator of the server.",
+        )
     try:
         plan = compose_adopt.plan_adoption(
             body.domain,
@@ -136,6 +161,8 @@ def adopt_app(body: AdoptRequest, session: Annotated[dict, Depends(require_eleva
             site=body.site,
             port=body.port,
             accept_recreate=body.accept_recreate,
+            accept_host_access=body.accept_host_access,
+            accepted_by=actor_label(session) if body.accept_host_access else "",
             web=compose_adopt._default_web(),
         )
     except AdoptionRefusedError as exc:

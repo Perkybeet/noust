@@ -461,3 +461,71 @@ class TestWhoMayDoIt:
 
         assert response.status_code == 403
         assert response.json()["error"] == "elevation_required"
+
+
+class TestWhatTheStackRunsWith:
+    """A stack that runs with what gives the server away is adopted only by who accepts it (finding 2)."""
+
+    def test_accepting_it_tells_the_adoption_who_accepted(
+        self, docker: DockerWorld, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        adoption = Adoption(monkeypatch)
+
+        response = docker.send(
+            "admin", "POST", "/stacks/nextcloud/bring", json={"accept_host_access": True}
+        )
+
+        assert response.status_code == 200, response.text
+        assert adoption.planned[0]["accept_host_access"] is True
+        assert adoption.planned[0]["accepted_by"]
+
+    def test_without_saying_so_nothing_is_accepted(
+        self, docker: DockerWorld, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        adoption = Adoption(monkeypatch)
+
+        docker.send("admin", "POST", "/stacks/nextcloud/bring", json={})
+
+        assert adoption.planned[0]["accept_host_access"] is False
+        assert adoption.planned[0]["accepted_by"] == ""
+
+    def test_the_refusal_with_the_lines_is_a_409_the_console_shows(
+        self, docker: DockerWorld, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def refuse(*_args: object, **_kwargs: object) -> None:
+            raise AdoptionRefusedError(
+                "Adopting nextcloud puts under Noust a stack whose containers have what is on "
+                "this server",
+                details="- service app mounts the Docker socket",
+                host_access=("service app mounts the Docker socket",),
+            )
+
+        monkeypatch.setattr(compose_adopt, "plan_adoption", refuse)
+
+        response = docker.send("admin", "POST", "/stacks/nextcloud/bring/preview", json={})
+
+        assert response.status_code == 409
+        assert "mounts the Docker socket" in response.json()["hint"]
+        assert response.json()["host_access"] == ["service app mounts the Docker socket"]
+
+    def test_whoever_changes_docker_without_being_root_equivalent_cannot_accept_it(
+        self, docker: DockerWorld, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from tests.support.teams_support import make_person
+
+        docker.world.people["manager"] = make_person(
+            docker.world.teams,
+            "manny",
+            "admin",
+            permissions=["docker.read", "docker.manage", "apps.manage", "apps.read"],
+        )
+        adoption = Adoption(monkeypatch)
+
+        allowed = docker.send("manager", "POST", "/stacks/nextcloud/bring", json={})
+        refused = docker.send(
+            "manager", "POST", "/stacks/nextcloud/bring", json={"accept_host_access": True}
+        )
+
+        assert allowed.status_code == 200, allowed.text
+        assert refused.status_code == 403
+        assert len(adoption.planned) == 1

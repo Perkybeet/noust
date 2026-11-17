@@ -145,7 +145,6 @@ UNTRANSLATED: dict[str, int] = {
     "deployers/helpers/build_config.py": 7,
     "deployers/helpers/compose_exec.py": 3,
     "deployers/helpers/compose_preview.py": 3,
-    "deployers/helpers/compose_privileges.py": 1,
     "deployers/helpers/compose_settings.py": 2,
     "deployers/helpers/compose_variables.py": 2,
     "deployers/helpers/container_compose.py": 1,

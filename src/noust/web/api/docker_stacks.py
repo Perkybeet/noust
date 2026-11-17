@@ -156,7 +156,13 @@ def preview_bring(name: str, body: DockerBringPreviewRequest, session: Session) 
     gate.require_usable(_engine(gate))
     try:
         return bring_out(
-            StackBringer(gate).preview(name, name=body.name, accept_recreate=body.accept_recreate)
+            StackBringer(gate).preview(
+                name,
+                name=body.name,
+                accept_recreate=body.accept_recreate,
+                accept_host_access=body.accept_host_access,
+                accepted_by=audit_actor(session) if body.accept_host_access else "",
+            )
         )
     except AdoptionRefusedError as exc:
         return _refused(exc)
@@ -203,18 +209,30 @@ def bring_stack(name: str, body: DockerBringRequest, session: Elevated) -> Any:
         DeploymentError: 409 when adopting is refused (Compose's rehearsal, a unit that exists).
     """
     check_permission(session, Permission.APPS_MANAGE)
+    if body.accept_host_access:
+        # What the stack runs with is root on this server: accepting it records the compose exception.
+        check_permission(session, Permission.ROOT_EQUIVALENT)
     gate = _gate()
     gate.require_usable(_engine(gate))
     bringer = StackBringer(gate)
+    accepted_by = audit_actor(session) if body.accept_host_access else ""
     try:
         if body.preview:
             return bring_out(
-                bringer.preview(name, name=body.name, accept_recreate=body.accept_recreate)
+                bringer.preview(
+                    name,
+                    name=body.name,
+                    accept_recreate=body.accept_recreate,
+                    accept_host_access=body.accept_host_access,
+                    accepted_by=accepted_by,
+                )
             )
         found = bringer.bring(
             name,
             name=body.name,
             accept_recreate=body.accept_recreate,
+            accept_host_access=body.accept_host_access,
+            accepted_by=accepted_by,
             trigger=DeploymentTrigger.PANEL.value,
         )
     except AdoptionRefusedError as exc:

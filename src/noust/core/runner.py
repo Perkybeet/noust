@@ -93,6 +93,7 @@ from pathlib import Path
 from typing import IO, Any, Literal
 
 from noust.core import paths, rehearsal_scope
+from noust.core.command_environment import command_environment
 from noust.core.exceptions import ConfigError, NoustError
 from noust.core.fd_wait import wait_readable
 
@@ -2577,9 +2578,8 @@ class SubprocessRunner(CommandRunner):
             prefix = runuser_prefix(user)
             args = [*prefix, *args]
             redacted = (*prefix, *redacted)
-        run_env = clean_environment(os.environ) if clean_env else dict(os.environ)
-        if env:
-            run_env.update(env)
+        base = clean_environment(os.environ) if clean_env else os.environ
+        run_env = command_environment(argv, base, env)
         if self._on_command is not None:
             self._on_command(redacted)
         return args, run_env, redacted

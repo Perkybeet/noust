@@ -21398,8 +21398,13 @@
         "type": "object"
       },
       "DockerBringPreviewRequest": {
-        "description": "Look at what bringing a stack that already runs to Noust would do.\n\nAttributes:\n    name: What the application would be called in Noust's list; the stack's own name when absent.\n    accept_recreate: Show the plan although Compose says starting the stack the way Noust would changes what\n        runs, instead of refusing it with Compose's own words.",
+        "description": "Look at what bringing a stack that already runs to Noust would do.\n\nAttributes:\n    name: What the application would be called in Noust's list; the stack's own name when absent.\n    accept_recreate: Show the plan although Compose says starting the stack the way Noust would changes what\n        runs, instead of refusing it with Compose's own words.\n    accept_host_access: Show the plan although the stack runs with what gives this server to a container,\n        instead of refusing it with the lines.",
         "properties": {
+          "accept_host_access": {
+            "default": false,
+            "title": "Accept Host Access",
+            "type": "boolean"
+          },
           "accept_recreate": {
             "default": false,
             "title": "Accept Recreate",
@@ -21422,8 +21427,13 @@
         "type": "object"
       },
       "DockerBringRequest": {
-        "description": "Bring a stack that already runs to Noust.\n\nAttributes:\n    name: What the application will be called in Noust's list; the stack's own name when absent. It is the\n        only thing typed: the folder and the compose file are what the stack's containers say.\n    preview: Answer what would be registered and what is not changed, and register nothing.\n    accept_recreate: Go on although Compose says starting the stack the way Noust would changes what\n        runs. It is read first; the preview shows Compose's own words.",
+        "description": "Bring a stack that already runs to Noust.\n\nAttributes:\n    name: What the application will be called in Noust's list; the stack's own name when absent. It is the\n        only thing typed: the folder and the compose file are what the stack's containers say.\n    preview: Answer what would be registered and what is not changed, and register nothing.\n    accept_recreate: Go on although Compose says starting the stack the way Noust would changes what\n        runs. It is read first; the preview shows Compose's own words.\n    accept_host_access: Go on although the stack runs with what gives this server to a container (a\n        device, the Docker socket, a path of the server). It is recorded as the application's compose\n        exception, with who accepted it, and needs the root-equivalent permission.",
         "properties": {
+          "accept_host_access": {
+            "default": false,
+            "title": "Accept Host Access",
+            "type": "boolean"
+          },
           "accept_recreate": {
             "default": false,
             "title": "Accept Recreate",
@@ -76134,6 +76144,12 @@
       "noust__web__api__app_adopt__AdoptRequest": {
         "description": "The stack to adopt, and what is not found by looking.",
         "properties": {
+          "accept_host_access": {
+            "default": false,
+            "description": "Adopt although the stack runs with what gives this server to a container (a device, the Docker socket, a path of the server). It is recorded as the application's compose exception, with who accepted it, and needs the root-equivalent permission",
+            "title": "Accept Host Access",
+            "type": "boolean"
+          },
           "accept_recreate": {
             "default": false,
             "description": "Adopt even when starting the stack as Noust would recreate something",
@@ -76229,6 +76245,12 @@
       "noust__web__api__app_adopt__AdoptResponse": {
         "description": "What an adoption found, and whether it was recorded.",
         "properties": {
+          "accepted_by": {
+            "default": "",
+            "description": "Who accepted them",
+            "title": "Accepted By",
+            "type": "string"
+          },
           "address": {
             "anyOf": [
               {
@@ -76319,6 +76341,14 @@
           "headless": {
             "title": "Headless",
             "type": "boolean"
+          },
+          "host_access": {
+            "description": "The lines of the compose file that give this server to a container and that adopting recorded as accepted: the application's compose exception",
+            "items": {
+              "type": "string"
+            },
+            "title": "Host Access",
+            "type": "array"
           },
           "kept_by": {
             "default": "unit",

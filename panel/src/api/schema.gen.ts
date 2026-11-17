@@ -46985,8 +46985,15 @@ export interface components {
          *         name: What the application would be called in Noust's list; the stack's own name when absent.
          *         accept_recreate: Show the plan although Compose says starting the stack the way Noust would changes what
          *             runs, instead of refusing it with Compose's own words.
+         *         accept_host_access: Show the plan although the stack runs with what gives this server to a container,
+         *             instead of refusing it with the lines.
          */
         DockerBringPreviewRequest: {
+            /**
+             * Accept Host Access
+             * @default false
+             */
+            accept_host_access: boolean;
             /**
              * Accept Recreate
              * @default false
@@ -47005,8 +47012,16 @@ export interface components {
          *         preview: Answer what would be registered and what is not changed, and register nothing.
          *         accept_recreate: Go on although Compose says starting the stack the way Noust would changes what
          *             runs. It is read first; the preview shows Compose's own words.
+         *         accept_host_access: Go on although the stack runs with what gives this server to a container (a
+         *             device, the Docker socket, a path of the server). It is recorded as the application's compose
+         *             exception, with who accepted it, and needs the root-equivalent permission.
          */
         DockerBringRequest: {
+            /**
+             * Accept Host Access
+             * @default false
+             */
+            accept_host_access: boolean;
             /**
              * Accept Recreate
              * @default false
@@ -76758,6 +76773,12 @@ export interface components {
          */
         noust__web__api__app_adopt__AdoptRequest: {
             /**
+             * Accept Host Access
+             * @description Adopt although the stack runs with what gives this server to a container (a device, the Docker socket, a path of the server). It is recorded as the application's compose exception, with who accepted it, and needs the root-equivalent permission
+             * @default false
+             */
+            accept_host_access: boolean;
+            /**
              * Accept Recreate
              * @description Adopt even when starting the stack as Noust would recreate something
              * @default false
@@ -76811,6 +76832,12 @@ export interface components {
          */
         noust__web__api__app_adopt__AdoptResponse: {
             /**
+             * Accepted By
+             * @description Who accepted them
+             * @default
+             */
+            accepted_by: string;
+            /**
              * Address
              * @description Where it is reached when no site serves it: http://<machine>:<port>
              */
@@ -76851,6 +76878,11 @@ export interface components {
             dry_run: string;
             /** Headless */
             headless: boolean;
+            /**
+             * Host Access
+             * @description The lines of the compose file that give this server to a container and that adopting recorded as accepted: the application's compose exception
+             */
+            host_access?: string[];
             /**
              * Kept By
              * @description unit: a unit of systemd is created; docker: the central deploys with the machine's Docker and the restart policy of the containers keeps the stack alive

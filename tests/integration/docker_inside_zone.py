@@ -13,6 +13,7 @@ resolves a stack to.
 from __future__ import annotations
 
 import json
+import os
 import threading
 import time
 from pathlib import Path
@@ -789,6 +790,12 @@ def cleanup(run: Run) -> None:
 
 # ====================================================================== 6. the guard of privileges
 
+#: The program a ``provider:`` names in the scenario: it only leaves a marker, so what Compose really does with
+#: ``provider:`` is seen and not guessed. It lives in the engine's own disposable machine and is removed after.
+PROVIDER_PROGRAM = "noust-w6a-provider-canary"
+PROVIDER_PATH = Path("/usr/local/bin") / PROVIDER_PROGRAM
+PROVIDER_MARKER = WORK / "privileges" / "provider" / "ran"
+
 GUARD_DOCUMENTS: dict[str, tuple[dict[str, str], bool, str]] = {
     "plain": (
         {"compose.yaml": f"services:\n  web:\n    image: {BUSYBOX}\n    command: sleep 3600\n"},
@@ -850,8 +857,90 @@ GUARD_DOCUMENTS: dict[str, tuple[dict[str, str], bool, str]] = {
         {
             "compose.yaml": f"services:\n  web:\n    image: {BUSYBOX}\n    cap_add: [SYS_ADMIN]\n    command: sleep 3600\n"
         },
+        True,
+        "SYS_ADMIN, a capability that gives the machine",
+    ),
+    "capnet": (
+        {
+            "compose.yaml": f"services:\n  web:\n    image: {BUSYBOX}\n    cap_add: [NET_BIND_SERVICE]\n    command: sleep 3600\n"
+        },
         False,
-        "a capability that is root's: warned, not refused",
+        "a capability that does not give the machine: only said",
+    ),
+    "device": (
+        {
+            "compose.yaml": f"services:\n  web:\n    image: {BUSYBOX}\n    devices: ['/dev/null:/dev/x']\n    command: sleep 3600\n"
+        },
+        True,
+        "a host device",
+    ),
+    "hostpid": (
+        {
+            "compose.yaml": f"services:\n  web:\n    image: {BUSYBOX}\n    pid: host\n    command: sleep 3600\n"
+        },
+        True,
+        "the host's pid namespace",
+    ),
+    "outside": (
+        {
+            "compose.yaml": f"services:\n  web:\n    image: {BUSYBOX}\n    volumes:\n      - /opt:/opt\n    command: sleep 3600\n"
+        },
+        True,
+        "a directory of the server outside the application",
+    ),
+    "runmount": (
+        {
+            "compose.yaml": f"services:\n  web:\n    image: {BUSYBOX}\n    volumes:\n      - /run:/hostrun\n    command: sleep 3600\n"
+        },
+        True,
+        "the run directory, which holds the Docker socket",
+    ),
+    "link": (
+        {
+            "compose.yaml": f"services:\n  web:\n    image: {BUSYBOX}\n    volumes:\n      - ./host:/mnt\n    command: sleep 3600\n"
+        },
+        True,
+        "a link of the repository that leads to /",
+    ),
+    "envfile": (
+        {
+            "compose.yaml": f"services:\n  web:\n    image: {BUSYBOX}\n    env_file: /etc/noust/web-secret\n    command: sleep 3600\n"
+        },
+        True,
+        "an env_file that is Noust's own state",
+    ),
+    "buildcontext": (
+        {"compose.yaml": "services:\n  web:\n    build:\n      context: /etc/noust\n"},
+        True,
+        "a build context that is Noust's own state",
+    ),
+    "remoteinclude": (
+        {
+            "compose.yaml": f"include:\n  - https://127.0.0.1:1/part.yaml\nservices:\n  web:\n    image: {BUSYBOX}\n    command: sleep 3600\n"
+        },
+        True,
+        "an include with an address: refused, though Compose reads an https one as a path",
+    ),
+    "remotegit": (
+        {
+            "compose.yaml": f"include:\n  - git://127.0.0.1:1/part.git\nservices:\n  web:\n    image: {BUSYBOX}\n    command: sleep 3600\n"
+        },
+        True,
+        "an include that Compose fetches with git",
+    ),
+    "remoteoci": (
+        {
+            "compose.yaml": f"include:\n  - oci://127.0.0.1:1/part:1\nservices:\n  web:\n    image: {BUSYBOX}\n    command: sleep 3600\n"
+        },
+        True,
+        "an include that Compose fetches from a registry",
+    ),
+    "provider": (
+        {
+            "compose.yaml": f"services:\n  web:\n    image: {BUSYBOX}\n    command: sleep 3600\n  tool:\n    provider:\n      type: {PROVIDER_PROGRAM}\n"
+        },
+        True,
+        "a provider: a program the machine runs when the stack starts",
     ),
     "volumesfrom": (
         {
@@ -877,6 +966,8 @@ def privileges(run: Run) -> None:
             folder.mkdir(parents=True, exist_ok=True)
             for filename, text in documents.items():
                 (folder / filename).write_text(text, encoding="utf-8")
+            if name == "link" and not (folder / "host").is_symlink():
+                (folder / "host").symlink_to("/")
             file = folder / "compose.yaml"
             document = load_compose(file.read_text(encoding="utf-8"))
             written = inspect_compose(document, folder)
@@ -905,7 +996,7 @@ def privileges(run: Run) -> None:
                     not refused,
                     {"judged": judged.refused, "log": unresolved},
                 )
-            elif name == "capadd":
+            elif name == "capnet":
                 run.check(
                     f"{what}",
                     not refused and bool(judged.warned),
@@ -958,5 +1049,91 @@ def privileges(run: Run) -> None:
             "an include resolved by this Compose",
             {"exit": included.returncode, "stderr": included.stderr[:200]},
         )
+        # What Compose really does with what the guard refuses and could not be shown to do: a remote include
+        # is fetched by ``config``, which is before anything of Noust's sees the model; a provider is a program
+        # the machine runs. Both are recorded as this Compose does them, and the guard refuses them as written.
+        for kind in ("remoteinclude", "remotegit", "remoteoci"):
+            remote = docker(
+                "compose",
+                "-p",
+                f"priv{kind}",
+                "-f",
+                str(WORK / "privileges" / kind / "compose.yaml"),
+                "config",
+                "--format",
+                "json",
+            )
+            run.note(
+                f"{kind}, resolved by this Compose (does it go to the network when it reads the file?)",
+                {"exit": remote.returncode, "stderr": remote.stderr[:300]},
+            )
+        provider_folder = WORK / "privileges" / "provider"
+        PROVIDER_PATH.write_text(f"#!/bin/sh\ntouch {PROVIDER_MARKER}\nexit 0\n", encoding="utf-8")
+        PROVIDER_PATH.chmod(0o755)
+        started = docker(
+            "compose",
+            "-p",
+            "privprovider",
+            "-f",
+            str(provider_folder / "compose.yaml"),
+            "up",
+            "-d",
+            "--no-build",
+        )
+        run.note(
+            "a provider, started by this Compose",
+            {
+                "exit": started.returncode,
+                "stderr": started.stderr[:300],
+                "the program ran": PROVIDER_MARKER.exists(),
+            },
+        )
+        docker(
+            "compose",
+            "-p",
+            "privprovider",
+            "-f",
+            str(provider_folder / "compose.yaml"),
+            "down",
+            "--remove-orphans",
+        )
+        # Noust's own environment. Compose fills ``${NAME}`` and reads ``secrets: environment:`` from the
+        # environment of the process that runs it; Noust's runner starts it without ``NOUST_*``. A plain
+        # process, which is what the control is, does hand it over.
+        environment_folder = WORK / "privileges" / "environment"
+        environment_folder.mkdir(parents=True, exist_ok=True)
+        environment_file = environment_folder / "compose.yaml"
+        environment_file.write_text(
+            f"services:\n  web:\n    image: {BUSYBOX}\n    environment:\n"
+            "      LEAK: ${NOUST_W6A_CANARY:-nothing}\n    secrets: [leak]\n"
+            "secrets:\n  leak:\n    environment: NOUST_W6A_CANARY\n",
+            encoding="utf-8",
+        )
+        canary = "w6a-canary-value-9f3c"
+        os.environ["NOUST_W6A_CANARY"] = canary
+        try:
+            asked = ["compose", "-p", "privenv", "-f", str(environment_file), "config"]
+            control = docker(*asked)
+            through = real.run(["docker", *asked], timeout=60)
+        finally:
+            os.environ.pop("NOUST_W6A_CANARY", None)
+        if control.returncode != 0:
+            # A Compose that does not know ``secrets: environment:`` (before 2.23) cannot show it.
+            run.note(
+                "this Compose does not read secrets: environment:",
+                {"exit": control.returncode, "stderr": control.stderr[:200]},
+            )
+        else:
+            run.check(
+                "a plain process hands Compose its environment (so the check below can fail)",
+                canary in control.stdout,
+                {"exit": control.returncode, "stderr": control.stderr[:200]},
+            )
+            run.check(
+                "Noust's own environment does not reach Compose: ${NOUST_...} and secrets: environment: get nothing",
+                canary not in through.stdout + through.stderr,
+                {"exit": through.exit_code, "stderr": through.stderr[:200]},
+            )
     finally:
+        PROVIDER_PATH.unlink(missing_ok=True)
         reset("privileges")

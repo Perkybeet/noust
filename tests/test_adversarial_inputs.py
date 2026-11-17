@@ -2441,6 +2441,23 @@ class TestWhatAComposeFileBringsInThatItDoesNotWrite:
                         "type",
                         "target",
                         "image",
+                        "build",
+                        "context",
+                        "additional_contexts",
+                        "ssh",
+                        "env_file",
+                        "devices",
+                        "device_cgroup_rules",
+                        "runtime",
+                        "cgroup_parent",
+                        "provider",
+                        "name",
+                        "external",
+                        "container_name",
+                        "driver_opts",
+                        "device",
+                        "networks",
+                        "project_directory",
                     ]
                 ),
                 inner,
@@ -2456,19 +2473,47 @@ class TestWhatAComposeFileBringsInThatItDoesNotWrite:
         jobs=st.dictionaries(st.text(max_size=8), VALUES, max_size=2),
         secrets=VALUES,
         include=VALUES,
+        volumes=VALUES,
+        networks=VALUES,
+        name=VALUES,
     )
     def test_a_document_of_any_shape_is_answered_and_never_crashes_the_guard(
-        self, services: dict[str, Any], jobs: dict[str, Any], secrets: Any, include: Any
+        self,
+        services: dict[str, Any],
+        jobs: dict[str, Any],
+        secrets: Any,
+        include: Any,
+        volumes: Any,
+        networks: Any,
+        name: Any,
     ) -> None:
+        from noust.core.docker.owners import AppRecord, OwnerIndex, Registry
         from noust.deployers.helpers.compose_guard import (
+            GuardContext,
             inspect_compose,
             merge_findings,
             uses_composition,
         )
+        from noust.deployers.helpers.compose_owners import Owners
 
-        document = {"services": services, "jobs": jobs, "secrets": secrets, "include": include}
+        document = {
+            "services": services,
+            "jobs": jobs,
+            "secrets": secrets,
+            "include": include,
+            "volumes": volumes,
+            "networks": networks,
+            "name": name,
+        }
+        owners = Owners(
+            OwnerIndex(Registry(apps=(AppRecord("other.example.com", "/var/www/apps/other"),))),
+            "stack.example.com",
+        )
+        context = GuardContext(
+            self.APP, domain="stack.example.com", project="stack-example-com", owners=owners
+        )
 
-        findings = inspect_compose(document, self.APP)
+        findings = inspect_compose(document, self.APP, context=context)
         merge_findings(findings, inspect_compose(document, self.APP))
         uses_composition(document)
 

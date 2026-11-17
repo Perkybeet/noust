@@ -829,9 +829,9 @@ def _compose_warning(app: App) -> str | None:
     if not findings.refused or get_compose_exception(app.domain) is not None:
         return None
     return (
-        f"{app.domain} runs containers that are root on this server "
-        f"({'; '.join(findings.refused)}). A new stack is refused this; record why this one "
-        f"needs it: noust app sandbox compose-exception {app.domain} --reason '...'"
+        f"{app.domain} runs with what gives this server to its containers or reaches beyond "
+        f"the application ({'; '.join(findings.refused)}). A new stack is refused this; record "
+        f"why this one needs it: noust app sandbox compose-exception {app.domain} --reason '...'"
     )
 
 

@@ -153,6 +153,25 @@ class TestReadingAndChecking:
 
         assert not check.deployable and any("privileged" in r for r in check.analysis.refused)
 
+    def test_what_the_stack_already_had_is_warned_about_and_only_what_is_added_is_refused(
+        self, store: NoustStore, stack: App
+    ) -> None:
+        # A document that has mounted a directory of the server since before the guard refused it is not
+        # stopped for it when it is replaced; a replacement that adds something else is refused for that.
+        had = DOCUMENT.replace("    ports:", "    volumes:\n      - /mnt/media:/media\n    ports:")
+        (recipe_source_dir(APP_NAME, store) / COMPOSE_FILE).write_text(had)
+
+        unchanged = check_document(DOMAIN, had.replace("nginx:1.27", "nginx:1.28"), store=store)
+        added = check_document(
+            DOMAIN, had.replace("    ports:", "    devices: ['/dev/kvm']\n    ports:"), store=store
+        )
+
+        assert unchanged.deployable
+        assert any("/mnt/media" in warning for warning in unchanged.analysis.warned)
+        assert not added.deployable
+        assert any("/dev/kvm" in refused for refused in added.analysis.refused)
+        assert not any("/mnt/media" in refused for refused in added.analysis.refused)
+
     def test_a_variable_the_document_requires_and_the_stack_lacks_is_named(
         self, store: NoustStore, stack: App
     ) -> None:

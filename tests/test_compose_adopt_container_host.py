@@ -136,7 +136,7 @@ def test_on_a_container_host_the_stack_is_registered_with_no_unit_and_no_site(
 def test_on_a_container_host_the_address_is_the_machines_and_no_site_is_looked_for(
     a_container_host: None, root: Path, docker: Docker, store: NoustStore
 ) -> None:
-    plan = compose_adopt.plan_adoption(DOMAIN, root)
+    plan = compose_adopt.plan_adoption(DOMAIN, root, accept_host_access=True)
 
     assert plan.site is None and plan.site_name is None and plan.ssl is False
     assert plan.address == "http://nas-oficina:3001"
@@ -146,7 +146,7 @@ def test_on_a_container_host_the_address_is_the_machines_and_no_site_is_looked_f
 def test_a_stack_published_on_loopback_only_is_said_to_be_unreachable_from_the_network(
     a_container_host: None, root: Path, docker: Docker, store: NoustStore
 ) -> None:
-    plan = compose_adopt.plan_adoption(DOMAIN, root)
+    plan = compose_adopt.plan_adoption(DOMAIN, root, accept_host_access=True)
 
     said = [warning for warning in plan.warnings if "127.0.0.1" in warning]
     assert said, plan.warnings
@@ -160,7 +160,7 @@ def test_a_stack_published_on_every_address_is_not_said_to_be_loopback_only(
     compose.write_text(compose.read_text().replace("'127.0.0.1:", "'"))
     docker.dry_run = docker.dry_run  # the rehearsal does not read the file's text
 
-    plan = compose_adopt.plan_adoption(DOMAIN, root)
+    plan = compose_adopt.plan_adoption(DOMAIN, root, accept_host_access=True)
 
     assert not any("127.0.0.1" in warning for warning in plan.warnings)
 
@@ -180,7 +180,7 @@ def test_what_would_not_come_back_after_the_nas_restarts_is_said_and_not_changed
     monkeypatch.setattr(compose_adopt.DockerGate, "restart_loss", lambda self: lost, raising=True)
     before = (root / "docker-compose.prod.yml").read_bytes()
 
-    plan = compose_adopt.plan_adoption(DOMAIN, root)
+    plan = compose_adopt.plan_adoption(DOMAIN, root, accept_host_access=True)
 
     assert [(item.container, item.policy, item.why) for item in plan.restart_loss] == [
         ("proggest-backend", "no", "policy"),
@@ -206,7 +206,7 @@ def test_a_server_does_not_say_what_a_restart_would_lose_because_its_unit_brings
         lambda self: pytest.fail("a server's unit starts the stack again"),
     )
 
-    plan = compose_adopt.plan_adoption(DOMAIN, root, web=web)
+    plan = compose_adopt.plan_adoption(DOMAIN, root, web=web, accept_host_access=True)
 
     assert plan.restart_loss == ()
 
@@ -247,7 +247,7 @@ def test_a_folder_the_central_s_user_cannot_read_is_said_before_compose_is_asked
     )
 
     with pytest.raises(DeploymentError) as caught:
-        compose_adopt.plan_adoption(DOMAIN, root)
+        compose_adopt.plan_adoption(DOMAIN, root, accept_host_access=True)
 
     assert "cannot read" in caught.value.message
     assert "docker-compose.prod.yml" in caught.value.message
@@ -263,7 +263,7 @@ def test_a_folder_the_central_s_user_cannot_even_open_is_said_and_not_a_tracebac
     root.chmod(0o000)
     try:
         with pytest.raises(DeploymentError) as caught:
-            compose_adopt.plan_adoption(DOMAIN, root)
+            compose_adopt.plan_adoption(DOMAIN, root, accept_host_access=True)
     finally:
         root.chmod(0o755)
 
@@ -282,7 +282,9 @@ def test_the_command_adopts_on_a_container_host_and_says_docker_keeps_it_up(
     from noust.cli.app import cli as root_cli
 
     result = CliRunner().invoke(
-        root_cli, ["app", "adopt", DOMAIN, "--path", str(root)], input="y\n"
+        root_cli,
+        ["app", "adopt", DOMAIN, "--path", str(root), "--accept-host-access"],
+        input="y\n",
     )
 
     assert result.exit_code == 0, result.output
@@ -306,7 +308,9 @@ def test_the_command_still_says_the_unit_on_a_server(
     monkeypatch.setattr(compose_adopt, "_default_web", lambda: web)
 
     result = CliRunner().invoke(
-        root_cli, ["app", "adopt", DOMAIN, "--path", str(root)], input="y\n"
+        root_cli,
+        ["app", "adopt", DOMAIN, "--path", str(root), "--accept-host-access"],
+        input="y\n",
     )
 
     assert result.exit_code == 0, result.output
@@ -325,7 +329,8 @@ def test_the_api_adopts_on_a_container_host(
     client = adopt_client(elevated=True)
 
     preview = client.post(
-        "/api/apps/adopt", json={"domain": DOMAIN, "path": str(root), "preview": True}
+        "/api/apps/adopt",
+        json={"domain": DOMAIN, "path": str(root), "preview": True, "accept_host_access": True},
     )
     assert preview.status_code == 200, preview.text
     body = preview.json()
@@ -333,7 +338,9 @@ def test_the_api_adopts_on_a_container_host(
     assert body["address"] == "http://nas-oficina:3001"
     assert store.get_app(DOMAIN) is None
 
-    done = client.post("/api/apps/adopt", json={"domain": DOMAIN, "path": str(root)})
+    done = client.post(
+        "/api/apps/adopt", json={"domain": DOMAIN, "path": str(root), "accept_host_access": True}
+    )
     assert done.status_code == 200, done.text
     assert done.json()["adopted"] is True
     assert store.get_app(DOMAIN) is not None and no_systemd(docker)
@@ -361,11 +368,11 @@ def test_the_bring_of_the_docker_zone_registers_the_stack_without_a_unit(
     # The zone lists the stack, and adopting reads and proves it through the runner it is given.
     bringer = StackBringer(gate, store=store, runner=docker)
 
-    preview = bringer.preview(PROJECT, name=DOMAIN)
+    preview = bringer.preview(PROJECT, name=DOMAIN, accept_host_access=True)
 
     assert preview.to_dict()["unit"] == "" and preview.to_dict()["kept_by"] == "docker"
     assert store.get_app(DOMAIN) is None
-    done = bringer.bring(PROJECT, name=DOMAIN)
+    done = bringer.bring(PROJECT, name=DOMAIN, accept_host_access=True, accepted_by="alice")
     assert done.adopted is True
     assert store.get_app(DOMAIN) is not None
     assert no_systemd(docker) and not any(
@@ -379,7 +386,8 @@ def test_the_json_the_command_prints_carries_what_keeps_the_stack_up(
     from noust.cli.app import cli as root_cli
 
     result = CliRunner().invoke(
-        root_cli, ["app", "adopt", DOMAIN, "--path", str(root), "--yes", "--json"]
+        root_cli,
+        ["app", "adopt", DOMAIN, "--path", str(root), "--accept-host-access", "--yes", "--json"],
     )
 
     assert result.exit_code == 0, result.output

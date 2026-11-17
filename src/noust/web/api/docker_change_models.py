@@ -69,11 +69,15 @@ class DockerBringRequest(BaseModel):
         preview: Answer what would be registered and what is not changed, and register nothing.
         accept_recreate: Go on although Compose says starting the stack the way Noust would changes what
             runs. It is read first; the preview shows Compose's own words.
+        accept_host_access: Go on although the stack runs with what gives this server to a container (a
+            device, the Docker socket, a path of the server). It is recorded as the application's compose
+            exception, with who accepted it, and needs the root-equivalent permission.
     """
 
     name: str | None = Field(default=None, max_length=253)
     preview: bool = False
     accept_recreate: bool = False
+    accept_host_access: bool = False
 
 
 class DockerBringPreviewRequest(BaseModel):
@@ -84,10 +88,13 @@ class DockerBringPreviewRequest(BaseModel):
         name: What the application would be called in Noust's list; the stack's own name when absent.
         accept_recreate: Show the plan although Compose says starting the stack the way Noust would changes what
             runs, instead of refusing it with Compose's own words.
+        accept_host_access: Show the plan although the stack runs with what gives this server to a container,
+            instead of refusing it with the lines.
     """
 
     name: str | None = Field(default=None, max_length=253)
     accept_recreate: bool = False
+    accept_host_access: bool = False
 
 
 class DockerBringRestartOut(BaseModel):

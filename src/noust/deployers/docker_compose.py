@@ -73,6 +73,7 @@ from noust.deployers.helpers import (
 )
 from noust.deployers.helpers import edge as edges
 from noust.deployers.helpers.build_config import BuildConfig, refuse_unsupported, resolve_build
+from noust.deployers.helpers.compose_owners import declared_project
 from noust.deployers.helpers.compose_ports import (
     PortMapping,
     host_port_variables,
@@ -955,8 +956,10 @@ class DockerComposeDeployer(AppDeployer):
         cmd = ["docker", "compose"]
         if self.compose_path:
             if project is None:
-                project = self._pinned_project() or compose_project_name(
-                    self.app_path, self.compose_path
+                project = (
+                    self._pinned_project()
+                    or compose_project_name(self.app_path, self.compose_path)
+                    or declared_project(self.compose_path)
                 )
             if project is not None:
                 cmd.extend(["-p", project])
@@ -1255,6 +1258,7 @@ class DockerComposeDeployer(AppDeployer):
             self.logger.step(4, total_steps, "Configuring environment")
             self._configure_environment()
             self._require_variables()
+            self._check_final_privileges()
 
             self.logger.step(5, total_steps, "Building Docker images")
             self._build_images(no_cache=self.no_cache)
@@ -1638,33 +1642,19 @@ class DockerComposeDeployer(AppDeployer):
         return own
 
     def _check_host_privileges(
-        self, document: Any, *, accepted: Sequence[str] | None = None
+        self, document: Any, *, accepted: Sequence[str] | None = None, final: bool = False
     ) -> None:
-        """
-        Refuse, or warn about, what in the compose file is root on this server.
+        """Refuse, or warn about, what the compose file gives this server (see the module it calls)."""
+        compose_privileges.check_host_privileges(self, document, accepted=accepted, final=final)
 
-        Args:
-            document: The parsed compose file.
-            accepted: The findings the stack already ran with; None reads
-                :attr:`_accepted_refusals`, which is empty for a new stack.
-
-        Raises:
-            DeploymentError: The file asks for root the stack did not have,
-                without an exception.
-        """
-        compose_privileges.check_host_privileges(self, document, accepted=accepted)
+    def _check_final_privileges(self) -> None:
+        """Judge the model Compose resolves once the stack's own ``.env`` is written: what will run."""
+        document = self._load_compose_document()
+        if document is not None and self.preview_parent is None:
+            self._check_host_privileges(document, final=True)
 
     def _refusals_in(self, document: Any, *, resolve: bool = False) -> list[str]:
-        """
-        List what the guard refuses in a compose document.
-
-        Args:
-            document: The parsed compose file, or None.
-            resolve: Also ask Compose for what the file on disk resolves to.
-
-        Returns:
-            The refused findings; empty for no document.
-        """
+        """List what the guard refuses in a compose document; ``resolve`` asks Compose as well."""
         return compose_privileges.refusals_in(self, document, resolve=resolve)
 
     def _remember_serving_privileges(self) -> None:
@@ -1732,11 +1722,14 @@ class DockerComposeDeployer(AppDeployer):
             )
             if served is not None:
                 try:
-                    accepted = self._refusals_in(load_compose(served))
+                    accepted = compose_privileges.accepted_since(
+                        self, load_compose(served), self.previous_commit
+                    )
                 except yaml.YAMLError as exc:
                     self.logger.debug(f"The compose file that served is not valid YAML: {exc}")
         else:
             self.logger.debug("No commit served before this update: nothing to compare with")
+        self._accepted_refusals = accepted
         self._check_host_privileges(document, accepted=accepted)
 
     def _configure_environment(self) -> None:
@@ -2736,6 +2729,7 @@ class DockerComposeDeployer(AppDeployer):
         self._variables.refresh()
         self._write_predefined()
         self._require_variables(document)
+        self._check_final_privileges()
         # What the gate and the hooks need to know of the stack: whether it
         # is a web at all, and which service a hook without one runs in.
         self.services = parse_services(document)
@@ -3324,6 +3318,7 @@ class DockerComposeDeployer(AppDeployer):
                 touched), or a recreated service did not answer (its relay
                 still serves); the evidence names which.
         """
+        self._check_final_privileges()  # what a build or a hook wrote into the tree since
         relayed = self._relayed_services()
         if relayed:
             healthy, evidence = self._relay().recreate(relayed)

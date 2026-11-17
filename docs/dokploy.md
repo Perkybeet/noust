@@ -193,7 +193,8 @@ answer lists the `files` and, apart, the ones that hold a secret (`secret_files`
 and prints the figures. On the catalogue at the time of writing (572 templates), **541 convert to a
 document nothing refuses and 31 are refused** for what the guard refuses in any Compose file: the
 Docker socket (27), a directory that holds Noust's own state (2), a privileged container (1), a build
-context (1). The templates are MIT (Copyright 2024 Dokploy and Carlos Ortiz); a template's own authors
+context (1); the guard of 4.3 refuses more (devices, capabilities such as `SYS_ADMIN`, the host's
+namespaces, any path of the server outside the application), so more are refused now. The templates are MIT (Copyright 2024 Dokploy and Carlos Ortiz); a template's own authors
 keep their rights in it. Noust ships none of them: you bring the files, the converted document says
 where it came from, and the logos a template names are not fetched.
 

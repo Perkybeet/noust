@@ -191,7 +191,13 @@ class StackBringer:
         return self._runner or get_runner()
 
     def preview(
-        self, stack: str, *, name: str | None = None, accept_recreate: bool = False
+        self,
+        stack: str,
+        *,
+        name: str | None = None,
+        accept_recreate: bool = False,
+        accept_host_access: bool = False,
+        accepted_by: str = "",
     ) -> Bringing:
         """
         Say what bringing a stack to Noust would register, without registering anything.
@@ -200,6 +206,9 @@ class StackBringer:
             stack: The Compose project, as the person typed it.
             name: What to call the application; the project's name when None.
             accept_recreate: Go on although the rehearsed ``up`` would change something.
+            accept_host_access: Show the plan although the stack runs with what gives this server to
+                a container, instead of refusing it with the lines.
+            accepted_by: Who would accept it.
 
         Returns:
             What would be registered and what is not changed.
@@ -213,7 +222,9 @@ class StackBringer:
             DeploymentError: Adopting is refused for another reason; the error says which.
         """
         project, path, relative, domain = self._prepare(stack, name)
-        plan = self._planned(domain, path, relative, accept_recreate)
+        plan = self._planned(
+            domain, path, relative, accept_recreate, accept_host_access, accepted_by
+        )
         return self._described(project, plan)
 
     def bring(
@@ -222,6 +233,8 @@ class StackBringer:
         *,
         name: str | None = None,
         accept_recreate: bool = False,
+        accept_host_access: bool = False,
+        accepted_by: str = "",
         trigger: str = DeploymentTrigger.PANEL.value,
         job_id: str | None = None,
     ) -> Bringing:
@@ -232,6 +245,9 @@ class StackBringer:
             stack: The Compose project, as the person typed it.
             name: What to call the application; the project's name when None.
             accept_recreate: Go on although the rehearsed ``up`` would change something.
+            accept_host_access: Go on although the stack runs with what gives this server to a
+                container: recorded as the application's compose exception.
+            accepted_by: Who accepts it, for the record.
             trigger: Who asked, for the history row.
             job_id: The background job, when there is one.
 
@@ -246,7 +262,9 @@ class StackBringer:
             DeploymentError: Adopting is refused for another reason.
         """
         project, path, relative, domain = self._prepare(stack, name)
-        plan = self._planned(domain, path, relative, accept_recreate)
+        plan = self._planned(
+            domain, path, relative, accept_recreate, accept_host_access, accepted_by
+        )
         done = compose_adopt.adopt(
             plan, trigger=trigger, job_id=job_id, runner=self.runner, store=self.store
         )
@@ -256,7 +274,13 @@ class StackBringer:
         return described
 
     def _planned(
-        self, domain: str, path: Path, relative: str | None, accept_recreate: bool
+        self,
+        domain: str,
+        path: Path,
+        relative: str | None,
+        accept_recreate: bool,
+        accept_host_access: bool = False,
+        accepted_by: str = "",
     ) -> AdoptionPlan:
         """
         Ask the adoption what registering the stack would do, which changes nothing.
@@ -266,6 +290,8 @@ class StackBringer:
             path: The directory the stack runs from.
             relative: Its compose file relative to the directory.
             accept_recreate: Go on although the rehearsal says something would change.
+            accept_host_access: Go on although the stack runs with what gives this server to a container.
+            accepted_by: Who accepts it.
 
         Returns:
             The plan.
@@ -281,6 +307,8 @@ class StackBringer:
                 path,
                 compose_file=relative,
                 accept_recreate=accept_recreate,
+                accept_host_access=accept_host_access,
+                accepted_by=accepted_by,
                 runner=self.runner,
                 store=self.store,
             )

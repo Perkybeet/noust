@@ -21,6 +21,7 @@ from pathlib import Path
 import click
 
 from noust.cli.app import Context, NoustCommand, json_option, pass_context
+from noust.core.audit.actor import cli_actor
 from noust.core.logger import Logger
 from noust.deployers import compose_adopt, native_adopt
 from noust.deployers.compose_adopt import AdoptionPlan
@@ -70,6 +71,13 @@ def _show(logger: Logger, plan: AdoptionPlan) -> None:
     logger.key_value("Rehearsed up", "changes nothing" if not plan.changes else "changes:")
     for change in plan.changes:
         logger.substep(change)
+    if plan.host_access:
+        logger.key_value(
+            "Gives this server",
+            f"{len(plan.host_access)} (accepted: recorded as the compose exception of {plan.domain})",
+        )
+        for line in plan.host_access:
+            logger.substep(line)
     if plan.kept_by == compose_adopt.KEPT_BY_UNIT:
         logger.key_value("Unit", f"{plan.app_name}.service, created and enabled, not started")
     else:
@@ -110,6 +118,13 @@ def _show(logger: Logger, plan: AdoptionPlan) -> None:
     is_flag=True,
     help="Adopt even if starting the stack as Noust would recreate something.",
 )
+@click.option(
+    "--accept-host-access",
+    is_flag=True,
+    help="Adopt although the stack runs with what gives this server to a container (a device, "
+    "the Docker socket, a path of the server): recorded as accepted, with your name, as the "
+    "application's compose exception.",
+)
 @click.option("--yes", "-y", is_flag=True, help="Adopt without asking.")
 @json_option("Print what was adopted as JSON.")
 @pass_context
@@ -123,6 +138,7 @@ def adopt_command(
     site: str | None,
     port: int | None,
     accept_recreate: bool,
+    accept_host_access: bool,
     yes: bool,
 ) -> None:
     """
@@ -142,6 +158,8 @@ def adopt_command(
         site=site,
         port=port,
         accept_recreate=accept_recreate,
+        accept_host_access=accept_host_access,
+        accepted_by=cli_actor().label if accept_host_access else "",
         web=compose_adopt._default_web(),
     )
     if not ctx.json_output:

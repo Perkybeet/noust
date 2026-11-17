@@ -145,11 +145,14 @@ applications run as.
   Building one application as root is a per-application decision recorded with a name and a
   reason (`noust app sandbox disable DOMAIN --reason ...`, permission `root_equivalent`).
 - **Docker Compose** builds run in the Docker daemon, outside any sandbox Noust controls. A new
-  stack is refused `privileged: true`, a mounted Docker socket and a bind mount of Noust's own
-  state or of another application, all of which are root on the host or the secrets of
-  everything on it, unless the application has a recorded exception. The mounts are judged after
-  `..` is resolved (`/var/www/apps/shop/../other` and `../other` are the other application's
-  directory), the long and the short syntax alike. A stack proven to run with one already is
+  stack is refused what gives the machine to a container (`privileged: true`, the Docker socket,
+  devices, capabilities such as `SYS_ADMIN`, the host's namespaces, confinement switched off), every
+  path of the server outside the application (a bind mount, an `env_file`, a build context, a build
+  secret, an `include`) and what it downloads, all of which are root on the host or the secrets of
+  everything on it, unless the application has a recorded exception; Noust's own state, another
+  application's files and anything that belongs to another application are refused with no
+  exception. A path is judged by what Docker will mount: `..` is resolved and every link of the
+  repository is followed (`./host` that points at `/` is `/`), the long and the short syntax alike. A stack proven to run with one already is
   warned about and never stopped.
 
 ## Deploy hooks

@@ -37,7 +37,7 @@ export function BringDialog({ stack, onClose }: BringDialogProps) {
   // What would be registered, asked once when the dialog opens and never applied: `preview` changes nothing.
   const preview = useQuery({
     queryKey: ["docker", "stack", stack, "bring-preview"],
-    queryFn: () => request("post", "/api/docker/stacks/{name}/bring", { params: { name: stack ?? "" }, body: { preview: true, accept_recreate: false } }),
+    queryFn: () => request("post", "/api/docker/stacks/{name}/bring", { params: { name: stack ?? "" }, body: { preview: true, accept_recreate: false, accept_host_access: false } }),
     enabled: stack !== null,
     staleTime: 0,
     gcTime: 0,
@@ -65,7 +65,7 @@ export function BringDialog({ stack, onClose }: BringDialogProps) {
       ready={preview.data !== undefined}
       {...(node !== null ? { server: node } : {})}
       onConfirm={async () => {
-        await request("post", "/api/docker/stacks/{name}/bring", { params: { name: stack }, body: { preview: false, accept_recreate: false, ...(typed !== "" ? { name: typed } : {}) } });
+        await request("post", "/api/docker/stacks/{name}/bring", { params: { name: stack }, body: { preview: false, accept_recreate: false, accept_host_access: false, ...(typed !== "" ? { name: typed } : {}) } });
         await queryClient.invalidateQueries({ queryKey: dockerKeys.all });
       }}
     >
