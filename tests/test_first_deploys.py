@@ -102,8 +102,10 @@ class TestWhatIsRemembered:
         [found] = attempts.failed()
 
         assert found.source is not None
+        # Neither half is kept: a token is often written as the user alone.
         assert "hunter2" not in found.source
-        assert found.source.startswith("https://ana:")
+        assert "ana" not in found.source
+        assert found.source == "https://***:***@git.example.com/a/b.git"
 
     def test_a_token_in_the_query_of_the_source_is_never_kept(
         self, store: NoustStore, attempts: FirstDeploys
