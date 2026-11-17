@@ -78,13 +78,17 @@ __all__ = ["NOTIFY_AFTER", "NodeCollector", "PassResult"]
 
 _log = logging.getLogger(__name__)
 
-#: Passes in a row that fail before the operator is told (once, until it works again).
-NOTIFY_AFTER = 3
+#: Passes in a row that fail before the operator is told (once, until it works again). The worker backs
+#: off a failing server (a minute, then two, four, eight and fifteen), so five failed passes are about half
+#: an hour of a server that does not answer: a tunnel that dropped for a few minutes is retried and
+#: resumed (what it left is still listed and a part resumes) and says nothing (item 201). A copy that is
+#: not being kept is said at once (:data:`_IMMEDIATE`).
+NOTIFY_AFTER = 5
 
 #: What a pass may fail with at the edge of the store.
 _STORE_ERRORS = (sqlite3.Error, OSError)
 
-#: Codes that are said the first time they happen: waiting for the third time would be waiting
+#: Codes that are said the first time they happen: waiting for the last of those passes would be waiting
 #: for a copy that is not being kept.
 _IMMEDIATE = frozenset({"disk_full", "mismatch", "ceiling"})
 
@@ -619,7 +623,7 @@ class NodeCollector:
     ) -> None:
         """
         Tell the operator, when it is time: at once for a copy that is not being kept, and for the
-        rest the third time in a row, once.
+        rest after :data:`NOTIFY_AFTER` passes in a row, once.
 
         Args:
             node: The server.

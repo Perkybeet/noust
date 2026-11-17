@@ -34,6 +34,7 @@ from noust.cli.commands.retention_options import KEEP_GB_HELP, add_size, gigabyt
 from noust.cli.commands.timer_options import describe_timer_options, timer_options
 from noust.core.exceptions import NoustError, ValidationError
 from noust.core.logger import Logger
+from noust.managers.backup_sending import pending_line
 from noust.managers.database.backups import (
     ORIGIN_MANUAL,
     ORIGIN_SCHEDULED,
@@ -615,7 +616,10 @@ def backup_run(
         dump = result["dump"]
         ctx.logger.success(f"Backup complete: {dump['name']} ({dump['size_human']})")
         for name, outcome in result["destinations"].items():
-            ctx.logger.info(f"  Sent to {name}: verified by {outcome.get('verified_by')}")
+            if outcome.get("pending"):
+                ctx.logger.warning(f"  {pending_line(name, outcome)}")
+            else:
+                ctx.logger.info(f"  Sent to {name}: verified by {outcome.get('verified_by')}")
         for name in result["local_deleted"]:
             ctx.logger.info(f"  Retention deleted {name}")
     _exit(0)

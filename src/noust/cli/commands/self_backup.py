@@ -33,6 +33,7 @@ from noust.cli.commands.retention_options import KEEP_GB_HELP, add_size, gigabyt
 from noust.cli.commands.timer_options import describe_timer_options, timer_options
 from noust.core import paths
 from noust.core.exceptions import NoustError, ValidationError
+from noust.managers.backup_sending import pending_line
 from noust.managers.database.base import format_size
 from noust.managers.self_backup import SelfBackupManager
 from noust.managers.self_restore import SelfRestore
@@ -376,8 +377,11 @@ def run_command(ctx: Context) -> None:
         _echo_json(result)
         return
     ctx.logger.success(f"Backed up Noust's own state: {result['file']}")
-    for name in result["destinations"]:
-        ctx.logger.info(f"  Sent to {name}")
+    for name, outcome in result["destinations"].items():
+        if outcome.get("pending"):
+            ctx.logger.warning(f"  {pending_line(name, outcome)}")
+        else:
+            ctx.logger.info(f"  Sent to {name}")
     for name in result["local_deleted"]:
         ctx.logger.info(f"  Retention deleted {name}")
     for name in result["removed_after_sending"]:

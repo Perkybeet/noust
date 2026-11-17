@@ -29,6 +29,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
+from noust.core.pending_sends import PendingSend, owed_by_copy
 from noust.core.server_text import say
 from noust.managers.backup_manager import BackupManager, BackupMetadata
 from noust.validators.names import validate_filename
@@ -64,6 +65,9 @@ class BackupInfo(BaseModel):
             archive. None when nothing ever has.
         verified_ok: That check's own verdict. None until the first check;
             reflects the most recent one after that, whichever way it went.
+        pending_sends: The destinations this backup was made for and has not reached yet, each
+            with ``destination``, ``reason`` (what it said, verbatim), ``attempts``, ``since`` and
+            ``next_attempt_at``. Empty once it is everywhere it was meant to be.
     """
 
     backup_id: str
@@ -84,6 +88,7 @@ class BackupInfo(BaseModel):
     tags: list[str] = Field(default_factory=list)
     last_verified_at: str | None = None
     verified_ok: bool | None = None
+    pending_sends: list[dict[str, Any]] = Field(default_factory=list)
 
     _iso_timestamps = iso_offset_validator("timestamp", "last_verified_at")
 
@@ -237,12 +242,15 @@ def _filesystem_usage(directory: Path) -> tuple[int, int] | None:
     return None
 
 
-def _to_backup_info(backup: BackupMetadata) -> BackupInfo:
+def _to_backup_info(
+    backup: BackupMetadata, owed: dict[str, list[PendingSend]] | None = None
+) -> BackupInfo:
     """
     Convert backup metadata into the API model.
 
     Args:
         backup: Metadata as the manager records it.
+        owed: What is owed to a destination for each backup, from :func:`owed_by_copy`.
 
     Returns:
         The API representation.
@@ -266,6 +274,7 @@ def _to_backup_info(backup: BackupMetadata) -> BackupInfo:
         tags=backup.tags,
         last_verified_at=backup.last_verified_at,
         verified_ok=backup.verified_ok,
+        pending_sends=[row.to_dict() for row in (owed or {}).get(backup.id, [])],
     )
 
 
@@ -310,8 +319,9 @@ def list_backups(
     """
     validated = strict_domain(domain) if domain else None
     backups = BackupManager(verbose=False).list_backups(domain=validated, limit=limit)
+    owed = owed_by_copy("app")
     return BackupListResponse(
-        backups=[_to_backup_info(backup) for backup in backups], total=len(backups)
+        backups=[_to_backup_info(backup, owed) for backup in backups], total=len(backups)
     )
 
 
@@ -412,7 +422,7 @@ def get_backup(
         The backup description.
     """
     _, backup = _load_backup(backup_id)
-    return _to_backup_info(backup)
+    return _to_backup_info(backup, owed_by_copy("app"))
 
 
 @router.post("/{backup_id}/verify", response_model=VerifyBackupResponse)

@@ -41,6 +41,7 @@ from noust.core.exceptions import BackupError, ValidationError
 from noust.core.fs import SECRET_DIR_MODE, FileSystem, get_fs
 from noust.core.logger import Logger
 from noust.core.server_text import say
+from noust.managers import destination_patience as patience
 from noust.managers.backup_destinations import (
     _RCLONE_LIST_TIMEOUT,
     _RCLONE_TIMEOUT,
@@ -154,7 +155,7 @@ class DestinationFileManager(BackupDestinationManager):
         Raises:
             BackupError: When rclone cannot read the folder.
         """
-        result = self.runner.run(
+        result = self._rclone(
             ["rclone", "cat", target_dir, "--include", "*.json", "--max-depth", "1"],
             env=env,
             timeout=_RCLONE_LIST_TIMEOUT,
@@ -176,6 +177,7 @@ class DestinationFileManager(BackupDestinationManager):
             if isinstance(data.get("name"), str)
         }
 
+    @patience.working
     def push_file(
         self,
         local: Path,
@@ -230,7 +232,7 @@ class DestinationFileManager(BackupDestinationManager):
         )
         uploaded = [name, sidecar_name]
 
-        result = self.runner.run(
+        result = self._rclone(
             ["rclone", "copyto", str(local), f"{target_dir}/{name}"],
             env=env,
             timeout=_TRANSFER_TIMEOUT,
@@ -247,7 +249,7 @@ class DestinationFileManager(BackupDestinationManager):
                     ),
                 )
             )
-        result = self.runner.run(
+        result = self._rclone(
             ["rclone", "rcat", f"{target_dir}/{sidecar_name}"],
             env=env,
             input=body,
@@ -304,6 +306,7 @@ class DestinationFileManager(BackupDestinationManager):
             "retention_deleted": deleted,
         }
 
+    @patience.working
     def push_batch(
         self, files: Sequence[Path], destination_name: str, folder: str
     ) -> dict[str, Any]:
@@ -347,7 +350,7 @@ class DestinationFileManager(BackupDestinationManager):
         ]
         uploaded: list[str] = []
         for local in pending:
-            result = self.runner.run(
+            result = self._rclone(
                 ["rclone", "copyto", str(local), f"{target_dir}/{local.name}"],
                 env=env,
                 timeout=_TRANSFER_TIMEOUT,
@@ -381,6 +384,7 @@ class DestinationFileManager(BackupDestinationManager):
             "present": len(files) - len(pending) + len(uploaded),
         }
 
+    @patience.asking
     def list_names(self, destination_name: str, folder: str) -> list[str]:
         """
         List the names of the files of a folder, without reading their sidecars.
@@ -409,6 +413,7 @@ class DestinationFileManager(BackupDestinationManager):
             if not entry.get("IsDir") and not str(entry.get("Name", "")).endswith(".json")
         )
 
+    @patience.working
     def fetch_batch(
         self,
         destination_name: str,
@@ -467,7 +472,7 @@ class DestinationFileManager(BackupDestinationManager):
             destination = directory / name
             if destination.is_file() and destination.stat().st_size == remote_sizes[name]:
                 continue
-            result = self.runner.run(
+            result = self._rclone(
                 ["rclone", "copyto", f"{target_dir}/{name}", str(destination)],
                 env=env,
                 timeout=_TRANSFER_TIMEOUT,
@@ -497,6 +502,7 @@ class DestinationFileManager(BackupDestinationManager):
             fetched.append(name)
         return fetched
 
+    @patience.working
     def delete_names(self, destination_name: str, folder: str, names: Sequence[str]) -> list[str]:
         """
         Delete files of a folder, tolerating the ones already gone.
@@ -627,7 +633,7 @@ class DestinationFileManager(BackupDestinationManager):
             BackupError: When rclone fails for another reason.
         """
         for victim in (name, f"{name}.json"):
-            result = self.runner.run(
+            result = self._rclone(
                 ["rclone", "deletefile", f"{target_dir}/{victim}"],
                 env=env,
                 timeout=_RCLONE_TIMEOUT,
@@ -644,6 +650,7 @@ class DestinationFileManager(BackupDestinationManager):
                     )
                 )
 
+    @patience.asking
     def list_files(self, destination_name: str, folder: str) -> list[RemoteFile]:
         """
         List the files of a folder, newest first, with their sidecars.
@@ -683,6 +690,7 @@ class DestinationFileManager(BackupDestinationManager):
             for entry in files
         ]
 
+    @patience.asking
     def list_folders(self, destination_name: str, folder: str) -> list[str]:
         """
         List the sub-folders of a folder.
@@ -706,6 +714,7 @@ class DestinationFileManager(BackupDestinationManager):
         entries = self._list_remote(env, target_dir, secrets_literal, hashes=False)
         return sorted(str(e.get("Name", "")) for e in entries if e.get("IsDir"))
 
+    @patience.working
     def download_file(
         self,
         destination_name: str,
@@ -754,7 +763,7 @@ class DestinationFileManager(BackupDestinationManager):
         destination = staging_dir / name
 
         self._check_staging_space(env, target_dir, name, staging_dir, secrets_literal)
-        result = self.runner.run(
+        result = self._rclone(
             ["rclone", "copyto", f"{target_dir}/{name}", str(destination)],
             env=env,
             timeout=_TRANSFER_TIMEOUT,
@@ -821,7 +830,7 @@ class DestinationFileManager(BackupDestinationManager):
             BackupError: When rclone fails for another reason, or the sidecar
                 is not a JSON object.
         """
-        result = self.runner.run(
+        result = self._rclone(
             ["rclone", "cat", f"{target_dir}/{name}.json"],
             env=env,
             timeout=_RCLONE_LIST_TIMEOUT,
@@ -847,6 +856,7 @@ class DestinationFileManager(BackupDestinationManager):
             )
         return found[0]
 
+    @patience.working
     def delete_file(self, destination_name: str, folder: str, name: str) -> None:
         """
         Delete a file and its sidecar from a destination.

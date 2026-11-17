@@ -455,6 +455,44 @@
       ]
     }
   },
+  "backup.sends_failed": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Backups not delivered</b> · nas\nThe copies could not be sent and stay on this server. Noust sends them again by itself, and says so when they arrive.\n\n<b>Server:</b> web-1\n<b>Destination:</b> nas\n<b>Copies:</b> 9: app01.example.com, app02.example.com, app04.example.com, app05.example.com, app07.example.com and 4 more\n<b>Tried:</b> 6 times\n<b>Next try:</b> 2026-11-17 02:15 UTC\n<b>Kept in:</b> <code>/var/backups/noust</code>\n<b>Send them now with:</b> <code>noust backup resend</code>\n\n<i>What the system reported</i>\n<pre>Failed to upload app01-example-com_20261117_012000.tar.gz to nas\nFailed to copyto: sftp: write: i/o timeout: connection lost\nNoust tried 3 times over 2m30s and gave up.</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/backups"
+          }
+        ]
+      ]
+    }
+  },
+  "backup.sends_recovered": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Backups delivered</b> · nas\nEvery copy that was waiting has reached the destination.\n\n<b>Server:</b> web-1\n<b>Destination:</b> nas\n<b>Copies:</b> 9",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/backups"
+          }
+        ]
+      ]
+    }
+  },
   "backup.collect_failed": {
     "chat_id": "-1001234567890",
     "text": "✕ <b>Backups not collected</b> · web-2\nThe central could not take this server's backups; they are still only on it.\n\n<b>Server:</b> web-1\n\n<i>What the system reported</i>\n<pre>The disk the copies are kept on is full. 1.2 GB are free under /data/backups and the next copy needs 3.4 GB: free space there, or keep fewer copies.</pre>",

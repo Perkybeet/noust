@@ -661,6 +661,59 @@ Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
 Cambia lo que recibes en Ajustes > Notificaciones
 
 ========================================================================
+### backup.sends_failed
+Subject: [Noust] Copia: nas (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: backup_failed
+X-Noust-Code: backup.sends_failed
+X-Noust-Server: web-1
+
+▲ Copias sin entregar · nas
+Las copias no se han podido enviar y siguen en este servidor. Noust las vuelve a enviar solo y avisa cuando lleguen.
+
+Servidor: web-1
+Destino: nas
+Copias: 9: app01.example.com, app02.example.com, app04.example.com, app05.example.com, app07.example.com y 4 más
+Intentos: 6 veces
+Próximo intento: 2026-11-17 02:15 UTC
+Guardadas en: /var/backups/noust
+Envíalas ahora con: noust backup resend
+
+Lo que ha informado el sistema:
+  Failed to upload app01-example-com_20261117_012000.tar.gz to nas
+  Failed to copyto: sftp: write: i/o timeout: connection lost
+  Noust tried 3 times over 2m30s and gave up.
+
+Abrir en la consola: https://console.example.com/n/web-1/backups
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### backup.sends_recovered
+Subject: [Noust] Copia: nas (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: backup_failed
+X-Noust-Code: backup.sends_recovered
+X-Noust-Server: web-1
+
+● Copias entregadas · nas
+Todas las copias que esperaban han llegado al destino.
+
+Servidor: web-1
+Destino: nas
+Copias: 9
+
+Abrir en la consola: https://console.example.com/n/web-1/backups
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
 ### backup.collect_failed
 Subject: [Noust] Copia: web-2 (web-1)
 Auto-Submitted: auto-generated

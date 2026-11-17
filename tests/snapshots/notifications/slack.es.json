@@ -1568,6 +1568,142 @@
       }
     ]
   },
+  "backup.sends_failed": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Copias sin entregar · nas",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Copias sin entregar · nas",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Las copias no se han podido enviar y siguen en este servidor. Noust las vuelve a enviar solo y avisa cuando lleguen."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Destino*\nnas"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Copias*\n9: app01.example.com, app02.example.com, app04.example.com, app05.example.com, app07.example.com y 4 más"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Intentos*\n6 veces"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Próximo intento*\n2026-11-17 02:15 UTC"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Guardadas en*\n`/var/backups/noust`"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Envíalas ahora con:* `noust backup resend`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Lo que ha informado el sistema_\n```Failed to upload app01-example-com_20261117_012000.tar.gz to nas\nFailed to copyto: sftp: write: i/o timeout: connection lost\nNoust tried 3 times over 2m30s and gave up.```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/backups|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "backup.sends_recovered": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Copias entregadas · nas",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Copias entregadas · nas",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Todas las copias que esperaban han llegado al destino."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Destino*\nnas"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Copias*\n9"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/backups|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
   "backup.collect_failed": {
     "attachments": [
       {

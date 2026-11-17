@@ -220,6 +220,32 @@ def _sweep(store: NoustStore) -> list[Task]:
     ]
 
 
+def _resend(store: NoustStore) -> list[Task]:
+    """
+    Args:
+        store: The store.
+
+    Returns:
+        The pass that sends again the copies that were made and could not be sent, while any is owed: the
+        same command the server's timer runs (``noust backup resend``). Nothing owed, nothing to run.
+    """
+    from noust.core.pending_sends import PendingSends
+    from noust.managers.backup_scheduler import RESEND_CALENDAR, RESEND_UNIT
+
+    if not PendingSends(store).all():
+        return []
+    return [
+        Task(
+            key="resend",
+            kind="resend",
+            subject="",
+            unit=RESEND_UNIT,
+            calendar=RESEND_CALENDAR,
+            argv=("backup", "resend", "--reason", "Scheduled resend of backups that were not sent"),
+        )
+    ]
+
+
 #: What the cleanup's timer runs on a server, minus the program (``templates/systemd/storage-clean-service.j2``,
 #: which a test holds this to).
 CLEANUP_ARGV = (
@@ -290,6 +316,7 @@ SOURCES.update(
         "application_backups": _application_backups,
         "volume_backups": _volume_policies,
         "sweep": _sweep,
+        "resend": _resend,
         "cleanup": _cleanup,
         "image_check": _image_check,
     }

@@ -69,7 +69,7 @@ from pathlib import Path
 from typing import Any
 
 from noust.central import backup as central_backup
-from noust.core import audit, backup_hold, paths, sealing
+from noust.core import audit, backup_hold, paths, sealing, timeutil
 from noust.core.config import SYSTEMD_DIR, Config, resolve_backup_directory
 from noust.core.ens.envelope import EnvelopeError, open_envelope, read_header, seal_file
 from noust.core.exceptions import BackupError, NoustError, SourceError, ValidationError
@@ -78,7 +78,6 @@ from noust.core.logger import Logger
 from noust.core.notifications.composers import (
     compose_backup_completed,
     compose_backup_failed,
-    compose_backup_upload_failed,
 )
 from noust.core.notifications.context import NotificationContext
 from noust.core.runner import CommandRunner, get_runner
@@ -89,6 +88,7 @@ from noust.managers.backup_destination_files import DestinationFileManager, file
 from noust.managers.backup_failures import record_failure
 from noust.managers.backup_manager import server_id, sidecar_mac_state, sign_sidecar
 from noust.managers.backup_scheduler import BackupScheduler, validate_calendar
+from noust.managers.backup_sending import Sender
 from noust.managers.backup_timer_options import validate_options
 from noust.managers.cert_manager import CertManager
 from noust.managers.retention import (
@@ -1679,6 +1679,17 @@ class SelfBackupManager:
             self._audit("self_backup.schedule.remove")
         return removed
 
+    def _send_what_is_owed(self) -> None:
+        """Send the bundles that an earlier run could not send, before this run's own."""
+        from noust.managers.backup_resend import NoustPusher, Resender
+
+        try:
+            Resender(sender=Sender(config=self.config), pushers={"noust": NoustPusher(self)}).run(
+                only=("noust", "Noust")
+            )
+        except (NoustError, OSError, sqlite3.Error) as exc:
+            self.logger.warning(f"Could not send what was owed of Noust's own state: {exc}")
+
     def run_schedule(
         self,
         *,
@@ -1726,6 +1737,10 @@ class SelfBackupManager:
             "removed_after_sending": [],
             "file": None,
         }
+        sender = Sender(config=self.config)
+        if notify:
+            # What an earlier run could not send goes first, and waits for no clock.
+            self._send_what_is_owed()
         try:
             passphrase = self.stored_passphrase()
             if passphrase is None:
@@ -1755,38 +1770,46 @@ class SelfBackupManager:
             raise
 
         failures: list[tuple[str, str]] = []
+        pending: list[str] = []
+        refused: set[str] = set()
         for entry in schedule.destinations:
             name = entry["name"]
             step(f"Sending {bundle.path.name} to {name}")
-            try:
-                summary = self.push(
+            # A scheduled run keeps a bundle that does not arrive as owed (Sender): kept here, sent
+            # again by itself and said once for the destination when it matters. A run somebody
+            # asked for reports it to them, as it always did.
+            outcome = sender.send(
+                "noust",
+                bundle.path.name,
+                "Noust",
+                name,
+                copy_created_at=timeutil.utc_now(),
+                defer=notify,
+                push=functools.partial(
+                    self.push,
                     bundle.path.name,
                     name,
                     retention_count=entry.get("retention_count"),
                     retention_days=entry.get("retention_days"),
                     retention_gb=entry.get("retention_gb"),
-                )
-                result["destinations"][name] = {"ok": True, **summary}
-            except NoustError as exc:
-                result["destinations"][name] = {"ok": False, "error": str(exc)}
-                failures.append((name, str(exc)))
-                announce(
-                    functools.partial(
-                        compose_backup_upload_failed,
-                        "Noust",
-                        name,
-                        str(exc),
-                        context,
-                        failure_id=record_failure("upload", "Noust", str(exc), destination=name),
-                    )
-                )
+                ),
+            )
+            result["destinations"][name] = outcome.entry()
+            if outcome.deferred:
+                pending.append(name)
+                if outcome.permanent:
+                    refused.add(name)
+            elif not outcome.ok:
+                # A run somebody asked for owes nothing and announces nothing; a scheduled one whose
+                # owing could not be kept was said by the sender, as it used to be.
+                failures.append((name, outcome.error or ""))
         step("Applying local retention")
         result["local_deleted"] = self.apply_retention(
             retention_count=schedule.retention_count,
             retention_days=schedule.retention_days,
             retention_bytes=schedule.retention_bytes,
         )
-        if schedule.remote_only and schedule.destinations and not failures:
+        if schedule.remote_only and schedule.destinations and not failures and not pending:
             # Every destination holds the bundle and checked it on arrival, and the verification
             # above read the local file: the copy a small disk cannot afford goes.
             step(f"Removing {bundle.path.name} from this server: every destination holds it")
@@ -1803,7 +1826,17 @@ class SelfBackupManager:
                 self.records.record_run(ok=False, error=str(error), file=bundle.path.name)
             raise error
         if self.records.get():
-            self.records.record_run(ok=True, error=None, file=bundle.path.name)
+            if refused:
+                # What a destination refused for good needs somebody: the schedule says so, as it did.
+                self.records.record_run(
+                    ok=False,
+                    error=f"The backup of Noust's own state was taken and refused by: {', '.join(sorted(refused))}",
+                    file=bundle.path.name,
+                )
+            else:
+                self.records.record_run(ok=True, error=None, file=bundle.path.name)
+        if pending:
+            return result
         announce(
             lambda: compose_backup_completed(
                 "Noust",

@@ -434,6 +434,10 @@ EVENTS: dict[str, EventSpec] = {
                 "A retention deleted a copy that a central that follows this server had not "
                 "taken yet."
             ),
+            "backup.unsent_delete": (
+                "A retention deleted a copy that was still owed to a backup destination: it had "
+                "waited fourteen days and never reached it."
+            ),
             "central_backup.collect": "The central took copies away from a server.",
             "central_backup.delete": "A copy the central holds was deleted.",
             "central_backup.restore": "A copy the central holds was returned to a server and restored.",

@@ -4707,6 +4707,9 @@ export const serverText = {
     valid_container_name_uses: {
       text: "{label} is not valid: a container name uses lowercase letters, digits and single hyphens, and starts and ends with a letter or a digit",
     },
+    gave_up_after: {
+      text: "Noust tried {count} times over {span} and gave up.",
+    },
   },
   backup_encryption: {
     backups_sealed_server: {

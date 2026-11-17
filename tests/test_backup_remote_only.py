@@ -382,7 +382,7 @@ class TestApplicationSchedule:
         assert taken == []
         assert result["kept_locally"] is True
 
-    def test_a_destination_that_failed_keeps_the_backup(
+    def test_a_destination_that_failed_keeps_the_backup_and_owes_it(
         self, taken: list[str], monkeypatch: pytest.MonkeyPatch
     ) -> None:
         self.schedule(remote_only=True)
@@ -394,10 +394,13 @@ class TestApplicationSchedule:
 
         monkeypatch.setattr(BackupDestinationManager, "push", push)
 
-        with pytest.raises(BackupError, match="could not be sent to: s3"):
-            run_schedule("shop.example.com")
+        result = run_schedule("shop.example.com")
 
+        # Nothing is deleted while a destination still owes it, and the run does not fail for it:
+        # the copy is sent again by itself (tests/test_backup_sending.py).
         assert taken == []
+        assert result["kept_locally"] is True
+        assert result["destinations"]["s3"]["pending"] is True
 
     def test_a_row_edited_to_have_no_destination_deletes_nothing(self, taken: list[str]) -> None:
         get_store().save_backup_schedule(

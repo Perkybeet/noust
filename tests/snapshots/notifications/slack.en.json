@@ -1568,6 +1568,142 @@
       }
     ]
   },
+  "backup.sends_failed": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Backups not delivered · nas",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Backups not delivered · nas",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "The copies could not be sent and stay on this server. Noust sends them again by itself, and says so when they arrive."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Destination*\nnas"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Copies*\n9: app01.example.com, app02.example.com, app04.example.com, app05.example.com, app07.example.com and 4 more"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Tried*\n6 times"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Next try*\n2026-11-17 02:15 UTC"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Kept in*\n`/var/backups/noust`"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Send them now with:* `noust backup resend`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_What the system reported_\n```Failed to upload app01-example-com_20261117_012000.tar.gz to nas\nFailed to copyto: sftp: write: i/o timeout: connection lost\nNoust tried 3 times over 2m30s and gave up.```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/backups|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "backup.sends_recovered": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Backups delivered · nas",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Backups delivered · nas",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Every copy that was waiting has reached the destination."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Destination*\nnas"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Copies*\n9"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/backups|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
   "backup.collect_failed": {
     "attachments": [
       {

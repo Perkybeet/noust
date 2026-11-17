@@ -422,18 +422,19 @@ class TestRunSchedule:
             "noust.core.notifier.Notifier.notify", lambda self, event: notified.append(event)
         )
 
-        with pytest.raises(BackupError) as excinfo:
-            run_schedule("shop.example.com")
+        result = run_schedule("shop.example.com")
 
-        assert any(
-            event.code == "backup.upload_failed"
-            and event.excerpt is not None
-            and "rclone: permission denied for user wasm" in event.excerpt.lines
-            for event in notified
-        )
-        # With no notification channel, the timer's journal has only this.
-        assert "broken" in excinfo.value.message
-        assert "permission denied for user wasm" in excinfo.value.details
+        # The destination that refused is owed the copy and the other one got it: the run did not fail.
+        assert result["destinations"]["fine"]["ok"] is True
+        assert result["destinations"]["broken"]["ok"] is False
+        assert result["destinations"]["broken"]["pending"] is True
+        # A refusal waiting does not mend is said at once, once for the destination, with its words.
+        (notice,) = [event for event in notified if event.kind == "backup_failed"]
+        assert notice.code == "backup.sends_failed" and notice.subject == "broken"
+        assert notice.excerpt is not None
+        assert "rclone: permission denied for user wasm" in notice.excerpt.lines
+        # With no notification channel, the timer's journal has the words too.
+        assert "permission denied for user wasm" in result["destinations"]["broken"]["error"]
 
     def test_local_backup_failure_notifies_and_never_pushes(
         self, monkeypatch: pytest.MonkeyPatch
@@ -528,10 +529,9 @@ class TestRunSchedule:
             "noust.core.notifier.Notifier.notify", lambda self, event: notified.append(event)
         )
 
-        with pytest.raises(BackupError):
-            run_schedule("shop.example.com")
+        run_schedule("shop.example.com")
 
-        (notice,) = [event for event in notified if event.code == "backup.upload_failed"]
+        (notice,) = [event for event in notified if event.code == "backup.sends_failed"]
         failure_id = failure_id_of(notice)
         stored = BackupFailureLog(get_store()).get(failure_id)
         assert stored is not None and (stored.kind, stored.destination) == ("upload", "broken")
@@ -599,15 +599,11 @@ class TestRunSchedule:
             "noust.core.notifier.Notifier.notify", lambda self, event: notified.append(event)
         )
 
-        with pytest.raises(BackupError):
-            run_schedule("shop.example.com")
+        run_schedule("shop.example.com")
 
         assert len(notified) == 1
-        assert (notified[0].kind, notified[0].code) == ("backup_failed", "backup.upload_failed")
-        assert (notified[0].title, notified[0].subject) == (
-            "Subida de la copia fallida",
-            "shop.example.com",
-        )
+        assert (notified[0].kind, notified[0].code) == ("backup_failed", "backup.sends_failed")
+        assert (notified[0].title, notified[0].subject) == ("Copias sin entregar", "broken")
         assert {fact.key: fact.value for fact in notified[0].facts}["destination"] == "broken"
         assert notified[0].excerpt is not None
         assert "rclone: permission denied for user wasm" in notified[0].excerpt.lines

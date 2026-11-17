@@ -306,7 +306,17 @@ class TestDestinations:
             destinations=[{"name": name} for name in names],
         )
 
-    def test_one_that_does_not_answer_is_said_once_with_what_rclone_said(
+    def test_one_probe_that_fails_is_not_said(self, store: NoustStore, rig: Rig) -> None:
+        self.policy_sending_to(store, "nas")
+
+        def broken(name: str) -> object:
+            raise BackupError(f"Could not reach backup destination {name!r}", details="timeout")
+
+        DestinationWatch(broken).check(rig.services)
+
+        assert rig.codes == []
+
+    def test_three_in_a_row_are_said_once_with_what_rclone_said(
         self, store: NoustStore, rig: Rig
     ) -> None:
         self.policy_sending_to(store, "nas")
@@ -315,7 +325,9 @@ class TestDestinations:
             raise BackupError(f"Could not reach backup destination {name!r}", details="timeout")
 
         destinations = DestinationWatch(broken)
-        destinations.check(rig.services)
+        for _ in range(3):
+            destinations.check(rig.services)
+            rig.later(minutes=5)
         rig.later(hours=6)
         destinations.check(rig.services)
 
@@ -323,6 +335,26 @@ class TestDestinations:
         excerpt = rig.sent[0].excerpt
         assert excerpt is not None and "timeout" in " ".join(excerpt.lines)
         assert rig.sent[0].kind == "destination_unreachable"
+
+    def test_a_probe_that_answers_starts_the_count_again(self, store: NoustStore, rig: Rig) -> None:
+        self.policy_sending_to(store, "nas")
+        answering = {"up": False}
+
+        def ask(name: str) -> object:
+            if not answering["up"]:
+                raise BackupError("down")
+            return {"ok": True}
+
+        destinations = DestinationWatch(ask)
+        destinations.check(rig.services)
+        destinations.check(rig.services)
+        answering["up"] = True
+        destinations.check(rig.services)
+        answering["up"] = False
+        destinations.check(rig.services)
+        destinations.check(rig.services)
+
+        assert rig.codes == []
 
     def test_it_is_said_again_after_a_day_and_closed_when_it_answers(
         self, store: NoustStore, rig: Rig
@@ -336,7 +368,8 @@ class TestDestinations:
             return {"ok": True}
 
         destinations = DestinationWatch(ask)
-        destinations.check(rig.services)
+        for _ in range(3):
+            destinations.check(rig.services)
         rig.later(hours=25)
         destinations.check(rig.services)
         answering["up"] = True
@@ -358,11 +391,71 @@ class TestDestinations:
         def broken(name: str) -> object:
             raise BackupError("down")
 
-        DestinationWatch(broken).check(rig.services)
+        for _ in range(3):
+            DestinationWatch(broken).check(rig.services)
         rig.later(hours=6)
         DestinationWatch(broken).check(rig.services)
 
         assert rig.codes == ["destination.unreachable"]
+
+    def test_it_looks_again_in_minutes_while_a_destination_is_in_doubt(
+        self, store: NoustStore, rig: Rig
+    ) -> None:
+        self.policy_sending_to(store, "nas")
+        rig.settings.values["monitor.backup_check_hours"] = 6
+
+        def broken(name: str) -> object:
+            raise BackupError("down")
+
+        destinations = DestinationWatch(broken)
+        assert destinations.interval_s(rig.services) == 6 * 3600
+        destinations.check(rig.services)
+
+        assert destinations.interval_s(rig.services) == 5 * 60
+
+    def test_it_goes_back_to_its_own_pace_when_everything_answers(
+        self, store: NoustStore, rig: Rig
+    ) -> None:
+        self.policy_sending_to(store, "nas")
+        answering = {"up": False}
+
+        def ask(name: str) -> object:
+            if not answering["up"]:
+                raise BackupError("down")
+            return {"ok": True}
+
+        destinations = DestinationWatch(ask)
+        for _ in range(3):
+            destinations.check(rig.services)
+        answering["up"] = True
+        destinations.check(rig.services)
+
+        assert destinations.interval_s(rig.services) == 6 * 3600
+
+    def test_it_is_silent_when_the_runs_have_said_it_for_the_same_destination(
+        self, store: NoustStore, rig: Rig
+    ) -> None:
+        self.policy_sending_to(store, "nas")
+        # The sends of the runs told the operator that copies cannot reach this destination.
+        rig.services.state.put_json("sends", "nas", {"at": rig.services.clock(), "delivered": 0})
+
+        def broken(name: str) -> object:
+            raise BackupError("down")
+
+        destinations = DestinationWatch(broken)
+        for _ in range(3):
+            destinations.check(rig.services)
+
+        assert rig.codes == []
+
+    def test_a_destination_that_answers_says_nothing_when_it_never_said_it_was_down(
+        self, store: NoustStore, rig: Rig
+    ) -> None:
+        self.policy_sending_to(store, "nas")
+
+        DestinationWatch(lambda name: {"ok": True}).check(rig.services)
+
+        assert rig.codes == []
 
     def test_a_destination_nothing_sends_to_is_not_asked(self, rig: Rig) -> None:
         asked: list[str] = []

@@ -1233,9 +1233,115 @@
       "omitted": 0
     }
   },
-  "backup.collect_failed": {
+  "backup.sends_failed": {
     "version": 1,
     "id": "00000000-0000-4000-8000-000000000024",
+    "event": "backup_failed",
+    "code": "backup.sends_failed",
+    "state": "warning",
+    "locale": "en",
+    "title": "Backups not delivered: nas",
+    "summary": "The copies could not be sent and stay on this server. Noust sends them again by itself, and says so when they arrive.",
+    "body": "The copies could not be sent and stay on this server. Noust sends them again by itself, and says so when they arrive.\n\nServer: web-1\nDestination: nas\nCopies: 9: app01.example.com, app02.example.com, app04.example.com, app05.example.com, app07.example.com and 4 more\nTried: 6 times\nNext try: 2026-11-17 02:15 UTC\nKept in: /var/backups/noust\nSend them now with: noust backup resend\n\nWhat the system reported:\n  Failed to upload app01-example-com_20261117_012000.tar.gz to nas\n  Failed to copyto: sftp: write: i/o timeout: connection lost\n  Noust tried 3 times over 2m30s and gave up.\n\nOpen in the console: https://console.example.com/n/web-1/backups",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "destination",
+        "label": "Destination",
+        "value": "nas"
+      },
+      {
+        "key": "copies",
+        "label": "Copies",
+        "value": "9: app01.example.com, app02.example.com, app04.example.com, app05.example.com, app07.example.com and 4 more"
+      },
+      {
+        "key": "tried",
+        "label": "Tried",
+        "value": "6 times"
+      },
+      {
+        "key": "next_try",
+        "label": "Next try",
+        "value": "2026-11-17 02:15 UTC"
+      },
+      {
+        "key": "kept_in",
+        "label": "Kept in",
+        "value": "/var/backups/noust"
+      },
+      {
+        "key": "send_now",
+        "label": "Send them now with",
+        "value": "noust backup resend"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "excerpt": {
+      "label": "What the system reported",
+      "lines": [
+        "Failed to upload app01-example-com_20261117_012000.tar.gz to nas",
+        "Failed to copyto: sftp: write: i/o timeout: connection lost",
+        "Noust tried 3 times over 2m30s and gave up."
+      ],
+      "omitted": 0
+    }
+  },
+  "backup.sends_recovered": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000025",
+    "event": "backup_failed",
+    "code": "backup.sends_recovered",
+    "state": "ok",
+    "locale": "en",
+    "title": "Backups delivered: nas",
+    "summary": "Every copy that was waiting has reached the destination.",
+    "body": "Every copy that was waiting has reached the destination.\n\nServer: web-1\nDestination: nas\nCopies: 9\n\nOpen in the console: https://console.example.com/n/web-1/backups",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "destination",
+        "label": "Destination",
+        "value": "nas"
+      },
+      {
+        "key": "copies",
+        "label": "Copies",
+        "value": "9"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "excerpt": null
+  },
+  "backup.collect_failed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000026",
     "event": "backup_failed",
     "code": "backup.collect_failed",
     "state": "failed",
@@ -1270,7 +1376,7 @@
   },
   "backup.schedule_missing": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000025",
+    "id": "00000000-0000-4000-8000-000000000027",
     "event": "backup_failed",
     "code": "backup.schedule_missing",
     "state": "warning",
@@ -1304,7 +1410,7 @@
   },
   "backup.completed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000026",
+    "id": "00000000-0000-4000-8000-000000000028",
     "event": "backup_success",
     "code": "backup.completed",
     "state": "ok",
@@ -1348,7 +1454,7 @@
   },
   "cert.expiring": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000027",
+    "id": "00000000-0000-4000-8000-000000000029",
     "event": "cert_expiring",
     "code": "cert.expiring",
     "state": "warning",
@@ -1387,7 +1493,7 @@
   },
   "cert.expired": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000028",
+    "id": "00000000-0000-4000-8000-000000000030",
     "event": "cert_expiring",
     "code": "cert.expired",
     "state": "failed",
@@ -1426,7 +1532,7 @@
   },
   "unit.failed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000029",
+    "id": "00000000-0000-4000-8000-000000000031",
     "event": "unit_failed",
     "code": "unit.failed",
     "state": "failed",
@@ -1471,7 +1577,7 @@
   },
   "unit.crash_loop": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000030",
+    "id": "00000000-0000-4000-8000-000000000032",
     "event": "unit_failed",
     "code": "unit.crash_loop",
     "state": "failed",
@@ -1526,7 +1632,7 @@
   },
   "unit.stopped_on_failure": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000031",
+    "id": "00000000-0000-4000-8000-000000000033",
     "event": "unit_failed",
     "code": "unit.stopped_on_failure",
     "state": "failed",
@@ -1570,7 +1676,7 @@
   },
   "unit.recovered": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000032",
+    "id": "00000000-0000-4000-8000-000000000034",
     "event": "unit_failed",
     "code": "unit.recovered",
     "state": "ok",
@@ -1599,7 +1705,7 @@
   },
   "disk.threshold": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000033",
+    "id": "00000000-0000-4000-8000-000000000035",
     "event": "disk_threshold",
     "code": "disk.threshold",
     "state": "warning",
@@ -1638,7 +1744,7 @@
   },
   "disk.recovered": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000034",
+    "id": "00000000-0000-4000-8000-000000000036",
     "event": "disk_threshold",
     "code": "disk.recovered",
     "state": "ok",
@@ -1672,7 +1778,7 @@
   },
   "test": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000035",
+    "id": "00000000-0000-4000-8000-000000000037",
     "event": "test",
     "code": "test",
     "state": "info",
@@ -1695,7 +1801,7 @@
   },
   "node.unreachable": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000036",
+    "id": "00000000-0000-4000-8000-000000000038",
     "event": "node_unreachable",
     "code": "node.unreachable",
     "state": "failed",
@@ -1740,7 +1846,7 @@
   },
   "node.recovered": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000037",
+    "id": "00000000-0000-4000-8000-000000000039",
     "event": "node_recovered",
     "code": "node.recovered",
     "state": "ok",
@@ -1774,7 +1880,7 @@
   },
   "drill.failed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000038",
+    "id": "00000000-0000-4000-8000-000000000040",
     "event": "backup_failed",
     "code": "drill.failed",
     "state": "failed",
@@ -1820,7 +1926,7 @@
   },
   "drill.passed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000039",
+    "id": "00000000-0000-4000-8000-000000000041",
     "event": "backup_success",
     "code": "drill.passed",
     "state": "ok",
@@ -1854,7 +1960,7 @@
   },
   "destination.unreachable": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000040",
+    "id": "00000000-0000-4000-8000-000000000042",
     "event": "destination_unreachable",
     "code": "destination.unreachable",
     "state": "warning",
@@ -1895,7 +2001,7 @@
   },
   "destination.recovered": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000041",
+    "id": "00000000-0000-4000-8000-000000000043",
     "event": "destination_unreachable",
     "code": "destination.recovered",
     "state": "ok",
@@ -1924,7 +2030,7 @@
   },
   "node.host_key_changed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000042",
+    "id": "00000000-0000-4000-8000-000000000044",
     "event": "node_host_key_changed",
     "code": "node.host_key_changed",
     "state": "failed",
@@ -1973,7 +2079,7 @@
   },
   "report.observations": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000043",
+    "id": "00000000-0000-4000-8000-000000000045",
     "event": "report",
     "code": "report.observations",
     "state": "warning",
@@ -2006,7 +2112,7 @@
   },
   "server.rebooted": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000044",
+    "id": "00000000-0000-4000-8000-000000000046",
     "event": "server_rebooted",
     "code": "server.rebooted",
     "state": "warning",
@@ -2040,7 +2146,7 @@
   },
   "server.back": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000045",
+    "id": "00000000-0000-4000-8000-000000000047",
     "event": "server_back",
     "code": "server.back",
     "state": "ok",
@@ -2089,7 +2195,7 @@
   },
   "approval.requested": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000046",
+    "id": "00000000-0000-4000-8000-000000000048",
     "event": "approval_requested",
     "code": "approval.requested",
     "state": "progress",
@@ -2153,7 +2259,7 @@
   },
   "approval.approved": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000047",
+    "id": "00000000-0000-4000-8000-000000000049",
     "event": "approval_decided",
     "code": "approval.approved",
     "state": "ok",
@@ -2217,7 +2323,7 @@
   },
   "approval.rejected": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000048",
+    "id": "00000000-0000-4000-8000-000000000050",
     "event": "approval_decided",
     "code": "approval.rejected",
     "state": "warning",
@@ -2276,7 +2382,7 @@
   },
   "database.backup.failed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000049",
+    "id": "00000000-0000-4000-8000-000000000051",
     "event": "backup_failed",
     "code": "database.backup.failed",
     "state": "failed",
@@ -2312,7 +2418,7 @@
   },
   "database.backup.upload_failed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000050",
+    "id": "00000000-0000-4000-8000-000000000052",
     "event": "backup_failed",
     "code": "database.backup.upload_failed",
     "state": "warning",
@@ -2352,7 +2458,7 @@
   },
   "database.backup.completed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000051",
+    "id": "00000000-0000-4000-8000-000000000053",
     "event": "backup_success",
     "code": "database.backup.completed",
     "state": "ok",
@@ -2396,7 +2502,7 @@
   },
   "database.restore.completed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000052",
+    "id": "00000000-0000-4000-8000-000000000054",
     "event": "restore_success",
     "code": "database.restore.completed",
     "state": "ok",
@@ -2430,7 +2536,7 @@
   },
   "database.restore.failed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000053",
+    "id": "00000000-0000-4000-8000-000000000055",
     "event": "restore_failed",
     "code": "database.restore.failed",
     "state": "failed",
@@ -2470,7 +2576,7 @@
   },
   "sandbox.trial_failed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000054",
+    "id": "00000000-0000-4000-8000-000000000056",
     "event": "deploy_failed",
     "code": "sandbox.trial_failed",
     "state": "warning",
@@ -2517,7 +2623,7 @@
   },
   "app.unreachable": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000055",
+    "id": "00000000-0000-4000-8000-000000000057",
     "event": "app_unreachable",
     "code": "app.unreachable",
     "state": "failed",
@@ -2562,7 +2668,7 @@
   },
   "app.recovered": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000056",
+    "id": "00000000-0000-4000-8000-000000000058",
     "event": "app_recovered",
     "code": "app.recovered",
     "state": "ok",
@@ -2596,7 +2702,7 @@
   },
   "app.outside_unit": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000057",
+    "id": "00000000-0000-4000-8000-000000000059",
     "event": "unit_failed",
     "code": "app.outside_unit",
     "state": "warning",
@@ -2640,7 +2746,7 @@
   },
   "alert.above": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000058",
+    "id": "00000000-0000-4000-8000-000000000060",
     "event": "alert_firing",
     "code": "alert.above",
     "state": "warning",
@@ -2689,7 +2795,7 @@
   },
   "alert.below": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000059",
+    "id": "00000000-0000-4000-8000-000000000061",
     "event": "alert_firing",
     "code": "alert.below",
     "state": "failed",
@@ -2738,7 +2844,7 @@
   },
   "alert.resolved": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000060",
+    "id": "00000000-0000-4000-8000-000000000062",
     "event": "alert_resolved",
     "code": "alert.resolved",
     "state": "ok",
@@ -2782,7 +2888,7 @@
   },
   "backup.missing": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000061",
+    "id": "00000000-0000-4000-8000-000000000063",
     "event": "backup_missing",
     "code": "backup.missing",
     "state": "warning",
@@ -2826,7 +2932,7 @@
   },
   "backup.never": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000062",
+    "id": "00000000-0000-4000-8000-000000000064",
     "event": "backup_missing",
     "code": "backup.never",
     "state": "warning",
@@ -2865,7 +2971,7 @@
   },
   "cron.failed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000063",
+    "id": "00000000-0000-4000-8000-000000000065",
     "event": "cron_failed",
     "code": "cron.failed",
     "state": "failed",
@@ -2922,7 +3028,7 @@
   },
   "cron.succeeded": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000064",
+    "id": "00000000-0000-4000-8000-000000000066",
     "event": "cron_success",
     "code": "cron.succeeded",
     "state": "ok",
@@ -2961,7 +3067,7 @@
   },
   "patches.available": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000065",
+    "id": "00000000-0000-4000-8000-000000000067",
     "event": "os_patches",
     "code": "patches.available",
     "state": "info",
@@ -3005,7 +3111,7 @@
   },
   "patches.security": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000066",
+    "id": "00000000-0000-4000-8000-000000000068",
     "event": "os_patches",
     "code": "patches.security",
     "state": "warning",
@@ -3059,7 +3165,7 @@
   },
   "patches.check_failed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000067",
+    "id": "00000000-0000-4000-8000-000000000069",
     "event": "os_patches",
     "code": "patches.check_failed",
     "state": "warning",
@@ -3099,7 +3205,7 @@
   },
   "token.expiring": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000068",
+    "id": "00000000-0000-4000-8000-000000000070",
     "event": "token_expiring",
     "code": "token.expiring",
     "state": "warning",
@@ -3143,7 +3249,7 @@
   },
   "token.today": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000069",
+    "id": "00000000-0000-4000-8000-000000000071",
     "event": "token_expiring",
     "code": "token.today",
     "state": "warning",
@@ -3187,7 +3293,7 @@
   },
   "token.expired": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000070",
+    "id": "00000000-0000-4000-8000-000000000072",
     "event": "token_expiring",
     "code": "token.expired",
     "state": "failed",
@@ -3231,7 +3337,7 @@
   },
   "digest.held": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000071",
+    "id": "00000000-0000-4000-8000-000000000073",
     "event": "digest",
     "code": "digest.held",
     "state": "warning",
@@ -3264,7 +3370,7 @@
   },
   "cleanup.completed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000072",
+    "id": "00000000-0000-4000-8000-000000000074",
     "event": "cleanup_success",
     "code": "cleanup.completed",
     "state": "ok",
@@ -3308,7 +3414,7 @@
   },
   "cleanup.partial": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000073",
+    "id": "00000000-0000-4000-8000-000000000075",
     "event": "cleanup_failed",
     "code": "cleanup.partial",
     "state": "warning",
@@ -3363,7 +3469,7 @@
   },
   "cleanup.failed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000074",
+    "id": "00000000-0000-4000-8000-000000000076",
     "event": "cleanup_failed",
     "code": "cleanup.failed",
     "state": "failed",
@@ -3413,7 +3519,7 @@
   },
   "cron.timer_stopped": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000075",
+    "id": "00000000-0000-4000-8000-000000000077",
     "event": "cron_missed",
     "code": "cron.timer_stopped",
     "state": "warning",
@@ -3457,7 +3563,7 @@
   },
   "cron.timer_running": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000076",
+    "id": "00000000-0000-4000-8000-000000000078",
     "event": "cron_missed",
     "code": "cron.timer_running",
     "state": "ok",
@@ -3491,7 +3597,7 @@
   },
   "probe.failed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000077",
+    "id": "00000000-0000-4000-8000-000000000079",
     "event": "probe_failed",
     "code": "probe.failed",
     "state": "failed",
@@ -3542,7 +3648,7 @@
   },
   "probe.recovered": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000078",
+    "id": "00000000-0000-4000-8000-000000000080",
     "event": "probe_recovered",
     "code": "probe.recovered",
     "state": "ok",
@@ -3586,7 +3692,7 @@
   },
   "alert.acknowledged": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000079",
+    "id": "00000000-0000-4000-8000-000000000081",
     "event": "alert_acknowledged",
     "code": "alert.acknowledged",
     "state": "info",
@@ -3630,7 +3736,7 @@
   },
   "digest.flood": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000080",
+    "id": "00000000-0000-4000-8000-000000000082",
     "event": "digest",
     "code": "digest.flood",
     "state": "info",
@@ -3663,7 +3769,7 @@
   },
   "digest.summary": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000081",
+    "id": "00000000-0000-4000-8000-000000000083",
     "event": "digest",
     "code": "digest.summary",
     "state": "info",
@@ -3696,7 +3802,7 @@
   },
   "webserver.restarted": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000082",
+    "id": "00000000-0000-4000-8000-000000000084",
     "event": "unit_failed",
     "code": "webserver.restarted",
     "state": "warning",
@@ -3730,7 +3836,7 @@
   },
   "webserver.down": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000083",
+    "id": "00000000-0000-4000-8000-000000000085",
     "event": "unit_failed",
     "code": "webserver.down",
     "state": "failed",
@@ -3764,7 +3870,7 @@
   },
   "webserver.config_invalid": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000084",
+    "id": "00000000-0000-4000-8000-000000000086",
     "event": "unit_failed",
     "code": "webserver.config_invalid",
     "state": "failed",
@@ -3805,7 +3911,7 @@
   },
   "webserver.restart_failed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000085",
+    "id": "00000000-0000-4000-8000-000000000087",
     "event": "unit_failed",
     "code": "webserver.restart_failed",
     "state": "failed",
@@ -3845,7 +3951,7 @@
   },
   "webserver.limit": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000086",
+    "id": "00000000-0000-4000-8000-000000000088",
     "event": "unit_failed",
     "code": "webserver.limit",
     "state": "failed",
@@ -3879,7 +3985,7 @@
   },
   "webserver.stopped": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000087",
+    "id": "00000000-0000-4000-8000-000000000089",
     "event": "unit_failed",
     "code": "webserver.stopped",
     "state": "warning",
@@ -3913,7 +4019,7 @@
   },
   "security.release": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000088",
+    "id": "00000000-0000-4000-8000-000000000090",
     "event": "security_release",
     "code": "security.release",
     "state": "warning",
@@ -3962,7 +4068,7 @@
   },
   "container.restart_loop": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000089",
+    "id": "00000000-0000-4000-8000-000000000091",
     "event": "container_restart_loop",
     "code": "container.restart_loop",
     "state": "failed",
@@ -4019,7 +4125,7 @@
   },
   "container.recovered": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000090",
+    "id": "00000000-0000-4000-8000-000000000092",
     "event": "container_restart_loop",
     "code": "container.recovered",
     "state": "ok",
@@ -4058,7 +4164,7 @@
   },
   "recipe.outdated": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000091",
+    "id": "00000000-0000-4000-8000-000000000093",
     "event": "recipe_outdated",
     "code": "recipe.outdated",
     "state": "info",
@@ -4102,7 +4208,7 @@
   },
   "central.silent": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000092",
+    "id": "00000000-0000-4000-8000-000000000094",
     "event": "central_silent",
     "code": "central.silent",
     "state": "warning",
@@ -4130,7 +4236,7 @@
   },
   "central.heard": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000093",
+    "id": "00000000-0000-4000-8000-000000000095",
     "event": "central_silent",
     "code": "central.heard",
     "state": "ok",
@@ -4158,7 +4264,7 @@
   },
   "cert.renewal_failed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000094",
+    "id": "00000000-0000-4000-8000-000000000096",
     "event": "cert_renewal_failed",
     "code": "cert.renewal_failed",
     "state": "failed",
@@ -4209,7 +4315,7 @@
   },
   "cert.renewal_stopped": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000095",
+    "id": "00000000-0000-4000-8000-000000000097",
     "event": "cert_renewal_failed",
     "code": "cert.renewal_stopped",
     "state": "warning",
@@ -4253,7 +4359,7 @@
   },
   "domain.expiring": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000096",
+    "id": "00000000-0000-4000-8000-000000000098",
     "event": "domain_expiring",
     "code": "domain.expiring",
     "state": "warning",
@@ -4297,7 +4403,7 @@
   },
   "domain.expired": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000097",
+    "id": "00000000-0000-4000-8000-000000000099",
     "event": "domain_expired",
     "code": "domain.expired",
     "state": "failed",
@@ -4341,7 +4447,7 @@
   },
   "app.oom_killed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000098",
+    "id": "00000000-0000-4000-8000-000000000100",
     "event": "app_oom_killed",
     "code": "app.oom_killed",
     "state": "failed",
@@ -4395,7 +4501,7 @@
   },
   "access.firewall_reverted": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000099",
+    "id": "00000000-0000-4000-8000-000000000101",
     "event": "access_change_reverted",
     "code": "access.firewall_reverted",
     "state": "warning",
@@ -4446,7 +4552,7 @@
   },
   "access.ssh_reverted": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000100",
+    "id": "00000000-0000-4000-8000-000000000102",
     "event": "access_change_reverted",
     "code": "access.ssh_reverted",
     "state": "warning",

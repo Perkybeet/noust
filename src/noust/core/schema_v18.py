@@ -202,6 +202,39 @@ CREATE TABLE IF NOT EXISTS collect_settings (
 """
 BACKUPS_COLUMNS: list[Column] = []
 
+# Owned by the copies-that-were-not-sent lane (item 201): a copy that was made and could not be
+# sent to a destination is owed to it, and nothing else remembered that.
+# pending_sends: one row per copy and destination (``noust.core.pending_sends``, the only reader and
+#   writer). ``kind`` and ``item_id`` name the copy as ``noust.core.backup_hold`` does (``app``,
+#   ``database``, ``volume`` or ``noust``, and the identifier its manager gives it), ``owner`` what it
+#   is a copy of (an application's domain, ``engine/database``, ``Noust``). ``reason`` is what the
+#   destination said, already scrubbed and bounded; ``permanent`` says that it is of the kind waiting
+#   does not mend. ``attempts`` counts the deferred tries (the ones after the run that made the
+#   copy), ``next_attempt_at`` is when the next is due, and ``noticed_at`` when a notice first covered
+#   the row (so the recovery knows there is something to answer). ``failure_id`` names the record
+#   that keeps the whole output (``backup_failures``). Times are ISO 8601, UTC.
+SENDING_SQL = """
+CREATE TABLE IF NOT EXISTS pending_sends (
+    kind TEXT NOT NULL,
+    item_id TEXT NOT NULL,
+    destination TEXT NOT NULL,
+    owner TEXT NOT NULL,
+    copy_created_at TEXT NOT NULL,
+    reason TEXT NOT NULL DEFAULT '',
+    permanent INTEGER NOT NULL DEFAULT 0,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    failed_at TEXT NOT NULL,
+    last_attempt_at TEXT NOT NULL,
+    next_attempt_at TEXT NOT NULL,
+    noticed_at TEXT,
+    failure_id INTEGER,
+    PRIMARY KEY (kind, item_id, destination)
+);
+CREATE INDEX IF NOT EXISTS idx_pending_sends_due ON pending_sends(next_attempt_at);
+CREATE INDEX IF NOT EXISTS idx_pending_sends_destination ON pending_sends(destination);
+"""
+SENDING_COLUMNS: list[Column] = []
+
 # Owned by the clients lane, first of its two areas: the maintenance window of an
 # application, with the end it cannot be without (item 181).
 MAINTENANCE_SQL = ""
@@ -479,6 +512,7 @@ def _fragments() -> list[str]:
         RELEASES_SQL,
         SLEEP_SQL,
         BACKUPS_SQL,
+        SENDING_SQL,
         MAINTENANCE_SQL,
         REPORTS_SQL,
         AGENTS_SQL,
@@ -497,6 +531,7 @@ def _columns() -> list[Column]:
         *RELEASES_COLUMNS,
         *SLEEP_COLUMNS,
         *BACKUPS_COLUMNS,
+        *SENDING_COLUMNS,
         *MAINTENANCE_COLUMNS,
         *REPORTS_COLUMNS,
         *AGENTS_COLUMNS,

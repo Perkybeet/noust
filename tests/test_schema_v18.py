@@ -35,6 +35,7 @@ AREAS = [
     "RELEASES",
     "SLEEP",
     "BACKUPS",
+    "SENDING",
     "MAINTENANCE",
     "REPORTS",
     "AGENTS",

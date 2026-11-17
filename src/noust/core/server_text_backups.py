@@ -162,6 +162,7 @@ SENTENCES: dict[str, str] = {
     "backup_destinations.valid_bucket_name_uses": "{label} is not valid: a bucket name uses lowercase letters, digits, hyphens and {value}",
     "backup_destinations.valid_container_3_63": "{label} is not valid: a container has 3 to 63 characters",
     "backup_destinations.valid_container_name_uses": "{label} is not valid: a container name uses lowercase letters, digits and single hyphens, and starts and ends with a letter or a digit",
+    "backup_destinations.gave_up_after": "Noust tried {count} times over {span} and gave up.",
     "backup_encryption.backups_sealed_server": "Backups are not sealed on this server",
     "backup_encryption.backups_sealed_server.hint": "Turn sealing on first: noust backup encryption enable, or POST /api/backups/encryption/enable.",
     "backup_failures.backup_failure_found": "Backup failure not found: {failure_id}",

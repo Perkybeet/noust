@@ -22,6 +22,7 @@ change nothing.
 
 from __future__ import annotations
 
+import functools
 import logging
 import re
 import sqlite3
@@ -48,7 +49,6 @@ from noust.core.notifications.composers import (
     compose_backup_completed,
     compose_backup_failed,
     compose_backup_schedule_missing,
-    compose_backup_upload_failed,
     compose_drill_failed,
     compose_drill_passed,
 )
@@ -64,6 +64,7 @@ from noust.managers.backup_destinations import BackupDestinationManager
 from noust.managers.backup_failures import record_failure
 from noust.managers.backup_manager import SCHEDULED_TAG, BackupManager, BackupMetadata
 from noust.managers.backup_priority import current_priority, with_priority
+from noust.managers.backup_sending import Sender
 from noust.managers.backup_timer_options import TimerOptions, TimerOptionsStore, with_options
 from noust.managers.database.scope import ALL_DATABASES, timer_label
 from noust.managers.supervision import keeps_alive_with_docker
@@ -122,6 +123,14 @@ _SWEEP_DESCRIPTION_PREFIX = "Noust backup sweep timer for "
 #: When it runs: after the nightly backups, before the day.
 SWEEP_CALENDAR = "*-*-* 04:30:00"
 
+#: The timer that sends again the copies that were made and could not be sent
+#: (:mod:`noust.managers.backup_resend`). The first copy that is owed brings it along.
+_RESEND_DESCRIPTION_PREFIX = "Noust backup resend timer for "
+
+#: How often it looks: every five minutes. What is owed is tried a quarter of an hour, an hour and four hours
+#: after it failed, so the look has to be finer than the shortest wait; a look with nothing due is one query.
+RESEND_CALENDAR = "*-*-* *:0/5:00"
+
 #: How often it runs: the log is sent as it is archived, a minute behind at the most per run.
 PITR_CALENDAR = "*-*-* *:0/5:00"
 
@@ -131,6 +140,9 @@ SELF_BACKUP_UNIT = f"{paths.BACKUP_UNIT_PREFIX}self"
 
 #: The unit of the retention sweep, named like Noust's own state's: no application has it.
 SWEEP_UNIT = f"{paths.BACKUP_UNIT_PREFIX}sweep"
+
+#: The unit of the resend, named the same way.
+RESEND_UNIT = f"{paths.BACKUP_UNIT_PREFIX}resend"
 
 #: The ``OnCalendar`` expression inside systemd's ``TimersCalendar`` property,
 #: which prints as ``{ OnCalendar=*-*-* 02:00:00 ; next_elapse=... }``.
@@ -653,6 +665,7 @@ class BackupScheduler:
                         _SELF_DESCRIPTION_PREFIX,
                         _PITR_DESCRIPTION_PREFIX,
                         _SWEEP_DESCRIPTION_PREFIX,
+                        _RESEND_DESCRIPTION_PREFIX,
                     )
                 ):
                     # A database's, a volume policy's or Noust's own timer (see
@@ -818,6 +831,29 @@ class BackupScheduler:
             )
         except BackupError as exc:
             self.logger.warning(f"The retention sweep's timer could not be made: {exc}")
+
+    def ensure_resend_timer(self) -> None:
+        """
+        Make sure the timer that sends again the copies that were not sent exists.
+
+        The first copy that is owed brings it along (:func:`noust.managers.backup_sending.install_resend_timer`),
+        once: a timer that is already Noust's is left as it is, and one that is not is never overwritten.
+
+        Raises:
+            BackupError: When the timer cannot be made.
+        """
+        timer_path = self._unit_path(f"{RESEND_UNIT}.timer")
+        if timer_path.is_file() and self._is_ours(timer_path, _RESEND_DESCRIPTION_PREFIX):
+            return
+        self.install_unit_pair(
+            RESEND_UNIT,
+            _RESEND_DESCRIPTION_PREFIX,
+            "the resend of copies that were not sent",
+            "backup-resend-timer.j2",
+            "backup-resend-service.j2",
+            RESEND_CALENDAR,
+            target="the copies that were not sent",
+        )
 
     def apply_priority(self) -> list[str]:
         """
@@ -1767,6 +1803,11 @@ def run_schedule(
 
     backup_manager = BackupManager(verbose=verbose, runner=runner, fs=fs)
     destination_manager = BackupDestinationManager(runner=runner)
+    sender = Sender(config=config)
+
+    # What an earlier night could not send goes first, before this run takes a copy of its own: it
+    # waits for no clock, and when the destination is still down this goes on all the same.
+    _send_what_is_owed(domain, runner)
 
     try:
         metadata = _create_when_free(backup_manager, domain, record)
@@ -1801,31 +1842,36 @@ def run_schedule(
             )
         )
     failures: list[tuple[str, str]] = []
+    pending: list[str] = []
     for destination in record.destinations:
         name = destination.get("name")
         if not name:
             continue
-        try:
-            summary = destination_manager.push(
+        # A copy that does not arrive is owed, not failed (Sender): kept here, sent again by itself
+        # and said once for the destination when it matters. str(error) is "message\n  Details: ...";
+        # for a BackupError raised by BackupDestinationManager.push, details is rclone's own stderr,
+        # already scrubbed of the destination's secrets.
+        outcome = sender.send(
+            "app",
+            metadata.id,
+            domain,
+            name,
+            copy_created_at=metadata.created_at,
+            push=functools.partial(
+                destination_manager.push,
                 metadata,
                 name,
                 retention_count=destination.get("retention_count"),
                 retention_days=destination.get("retention_days"),
                 retention_gb=destination.get("retention_gb"),
                 backup_manager=backup_manager,
-            )
-            result["destinations"][name] = {"ok": True, **summary}
-        except NoustError as exc:
-            # str(exc) is "message\n  Details: ..."; for a BackupError raised
-            # by BackupDestinationManager.push, details is rclone's own
-            # stderr, already scrubbed of the destination's secrets.
-            result["destinations"][name] = {"ok": False, "error": str(exc)}
-            failures.append((name, str(exc)))
-            failure_id = record_failure("upload", domain, str(exc), destination=name)
-            _notify_backup(
-                config,
-                compose_backup_upload_failed(domain, name, str(exc), ctx, failure_id=failure_id),
-            )
+            ),
+        )
+        result["destinations"][name] = outcome.entry()
+        if outcome.deferred:
+            pending.append(name)
+        elif not outcome.ok:
+            failures.append((name, outcome.error or ""))
 
     if failures:
         # Each destination's own error, rclone's words included: a timer run
@@ -1846,7 +1892,7 @@ def run_schedule(
     # goes. A backup that did not reach every destination raised above and stays.
     result["kept_locally"] = True
     result["removed_after_sending"] = []
-    if record.remote_only and result["destinations"]:
+    if record.remote_only and result["destinations"] and not pending:
         backup_manager.delete(metadata.id)
         audit_record(
             "backups.delete",
@@ -1858,14 +1904,36 @@ def run_schedule(
 
     # The heartbeat: off unless the operator switched backup_success on. Only a
     # backup that went everywhere it was meant to counts as one.
-    _notify_backup(
-        config,
-        compose_backup_completed(
-            domain,
-            metadata.id,
-            ctx,
-            size_bytes=metadata.size_bytes,
-            destinations=list(result["destinations"]),
-        ),
-    )
+    if not pending:
+        _notify_backup(
+            config,
+            compose_backup_completed(
+                domain,
+                metadata.id,
+                ctx,
+                size_bytes=metadata.size_bytes,
+                destinations=list(result["destinations"]),
+            ),
+        )
     return result
+
+
+def _send_what_is_owed(domain: str, runner: CommandRunner | None) -> None:
+    """
+    Send the copies of an application that an earlier run could not send, before this one's own.
+
+    A store that cannot be read, or a send that fails, never stops the run: what could not be sent
+    stays owed and the new copy is taken all the same.
+
+    Args:
+        domain: The application.
+        runner: The runner the sends go through.
+    """
+    from noust.managers.backup_resend import Resender
+
+    try:
+        Resender(runner=runner).run(only=("app", domain))
+    except (NoustError, OSError, sqlite3.Error) as exc:
+        logging.getLogger(__name__).warning(
+            "Could not send the copies of %s that were owed before this run: %s", domain, exc
+        )

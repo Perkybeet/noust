@@ -37,6 +37,8 @@ from noust.core.store import App, get_store
 from noust.managers.backup_destination_files import DestinationFileManager
 from noust.managers.backup_failures import BackupFailureLog
 from noust.managers.backup_manager import BackupManager
+from noust.managers.backup_resend import Resender, VolumePusher
+from noust.managers.backup_sending import Sender
 from noust.managers.volume_backups import SAFETY_TAG, VolumeBackupManager
 from tests.support.database_backup_support import RcloneRunner, age
 from tests.support.notifications_support import failure_id_of
@@ -954,10 +956,14 @@ class TestRunPolicy:
             lambda self, notification: sent.append(notification),
         )
 
-        with pytest.raises(BackupError):
-            manager.run_policy(DOMAIN, notify=True)
+        manager.run_policy(DOMAIN, notify=True)
+        # A copy that did not arrive is owed and nothing is said yet; the retry that fails too says it.
+        assert sent == []
+        Resender(
+            sender=Sender(config=manager.config), pushers={"volume": VolumePusher(manager)}
+        ).run(force=True)
 
-        (notice,) = [n for n in sent if n.code == "backup.upload_failed"]
+        (notice,) = [n for n in sent if n.code == "backup.sends_failed"]
         failure_id = failure_id_of(notice)
         stored = BackupFailureLog().get(failure_id)
         assert stored is not None and (stored.kind, stored.subject) == ("upload", DOMAIN)

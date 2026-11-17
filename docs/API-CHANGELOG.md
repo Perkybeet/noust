@@ -27,6 +27,13 @@ against the schema of 4.2.0.
 
 ### Added
 
+- **Copies that were made and have not reached a destination** (item 201). The listing of every kind of
+  copy (`GET /api/backups` and `GET /api/backups/{backup_id}`, `GET /api/volume-backups`, `GET /api/databases/backups`
+  and `GET /api/self-backup`) carries `pending_sends` on each copy: an empty list for one that is everywhere it
+  was meant to be, otherwise one entry per destination it is still owed to, with `destination`, `reason` (what
+  the destination said, verbatim), `attempts` (the deferred tries made), `since`, `next_attempt_at` and
+  `permanent` (whether what it said is of the kind waiting does not mend). The console draws it; no operation
+  is added.
 - **The Docker zone, what its lists draw** (item 189). `GET /api/docker/containers/stats` (`docker.read`): every
   container's consumption in one reading (`items[]` with `usage`, `read_at`). Each image and its update plan have
   `source` (`registry`, `built_noust`, `built_other`, `unknown`); each volume has `backup` (`state` `scheduled`,

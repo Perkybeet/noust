@@ -31,6 +31,7 @@ import json
 import sys
 from argparse import Namespace
 from collections.abc import Sequence
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -43,8 +44,10 @@ from noust.cli.commands.timer_options import timer_options
 from noust.cli.panel_links import open_in_panel
 from noust.core.exceptions import NoustError
 from noust.core.logger import Logger
+from noust.core.pending_sends import PendingSend, owed_by_copy
 from noust.core.teams import scoped_store
 from noust.managers.backup_manager import BackupManager, BackupMetadata
+from noust.managers.backup_sending import pending_line
 from noust.managers.retention import check_gigabytes, gigabytes_to_bytes
 from noust.managers.rollback_manager import RollbackManager
 from noust.managers.stack_databases import StackDatabase
@@ -932,14 +935,40 @@ def _run_schedule(*, logger: Logger, domain: str) -> int:
     for name, outcome in result.get("destinations", {}).items():
         if outcome.get("ok"):
             logger.info(f"  Sent to {name}")
+        elif outcome.get("pending"):
+            # Owed, not failed: the copy is kept and sent again by itself, and this run went well.
+            logger.warning(f"  {pending_line(name, outcome)}")
         else:
             failed = True
             logger.warning(f"  Failed to send to {name}: {outcome.get('error')}")
     return 1 if failed else 0
 
 
+def _owed_note(rows: Sequence[PendingSend]) -> str:
+    """
+    Args:
+        rows: What is owed for one copy.
+
+    Returns:
+        ``not sent to nas (next try 2026-11-17 02:15 UTC)``, for each destination.
+    """
+    from noust.core.notifications.formatting import format_utc
+
+    parts = []
+    for row in rows:
+        try:
+            when = format_utc(datetime.fromisoformat(row.next_attempt_at))
+        except ValueError:
+            when = row.next_attempt_at
+        parts.append(f"not sent to {row.destination} (next try {when})")
+    return "; ".join(parts)
+
+
 def _print_backup_table(
-    backups: Sequence[BackupMetadata], logger: Logger, indent: bool = False
+    backups: Sequence[BackupMetadata],
+    logger: Logger,
+    indent: bool = False,
+    owed: Sequence[PendingSend] = (),
 ) -> None:
     """
     Print one line per backup.
@@ -948,17 +977,22 @@ def _print_backup_table(
         backups: Backups to print, newest first.
         logger: Logger to print through.
         indent: Indent the lines, for use under a domain heading.
+        owed: What is owed to a destination, so that a copy that was not sent says so.
     """
     prefix = "  " if indent else ""
+    by_copy: dict[str, list[PendingSend]] = {}
+    for row in owed:
+        by_copy.setdefault(row.item_id, []).append(row)
 
     for backup in backups:
         tags_str = f" [{', '.join(backup.tags)}]" if backup.tags else ""
         commit_str = f" ({backup.git_commit})" if backup.git_commit else ""
         desc_str = f" - {backup.description}" if backup.description else ""
+        owed_str = f" - {_owed_note(by_copy[backup.id])}" if backup.id in by_copy else ""
 
         logger.info(
             f"{prefix}- {backup.id}: {backup.size_human}, "
-            f"{backup.age}{commit_str}{tags_str}{desc_str}"
+            f"{backup.age}{commit_str}{tags_str}{desc_str}{owed_str}"
         )
 
 
@@ -1071,16 +1105,29 @@ def _list_backups(
         logger.error(f"Error listing backups: {exc}")
         return 1
 
+    owed = owed_by_copy("app")
     if json_output:
-        click.echo(json.dumps([backup.to_dict() for backup in backups], indent=2))
+        click.echo(
+            json.dumps(
+                [
+                    {
+                        **backup.to_dict(),
+                        "pending_sends": [row.to_dict() for row in owed.get(backup.id, [])],
+                    }
+                    for backup in backups
+                ],
+                indent=2,
+            )
+        )
         return 0
 
     if not backups:
         logger.info(f"No backups found for {domain}" if domain else "No backups found")
         return 0
 
+    owed_rows = [row for rows in owed.values() for row in rows]
     if domain:
-        _print_backup_table(backups, logger)
+        _print_backup_table(backups, logger, owed=owed_rows)
         return 0
 
     by_domain: dict[str, list[BackupMetadata]] = {}
@@ -1089,7 +1136,7 @@ def _list_backups(
 
     for dom, dom_backups in by_domain.items():
         logger.info(f"\n[{dom}]")
-        _print_backup_table(dom_backups, logger, indent=True)
+        _print_backup_table(dom_backups, logger, indent=True, owed=owed_rows)
 
     return 0
 
@@ -1724,6 +1771,7 @@ def _attach_volume_commands() -> None:
         backup_encryption,
         backup_failures,
         backup_priority,
+        backup_resend,
         backup_sweep,
         backup_volumes,
     )
@@ -1733,6 +1781,7 @@ def _attach_volume_commands() -> None:
     backup_encryption.register(backup)
     backup_failures.register(backup)
     backup_priority.register(backup)
+    backup_resend.register(backup)
     backup_sweep.register(backup)
 
 

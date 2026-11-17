@@ -36,6 +36,7 @@ from pydantic import BaseModel, Field
 
 from noust.core.audit import Actor
 from noust.core.exceptions import BackupError, ValidationError
+from noust.core.pending_sends import PendingSend, owed_by_copy
 from noust.core.server_text import say
 from noust.deployers.recorder import CapturingLogger
 from noust.managers.backup_scheduler import validate_calendar
@@ -66,6 +67,9 @@ class BundleResponse(BaseModel):
         sha256: Its digest, from its sidecar.
         remote_copies: Where it was sent.
         sidecar_mac: What the sidecar's MAC says.
+        pending_sends: The destinations this was made for and has not reached yet, each with
+            ``destination``, ``reason`` (what it said, verbatim), ``attempts``, ``since`` and
+            ``next_attempt_at``. Empty once it is everywhere it was meant to be.
     """
 
     name: str
@@ -77,6 +81,7 @@ class BundleResponse(BaseModel):
     sha256: str | None = None
     remote_copies: list[dict[str, Any]] = Field(default_factory=list)
     sidecar_mac: str = "unsigned"
+    pending_sends: list[dict[str, Any]] = Field(default_factory=list)
 
     _iso_timestamps = iso_offset_validator("created_at")
 
@@ -349,19 +354,24 @@ def overview(session: Annotated[dict, Depends(get_current_session)]) -> Overview
         The bundles, newest first, and the schedule with its timer.
     """
     manager = _manager(session)
-    bundles = [BundleResponse(**_entry(entry.to_dict())) for entry in manager.entries()]
+    owed = owed_by_copy("noust")
+    bundles = [BundleResponse(**_entry(entry.to_dict(), owed)) for entry in manager.entries()]
     return OverviewResponse(bundles=bundles, schedule=ScheduleResponse(**manager.get_schedule()))
 
 
-def _entry(data: dict[str, Any]) -> dict[str, Any]:
+def _entry(
+    data: dict[str, Any], owed: dict[str, list[PendingSend]] | None = None
+) -> dict[str, Any]:
     """
     Args:
         data: A bundle entry as plain data.
+        owed: What is owed to a destination for each bundle, from :func:`owed_by_copy`.
 
     Returns:
-        What the API shows of it: not where it is on disk.
+        What the API shows of it: not where it is on disk, and where it is still owed.
     """
     data.pop("path", None)
+    data["pending_sends"] = [row.to_dict() for row in (owed or {}).get(str(data.get("name")), [])]
     return data
 
 

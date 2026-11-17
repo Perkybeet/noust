@@ -15813,6 +15813,7 @@
   "serverText.backup_destinations.valid_bucket_name_uses.text": "{label} não é válido: um nome de bucket usa letras minúsculas, dígitos, hifens e {value}",
   "serverText.backup_destinations.valid_container_3_63.text": "{label} não é válido: um contêiner tem de 3 a 63 caracteres",
   "serverText.backup_destinations.valid_container_name_uses.text": "{label} não é válido: um nome de contêiner usa letras minúsculas, dígitos e hifens simples, e começa e termina com uma letra ou um dígito",
+  "serverText.backup_destinations.gave_up_after.text": "O Noust tentou {count} vezes em {span} e desistiu.",
   "serverText.backup_encryption.backups_sealed_server.text": "Os backups não são criptografados neste servidor",
   "serverText.backup_encryption.backups_sealed_server.hint": "Ative primeiro a criptografia: noust backup encryption enable ou POST /api/backups/encryption/enable.",
   "serverText.backup_failures.backup_failure_found.text": "Falha de backup não encontrada: {failure_id}",

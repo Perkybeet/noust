@@ -58,12 +58,15 @@ from noust.core.exceptions import (
 )
 from noust.core.fs import SECRET_DIR_MODE, FileSystem, get_fs
 from noust.core.logger import Logger
+from noust.core.notification_state import NotificationState
+from noust.core.pending_sends import PendingSends
 from noust.core.redact import Scrubber
-from noust.core.runner import CommandRunner, get_runner
+from noust.core.runner import CommandResult, CommandRunner, get_runner
 from noust.core.secrets import SecretStore
 from noust.core.server_text import say
 from noust.core.store import BackupDestinationRecord, NoustStore, get_store
 from noust.core.utils import domain_to_app_name
+from noust.managers import destination_patience as patience
 from noust.managers.backup_manager import (
     ARCHIVE_SUFFIX,
     BACKUP_ID_PATTERN,
@@ -72,6 +75,7 @@ from noust.managers.backup_manager import (
     backup_id_of_archive,
     server_id,
 )
+from noust.managers.backup_sending import Sender
 from noust.managers.retention import check_gigabytes, gigabytes_to_bytes, select_expired
 from noust.validators.names import validate_app_name
 
@@ -1577,6 +1581,10 @@ class BackupDestinationManager:
 
         self.store.delete_backup_destination(name)
         self.secrets.delete(_secret_namespace(name))
+        # Nothing is owed to a destination that is gone, and nobody is told about it any more.
+        Sender(
+            pending=PendingSends(self.store), state=NotificationState(self.store)
+        ).forget_destination(name)
 
     def show_key(self, name: str) -> dict[str, str]:
         """
@@ -1609,6 +1617,36 @@ class BackupDestinationManager:
 
     # -- rclone plumbing ----------------------------------------------------
 
+    def _rclone(
+        self,
+        argv: list[str],
+        *,
+        env: dict[str, str],
+        timeout: int,
+        secrets: list[str],
+        input: str | None = None,
+    ) -> CommandResult:
+        """
+        Run one call to a destination, as patiently as the operation it belongs to says.
+
+        The one door every rclone call of every upload, listing, download and deletion goes
+        through (rule 4): whether it is tried once or three times, and what is waited between
+        the attempts, is :mod:`noust.managers.destination_patience`'s and not each call's.
+
+        Args:
+            argv: The command, ``rclone`` first.
+            env: Environment built by :meth:`remote_env`.
+            timeout: The deadline of one attempt, in seconds.
+            secrets: Values to keep out of what is recorded.
+            input: What to send on standard input.
+
+        Returns:
+            The last attempt's result.
+        """
+        return patience.run(
+            self.runner, argv, env=env, timeout=timeout, secrets=secrets, input=input
+        )
+
     def remote_env(self, name: str) -> dict[str, str]:
         """
         Build the environment rclone needs to reach a destination.
@@ -1636,11 +1674,11 @@ class BackupDestinationManager:
             f"RCLONE_CONFIG_{prefix}_TYPE": RCLONE_TYPES.get(
                 destination.backend, destination.backend
             ),
-            # rclone's defaults retry an unreachable server for about a minute
-            # and a half; a destination that is down should say so in seconds.
-            # Flags as environment, so every command gets them.
-            "RCLONE_RETRIES": "1",
-            "RCLONE_CONTIMEOUT": "15s",
+            # How patient rclone is depends on what the operation under way is
+            # (noust.managers.destination_patience): asking says a destination that is down in
+            # seconds, working puts up with a bad network. Flags as environment, so every
+            # command gets them.
+            **patience.env_for(patience.current()),
         }
         for spec in backend_fields(destination.backend):
             if spec.key == "path":
@@ -1765,7 +1803,7 @@ class BackupDestinationManager:
         secrets_literal = self._secret_literals(name)
         new = _remote_path(destination.settings.get("path"))
         probe = f"{name}crypt:" if destination.encrypted else f"{name}:{new}"
-        made = self.runner.run(
+        made = self._rclone(
             ["rclone", "mkdir", probe],
             env=env,
             timeout=_RCLONE_LIST_TIMEOUT,
@@ -1810,7 +1848,7 @@ class BackupDestinationManager:
         env = self.remote_env(name)
         secrets_literal = self._secret_literals(name)
         old = f"{name}legacycrypt:" if destination.encrypted else f"{name}:{_remote_path(legacy)}"
-        listed = self.runner.run(
+        listed = self._rclone(
             ["rclone", "lsjson", "-R", "--files-only", old],
             env=env,
             timeout=_RCLONE_LIST_TIMEOUT,
@@ -1897,7 +1935,7 @@ class BackupDestinationManager:
             if hashes
             else ["rclone", "lsjson", target_dir]
         )
-        result = self.runner.run(
+        result = self._rclone(
             argv,
             env=env,
             timeout=_RCLONE_LIST_TIMEOUT,
@@ -1930,6 +1968,7 @@ class BackupDestinationManager:
 
     # -- test ---------------------------------------------------------------
 
+    @patience.asking
     def test(self, name: str, *, judge_host: bool = True) -> dict[str, Any]:
         """
         Check that a destination can be reached.
@@ -1965,7 +2004,7 @@ class BackupDestinationManager:
         # bucket in the operator's account instead of an error.
         bucket = bucket_of(record.backend, record.settings.get("path"))
         if bucket is not None:
-            looked = self.runner.run(
+            looked = self._rclone(
                 ["rclone", "lsf", f"{name}:{bucket}", "--max-depth", "1"],
                 env=env,
                 timeout=_RCLONE_LIST_TIMEOUT,
@@ -2005,7 +2044,7 @@ class BackupDestinationManager:
         # of a destination nobody has pushed to yet must not fail on "not
         # found". mkdir is idempotent and is also the first real write, so a
         # read-only credential is caught here rather than at the first backup.
-        created = self.runner.run(
+        created = self._rclone(
             ["rclone", "mkdir", target],
             env=env,
             timeout=_RCLONE_LIST_TIMEOUT,
@@ -2022,7 +2061,7 @@ class BackupDestinationManager:
                 )
             )
 
-        result = self.runner.run(
+        result = self._rclone(
             ["rclone", "lsf", target, "--max-depth", "1"],
             env=env,
             timeout=_RCLONE_LIST_TIMEOUT,
@@ -2133,7 +2172,7 @@ class BackupDestinationManager:
         """
         leftovers: list[str] = []
         for name in names:
-            result = self.runner.run(
+            result = self._rclone(
                 ["rclone", "deletefile", f"{target_dir}/{name}"],
                 env=env,
                 timeout=_RCLONE_TIMEOUT,
@@ -2177,7 +2216,7 @@ class BackupDestinationManager:
         Raises:
             BackupError: When rclone cannot read the folder.
         """
-        result = self.runner.run(
+        result = self._rclone(
             ["rclone", "cat", target_dir, "--include", "*.json", "--max-depth", "1"],
             env=env,
             timeout=_RCLONE_LIST_TIMEOUT,
@@ -2267,7 +2306,7 @@ class BackupDestinationManager:
 
         for backup_id in to_delete:
             for suffix in (ARCHIVE_SUFFIX, ".json"):
-                result = self.runner.run(
+                result = self._rclone(
                     ["rclone", "deletefile", f"{target_dir}/{backup_id}{suffix}"],
                     env=env,
                     timeout=_RCLONE_TIMEOUT,
@@ -2287,6 +2326,7 @@ class BackupDestinationManager:
                     )
         return to_delete
 
+    @patience.working
     def push(
         self,
         backup: BackupMetadata,
@@ -2345,7 +2385,7 @@ class BackupDestinationManager:
         uploaded = [archive_path.name, metadata_path.name]
 
         for position, local_file in enumerate((archive_path, metadata_path)):
-            result = self.runner.run(
+            result = self._rclone(
                 ["rclone", "copyto", str(local_file), f"{target_dir}/{local_file.name}"],
                 env=env,
                 timeout=_TRANSFER_TIMEOUT,
@@ -2407,6 +2447,7 @@ class BackupDestinationManager:
 
     # -- browsing and restoring ------------------------------------------
 
+    @patience.asking
     def remote_list(self, destination_name: str, app_name: str | None = None) -> dict[str, Any]:
         """
         List what a destination holds.
@@ -2463,6 +2504,7 @@ class BackupDestinationManager:
         backups.sort(key=lambda entry: entry.get("modified") or "", reverse=True)
         return {"apps": [], "backups": backups}
 
+    @patience.working
     def download(
         self,
         destination_name: str,
@@ -2522,7 +2564,7 @@ class BackupDestinationManager:
             (archive_name, archive_path),
             (metadata_name, metadata_path),
         ):
-            result = self.runner.run(
+            result = self._rclone(
                 ["rclone", "copyto", f"{target_dir}/{name}", str(destination_path)],
                 env=env,
                 timeout=_TRANSFER_TIMEOUT,
@@ -2645,6 +2687,7 @@ class BackupDestinationManager:
                 )
             )
 
+    @patience.working
     def restore_remote(
         self,
         destination_name: str,

@@ -84,7 +84,6 @@ from noust.core.logger import Logger
 from noust.core.notifications.composers import (
     compose_backup_completed,
     compose_backup_failed,
-    compose_backup_upload_failed,
 )
 from noust.core.notifications.context import NotificationContext
 from noust.core.runner import CommandRunner, get_runner
@@ -102,6 +101,7 @@ from noust.managers.backup_manager import (
     sign_sidecar,
 )
 from noust.managers.backup_scheduler import BackupScheduler, validate_calendar, verify_days
+from noust.managers.backup_sending import Sender
 from noust.managers.backup_timer_options import validate_options
 from noust.managers.docker_volumes import (
     DOCKER_VOLUME_NAME,
@@ -2576,6 +2576,10 @@ class VolumeBackupManager:
             "local_deleted": [],
             "removed_after_sending": [],
         }
+        sender = Sender(config=self.config)
+        if notify:
+            # What an earlier run could not send goes first, and waits for no clock.
+            self._send_what_is_owed(domain)
         try:
             step(f"Backing up the data of {domain}")
             try:
@@ -2607,36 +2611,41 @@ class VolumeBackupManager:
             raise
 
         failures: list[tuple[str, str]] = []
+        pending: list[str] = []
+        refused: set[str] = set()
         for entry in taken:
             for destination in policy.destinations if policy else []:
                 name = destination["name"]
                 step(f"Sending {entry.id} to {name}")
-                try:
-                    summary = self.push(
+                # A scheduled run keeps a copy that does not arrive as owed (Sender): kept here,
+                # sent again by itself and said once for the destination when it matters. A run
+                # somebody asked for reports it to them, as it always did.
+                outcome = sender.send(
+                    "volume",
+                    entry.id,
+                    domain,
+                    name,
+                    copy_created_at=entry.created_at,
+                    defer=notify,
+                    push=functools.partial(
+                        self.push,
                         entry.id,
                         name,
                         scheduled=True,
                         retention_count=destination.get("retention_count"),
                         retention_days=destination.get("retention_days"),
                         retention_gb=destination.get("retention_gb"),
-                    )
-                    result["destinations"].setdefault(name, {})[entry.id] = {"ok": True, **summary}
-                except NoustError as exc:
-                    result["destinations"].setdefault(name, {})[entry.id] = {
-                        "ok": False,
-                        "error": str(exc),
-                    }
-                    failures.append((name, str(exc)))
-                    announce(
-                        functools.partial(
-                            compose_backup_upload_failed,
-                            domain,
-                            name,
-                            str(exc),
-                            context,
-                            failure_id=record_failure("upload", domain, str(exc), destination=name),
-                        )
-                    )
+                    ),
+                )
+                result["destinations"].setdefault(name, {})[entry.id] = outcome.entry()
+                if outcome.deferred:
+                    pending.append(name)
+                    if outcome.permanent:
+                        refused.add(name)
+                elif not outcome.ok:
+                    # A run somebody asked for owes nothing and announces nothing; a scheduled one
+                    # whose owing could not be kept was said by the sender, as it used to be.
+                    failures.append((name, outcome.error or ""))
         if policy:
             step("Applying local retention")
             result["local_deleted"] = self.apply_retention(
@@ -2645,7 +2654,7 @@ class VolumeBackupManager:
                 retention_days=policy.retention_days,
                 retention_bytes=policy.retention_bytes,
             )
-            if policy.remote_only and policy.destinations and not failures:
+            if policy.remote_only and policy.destinations and not failures and not pending:
                 # Every destination holds each archive and checked it on arrival, and the
                 # verification above read the local file: the copy a small disk cannot afford
                 # goes. A run that did not reach every destination keeps what it took.
@@ -2663,8 +2672,17 @@ class VolumeBackupManager:
             )
             self.records.record_run(domain, ok=False, error=str(error), backup=last)
             raise error
-        self.records.record_run(domain, ok=True, error=None, backup=last)
-        if taken:
+        if refused:
+            # What a destination refused for good needs somebody: the policy says so, as it did.
+            self.records.record_run(
+                domain,
+                ok=False,
+                error=f"The data of {domain} was backed up and refused by: {', '.join(sorted(refused))}",
+                backup=last,
+            )
+        else:
+            self.records.record_run(domain, ok=True, error=None, backup=last)
+        if taken and not pending:
             announce(
                 lambda: compose_backup_completed(
                     domain,
@@ -2675,6 +2693,22 @@ class VolumeBackupManager:
                 )
             )
         return result
+
+    def _send_what_is_owed(self, domain: str) -> None:
+        """
+        Send the data of an application that an earlier run could not send, before this one's own.
+
+        Args:
+            domain: The application.
+        """
+        from noust.managers.backup_resend import Resender, VolumePusher
+
+        try:
+            Resender(sender=Sender(config=self.config), pushers={"volume": VolumePusher(self)}).run(
+                only=("volume", domain)
+            )
+        except (NoustError, OSError, sqlite3.Error) as exc:
+            self.logger.warning(f"Could not send what was owed for {domain}: {exc}")
 
     def _prune_after_failure(self, domain: str, policy: VolumePolicy) -> None:
         """

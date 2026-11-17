@@ -420,6 +420,42 @@
       }
     ]
   },
+  "backup.sends_failed": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "trigger",
+    "dedup_key": "noust/web-1/backup/nas",
+    "payload": {
+      "summary": "Copias sin entregar · nas: Las copias no se han podido enviar y siguen en este servidor. Noust las vuelve a enviar solo y avisa cuando lleguen.",
+      "source": "web-1",
+      "severity": "warning",
+      "timestamp": "2026-09-29T10:45:51.000Z",
+      "group": "backup_failed",
+      "class": "backup.sends_failed",
+      "custom_details": {
+        "server": "web-1",
+        "destination": "nas",
+        "copies": "9: app01.example.com, app02.example.com, app04.example.com, app05.example.com, app07.example.com y 4 más",
+        "tried": "6 veces",
+        "next_try": "2026-11-17 02:15 UTC",
+        "kept_in": "/var/backups/noust",
+        "command": "noust backup resend",
+        "excerpt": "Failed to upload app01-example-com_20261117_012000.tar.gz to nas\nFailed to copyto: sftp: write: i/o timeout: connection lost\nNoust tried 3 times over 2m30s and gave up."
+      }
+    },
+    "client": "Noust",
+    "client_url": "https://console.example.com/n/web-1/backups",
+    "links": [
+      {
+        "href": "https://console.example.com/n/web-1/backups",
+        "text": "Abrir en la consola"
+      }
+    ]
+  },
+  "backup.sends_recovered": {
+    "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "event_action": "resolve",
+    "dedup_key": "noust/web-1/backup/nas"
+  },
   "backup.collect_failed": {
     "routing_key": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
     "event_action": "trigger",

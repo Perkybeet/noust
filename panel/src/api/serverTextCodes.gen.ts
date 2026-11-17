@@ -266,6 +266,7 @@ export const SERVER_TEXT = {
   "backup_destinations.enough_space_download": { text: ["archive_name"], hint: ["free", "size", "staging_dir", "staging_headroom"], commands: [] },
   "backup_destinations.failed_remove_destination_during": { text: ["backup_id", "suffix"], hint: ["value"], commands: [] },
   "backup_destinations.found_destination": { text: ["archive_name"], hint: ["target_dir"], commands: [] },
+  "backup_destinations.gave_up_after": { text: ["count", "span"], hint: null, commands: [] },
   "backup_destinations.hash_mismatch_after_uploading": { text: ["name"], hint: ["hash_name"], commands: [] },
   "backup_destinations.invalid_application_name": { text: ["app_name"], hint: [], commands: [] },
   "backup_destinations.invalid_backup_destination_name": { text: ["name"], hint: [], commands: [] },

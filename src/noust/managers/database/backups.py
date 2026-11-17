@@ -34,10 +34,12 @@ not restore can neither replace a good remote copy nor push an old one out.
 
 from __future__ import annotations
 
+import functools
 import json
 import logging
 import re
 import secrets
+import sqlite3
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -62,11 +64,11 @@ from noust.core.store import NoustStore
 from noust.managers.backup_destination_files import DestinationFileManager, file_sha256
 from noust.managers.backup_failures import record_failure
 from noust.managers.backup_scheduler import BackupScheduler, validate_calendar
+from noust.managers.backup_sending import Sender
 from noust.managers.backup_timer_options import validate_options
 from noust.managers.database.backup_notifications import (
     compose_database_backup_completed,
     compose_database_backup_failed,
-    compose_database_backup_upload_failed,
     compose_database_restore,
     database_subject,
     deliver,
@@ -2020,6 +2022,10 @@ class DatabaseBackups:
             "local_deleted": [],
             "restore_test": None,
         }
+        sender = Sender()
+        if notify and policy is not None:
+            # What an earlier run could not send goes first, and waits for no clock.
+            self._send_what_is_owed(engine_name, name)
         step(f"Dumping {name}")
         try:
             view = self.dump(
@@ -2057,12 +2063,24 @@ class DatabaseBackups:
             raise
 
         failures: list[tuple[str, str]] = []
+        pending: list[str] = []
+        refused: set[str] = set()
         if policy:
             for entry in policy.destinations:
                 target = entry["name"]
                 step(f"Sending {view.name} to {target}")
-                try:
-                    summary = self.push(
+                # A scheduled run keeps a dump that does not arrive as owed (Sender): kept here, sent
+                # again by itself and said once for the destination when it matters. A run somebody
+                # asked for reports it to them, as it always did.
+                outcome = sender.send(
+                    "database",
+                    f"{engine_name}:{view.name}",
+                    subject,
+                    target,
+                    copy_created_at=view.info.created,
+                    defer=notify,
+                    push=functools.partial(
+                        self.push,
                         engine_name,
                         view.name,
                         target,
@@ -2070,18 +2088,18 @@ class DatabaseBackups:
                         retention_count=entry.get("retention_count"),
                         retention_days=entry.get("retention_days"),
                         retention_gb=entry.get("retention_gb"),
-                    )
-                    result["destinations"][target] = {"ok": True, **summary}
-                except NoustError as exc:
-                    result["destinations"][target] = {"ok": False, "error": str(exc)}
-                    failures.append((target, str(exc)))
-                    announce(
-                        compose_database_backup_upload_failed,
-                        target,
-                        str(exc),
-                        failure_id=record_failure("upload", subject, str(exc), destination=target),
-                    )
-            if policy.remote_only and policy.destinations and not failures:
+                    ),
+                )
+                result["destinations"][target] = outcome.entry()
+                if outcome.deferred:
+                    pending.append(target)
+                    if outcome.permanent:
+                        refused.add(target)
+                elif not outcome.ok:
+                    # A run somebody asked for owes nothing and announces nothing; a scheduled one
+                    # whose owing could not be kept was said by the sender, as it used to be.
+                    failures.append((target, outcome.error or ""))
+            if policy.remote_only and policy.destinations and not failures and not pending:
                 # Every destination holds it and verified it on arrival: the local copy is the
                 # one the small disk cannot afford. A dump that did not go everywhere stays.
                 step(f"Removing {view.name} from this server: every destination holds it")
@@ -2101,8 +2119,16 @@ class DatabaseBackups:
             )
             finish(ok=False, error=str(error), dump=view.name)
             raise error
-        finish(ok=True, error=None, dump=view.name)
-        if notify:
+        if refused:
+            # What a destination refused for good needs somebody: the policy says so, as it did.
+            finish(
+                ok=False,
+                error=f"The dump of {name} was taken and refused by: {', '.join(sorted(refused))}",
+                dump=view.name,
+            )
+        else:
+            finish(ok=True, error=None, dump=view.name)
+        if notify and not pending:
             sent = tuple(result["destinations"])
             deliver(
                 lambda ctx: compose_database_backup_completed(
@@ -2110,6 +2136,23 @@ class DatabaseBackups:
                 )
             )
         return result
+
+    def _send_what_is_owed(self, engine: str, database: str) -> None:
+        """
+        Send the dumps of a database that an earlier run could not send, before this run's own.
+
+        Args:
+            engine: Canonical engine name.
+            database: The database.
+        """
+        from noust.managers.backup_resend import DatabasePusher, Resender
+
+        try:
+            Resender(sender=Sender(), pushers={"database": DatabasePusher(self)}).run(
+                only=("database", database_subject(engine, database))
+            )
+        except (NoustError, OSError, sqlite3.Error) as exc:
+            self.service.logger.warning(f"Could not send what was owed for {database}: {exc}")
 
     def _finish(
         self, engine: str, database: str, *, ok: bool, error: str | None, dump: Any

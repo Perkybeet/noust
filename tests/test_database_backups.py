@@ -857,13 +857,17 @@ class TestRunPolicy:
         backups.set_policy("postgresql", "shop", destinations=[{"name": "nas"}, {"name": "cloud"}])
         runner.refusing["nas"] = "Failed to copyto: AccessDenied: Access Denied (403)"
         sent: list[Any] = []
-        monkeypatch.setattr("noust.managers.database.backups.deliver", sent.append)
+        monkeypatch.setattr(
+            "noust.core.notifier.Notifier.notify", lambda self, note: sent.append(note)
+        )
 
-        with pytest.raises(BackupError) as failure:
-            backups.run_policy("postgresql", "shop", notify=True)
+        result = backups.run_policy("postgresql", "shop", notify=True)
 
-        assert "could not be sent to: nas" in str(failure.value)
-        assert "The local dump was kept" in str(failure.value)
+        # The refusal is of the kind waiting does not mend: said at once, once for the destination, and
+        # the policy's last run says it needs somebody; the run itself did not fail.
+        assert result["destinations"]["nas"]["pending"] is True
+        assert result["destinations"]["nas"]["permanent"] is True
+        assert result["destinations"]["cloud"]["ok"] is True
         cloud = list(
             (
                 runner.root / "cloud" / "noust-backups" / "databases" / "postgresql" / "shop"
@@ -872,7 +876,7 @@ class TestRunPolicy:
         assert len(cloud) == 2  # the dump and its sidecar
         assert len(backups.list_dumps("postgresql", "shop")) == 1
         assert backups.get_policy("postgresql", "shop").to_dict()["last_status"] == "failed"
-        assert len(sent) == 1  # one warning, for nas
+        assert [note.code for note in sent] == ["backup.sends_failed"]  # one message, for nas
 
     def test_with_no_policy_row_the_dump_is_still_taken(
         self, backups: DatabaseBackups, dumps_dir: Path
@@ -979,24 +983,25 @@ class TestRunPolicy:
         self, backups: DatabaseBackups, monkeypatch: pytest.MonkeyPatch, runner: RcloneRunner
     ) -> None:
         from noust.managers.backup_failures import BackupFailureLog
+        from noust.managers.backup_resend import DatabasePusher, Resender
+        from noust.managers.backup_sending import Sender
 
         sent: list[Any] = []
-        monkeypatch.setattr("noust.managers.database.backups.deliver", sent.append)
+        monkeypatch.setattr(
+            "noust.core.notifier.Notifier.notify", lambda self, note: sent.append(note)
+        )
         DestinationFileManager(runner=runner).add(
             "nas", "sftp", {"host": "nas.example.com", "user": "noust", "pass": "s3cr3t"}
         )
         runner.refusing["nas"] = "connection refused " * 50
         backups.set_policy("postgresql", "shop", destinations=[{"name": "nas"}])
 
-        with pytest.raises(BackupError):
-            backups.run_policy("postgresql", "shop", notify=True)
+        backups.run_policy("postgresql", "shop", notify=True)
+        # A dump that did not arrive is owed and nothing is said yet; the retry that fails too says it.
+        assert sent == []
+        Resender(sender=Sender(), pushers={"database": DatabasePusher(backups)}).run(force=True)
 
-        uploads = [
-            note
-            for note in (build(NotificationContext("en", "web-1", "")) for build in sent)
-            if note.code == "database.backup.upload_failed"
-        ]
-        (notice,) = uploads
+        (notice,) = [note for note in sent if note.code == "backup.sends_failed"]
         failure_id = failure_id_of(notice)
         stored = BackupFailureLog().get(failure_id)
         assert stored is not None and (stored.kind, stored.destination) == ("upload", "nas")

@@ -277,6 +277,16 @@ first.
 
 ## Backups and restores
 
+- **A night of bad network is one message, or none** (item 201). A server whose destination lost packets for
+  hours took fifteen backups, could not send nine, and said it nineteen times (a notice per application, the
+  monitor's `unit_failed` for each unit, and the destination after one failed probe). Sending a copy now retries
+  (three attempts, a growing pause, a ceiling for the operation) and every attempt is in the journal; a copy that
+  did not arrive is kept as owed, sent again after a quarter of an hour, an hour, four hours and then every day
+  and by the next scheduled run first (`noust backup resend`, a timer, or the central's own scheduler), and never
+  deleted to make room; the run does not fail, and it is said once for the destination when the retry fails too,
+  with an answer when everything arrives. The monitor no longer repeats the failure of a unit whose command said it,
+  and needs three failed probes to call a destination unreachable. `pending_sends` in the API and
+  `noust backup list` say which copies were not sent.
 - **A database copy made with Back up now is kept** (item 140): it is recorded as manual (`noust db backup-run
   --manual`), and retention, local and on a destination, only deletes what a schedule made. Copies recorded before
   4.3 cannot be told from the rest and stay recorded as scheduled.

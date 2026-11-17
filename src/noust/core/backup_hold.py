@@ -25,6 +25,11 @@ The rule is small on purpose:
   the log, with who was waiting.
 * A retention that cannot ask keeps what it was about to judge, once, rather than delete a copy
   nobody could say was safe elsewhere.
+
+A copy that was made and could not be sent to a destination (:mod:`noust.core.pending_sends`) is the
+same case with the same limit: it is on this server and nowhere else, and the retention leaves it
+alone for :data:`HOLD_MAX_DAYS` while it is owed (item 201). When a retention does delete one after
+that, it says so (``backup.unsent_delete``) and the owing goes with the copy.
 """
 
 from __future__ import annotations
@@ -37,6 +42,7 @@ from datetime import datetime, timedelta, timezone
 from noust.core import audit
 from noust.core.backup_collection_store import CentralHeld
 from noust.core.exceptions import NoustError
+from noust.core.pending_sends import PendingSends
 
 __all__ = ["HOLD_MAX_DAYS", "note_rotated_out", "rotate_out", "spared", "waiting"]
 
@@ -112,12 +118,12 @@ def spared(
     try:
         held = CentralHeld()
         following = {sync.central for sync in held.following(moment)}
-        if not following:
-            return set()
-        holders = held.holders_map(kind, moment)
+        holders = held.holders_map(kind, moment) if following else {}
+        owed = PendingSends().ids(kind)
     except (sqlite3.Error, NoustError) as exc:
         _log.warning(
-            "Could not ask which %s copies a central still waits for (%s); keeping them this time",
+            "Could not ask which %s copies a central still waits for, or which are still owed to a "
+            "destination (%s); keeping them this time",
             kind,
             exc,
         )
@@ -127,8 +133,8 @@ def spared(
         item
         for item, created in listed
         # One central that holds a copy is not every central: it is spared while any that follows
-        # lacks it.
-        if following - holders.get(item, set()) and _age(created, moment) <= limit
+        # lacks it. A copy owed to a destination is spared while it is owed.
+        if (item in owed or following - holders.get(item, set())) and _age(created, moment) <= limit
     }
 
 
@@ -158,9 +164,12 @@ def rotate_out(
     except (sqlite3.Error, NoustError) as exc:
         _log.debug("Could not ask who waited for %s %s: %s", kind, item_id, exc)
         lacking = []
+    owed = _owed_to(kind, item_id)
     delete(item_id)
     if lacking:
         _said(kind, item_id, owner, lacking)
+    if owed:
+        _said_unsent(kind, item_id, owner, owed)
 
 
 def note_rotated_out(kind: str, item_id: str, *, owner: str, now: datetime | None = None) -> None:
@@ -182,6 +191,9 @@ def note_rotated_out(kind: str, item_id: str, *, owner: str, now: datetime | Non
         return
     if lacking:
         _said(kind, item_id, owner, lacking)
+    owed = _owed_to(kind, item_id)
+    if owed:
+        _said_unsent(kind, item_id, owner, owed)
 
 
 def _said(kind: str, item_id: str, owner: str, lacking: list[str]) -> None:
@@ -207,3 +219,48 @@ def _said(kind: str, item_id: str, owner: str, lacking: list[str]) -> None:
         outcome="ok",
         details={"copy": item_id, "centrals": lacking},
     )
+
+
+def _owed_to(kind: str, item_id: str) -> list[str]:
+    """
+    Args:
+        kind: The kind of copy.
+        item_id: Its identifier on this server.
+
+    Returns:
+        The destinations the copy was still owed to; empty when it was sent everywhere or nobody can say.
+    """
+    try:
+        return sorted(row.destination for row in PendingSends().for_copy(kind, item_id))
+    except (sqlite3.Error, NoustError) as exc:
+        _log.debug("Could not ask where %s %s was still owed: %s", kind, item_id, exc)
+        return []
+
+
+def _said_unsent(kind: str, item_id: str, owner: str, destinations: list[str]) -> None:
+    """
+    Record that a copy went before it reached the destinations it was owed to, and end the owing.
+
+    Args:
+        kind: The kind of copy.
+        item_id: Its identifier on this server.
+        owner: What it was a copy of.
+        destinations: Where it was still owed.
+    """
+    _log.warning(
+        "The retention deleted %s copy %s of %s before it reached %s",
+        kind,
+        item_id,
+        owner,
+        ", ".join(destinations),
+    )
+    audit.record(
+        "backup.unsent_delete",
+        target=f"{kind}:{owner}",
+        outcome="ok",
+        details={"copy": item_id, "destinations": destinations},
+    )
+    try:
+        PendingSends().forget_copy(kind, item_id)
+    except sqlite3.Error as exc:
+        _log.debug("Could not forget what was owed for %s %s: %s", kind, item_id, exc)

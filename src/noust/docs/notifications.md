@@ -389,15 +389,15 @@ messages, that page is the part of it that is a watch.
 |---|---|---|
 | `deploy_started`, `deploy_success`, `deploy_failed`, `deploy_rolled_back`, `deploy_hook_failed` | A deploy, update or rollback | all on but `deploy_started` |
 | `restore_success`, `restore_failed` | A backup is put back | on |
-| `backup_failed`, `backup_success` | A backup runs | `backup_success` off |
+| `backup_failed`, `backup_success` | A backup runs, a backup could not be taken, or copies that were made could not be sent to a destination (one message for the destination, and one that answers it when they arrive: [a night of bad network](backups-destinations.md#a-night-of-bad-network)) | `backup_success` off |
 | `backup_missing` | A backup schedule or policy (an application's, a database's, an application's data or Noust's own state) has no successful backup newer than `monitor.backup_missing_days` | on |
-| `destination_unreachable` | A backup destination some policy sends to does not answer, and when it answers again | on |
+| `destination_unreachable` | A backup destination some policy sends to does not answer three probes in a row, unless the runs already said it, and when it answers again | on |
 | `cert_expiring` | A certificate is past the point where it is renewed (a third of its life left) and has fewer than `monitor.cert_warning_days` days left, and when it expires | on |
 | `cert_renewal_failed` | certbot's last renewal failed (with its own words), or the timer that runs it is not running | on |
 | `domain_expiring`, `domain_expired` | The registry of a domain Noust serves says its registration expires within 30 days or 7 days, or that it expired (only with `monitor.domain_expiry`, off by default) | on |
 | `app_oom_killed` | The kernel killed an application for running out of memory: said once for every rise of its unit's `oom_kill` counter, with its memory limit and the most it used (cgroup v2) | on |
 | `access_change_reverted` | A change to the firewall or to SSH that nobody confirmed from a new session in time was undone by its timer (it says which change, who applied it and what the undo printed) | on |
-| `unit_failed`, `app_unreachable`, `app_recovered` | A service stops, or stops answering its health check | on |
+| `unit_failed`, `app_unreachable`, `app_recovered` | A service stops, or stops answering its health check (not a backup or a scheduled task whose own run said how it ended) | on |
 | `disk_threshold` | A disk passes `monitor.disk_threshold` percent | on |
 | `os_patches` | The package manager has updates waiting; security ones are named | on |
 | `token_expiring` | An API token expires within `monitor.token_warning_days` days, expires today, or just has | on |

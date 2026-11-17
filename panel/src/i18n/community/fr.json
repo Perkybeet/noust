@@ -15813,6 +15813,7 @@
   "serverText.backup_destinations.valid_bucket_name_uses.text": "{label} n'est pas valide : un nom de bucket utilise des lettres minuscules, des chiffres, des tirets et {value}",
   "serverText.backup_destinations.valid_container_3_63.text": "{label} n'est pas valide : un conteneur fait de 3 à 63 caractères",
   "serverText.backup_destinations.valid_container_name_uses.text": "{label} n'est pas valide : un nom de conteneur utilise des lettres minuscules, des chiffres et des tirets simples, et commence et finit par une lettre ou un chiffre",
+  "serverText.backup_destinations.gave_up_after.text": "Noust a essayé {count} fois en {span} avant d'abandonner.",
   "serverText.backup_encryption.backups_sealed_server.text": "Les sauvegardes ne sont pas chiffrées sur ce serveur",
   "serverText.backup_encryption.backups_sealed_server.hint": "Activez d'abord le chiffrement : noust backup encryption enable, ou POST /api/backups/encryption/enable.",
   "serverText.backup_failures.backup_failure_found.text": "Échec de sauvegarde introuvable : {failure_id}",

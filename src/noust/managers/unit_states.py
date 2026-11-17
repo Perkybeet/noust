@@ -17,7 +17,60 @@ from __future__ import annotations
 
 from pathlib import Path
 
-__all__ = ["has_timer", "state_group", "state_is_running", "timer_phase"]
+from noust.core import paths
+
+__all__ = [
+    "announces_its_own_failure",
+    "has_timer",
+    "state_group",
+    "state_is_running",
+    "timer_phase",
+]
+
+#: The units of a backup timer that run without saying how they ended: the retention sweep, the pass that
+#: sends again what was not sent (when it fails, it is that it could not be made at all), and the
+#: archiving of a write-ahead log (``noust-backup-pitr-<engine>``). Every other unit of a backup timer
+#: (an application's, its data's, a database's, Noust's own) runs a command that announces its own
+#: failure as ``backup_failed``; a scheduled task's is announced by ``cron_failed``.
+_SILENT_BACKUP_UNITS = ("sweep", "resend", "pitr-")
+
+#: The systemd results of a run that ended by its own exit: the command ran, saw it had failed and
+#: said so before it went. Every other result (its time limit, the memory limit, a signal, a
+#: watchdog) is systemd's doing, and a run killed that way announced nothing.
+_ENDED_BY_ITSELF = ("exit-code",)
+
+
+def announces_its_own_failure(unit: str, result: str | None = None) -> bool:
+    """
+    Say whether a unit's failure is already said by the command it runs (item 201).
+
+    The one definition: the monitor watches every unit Noust manages and said a failure again as
+    ``unit_failed`` when the run had said it as ``backup_failed`` or ``cron_failed``, so nine failed
+    sends were eighteen messages. The closed list is the runs of the backup timers that announce
+    (every one but :data:`_SILENT_BACKUP_UNITS`) and of the scheduled tasks. A unit that is not one
+    of them is never listed here, so a new kind of unit is announced by the monitor until somebody
+    makes it say its own.
+
+    Args:
+        unit: The unit's name, with or without ``.service``.
+        result: systemd's ``Result`` for its last run, when the question is about that run. A run
+            that ended by something other than its own exit (:data:`_ENDED_BY_ITSELF`) said nothing,
+            so it is not said to have. None asks only about the unit.
+
+    Returns:
+        True when the failure of the unit's run is the command's to announce.
+    """
+    name = unit.removesuffix(".service")
+    announces = False
+    for prefix in (paths.BACKUP_UNIT_PREFIX, paths.LEGACY_BACKUP_UNIT_PREFIX):
+        if name.startswith(prefix):
+            rest = name.removeprefix(prefix)
+            announces = not rest.startswith(_SILENT_BACKUP_UNITS)
+    if name.startswith((paths.CRON_UNIT_PREFIX, paths.LEGACY_CRON_UNIT_PREFIX)):
+        announces = True
+    if not announces:
+        return False
+    return result is None or result in _ENDED_BY_ITSELF
 
 
 def state_is_running(raw_state: str) -> bool:

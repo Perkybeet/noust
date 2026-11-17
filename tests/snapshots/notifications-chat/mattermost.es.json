@@ -829,6 +829,81 @@
       }
     ]
   },
+  "backup.sends_failed": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "▲ Copias sin entregar · nas",
+        "color": "#e3a73c",
+        "title": "▲ Copias sin entregar · nas",
+        "text": "Las copias no se han podido enviar y siguen en este servidor. Noust las vuelve a enviar solo y avisa cuando lleguen.\n\n**Envíalas ahora con:** `noust backup resend`\n\n*Lo que ha informado el sistema*\n```\nFailed to upload app01-example-com_20261117_012000.tar.gz to nas\nFailed to copyto: sftp: write: i/o timeout: connection lost\nNoust tried 3 times over 2m30s and gave up.\n```",
+        "fields": [
+          {
+            "short": true,
+            "title": "Servidor",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Destino",
+            "value": "nas"
+          },
+          {
+            "short": false,
+            "title": "Copias",
+            "value": "9: app01.example.com, app02.example.com, app04.example.com, app05.example.com, app07.example.com y 4 más"
+          },
+          {
+            "short": true,
+            "title": "Intentos",
+            "value": "6 veces"
+          },
+          {
+            "short": true,
+            "title": "Próximo intento",
+            "value": "2026-11-17 02:15 UTC"
+          },
+          {
+            "short": true,
+            "title": "Guardadas en",
+            "value": "`/var/backups/noust`"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/backups"
+      }
+    ]
+  },
+  "backup.sends_recovered": {
+    "username": "Noust",
+    "attachments": [
+      {
+        "fallback": "● Copias entregadas · nas",
+        "color": "#4dc47e",
+        "title": "● Copias entregadas · nas",
+        "text": "Todas las copias que esperaban han llegado al destino.",
+        "fields": [
+          {
+            "short": true,
+            "title": "Servidor",
+            "value": "web-1"
+          },
+          {
+            "short": true,
+            "title": "Destino",
+            "value": "nas"
+          },
+          {
+            "short": true,
+            "title": "Copias",
+            "value": "9"
+          }
+        ],
+        "footer": "Noust · web-1",
+        "title_link": "https://console.example.com/n/web-1/backups"
+      }
+    ]
+  },
   "backup.collect_failed": {
     "username": "Noust",
     "attachments": [

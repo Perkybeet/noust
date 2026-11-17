@@ -32,6 +32,7 @@ from pydantic import BaseModel, Field
 
 from noust.core.audit import Actor
 from noust.core.exceptions import BackupError
+from noust.core.pending_sends import PendingSend, owed_by_copy
 from noust.core.server_text import say
 from noust.deployers.recorder import CapturingLogger
 from noust.managers.backup_scheduler import validate_calendar
@@ -98,6 +99,9 @@ class VolumeBackupResponse(BaseModel):
         remote_copies: Where it was sent.
         last_verified_at: When it was last checked.
         verified_ok: That check's verdict; null before one.
+        pending_sends: The destinations this was made for and has not reached yet, each with
+            ``destination``, ``reason`` (what it said, verbatim), ``attempts``, ``since`` and
+            ``next_attempt_at``. Empty once it is everywhere it was meant to be.
     """
 
     id: str
@@ -115,6 +119,7 @@ class VolumeBackupResponse(BaseModel):
     remote_copies: list[dict[str, Any]] = Field(default_factory=list)
     last_verified_at: str | None = None
     verified_ok: bool | None = None
+    pending_sends: list[dict[str, Any]] = Field(default_factory=list)
 
     _iso_timestamps = iso_offset_validator("created_at", "last_verified_at")
 
@@ -400,16 +405,22 @@ _BACKUP_KEYS = (
 )
 
 
-def _backup_response(entry: VolumeBackupMetadata) -> VolumeBackupResponse:
+def _backup_response(
+    entry: VolumeBackupMetadata, owed: dict[str, list[PendingSend]] | None = None
+) -> VolumeBackupResponse:
     """
     Args:
         entry: A backup.
+        owed: What is owed to a destination for each backup, from :func:`owed_by_copy`.
 
     Returns:
         The response model.
     """
     data = entry.to_dict()
-    return VolumeBackupResponse(**{key: data[key] for key in _BACKUP_KEYS})
+    return VolumeBackupResponse(
+        **{key: data[key] for key in _BACKUP_KEYS},
+        pending_sends=[row.to_dict() for row in (owed or {}).get(entry.id, [])],
+    )
 
 
 @contextmanager
@@ -655,7 +666,10 @@ def list_backups(
         The backups whose archive is present.
     """
     found = _manager(session).list_backups(domain, target)
-    return VolumeBackupListResponse(backups=[_backup_response(e) for e in found], total=len(found))
+    owed = owed_by_copy("volume")
+    return VolumeBackupListResponse(
+        backups=[_backup_response(e, owed) for e in found], total=len(found)
+    )
 
 
 def create_job(
@@ -843,7 +857,7 @@ def get_backup(
     entry = _manager(session).get_backup(backup_id)
     if entry is None:
         raise refusal(404, say("volume_backups.volume_backup_found_2", backup_id=backup_id))
-    return _backup_response(entry)
+    return _backup_response(entry, owed_by_copy("volume"))
 
 
 def verify_job(

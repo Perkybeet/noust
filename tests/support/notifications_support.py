@@ -72,6 +72,10 @@ from noust.core.notifications.composers_ops import (
     compose_os_patches_check_failed,
     compose_token_expiring,
 )
+from noust.core.notifications.composers_sends import (
+    compose_backup_sends_failed,
+    compose_backup_sends_recovered,
+)
 from noust.core.notifications.composers_watch import (
     compose_app_oom,
     compose_central,
@@ -300,6 +304,23 @@ def catalog(locale: Locale) -> dict[str, Notification]:
         ),
         ctx,
     )
+    out["backup.sends_failed"] = compose_backup_sends_failed(
+        "nas",
+        9,
+        [f"app{index:02d}.example.com" for index in (1, 2, 4, 5, 7, 9, 11, 12, 14)],
+        str(
+            NoustError(
+                "Failed to upload app01-example-com_20261117_012000.tar.gz to nas",
+                "Failed to copyto: sftp: write: i/o timeout: connection lost\n"
+                "Noust tried 3 times over 2m30s and gave up.",
+            )
+        ),
+        ctx,
+        tried=6,
+        next_try=datetime(2026, 11, 17, 2, 15, tzinfo=timezone.utc),
+        kept_in="/var/backups/noust",
+    )
+    out["backup.sends_recovered"] = compose_backup_sends_recovered("nas", 9, ctx)
     out["backup.collect_failed"] = compose_backup_collect_failed(
         "web-2",
         "The disk the copies are kept on is full. 1.2 GB are free under /data/backups and the "

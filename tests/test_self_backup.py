@@ -43,6 +43,8 @@ from noust.core.store import SCHEMA_VERSION, get_store
 from noust.managers import self_restore
 from noust.managers.backup_destination_files import DestinationFileManager
 from noust.managers.backup_failures import BackupFailureLog
+from noust.managers.backup_resend import NoustPusher, Resender
+from noust.managers.backup_sending import Sender
 from noust.managers.self_backup import LABEL, SECRET_NAME, SelfBackupManager
 from noust.managers.self_restore import SelfRestore
 from tests.support.database_backup_support import age
@@ -916,10 +918,14 @@ class TestSchedule:
             lambda self, notification: sent.append(notification),
         )
 
-        with pytest.raises(BackupError):
-            manager.run_schedule(notify=True)
+        manager.run_schedule(notify=True)
+        # A bundle that did not arrive is owed and nothing is said yet; the retry that fails too says it.
+        assert sent == []
+        Resender(sender=Sender(config=manager.config), pushers={"noust": NoustPusher(manager)}).run(
+            force=True
+        )
 
-        (notice,) = [n for n in sent if n.code == "backup.upload_failed"]
+        (notice,) = [n for n in sent if n.code == "backup.sends_failed"]
         failure_id = failure_id_of(notice)
         stored = BackupFailureLog().get(failure_id)
         assert stored is not None and (stored.kind, stored.destination) == ("upload", "nas")

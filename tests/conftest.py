@@ -50,6 +50,7 @@ from tests.support.fixtures import (  # noqa: F401 - pytest finds the fixtures i
     systemd_dir,
     zoneinfo,
 )
+from tests.support.patience_clock import PatienceClock
 from tests.support.sharding import parse_shard, select
 
 
@@ -225,6 +226,44 @@ def restore_drill_not_due(request: pytest.FixtureRequest, monkeypatch: pytest.Mo
     if request.node.get_closest_marker("real_drill"):
         return
     monkeypatch.setattr("noust.managers.restore_drill.drill_due", lambda *args, **kwargs: False)
+
+
+@pytest.fixture(autouse=True)
+def patience_clock(monkeypatch: pytest.MonkeyPatch) -> PatienceClock:
+    """
+    Make a patient call to a backup destination wait on a clock that only moves.
+
+    A call that works waits half a minute and then two between its attempts
+    (``noust.managers.destination_patience``); no test may wait for that, so the pause only moves a
+    clock the call also reads its ceiling from. A test that wants to know what was waited asks for
+    this fixture.
+
+    Args:
+        monkeypatch: Patching helper, scoped to the test.
+
+    Returns:
+        The clock, with every pause it was asked for.
+    """
+    clock = PatienceClock()
+    monkeypatch.setattr("noust.managers.destination_patience._monotonic", clock.monotonic)
+    monkeypatch.setattr("noust.managers.destination_patience._sleep", clock.sleep)
+    return clock
+
+
+@pytest.fixture(autouse=True)
+def resend_timer_not_installed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Keep a copy that is owed from writing a systemd timer into the machine the suite runs on.
+
+    The first copy that cannot be sent brings the timer that sends it again along
+    (``noust.managers.backup_sending.install_resend_timer``); a test of anything that sends a
+    backup owes copies, and none of them is a test of the timer. The tests of the timer call the real
+    function (``tests/test_backup_resend_timer.py``).
+
+    Args:
+        monkeypatch: Patching helper, scoped to the test.
+    """
+    monkeypatch.setattr("noust.managers.backup_sending.install_resend_timer", lambda: None)
 
 
 @pytest.fixture(autouse=True)

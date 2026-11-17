@@ -39327,6 +39327,9 @@ export interface components {
          *             archive. None when nothing ever has.
          *         verified_ok: That check's own verdict. None until the first check;
          *             reflects the most recent one after that, whichever way it went.
+         *         pending_sends: The destinations this backup was made for and has not reached yet, each
+         *             with ``destination``, ``reason`` (what it said, verbatim), ``attempts``, ``since`` and
+         *             ``next_attempt_at``. Empty once it is everywhere it was meant to be.
          */
         BackupInfo: {
             /** Age */
@@ -39372,6 +39375,10 @@ export interface components {
             includes_node_modules: boolean;
             /** Last Verified At */
             last_verified_at?: string | null;
+            /** Pending Sends */
+            pending_sends?: {
+                [key: string]: unknown;
+            }[];
             /** Size */
             size: number;
             /** Size Human */
@@ -39403,6 +39410,9 @@ export interface components {
          *         destinations: Where a copy was sent, from what Noust recorded (the live
          *             contents of a destination are ``/backups/remote``).
          *         age_seconds: How old the file is.
+         *         pending_sends: The destinations this was made for and has not reached yet, each with
+         *             ``destination``, ``reason`` (what it said, verbatim), ``attempts``, ``since`` and
+         *             ``next_attempt_at``. Empty once it is everywhere it was meant to be.
          */
         BackupInfoResponse: {
             /**
@@ -39437,6 +39447,10 @@ export interface components {
             name: string;
             /** Path */
             path: string;
+            /** Pending Sends */
+            pending_sends?: {
+                [key: string]: unknown;
+            }[];
             /** Restore Test Detail */
             restore_test_detail?: string | null;
             /** Restore Test Status */
@@ -40221,6 +40235,9 @@ export interface components {
          *         sha256: Its digest, from its sidecar.
          *         remote_copies: Where it was sent.
          *         sidecar_mac: What the sidecar's MAC says.
+         *         pending_sends: The destinations this was made for and has not reached yet, each with
+         *             ``destination``, ``reason`` (what it said, verbatim), ``attempts``, ``since`` and
+         *             ``next_attempt_at``. Empty once it is everywhere it was meant to be.
          */
         BundleResponse: {
             /** Created At */
@@ -40234,6 +40251,10 @@ export interface components {
             kind: string;
             /** Name */
             name: string;
+            /** Pending Sends */
+            pending_sends?: {
+                [key: string]: unknown;
+            }[];
             /** Remote Copies */
             remote_copies?: {
                 [key: string]: unknown;
@@ -75469,6 +75490,9 @@ export interface components {
          *         remote_copies: Where it was sent.
          *         last_verified_at: When it was last checked.
          *         verified_ok: That check's verdict; null before one.
+         *         pending_sends: The destinations this was made for and has not reached yet, each with
+         *             ``destination``, ``reason`` (what it said, verbatim), ``attempts``, ``since`` and
+         *             ``next_attempt_at``. Empty once it is everywhere it was meant to be.
          */
         VolumeBackupResponse: {
             /** Checksum */
@@ -75493,6 +75517,10 @@ export interface components {
             kind: string;
             /** Last Verified At */
             last_verified_at?: string | null;
+            /** Pending Sends */
+            pending_sends?: {
+                [key: string]: unknown;
+            }[];
             /** Remote Copies */
             remote_copies?: {
                 [key: string]: unknown;

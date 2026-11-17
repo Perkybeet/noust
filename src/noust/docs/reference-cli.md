@@ -4011,7 +4011,7 @@ Create, inspect and restore application backups.
 noust backup [OPTIONS] [COMMAND] [ARGS]...
 ```
 
-Subcommands: [`create`](#noust-backup-create), [`delete`](#noust-backup-delete), [`destination`](#noust-backup-destination), [`drill`](#noust-backup-drill), [`drills`](#noust-backup-drills), [`encryption`](#noust-backup-encryption), [`failures`](#noust-backup-failures), [`import`](#noust-backup-import), [`info`](#noust-backup-info), [`list`](#noust-backup-list), [`priority`](#noust-backup-priority), [`push`](#noust-backup-push), [`remote-list`](#noust-backup-remote-list), [`restore`](#noust-backup-restore), [`schedule`](#noust-backup-schedule), [`storage`](#noust-backup-storage), [`sweep`](#noust-backup-sweep), [`verify`](#noust-backup-verify), [`volumes`](#noust-backup-volumes)
+Subcommands: [`create`](#noust-backup-create), [`delete`](#noust-backup-delete), [`destination`](#noust-backup-destination), [`drill`](#noust-backup-drill), [`drills`](#noust-backup-drills), [`encryption`](#noust-backup-encryption), [`failures`](#noust-backup-failures), [`import`](#noust-backup-import), [`info`](#noust-backup-info), [`list`](#noust-backup-list), [`priority`](#noust-backup-priority), [`push`](#noust-backup-push), [`remote-list`](#noust-backup-remote-list), [`resend`](#noust-backup-resend), [`restore`](#noust-backup-restore), [`schedule`](#noust-backup-schedule), [`storage`](#noust-backup-storage), [`sweep`](#noust-backup-sweep), [`verify`](#noust-backup-verify), [`volumes`](#noust-backup-volumes)
 
 ### noust backup create
 
@@ -4481,6 +4481,20 @@ Arguments: `destination`
 |---|---|---|
 | `--app` | List this application's backups instead of the destination's. |  |
 | `--json` | Print the listing as JSON. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust backup resend
+
+Send again the copies that could not reach their destination.
+
+```bash
+noust backup resend [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--now` | Try every copy that is owed, not only the ones whose time has come. |  |
+| `--json` | Print the report as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust backup restore

@@ -4696,6 +4696,9 @@ export const serverText: Catalog<typeof en> = {
     valid_container_name_uses: {
       text: "{label} no es válido: el nombre de un contenedor usa letras minúsculas, dígitos y guiones sueltos, y empieza y termina por una letra o un dígito",
     },
+    gave_up_after: {
+      text: "Noust lo ha intentado {count} veces en {span} y se ha rendido.",
+    },
   },
   backup_encryption: {
     backups_sealed_server: {

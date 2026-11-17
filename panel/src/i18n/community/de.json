@@ -15805,6 +15805,7 @@
   "serverText.backup_destinations.valid_bucket_name_uses.text": "{label} ist ungültig: Ein Bucket-Name verwendet Kleinbuchstaben, Ziffern, Bindestriche und {value}",
   "serverText.backup_destinations.valid_container_3_63.text": "{label} ist ungültig: Ein Container hat 3 bis 63 Zeichen",
   "serverText.backup_destinations.valid_container_name_uses.text": "{label} ist ungültig: Ein Container-Name verwendet Kleinbuchstaben, Ziffern und einzelne Bindestriche und beginnt und endet mit einem Buchstaben oder einer Ziffer",
+  "serverText.backup_destinations.gave_up_after.text": "Noust hat es {count} Mal innerhalb von {span} versucht und aufgegeben.",
   "serverText.backup_encryption.backups_sealed_server.text": "Backups sind auf diesem Server nicht verschlüsselt",
   "serverText.backup_encryption.backups_sealed_server.hint": "Schalten Sie zuerst die Verschlüsselung ein: noust backup encryption enable oder POST /api/backups/encryption/enable.",
   "serverText.backup_failures.backup_failure_found.text": "Backup-Fehler nicht gefunden: {failure_id}",

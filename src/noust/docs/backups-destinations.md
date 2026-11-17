@@ -133,6 +133,56 @@ profile, with its place named (`central:<name>`); it is **one** copy, on one mac
 replace a destination outside it, and the console says so and offers to add one. Moving a copy
 between two servers is not what it is for: it would pass the whole copy through the central's line.
 
+## A night of bad network
+
+A scheduled run takes its copy and sends it to each destination of its schedule. What happens when a
+destination does not take it is decided in one place, and it is what turns a night of lost packets into one
+message, or none:
+
+- **Sending is patient; asking is not.** Sending a copy, fetching one, deleting by retention, and the
+  listings and checks inside those, make three attempts with a pause that grows (30 seconds, then two
+  minutes), wait a minute for the connection and call a transfer stuck after two minutes without data, within
+  two hours for the whole operation, so one send never holds a run all night. Testing a destination, the
+  monitor's probe and listing a destination for a person at the console keep one attempt and fifteen seconds,
+  so a destination that is down says so at once. The journal of the run says every attempt, and the error
+  that ends them says how many there were. What waiting does not mend (a refused credential, a bucket that is
+  not there, a full quota) is tried once.
+- **A copy that did not arrive is owed, not failed.** The run does not fail and says nothing yet: the copy
+  stays on this server, written down with the destination it is owed to and what the destination said. It is
+  tried again after a quarter of an hour, an hour and four hours, then every day, and the next scheduled run
+  of the same thing sends what is owed first, before it takes its own copy. A server runs the pass with a
+  timer (`noust-backup-resend`, every five minutes, made the first time a copy is owed); the central of a
+  machine without systemd runs the same command with its own scheduler. `noust backup resend` runs it now
+  (`--now` tries everything that is owed, not only what is due). A destination that does not answer ends the
+  tries to it for that pass, the others go on.
+- **A copy that is owed is never deleted to make room.** No retention of any kind of copy deletes a copy that
+  is still owed to a destination, for fourteen days; past them the retention decides again (a disk cannot wait
+  for ever) and says it in the audit trail (`backup.unsent_delete`). A schedule that keeps nothing on this server
+  (`remote_only`) keeps the copy until every destination holds it. `noust backup list` says which copies were
+  not sent, to where and when they are tried next, and the API gives the same in `pending_sends` on every copy.
+- **It is said once for a destination, when it matters.** When a retry fails too, or at once when what the
+  destination refused is of the kind waiting does not mend, one `backup_failed` notice names the destination,
+  how many copies are owed and for which applications, what was tried, when it is tried next, where the copies
+  are meanwhile and what the destination said, verbatim. Another failure to the same destination within
+  `monitor.backup_missing_renotify_hours` (24) joins that message, and a reminder goes every window while
+  copies are still owed. When everything has arrived a second message says so and answers the first on the
+  channels that can.
+- **The run says how it went.** A copy that is only waiting leaves the policy's last run as it was (ok): the
+  backup was taken and the retry will see to the rest. A copy a destination refused for good (a credential, a
+  quota) leaves it failed, with who refused it, because that needs somebody; the run still does not fail and the
+  copy is still sent again if the destination mends.
+- **The monitor does not say it again.** The runs of backups and of scheduled tasks announce their own failure,
+  so the monitor does not add `unit_failed` for them when the run ended by its own exit; a run that systemd
+  killed (its time limit, memory or a signal) said nothing and is still announced. The retention sweep and the
+  archiving of a write-ahead log announce nothing themselves, and stay the monitor's.
+- **A destination is said to be unreachable after three failed probes in a row**, five minutes apart while it
+  is in doubt, and not when the runs have already said it (and the runs stay quiet when the monitor has).
+
+The central that collects the copies of its servers (below) works the same way in its own terms: a transfer
+retries a piece and resumes a cut file, whatever a server lists that the central does not hold is collected
+at the next pass, and it tells you once per server, after five failed passes in a row (about half an hour of
+its own backoff), or at once for a copy that is not being kept.
+
 ## Destinations are encrypted, and watched
 
 A destination made without a word about encryption wraps the remote in rclone's `crypt` backend with a
@@ -147,6 +197,7 @@ away, which fails only the next upload: `backup_missing` when no successful run 
 database's policy, an application's data policy or Noust's own backup is newer than
 `monitor.backup_missing_days` (2; a weekly or monthly schedule is given its period and a day; `0` turns it
 off), once, then every day while it stays true; and `destination_unreachable` when a destination some
-policy sends to does not answer (asked every `monitor.backup_check_hours`, as `noust backup destination
-test` asks), once per outage with rclone's own words, and again when it answers. Both are switches under
+policy sends to does not answer three probes in a row (asked every `monitor.backup_check_hours`, and every
+five minutes while it is in doubt, as `noust backup destination test` asks), once per outage with rclone's own
+words, and again when it answers. Both are switches under
 `notifications.events`.

@@ -44,6 +44,11 @@ reads what Compose resolves it to. Run `noust health` after updating.
 - **The built-in assistant is off.** Nothing of it is drawn until an administrator turns it on in **Settings > AI
   assistant**, with a model of their choice, and nothing leaves the server before that. Its permission,
   `assistant.use`, is held by the administrator and the operator. [assistant.md](assistant.md).
+- **A backup that cannot reach its destination no longer fails the run.** The copy stays on the server, is
+  tried again by itself (`noust backup resend` shows and forces it; the first copy that is owed makes the timer
+  `noust-backup-resend`, or the central's scheduler runs it) and is said once for the destination. If you
+  watched the journal of `noust-backup-*` for a failed unit, watch `noust backup list` (it says which copies were
+  not sent) or the notice instead. A schedule with `remote_only` keeps the copy until every destination holds it.
 - **New permissions reach the roles by themselves, unless you edited the role.** A role Noust ships and nobody
   edited follows what Noust ships: `docker.read` on every role, `docker.manage` and `backups.collect` on the
   administrator, `assistant.use` on the administrator and the operator. A role somebody edited is offered them,
@@ -120,11 +125,12 @@ A server, which is not a container, keeps using the Docker and Compose of the ma
 
 ## What changes on its own
 
-- **At the first start, the store moves to schema 18.** It opens and adds 21 tables and 6 columns, and rewrites
+- **At the first start, the store moves to schema 18.** It opens and adds 22 tables and 6 columns, and rewrites
   no row. By area: what a first deployment that failed leaves behind (`first_deploys`); the registrations of
   domains (`domain_registrations`, `domain_registrables`); what a task that runs once leaves
   (`cron_once_history`); what a central takes of its servers' copies and what a server tells it holds
   (`collected_backups`, `collect_nodes`, `collect_settings`, `backup_central_held`, `backup_central_syncs`); the
+  copies that were made and could not be sent to a destination (`pending_sends`); the
   approval policy and what each credential's client said it was (`caller_policy`, `credential_clients`, and the
   columns `caller`, `origin`, `environment`, `domain`, `needs` and `client` of `approval_requests`); the
   assistant (`assistant_settings`, `assistant_conversations`, `assistant_messages`, `assistant_usage`,

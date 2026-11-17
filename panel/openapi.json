@@ -7643,7 +7643,7 @@
         "type": "object"
       },
       "BackupInfo": {
-        "description": "One backup as the manager records it.\n\nAttributes:\n    last_verified_at: When ``POST /{backup_id}/verify`` last checked this\n        archive. None when nothing ever has.\n    verified_ok: That check's own verdict. None until the first check;\n        reflects the most recent one after that, whichever way it went.",
+        "description": "One backup as the manager records it.\n\nAttributes:\n    last_verified_at: When ``POST /{backup_id}/verify`` last checked this\n        archive. None when nothing ever has.\n    verified_ok: That check's own verdict. None until the first check;\n        reflects the most recent one after that, whichever way it went.\n    pending_sends: The destinations this backup was made for and has not reached yet, each\n        with ``destination``, ``reason`` (what it said, verbatim), ``attempts``, ``since`` and\n        ``next_attempt_at``. Empty once it is everywhere it was meant to be.",
         "properties": {
           "age": {
             "title": "Age",
@@ -7734,6 +7734,14 @@
             ],
             "title": "Last Verified At"
           },
+          "pending_sends": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Pending Sends",
+            "type": "array"
+          },
           "size": {
             "title": "Size",
             "type": "integer"
@@ -7777,7 +7785,7 @@
         "type": "object"
       },
       "BackupInfoResponse": {
-        "description": "One database dump.\n\nAttributes:\n    name: The file name, which restore and the other dump actions take.\n    format: ``custom`` (pg_dump -Fc), ``plain`` (SQL), ``tar``, ``rdb``,\n        ``aof`` or ``archive`` (a mongodump tarball).\n    kind: Who made it: ``manual``, ``scheduled`` (a policy: the only kind\n        retention deletes), ``safety`` (the copy a restore took of what it\n        overwrote) or ``unknown`` (taken before 3.1).\n    sha256: The digest recorded when it was taken.\n    verify_status: ``ok`` or ``failed`` for its last check, ``unverified``\n        when it has none.\n    verify_detail: The check's own words, verbatim.\n    restore_test_status: ``ok`` or ``failed`` for its last test restore.\n    restore_test_detail: The test's evidence, verbatim.\n    destinations: Where a copy was sent, from what Noust recorded (the live\n        contents of a destination are ``/backups/remote``).\n    age_seconds: How old the file is.",
+        "description": "One database dump.\n\nAttributes:\n    name: The file name, which restore and the other dump actions take.\n    format: ``custom`` (pg_dump -Fc), ``plain`` (SQL), ``tar``, ``rdb``,\n        ``aof`` or ``archive`` (a mongodump tarball).\n    kind: Who made it: ``manual``, ``scheduled`` (a policy: the only kind\n        retention deletes), ``safety`` (the copy a restore took of what it\n        overwrote) or ``unknown`` (taken before 3.1).\n    sha256: The digest recorded when it was taken.\n    verify_status: ``ok`` or ``failed`` for its last check, ``unverified``\n        when it has none.\n    verify_detail: The check's own words, verbatim.\n    restore_test_status: ``ok`` or ``failed`` for its last test restore.\n    restore_test_detail: The test's evidence, verbatim.\n    destinations: Where a copy was sent, from what Noust recorded (the live\n        contents of a destination are ``/backups/remote``).\n    age_seconds: How old the file is.\n    pending_sends: The destinations this was made for and has not reached yet, each with\n        ``destination``, ``reason`` (what it said, verbatim), ``attempts``, ``since`` and\n        ``next_attempt_at``. Empty once it is everywhere it was meant to be.",
         "properties": {
           "age_seconds": {
             "default": 0,
@@ -7825,6 +7833,14 @@
           "path": {
             "title": "Path",
             "type": "string"
+          },
+          "pending_sends": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Pending Sends",
+            "type": "array"
           },
           "restore_test_detail": {
             "anyOf": [
@@ -9299,7 +9315,7 @@
         "type": "object"
       },
       "BundleResponse": {
-        "description": "One bundle of Noust's own state on this server.\n\nAttributes:\n    name: The file's name, which every other call names it by.\n    size: Bytes.\n    created_at: When it was taken, with its UTC offset.\n    host: The server that took it.\n    kind: ``manual``, ``scheduled`` or ``pre-restore``.\n    scheduled: A schedule took it: the only kind its retention deletes.\n    sha256: Its digest, from its sidecar.\n    remote_copies: Where it was sent.\n    sidecar_mac: What the sidecar's MAC says.",
+        "description": "One bundle of Noust's own state on this server.\n\nAttributes:\n    name: The file's name, which every other call names it by.\n    size: Bytes.\n    created_at: When it was taken, with its UTC offset.\n    host: The server that took it.\n    kind: ``manual``, ``scheduled`` or ``pre-restore``.\n    scheduled: A schedule took it: the only kind its retention deletes.\n    sha256: Its digest, from its sidecar.\n    remote_copies: Where it was sent.\n    sidecar_mac: What the sidecar's MAC says.\n    pending_sends: The destinations this was made for and has not reached yet, each with\n        ``destination``, ``reason`` (what it said, verbatim), ``attempts``, ``since`` and\n        ``next_attempt_at``. Empty once it is everywhere it was meant to be.",
         "properties": {
           "created_at": {
             "anyOf": [
@@ -9331,6 +9347,14 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "pending_sends": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Pending Sends",
+            "type": "array"
           },
           "remote_copies": {
             "items": {
@@ -73822,7 +73846,7 @@
         "type": "object"
       },
       "VolumeBackupResponse": {
-        "description": "One data backup.\n\nAttributes:\n    id: ``<application>.<target slug>_<YYYYMMDD>_<HHMMSS>``.\n    domain: The application.\n    target: The target's key.\n    kind: ``path`` or ``docker``.\n    created_at: When, with its UTC offset.\n    size_bytes: The archive's size.\n    checksum: Its SHA-256.\n    consistency: How still the data was kept.\n    tags: ``scheduled`` for a schedule's, ``safety`` for a restore's.\n    description: A note.\n    sqlite_files: SQLite databases snapshotted whole.\n    skipped: What was left out and why.\n    remote_copies: Where it was sent.\n    last_verified_at: When it was last checked.\n    verified_ok: That check's verdict; null before one.",
+        "description": "One data backup.\n\nAttributes:\n    id: ``<application>.<target slug>_<YYYYMMDD>_<HHMMSS>``.\n    domain: The application.\n    target: The target's key.\n    kind: ``path`` or ``docker``.\n    created_at: When, with its UTC offset.\n    size_bytes: The archive's size.\n    checksum: Its SHA-256.\n    consistency: How still the data was kept.\n    tags: ``scheduled`` for a schedule's, ``safety`` for a restore's.\n    description: A note.\n    sqlite_files: SQLite databases snapshotted whole.\n    skipped: What was left out and why.\n    remote_copies: Where it was sent.\n    last_verified_at: When it was last checked.\n    verified_ok: That check's verdict; null before one.\n    pending_sends: The destinations this was made for and has not reached yet, each with\n        ``destination``, ``reason`` (what it said, verbatim), ``attempts``, ``since`` and\n        ``next_attempt_at``. Empty once it is everywhere it was meant to be.",
         "properties": {
           "checksum": {
             "anyOf": [
@@ -73871,6 +73895,14 @@
               }
             ],
             "title": "Last Verified At"
+          },
+          "pending_sends": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Pending Sends",
+            "type": "array"
           },
           "remote_copies": {
             "items": {

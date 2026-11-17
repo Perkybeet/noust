@@ -18,12 +18,13 @@ this in a ``backups`` module of this package, added to its ``AREAS``.
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from noust.core.job_titles import database_backup_name
+from noust.core.pending_sends import owed_by_copy
 from noust.managers.database.backups import DatabaseBackups
 from noust.web.api.auth import get_current_session
 from noust.web.api.databases import jobs
@@ -75,6 +76,9 @@ class BackupInfoResponse(BaseModel):
         destinations: Where a copy was sent, from what Noust recorded (the live
             contents of a destination are ``/backups/remote``).
         age_seconds: How old the file is.
+        pending_sends: The destinations this was made for and has not reached yet, each with
+            ``destination``, ``reason`` (what it said, verbatim), ``attempts``, ``since`` and
+            ``next_attempt_at``. Empty once it is everywhere it was meant to be.
     """
 
     path: str
@@ -97,6 +101,7 @@ class BackupInfoResponse(BaseModel):
     restore_test_detail: str | None = None
     destinations: list[BackupCopy] = Field(default_factory=list)
     age_seconds: int = 0
+    pending_sends: list[dict[str, Any]] = Field(default_factory=list)
 
     _iso_timestamps = iso_offset_validator("created", "verified_at", "restore_tested_at")
 
@@ -166,8 +171,18 @@ def list_backups(
         The dumps found on disk.
     """
     dumps = DatabaseBackups(service(session)).list_dumps(engine, database)
+    owed = owed_by_copy("database")
     return BackupListResponse(
-        backups=[BackupInfoResponse(**dump.to_dict()) for dump in dumps], total=len(dumps)
+        backups=[
+            BackupInfoResponse(
+                **dump.to_dict(),
+                pending_sends=[
+                    row.to_dict() for row in owed.get(f"{dump.info.engine}:{dump.name}", [])
+                ],
+            )
+            for dump in dumps
+        ],
+        total=len(dumps),
     )
 
 

@@ -603,7 +603,7 @@ class TestTheSpeedLimit:
 
 
 class TestWhenItGoesWrongWithTheServer:
-    def test_a_server_that_cannot_be_reached_is_said_the_third_time_in_a_row_and_once(
+    def test_a_server_that_cannot_be_reached_is_said_after_a_run_of_failed_passes_and_once(
         self, store: NoustStore, disk: Disk, api: FakeApi, central: Path, said: Said
     ) -> None:
         def down(known: Any = None) -> Any:
@@ -619,6 +619,25 @@ class TestWhenItGoesWrongWithTheServer:
         assert len(said.told) == 1 and said.told[0][1] == "unreachable"
         assert "timed out" in said.told[0][2]
         assert NodeStates(store).get(NODE).failures == NOTIFY_AFTER + 2
+
+    def test_a_server_that_is_back_before_that_is_never_said(
+        self, store: NoustStore, disk: Disk, api: FakeApi, central: Path, said: Said
+    ) -> None:
+        disk.apps.add()
+        good = api.list
+
+        def down(known: Any = None) -> Any:
+            raise NodeUnreachableError("ssh: connect to host web1 port 22: timed out")
+
+        runner = collector(store, api, central, said)
+        api.list = down  # type: ignore[method-assign,assignment]
+        for _ in range(NOTIFY_AFTER - 1):
+            runner.collect(NODE)
+        api.list = good  # type: ignore[method-assign]
+
+        runner.collect(NODE)
+
+        assert said.told == []
 
     def test_a_server_that_answers_again_clears_it(
         self, store: NoustStore, disk: Disk, api: FakeApi, central: Path, said: Said

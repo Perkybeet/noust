@@ -169,13 +169,13 @@ first. [UPGRADING-4.2.md](UPGRADING-4.2.md#rolling-back) says how.
 
 ## What 4.3 wrote that an earlier release ignores
 
-4.3 writes the store at schema 18: 21 tables and six columns of `approval_requests`. They hold the built-in
+4.3 writes the store at schema 18: 22 tables and six columns of `approval_requests`. They hold the built-in
 assistant (its settings, its sealed key, the conversations, the spending and the proposals), the approval
-policy and what each credential's client said it was, what a central took of its servers' copies, the history of
+policy and what each credential's client said it was, what a central took of its servers' copies, the copies a server made and could not send to a destination yet, the history of
 a stack's Compose and the last look at the images, the registrations of domains, the first deployments that
 failed, what a task that runs once left, and how a job failed as a sentence of the catalog. The copy that going
 back restores holds none of it: 4.2 has no assistant, no policy (a token does what its permissions let it, also
-under the ENS profile) and no copies of servers to take, a stack keeps running the document it has, and a failed
+under the ENS profile), no copies of servers to take and no list of copies still owed to a destination (it fails the run that cannot send, as before), a stack keeps running the document it has, and a failed
 job shows its plain sentence. Outside the store, the settings 4.2 does not know stay in `config.yaml`, ignored and
 not cleaned; the copies a central took stay under `<backup directory>/.collected`, which 4.2 does not read; a task
 that runs once still runs, and 4.2 has no `noust cron settle` to retire it; and 4.2 sends the console's

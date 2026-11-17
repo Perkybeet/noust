@@ -15500,6 +15500,7 @@
   "serverText.backup_destinations.valid_bucket_name_uses.text": "{label} 无效：存储桶名称使用小写字母、数字、连字符和 {value}",
   "serverText.backup_destinations.valid_container_3_63.text": "{label} 无效：容器名称为 3 到 63 个字符",
   "serverText.backup_destinations.valid_container_name_uses.text": "{label} 无效：容器名称使用小写字母、数字和单个连字符，并以字母或数字开头和结尾",
+  "serverText.backup_destinations.gave_up_after.text": "Noust 在 {span} 内尝试了 {count} 次，然后放弃了。",
   "serverText.backup_encryption.backups_sealed_server.text": "这台服务器上的备份没有加密",
   "serverText.backup_encryption.backups_sealed_server.hint": "请先开启加密：noust backup encryption enable，或 POST /api/backups/encryption/enable。",
   "serverText.backup_failures.backup_failure_found.text": "没有找到备份失败记录：{failure_id}",

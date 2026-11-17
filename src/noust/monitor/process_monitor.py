@@ -56,6 +56,7 @@ from noust.core.utils import remove_file, write_file
 from noust.deployers.helpers.php_fpm import is_php_fpm
 from noust.managers.cert_manager import CertManager
 from noust.managers.service_manager import ServiceManager
+from noust.managers.unit_states import announces_its_own_failure
 from noust.monitor.alert_engine import AlertEngine
 from noust.monitor.collector import MetricsCollector, create_collector
 from noust.monitor.email_notifier import EmailNotifier
@@ -501,6 +502,9 @@ class ProcessMonitor:
         # When the disks were last looked at, for monitor.disk_check_seconds.
         self._disks_checked_at = float("-inf")
         self._failed_units: set[str] = set()
+        # The units whose failure was said by the command they run (a backup, a task), which the
+        # timeline recorded and nobody is told again.
+        self._said_itself: set[str] = set()
         # NRestarts per unit at the previous scan: a crash loop is the count
         # growing, which one reading cannot show.
         self._restart_counts: dict[str, int] = {}
@@ -975,6 +979,7 @@ class ProcessMonitor:
         # recovered: one that was deleted (not-found) or not answered for is
         # not "running again", it is just gone from the picture.
         recovered: set[str] = set()
+        said_itself: set[str] = set()
         restarts: dict[str, int] = {}
         for health in self.check_services():
             previous = self._restart_counts.get(health.unit)
@@ -994,8 +999,20 @@ class ProcessMonitor:
                         down.add(health.unit)
                 continue
 
-            down.add(health.unit)
             self.logger.warning(f"{failure.title}: {failure.detail}")
+            if failure.kind != "crash_loop" and announces_its_own_failure(
+                health.unit, health.result
+            ):
+                # The command this unit runs said how it ended (a backup's, a task's) before it
+                # exited: saying it again is the second message of one failure. It is recorded for
+                # the timeline, once, and no alert is open for a recovery to close.
+                said_itself.add(health.unit)
+                if health.unit not in self._said_itself:
+                    self._remember_unit_event(
+                        EVENT_UNIT_FAILED, health.unit, failure.detail, failure.kind
+                    )
+                continue
+            down.add(health.unit)
             if health.unit not in self._failed_units:
                 self._remember_unit_event(
                     EVENT_UNIT_FAILED, health.unit, failure.detail, failure.kind
@@ -1029,6 +1046,7 @@ class ProcessMonitor:
             self._remember_unit_event(EVENT_UNIT_RECOVERED, unit, f"{unit} is running again.")
             self._publish(partial(compose_unit_recovered, unit))
         self._failed_units = down
+        self._said_itself = said_itself
         self._restart_counts = restarts
 
     def _reachability_state_file(self) -> Path:
