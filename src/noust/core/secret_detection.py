@@ -103,19 +103,32 @@ URL_CREDENTIALS = re.compile(
 )
 
 
+#: The user of an ``http(s)`` address, with or without a password after it. Azure DevOps and others take
+#: a personal access token as the user of an address that has no password at all
+#: (``https://<token>@dev.azure.com/...``), and no prefix of a provider says so, so what stands before
+#: the ``@`` of a web address is hidden whatever it looks like. An address for ssh (``git@host:path``,
+#: ``ssh://git@host``) carries no secret in its user and is not touched, and an ``@`` that comes after
+#: the authority ends (a path, a query) is not a user: the user and the password stop at what ends an
+#: authority in RFC 3986, and the ``@`` has to follow, which is only looked at, so the head and the
+#: ``@`` stay and the pattern is read the way :data:`URL_CREDENTIALS` is (same boundary before the
+#: scheme, so a long line is read once and not from every letter of it).
+HTTP_USER = re.compile(r"(?i)((?:^|[^A-Za-z0-9+.\-])https?://)[^:/?#@\s]+(?=(?::[^@\s/?#]*)?@)")
+
+
 def redact_url_credentials(value: str, placeholder: str = REDACTED) -> str:
     """
-    Replace the password inside every connection string in a value.
+    Replace what secures every address in a value: the user of a web address and the password of any.
 
     Args:
         value: Text that may contain one or more URLs.
-        placeholder: What to put where the password was.
+        placeholder: What to put where the user or the password was.
 
     Returns:
-        The value with every embedded password replaced. Text carrying no
-        credential is returned unchanged.
+        The value with the user of every ``http(s)`` address (a token takes its place when there is no
+        password) and every embedded password replaced. Text carrying neither is returned unchanged.
     """
-    return URL_CREDENTIALS.sub(lambda match: f"{match.group(1)}{placeholder}", value)
+    hidden = HTTP_USER.sub(lambda match: f"{match.group(1)}{placeholder}", value)
+    return URL_CREDENTIALS.sub(lambda match: f"{match.group(1)}{placeholder}", hidden)
 
 
 #: Substrings that mark a variable's *name* as a secret, matched
@@ -634,6 +647,8 @@ TEXT_SHAPES: tuple[TextShape, ...] = (
     TextShape("jwt", _JWT_TEXT),
     TextShape("assigned secret", _ASSIGNED_SECRET, keep_head=True, of_value=False),
     TextShape("bearer", _BEARER, keep_head=True, of_value=False),
+    # The user of a web address before its password: with a password, both go.
+    TextShape("web address user", HTTP_USER, keep_head=True, of_value=False),
     TextShape("url credentials", URL_CREDENTIALS, keep_head=True),
 )
 
@@ -673,7 +688,7 @@ def mask_secret_shapes(text: str, placeholder: str = REDACTED) -> str:
     recognises, in order, a PEM private key block, a vendor's token by its
     prefix (:data:`_VALUE_PATTERNS`: GitHub, GitLab, Slack, AWS, Stripe,
     Google, SendGrid, Twilio, npm, Telegram and Noust's own), a JWT, a
-    ``Bearer`` credential, a password inside a URL, and the value of a
+    ``Bearer`` credential, the user and the password of a web address, and the value of a
     ``password=``, ``"token": ...`` or ``Authorization:`` style assignment.
 
     Over-masking a line of a log is harmless; a credential in a build log that

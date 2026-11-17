@@ -40,7 +40,11 @@ from noust.central import machine
 from noust.core import audit
 from noust.core.docker import stats
 from noust.core.docker.engine import EngineReport
-from noust.core.docker.errors import DockerOwnedError, DockerUnavailableError
+from noust.core.docker.errors import (
+    DockerOwnedError,
+    DockerUnavailableError,
+    DockerZoneClosedError,
+)
 from noust.core.docker.gate import DockerGate
 from noust.core.docker.models import Container, OwnerKind, Volume
 from noust.core.exceptions import DockerError, ValidationError
@@ -192,6 +196,10 @@ def _says_unavailable(model: type[BaseModel]) -> Callable[[F], F]:
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             try:
                 return function(*args, **kwargs)
+            except DockerZoneClosedError:
+                # A hub that was not told to deploy here: nothing to ask the engine, and the refusal
+                # says where the consent is given.
+                raise
             except DockerUnavailableError:
                 report = _engine(_gate(), fresh=True)
                 if report.usable:

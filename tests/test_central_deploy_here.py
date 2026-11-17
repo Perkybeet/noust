@@ -258,15 +258,24 @@ class TestWhatAContainerHostDoes:
         hub = features.published(role="hub", facts=NAS_WITH_DOCKER)
 
         for key, feature in FEATURES.items():
-            if Need.ROLE not in feature.needs:
+            # The Docker zone is the one page of the machine that is not its own: it is the machine's
+            # Docker, which a hub that was not told leaves alone (see below).
+            if Need.ROLE not in feature.needs and key != "docker_zone":
                 assert said[key] == hub[key], key
 
-    def test_the_docker_zone_is_a_function_of_the_table_and_needs_only_docker(self) -> None:
+    def test_the_docker_zone_needs_the_consent_of_a_hub_and_then_only_docker(self) -> None:
+        """
+        This test used to say the zone needs only Docker, so a hub with the socket mounted and no
+        consent could read the machine's Docker and change it. The guide promises that without
+        ``central.deploy_here`` a central is exactly what it was, and the socket is the first of the
+        two things asked, not both: what is in that Docker is changed as root. The gate to Docker
+        refuses with the same predicate (tests/test_docker_zone_consent.py).
+        """
         zone = FEATURES["docker_zone"]
 
-        assert zone.needs == (Need.DOCKER,)
+        assert zone.needs == (Need.DEPLOY_HERE, Need.DOCKER)
         assert not zone.guarded
-        for role, deploy_here in (("server", ""), ("hub", ""), ("hub", "containers")):
+        for role, deploy_here in (("server", ""), ("hub", "containers")):
             answer = features.availability(
                 "docker_zone", role=role, facts=NAS_WITH_DOCKER, deploy_here=deploy_here
             )
@@ -277,6 +286,15 @@ class TestWhatAContainerHostDoes:
             assert not missing.available
             assert missing.reason is not None
             assert missing.reason.code == "docker.engine.missing"
+        closed = features.availability("docker_zone", role="hub", facts=NAS_WITH_DOCKER)
+        assert not closed.available
+        assert closed.reason is not None
+        assert closed.reason.code == "features.needs_deploy_here"
+        # The consent is asked before the machine: a hub without Docker is told how to give it first.
+        assert (
+            features.availability("docker_zone", role="hub", facts=NAS_WITHOUT_DOCKER).reason
+            == closed.reason
+        )
 
     def test_what_a_container_host_asks_of_the_machine_is_docker_and_nothing_else(self) -> None:
         for key, feature in FEATURES.items():

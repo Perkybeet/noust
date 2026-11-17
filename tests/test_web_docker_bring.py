@@ -267,6 +267,40 @@ class TestThePreviewDoesNotShowSecrets:
         assert "hunter2hunter2" not in str(body)
         assert body["source"].startswith("https://") and "repo.example.com" in body["source"]
 
+    # A token as the user of the address, with no password (Azure DevOps and others take it so), is
+    # not a password and no pattern of a provider knows it: the user of an http(s) address is hidden
+    # whatever it looks like. The token below is invented and has no provider's prefix on purpose.
+    TOKEN = "pq7rb3kw2hvxn5jsd6c4mfzg2u5yvtlaeo3idxqwk5jb2n4rt7la"
+
+    @pytest.mark.parametrize(
+        "source",
+        [
+            f"https://{TOKEN}@dev.azure.com/org/project/_git/nextcloud",
+            "https://deploytoken@repo.example.com/org/nextcloud.git",
+            f"http://{TOKEN}@repo.example.com/org/nextcloud.git",
+        ],
+    )
+    def test_a_token_that_is_the_user_of_the_address_is_masked_with_no_password_in_it(
+        self, docker: DockerWorld, monkeypatch: pytest.MonkeyPatch, source: str
+    ) -> None:
+        Adoption(monkeypatch, source=source)
+
+        body = docker.send("aud", "POST", "/stacks/nextcloud/bring/preview", json={}).json()
+
+        user = source.split("//", 1)[1].split("@", 1)[0]
+        assert user not in str(body)
+        assert body["source"].startswith(source.split("//", 1)[0] + "//***@")
+        assert body["source"].endswith(source.split("@", 1)[1])
+
+    def test_an_ssh_address_has_no_secret_and_stays(
+        self, docker: DockerWorld, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        Adoption(monkeypatch, source="git@repo.example.com:org/nextcloud.git")
+
+        body = docker.send("aud", "POST", "/stacks/nextcloud/bring/preview", json={}).json()
+
+        assert body["source"] == "git@repo.example.com:org/nextcloud.git"
+
     def test_a_credential_in_composes_own_words_is_masked_everywhere_they_are_shown(
         self, docker: DockerWorld, monkeypatch: pytest.MonkeyPatch
     ) -> None:

@@ -34,6 +34,7 @@ __all__ = [
     "export_for",
     "export_made_by",
     "export_with_legacy_names",
+    "external_dump",
     "find_member",
     "is_export_document",
     "is_payload_dir",
@@ -97,6 +98,49 @@ def payload_prefixes(subdirectory: str) -> tuple[str, ...]:
         inside the payload (``str.startswith`` takes the tuple).
     """
     return tuple(f"{name}/{subdirectory}/" for name in PAYLOAD_DIRS)
+
+
+def external_dump(entry: Mapping[str, Any], folder: Path, label: str) -> Path | None:
+    """
+    Find the dump an archive of 1.x kept outside itself, if it says one, and only if it is safe to read.
+
+    An archive from before dumps travelled inside it names, in its manifest or its sidecar, where on this
+    machine the dump was left. That entry is whatever the archive's maker wrote (a copy a central gives
+    back brings its own), so the only file outside the archive it may name is one in the folder of this
+    server's backups, where 1.x wrote them, links followed: anywhere else would be a restore asked to
+    load a file of the machine into a database.
+
+    Args:
+        entry: The manifest's or the sidecar's entry for one dump.
+        folder: The folder of this server's backups.
+        label: What the entry describes, for the error.
+
+    Returns:
+        The file, resolved; None when the entry names none that exists.
+
+    Raises:
+        BackupError: The entry names a file that is not in ``folder``.
+    """
+    external = entry.get("backup_path") or entry.get("path")
+    if not (isinstance(external, str) and external and Path(external).is_file()):
+        return None
+    real = Path(external).resolve()
+    if real.is_relative_to(folder.resolve()):
+        return real
+    # Said only when it is refused, and in the catalog's words: this module is read by every restore.
+    from noust.core.exceptions import BackupError
+    from noust.core.server_text import say
+
+    raise BackupError.from_text(
+        say(
+            "backup_manager.backup_entry_points_outside",
+            exc=(
+                f"{external} is not in {folder}: a dump outside the archive is only read from the "
+                "folder of this server's backups"
+            ),
+            label=label,
+        )
+    )
 
 
 def find_member(archive: tarfile.TarFile, relative: str) -> tarfile.TarInfo | None:

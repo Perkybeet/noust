@@ -32,6 +32,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+from noust.core.central_settings import docker_zone_is_open
 from noust.core.docker import names as docker_names
 from noust.core.docker import reading as docker_reading
 from noust.core.docker.cleanup import parse_reclaimed
@@ -571,8 +572,11 @@ class StorageManager:
 
         Returns:
             The table of :func:`parse_docker_df`, or None when Docker is not
-            here or its daemon does not answer.
+            here, its daemon does not answer, or this is a hub that was not told to
+            deploy here, which leaves its machine's Docker alone.
         """
+        if not docker_zone_is_open():
+            return None
         return docker_reading.disk_usage(self.runner)
 
     def _gate(self) -> DockerGate:

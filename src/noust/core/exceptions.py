@@ -489,6 +489,16 @@ class PermissionError(NoustError):
     pass
 
 
+class RoleError(NoustError):
+    """
+    A function was asked of a Noust whose role does not have it.
+
+    Below ``noust.central`` so that the gate to Docker, which cannot import the central, refuses a
+    hub that was not told to deploy here with the same error the guard of every other function
+    raises; ``noust.central`` re-exports it.
+    """
+
+
 class PortError(NoustError):
     """Raised when there are port-related issues."""
 

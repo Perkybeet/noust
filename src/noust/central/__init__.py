@@ -41,7 +41,7 @@ from typing import TYPE_CHECKING, Any
 
 from noust.central import features
 from noust.core.config import Config
-from noust.core.exceptions import ConfigError, NoustError
+from noust.core.exceptions import ConfigError, RoleError
 from noust.core.server_text import ServerText
 
 if TYPE_CHECKING:
@@ -87,10 +87,6 @@ HUB_REFUSED_COMMANDS: dict[str, str] = {
     "health": "server_health",
     "setup": "server_setup",
 }
-
-
-class RoleError(NoustError):
-    """A feature was asked of a Noust whose role does not have it."""
 
 
 def role(config: Config | None = None) -> str:
@@ -274,11 +270,14 @@ def feature_states(config: Config | None = None) -> dict[str, dict[str, Any]]:
             not one of their values.
     """
     from noust.central import machine
+    from noust.core.central_settings import machine_docker_is_open
 
+    this_role, consent = role(config), deploy_here(config)
     return features.published(
-        role=role(config),
-        facts=machine.read_machine_facts(),
-        deploy_here=deploy_here(config),
+        role=this_role,
+        # A hub that was not told to deploy here leaves the machine's Docker alone, even to look.
+        facts=machine.read_machine_facts(ask_docker=machine_docker_is_open(this_role, consent)),
+        deploy_here=consent,
     )
 
 

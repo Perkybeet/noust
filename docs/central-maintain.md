@@ -129,17 +129,24 @@ list again every few hours. If the central was off, it takes what it missed when
 server does not delete a copy the central has not taken yet while its own retention lets it keep it
 (never more than 14 days beyond it); if it has to, it says so in its audit trail.
 
-**What a server must allow.** The server's access ceiling (`noust fleet access`) has to be `deploy` or
-`admin`: reading copies is the permission `backups.collect`, which a server held to `read` never gives
-its central, because a copy holds `.env` files and database dumps. Under the ENS profile, or with
+**What a server must allow.** The server's access ceiling (`noust fleet access`) has to be `admin`:
+reading copies is the permission `backups.collect`, which a server held to `read` or to `deploy` never
+gives its central, because a copy holds the `.env` files and the database dumps of every application, which
+is more than "update and go back on what exists". The central says it in that server's row, with the
+command to run on the server (`noust fleet access --level admin`, as root), and goes on with the others.
+Before 4.3.0 a `deploy` ceiling let a central collect: a fleet that relied on it has to raise those servers
+to `admin`, or the central stops taking their copies and says why in each row. Under the ENS profile, or with
 `backup.encryption: required`, a server whose copies are not sealed refuses to hand them over
 (`sealing_required`) and the central says so in that server's row. A server before 4.3 has no such
 routes: the central takes only the database dumps it already could, and says "only database dumps"
 until the server is updated.
 
-**It is one copy.** A copy on the central is on one machine. `noust health`, the checks and the ENS
-profile count it as a copy away from the server and say where it is (`central:<name>`), but it does
-not replace a destination outside the central: the console says so and offers to add one.
+**It is one copy.** A copy on the central is on one machine. The checks and the ENS profile count it as
+a copy away from the server and say where it is (`central:<name>`), but only when the digest the central
+gives for it is the one the server recorded for that copy: a central says what it holds and a server
+cannot see its disk, so a claim with no digest, or with another one, counts for nothing, and the evidence
+says that it is the central's word. It does not replace a destination outside the central: the console
+says so and offers to add one.
 
 **Restoring.** `noust fleet collect restore web-1 app shop_1 --to web-2` (or **Restore on a server** in
 the console) checks the copy whole on the central, sends it to the server through its tunnel as an

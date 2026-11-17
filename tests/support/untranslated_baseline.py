@@ -475,7 +475,7 @@ UNTRANSLATED: dict[str, int] = {
     "web/api/certs.py": 3,
     "web/api/cloud.py": 1,
     "web/api/compliance.py": 1,
-    "web/api/config.py": 4,
+    "web/api/config.py": 3,
     "web/api/cron.py": 1,
     "web/api/dashboards.py": 2,
     "web/api/databases/databases.py": 1,

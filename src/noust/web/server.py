@@ -57,6 +57,7 @@ from noust.core import deploy_events
 from noust.core.audit import bind as bind_audit_context
 from noust.core.audit import failclosed
 from noust.core.audit.context import request_correlation_id
+from noust.core.central_settings import from_the_console
 from noust.core.config import Config
 from noust.core.deploy_events import DeployEvent, DeployEventKind
 from noust.core.exceptions import FleetUnavailableError, SecurityError
@@ -1523,7 +1524,13 @@ class SecurityMiddleware:
         try:
             # One correlation id per request: every audit event and host
             # action it causes (noust.core.audit.ledger) is linked by it.
-            with bind_audit_context(correlation_id=request_correlation_id(scope)):
+            # Every write of the configuration that this request makes is one from the console or
+            # the API, which cannot turn on deploying on the machine's Docker (Config.set and
+            # Config.replace judge it by what they leave).
+            with (
+                bind_audit_context(correlation_id=request_correlation_id(scope)),
+                from_the_console(),
+            ):
                 await self._serve(scope, receive, send, connection, client_ip, path)
         finally:
             settle_credential_failures(ledger)

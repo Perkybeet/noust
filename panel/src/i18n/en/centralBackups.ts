@@ -81,7 +81,7 @@ export const centralBackups = {
     },
     hint: {
       databasesOnly: "This server is before Noust 4.3: only its database dumps are taken until it is updated.",
-      ceiling: "On that server, raise the most a central may do to deploy or admin with `noust fleet access`.",
+      ceiling: "On that server, raise the most a central may do to admin with `noust fleet access --level admin`: copies carry away each application's .env and databases, which a deploy level does not allow.",
       refused: "Its token for this central was refused. Add the server again from Settings > Servers.",
       unreachable: "The tunnel to it is down, so nothing is taken until it is back.",
       diskFull: "Free some room on the central: nothing is deleted to make it.",

@@ -10,6 +10,22 @@ apart so the catalog does not grow past the size a module may have."""
 from __future__ import annotations
 
 SENTENCES: dict[str, str] = {
+    "collect.ceiling": "{node} does not let this central collect its copies",
+    "collect.ceiling.hint": (
+        "Its access level for a central is below admin, and a copy carries away the .env and the "
+        "databases of every application, which is more than a deploy level promises. On {node}, as "
+        "root, run 'noust fleet access --level admin' to allow it, or leave the copies where they "
+        "are."
+    ),
+    "config.deploy_here_not_from_console": (
+        "Deploying on this machine's Docker is not turned on from the console"
+    ),
+    "config.deploy_here_not_from_console.hint": (
+        "It gives this central the power of root on the machine, so it is asked for where the "
+        "compose file that mounts Docker's socket is written: add NOUST_DEPLOY_HERE=containers to "
+        "its environment (see the guide to deploying where the central runs), then recreate the "
+        "container."
+    ),
     "http3.nginx_refused_site_holds": "nginx refused the site that holds the QUIC socket",
     "http3.nginx_refused_site_holds.hint": "{errors}",
     "log_retention.days_number": "days is a number from {min_days} to {max_days}",

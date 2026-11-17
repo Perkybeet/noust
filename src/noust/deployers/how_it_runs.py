@@ -38,6 +38,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from noust.central.features import Availability
+from noust.core.central_settings import machine_docker_is_open
 from noust.core.docker.names import image_tag
 from noust.core.exceptions import NoustError
 from noust.core.runner import CommandRunner, get_runner
@@ -286,10 +287,11 @@ def machine_here(runner: CommandRunner | None = None, config: Config | None = No
     from noust.central import features, machine
 
     active = runner or get_runner()
-    facts = machine.read_machine_facts(active)
     this_role = central.role(config)
     # What a hub that was told to deploy containers here can run is the table's to say, with that told.
     told = central.deploy_here(config)
+    # A hub that was not told leaves its machine's Docker alone, even to look at what it could run.
+    facts = machine.read_machine_facts(active, ask_docker=machine_docker_is_open(this_role, told))
     container_host = central.is_container_host(config)
     return Machine(
         server=features.availability(

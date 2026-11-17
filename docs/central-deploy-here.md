@@ -7,7 +7,9 @@ container needs: given the machine's Docker, the central can deploy **containers
 too, the way a server does.
 
 It is off until you turn it on, on purpose, in the file that creates the container, and the
-console cannot turn it on.
+console cannot turn it on: a write of the configuration that would leave it on when it was off is
+refused whatever carried it (the setting itself, the `central` section, or a whole configuration sent
+to `PUT /api/config`), and `noust config set central.deploy_here containers` is for whoever has a shell.
 
 ## What you get, and what you do not
 
@@ -35,7 +37,11 @@ fleet has them, they are one click away from this central's console. What the co
 the commands refuse in the same words: *"Domains: not available here, which deploys containers and
 nothing else"*.
 
-A central that was not told to deploy here is exactly what it was, with Docker or without it. The app of a NAS's
+A central that was not told to deploy here is exactly what it was, with Docker or without it. That includes the
+Docker zone: with only the socket mounted, the central does not look at the machine's Docker and does not change it,
+so **Server > Docker** is not offered and `/api/docker` and `noust docker` answer with the line to add. The one look it
+takes is the check on **Deploy on this machine**, which asks Docker for its version and for nothing that runs on it. On
+a server, which deploys on its own machine without being asked, the zone is what it was. The app of a NAS's
 store ([Noust on a UGREEN NAS](ugreen.md)) is one of those: it has no Docker socket, so it manages servers and
 does not deploy on the NAS. To deploy there, install the central with the compose file below instead.
 

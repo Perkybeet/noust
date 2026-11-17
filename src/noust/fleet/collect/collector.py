@@ -296,7 +296,9 @@ class NodeCollector:
         try:
             catalogue, api = self._catalogue(node, api, known, result)
         except NodeRefusedError as exc:
-            return self._failed(node, result, states, before, _refusal_code(exc), exc)
+            code = _refusal_code(exc)
+            refused = _ceiling_refusal(node) if code == "ceiling" else exc
+            return self._failed(node, result, states, before, code, refused)
         except NodeUnreachableError as exc:
             return self._failed(node, result, states, before, "unreachable", exc)
         except NodeError as exc:
@@ -650,6 +652,24 @@ def _refusal_code(exc: NodeRefusedError) -> str:
         let its central collect), ``refused`` for a refused token.
     """
     return "ceiling" if getattr(exc, "status_code", 0) == 403 else "refused"
+
+
+def _ceiling_refusal(node: str) -> NodeRefusedError:
+    """
+    Say, for one server, why its copies are not taken and what changes it on that server.
+
+    Args:
+        node: The server whose access ceiling does not let its central collect.
+
+    Returns:
+        The refusal, with the sentence of the catalog: the server's name and the command that raises
+        the ceiling there. Said in this server's row and nowhere else, so that the others go on.
+    """
+    from noust.core.server_text import say
+
+    refused = NodeRefusedError.from_text(say("collect.ceiling", node=node))
+    refused.status_code = 403
+    return refused
 
 
 def collected_directory(root: Path, node: str) -> Path:

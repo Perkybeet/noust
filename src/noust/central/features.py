@@ -53,6 +53,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
+from noust.core.central_settings import DOCKER_ZONE_LABEL, machine_docker_is_open
 from noust.core.server_text import ServerText, say
 
 if TYPE_CHECKING:
@@ -67,6 +68,7 @@ __all__ = [
     "Need",
     "availability",
     "containers_refusal",
+    "deploy_here_refusal",
     "feature",
     "hub_only_refusal",
     "hub_refusal",
@@ -88,6 +90,9 @@ class Need(str, Enum):
         ROLE: This Noust deploys here: ``central.role`` is ``server``.
         HUB: This Noust is a hub, the central that deploys nothing itself until it is told to
             (``central.role`` is ``hub``). Not a fact of the machine: the role, read the other way.
+        DEPLOY_HERE: This Noust may use its machine's Docker: it is a server, or a hub that was told
+            to deploy containers here (``central.deploy_here``). What the Docker zone asks first,
+            because the socket mounted into a hub's container is not the consent.
         SYSTEMD: The machine was booted with systemd.
         HOST: Noust runs on the machine itself and not in a container image, which is what decides
             whether the processes, the disks and the packages it shows are the server's.
@@ -101,6 +106,7 @@ class Need(str, Enum):
 
     ROLE = "role"
     HUB = "hub"
+    DEPLOY_HERE = "deploy_here"
     SYSTEMD = "systemd"
     HOST = "host"
     WEB_SERVER = "web_server"
@@ -300,10 +306,12 @@ FEATURES: dict[str, Feature] = _table(
     # -- Deploying where the central runs: the page that checks it, and where it is turned on. A hub's, and
     # a server says why it has nothing to turn on. Docker is not asked: the page is where it is checked.
     Feature("deploy_here", "Deploying on this machine's Docker", (Need.HUB,), guarded=False),
-    # -- The Docker zone of the console: what runs in the machine's Docker and whose it is. Docker
-    # is all it asks, so a hub with Docker at hand has it whether or not it deploys here, and no
-    # manager refuses it by role.
-    Feature("docker_zone", "The Docker zone", (Need.DOCKER,), guarded=False),
+    # -- The Docker zone of the console: what runs in the machine's Docker and whose it is. A server
+    # has it when it has Docker; a hub only when it was told to deploy here, because the socket
+    # mounted into its container is not the second consent and what is in that Docker is changed as
+    # root. It is not guarded by require_server_role: the gate to Docker (noust.core.docker.gate)
+    # refuses with the same predicate, which lives below the central where the gate can read it.
+    Feature("docker_zone", DOCKER_ZONE_LABEL, (Need.DEPLOY_HERE, Need.DOCKER), guarded=False),
 )
 
 
@@ -369,6 +377,19 @@ def hub_only_refusal(item: Feature) -> ServerText:
     return say("features.hub_only", feature=item.label)
 
 
+def deploy_here_refusal(item: Feature) -> ServerText:
+    """
+    Say why a hub that was not told to deploy here does not use its machine's Docker.
+
+    Args:
+        item: The function.
+
+    Returns:
+        The sentence the gate raises and the session publishes: one wording for both.
+    """
+    return say("features.needs_deploy_here", feature=item.label)
+
+
 def _missing(need: Need, facts: MachineFacts) -> ServerText:
     """
     Args:
@@ -422,6 +443,9 @@ def availability(
         elif need is Need.HUB:
             if role != "hub":
                 return Availability(False, hub_only_refusal(item))
+        elif need is Need.DEPLOY_HERE:
+            if not machine_docker_is_open(role, deploy_here):
+                return Availability(False, deploy_here_refusal(item))
         elif not getattr(facts, need.value):
             return Availability(False, _missing(need, facts))
     return Availability(True)

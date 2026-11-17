@@ -1241,6 +1241,10 @@ export const serverText = {
       text: "There is no web server on this machine",
       hint: "Noust writes its sites for nginx or Apache: install one from Server > Software.",
     },
+    needs_deploy_here: {
+      text: "{feature}: this central does not use its machine's Docker until it is told to",
+      hint: "Docker's socket is root on the machine, so a central that has it mounted still leaves what runs there alone until deploying here is turned on, outside the console: add NOUST_DEPLOY_HERE=containers to the central's environment (see the guide to deploying where the central runs), then recreate the container. The check on Deploy on this machine looks at Docker's version and changes nothing.",
+    },
   },
   fleet: {
     node_descriptors_exhausted: {
@@ -5659,6 +5663,18 @@ export const serverText = {
     target: {
       text: "The request is not for a path of the console",
       hint: "Only a path and a query, as a browser writes them, are redirected.",
+    },
+  },
+  config: {
+    deploy_here_not_from_console: {
+      text: "Deploying on this machine's Docker is not turned on from the console",
+      hint: "It gives this central the power of root on the machine, so it is asked for where the compose file that mounts Docker's socket is written: add NOUST_DEPLOY_HERE=containers to its environment (see the guide to deploying where the central runs), then recreate the container.",
+    },
+  },
+  collect: {
+    ceiling: {
+      text: "{node} does not let this central collect its copies",
+      hint: "Its access level for a central is below admin, and a copy carries away the .env and the databases of every application, which is more than a deploy level promises. On {node}, as root, run 'noust fleet access --level admin' to allow it, or leave the copies where they are.",
     },
   },
 } as const;

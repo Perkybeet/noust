@@ -79,7 +79,7 @@ export const centralBackups: Catalog<typeof en> = {
     },
     hint: {
       databasesOnly: "Este servidor es anterior a Noust 4.3: solo se recogen sus volcados de bases de datos hasta que se actualice.",
-      ceiling: "En ese servidor, sube lo máximo que puede hacer una central a deploy o admin con `noust fleet access`.",
+      ceiling: "En ese servidor, sube lo máximo que puede hacer una central a admin con `noust fleet access --level admin`: las copias se llevan el .env y las bases de datos de cada aplicación, y el nivel deploy no lo permite.",
       refused: "Ha rechazado el token que tiene para esta central. Vuelve a añadir el servidor desde Ajustes > Servidores.",
       unreachable: "El túnel hacia él está caído, así que no se recoge nada hasta que vuelva.",
       diskFull: "Libera sitio en la central: no se elimina nada para hacerlo.",

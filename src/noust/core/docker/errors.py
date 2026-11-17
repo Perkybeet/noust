@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from noust.core.exceptions import DockerError, PrerequisiteError
+from noust.core.exceptions import DockerError, PrerequisiteError, RoleError
 from noust.core.teams.model import ResourceNotFoundError
 
 if TYPE_CHECKING:
@@ -28,6 +28,7 @@ __all__ = [
     "DockerPlanChangedError",
     "DockerRefusedError",
     "DockerUnavailableError",
+    "DockerZoneClosedError",
 ]
 
 
@@ -36,6 +37,19 @@ class DockerUnavailableError(DockerError, PrerequisiteError):
     Docker is not installed on this machine, or its daemon does not answer.
 
     The failing tool's own words are in ``output``: a Docker error is never paraphrased.
+    """
+
+
+class DockerZoneClosedError(RoleError, DockerUnavailableError):
+    """
+    This Noust is a hub that was not told to deploy here, so it leaves its machine's Docker alone.
+
+    A server uses the Docker of its own machine; a hub, with the socket mounted into its container,
+    does not until ``central.deploy_here`` is set outside the console, because what is in that Docker is
+    changed as root. Nothing was asked of Docker. It is a refusal of the role (the API answers it as
+    the other functions a hub does not have) and a Docker that is not there for this central, so what
+    already treats a Docker that cannot be used (a header that has no containers to count, a page that
+    says it is not available) treats this too.
     """
 
 

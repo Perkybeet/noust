@@ -2125,6 +2125,64 @@ class TestThePasswordOfAnAddressIsFoundInLinearTime:
         assert masked == f"{scheme}://u:{REDACTED}@h"
 
 
+class TestTheUserOfAWebAddressIsFoundInLinearTime:
+    """
+    The user of an http(s) address is hidden whether or not a password follows it, and a line can be
+    a megabyte of whatever was printed (item 87).
+
+    The pattern looks for an at sign after the user and, optionally, a password, so a scheme with a
+    run after it that never reaches one is a place a careless pattern reads again from every start.
+    A scheme starts only at a boundary and the user and the password stop at what ends an
+    authority, so the time of a line is its length's and not its square.
+    """
+
+    LENGTH = 60_000
+
+    #: Name of the text and how to make it at a length.
+    HOSTILE_TEXTS: dict[str, Callable[[int], str]] = {
+        "an address and an endless user": lambda n: "https://" + "x" * n,
+        "an address and colons": lambda n: "https://u" + ":" * n,
+        "an address and a password with no at sign": lambda n: "https://u:" + "x" * n,
+        "addresses one after the other": lambda n: "https://" * (n // 8),
+        "users one after the other": lambda n: "https://u:" * (n // 10),
+        "a boundary before each address": lambda n: "_http://x:" * (n // 10),
+        "a user and a port that look like one": lambda n: "https://host:8080/" * (n // 18),
+        "users with no end and a slash": lambda n: ("http://" + "u" * 50 + "/") * (n // 58),
+        "letters and a separator": lambda n: "A" * n + "://",
+        "at signs alone": lambda n: "@" * n,
+        "http alone": lambda n: "http" * (n // 4),
+    }
+
+    @pytest.mark.parametrize("name", sorted(HOSTILE_TEXTS))
+    def test_a_long_hostile_line_is_read_in_a_blink(self, name: str) -> None:
+        text = self.HOSTILE_TEXTS[name](self.LENGTH)
+
+        started = time.perf_counter()
+        redact_url_credentials(text)
+        mask_secret_shapes(text)
+
+        assert time.perf_counter() - started < 1.5
+
+    def test_a_user_of_any_length_is_hidden_whole(self) -> None:
+        user = "t" * 50_000
+
+        masked = mask_secret_shapes(f"x https://{user}@h/p y")
+
+        assert masked == f"x https://{REDACTED}@h/p y"
+
+    def test_the_user_is_the_same_whichever_way_it_is_asked_for(self) -> None:
+        text = "clone https://abc123def456@host.example.test/a.git"
+
+        assert redact_url_credentials(text) == mask_secret_shapes(text)
+        assert redact_url_credentials(text) == f"clone https://{REDACTED}@host.example.test/a.git"
+
+    def test_hiding_it_again_changes_nothing(self) -> None:
+        text = "clone https://abc123def456:pw123456@host.example.test/a.git"
+        once = mask_secret_shapes(text)
+
+        assert mask_secret_shapes(once) == once
+
+
 class TestAPrivateKeyInALogIsHiddenInLinearTime:
     """
     A job's log and an application's output reach the assistant and an MCP client through

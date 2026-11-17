@@ -126,6 +126,7 @@ class TestTheTableIsClosed:
         assert {need.value for need in Need} == {
             "role",
             "hub",
+            "deploy_here",
             "systemd",
             "host",
             "web_server",

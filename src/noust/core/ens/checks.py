@@ -655,7 +655,12 @@ def gather(sources: Sources | None = None) -> Facts:
         manager = BackupManager(verbose=False)
         # What the centrals that collect this server's copies say they hold (item 195): a copy
         # taken away and kept by a central is a copy kept apart, and says where.
-        held = CentralHeld(the_store).holders_map("app")
+        # Only a claim this server can check counts: the digest the central gives for a copy is the one
+        # recorded here. That the central keeps the file is still its word, and the evidence says so.
+        copies = manager.list_backups()
+        held = CentralHeld(the_store).holders_checked(
+            "app", {backup.id: backup.checksum for backup in copies}
+        )
         held_domains: dict[str, set[str]] = {}
         plain_at: set[str] = set()
         by_app: dict[str, dict[str, Any]] = {}
@@ -668,7 +673,7 @@ def gather(sources: Sources | None = None) -> Facts:
                 "verified": None,
                 "count": 0,
             }
-        for backup in manager.list_backups():
+        for backup in copies:
             entry = by_app.get(backup.domain)
             if entry is None:
                 continue
@@ -1652,6 +1657,25 @@ def _hardening_finding(
     )
 
 
+def describe_place(name: str) -> str:
+    """
+    Say a place a copy is kept as the evidence of a check says it.
+
+    A destination is a place this server wrote to and checked. A central is a place that says it
+    holds the copy, whose digest this server matched to its own record and whose disk it cannot see:
+    the evidence says whose word it is, so that a report does not read as if this server had looked.
+
+    Args:
+        name: A place of :func:`sent_away`: a destination's name or ``central:<name>``.
+
+    Returns:
+        The name, with what is known of it when it is a central.
+    """
+    if name.startswith("central:"):
+        return f"{name} (held by that central, whose disk this server cannot see: the digest it gave is the one recorded here)"
+    return name
+
+
 def sent_away(facts: Facts) -> dict[str, list[str]]:
     """
     Say where each application's backups are kept apart from this server.
@@ -1718,7 +1742,7 @@ def check_backups(facts: Facts) -> Finding:
         measures,
         f"All {len(facts.backups)} application(s) have a recent, verified backup sent away.",
         tuple(
-            f"{domain}: kept at {', '.join(places)}"
+            f"{domain}: kept at {', '.join(describe_place(place) for place in places)}"
             for domain, places in sorted(scheduled_away.items())
         ),
     )

@@ -110,7 +110,8 @@ against the schema of 4.2.0.
   retention waits for the rest (at most 14 days), and `/api/backup-collection/returns` (`POST`, `PUT`, `complete`) and
   `POST /api/backup-collection/restore` receive a copy the central gives back (`backups.manage` and sudo mode, as
   any restore). Reading is the new permission `backups.collect`, held by `admin` and refused to a server's `read`
-  ceiling. The audit events are
+  and `deploy` ceilings: a copy is the `.env` and the databases of every application, and `deploy` is "update and go
+  back on what exists". The audit events are
   `backup.collection.held` and `backup.collection.read`, and `backup.uncollected_delete` when retention had to delete
   a copy the central did not have yet.
 - **What the fleet's settings say of who follows them** (`GET /api/fleet/settings/status`, permission
@@ -341,6 +342,18 @@ against the schema of 4.2.0.
 
 ### Changed, without breaking a client
 
+- **The consent to deploy on the machine's Docker is judged by what a write leaves.** `PATCH /api/config` and
+  `PUT /api/config` answer `403` (the sentence `config.deploy_here_not_from_console`) for any write that would turn
+  `central.deploy_here` on, whether it names the key, the `central` section or a whole document; only the key was
+  refused before. Turning it off, and sending the value it has back, are as they were.
+- **The Docker zone on a central that is a hub and was not told to deploy here.** `/api/docker/...`, `/ws/docker/...`,
+  the console of a container and `noust docker` answer `409 hub_role` (`features.needs_deploy_here`) and ask Docker
+  nothing, where they answered with the machine's Docker whenever its socket was mounted; the session says
+  `features.docker_zone.available: false` there. A server, and a hub that was told, are as they were.
+- **Collecting a server's copies is `admin`'s.** A server held to `deploy` answers `403` to
+  `GET /api/backup-collection` and the rest of the permission `backups.collect`, with the command that raises its
+  ceiling (`noust fleet access --level admin`); the central says it in that server's row of
+  `GET /api/central-backups/status` (`last_error_code: ceiling`) and goes on with the others.
 - **The listings of the Databases area on a central that deploys containers** answer `200` with what there is and
   the reason there is no engine of the system in `system`; they answered `409` (the refusal of `databases`) before,
   and the console had nothing to draw. A server's answer is the same plus `system: {available: true}`.

@@ -196,7 +196,10 @@ def _docker(runner: CommandRunner) -> tuple[bool, ServerText | None]:
 
 
 def read_machine_facts(
-    runner: CommandRunner | None = None, *, host: HostPaths | None = None
+    runner: CommandRunner | None = None,
+    *,
+    host: HostPaths | None = None,
+    ask_docker: bool = True,
 ) -> MachineFacts:
     """
     Say what this machine has.
@@ -204,12 +207,15 @@ def read_machine_facts(
     Args:
         runner: Asks the machine; the process-wide one by default.
         host: Where the system files are; the machine's own by default.
+        ask_docker: Look at the machine's Docker. False for a hub that was not told to deploy here,
+            which leaves that Docker alone: ``docker`` is then false with no sentence, and nothing
+            the session decides for such a hub reads it.
 
     Returns:
         The facts. Nothing here raises for a machine that lacks something: that is the answer.
     """
     active = runner or get_runner()
-    usable, problem = _docker(active)
+    usable, problem = _docker(active) if ask_docker else (False, None)
     platform = detect_platform(active, host)
     return MachineFacts(
         systemd=platform.systemd,

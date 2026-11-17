@@ -21,6 +21,7 @@ from noust.core.fs import RecordingFileSystem
 from noust.core.store import NoustStore
 from noust.fleet.policy import (
     DEFAULT_ACCESS,
+    DEPLOY_PERMISSIONS,
     FleetAccess,
     current_access,
     permits,
@@ -96,6 +97,15 @@ class TestPermits:
         assert permits(FleetAccess("deploy"), "backups.run")
         assert not permits(FleetAccess("deploy"), "backups.manage")
         assert permits(FleetAccess("admin"), "backups.manage")
+
+    def test_a_deploy_ceiling_does_not_carry_the_copies_away(self):
+        # Reading the copies is the .env and the databases of every application, and a deploy
+        # ceiling promises to move what exists and nothing else: taking them away is admin's.
+        assert not permits(FleetAccess("read"), "backups.collect")
+        assert not permits(FleetAccess("deploy"), "backups.collect")
+        assert not permits(FleetAccess("deploy", True), "backups.collect")
+        assert permits(FleetAccess("admin"), "backups.collect")
+        assert "backups.collect" not in DEPLOY_PERMISSIONS
 
     def test_root_equivalent_is_host_access(self):
         # Security review 3.1, finding 6: a raw unit or a root cron command is

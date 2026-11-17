@@ -37,6 +37,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
+from noust.core.central_settings import closed_docker_zone, docker_zone_is_open
 from noust.core.docker import cleanup as cleanup_module
 from noust.core.docker import engine as engine_module
 from noust.core.docker import events, image_sources, inspect, reading, registry, states, stats
@@ -46,6 +47,7 @@ from noust.core.docker.errors import (
     DockerPlanChangedError,
     DockerRefusedError,
     DockerUnavailableError,
+    DockerZoneClosedError,
 )
 from noust.core.docker.judge import Can, can, judge, not_found, visible
 from noust.core.docker.models import (
@@ -338,8 +340,34 @@ class DockerGate:
 
     @property
     def runner(self) -> CommandRunner:
-        """The runner every command goes through."""
+        """
+        The runner every command goes through.
+
+        It is the one place a look at the machine's Docker or a change of it starts, so it is where a
+        hub that was not told to deploy here is refused, before a process exists.
+
+        Raises:
+            DockerZoneClosedError: This Noust is a hub that was not told to deploy here.
+        """
+        self._require_open()
         return self._runner or get_runner()
+
+    @staticmethod
+    def _require_open() -> None:
+        """
+        Refuse when this central does not use its machine's Docker.
+
+        Read from the configuration on each call, like the table of functions is, so the setting takes
+        effect on the next request without a restart.
+
+        Raises:
+            DockerZoneClosedError: A hub that was not told to deploy containers here: the socket is
+                not the consent, and the sentence says where the consent is given.
+            ConfigError: ``central.role`` or ``central.deploy_here`` holds something that is not one
+                of their values.
+        """
+        if not docker_zone_is_open():
+            raise DockerZoneClosedError.from_text(closed_docker_zone())
 
     @property
     def scope(self) -> Scope:

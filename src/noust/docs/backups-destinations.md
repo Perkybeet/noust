@@ -129,7 +129,9 @@ server by server, and from a terminal with `noust fleet collect enable`; the kno
 retention, room kept free, which kinds) and the copies held are in
 [Taking the copies of your servers](central-maintain.md#taking-the-copies-of-your-servers). What is
 collected counts as a copy away from the server in `noust health`, in the checks and in the ENS
-profile, with its place named (`central:<name>`); it is **one** copy, on one machine, so it does not
+profile, with its place named (`central:<name>`), when the digest the central gives for it is the one
+this server recorded (the central's word that it keeps the file, which the server cannot see); it is
+**one** copy, on one machine, so it does not
 replace a destination outside it, and the console says so and offers to add one. Moving a copy
 between two servers is not what it is for: it would pass the whole copy through the central's line.
 

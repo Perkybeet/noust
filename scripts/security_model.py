@@ -166,7 +166,10 @@ GUARANTEES: tuple[Guarantee, ...] = (
         "`/usr/bin/false`, with no terminal, no agent or X11 forwarding, no reverse or "
         "Unix-socket forwarding, and one permitted destination. The node, not the central, sets "
         "the ceiling (`read`, `deploy` or `admin`, and host access off by default) and enforces "
-        "it whatever the central claims. Sudo mode and approvals are vouched for by the central "
+        "it whatever the central claims: `deploy` updates and goes back on what exists, and "
+        "carrying a server's copies away (its `.env` files and databases) is `admin`'s. A "
+        "central that is a hub deploys nothing on its machine's Docker until it is told to "
+        "outside the console. Sudo mode and approvals are vouched for by the central "
         "and checked again by the node. A node's host key is pinned at enrolment and a change "
         "closes the tunnel.",
         "`fleet/authorize.py` (the sshd block and the key options printed below), "
@@ -178,6 +181,8 @@ GUARANTEES: tuple[Guarantee, ...] = (
             "tests/test_fleet_authorize.py::TestTunnelAccount::test_a_missing_account_is_created_without_a_home_a_shell_or_a_password",
             "tests/test_fleet_access.py::TestAdmission::test_a_read_ceiling_withholds_writes_from_any_central",
             "tests/test_fleet_access.py::TestPermits::test_no_ceiling_reaches_the_node_s_own_accounts_security_or_audit",
+            "tests/test_fleet_access.py::TestPermits::test_a_deploy_ceiling_does_not_carry_the_copies_away",
+            "tests/test_central_consent.py::TestEveryRouteOfTheConsoleIsInIt",
             "tests/test_fleet_role_admission.py::test_the_nodes_ceiling_narrows_the_role",
             "tests/test_fleet_tunnels.py::TestTunnels::test_a_changed_host_key_is_refused_with_ssh_s_words",
             "tests/test_node_proxy.py::TestElevation::test_an_elevated_operation_needs_the_centrals_sudo_mode",

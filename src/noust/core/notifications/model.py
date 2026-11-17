@@ -40,6 +40,7 @@ from enum import Enum
 from typing import Any
 
 from noust.core.messages import Locale
+from noust.core.secret_detection import mask_secret_shapes
 
 #: Event kinds an operator can switch off under ``notifications.events``.
 #: ``DEFAULT_CONFIG["notifications"]["events"]`` spells out the same names;
@@ -219,23 +220,43 @@ _BIDI = re.compile("[\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]")
 _ZERO_WIDTH = re.compile("[\u200b\u200c\u200d\u2060\ufeff]")
 
 
-def clean_line(text: str) -> str:
+def _plain_line(text: str) -> str:
     """
-    Clean one line of somebody else's text, keeping its indentation.
+    Take the terminal escapes, the control characters and the bidirectional marks out of one line.
 
     Args:
         text: A line of output, a name, a message.
 
     Returns:
-        The line without terminal escapes, control characters or
-        bidirectional overrides, tabs as four spaces, and without trailing
-        space. Newlines are the caller's to split on first.
+        The line cleaned, tabs as four spaces and without trailing space. Nothing is hidden yet: a
+        token split by an escape or an invisible character is whole again, which is the point of
+        doing this before :func:`~noust.core.secret_detection.mask_secret_shapes`.
     """
     text = _ANSI.sub("", text)
     text = text.replace("\t", "    ").replace("\r", "")
     text = _CONTROL.sub("", text)
     text = _BIDI.sub("", text)
     return _ZERO_WIDTH.sub("", text).rstrip()
+
+
+def clean_line(text: str) -> str:
+    """
+    Clean one line of somebody else's text, keeping its indentation, and hide what looks like a credential.
+
+    Every text a notification holds is cleaned here or in :func:`clean_inline`, which is why a
+    token a program echoed, a header, a password or the user of an address never reaches a channel
+    of somebody else's: the notice is masked once, where it is made, and every renderer, composer
+    and stored copy reads the same text.
+
+    Args:
+        text: A line of output, a name, a message.
+
+    Returns:
+        The line without terminal escapes, control characters or bidirectional overrides, tabs as
+        four spaces, without trailing space and with the credentials in it replaced. Newlines are
+        the caller's to split on first.
+    """
+    return mask_secret_shapes(_plain_line(text)).rstrip()
 
 
 def clean_inline(text: str) -> str:
@@ -253,7 +274,7 @@ def clean_inline(text: str) -> str:
     text = _CONTROL.sub("", text)
     text = _BIDI.sub("", text)
     text = _ZERO_WIDTH.sub("", text)
-    return " ".join(text.split())
+    return mask_secret_shapes(" ".join(text.split()))
 
 
 @dataclass(frozen=True)
@@ -321,12 +342,21 @@ class Excerpt:
     pinned: int = 0
 
     def __post_init__(self) -> None:
-        """Split multi-line entries and clean every line."""
+        """
+        Split multi-line entries, clean every line and hide the credentials in them.
+
+        What looks like a credential is hidden over the whole text and not line by line, because a
+        private key is many lines and its body would stay behind its header; a key that collapses
+        to one line takes the count of the lines with it, and ``pinned`` follows.
+        """
         pieces: list[str] = []
         for line in self.lines:
-            pieces.extend(clean_line(part) for part in line.replace("\r\n", "\n").split("\n"))
+            pieces.extend(_plain_line(part) for part in line.replace("\r\n", "\n").split("\n"))
+        if pieces:
+            pieces = [part.rstrip() for part in mask_secret_shapes("\n".join(pieces)).split("\n")]
         object.__setattr__(self, "label", clean_inline(self.label))
         object.__setattr__(self, "lines", tuple(pieces))
+        object.__setattr__(self, "pinned", min(self.pinned, len(pieces)))
 
 
 @dataclass(frozen=True)

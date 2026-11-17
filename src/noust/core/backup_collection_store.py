@@ -25,7 +25,7 @@ What the record is for, and what it is not for:
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -246,6 +246,46 @@ class CentralHeld:
             .fetchall()
         )
         return sorted(str(row["central"]) for row in rows if str(row["central"]) in fresh)
+
+    def holders_checked(
+        self, kind: str, digests: Mapping[str, str | None], now: datetime | None = None
+    ) -> dict[str, set[str]]:
+        """
+        Say, for every copy of a kind, which centrals that spoke recently hold it **as far as this
+        server can tell**.
+
+        A central says what it holds and nothing proves it: any central with the permission to
+        collect can say it holds a copy it does not. What this server can check is the digest the
+        central gives for a copy against the one it recorded for that copy, so only a claim that
+        carries that digest counts, which is what a compliance check asks to count as a copy kept
+        apart. It is still the central's word that it keeps the file, and the checks say so.
+
+        Args:
+            kind: The kind of copy.
+            digests: The SHA-256 this server recorded for each copy, by identifier; a copy with
+                none cannot be vouched for.
+            now: The moment to judge at; now by default.
+
+        Returns:
+            Identifier to the centrals whose claim matches; a copy no central vouches for is not
+            in it.
+        """
+        fresh = {sync.central for sync in self.following(now)}
+        rows = (
+            self.store._get_connection()
+            .execute(
+                "SELECT central, item_id, sha256 FROM backup_central_held WHERE kind = ?", (kind,)
+            )
+            .fetchall()
+        )
+        found: dict[str, set[str]] = {}
+        for row in rows:
+            recorded, said = digests.get(str(row["item_id"])), row["sha256"]
+            if str(row["central"]) not in fresh or not recorded or not said:
+                continue
+            if str(said).lower() == str(recorded).lower():
+                found.setdefault(str(row["item_id"]), set()).add(str(row["central"]))
+        return found
 
     def holders_map(self, kind: str, now: datetime | None = None) -> dict[str, set[str]]:
         """

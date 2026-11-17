@@ -10,7 +10,7 @@ central's token is admitted, whatever the central claims for its operator:
 | Ceiling | A central may |
 |---------|---------------|
 | `read` | read everything, change nothing |
-| `deploy` | also start, stop, restart, update and roll back the applications already there, and take backups (not delete them or change where they go) |
+| `deploy` | also start, stop, restart, update and roll back the applications already there, and take backups (not delete them, change where they go or carry them away: collecting a server's copies, which hold every application's `.env` and databases, is `admin`) |
 | `admin` (default) | everything, except the server's own accounts, security settings and audit log, and what reaches the host (below) |
 
 `host access` (off by default) additionally lets a central with `admin` reach the host itself:

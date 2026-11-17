@@ -20,23 +20,37 @@ They are judged here, below the configuration, because :mod:`noust.central` read
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import Any
+import contextvars
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from typing import TYPE_CHECKING, Any
 
 from noust.core import paths
 from noust.core.calendar_expr import SCHEDULE_ALIASES, Calendar, CalendarError
 from noust.core.exceptions import ConfigError
+from noust.core.exceptions import PermissionError as NoustPermissionError
+
+if TYPE_CHECKING:
+    from noust.core.server_text import ServerText
 
 __all__ = [
     "CENTRAL_DEFAULTS",
     "CENTRAL_DEPLOY_HERE",
     "CENTRAL_ROLES",
     "CENTRAL_VALIDATORS",
+    "DOCKER_ZONE_LABEL",
+    "ConsentFromConsoleError",
+    "closed_docker_zone",
     "consent_from_the_console",
+    "docker_zone_is_open",
+    "from_the_console",
+    "machine_docker_is_open",
     "validate_central_role",
     "validate_deploy_here",
+    "validate_deploy_here_write",
     "validate_image_check",
     "without_borrowed_consent",
+    "writing_from_the_console",
 ]
 
 #: What ``central.role`` may be, the default first.
@@ -186,6 +200,141 @@ def consent_from_the_console(before: Any, after: Any) -> bool:
     return bool(wanted) and wanted != now
 
 
+#: What a refusal calls the Docker zone: the label of its function in ``noust.central.features``, which
+#: reads it from here, so the gate (which cannot import the central) and the table say it in one way.
+DOCKER_ZONE_LABEL = "The Docker zone"
+
+
+def machine_docker_is_open(role: str, deploy_here: str) -> bool:
+    """
+    Say whether this Noust may look at its machine's Docker and change it.
+
+    A server deploys on its own machine and has always had its Docker. A hub is a central that deploys
+    nothing itself: with the socket mounted into its container it still leaves the machine's Docker
+    alone until it is told, outside the console, to deploy here (``central.deploy_here``), because what
+    is in that Docker is changed as root. The table of functions (``docker_zone``) and the gate to
+    Docker both ask this, so what the session offers and what answers cannot drift apart.
+
+    Args:
+        role: ``central.role``, as :func:`validate_central_role` gives it.
+        deploy_here: ``central.deploy_here``, as :func:`validate_deploy_here` gives it.
+
+    Returns:
+        True for a server, and for a hub that was told to deploy containers here.
+    """
+    return role != "hub" or deploy_here == "containers"
+
+
+def docker_zone_is_open() -> bool:
+    """
+    Say whether this Noust, as it is configured now, may look at its machine's Docker.
+
+    Read from the configuration on each call, like the table of functions is, so the setting takes
+    effect on the next request without a restart. The one reading the gate to Docker and the readers
+    that still ask Docker by themselves share (``tests/test_docker_ratchet.py`` lists them).
+
+    Returns:
+        :func:`machine_docker_is_open` of the role and the consent this configuration holds.
+
+    Raises:
+        ConfigError: ``central.role`` or ``central.deploy_here`` holds something that is not one of
+            their values.
+    """
+    from noust.core.config import Config
+
+    config = Config()
+    return machine_docker_is_open(
+        validate_central_role(config.get("central.role", "server")),
+        validate_deploy_here(config.get("central.deploy_here", "")),
+    )
+
+
+def closed_docker_zone() -> ServerText:
+    """
+    Returns:
+        The sentence for a hub that was not told to deploy here, which the gate raises and the table
+        of functions publishes (``features.needs_deploy_here``), said once.
+    """
+    from noust.core.server_text import say
+
+    return say("features.needs_deploy_here", feature=DOCKER_ZONE_LABEL)
+
+
+class ConsentFromConsoleError(NoustPermissionError):
+    """A write that came from the console or the API would have turned the consent on."""
+
+
+#: Whether the write being made came in through the console or the API. A context variable follows a
+#: request into the worker thread that serves it and stays out of a command typed at a terminal, a
+#: job and a thread that starts on its own, which is exactly the line the consent is drawn on.
+_console: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "noust_writing_from_the_console", default=False
+)
+
+
+@contextmanager
+def from_the_console() -> Iterator[None]:
+    """
+    Mark everything the block writes to the configuration as coming from the console or the API.
+
+    The console's server enters it once for every request it serves (``web/server.py``), so no
+    handler has to remember to, and the rule of ``central.deploy_here``
+    (:func:`validate_deploy_here_write`) judges a write by what it leaves whatever route carried it.
+
+    Yields:
+        Nothing; the mark is in force inside the block.
+    """
+    token = _console.set(True)
+    try:
+        yield
+    finally:
+        _console.reset(token)
+
+
+def writing_from_the_console() -> bool:
+    """
+    Returns:
+        Whether the code that is running was reached through the console or the API.
+    """
+    return _console.get()
+
+
+def validate_deploy_here_write(value: Any) -> str:
+    """
+    Judge a write of ``central.deploy_here`` by what it would leave, wherever it came from.
+
+    The rule of the key, as :func:`validate_deploy_here` is its shape: ``Config.set`` and
+    ``Config.replace`` apply it to the value of the key before anything is stored, whether the key
+    was written by itself, inside the ``central`` section or in a whole document, so the consent is
+    held in the one place every write of the configuration passes and no route has to remember it.
+    Nothing is judged outside the console and the API: whoever has a shell turns the consent on with
+    ``noust config set``. What was stored is left untouched when this refuses, because nothing was
+    changed yet.
+
+    Args:
+        value: What the write leaves in the key.
+
+    Returns:
+        The value as :func:`validate_deploy_here` normalises it.
+
+    Raises:
+        ConfigError: The value is not one the key can have.
+        ConsentFromConsoleError: The write came from the console or the API and leaves the consent
+            on when it is not on now.
+    """
+    mode = validate_deploy_here(value)
+    if not writing_from_the_console() or not mode:
+        return mode
+    # Local imports: the configuration imports this module, and the catalog of sentences is not
+    # something every command that reads a setting has to load (tests/test_cli_startup_budget.py).
+    from noust.core.config import Config
+    from noust.core.server_text import say
+
+    if consent_from_the_console(Config().get("central.deploy_here", ""), mode):
+        raise ConsentFromConsoleError.from_text(say("config.deploy_here_not_from_console"))
+    return mode
+
+
 #: What each setting is before anybody sets it, under ``central`` in the configuration. ``role`` is what
 #: every release has been: ``server`` deploys and serves applications and may also manage other servers,
 #: and ``hub`` is a central with no local deployments, where what needs a web server is refused with a
@@ -197,6 +346,6 @@ CENTRAL_DEFAULTS: dict[str, str] = {"role": "server", "deploy_here": "", "image_
 #: How each is judged, by its dotted key, as the configuration's table of validators takes them.
 CENTRAL_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "central.role": validate_central_role,
-    "central.deploy_here": validate_deploy_here,
+    "central.deploy_here": validate_deploy_here_write,
     "central.image_check": validate_image_check,
 }

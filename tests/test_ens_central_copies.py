@@ -8,7 +8,10 @@ A copy a central took away and holds is a copy kept apart, and the checks say wh
 destination. A central that collects the server's copies through its tunnel keeps them somewhere
 else too, and says which it holds: that counts, it is named (``central:<name>``) and, when the
 copies it holds are not sealed, the check that asks backups to leave encrypted (``ENS-BAK-02``) says
-so. What a central that has gone quiet said does not count.
+so. What a central that has gone quiet said does not count, and neither does what this server cannot
+check: a central says what it holds and nothing proves it, so a claim counts only when the digest the
+central gives is the one this server recorded for that copy, and the evidence says it is the central's
+word.
 """
 
 from __future__ import annotations
@@ -30,6 +33,8 @@ from tests.support.ens_checks import NOW
 
 DOMAIN = "shop.example.com"
 BACKUP_ID = "shop-example-com_20261110_020000"
+#: What this server recorded for the copy, which is the digest a central that really took it gives back.
+CHECKSUM = "ab" * 32
 
 
 class _Config:
@@ -57,6 +62,7 @@ def archive(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         app_name="shop-example-com",
         created_at=(NOW - timedelta(days=1)).replace(tzinfo=None).isoformat(),
         size_bytes=13,
+        checksum=CHECKSUM,
         app_type="nodejs",
         version="4.3.0",
         description="",
@@ -74,8 +80,8 @@ def facts_of(store: NoustStore) -> Facts:
     return gather(Sources(store=store, config=_Config(), hardening=lambda: [], clock=lambda: NOW))
 
 
-def hold(store: NoustStore, central: str = "nas") -> None:
-    CentralHeld(store).replace(central, [HeldCopy("app", BACKUP_ID)])
+def hold(store: NoustStore, central: str = "nas", sha256: str | None = CHECKSUM) -> None:
+    CentralHeld(store).replace(central, [HeldCopy("app", BACKUP_ID, sha256)])
 
 
 class TestWhatGatheringSees:
@@ -106,6 +112,36 @@ class TestWhatGatheringSees:
 
         assert checks.sent_away(facts_of(store)) == {}
 
+    @pytest.mark.parametrize("claimed", [None, "cd" * 32, "0" * 64], ids=["none", "other", "zero"])
+    def test_a_claim_this_server_cannot_check_is_not_a_place(
+        self, store: NoustStore, archive: Path, claimed: str | None
+    ) -> None:
+        """
+        Nothing proves a central holds a copy, so only a digest this server can match to its own
+        record counts: a claim with no digest, or with another one, is a word and no more.
+        """
+        hold(store, sha256=claimed)
+
+        facts = facts_of(store)
+
+        assert checks.sent_away(facts) == {}
+        assert facts.destinations == []
+
+    def test_a_claim_with_the_digest_this_server_recorded_is_a_place(
+        self, store: NoustStore, archive: Path
+    ) -> None:
+        hold(store, sha256=CHECKSUM)
+
+        assert checks.sent_away(facts_of(store)) == {DOMAIN: ["central:nas"]}
+
+    def test_one_central_that_is_right_is_not_undone_by_another_that_is_not(
+        self, store: NoustStore, archive: Path
+    ) -> None:
+        hold(store, "nas")
+        hold(store, "liar", sha256="0" * 64)
+
+        assert checks.sent_away(facts_of(store)) == {DOMAIN: ["central:nas"]}
+
     def test_what_a_central_does_not_hold_is_not_a_place(
         self, store: NoustStore, archive: Path
     ) -> None:
@@ -133,6 +169,13 @@ class TestWhatTheChecksSay:
         finding = {f.id: f for f in evaluate(facts)}["ENS-BAK-01"]
 
         assert not any("no schedule sends it" in line for line in finding.evidence)
+        assert any(
+            line == f"{DOMAIN}: kept at {checks.describe_place('central:nas')}"
+            for line in finding.evidence
+        )
+
+    def test_a_place_that_is_not_a_central_is_said_as_it_always_was(self) -> None:
+        assert checks.describe_place("offsite-sftp") == "offsite-sftp"
 
     def test_the_generic_check_says_where_every_application_is_kept(
         self, store: NoustStore, archive: Path
@@ -147,7 +190,9 @@ class TestWhatTheChecksSay:
         )
 
         assert status == "ok"
-        assert evidence == (f"{DOMAIN}: kept at central:nas",)
+        assert evidence == (f"{DOMAIN}: kept at {checks.describe_place('central:nas')}",)
+        # It is said whose word it is: the central holds it, and this server cannot see that disk.
+        assert "that central" in evidence[0] and "cannot see" in evidence[0]
 
     def test_without_it_the_generic_check_fails_as_it_did(
         self, store: NoustStore, archive: Path

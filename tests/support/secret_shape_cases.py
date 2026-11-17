@@ -185,6 +185,58 @@ CASES: tuple[ShapeCase, ...] = (
         "git+ssh://deploy:hunter22@git.example.test/app.git",
         f"git+ssh://deploy:{MASK}@git.example.test/app.git",
     ),
+    # The user of an http(s) address is hidden whether or not a password follows it: a token takes
+    # the place of the user in an address that has no password at all (Azure DevOps and others), and
+    # no prefix of a provider says so. The token below has none, on purpose. An address for ssh has
+    # no secret in its user, and an at sign further on is a path or a query and not a user.
+    _hides(
+        "a token with no prefix that is the user of an address",
+        "clone https://pq7rb3kw2hvxn5jsd6c4mfzg2u5yvtlaeo3idxqwk5jb2n4rt7la@dev.azure.com/o/p/_git/a",
+        f"clone https://{MASK}@dev.azure.com/o/p/_git/a",
+    ),
+    _hides(
+        "a short user with no password",
+        "https://deploytoken@git.example.test/team/app.git",
+        f"https://{MASK}@git.example.test/team/app.git",
+    ),
+    _hides(
+        "the user and the password of an http address",
+        "http://deploy:hunter22@git.example.test/app.git",
+        f"http://{MASK}:{MASK}@git.example.test/app.git",
+    ),
+    _hides(
+        "the user of an address in quotes",
+        'origin = "https://tok123abc@host.example.test/a.git"',
+        f'origin = "https://{MASK}@host.example.test/a.git"',
+    ),
+    _hides(
+        "the user of an address in capitals",
+        "HTTPS://tok123abc@host.example.test/a.git",
+        f"HTTPS://{MASK}@host.example.test/a.git",
+    ),
+    _hides(
+        "two addresses one after the other",
+        "from https://one11111@a.example.test to http://two22222@b.example.test",
+        f"from https://{MASK}@a.example.test to http://{MASK}@b.example.test",
+    ),
+    _hides(
+        "an address with no user but a password only",
+        "https://:s3cr3tvalue@host.example.test/a",
+        f"https://:{MASK}@host.example.test/a",
+    ),
+    _keeps("an ssh address", "git@github.com:acme/shop.git"),
+    _keeps("an address of ssh with a user", "ssh://git@github.com/acme/shop.git"),
+    _keeps(
+        "an at sign in the path of an address", "GET https://cdn.example.test/pkg/@scope/name 200"
+    ),
+    _keeps(
+        "an at sign in the query of an address",
+        "http://host.example.test:8080/redirect?to=user@example.com",
+    ),
+    _keeps(
+        "an at sign after the address", "see https://host.example.test/x and mail me@example.com"
+    ),
+    _keeps("an address with a port and no user", "https://host.example.test:8443/x"),
     # A private key goes whole, or to the end when the text was cut before its footer.
     _hides(
         "a private key block",

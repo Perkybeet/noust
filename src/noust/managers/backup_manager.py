@@ -3650,13 +3650,13 @@ class BackupManager:
 
         # A 1.x archive kept its dumps outside. Restoring one is only possible
         # on the machine that created it, which is the defect, not the design.
-        external = entry.get("backup_path") or entry.get("path")
-        if isinstance(external, str) and external and Path(external).is_file():
+        external = legacy_archive.external_dump(entry, self.backup_dir, label)
+        if external is not None:
             self.logger.warning(
                 f"Restoring {label} from {external}, which lives outside the archive. "
                 "Re-create this backup to make it portable."
             )
-            return Path(external)
+            return external
 
         raise BackupError.from_text(
             say("backup_manager.backup_lists_found", label=label, value=str(external or "none"))

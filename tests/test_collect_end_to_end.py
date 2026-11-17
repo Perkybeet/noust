@@ -31,7 +31,7 @@ from noust.fleet.client import NodeClient
 from noust.fleet.collect.api import ClientApi
 from noust.fleet.collect.collector import NodeCollector
 from noust.fleet.collect.layout import Layout
-from noust.fleet.collect.records import CollectedStore
+from noust.fleet.collect.records import CollectedStore, NodeStates
 from noust.fleet.collect.settings import SettingsStore
 from noust.fleet.keys import TOKEN, known_hosts_line, secret_name
 from noust.fleet.tunnels import TRANSFER, set_loopback_for_testing
@@ -144,7 +144,7 @@ class TestOnePassBetweenTwoRealSides:
         assert spared == {late.id}
 
     @pytest.mark.parametrize(
-        ("level", "state"), [("read", "failed"), ("deploy", "ok"), ("admin", "ok")]
+        ("level", "state"), [("read", "failed"), ("deploy", "failed"), ("admin", "ok")]
     )
     def test_the_servers_ceiling_decides(
         self, server: tuple[Any, Disk], tmp_path: Path, level: str, state: str
@@ -159,6 +159,23 @@ class TestOnePassBetweenTwoRealSides:
         if state == "failed":
             assert result.code == "ceiling"
             assert CollectedStore().list() == []
+
+    def test_a_server_that_does_not_let_its_copies_leave_says_so_and_what_to_run_there(
+        self, server: tuple[Any, Disk], tmp_path: Path
+    ) -> None:
+        app, disk = server
+        disk.apps.add()
+        policy.set_access(policy.FleetAccess("deploy"))
+
+        result = central_for(app, tmp_path).collect(NODE)
+
+        said = " ".join(result.failures)
+        assert result.code == "ceiling"
+        assert NODE in said
+        assert "noust fleet access --level admin" in said
+        row = NodeStates().get(NODE)
+        assert row.last_error_code == "ceiling"
+        assert "noust fleet access --level admin" in (row.last_error or "")
 
     def test_a_server_that_lets_a_copy_leave_only_encrypted_keeps_the_rest_back(
         self, server: tuple[Any, Disk], tmp_path: Path, monkeypatch: pytest.MonkeyPatch

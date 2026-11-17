@@ -1230,6 +1230,10 @@ export const serverText: Catalog<typeof en> = {
       text: "No hay ningún servidor web en esta máquina",
       hint: "Noust escribe sus sitios para nginx o Apache: instala uno desde Servidor > Software.",
     },
+    needs_deploy_here: {
+      text: "{feature}: esta central no usa el Docker de su máquina hasta que se le dice",
+      hint: "El socket de Docker es root en la máquina, así que una central que lo tiene montado deja en paz lo que corre ahí hasta que se activa el despliegue aquí, fuera de la consola: añade NOUST_DEPLOY_HERE=containers al entorno de la central (mira la guía de desplegar donde corre la central) y vuelve a crear el contenedor. La comprobación de Desplegar en esta máquina mira la versión de Docker y no cambia nada.",
+    },
   },
   fleet: {
     node_descriptors_exhausted: {
@@ -5648,6 +5652,18 @@ export const serverText: Catalog<typeof en> = {
     target: {
       text: "La petición no es para una ruta de la consola",
       hint: "Solo se redirige una ruta con su consulta, tal como las escribe un navegador.",
+    },
+  },
+  config: {
+    deploy_here_not_from_console: {
+      text: "El despliegue en el Docker de esta máquina no se activa desde la consola",
+      hint: "Da a esta central el poder de root sobre la máquina, así que se pide donde se escribe el fichero compose que monta el socket de Docker: añade NOUST_DEPLOY_HERE=containers a su entorno (mira la guía de desplegar donde corre la central) y vuelve a crear el contenedor.",
+    },
+  },
+  collect: {
+    ceiling: {
+      text: "{node} no deja que esta central recoja sus copias",
+      hint: "Su nivel de acceso para una central está por debajo de admin, y una copia se lleva el .env y las bases de datos de todas las aplicaciones, que es más de lo que promete el nivel deploy. En {node}, como root, ejecuta 'noust fleet access --level admin' para permitirlo, o deja las copias donde están.",
     },
   },
 };

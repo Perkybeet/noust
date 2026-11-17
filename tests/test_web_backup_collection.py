@@ -102,8 +102,10 @@ class TestWhoMayCollect:
 
         assert response.status_code == 403
 
+    # What the copies are is the .env and the databases of every application: carrying them away
+    # is admin's, because a deploy ceiling is "update and go back on what exists, and nothing else".
     @pytest.mark.parametrize(
-        ("level", "allowed"), [("read", False), ("deploy", True), ("admin", True)]
+        ("level", "allowed"), [("read", False), ("deploy", False), ("admin", True)]
     )
     def test_the_nodes_ceiling_decides(
         self, app: Any, disk: Disk, token: str, level: str, allowed: bool
@@ -113,6 +115,29 @@ class TestWhoMayCollect:
         response = client_from(app).get("/api/backup-collection", headers=central(token, COLLECT))
 
         assert (response.status_code == 200) is allowed
+
+    @pytest.mark.parametrize("level", ["read", "deploy"])
+    def test_the_refusal_names_the_level_that_lets_a_central_do_it(
+        self, app: Any, disk: Disk, token: str, level: str
+    ) -> None:
+        policy.set_access(policy.FleetAccess(level))  # type: ignore[arg-type]
+
+        response = client_from(app).get("/api/backup-collection", headers=central(token, COLLECT))
+
+        assert response.status_code == 403
+        assert "noust fleet access --level admin" in response.text
+        assert "--level deploy" not in response.text
+
+    def test_a_deploy_ceiling_cannot_say_what_it_holds_either(
+        self, app: Any, disk: Disk, token: str
+    ) -> None:
+        policy.set_access(policy.FleetAccess("deploy"))
+
+        response = client_from(app).put(
+            "/api/backup-collection/held", headers=central(token, COLLECT), json={"items": []}
+        )
+
+        assert response.status_code == 403
 
     def test_a_ceiling_that_lets_a_central_read_still_says_which_centrals_collect(
         self, app: Any, disk: Disk, token: str

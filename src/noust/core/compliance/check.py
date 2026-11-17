@@ -258,7 +258,10 @@ def _measure_offsite(facts: Any, required: Any) -> tuple[str, str, tuple[str, ..
     return (
         STATUS_OK,
         "Every application has a backup sent to another place.",
-        tuple(f"{domain}: kept at {', '.join(places)}" for domain, places in sorted(away.items())),
+        tuple(
+            f"{domain}: kept at {', '.join(checks.describe_place(place) for place in places)}"
+            for domain, places in sorted(away.items())
+        ),
         "",
     )
 

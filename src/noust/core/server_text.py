@@ -1689,6 +1689,18 @@ CATALOG: dict[str, str] = {
         "A server deploys on its own machine without being asked. Deploying on the machine's Docker "
         "is for a hub, the central in a container, which deploys nothing until it is told to."
     ),
+    # A hub that has Docker's socket mounted and was not told to deploy here leaves the machine's
+    # Docker alone: the socket is the first of the two things asked, and this is the second.
+    "features.needs_deploy_here": (
+        "{feature}: this central does not use its machine's Docker until it is told to"
+    ),
+    "features.needs_deploy_here.hint": (
+        "Docker's socket is root on the machine, so a central that has it mounted still leaves what "
+        "runs there alone until deploying here is turned on, outside the console: add "
+        "NOUST_DEPLOY_HERE=containers to the central's environment (see the guide to deploying where "
+        "the central runs), then recreate the container. The check on Deploy on this machine looks "
+        "at Docker's version and changes nothing."
+    ),
     "features.needs_systemd": "This machine does not run systemd",
     "features.needs_systemd.hint": (
         "Noust keeps services and timers with systemd, which a container, or a system that "

@@ -676,6 +676,64 @@ class TestWhenItGoesWrongWithTheServer:
         assert result.code == "ceiling"
         assert [c for _n, c, _t in said.told] == ["ceiling"]
 
+    def test_the_refusal_of_a_ceiling_says_which_server_and_the_command_that_changes_it(
+        self, store: NoustStore, disk: Disk, api: FakeApi, central: Path, said: Said
+    ) -> None:
+        refusal = NodeRefusedError("web-1 refused the fleet token (HTTP 403)")
+        refusal.status_code = 403
+
+        def refuses(known: Any = None) -> Any:
+            raise refusal
+
+        api.list = refuses  # type: ignore[method-assign,assignment]
+
+        result = collector(store, api, central, said).collect(NODE)
+
+        text = " ".join(result.failures)
+        assert NODE in text and "does not let this central collect its copies" in text
+        assert "noust fleet access --level admin" in text
+        assert NodeStates(store).get(NODE).last_error == " ".join(result.failures)
+        assert [t for _n, _c, t in said.told] == [text]
+
+    def test_a_server_that_refuses_does_not_stop_the_collection_of_the_others(
+        self, store: NoustStore, tmp_path: Path, central: Path, said: Said
+    ) -> None:
+        store.save_node(
+            NodeRecord(
+                name="web-2",
+                ssh_host="web2.example.com",
+                ssh_port=22,
+                ssh_user="noust-tunnel",
+                host_key="noust-node-web-2 ssh-ed25519 AAAA",
+                console_port=8080,
+            )
+        )
+        refusing, open_disk = Disk(tmp_path / "refusing"), Disk(tmp_path / "open")
+        open_disk.apps.add()
+        refusal = NodeRefusedError("web-1 refused the fleet token (HTTP 403)")
+        refusal.status_code = 403
+        no = FakeApi(refusing)
+
+        def refuses(known: Any = None) -> Any:
+            raise refusal
+
+        no.list = refuses  # type: ignore[method-assign,assignment]
+        apis = {NODE: no, "web-2": FakeApi(open_disk)}
+        runner = NodeCollector(
+            store=store,
+            api_for=lambda node: apis[node],
+            layout=Layout(central),
+            notify=said,
+            sleep=lambda _s: None,
+        )
+
+        results = {name: runner.collect(name) for name in (NODE, "web-2")}
+
+        assert results[NODE].state == "failed" and results[NODE].code == "ceiling"
+        assert results["web-2"].state == "ok" and results["web-2"].fetched == 1
+        assert [c.item_id for c in CollectedStore(store).list(node="web-2")]
+        assert NodeStates(store).get("web-2").failures == 0
+
     def test_a_revoked_token_is_a_refusal_and_not_a_ceiling(
         self, store: NoustStore, disk: Disk, api: FakeApi, central: Path, said: Said
     ) -> None:
