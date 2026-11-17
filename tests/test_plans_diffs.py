@@ -129,8 +129,11 @@ def test_a_credential_in_an_address_is_masked_by_its_shape() -> None:
         scrub=Scrubber().scrub,
     )
 
+    # The user of an address goes with its password (a token is often written there alone); what is
+    # left says where the address leads, which is what a person reads a plan for.
     assert CANARY not in everything(found)
-    assert "https://deploy:" in everything(found)
+    assert "deploy" not in everything(found)
+    assert "origin = https://***:***@git.example.com/shop.git" in everything(found)
 
 
 def test_a_value_the_application_is_known_to_hold_is_masked_wherever_it_stands() -> None:
