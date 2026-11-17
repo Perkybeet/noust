@@ -134,9 +134,8 @@ reading copies is the permission `backups.collect`, which a server held to `read
 gives its central, because a copy holds the `.env` files and the database dumps of every application, which
 is more than "update and go back on what exists". The central says it in that server's row, with the
 command to run on the server (`noust fleet access --level admin`, as root), and goes on with the others.
-Before 4.3.0 a `deploy` ceiling let a central collect: a fleet that relied on it has to raise those servers
-to `admin`, or the central stops taking their copies and says why in each row. Under the ENS profile, or with
-`backup.encryption: required`, a server whose copies are not sealed refuses to hand them over
+Until a server is raised, the central skips it and says why in its row; the other servers go on. Under the ENS
+profile, or with `backup.encryption: required`, a server whose copies are not sealed refuses to hand them over
 (`sealing_required`) and the central says so in that server's row. A server before 4.3 has no such
 routes: the central takes only the database dumps it already could, and says "only database dumps"
 until the server is updated.

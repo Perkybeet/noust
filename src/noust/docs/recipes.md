@@ -81,7 +81,10 @@ recipe that needs any of these is not a recipe:
   console shows before installing (Syncthing's sync port is one);
 - a host path written in the document. A volume is a Docker volume, a file the recipe ships, or
   `${VARIABLE}:/path` where the variable defaults to a directory inside the application
-  (`./media`): the operator may point it elsewhere, the recipe may not.
+  (`./media`): the operator may point it elsewhere, the recipe may not. A directory outside the application's
+  own folder is a path of the server, so the application is refused it unless an administrator records why
+  (`noust app sandbox compose-exception DOMAIN --reason '...'`, which can be done before the first deployment;
+  [what a stack may ask of the server](compose.md#what-a-stack-may-ask-of-the-server)).
 
 ## Updating what you installed
 

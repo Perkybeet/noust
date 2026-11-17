@@ -6,10 +6,17 @@ notice is in [API-CHANGELOG.md](API-CHANGELOG.md).
 
 The short version: 4.3 does not touch what serves your applications. No site, application or Compose stack is
 rewritten by the update, and the only units it writes again are Noust's own two, `noust-web` and `noust-monitor`,
-to raise their limit of open files. The command line keeps every command and option and the HTTP API only grows.
-The store moves to schema 18 the first time Noust starts (a copy of the old one is kept beside it), what an API
-token changes in production waits for a person on a server under the ENS profile, and the check on a Compose file
-reads what Compose resolves it to. Run `noust health` after updating.
+to raise their limit of open files. The command line keeps every command and option and the HTTP API only gains
+operations and fields (what the security fixes now refuse is in the Breaking changes of
+[API-CHANGELOG.md](API-CHANGELOG.md)).
+The store moves to schema 18 the first time Noust starts (a copy of the old one is kept beside it), and what an
+API token changes in production waits for a person on a server under the ENS profile.
+
+4.3 also closes a vulnerability in the check on Compose files that dates from 3.1.0
+([CHANGELOG-4.3.md](CHANGELOG-4.3.md#security)). Nothing that runs is stopped by it, but the check now refuses
+more in a new stack, in what an update adds and in an adoption, and a stack that hides what it carries behind
+an `include`, an `extends` or a variable is refused at its next update. Run `noust health` after updating and read
+[the first section below](#compose-stacks-that-carry-more-than-a-new-stack-may).
 
 ## Action required
 
@@ -23,15 +30,18 @@ reads what Compose resolves it to. Run `noust health` after updating.
   `noust approval policy set`. A server not under ENS changes nothing: a token is `alone` everywhere its
   permissions let it, until somebody changes the table
   ([security-approvals.md](security-approvals.md#tokens-and-the-built-in-assistant-the-approval-policy)).
-- **A Compose application whose file hides a privileged container is refused at its next update, once.** The
-  check that refuses a compose file asking for root on the server (`privileged`, the Docker socket) now also
-  reads what Compose resolves the file to, which sees a service brought in by an `include` or an `extends`, a
-  `jobs` entry, a service under a profile, the file of a `secrets` or `configs` entry, and `volumes_from` or
-  `pid: container:`. A stack that is running keeps running. An update is judged against what the stack ran with,
-  and the version it ran is only text, so a finding that shows only once Compose resolves the file counts as new
-  and the update is refused with the finding named: remove it from the repository, or record why the application
-  needs it with `noust app sandbox compose-exception DOMAIN --reason '...'` and update again. A redeploy from the
-  file on disk, and bringing a stack that already runs to Noust, are proven against what runs and warn instead.
+- **Review the Compose stacks that carry something of the server.** After updating, `noust health` lists the
+  stacks whose compose file asks for what gives the server to a container or for a path of the server outside the
+  application, each with the command to record why it needs it. A stack that hides it behind an `include`, an
+  `extends` or a variable (a recipe whose data directory you pointed outside the application) is not on that
+  list and is refused at its next update, naming the finding: record the exception first, or take it out of the
+  repository
+  ([how](#compose-stacks-that-carry-more-than-a-new-stack-may)). Where untrusted repositories were deployed
+  before, review their Compose files and rotate the secrets of that server.
+- **Adopting, or bringing, a stack that runs with something of the server needs `--accept-host-access`**
+  ([how](#adopting-or-bringing-a-stack-that-runs-with-access-to-the-server)).
+- **To have a central collect a server's copies, set that server's ceiling to `admin`**
+  ([how](#a-central-collects-copies-only-from-a-server-that-allows-admin)).
 - **A browser that already opened the console on a name shared with other services may need clearing once**:
   [below](#the-console-says-strict-transport-security-only-on-a-name-it-owns).
 
@@ -43,7 +53,23 @@ reads what Compose resolves it to. Run `noust health` after updating.
   offer the section. Nothing in it changes anything of what already runs.
 - **The built-in assistant is off.** Nothing of it is drawn until an administrator turns it on in **Settings > AI
   assistant**, with a model of their choice, and nothing leaves the server before that. Its permission,
-  `assistant.use`, is held by the administrator and the operator. [assistant.md](assistant.md).
+  `assistant.use`, is held by the administrator and the operator, and by no API token: it is for people, and the
+  approval policy is edited by a person too, however many permissions a token was issued with. Changing the
+  provider's address to another origin without giving the key in the same request empties the saved key and
+  leaves the assistant off. [assistant.md](assistant.md).
+- **A hub does not use its machine's Docker until it is told to.** A central in a container with Docker's socket
+  mounted shows no Server > Docker and answers `409 hub_role` to `/api/docker` and `noust docker`, and the disk page
+  leaves Docker's figures out, until `NOUST_DEPLOY_HERE=containers` is in the file that creates the container. The
+  console and the API cannot turn it on: a write of the configuration that would leave `central.deploy_here` on is
+  refused whatever its route. [central-deploy-here.md](central-deploy-here.md).
+- **Compose and image builds no longer see Noust's own environment.** `docker compose` and `docker build` start
+  without any `NOUST_*` variable of Noust's process (a token, the key the secrets are sealed under, the data
+  directory), so a `${NOUST_...}` in a compose file is an empty string. The stack's own `.env`, `DOCKER_HOST`,
+  `COMPOSE_*` and variables of your own are read as before.
+- **The user of a web address is hidden wherever an address is shown.** `noust env list`, `noust variables list`,
+  the audit trail, what the MCP endpoint returns and the process monitor's samples show `https://***@host/...` for
+  a token placed as the user of an address, and `https://***:***@host/...` for a user and a password: until 4.2.1
+  only the password was hidden (`https://ana:***@host/...`).
 - **A backup that cannot reach its destination no longer fails the run.** The copy stays on the server, is
   tried again by itself (`noust backup resend` shows and forces it; the first copy that is owed makes the timer
   `noust-backup-resend`, or the central's scheduler runs it) and is said once for the destination. If you
@@ -99,6 +125,105 @@ reads what Compose resolves it to. Run `noust health` after updating.
   installer prints `http://localhost:8080/login`, because a passkey is refused on an address of numbers.
 - **`noust health` shows the open files** `noust-web` and `noust-monitor` hold against their limit, and warns from
   80 %.
+
+## Compose stacks that carry more than a new stack may
+
+Until 4.2.1 the check on a compose file refused `privileged`, the Docker socket and bind mounts of Noust's own
+state or of another application's directories as they were spelled, and at most warned about capabilities,
+devices, the host's namespaces and other paths of the server. It did not follow a link in the repository and did
+not look at the files an `env_file`, a build context or a build secret names. 4.3 refuses all of that in a new
+stack, judges a path by where it leads and asks Compose what the file resolves to
+([the list](compose.md#what-a-stack-may-ask-of-the-server)). Nothing that runs is stopped by it; what happens to
+a stack at its next update depends on how its file says what it carries:
+
+- **The file spells it out and the update leaves it as it was** (`privileged`, a device, a mount of
+  `/srv/media`, `network_mode: host`): the deploy log says each line and that a new stack would be refused it,
+  and the update goes on. So do a redeploy and a rollback.
+- **It shows only when Compose resolves the file** (a service that an `include` or an `extends` brings in from
+  another file, or a path made of a variable such as `${DATA_DIR}:/data`, whose value is in the stack's `.env`: a
+  recipe's data directory pointed outside the application is the usual one): an update that pulls new commits is
+  refused with "asks for root on this server", the lines and the command, because the commit that served is text
+  and cannot be compared. The stack keeps serving what it served and nothing is stopped.
+- **The update adds it:** refused, as in a new stack.
+
+Look before an update does:
+
+```bash
+noust health
+```
+
+Under Build sandbox it says how many applications build or run with root's access and, in its warnings, one
+sentence for each stack whose compose file asks for something a new stack would be refused, with the command
+below. `noust ens check` carries the same sentences in the evidence of ENS-BLD-01. Both read the file as written,
+so a stack that hides it behind an `include`, an `extends` or a variable is not there until an update meets it.
+
+For each stack, take it out of the compose file and deploy, or record why the application needs it:
+
+```bash
+noust app sandbox compose-exception shop.example.com --reason "Mounts the Docker socket to start its own workers"
+```
+
+It asks for a confirmation (`-y` skips it) and is root-equivalent: root at a terminal, sudo mode through the API,
+and in the console the **Containers that are root on the server** card of the application's Settings > Build. A team
+role never can, and a central only with the `admin` ceiling and host access on that server. It can be recorded
+before the first deployment, and `--revoke` takes it back. It is the application's, not one line's: once it is there
+an update that adds something else of the same kind is allowed, and logged with who allowed it and why. Take it back
+when the reason is gone.
+
+An exception does not allow what is not the application's to take: Noust's own configuration, store and backups,
+or another application's files, through an `env_file`, a build context, a build secret or an `include`; and a
+project, volume, network, container name or image that belongs to another application or to Noust. Those are
+taken out of the compose file, and a stack that already had one is only warned about.
+
+Check: run `noust health` again. The stack is no longer named in Build sandbox, and its next update says
+"allowed for shop.example.com by <who> (<reason>)" in the deploy log where it used to warn or refuse.
+
+## Adopting or bringing a stack that runs with access to the server
+
+Until 4.2.1 `noust app adopt` registered a stack whose containers mount the Docker socket or carry a device, with
+a warning, because the stack was proven to run with it. From 4.3 it is refused, nothing is touched, and the
+refusal lists each line and the command:
+
+```bash
+noust app adopt shop.example.com --path /opt/shop
+noust docker stack bring shop --preview
+```
+
+Both answer with "puts under Noust a stack whose containers have what is on this server", the lines (for
+example "service web mounts /var/run/docker.sock from this server") and the command to go on. The preview
+refuses the same way, so you read the lines before deciding. To go on, say it:
+
+```bash
+noust app adopt shop.example.com --path /opt/shop --accept-host-access
+noust docker stack bring shop --accept-host-access
+```
+
+`--accept-host-access` needs the root-equivalent permission, and `accept_host_access: true` in
+`POST /api/apps/adopt` and `POST /api/docker/stacks/{name}/bring` does too (`403` without it). It registers the
+stack as it runs and records the lines, who accepted them and when, as the application's compose exception (the
+section above). The console shows the refusal with its lines and the command, and cannot accept: do it from the
+command line or the API.
+
+Check: the **Containers that are root on the server** card of the application's Settings > Build shows the
+exception with its reason, who and when (`compose_exception` in `GET /api/apps/{domain}/sandbox`), and
+`noust app sandbox compose-exception shop.example.com --revoke` takes it back.
+
+## A central collects copies only from a server that allows `admin`
+
+Collecting is new in 4.3, and a copy carries the `.env` and the databases of every application, which is more than
+the `deploy` ceiling ("update and go back on what exists") promises. A server whose ceiling for the central is
+`deploy` or `read` does not hand its copies over: in **Backups > Copies on the central** its row says that its
+access level does not allow it, with the command, `noust fleet collect status` shows `ceiling` in its State
+column, and the central goes on with the other servers. To allow it, on that server, as root:
+
+```bash
+noust fleet access --level admin
+```
+
+Without options the command shows the ceiling in force, and it takes effect on the next request. Check it from
+the central: after the next pass (`noust fleet collect run` makes one now) `noust fleet collect status` shows the
+server as `followed` instead of `ceiling`. A `deploy` ceiling keeps doing what it promised: updating, going back
+and taking backups on the server.
 
 ## The central's image carries Docker's client
 
@@ -246,5 +371,9 @@ the steps and the table of which release opens which store. What 4.3 left that 4
   `noust cron settle` to retire them afterwards: remove their units with `noust cron delete NAME`.
 - **Units**: the package of 4.2 writes `noust-web` and `noust-monitor` again without the limit of open files, which
   4.2.1 does not need because it closes a worker's connections itself.
+- **The check on Compose files**: 4.2.1 has the check as it was before this release, with the limits described in
+  [the first section above](#compose-stacks-that-carry-more-than-a-new-stack-may). The exceptions that were
+  recorded stay in the store and 4.2 reads them as it always did, so going back reopens what 4.3 closed; update
+  again as soon as you can.
 - **A central that deploys on its machine's Docker**: the stacks and containers it started keep running in Docker,
   and 4.2 does not manage them, because its image has no Docker client and it cannot deploy there.

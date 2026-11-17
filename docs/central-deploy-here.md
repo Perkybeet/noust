@@ -155,6 +155,12 @@ that deploys here:
   said **before** you accept, with the line that fixes it (`restart: unless-stopped`); Noust does not
   change your file, because it is yours. A stack that publishes on `127.0.0.1` only is said to be reachable
   from the NAS and not from your network.
+- **A stack that runs with something of the machine is brought only when you say so.** A NAS's stacks often
+  mount the Docker socket (a dashboard, an updater) or a device (a media server's GPU). Bringing such a stack is
+  refused with each line and the command, nothing touched; `noust app adopt DOMAIN --path DIR
+  --accept-host-access` (or `noust docker stack bring NAME --accept-host-access`) goes on, needs the
+  root-equivalent permission and records the lines, with who and when, as the application's exception
+  ([what it means](compose.md#what-a-stack-may-ask-of-the-server)). **Preview** lists the same lines.
 
 ## Check it
 

@@ -4,7 +4,8 @@ Part of [The console, page by page](console.md).
 
 The Server is one area of the bar with a column of its own, in five groups: **This machine** (Status, Machine,
 Folders and builds, Processes, Resource monitor, Updates), **What runs** (Services, Web server, Console, Software),
-**Docker** (its seven pages and, on a hub, Deploy on this machine), **Tools** (Files, Manifest, Terminal) and, on a
+**Docker** (its seven pages, which a hub shows once it is told to deploy on its machine's Docker, and, on a hub,
+Deploy on this machine), **Tools** (Files, Manifest, Terminal) and, on a
 fleet, **Fleet** (With the central). A section the machine cannot do is not in the column: a machine with no usable
 Docker has no Docker group, and a hub in a container is not offered the machine's own clock, system log, root shell
 or firewall.

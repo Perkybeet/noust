@@ -479,12 +479,26 @@ inside the application that leads out of it is refused saying where it leads; wh
 loop of links, a directory that cannot be read) is refused rather than guessed. An update does not make a
 link that its own commits added or changed look like something the stack already had.
 
-**What an application in production keeps.** Whatever the stack already had, unchanged, is warned about
-in the deploy log and never stops an update, a redeploy or a rollback. Only what the update adds is
-refused, unless the application has an exception. After upgrading, `noust health` and the compliance
-control list the stacks that carry something a new stack would be refused: record why each needs it with
-the command above, or take it out of its compose file. The Docker zone's editor and
-`noust app compose replace` judge a document the same way, the editor before Compose is asked to read it.
+**What an application in production keeps.** Whatever the compose file of the commit that served spells
+out, and the update leaves unchanged, is warned about in the deploy log and never stops an update, a
+redeploy or a rollback. Only what the update adds is refused, unless the application has an exception.
+What shows only when Compose resolves the file with the stack's `.env` (a service an `include` or an
+`extends` brings in from another file, a path made of a variable such as `${DATA_DIR}:/data`) cannot be
+compared with the commit that served, which is text and not a project: an update that pulls finds it new
+and is refused, naming it, until the application has an exception or the repository stops asking for it. A
+redeploy from the file on disk is proven against what runs and only warns; adopting a stack that runs with
+it asks you to accept it first (below).
+
+An exception is the application's, not one line's: once it is recorded, an update that adds something else
+of the same kind is allowed too, and the deploy log says who allowed it and why. What no exception allows
+(above) stays refused.
+
+After upgrading, `noust health` (the Build sandbox check) and `noust ens check` (ENS-BLD-01, in its
+evidence) list the stacks whose compose file, read as written, carries something a new stack would be
+refused: record why each needs it with the command above, or take it out of its compose file. They do not
+resolve the file, so a stack that hides it behind an `include`, an `extends` or a variable is not on the
+list until an update meets it. The Docker zone's editor and `noust app compose replace` judge a document
+the same way, the editor before Compose is asked to read it.
 
 **Adopting a stack that runs with any of this** puts under Noust something whose containers have the
 server. The preview lists each line ("gives a container something of this server"), and adopting it needs

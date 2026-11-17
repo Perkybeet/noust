@@ -179,7 +179,9 @@ under the ENS profile), no copies of servers to take and no list of copies still
 job shows its plain sentence. Outside the store, the settings 4.2 does not know stay in `config.yaml`, ignored and
 not cleaned; the copies a central took stay under `<backup directory>/.collected`, which 4.2 does not read; a task
 that runs once still runs, and 4.2 has no `noust cron settle` to retire it; and 4.2 sends the console's
-`Strict-Transport-Security` as it did, with `includeSubDomains` on every name. Turn the assistant off before
+`Strict-Transport-Security` as it did, with `includeSubDomains` on every name. The check on Compose files is
+4.2.1's again, with the limits that 4.3 closes ([UPGRADING-4.3.md](UPGRADING-4.3.md#compose-stacks-that-carry-more-than-a-new-stack-may));
+the exceptions recorded stay. Turn the assistant off before
 going back (`noust assistant disable`), which revokes the tokens it holds, since those are in the tokens'
 own database and are not rolled back. [UPGRADING-4.3.md](UPGRADING-4.3.md#rolling-back) says how.
 

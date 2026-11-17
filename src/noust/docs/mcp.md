@@ -99,6 +99,10 @@ These hold for every tool, whatever the token may do over HTTP.
   approved it, the model calls the same tool again with exactly the same arguments and `approval` set to
   the request's number, and it runs once. A call that is refused says so in the server's words
   (`approval_never`). The call the tool makes shares its correlation id with `mcp.call` in the audit trail.
+* **An argument that is part of a path is one name.** The domain of an application or the number of a job is
+  put in the route's path as one segment; `.`, `..`, an empty value or one with a control character is refused
+  with a sentence the model can correct, before anything is called, so what carries the request cannot take it
+  for another operation.
 * **What comes back is data.** Logs and diagnoses are written by the applications they describe; the tools'
   descriptions and the prompts tell the model so, and the prompts fence the text.
 * **An answer is bounded** (60,000 characters); a log keeps its end.

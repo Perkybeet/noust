@@ -152,8 +152,10 @@ applications run as.
   everything on it, unless the application has a recorded exception; Noust's own state, another
   application's files and anything that belongs to another application are refused with no
   exception. A path is judged by what Docker will mount: `..` is resolved and every link of the
-  repository is followed (`./host` that points at `/` is `/`), the long and the short syntax alike. A stack proven to run with one already is
-  warned about and never stopped.
+  repository is followed (`./host` that points at `/` is `/`), the long and the short syntax alike. A stack proven
+  to run with one already is warned about and never stopped; what shows only once Compose resolves the file (an
+  `include`, an `extends`, a variable in a path) cannot be proven and is refused at an update until an exception
+  is recorded.
 
 ## Deploy hooks
 

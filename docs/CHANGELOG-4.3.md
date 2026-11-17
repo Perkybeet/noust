@@ -13,8 +13,11 @@ stacks and database engines on it, and it can be installed from the app store of
 assistant is off until an administrator turns it on, acts only as a token of its own that never has sudo
 mode, and what it would change is a proposal that a person carries out. Around those, the console says what
 is happening in its own words, Settings is the central's, a central takes the copies of its servers through
-the tunnels it already has, and a certificate is judged on its own life. It is a minor version: the HTTP API
-only grows, the command line keeps every command and option, and the store moves to schema 18.
+the tunnels it already has, and a certificate is judged on its own life. It also closes a vulnerability in the
+check on Docker Compose files, which dates from 3.1.0 ([Security](#security), the first item), so update and then
+run `noust health`. It is a minor version: no operation of the HTTP API and no command or option of the command
+line is removed, what the security fixes now refuse is listed in the Breaking changes of
+[API-CHANGELOG.md](API-CHANGELOG.md), and the store moves to schema 18.
 
 ## Before you upgrade
 
@@ -24,15 +27,37 @@ first.
 - **The store moves to schema 18, and 4.2 cannot open it.** The upgrade keeps a copy of the store beside it,
   as before. Going back to 4.2 means putting that copy back (`noust store compat --to 4.2.1`;
   [downgrading.md](downgrading.md)).
+- **A Compose stack that already runs keeps updating, with a warning, when its own file spells out what it
+  carries.** The check on Compose files, which until 4.2.1 refused only `privileged`, the Docker socket and mounts
+  of Noust's own state or of another application's files, now refuses everything that gives the server to a
+  container and every path of the server outside the application, and judges a path by where it leads. A stack
+  that runs with any of it is not stopped for it: an update, a redeploy and a rollback go on and say in the deploy
+  log what the stack carries, and only what a change adds is refused. `noust health` (Build sandbox) and
+  `noust ens check` name each stack whose file says it, with the command that records why it needs what it has;
+  the other way is to take it out of the Compose file
+  ([UPGRADING-4.3.md](UPGRADING-4.3.md#compose-stacks-that-carry-more-than-a-new-stack-may)).
+- **One that hides it behind an `include`, an `extends` or a variable is refused at its next update**, naming
+  the finding, unless the application has an exception: a service another file of the repository brings in, or a
+  path such as `${DATA_DIR}:/data` that a recipe's operator pointed outside the application. That only shows when
+  Compose resolves the file with the stack's `.env`, and the commit that served is text, so there is nothing to
+  prove the stack already ran with it; the stack keeps serving what it served. A redeploy from the file on disk
+  is proven against what runs and only warns.
+- **Asking for the server needs a recorded decision.** A new stack, or an update or a redeploy that adds one of
+  those things, is refused unless an administrator records an exception for the application
+  (`noust app sandbox compose-exception DOMAIN --reason '...'`, sudo mode, never a team role); adopting a stack
+  that runs with something of the server, or bringing one from the Docker zone, needs `--accept-host-access`. A
+  Compose document pasted in the console takes no exception, so one with a path of the server outside the
+  application is no longer deployed, and a recipe whose directory the operator points outside the application
+  asks for an exception too
+  ([UPGRADING-4.3.md](UPGRADING-4.3.md#adopting-or-bringing-a-stack-that-runs-with-access-to-the-server)).
+- **Compose and image builds are started without Noust's own environment.** A `${NOUST_...}` in a Compose file is
+  an empty string now. The stack's own `.env` and what you keep in the environment for yourself (`DOCKER_HOST`,
+  `COMPOSE_*`) are read as before.
 - **Under the ENS profile, what an API token changes in production now waits for a person.** The control
   `token_production_approval` (ENS MEDIA and ALTA ask for it) makes `propose` the least a token can have in
   production, so a pipeline that deployed there alone now answers `202 approval_required` until somebody
   approves the request. Everywhere else a token keeps doing what it did. See
   [security-approvals.md](security-approvals.md#tokens-and-the-built-in-assistant-the-approval-policy).
-- **The check on a Compose file reads what Compose resolves it to.** A stack whose file reaches a privileged
-  container or the Docker socket through an `include`, an `extends`, a profile or a `volumes_from` used to pass
-  unseen. One that is running keeps running; its next update is refused once, naming the finding, unless the
-  application has an exception.
 - **The console no longer says `Strict-Transport-Security` on every name.** It says it only on the name
   `noust console expose` published it on, and never with `includeSubDomains`. A browser that already
   remembers the old policy for a name shared with other services keeps it until it is cleared once
@@ -41,6 +66,20 @@ first.
   of its own (each kind is in the section it belongs to), the manifest is Server > Manifest, and what only a
   machine has (its folders, publishing its console on a name) is on Server; the table is in
   [UPGRADING-4.3.md](UPGRADING-4.3.md#what-you-will-notice).
+- **A central collects the copies of a server only when the server's ceiling is `admin`.** A copy holds the `.env`
+  and the databases of every application, which is more than the `deploy` ceiling promises, so a server held to
+  `deploy` or `read` is skipped, its row in the central says so with the command (`noust fleet access --level
+  admin`, as root, on that server) and the other servers go on
+  ([UPGRADING-4.3.md](UPGRADING-4.3.md#a-central-collects-copies-only-from-a-server-that-allows-admin)).
+- **An API token does not use the built-in assistant and does not edit the approval policy**, whatever it was
+  issued with: both are for people, and a token that holds `security.manage` still cannot take its own limits out
+  of the table. Changing the assistant's provider to another origin without giving its key in the same request
+  empties the saved key and leaves the assistant off.
+- **A hub does not look at its machine's Docker until it is told to deploy there, and the console cannot tell it.**
+  With the socket mounted and no `NOUST_DEPLOY_HERE=containers`, **Server > Docker**, `noust docker` and the Docker
+  figures of the disk page leave the machine's Docker alone; a write of the configuration from the console or the
+  API that would leave `central.deploy_here` on is refused whichever way it is spelled
+  ([central-deploy-here.md](central-deploy-here.md)).
 - **A fleet in the middle of an update works.** A 4.3 central drives servers still on 4.2: for those servers the
   Docker zone, the copies it collects, the approval policy and the settings 4.3 brings say that the server needs
   4.3, the plan of an operation is not offered, and the rest goes on.
@@ -77,7 +116,9 @@ first.
 - **A stack that already runs can be brought to Noust.** `noust docker stack bring` (the same as
   `noust app adopt`, offered where the stack is seen) previews first what would be registered and what would not
   come back after a restart, and recreates, restarts and rewrites nothing. A stack nobody of Noust made can
-  also be started, stopped and restarted as a whole.
+  also be started, stopped and restarted as a whole. One that runs with something of the server (the Docker socket,
+  a device, a path outside its folder) is brought only with `--accept-host-access`, which records what it has,
+  with who accepted it and when, as the application's exception (root-equivalent; item 189).
 - **A stack's Compose, edited with a net.** `noust docker stack compose` (and the stack's page) judges a document
   by the model Compose resolves it to, says what it would recreate before anything changes, keeps every saved
   text as a version with who saved it and why (the latest 30), applies it as the application's update behind the
@@ -85,7 +126,8 @@ first.
 - **The check on a Compose file judges what Compose resolves it to.** A service brought in by an `include` or an
   `extends`, a `jobs` entry, a service under any profile, the file of a `secrets` or `configs` entry, and the
   volumes or namespace of a container that is not part of the stack are read as the file's own. An `include` or
-  an `extends` that leaves the application is refused before Compose reads it.
+  an `extends` that leaves the application is refused before Compose reads it. What the check refuses in all is
+  under [Security](#security).
 - **A cleanup is a plan.** What would go, whose it is and how much it holds is shown before anything is removed,
   and it is applied as it was shown: a plan that changed since is shown again and nothing is touched. The images
   an application keeps to go back to are never offered. A volume is never marked by itself: the zone's plan lists
@@ -105,7 +147,8 @@ first.
   `NOUST_DEPLOY_HERE=containers`. The console cannot turn it on. `noust central deploy-here check` proves the
   setting, the socket, the engine, the group and that the applications' folder is the same folder inside the
   container and on the machine. [central-deploy-here.md](central-deploy-here.md) says what you agree to: whoever
-  signs in as an administrator can do what root can on the NAS.
+  signs in as an administrator can do what root can on the NAS. Until it is on, a hub with the socket mounted
+  does not look at the machine's Docker at all, so Server > Docker is not offered there either.
 - **What it deploys**: container applications, Compose stacks and the recipes that are Compose stacks, database
   engines in containers (the listings of the Databases area answer with the engines Noust runs, their databases
   and users, and say why there is no PostgreSQL of the machine's own; making an instance, a database and a user,
@@ -158,9 +201,12 @@ first.
   answer, through the tools the MCP endpoint offers plus a search of this documentation and of the API's
   operations, with the values of variables, Noust's credentials and anything shaped like a credential removed
   and, for a provider outside the operator's network, emails and IP addresses disguised. The key is kept sealed
-  and never returned. An address is judged on every request, no redirect is followed, and plain HTTP only reaches
-  a host the operator listed. [PRIVACY.md](PRIVACY.md) lists the request.
-- **What it cannot do is not decided by the model.** Each conversation acts with a token of its own, held to the
+  and never returned, and it stays with the provider it was given for: a request that moves the provider to
+  another origin without a key empties it. An address is judged on every request, no redirect is followed, and
+  plain HTTP only reaches a host the operator listed or consented to for the assistant alone.
+  [PRIVACY.md](PRIVACY.md) lists the request.
+- **What it cannot do is not decided by the model.** It is for people (an API token never holds `assistant.use`),
+  and each conversation acts with a token of its own, held to the
   intersection of what the person holds and a preset, never past a floor nobody raises (secrets, terminals,
   access to the machine, accounts, the audit trail, security, settings, the fleet and the teams), and never in
   sudo mode. A change is a proposal with the exact call, drawn from the operation and not from the model's
@@ -200,8 +246,8 @@ first.
   something, in production and in every other environment, a token and the assistant each have a value: it does
   it, it proposes it and a person approves it in the console, or it cannot. A token ships as `alone` everywhere
   its permissions let it, so nothing changes until somebody changes the table; the assistant proposes everything.
-  Who calls is read from the credential and never from what a client says of itself. **Settings > Approval
-  policy** and `noust approval policy show|set|reset`.
+  Who calls is read from the credential and never from what a client says of itself, and the table is edited by a
+  person, never by a token. **Settings > Approval policy** and `noust approval policy show|set|reset`.
 - **Approvals say who asked.** A request carries the class of caller, the token, the environment, the application
   and the client the token said it was (labelled as its word), and is decided by a person who holds what the
   call needs; a token never approves, not even its own. A tool of MCP that changes something takes `approval`,
@@ -242,8 +288,8 @@ first.
   volumes and Noust's own state are taken in pieces that resume, written under a name no good copy has until
   every checksum matched; a full disk stops the pass, says so and deletes nothing. They are listed, restored on
   the server they came from or on another, or let go from **Copies on the central** in the fleet's Backups, and
-  `noust fleet collect enable|disable|follow|set|run|list|delete|restore|status`. A server before 4.3 only gives
-  its database dumps until it is updated. It is one copy on one machine, which `noust health` and the compliance
+  `noust fleet collect enable|disable|follow|set|run|list|delete|restore|status`. A server gives its copies only
+  with the `admin` ceiling, and a server before 4.3 only gives its database dumps until it is updated. It is one copy on one machine, which `noust health` and the compliance
   checks say. [central-maintain.md](central-maintain.md#taking-the-copies-of-your-servers).
 
 ## Notifications
@@ -399,6 +445,63 @@ first.
 
 ## Security
 
+- **A Docker Compose stack could reach the whole server through paths and options the Compose check did not
+  examine (Noust 3.1.0 to 4.2.1).** Until 4.2.1 the check refused `privileged`, the Docker socket and mounts of
+  Noust's own state or of another application's files as they were spelled, and at most warned about the rest: a
+  link in the repository, a mount of another directory of the server, devices, capabilities, the host's
+  namespaces, confinement switched off, and the files that an `env_file`, a build context or a build secret name.
+  Any of them lets a container read or write the server's files and read the secrets of Noust and of other
+  applications, which is root on the server, against what is promised to team roles and to a central whose
+  ceiling is `admin` without host access. It affected whoever could have a stack deployed from a repository or a
+  document they control. 4.3.0 judges a path by where it leads and refuses all of it in a new stack unless an
+  administrator records why ([compose.md](compose.md#what-a-stack-may-ask-of-the-server)); a stack that already
+  runs with it keeps updating, with a warning, and `noust health` lists the ones whose file says so
+  ([UPGRADING-4.3.md](UPGRADING-4.3.md#compose-stacks-that-carry-more-than-a-new-stack-may)). **Update, review
+  the Compose files of repositories you do not control, and rotate the secrets of any server where untrusted
+  repositories were deployed.**
+- **Also fixed in releases up to 4.2.1**, each smaller than the one above:
+  - A token placed as the user of a web address (`https://<token>@dev.azure.com/...`, how some hosts take one) was
+    shown as it was wherever Noust hides what an address carries: only a password was hidden. The user of an
+    `http(s)` address, with or without a password, is hidden in `noust env list` and `noust variables list`, in the
+    audit trail, in what the MCP endpoint returns and in the samples of the process monitor (the application's
+    own source already was). An address for SSH (`git@host:path`) carries no secret and is left alone.
+  - What a program printed could carry a credential into a notification for a channel that is somebody else's: the
+    output of certbot, of a build or of the undoing of a change of access, with a token it echoed, a header, a
+    password or the user of an address. Every text of a notification is masked where the notification is made, for
+    the email, the chat channels and the webhooks and for the copy that is stored.
+  - A Telegram bot token is hidden where the Bot API is called with it (`.../bot<id>:<token>/...`), in what an
+    error says.
+  - Restoring a backup archive that names a dump outside itself (the form Noust 1.x wrote) read that file wherever
+    the manifest said it was on the server. It reads one only from the folder of this server's backups.
+  - **Replace domains** in the report of a problem (4.2.0 and 4.2.1) replaced them only in the support report the
+    server wrote; it holds now for the text you wrote in the dialog and for what the browser adds, the page and
+    its errors.
+  - The MCP endpoint refuses a path argument that is `.`, `..`, empty or holds a control character, with a
+    sentence the client can correct, where it used to send it as it was.
+- **The central and the fleet are held to what each decides, as they are in 4.3.**
+  - Deploying on the machine's Docker is never turned on from the console or the API: what a write of the
+    configuration leaves is judged, not its route, so the key, the section, the whole document and an import are
+    refused alike when they would leave `central.deploy_here` on.
+  - Collecting a server's copies asks for the `admin` ceiling, because a copy carries the `.env` and the
+    databases of every application, which `deploy` ("update and go back on what exists") does not promise.
+  - On a hub, the Docker zone and the disk page leave the machine's Docker alone until the central is told to
+    deploy there, for reading as for changing.
+  - A copy that a central says it holds counts as kept apart for the compliance control (ENS-BAK-01) only when the
+    digest it gives is the one the server recorded, and the evidence says that the file is the central's word.
+- **The built-in assistant is for people and bounded where it is decided, as it is in 4.3.**
+  - An API token never holds `assistant.use`, and the table of the approval policy is edited by a person, whatever
+    a token holds.
+  - A call that a browser would rewrite is never a proposal: a path parameter is one segment where the path is
+    made, a proposal keeps the operation it stands for and what is carried out is held to it, and the console
+    sends only what the card shows to the server the card names.
+  - What only a person confirms (a change of schema, a deploy freeze made, lifted or stepped over) is never done
+    by the assistant on its own, and the model is not offered the flag that confirms it.
+  - The provider's key stays with the provider it was given for, and the consent to call a host of your own is the
+    assistant's, for that host and port, and no longer writes the security list.
+  - Variables reach the model as names, whichever read asks for them; the keys of deploys and the logins of
+    registries are known secrets; everything a tool reads is taken as text from outside unless Noust ships it.
+  - One account has at most two answers being written and one credential at most two plans being made, and the
+    application a call names is kept on the audit trail only when it is a domain.
 - **`Strict-Transport-Security` only on a name the console owns** (item 198): `web.hsts` is `auto` (the name
   `noust console expose` published), `always` or `never`, and the header never carries `includeSubDomains`.
 - **`Permissions-Policy` opens `display-capture` to the console's own origin and to nothing it could be made to
@@ -407,8 +510,9 @@ first.
 - **The central's image carries Docker 29.9.3, Compose 5.7.1 and buildx 0.39.0**, each fixed by the sum of its
   file, in place of an older pair: the advisories published against what the three programs are built with go from
   5 critical and 154 high to none critical and 4 high, in libraries Noust does not ask them to use.
-- **A Compose file's privileges are judged on what it resolves to**, and a helper container that copies a volume is
-  pinned by digest and says it is Noust's (above).
+- **A helper container that copies a volume is pinned by tag and digest and says it is Noust's** (see Docker).
+- **Compose and image builds are started without Noust's own environment**, so a compose file cannot have a
+  token, the sealing key or the data directory put into a container or an image by interpolating them.
 - **A bundle of Noust's own state restored between a user's store and the system's seals its secrets again**
   under the key the server reads, and a bundle whose key does not open one of its secrets is refused before
   anything is stopped or written (item 194).

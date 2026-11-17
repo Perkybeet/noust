@@ -27,31 +27,40 @@ against the schema of 4.2.0.
 
 ### Breaking changes
 
-Security fixes of the built-in assistant (item 171). None removes an operation or changes a schema, and
-`python scripts/api_compat.py` keeps passing; each is what a client written against 4.2 could notice.
+Security fixes. None removes an operation or changes a schema, and `python scripts/api_compat.py` keeps passing;
+each is what a client written against 4.2 could notice.
 
-- **The assistant is for people.** An API token no longer holds `assistant.use`, whatever it was issued with, so
-  `POST /api/assistant/conversations`, the turns, the proposals and `GET`/`DELETE /api/assistant/conversations`
-  refuse it with `403`, "This is for a person" (code `callers.person_only`). Reading the settings, the presets and
-  the spending (`GET /api/assistant/usage` without `conversation`) with a token is as it was. A token issued to use
-  the assistant keeps its record and stops holding the permission; nothing is revoked.
-- **The approval policy is edited by a person.** `PUT /api/config/approval-policy` and
-  `POST /api/config/approval-policy/preview` refuse a token and the assistant's token with the same `403`, though
-  the token holds `security.manage` and was issued for sudo mode. `GET` is as it was.
-- **`allow_private_host` is the assistant's own consent.** It no longer adds the host to
-  `security.allow_private_hosts`; it is kept with the assistant's settings, for that host and port, and goes when
-  the provider changes and when the assistant is turned off (it is said again in the request that turns it on). What
-  the security list allows still counts for the assistant.
-- **A change of provider without a key empties the key.** `PUT /api/assistant/settings` that moves the provider to
-  another origin (scheme, host or port) without `api_key` in the same request takes away the key that was saved and
-  turns the assistant off (`has_key: false`, `enabled: false` in the answer).
-- **A path parameter that is `.`, `..`, empty or holds a control character is refused** by the tools of the MCP
-  endpoint (and by the assistant's) with a sentence the model can correct, where it used to be sent as it was and
-  could be taken for another operation by whatever carried the request. The assistant also refuses a value that
-  makes the server route the path to another operation (an encoded slash).
-- **Two more reasons for a `429`.** `POST /api/assistant/conversations/{id}/turns` answers `429` with the code
-  `assistant.turn.account_busy` when the account already has two answers being written, and the routes of plans
-  (`POST .../plan`) answer `429` when a credential already has two being made.
+- **A Compose stack that gives a container the server is refused where it was accepted.** Until 4.2.1 the check
+  that every deployment of a Compose stack goes through refused `privileged`, the Docker socket and mounts of
+  Noust's own state or of another application's files. It now also refuses devices, the capabilities that give the
+  machine, the host's namespaces, switched-off confinement, another cgroup parent or runtime, `provider:`, every
+  path of the server outside the application however a link spells it (a mount, the file of a secret or a config,
+  an `env_file`, a build context or a build secret, an `include`, an `extends`, a volume's `driver_opts.device`),
+  a download, and a project, volume, network, container name or image that belongs to another application or to
+  Noust. It reaches `POST /api/apps` (a Compose source, `compose_document` or a recipe), updates and redeploys,
+  `PUT /api/apps/{domain}/compose/document` and `PUT /api/docker/stacks/{name}/compose`. A deployment that asked
+  for any of it as a new stack, or that an update adds, fails with the error `compose_guard.asks_for_root` (the
+  lines, and the command that records an exception, in its hint) or, for what no exception allows,
+  `compose_guard.asks_for_what_no_stack_may`; as a job it is a failed job whose `error_coded` is that sentence.
+  The routes that write nothing (`POST /api/compose/analyze`, `POST /api/apps/{domain}/compose/document/check`,
+  `POST /api/docker/stacks/{name}/compose/check`) report each line, and `PUT .../compose/document` is a `400` on
+  `document` that lists them. A document sent as text to `analyze` or to `compose/document` takes no exception;
+  the Docker zone's editor, which edits a stack's own document, does. What a stack already ran with is warned
+  about and not refused, except what shows only once Compose resolves the file (an `include`, an `extends`, a
+  variable in a path), which an update that pulls refuses. The exception is recorded at
+  `PUT /api/apps/{domain}/sandbox/compose-exception` (`root_equivalent`, sudo mode).
+- **Adopting, or bringing, a stack that runs with what gives the server to a container is a `409`.**
+  `POST /api/apps/adopt`, `POST /api/docker/stacks/{name}/bring` and `.../bring/preview` answered with the plan or
+  the registration, with a warning in the log; they now refuse with the error body of every refusal plus
+  `host_access`, the list of lines of the compose file that give the container the server, and a `hint` with the
+  command. `accept_host_access: true` (below) goes on. A body that never named it keeps working for every stack
+  that does not run with such lines.
+- **The user of an `http(s)` address is hidden wherever an address is shown or recorded.** The audit trail, what
+  the MCP endpoint returns, the process monitor's samples and the values of variables that are addresses showed
+  a password as `***` and a token placed as the user of the address (`https://<token>@dev.azure.com/...`) as it
+  was. The user is `***` now (`https://***@dev.azure.com/...`, and `https://***:***@host/...` with a password), so
+  a client that read a token from there reads `***`. An application's `source` hid it already, and an SSH address
+  (`git@host:path`) is not touched.
 
 ### Added
 
@@ -61,7 +70,18 @@ Security fixes of the built-in assistant (item 171). None removes an operation o
   was meant to be, otherwise one entry per destination it is still owed to, with `destination`, `reason` (what
   the destination said, verbatim), `attempts` (the deferred tries made), `since`, `next_attempt_at` and
   `permanent` (whether what it said is of the kind waiting does not mend). The console draws it; no operation
-  is added.
+  is added, and the pass that sends them again is `noust backup resend`, a timer and the central's own scheduler,
+  not a route. A run whose copy only waits for a destination is no longer a failed run: the policy's last result
+  stays `ok` while the copy is owed, and is `failed` only when the destination refused it for good (a credential,
+  a quota). A client that raised an alarm on that failure reads `pending_sends` instead.
+- **Accepting what a stack runs with, when it is adopted or brought** (`accept_host_access`).
+  `POST /api/apps/adopt`, `POST /api/docker/stacks/{name}/bring` and `POST /api/docker/stacks/{name}/bring/preview`
+  take `accept_host_access` (default `false`): go on although the stack runs with what gives the server to a
+  container (a device, the Docker socket, a path of the server). Without it such a stack is a `409` (see Breaking
+  changes). With it the adoption needs `root_equivalent` (`403 permission_denied` otherwise; the preview of the
+  Docker zone writes nothing and does not ask) and records the lines, who accepted them and when, as the
+  application's compose exception. The answer of `POST /api/apps/adopt` carries `host_access` (the lines recorded)
+  and `accepted_by`; the exception is read and revoked at `/api/apps/{domain}/sandbox/compose-exception`, as before.
 - **The Docker zone, what its lists draw** (item 189). `GET /api/docker/containers/stats` (`docker.read`): every
   container's consumption in one reading (`items[]` with `usage`, `read_at`). Each image and its update plan have
   `source` (`registry`, `built_noust`, `built_other`, `unknown`); each volume has `backup` (`state` `scheduled`,
@@ -92,8 +112,11 @@ Security fixes of the built-in assistant (item 171). None removes an operation o
   `production` or `other`; `value`, `default`, `chosen`, `offered`, `fixed`, `reason`, `legacy`), the floor the
   assistant never goes below (`floor`) and what the security profile asks (`profile`). `PUT` (`security.manage`,
   sudo mode, and a second person where the server asks for one when it gives more freedom) takes `cells` and
-  `reset`, all or nothing, and a value the cell does not offer is a `400` naming what it may be.
-  `POST /api/config/approval-policy/preview` validates a change like the `PUT`, writes nothing and says which
+  `reset`, all or nothing, and a value the cell does not offer is a `400` naming what it may be. The table is a
+  person's to edit: a token, even one issued for sudo mode that holds `security.manage`, and the assistant's own
+  token are refused with `403` (the sentence `callers.person_only`, "This is for a person") by `PUT` and by
+  `POST /api/config/approval-policy/preview`, since the table governs that class and a token could otherwise take
+  its own "never" out. `POST /api/config/approval-policy/preview` validates a change like the `PUT`, writes nothing and says which
   cells change (`changes`), the `commands` that make the same change, the `credentials` that would behave
   differently, how many requests already wait and whether saving asks for a second person. The audit event is
   `approval.policy`.
@@ -138,8 +161,10 @@ Security fixes of the built-in assistant (item 171). None removes an operation o
   retention waits for the rest (at most 14 days), and `/api/backup-collection/returns` (`POST`, `PUT`, `complete`) and
   `POST /api/backup-collection/restore` receive a copy the central gives back (`backups.manage` and sudo mode, as
   any restore). Reading is the new permission `backups.collect`, held by `admin` and refused to a server's `read`
-  and `deploy` ceilings: a copy is the `.env` and the databases of every application, and `deploy` is "update and go
-  back on what exists". The audit events are
+  and `deploy` ceilings (`403`, with the command that raises it, `noust fleet access --level admin`): a copy is the
+  `.env` and the databases of every application, and `deploy` is "update and go back on what exists". The central
+  says it in that server's row of `GET /api/central-backups/status` (`last_error_code: ceiling`) and goes on with
+  the others. The audit events are
   `backup.collection.held` and `backup.collection.read`, and `backup.uncollected_delete` when retention had to delete
   a copy the central did not have yet.
 - **What the fleet's settings say of who follows them** (`GET /api/fleet/settings/status`, permission
@@ -228,7 +253,11 @@ Security fixes of the built-in assistant (item 171). None removes an operation o
   docker_owned`, and a plan that changed is `409 plan_changed` with the plan as it is now. The live log is the
   WebSocket `/ws/docker/logs/{ref}`. The zone is the machine's: a person of a team is refused all of it. A
   server without Docker, or with an engine below API 1.41, answers the reads with `available: false` and the
-  doctor's report. A central lists the zone of every server at `GET /api/views/docker/{summary,attention,engine,
+  doctor's report. A central that is a hub and was not told to deploy on its machine's Docker
+  (`NOUST_DEPLOY_HERE`) answers the whole zone, `/ws/docker/...` and the console of a container `409 hub_role`
+  (`features.needs_deploy_here`) and asks Docker nothing, for reading as for changing; the session says
+  `features.docker_zone.available: false` there, and a server, or a hub that was told, is not affected. A central
+  lists the zone of every server at `GET /api/views/docker/{summary,attention,engine,
   stacks,containers,images,volumes,networks}`, and a server before 4.3 is an `unsupported` outcome there.
 - **A cleanup plan says what it would remove.** `GET /api/server/storage/cleanup/plan` carries `entries`: the
   name, the `owner`, the `size_bytes` and the `reason` of each thing.
@@ -277,7 +306,12 @@ Security fixes of the built-in assistant (item 171). None removes an operation o
   /api/auth/session` carries `assistant` (`enabled`, `can_use`, `tools`, `model`, `location`, `mask_personal` and,
   when it is not offered to this caller, a `reason` with a code); the assistant is not a row of `central.features`,
   which says what the role and the machine can do. A new permission, `assistant.use`, held by the administrator
-  and operator roles and by no team role. The tokens of the
+  and operator roles and by no team role, and never by an API token, whatever it was issued with: the
+  conversation routes (`POST`, `GET` and `DELETE /api/assistant/conversations`, the turns and the proposals)
+  answer a token `403` with `callers.person_only`, while reading the settings, the presets and the spending
+  (`GET /api/assistant/usage` without `conversation`) with a token works. A `PUT /api/assistant/settings` that moves
+  the provider to another origin (scheme, host or port) without `api_key` in the same request takes away the key
+  that was saved and turns the assistant off (`has_key: false`, `enabled: false` in the answer). The tokens of the
   API carry `caller` in what they authenticate (`token` or `assistant`); no route can ask for the second.
 - **Asking the built-in assistant** (`assistant.use`, a person's own conversations only). `POST
   /api/assistant/conversations` begins one and `POST /api/assistant/conversations/{id}/turns` asks a question in it
@@ -291,7 +325,8 @@ Security fixes of the built-in assistant (item 171). None removes an operation o
   with) and fingerprint; the person's browser carries one out with the person's own session and reports it at `POST
   .../proposals/{id}/outcome`, which the server accepts only when the audit trail shows the call was made, or rejects
   it at `POST .../proposals/{id}/reject`. A question while the conversation still answers is `409
-  assistant_turn_running`, and a server answering as many as it may is `429 queue_full`. The audit events `assistant.proposal`
+  assistant_turn_running`, an account that already has two answers being written gets `429` with
+  `assistant.turn.account_busy`, and a server answering as many as it may is `429 queue_full`. The audit events `assistant.proposal`
   and `assistant.outcome` are new.
 - **Keeping the messages of a channel together** ([notifications.md](notifications.md#keeping-messages-together)).
   `GET /api/notifications/events` gives every event a `subject` (`deploys`, `alerts`, `backups`, `security` or
@@ -318,7 +353,10 @@ Security fixes of the built-in assistant (item 171). None removes an operation o
   with the command of Docker's.
 - **What the assistant's settings say of the consent to call a host of your own, and what the console's report
   says it replaced** (item 171). `GET` and `PUT /api/assistant/settings` carry `private_host`, the host and port
-  the operator consented to this server calling for the assistant (`localhost:11434`), or empty. `GET
+  the operator consented to this server calling for the assistant (`localhost:11434`), or empty: `allow_private_host`
+  is the assistant's own consent, kept with its settings for that host and port, it does not add the host to
+  `security.allow_private_hosts` (which the assistant still honours), and it goes when the provider changes and
+  when the assistant is turned off, so the request that turns it on says it again. `GET
   /api/system/support-report` carries `replacements`, each a `real` name and the `alias` it became, longest first,
   when `hide_domains` was asked, so what a client adds to the same report is replaced the same way. Each row of `GET
   /api/config/approval-policy` has `operations.person`, how many of its operations are a person's decision whole
@@ -333,7 +371,8 @@ Security fixes of the built-in assistant (item 171). None removes an operation o
   what the operation would change (`apps.read`; `docker.read` for Docker), takes the operation's own body and answers
   one shape: `effect`, `commands`, `files`, `steps`, `findings`, `unknown`, `needs`, `blocked`, `operation`,
   `subject`, `asked_remote` and `omitted`, each sentence with its code and values. A client reads `x-noust-plan` to
-  know whether an operation has one: a server before 4.3 publishes none. [plans.md](plans.md).
+  know whether an operation has one: a server before 4.3 publishes none. A credential that already has two plans
+  being made gets `429`. [plans.md](plans.md).
 - **First deployments that failed** (item 141). `GET /api/first-deploys` (permission `apps.read`, `domain` filters)
   lists, newest first, the first deployments whose job failed and left no application: `job_id`, `domain`, `origin`
   (`source`, `image`, `compose` or `recipe`), `source` with every credential masked, `branch`, `app_type`, `recipe`,
@@ -377,18 +416,15 @@ Security fixes of the built-in assistant (item 171). None removes an operation o
 
 ### Changed, without breaking a client
 
-- **The consent to deploy on the machine's Docker is judged by what a write leaves.** `PATCH /api/config` and
-  `PUT /api/config` answer `403` (the sentence `config.deploy_here_not_from_console`) for any write that would turn
-  `central.deploy_here` on, whether it names the key, the `central` section or a whole document; only the key was
-  refused before. Turning it off, and sending the value it has back, are as they were.
-- **The Docker zone on a central that is a hub and was not told to deploy here.** `/api/docker/...`, `/ws/docker/...`,
-  the console of a container and `noust docker` answer `409 hub_role` (`features.needs_deploy_here`) and ask Docker
-  nothing, where they answered with the machine's Docker whenever its socket was mounted; the session says
-  `features.docker_zone.available: false` there. A server, and a hub that was told, are as they were.
-- **Collecting a server's copies is `admin`'s.** A server held to `deploy` answers `403` to
-  `GET /api/backup-collection` and the rest of the permission `backups.collect`, with the command that raises its
-  ceiling (`noust fleet access --level admin`); the central says it in that server's row of
-  `GET /api/central-backups/status` (`last_error_code: ceiling`) and goes on with the others.
+- **A write of the configuration cannot turn on deploying on the machine's Docker.** `PATCH /api/config` and
+  `PUT /api/config` answer `403` (the sentence `config.deploy_here_not_from_console`) for any write that would
+  leave `central.deploy_here` on when it was off, whether it names the key, the `central` section or a whole
+  document: what the write leaves is judged, not the route it came by. Turning it off, and sending the value it
+  has back, are not refused.
+- **The MCP endpoint refuses a path argument that cannot be one part of a path.** A tool whose argument is `.`,
+  `..`, empty or holds a control character answers with a sentence the model can correct (`Argument 'domain'
+  cannot be one part of a path...`), where the value was sent as it was and could be taken for another operation by
+  whatever carried the request.
 - **The listings of the Databases area on a central that deploys containers** answer `200` with what there is and
   the reason there is no engine of the system in `system`; they answered `409` (the refusal of `databases`) before,
   and the console had nothing to draw. A server's answer is the same plus `system: {available: true}`.

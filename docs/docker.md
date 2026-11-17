@@ -14,7 +14,7 @@ can be done to it: what an application owns is read here and changed from the ap
 stopped, restarted and removed here. A container is read from the inside (why it stopped, its last words as it printed them, its logs as they
 are written, what it uses, a console), a volume asks for its name before it is deleted, and the cleanup is a plan: what would go, whose it is
 and how much it holds, read before anything is removed. With All servers the same pages list every server, with the server as a column and a
-filter. A machine with no usable Docker does not offer the section at all (what a server cannot do is not given as an option, like every other function of its table); an address that was typed says why in the server's own words. With a server reached through the central, the central's table is not that server's to judge, and each page says what that server has.
+filter. A machine with no usable Docker does not offer the section at all (what a server cannot do is not given as an option, like every other function of its table); an address that was typed says why in the server's own words. A hub, the central in a container, does not look at its machine's Docker either until it is told to deploy there ([central-deploy-here.md](central-deploy-here.md)): with the socket mounted and no `NOUST_DEPLOY_HERE=containers` the section is not offered and `noust docker` says what to add. With a server reached through the central, the central's table is not that server's to judge, and each page says what that server has.
 
 ## Which images have a new version
 
@@ -142,7 +142,8 @@ noust docker stack compose restore nextcloud 3
 
 - **Judged by what Compose resolves it to.** The text goes to `docker compose config` on its standard input
   (it is written nowhere), and the guard of privileges reads the model that comes back, so an `include`, an
-  `extends` or a `volumes_from` cannot hide a privileged service or the Docker socket. When Compose does not read
+  `extends` or a `volumes_from` cannot hide a privileged service, the Docker socket or any other of what a stack may
+  not ask of the server ([the list](compose.md#what-a-stack-may-ask-of-the-server)). When Compose does not read
   it you see Compose's own words and the line. What the stack already ran with is not new, and an exception
   recorded for the stack lets it through with its reason said.
 - **What changes is said first**, from Compose's own rehearsal (`up --dry-run`): which services are recreated,
