@@ -20,6 +20,10 @@ export type DockerStackDetail = ResponseOf<"/api/docker/stacks/{name}", "get">;
 export type DockerContainers = ResponseOf<"/api/docker/containers", "get">;
 export type DockerContainer = NonNullable<DockerContainers["items"]>[number];
 export type DockerContainerDetail = ResponseOf<"/api/docker/containers/{ref}", "get">;
+/** The use of every container, in one reading: what the list of containers draws beside each row. */
+export type DockerContainersUsage = ResponseOf<"/api/docker/containers/stats", "get">;
+export type DockerContainerUsage = NonNullable<DockerContainersUsage["items"]>[number];
+export type DockerUsage = DockerContainerUsage["usage"];
 export type DockerContainerLogs = ResponseOf<"/api/docker/containers/{ref}/logs", "get">;
 export type DockerImages = ResponseOf<"/api/docker/images", "get">;
 export type DockerImage = NonNullable<DockerImages["items"]>[number];
@@ -52,6 +56,7 @@ export const dockerKeys = {
   stacks: (filter: DockerListFilter) => ["docker", "stacks", filter] as const,
   stack: (name: string) => ["docker", "stack", name] as const,
   containers: (filter: DockerListFilter) => ["docker", "containers", filter] as const,
+  containersUsage: ["docker", "containers-usage"] as const,
   container: (ref: string) => ["docker", "container", ref] as const,
   logs: (ref: string, tail: number) => ["docker", "container", ref, "logs", tail] as const,
   images: (filter: DockerListFilter) => ["docker", "images", filter] as const,
@@ -108,6 +113,19 @@ export const dockerContainersQuery = (filter: DockerListFilter = {}) =>
   queryOptions({
     queryKey: dockerKeys.containers(filter),
     queryFn: ({ signal }) => request("get", "/api/docker/containers", { query: queryOf(filter), signal }),
+    ...poll,
+  });
+
+/**
+ * The use of every container, from one `docker stats` for all of them (the server keeps a reading for five seconds, so it is never asked
+ * more often than that). It is read as long as a list that draws it is on screen, as often as a container's own page is; a node of
+ * 4.2 has no such route and says so with a 404, which is "no reading" and not a failure, so it is not tried again.
+ */
+export const dockerContainersUsageQuery = () =>
+  queryOptions({
+    queryKey: dockerKeys.containersUsage,
+    queryFn: ({ signal }) => request("get", "/api/docker/containers/stats", { signal }),
+    retry: false,
     ...poll,
   });
 

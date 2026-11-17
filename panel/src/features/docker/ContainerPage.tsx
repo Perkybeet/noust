@@ -42,7 +42,7 @@ import { useLogStream } from "../../realtime/sockets";
 import { TerminalPanel } from "../terminal/TerminalPanel";
 import { useContainerVerb } from "./actions";
 import { dockerLine } from "./logLines";
-import { isUp, ownerOf, ownerTarget, stateView } from "./model";
+import { isUp, ownerOf, ownerTarget, stateView, usageReason } from "./model";
 import { ContainerPill } from "./pieces";
 import { RemoveDialog } from "./RemoveDialog";
 import { DOCKER_CAPABILITY } from "./SummaryPage";
@@ -113,8 +113,7 @@ function ProblemBanner({ detail, onOwnerPage }: { detail: Detail; onOwnerPage: R
 function Usage({ usage }: { usage: NonNullable<Detail["usage"]> }) {
   const t = useT();
   if (!usage.available) {
-    const reason = usage.reason === "not_running" || usage.reason === "restarting" || usage.reason === "too_young" ? usage.reason : "no_reading";
-    return <p className="text-13 text-fg-muted">{t(`docker.container.usage.reason.${reason}`)}</p>;
+    return <p className="text-13 text-fg-muted">{t(`docker.container.usage.reason.${usageReason(usage.reason)}`)}</p>;
   }
   const memory = usage.memory_bytes ?? null;
   const limit = usage.memory_limit_bytes ?? null;

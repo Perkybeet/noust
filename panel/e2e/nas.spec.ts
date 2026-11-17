@@ -67,6 +67,9 @@ async function open(page: Page, link: { name: string; href: string }, within: Lo
   await within.locator(`a[href="${link.href}"]`).first().click();
   await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
   await settle(page);
+  // The page of the engines says, in the server's own sentence, why the machine has none of the system's own: it is what that page is for,
+  // and the one place a refusal's words are an explanation and not what a press ended in.
+  if (link.href.split("?")[0] === "/databases/engines") return;
   await expect(page.getByText(REFUSAL), `${link.name} (${link.href}) ends in a refusal`).toHaveCount(0);
 }
 
@@ -118,11 +121,10 @@ on.describe("a hub that deploys containers on its machine's Docker offers what t
 
     const areas = await linksOf(bar(page));
     const names = areas.map((area) => area.name);
-    // What the machine cannot do is not in the bar: no Scheduled tasks, no Security and no Databases (their pages ask the machine's own, which a
-    // container host is refused). Logs stays, for the logs of the applications' containers.
-    for (const gone of [/^Scheduled tasks/, /^Security/, /^Databases/]) expect(names.some((name) => gone.test(name)), `the bar has ${String(gone)}`).toBe(false);
-    // What it can is: the applications, the catalog and the Docker of the machine.
-    for (const there of [/^Applications/, /^Catalog/, /^Server/]) expect(names.some((name) => there.test(name)), `the bar lacks ${String(there)}`).toBe(true);
+    // What the machine cannot do is not in the bar: no Scheduled tasks and no Security. Logs stays, for the logs of the applications' containers.
+    for (const gone of [/^Scheduled tasks/, /^Security/]) expect(names.some((name) => gone.test(name)), `the bar has ${String(gone)}`).toBe(false);
+    // What it can is: the applications, the catalog, the databases in containers and the Docker of the machine.
+    for (const there of [/^Applications/, /^Catalog/, /^Databases/, /^Server/]) expect(names.some((name) => there.test(name)), `the bar lacks ${String(there)}`).toBe(true);
 
     for (const area of areas) {
       if (area.href === "/settings") continue;
@@ -138,8 +140,9 @@ on.describe("a hub that deploys containers on its machine's Docker offers what t
     await signIn(page, server, "/server");
     const entry = column(page).getByRole("link", { name: "Deploy on this machine" });
     await expect(entry).toBeVisible();
-    // What a machine without systemd or a web server cannot do is not in its column.
-    for (const gone of ["Services", "Web server", "Software", "Console"]) await expect(column(page).getByRole("link", { name: new RegExp(`^${gone}`) })).toHaveCount(0);
+    // What a machine without systemd or a web server cannot do is not in its column, nor what it would show of the container Noust runs in: the
+    // processes, the updates and the files are the server's, which this Noust does not see.
+    for (const gone of ["Services", "Web server", "Software", "Console", "Processes", "Updates", "Files"]) await expect(column(page).getByRole("link", { name: new RegExp(`^${gone}`) })).toHaveCount(0);
 
     await entry.click();
     await expect(page.getByRole("heading", { level: 1, name: "Deploy on this machine" })).toBeVisible();
@@ -202,7 +205,8 @@ on.describe("a hub that deploys containers on its machine's Docker offers what t
       await expect(page.getByRole("dialog", { name: "Search the console" })).toBeHidden();
       await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
       if (new URL(page.url()).pathname !== entry.to.split("?")[0]) missed.push(`"${entry.text}" went to ${new URL(page.url()).pathname}, not ${entry.to} (${entry.id})`);
-      if ((await page.getByText(REFUSAL).count()) > 0) missed.push(`"${entry.text}" ends in a refusal`);
+      // The engines say in the server's own sentence why the machine has none of the system's own: it is what that page is for.
+      if (entry.to.split("?")[0] !== "/databases/engines" && (await page.getByText(REFUSAL).count()) > 0) missed.push(`"${entry.text}" ends in a refusal`);
     }
     expect(missed, missed.join("\n")).toEqual([]);
   });
@@ -227,8 +231,33 @@ on.describe("a hub that deploys containers on its machine's Docker offers what t
     await inspect(page, server, problems, await source(page, "node-shop"), "Configuration");
     await expect(page.getByText(/Nothing in this repository runs on this machine/)).toBeVisible();
     await expect(page.getByRole("button", { name: "Continue" })).toHaveCount(0);
+    // Nothing to configure: no plan of a service of the system (install, build, start), no type to choose and nothing under "Advanced".
+    for (const gone of ["Install", "Build", "App type", "Advanced"]) await expect(page.getByText(gone, { exact: true })).toHaveCount(0);
     await settle(page);
     await expectNoA11yViolations(page, "a source that nothing in runs on a NAS");
+  });
+});
+
+on.describe("the databases of a machine that only has Docker are the instances Noust runs in containers", () => {
+  on("lists the engines with the server's words for why the system has none, and offers to add one in a container and nothing to install", async ({ page, nas: server }) => {
+    await signIn(page, server, "/databases/engines");
+    await expect(page.getByRole("heading", { level: 1, name: "Engines" })).toBeVisible();
+    // The sentence of the server's table, said once and calmly, with nothing to press beside it.
+    await expect(page.getByText(/not available here, which deploys containers and nothing else/)).toBeVisible();
+    await settle(page);
+    await expectNoA11yViolations(page, "the engines of a NAS, with why the system has none");
+    await page.getByRole("button", { name: "Add an engine" }).click();
+    const dialog = page.getByRole("dialog", { name: "Add an engine" });
+    await expect(dialog).toBeVisible();
+    // Where the engine comes from is not asked: there is a way and it is a container.
+    await expect(dialog.getByText("On the system")).toHaveCount(0);
+  });
+
+  on("the list of databases is the one of every server, and says to make an engine in a container when none runs", async ({ page, nas: server }) => {
+    await signIn(page, server, "/databases");
+    await expect(page.getByRole("heading", { level: 1, name: "Databases" })).toBeVisible();
+    await settle(page);
+    await expectNoA11yViolations(page, "the databases of a NAS");
   });
 });
 
@@ -278,3 +307,51 @@ off.describe("a hub that was not told to deploy is what it was, plus the way in 
     await expectNoA11yViolations(page, "what a hub does not do, said calmly");
   });
 });
+
+if (process.env.NOUST_SCREENS === "1") {
+  const OUT = process.env.NOUST_NAS_SCREENS ?? path.join(import.meta.dirname, "__screens__", "nas");
+  const PHONE = { width: 390, height: 844 };
+
+  /** The pages of a machine that only has Docker that this release changed, at 1440x900 and 390 wide, in the theme of the project. */
+  on.describe("the NAS @screens", () => {
+    const SCREENS: readonly { name: string; path: string; ready?: (page: Page, server: RunningServer, problems: PageProblems) => Promise<void> }[] = [
+      {
+        name: "inicio",
+        path: "/",
+        ready: async (page) => {
+          // A hub opens on its fleet; the machine's own Home is the panel "This server".
+          await page.getByRole("link", { name: /This server/ }).click();
+          await expect(page.getByRole("heading", { level: 1, name: "This server" })).toBeVisible();
+        },
+      },
+      { name: "bases-de-datos", path: "/databases" },
+      { name: "bases-de-datos-motores", path: "/databases/engines" },
+      { name: "servidor-estado", path: "/server" },
+      { name: "servidor-docker", path: "/server/docker" },
+      {
+        name: "alta-sin-dockerfile",
+        path: "/apps/new",
+        ready: async (page, server, problems) => {
+          await inspect(page, server, problems, await source(page, "node-shop"), "Configuration");
+        },
+      },
+    ];
+    for (const screen of SCREENS) {
+      on(`nas ${screen.name}`, async ({ page, nas: server, problems }, testInfo) => {
+        on.setTimeout(240_000);
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await signIn(page, server, screen.path);
+        await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
+        await screen.ready?.(page, server, problems);
+        await settle(page);
+        await page.waitForTimeout(500);
+        const dir = path.join(OUT, testInfo.project.name);
+        await page.screenshot({ path: path.join(dir, `${screen.name}-1440.png`) });
+        await page.setViewportSize(PHONE);
+        await settle(page);
+        await page.waitForTimeout(400);
+        await page.screenshot({ path: path.join(dir, `${screen.name}-390.png`) });
+      });
+    }
+  });
+}

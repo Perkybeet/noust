@@ -11,6 +11,7 @@ import { textLinkClassName } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import type { T } from "../../i18n";
+import { useScopeOffers } from "../../nodes/useNode";
 import { reportActionError } from "../apps/useAppActions";
 import { attentionAction } from "../overview/attentionTarget";
 import type { AlertAction, AttentionAction, OpenAction } from "../overview/attentionTarget";
@@ -126,7 +127,9 @@ export interface AttentionActionButtonProps {
 /** The one button of a row that needs attention: the fix, or the screen that fixes it (2.7). */
 export function AttentionActionButton({ item, onNavigate, iconFor, node, appearance = "button", compact = false }: AttentionActionButtonProps) {
   const t = useT();
-  const action = attentionAction(item);
+  const scopeOffered = useScopeOffers();
+  // An item of another server is judged by that server, not by this machine's table.
+  const action = attentionAction(item, node === undefined || node === null ? scopeOffered : undefined);
   if (action === null) return null;
   if (action.mode === "alert") return <AlertButton action={action} node={node} iconFor={iconFor} compact={compact} {...(appearance === "link" ? { ghost: true } : {})} />;
   const { label, aria } = wordsOf(t, action);

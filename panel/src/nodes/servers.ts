@@ -10,7 +10,7 @@ import type { FleetServer } from "../components/page/fleetServers";
 import type { Status } from "../components/ui/StatusPill";
 import { centralOf } from "../features/central/central";
 import { useOffers } from "../features/central/features";
-import type { FeatureKey } from "../features/central/features";
+import type { FeatureNeed } from "../features/central/features";
 import { nodeStatus, nodesQuery } from "../features/fleet/nodes";
 import type { NodeRecord, NodeStatus } from "../features/fleet/nodes";
 import { useT } from "../i18n";
@@ -127,7 +127,7 @@ export interface ServerOfFleet {
  * with how it answered. The central is never left out by its role, only by what it cannot do, so one rule decides it
  * for every page (item 187).
  */
-export function useFleetServers(feature?: FeatureKey): ServerOfFleet[] {
+export function useFleetServers(feature?: FeatureNeed): ServerOfFleet[] {
   const t = useT();
   const list = useServerList();
   const offered = useOffers();

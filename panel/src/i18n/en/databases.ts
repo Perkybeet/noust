@@ -105,6 +105,7 @@ export const databases = {
     recordLink: "Record that {app} uses it",
     recordLinkDescription: "Nothing in the application changes: its environment already names this database.",
     recordFailed: "Could not record that {app} uses {name}",
+    emptyNoSystemEngine: "No database engine is running here. Make one in a container, then create a database on it.",
   },
   access: {
     title: "Noust cannot read {engine}",

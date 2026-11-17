@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { zeroDowntimeQuery } from "../../../api/queries/zeroDowntime";
 import { useT } from "../../../i18n";
+import { useScopeOffers } from "../../../nodes/useNode";
 import { hasUnit } from "../../apps/AppRowActions";
 import { useSaveBar } from "./formParts";
 import { InstantRollbackCard, useRetention } from "./InstantRollback";
@@ -28,7 +29,9 @@ export function DeploysSettings() {
 
   const retention = useRetention(app);
   const check = useStartupCheck(app);
-  const zeroDowntime = useQuery({ ...zeroDowntimeQuery(domain), enabled: unit });
+  // Switching with no downtime needs a web server to switch in: a machine that only has Docker does not offer it, and is not asked.
+  const relays = useScopeOffers()("zero_downtime");
+  const zeroDowntime = useQuery({ ...zeroDowntimeQuery(domain), enabled: unit && relays });
   const drain = useDrain(domain, zeroDowntime.data);
   const bar = useSaveBar([releases ? retention.part : null, unit ? check.part : null, drain.part], t("appSettings.deploys.notSaved", { domain }));
   const hasFields = releases || unit;
@@ -38,7 +41,7 @@ export function DeploysSettings() {
       <PartSection title={t("appSettings.deploys.title")} {...headerIcon} description={t("appSettings.deploys.description")}>
         <InstantRollbackCard app={app} retention={retention} />
         {unit ? <StartupCheckCard app={app} check={check} /> : <StaticStartupNote />}
-        {unit ? <ZeroDowntimeCard app={app} status={zeroDowntime} drain={drain} /> : null}
+        {unit && relays ? <ZeroDowntimeCard app={app} status={zeroDowntime} drain={drain} /> : null}
       </PartSection>
       {hasFields ? <PartSaveBar bar={bar} /> : null}
     </>

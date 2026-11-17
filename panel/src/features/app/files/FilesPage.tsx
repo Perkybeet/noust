@@ -4,6 +4,7 @@ import { useId, useRef, useState } from "react";
 import type { ChangeEvent, SyntheticEvent } from "react";
 
 import { api, isApiError, request } from "../../../api/client";
+import { appQuery } from "../../../api/queries/apps";
 import { filesQuery, runtimeKeys } from "../../../api/queries/runtime";
 import type { FileEntry } from "../../../api/queries/runtime";
 import { useDocumentTitle } from "../../../app/documentTitle";
@@ -28,8 +29,10 @@ import { toast } from "../../../components/ui/toast";
 import { TextLink } from "../../../components/ui/TextLink";
 import { useT } from "../../../i18n";
 import { formatBytes } from "../../../lib/format";
+import { runsInContainers } from "../../apps/data";
 import { reportActionError } from "../../apps/useAppActions";
 import { downloadFile } from "./download";
+import { FilesNotHere } from "./FilesNotHere";
 import { cleanFolder } from "./search";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
 
@@ -796,8 +799,13 @@ export interface FilesPageProps {
 export function FilesPage({ domain, folder, onFolder }: FilesPageProps) {
   const t = useT();
   useDocumentTitle(t("runtime.files.documentTitle", { domain }));
-  const listing = useQuery(filesQuery(domain, folder));
+  // The application is read already by the page around this one. A stack or a container has no folder to list, and the listing the
+  // server refuses is not asked for: the page says where its files are.
+  const app = useQuery(appQuery(domain));
+  const inContainers = app.data !== undefined && runsInContainers(app.data.app_type);
+  const listing = useQuery({ ...filesQuery(domain, folder), enabled: !app.isPending && !inContainers });
   const [making, setMaking] = useState<"folder" | "file" | null>(null);
+  if (inContainers) return <FilesNotHere domain={domain} />;
   const entries = listing.data?.entries ?? [];
   return (
     <Section

@@ -27,6 +27,7 @@ import type { T } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { downloadText } from "../../lib/clipboard";
 import { describeError } from "../../lib/errors";
+import { storeUpdateWords } from "../../lib/installedFrom";
 import { fleetStatusQuery } from "../settings/fleet/data";
 import type { StatusServer } from "../settings/fleet/data";
 import { isWaiting } from "../settings/fleet/faces";
@@ -36,7 +37,7 @@ import { RemoveServerDialog } from "../settings/servers/RemoveServerDialog";
 import { nodeKeys, nodesQuery, setNodeMonitoring, testNode } from "./nodes";
 import type { NodeMonitoring } from "./nodes";
 import { useFleetActions } from "./BulkActionDialog";
-import { fleetKeys, formatLabels, labelsOf, loadOf, noustOf, noustUpdatable, originOf, osUpdatesOf, outcomeKind, systemNameOf } from "./data";
+import { fleetKeys, formatLabels, labelsOf, loadOf, noustOf, noustUpdatableFrom, originOf, osUpdatesOf, outcomeKind, systemNameOf } from "./data";
 import type { FleetRow, NodeOutcome } from "./data";
 import { isFiltered, matchesQuery, patchSearch } from "./filters";
 import type { FleetSearch, FleetSearchPatch } from "./filters";
@@ -65,7 +66,7 @@ function stateOf(outcome: NodeOutcome | undefined): (typeof SERVER_STATES)[numbe
 
 /** Whether a server is waiting for Noust, for its system, or for a reboot. */
 function needs(row: FleetRow, what: (typeof UPDATE_STATES)[number]): boolean {
-  if (what === "noust") return noustUpdatable(noustOf(row).state);
+  if (what === "noust") return noustUpdatableFrom(noustOf(row));
   const os = osUpdatesOf(row);
   if (what === "os") return (os?.pending ?? 0) > 0;
   return os?.reboot === true;
@@ -123,11 +124,14 @@ function NoustCell({ t, row, onUpdate }: { t: T; row: FleetRow; onUpdate: (node:
   if (noust.current === null) return <EmptyCell reason={t("fleet.summary.notRead")} />;
   const target = noust.latest;
   const behind = noust.state === "update_available" || noust.state === "index_behind";
+  // An app store updates this one: the row says so, and has no button that would update it from here.
+  const store = storeUpdateWords(t, noust.installedFrom);
   return (
     <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
       <Mono>{noust.current}</Mono>
       {noust.state === "up_to_date" ? <span className="text-12 text-fg-muted">{t("fleet.servers.upToDate")}</span> : null}
-      {behind && target !== null ? (
+      {behind && store !== null ? <span className="text-12 text-fg-muted">{store}</span> : null}
+      {behind && target !== null && store === null ? (
         // This central updates from its own page, where it can watch itself come back; a server is updated from here.
         origin.local ? (
           <Link to="/server/updates" className={buttonClassName("secondary", "sm")}>

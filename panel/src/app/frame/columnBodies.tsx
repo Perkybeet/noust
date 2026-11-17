@@ -13,7 +13,7 @@ import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { useCan } from "../../components/page/permissions";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
-import type { FeatureKey } from "../../features/central/features";
+import type { FeatureNeed } from "../../features/central/features";
 import { domainRows } from "../../features/domains/domainRows";
 import { SERVER_CAPABILITY, securityOverviewQuery, summaryQuery } from "../../features/server/queries";
 import { countByOwner } from "../../features/teams/organization";
@@ -121,7 +121,7 @@ export function AccountColumn() {
 export function useAreaCounts(kind: ColumnKind, enabled: boolean): Readonly<Partial<Record<string, number | null>>> {
   const offered = useScopeOffers();
   // A count is read only where the server can do what it counts: a list a hub would refuse is not asked of it (item 187).
-  const on = (area: ColumnKind, feature?: FeatureKey): boolean => enabled && kind === area && offered(feature);
+  const on = (area: ColumnKind, feature?: FeatureNeed): boolean => enabled && kind === area && offered(feature);
   const summary = useQuery({ ...summaryQuery(), enabled: on("server") });
   const security = useQuery({ ...securityOverviewQuery(), enabled: on("security", "server_security") });
   const backups = useQuery({ ...backupsQuery(null), enabled: on("backups", "application_backups") });

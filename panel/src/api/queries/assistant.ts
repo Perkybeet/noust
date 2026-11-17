@@ -47,8 +47,8 @@ export const assistantUsageQuery = (conversation: string | null) =>
 
 /** Changes the settings, and asks the provider what it can do when the provider changes. Needs "Confirm it's you". */
 export function saveAssistantSettings(body: Partial<AssistantSettingsBody>) {
-  // The two switches the API describes as required have a default on the server: said here, so a step that changes one thing says only that.
-  return request("put", "/api/assistant/settings", { body: { allow_private_host: false, probe: false, ...body } });
+  // Only what changes is sent: the two switches that were always sent as false are the server's own defaults now.
+  return request("put", "/api/assistant/settings", { body });
 }
 
 /** Asks the chosen provider again what models it has and whether the model calls a tool well. */

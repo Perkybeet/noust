@@ -12,7 +12,7 @@ import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { ContainerFields } from "../container/ContainerFields";
 import { HowItRuns } from "./HowItRuns";
-import { nothingRuns } from "./howItRuns";
+import { nothingRunsNatively } from "./howItRuns";
 import { InspectionReadout } from "./InspectionReadout";
 import { PersistentPathsField } from "./PersistentPathsField";
 import { PlatformProposalPanel } from "./PlatformProposalPanel";
@@ -95,6 +95,8 @@ export function ConfigureStep({ inspection, types, taken, cores, source, form, e
   // Where there is a choice, its two cards are the question and the type moves under "Advanced"; where there is none
   // (a Compose file, a lone Dockerfile) the type is where it always was.
   const typeInAdvanced = ways?.choice === true;
+  // Nothing can run natively here and nothing in the source can run in a container: there is nothing to configure, only what is missing.
+  const stuck = nothingRunsNatively(inspection);
   const advancedErrors = errorsOf(errors, "configure").some(([field]) => field.startsWith("path:") || field.startsWith("limit:") || (typeInAdvanced && field === "appType"));
 
   const typeField = (
@@ -114,6 +116,15 @@ export function ConfigureStep({ inspection, types, taken, cores, source, form, e
         {t("newApp.review.chosenElsewhere", { detected: typeName(types, inspection.app_type), chosen: typeName(types, form.appType) })}
       </Notice>
     ) : null;
+
+  if (stuck && ways !== null) {
+    return (
+      <div className="flex flex-col gap-6">
+        <InspectionReadout inspection={inspection} types={types} source={source} hideVerdict hidePlan />
+        <HowItRuns ways={ways} form={form} onChange={onChange} />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -135,7 +146,7 @@ export function ConfigureStep({ inspection, types, taken, cores, source, form, e
           </div>
         </Card>
       ) : (
-        <InspectionReadout inspection={inspection} types={types} source={source} hideVerdict={containerHost && nothingRuns(inspection)} />
+        <InspectionReadout inspection={inspection} types={types} source={source} hideVerdict={stuck} />
       )}
 
       {proposal !== null ? (

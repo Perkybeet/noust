@@ -1,5 +1,5 @@
 import type { PlainKey } from "../../i18n";
-import type { FeatureKey } from "../central/features";
+import type { FeatureNeed } from "../central/features";
 
 /**
  * The fixed views of an area that is a single page: what its second column lists where the area has no
@@ -18,7 +18,7 @@ export interface AreaView {
   /** What the view sets in the address beside the page's own path; none for the page as it opens. */
   search?: Readonly<Record<string, string>>;
   /** The function of the server's table it needs: a server that cannot do it does not list the view (item 187). */
-  feature?: FeatureKey;
+  feature?: FeatureNeed;
 }
 
 export const VIEWS: Readonly<Record<string, readonly AreaView[]>> = {

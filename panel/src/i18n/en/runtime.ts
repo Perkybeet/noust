@@ -335,6 +335,9 @@ export const runtime = {
     removeLinkDescription: "The link is deleted; what it points to is not touched.",
     removed: "Deleted {name}",
     removeFailed: "{name} was not deleted",
+    containersTitle: "Its files are the containers'",
+    containersBody: "{domain} runs from images and volumes, so there is no folder of its own to browse. What it holds is in its containers and volumes; its folder only has the Compose file and what Noust wrote.",
+    seeContainers: "See its containers",
   },
   logShipping: {
     title: "Logs and metrics export",

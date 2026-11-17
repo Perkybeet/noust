@@ -7,6 +7,11 @@
  */
 
 import type { OverviewAttentionItem } from "../../api/queries/overview";
+import { entryAt } from "../../app/nav";
+import type { FeatureNeed } from "../central/offers";
+
+/** What says whether the machine offers a function: `useScopeOffers()`, or nothing where every destination is there. */
+export type Offered = (need: FeatureNeed | undefined) => boolean;
 
 /** A screen to open: the path of the router with its parameters and search. */
 export interface AttentionTarget {
@@ -57,8 +62,19 @@ function text(value: unknown): string | null {
   return typeof value === "string" && value.trim() !== "" ? value : null;
 }
 
-/** The screen an item is about, which a click on its body opens. */
-export function attentionTarget(item: OverviewAttentionItem): AttentionTarget | null {
+/**
+ * The screen an item is about, which a click on its body opens. A screen the machine does not offer (the files of a machine that
+ * only has Docker, the updates of a container) is not one: the item says what is wrong and leads nowhere, because a press that
+ * ends on "not available here" is an error the console could have kept from being asked.
+ */
+export function attentionTarget(item: OverviewAttentionItem, offered?: Offered): AttentionTarget | null {
+  const target = targetOf(item);
+  if (target === null || offered === undefined) return target;
+  const need = entryAt(target.to)?.feature;
+  return need !== undefined && !offered(need) ? null : target;
+}
+
+function targetOf(item: OverviewAttentionItem): AttentionTarget | null {
   const subject = item.subject;
   const domain = text(subject["domain"]);
   const name = text(subject["name"]);
@@ -149,8 +165,8 @@ const MACHINE_ACTION: Readonly<Record<string, OpenAction["kind"]>> = {
 };
 
 /** The one button of an item's row, or none when the console has nothing to offer for it. */
-export function attentionAction(item: OverviewAttentionItem): AttentionAction | null {
-  const target = attentionTarget(item);
+export function attentionAction(item: OverviewAttentionItem, offered?: Offered): AttentionAction | null {
+  const target = attentionTarget(item, offered);
   const reason = item.reasons[0];
   if (target === null || reason === undefined) return null;
   const name = text(item.subject["domain"]) ?? item.title;

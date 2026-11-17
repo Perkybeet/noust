@@ -21,6 +21,7 @@ export const dbServers = {
     system: "On the system of {machine}",
     noust: "Container {server}, on {machine}",
     app: "In the stack of {app}",
+    stack: "In the container of a stack",
   },
   named: {
     system: "{engine} (on the system)",
@@ -65,6 +66,7 @@ export const dbServers = {
     systemLine: "Installed with the system's package manager: one version, the one your distribution or the project publishes.",
     container: "In a container",
     containerLine: "Another version, or an engine the system does not have (MongoDB, PostgreSQL 17). Noust runs it with Docker, on this machine only.",
+    containerOnly: "A database engine in a container of Noust's, from the engine's official image, on this machine's Docker. Nothing you have moves.",
   },
   other: {
     title: "Another version",
@@ -106,5 +108,9 @@ export const dbServers = {
     making: "Creating {name}",
     made: "{name} runs",
     makeFailed: "{name} was not created",
+  },
+  noSystem: {
+    title: "Only the engines Noust runs in containers",
+    line: "The programs that hold the databases: the instances Noust runs in containers, in other versions.",
   },
 } as const;

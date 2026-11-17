@@ -353,6 +353,9 @@ export const runtime: Catalog<typeof en> = {
     removeLinkDescription: "El enlace se elimina; aquello a lo que apunta no se toca.",
     removed: "Se eliminó {name}",
     removeFailed: "No se eliminó {name}",
+    containersTitle: "Sus archivos son los de los contenedores",
+    containersBody: "{domain} corre desde imágenes y volúmenes, así que no tiene una carpeta propia que explorar. Lo que guarda está en sus contenedores y volúmenes; su carpeta solo tiene el archivo Compose y lo que escribió Noust.",
+    seeContainers: "Ver sus contenedores",
   },
   logShipping: {
     title: "Registros y métricas",

@@ -1,7 +1,9 @@
 /**
- * The assistant's turns as the console draws them. The API describes a turn, a step and a proposal loosely (`object` for most of what is
- * inside them), so what arrives is read here once, with every field checked, into types the panel can rely on. A field that is not
- * what it should be is left out, never guessed: the panel draws what the server said and nothing it made up.
+ * The assistant's turns as the console draws them. What a turn, a step and a proposal carry is typed in the API's schema for the
+ * answers of the routes (`TurnOut`, `StepOut`, `ProposalOut`), but the live stream of a turn in progress (`/events`) is not in the
+ * schema and says the same things loosely, so one reader serves both: what arrives is read here once, with every field checked, into
+ * the types the panel draws with (two readers of one shape would be two ways to disagree). A field that is not what it should be is
+ * left out, never guessed: the panel draws what the server said and nothing it made up.
  */
 
 import { planFrom } from "../../components/ui/PlanPreview";

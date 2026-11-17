@@ -297,6 +297,20 @@ describe("Noust's own update, beside the system's", () => {
     expect(screen.queryByRole("button", { name: "Update Noust" })).toBeNull();
   });
 
+  it("says an app store brings the new versions, with no command and no button, for a Noust installed from one (item 198)", async () => {
+    system({
+      "GET /api/system/version": () => json(200, { ...VERSION, installed_from: "ugreen-app-center" }),
+      "GET /api/system/update": () =>
+        json(200, { ...METHOD, method: "unknown", installed_from: "ugreen-app-center", supported: false, code: "app_store", reason: "Noust was installed from the app store of the NAS", hint: null, command: null }),
+    });
+
+    expect(await screen.findByText("New versions arrive through the App Center of the NAS.")).toBeInTheDocument();
+    // The server's own English is not repeated beside the console's sentence, and nothing offers to update from here.
+    expect(screen.queryByText("Noust was installed from the app store of the NAS")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Update Noust" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Copy the command" })).toBeNull();
+  });
+
   it("opens on the updates, and the machine, the processes and the resources are sections beside them", async () => {
     const { user } = system({ "GET /api/system/version": () => json(200, VERSION), "GET /api/system/update": () => json(200, METHOD) });
     const sections = await screen.findByRole("navigation", { name: "Server sections" });

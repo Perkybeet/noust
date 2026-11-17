@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import { offers } from "../../features/central/offers";
 import { bindT, hasMessage, loadCatalog } from "../../i18n";
+import { hubSession, nasSession, serverSession } from "../../test/nas";
 import { CATEGORY_ORDER, WIDGETS, WIDGET_TYPES, faceFor, isOffered, newPlaced, offeredWidgets, sizesOf, widgetOf } from "./catalog";
 import { SIZE_ORDER } from "./model";
 import type { Placed } from "./model";
@@ -51,6 +53,24 @@ describe("the catalog", () => {
   it("knows no widget of a type it has not heard of", () => {
     expect(widgetOf("from-the-future")).toBeUndefined();
     expect(faceFor(bindT("en"), "server")({ id: "x", type: "from-the-future", size: "small", settings: {} })).toBeNull();
+  });
+});
+
+describe("what the machine offers Home", () => {
+  const widgets = (session: ReturnType<typeof nasSession>) => offeredWidgets("server", can(EVERYTHING), (need) => offers(session, need)).map((widget) => widget.type);
+
+  it("leaves out of the Home of a machine that only has Docker what needs the machine's own processes, services, updates, certificates and timers", () => {
+    const nas = widgets(nasSession());
+    for (const gone of ["processes", "updates", "services", "certificates", "tasks", "probes", "security"]) expect(nas, `${gone} is on the Home of a NAS`).not.toContain(gone);
+    // What needs only Docker, or nothing of the machine, is there: the applications, their backups and the databases in containers.
+    for (const there of ["attention", "apps", "deployments", "backups", "databases", "resources", "disk"]) expect(nas, `${there} is not on the Home of a NAS`).toContain(there);
+  });
+
+  it("offers the databases for either of the two functions that make them, and the processes and updates to a server that has them", () => {
+    expect(widgets(hubSession())).not.toContain("databases");
+    expect(widgets(nasSession())).toContain("databases");
+    const server = widgets(serverSession());
+    for (const there of ["processes", "updates", "services", "databases"]) expect(server).toContain(there);
   });
 });
 

@@ -253,6 +253,13 @@ export interface NoustVersion {
   state: NoustUpdateState;
   command: string | null;
   method: string | null;
+  /** The app store the server says it was installed from, which updates it: the fleet does not (item 198). */
+  installedFrom: string | null;
+}
+
+/** Whether the fleet can update this server's Noust: a newer one exists and no app store is what updates it. */
+export function noustUpdatableFrom(noust: Pick<NoustVersion, "state" | "installedFrom">): boolean {
+  return noustUpdatable(noust.state) && noust.installedFrom === null;
 }
 
 /** What a server says about its own Noust: installed, available, and how it updates. */
@@ -266,6 +273,7 @@ export function noustOf(row: FleetRow): NoustVersion {
     state: typeof state === "string" && NOUST_STATES.has(state) ? (state as NoustUpdateState) : "unknown",
     command: text(noust["update_command"]),
     method: text(noust["method"]),
+    installedFrom: text(noust["installed_from"]),
   };
 }
 
@@ -446,10 +454,13 @@ export const ACTION_ORDER = ["certs_renew", "backups_run", "backups_verify", "ap
 /** The actions of an application on several servers: started from its own page, never from the bulk dialog. */
 export const PLACEMENT_ACTIONS = ["placement_rollout", "placement_copy", "placement_ship"] as const;
 
-export type KnownAction = (typeof ACTION_ORDER)[number] | (typeof PLACEMENT_ACTIONS)[number];
+/** The actions of the Docker lists of All servers: started from the button of those pages, which plans before it runs, never from the bulk dialog. */
+export const DOCKER_ACTIONS = ["docker_images_check"] as const;
+
+export type KnownAction = (typeof ACTION_ORDER)[number] | (typeof PLACEMENT_ACTIONS)[number] | (typeof DOCKER_ACTIONS)[number];
 
 export function isKnownAction(name: string): name is KnownAction {
-  return (ACTION_ORDER as readonly string[]).includes(name) || (PLACEMENT_ACTIONS as readonly string[]).includes(name);
+  return (ACTION_ORDER as readonly string[]).includes(name) || (PLACEMENT_ACTIONS as readonly string[]).includes(name) || (DOCKER_ACTIONS as readonly string[]).includes(name);
 }
 
 /** Each action's name and what it does, in the operator's words. */
@@ -465,6 +476,7 @@ export const ACTION_WORDS: Readonly<Record<KnownAction, { label: PlainKey; descr
   placement_rollout: { label: "fleet.actions.placement_rollout.label", description: "fleet.actions.placement_rollout.description" },
   placement_copy: { label: "fleet.actions.placement_copy.label", description: "fleet.actions.placement_copy.description" },
   placement_ship: { label: "fleet.actions.placement_ship.label", description: "fleet.actions.placement_ship.description" },
+  docker_images_check: { label: "fleet.actions.docker_images_check.label", description: "fleet.actions.docker_images_check.description" },
 };
 
 /**

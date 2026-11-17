@@ -22,6 +22,7 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { TextLink, textLinkClassName } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
+import { storeUpdateWords } from "../../lib/installedFrom";
 import { isHttpUrl } from "../../lib/url";
 import { useNode } from "../../nodes/useNode";
 import { reportActionError } from "../apps/useAppActions";
@@ -128,6 +129,21 @@ function UpdateState({ info }: { info: UpdateInfo }): ReactNode {
         </p>
       </StateLine>
     );
+  }
+  // Installed from an app store, the store updates it: it says so, and there is no command, no link to update from here and no index to
+  // refresh. What the version is, and what it brings, are said as for any other.
+  const store = storeUpdateWords(t, info.installed_from);
+  if (store !== null && (info.has_update || info.update_state === "index_behind" || info.update_state === "on_the_way")) {
+    const version = info.announced_version ?? info.latest_version ?? info.published_version;
+    if (version) {
+      return (
+        <StateLine icon={<CircleArrowUp aria-hidden="true" className={icon} />} title={t("settings.about.version.available", { version })}>
+          <p className="max-w-measure text-13 text-pretty text-fg-muted">{store}</p>
+          <ReleaseNotesLink url={info.release_url} version={version} />
+          <UpdateNotes version={version} />
+        </StateLine>
+      );
+    }
   }
   if (info.update_state === "index_behind") {
     const version = info.announced_version ?? info.published_version ?? info.latest_version;

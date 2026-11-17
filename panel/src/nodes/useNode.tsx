@@ -18,7 +18,7 @@ import { contextOf, nodeFromSearch, serverPath, switchTarget } from "../app/node
 import type { ConsoleContext } from "../app/nodeRoute";
 import { useCentral } from "../features/central/central";
 import { useOffers } from "../features/central/features";
-import type { FeatureKey } from "../features/central/features";
+import type { FeatureNeed } from "../features/central/features";
 import { rememberAll, rememberServer, useLastServer } from "./lastServer";
 
 export interface SelectedNode {
@@ -125,11 +125,11 @@ export function useSelection(): Selection {
  * servers, whose own machines and faces are not the central's to judge. A hub is one more server of the selector, and chosen
  * it offers what a hub can do, no more.
  */
-export function useScopeOffers(): (key: FeatureKey | undefined) => boolean {
+export function useScopeOffers(): (need: FeatureNeed | undefined) => boolean {
   const selection = useSelection();
   const offered = useOffers();
   const own = selection.kind === "server" && selection.node === null;
-  return useCallback((key) => !own || offered(key), [own, offered]);
+  return useCallback((need) => !own || offered(need), [own, offered]);
 }
 
 /**

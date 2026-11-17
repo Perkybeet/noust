@@ -158,5 +158,6 @@ export const assistantSettings: Catalog<typeof en> = {
     monthSpend: "Gasto",
     monthTokens: "Tokens leídos",
     monthTokensValue: "{count} de {cap}",
+    monthFailed: "No se pudo leer lo que ha costado el mes",
   },
 } as const;

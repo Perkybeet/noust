@@ -385,6 +385,10 @@ export const fleet: Catalog<typeof en> = {
       label: "Compilar en un servidor y ejecutar en otros",
       description: "Un servidor compila la aplicación una sola vez; los demás reciben esa release y cambian a ella tras su comprobación de arranque.",
     },
+    docker_images_check: {
+      label: "Buscar versiones nuevas de las imágenes",
+      description: "Cada servidor pregunta a los registros si las imágenes que usan sus contenedores tienen una versión más nueva. No se descarga nada si no lo pides.",
+    },
   },
   bulk: {
     title: "Ejecutar una acción en varios servidores",

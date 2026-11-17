@@ -43,6 +43,8 @@ interface Screen {
   name: string;
   path: string;
   heading: string | RegExp;
+  /** What the page is given before it is opened: an answer the sandbox's Docker does not have (it plans no address ranges). */
+  before?: (page: Page) => Promise<void>;
   /** What the page needs before it is looked at: what a person does to reach the screen. `context` has what an action of root-equivalent weight needs. */
   ready?: (page: Page, context: ReadyContext) => Promise<void>;
 }
@@ -63,17 +65,14 @@ const SCREENS: readonly Screen[] = [
     name: "bring",
     path: "/server/docker/stacks",
     heading: "Stacks",
-    ready: async (page, { server, expectError }) => {
-      // What Noust would register is read through a root-equivalent call: the server asks to confirm once, and the dialog opens after it.
-      // The stack of the sandbox runs from a folder this machine does not have, so the answer is the server's own refusal, said as it said it.
-      expectError(/status of 403 .*\/api\/docker\/stacks\/nextcloud\/bring$/);
-      expectError(/status of 409 .*\/api\/docker\/stacks\/nextcloud\/bring$/);
+    ready: async (page) => {
+      // What Noust would register is read through the route of the preview, which asks nobody who they are: the dialog opens at once, with
+      // what the server found in the stack's folder, and the identity is asked when the stack is brought.
       await page.getByRole("button", { name: "Bring to Noust…" }).first().click();
-      await confirmItsYou(page, server);
       const dialog = page.getByRole("alertdialog", { name: "Bring nextcloud to Noust" });
       await expect(dialog).toBeVisible();
-      await expect(dialog.getByText(/The folder of nextcloud is not on this server/)).toBeVisible();
-      await expect(dialog.getByRole("button", { name: "Bring to Noust" })).toBeDisabled();
+      await expect(dialog.getByText(/compose\.ya?ml/).first()).toBeVisible();
+      await expect(dialog.getByRole("button", { name: "Bring to Noust" })).toBeEnabled();
     },
   },
   { name: "containers", path: "/server/docker/containers", heading: "Containers", ready: async (page) => {
@@ -88,7 +87,28 @@ const SCREENS: readonly Screen[] = [
       await expect(page.getByText("wiki_data")).toBeVisible();
     },
   },
-  { name: "networks", path: "/server/docker/networks", heading: "Networks" },
+  {
+    name: "networks",
+    path: "/server/docker/networks",
+    heading: "Networks",
+    before: async (page) => {
+      // The real list, with the plan of addresses a real Docker has: the sandbox's gives none, and the column is for these.
+      await page.route(/\/api\/docker\/networks(\?.*)?$/, async (route) => {
+        const response = await route.fetch();
+        const body = (await response.json()) as { items: { name: string; ranges: { subnet: string; gateway: string }[] }[] };
+        const plan: Record<string, { subnet: string; gateway: string }[]> = {
+          bridge: [{ subnet: "172.17.0.0/16", gateway: "172.17.0.1" }],
+          nextcloud_default: [{ subnet: "172.20.0.0/16", gateway: "172.20.0.1" }],
+          "shop-example-net_default": [
+            { subnet: "172.21.0.0/16", gateway: "172.21.0.1" },
+            { subnet: "fd00:21::/64", gateway: "fd00:21::1" },
+          ],
+        };
+        for (const network of body.items) network.ranges = plan[network.name] ?? [];
+        await route.fulfill({ response, json: body });
+      });
+    },
+  },
   { name: "engine", path: "/server/docker/engine", heading: "Engine" },
   {
     name: "cleanup",
@@ -115,6 +135,7 @@ test.describe("every page of the Docker zone", () => {
   for (const screen of SCREENS) {
     test(`${screen.name} has no WCAG 2.2 AA violations, no CSP violation and no console error`, async ({ page, consoleServer, problems }) => {
       await page.setViewportSize(DESKTOP);
+      await screen.before?.(page);
       await signIn(page, consoleServer, screen.path);
       await expect(page.getByRole("heading", { level: 1, name: screen.heading })).toBeVisible();
       await screen.ready?.(page, { server: consoleServer, expectError: problems.expect });
@@ -131,6 +152,46 @@ test.describe("every page of the Docker zone", () => {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(0);
     await expectNoA11yViolations(page, "containers on a phone");
+  });
+});
+
+test.describe("what each thing says of its use, its origin and its copies", () => {
+  test("the containers say what each uses, from one reading for all of them", async ({ page, consoleServer }) => {
+    await page.setViewportSize(DESKTOP);
+    await signIn(page, consoleServer, "/server/docker/containers");
+    await expect(page.getByRole("columnheader", { name: "Processor" })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "Memory" })).toBeVisible();
+    // A container that runs has a figure; one that is stopped has a dash and says why for whoever cannot see it, and no zero.
+    const stopped = page.getByRole("row").filter({ has: page.getByRole("link", { name: "adminer", exact: true }) });
+    await expect(stopped.getByText("It is not running, so it uses nothing.")).toHaveCount(2);
+    await expect(stopped.getByText(/^0 ?%$/)).toHaveCount(0);
+    await settle(page);
+    await expectNoA11yViolations(page, "the containers with what each uses");
+  });
+
+  test("the volumes say whether each is in a copy, and an application's can be copied from its menu", async ({ page, consoleServer }) => {
+    await page.setViewportSize(DESKTOP);
+    await signIn(page, consoleServer, "/server/docker/volumes");
+    await expect(page.getByRole("columnheader", { name: "Backup status" })).toBeVisible();
+    // The server gives the command that takes a copy of an application's volume, and none for what Noust did not make.
+    const row = page.getByRole("row").filter({ hasText: "shop-example-net_uploads" });
+    await row.getByRole("button", { name: "Actions for shop-example-net_uploads" }).click();
+    await page.getByRole("menuitem", { name: /Copy now/ }).click();
+    const dialog = page.getByRole("dialog", { name: "Copy shop-example-net_uploads now" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByText(/noust /).first()).toBeVisible();
+    await settle(page);
+    await expectNoA11yViolations(page, "copying a volume now");
+  });
+
+  test("the networks say their address range, and the images where they come from", async ({ page, consoleServer }) => {
+    await page.setViewportSize(DESKTOP);
+    await signIn(page, consoleServer, "/server/docker/networks");
+    await expect(page.getByRole("columnheader", { name: "Subnet" })).toBeVisible();
+    await page.goto("/server/docker/images");
+    await expect(page.getByRole("heading", { level: 1, name: "Images" })).toBeVisible();
+    // Where an image comes from is the server's word: what nobody asked about yet is said so, as a state of its own.
+    await expect(page.getByText("Not looked at yet").first()).toBeVisible();
   });
 });
 
@@ -254,6 +315,7 @@ if (process.env.NOUST_SCREENS === "1") {
       test(`docker ${screen.name}`, async ({ page, consoleServer, problems }, testInfo) => {
         const dir = path.join(OUT, testInfo.project.name);
         await page.setViewportSize(DESKTOP);
+        await screen.before?.(page);
         await signIn(page, consoleServer, screen.path);
         await expect(page.getByRole("heading", { level: 1, name: screen.heading })).toBeVisible();
         await screen.ready?.(page, { server: consoleServer, expectError: problems.expect });

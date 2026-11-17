@@ -74,6 +74,10 @@ const MACHINE_ONLY: ReadonlyMap<TableKey, string> = new Map<TableKey, string>([
   ["system_clock", "features.needs_systemd"],
   ["system_logs", "features.needs_journal"],
   ["docker_zone", "docker.engine.missing"],
+  // What the pages of the machine show is read from the machine Noust runs on: in the central's image that is the container.
+  ["system_processes", "features.needs_host"],
+  ["system_files", "features.needs_host"],
+  ["system_updates", "features.needs_host"],
 ]);
 
 function reason(key: TableKey, code: string) {
@@ -89,13 +93,27 @@ function tableOn(): NonNullable<NonNullable<SessionInfo["central"]>["features"]>
   return states as never;
 }
 
-/** The table of a hub that was not told to: nothing works, for being a hub, or for what the machine lacks. */
+/** The table of a hub that was not told to: nothing works, for being a hub, or for what the machine lacks, but the page that turns Docker on, which is a hub's. */
 function tableOff(): NonNullable<NonNullable<SessionInfo["central"]>["features"]> {
   const states: Record<string, unknown> = {};
   for (const key of Object.keys(NAS_ON) as TableKey[]) {
-    states[key] = { available: false, reason: reason(key, MACHINE_ONLY.get(key) ?? "features.hub_role") };
+    states[key] = key === "deploy_here" ? { available: true, reason: null } : { available: false, reason: reason(key, MACHINE_ONLY.get(key) ?? "features.hub_role") };
   }
   return states as never;
+}
+
+/** The table of a server: it deploys on its own machine without being asked, so the page that turns Docker on is not its. */
+export function serverTable(): NonNullable<NonNullable<SessionInfo["central"]>["features"]> {
+  const states: Record<string, unknown> = {};
+  for (const key of Object.keys(NAS_ON) as TableKey[]) {
+    states[key] = key === "deploy_here" ? { available: false, reason: { code: "features.hub_only", params: { feature: key }, text: `${key}: only a central that is a hub has this, and this Noust is a server`, hint: null } } : { available: true, reason: null };
+  }
+  return states as never;
+}
+
+/** The session of a Noust that is a server and says what its table does: everything works but what is a hub's. */
+export function serverSession(): SessionInfo {
+  return { ...SESSION, central: { role: "server", sealed: false, locked: false, deploy_here: "", features: serverTable() } };
 }
 
 /** The session of a hub told, in its compose file, to deploy containers on its machine's Docker. */

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import type { OverviewAttentionItem } from "../../api/queries/overview";
+import { nasSession } from "../../test/nas";
+import { offers } from "../central/offers";
 import { attentionCounters } from "./attention";
 import { attentionAction, attentionTarget } from "./attentionTarget";
 
@@ -96,6 +98,31 @@ describe("attentionTarget and attentionAction", () => {
     expect(attentionAction(fact("swap", "no_swap"))).toMatchObject({ kind: "addSwap", target: { to: "/server/files" } });
     expect(attentionAction(fact("failed_units", "failed_units"))).toMatchObject({ kind: "viewServices", target: { to: "/server/services", search: { state: "failed", all: true } } });
     expect(attentionTarget({ ...fact("mystery", "x"), subject: { kind: "machine", fact: "mystery" } })).toEqual({ to: "/server" });
+  });
+
+  it("leaves the facts of a machine that only has Docker without a screen it does not offer, and says what is wrong all the same", () => {
+    const fact = (name: string, code: string) => ({ ...item(`machine:${name}`, "machine", "warn", name, [{ kind: "machine", severity: "warn", code }]), subject: { kind: "machine", fact: name } });
+    const onNas = (need: Parameters<typeof offers>[1]): boolean => offers(nasSession(), need);
+    // Each of these leads to a screen the machine does not have (its updates, its files, its clock, its services): no button, no link.
+    for (const [name, code] of [
+      ["security_updates", "security_updates"],
+      ["os_support", "os_ending"],
+      ["reboot_required", "reboot_required"],
+      ["disk", "disk_full"],
+      ["swap", "no_swap"],
+      ["clock", "clock_unsynced"],
+      ["failed_units", "failed_units"],
+    ] as const) {
+      expect(attentionTarget(fact(name, code), onNas)).toBeNull();
+      expect(attentionAction(fact(name, code), onNas)).toBeNull();
+    }
+    // Where the machine has them, or nobody asked, it is what it was.
+    expect(attentionAction(fact("disk", "disk_full"), () => true)).toMatchObject({ kind: "freeSpace", target: { to: "/server/files" } });
+    expect(attentionAction(fact("disk", "disk_full"))).toMatchObject({ kind: "freeSpace" });
+    // Noust's own update is in Settings, which every machine has; the Status page is the machine's, and so is an application's.
+    expect(attentionTarget(item("noust:update", "noust", "warn", "Noust"), onNas)?.to).toBe("/settings/about");
+    expect(attentionTarget({ ...fact("mystery", "x"), subject: { kind: "machine", fact: "mystery" } }, onNas)).toEqual({ to: "/server" });
+    expect(attentionTarget(item("app:shop", "app", "fail", "shop.example.com", [{ kind: "state", severity: "fail", code: "service_failed" }]), onNas)).toEqual({ to: "/apps/$domain/diagnose", params: { domain: "shop.example.com" } });
   });
 
   it("opens the page where a finding of the checks is fixed, by its group", () => {

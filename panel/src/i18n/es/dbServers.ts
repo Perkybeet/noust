@@ -22,6 +22,7 @@ export const dbServers: Catalog<typeof en> = {
     system: "En el sistema de {machine}",
     noust: "Contenedor {server}, en {machine}",
     app: "En la pila de {app}",
+    stack: "En el contenedor de una pila",
   },
   named: {
     system: "{engine} (del sistema)",
@@ -65,6 +66,7 @@ export const dbServers: Catalog<typeof en> = {
     systemLine: "Se instala con el gestor de paquetes del sistema: una versión, la que publica tu distribución o el proyecto.",
     container: "En un contenedor",
     containerLine: "Otra versión, o un motor que el sistema no tiene (MongoDB, PostgreSQL 17). Noust lo corre con Docker, solo en esta máquina.",
+    containerOnly: "Un motor de bases de datos en un contenedor de Noust, desde la imagen oficial del motor, en el Docker de esta máquina. Nada de lo que tienes se mueve.",
   },
   other: {
     title: "Otra versión",
@@ -106,5 +108,9 @@ export const dbServers: Catalog<typeof en> = {
     making: "Creando {name}",
     made: "{name} está en marcha",
     makeFailed: "No se creó {name}",
+  },
+  noSystem: {
+    title: "Solo los motores que Noust ejecuta en contenedores",
+    line: "Los programas que guardan las bases: las instancias que Noust corre en contenedores, con otras versiones.",
   },
 };

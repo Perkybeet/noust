@@ -16,10 +16,10 @@ import { useCallback } from "react";
 
 import { sessionQuery } from "../../api/queries/auth";
 import { featureAnswer, isContainerHost, offers } from "./offers";
-import type { FeatureAnswer, FeatureKey } from "./offers";
+import type { FeatureAnswer, FeatureNeed } from "./offers";
 
-export { CONTAINER_HOST, featureAnswer, isContainerHost, offers } from "./offers";
-export type { DerivedKey, FeatureAnswer, FeatureKey } from "./offers";
+export { CONTAINER_HOST, DATABASES_NEED, featureAnswer, isContainerHost, offers } from "./offers";
+export type { FeatureAnswer, FeatureKey, FeatureNeed } from "./offers";
 
 /** Whether this central deploys containers on its machine's Docker, kept current with the session. */
 export function useContainerHost(): boolean {
@@ -28,21 +28,21 @@ export function useContainerHost(): boolean {
 }
 
 /** The filter as a function, stable between renders until the session changes: what the lists of the register take. */
-export function useOffers(): (key: FeatureKey | undefined) => boolean {
+export function useOffers(): (need: FeatureNeed | undefined) => boolean {
   const { data } = useQuery(sessionQuery());
-  return useCallback((key) => offers(data, key), [data]);
+  return useCallback((need) => offers(data, need), [data]);
 }
 
 /** Whether this Noust offers one function, kept current with the session. */
-export function useFeature(key: FeatureKey | undefined): boolean {
+export function useFeature(need: FeatureNeed | undefined): boolean {
   const offered = useOffers();
-  return offered(key);
+  return offered(need);
 }
 
 /** The reason one function is not available here, for the place that says why; null when it is, or when nothing says. */
-export function useFeatureReason(key: FeatureKey | undefined): FeatureAnswer["reason"] {
+export function useFeatureReason(need: FeatureNeed | undefined): FeatureAnswer["reason"] {
   const { data } = useQuery(sessionQuery());
-  if (key === undefined) return null;
-  const answer = featureAnswer(data, key);
+  if (need === undefined) return null;
+  const answer = featureAnswer(data, need);
   return answer === null || answer.available ? null : answer.reason;
 }

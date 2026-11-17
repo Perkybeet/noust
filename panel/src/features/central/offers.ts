@@ -7,15 +7,21 @@
 import type { SessionInfo } from "../../api/queries/auth";
 import type { components } from "../../api/schema.gen";
 
-/**
- * A function the console derives from what the table publishes, for the one page the table has no key of its own for: turning
- * on the machine's Docker is something a hub is asked, and neither a server nor a central that deploys already is. It reads the
- * table's own answer (`offers`), never the role, and it is the only one: when the table has a key for it, this goes.
- */
-export type DerivedKey = "deploy_here";
+/** A function of the server's table: the keys of the answer, so a mistyped one fails to compile. */
+export type FeatureKey = keyof components["schemas"]["FeatureStates"];
 
-/** A function of the server's table: the keys of the answer, so a mistyped one fails to compile; and the one derived from it. */
-export type FeatureKey = keyof components["schemas"]["FeatureStates"] | DerivedKey;
+/**
+ * What a destination, an action or a panel needs of the server: one function, or a list of them of which any one is enough (a
+ * machine that only has Docker has no database engine of its own and does have the ones Noust runs in containers, so Databases is
+ * offered for either). An empty list asks for nothing.
+ */
+export type FeatureNeed = FeatureKey | readonly FeatureKey[];
+
+/**
+ * What Databases needs: the system's own engines, or the ones Noust runs in containers beside them. A machine that only has Docker
+ * has the second and not the first, and it lists, creates, copies and restores its instances all the same.
+ */
+export const DATABASES_NEED: FeatureNeed = ["databases", "database_instances"];
 
 /** What the server says of one function: whether it works here, and why not. */
 export interface FeatureAnswer {
@@ -24,23 +30,31 @@ export interface FeatureAnswer {
   reason: components["schemas"]["FeatureReason"] | null;
 }
 
+function keysOf(need: FeatureNeed): readonly FeatureKey[] {
+  return typeof need === "string" ? [need] : need;
+}
+
 /**
  * Whether this Noust offers a function. Offered when there is nothing to ask (no key), when the session says nothing
  * of functions (a server that has no such table offers what its role always allowed), and when the function is
- * available; absent when the server says it is not.
+ * available; absent when the server says it is not. With a list, offered when any function of it is.
  *
  * @param session The signed-in session; `undefined` before it is read.
- * @param key The function a destination or an action needs; `undefined` for one that needs none.
+ * @param need The function a destination or an action needs, or a list of which any one does; `undefined` for one that needs none.
  */
-export function offers(session: SessionInfo | undefined, key: FeatureKey | undefined): boolean {
-  if (key === undefined) return true;
-  // Before the session is read nothing is hidden, as for every other function.
-  if (key === "deploy_here") return session === undefined || canBeToldToDeployHere(session);
+export function offers(session: SessionInfo | undefined, need: FeatureNeed | undefined): boolean {
+  if (need === undefined) return true;
+  const keys = keysOf(need);
+  if (keys.length === 0) return true;
   const states = session?.central?.features;
+  // Before the session is read nothing is hidden, as for every other function.
   if (states === undefined || states === null) return true;
   // A key the server's table does not know (an older server) is not a reason to hide anything.
-  const state = (states as Record<string, { available: boolean } | undefined>)[key];
-  return state === undefined || state.available;
+  const known = states as Record<string, { available: boolean } | undefined>;
+  return keys.some((key) => {
+    const state = known[key];
+    return state === undefined || state.available;
+  });
 }
 
 /** What this central was told, outside the console, to deploy on its machine's own Docker: the setting the session carries. */
@@ -55,18 +69,14 @@ export function isContainerHost(session: SessionInfo | undefined): boolean {
 }
 
 /**
- * Whether the page that turns on the machine's Docker has anything to say here: this central deploys on it already (so the page is
- * where it is checked again), or the table says the one thing in the way is that it is a hub (`features.hub_role` on what an
- * application needs). A server deploys without being asked and a node that publishes no table has no such page.
+ * The server's answer for a function, with the sentence for why not; null when the session says nothing of it. For a list, the
+ * answer of the first function that is available, or else the first one's: the sentence a page says when none of them works.
  */
-function canBeToldToDeployHere(session: SessionInfo): boolean {
-  if (isContainerHost(session)) return true;
-  const answer = featureAnswer(session, "applications");
-  return answer !== null && !answer.available && answer.reason?.code === "features.hub_role";
-}
-
-/** The server's answer for one function, with the sentence for why not; null when the session says nothing of it. */
-export function featureAnswer(session: SessionInfo | undefined, key: FeatureKey): FeatureAnswer | null {
+export function featureAnswer(session: SessionInfo | undefined, need: FeatureNeed): FeatureAnswer | null {
   const states = session?.central?.features as Record<string, FeatureAnswer | undefined> | null | undefined;
-  return states?.[key] ?? null;
+  const answers = keysOf(need).flatMap((key) => {
+    const answer = states?.[key];
+    return answer === undefined ? [] : [answer];
+  });
+  return answers.find((answer) => answer.available) ?? answers[0] ?? null;
 }

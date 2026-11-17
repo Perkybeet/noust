@@ -290,6 +290,10 @@ export function AssistantBody({ docked, onClose }: { docked: boolean; onClose: (
             ? [{ id: "spend", label: t("assistant.usage.spend"), used: mine?.spend ?? 0, cap: limits["spend_per_conversation"] ?? 0, valueText: `${String(Math.round((mine?.spend ?? 0) * 1000) / 1000)} / ${String(limits["spend_per_conversation"] ?? 0)} ${usage.data.currency}` }]
             : []),
           { id: "steps", label: t("assistant.usage.steps"), used: live?.usage?.steps ?? 0, cap: limits["steps_per_turn"] ?? 0, valueText: t("assistant.usage.stepsValue", { used: live?.usage?.steps ?? 0, cap: limits["steps_per_turn"] ?? 0 }), onlyWhenNear: true },
+          // What this person changed through it in the last hour, against the hour's limit: the server says it only to who uses the assistant.
+          ...(usage.data.actions_last_hour === null || usage.data.actions_last_hour === undefined
+            ? []
+            : [{ id: "actions", label: t("assistant.usage.actions"), used: usage.data.actions_last_hour, cap: limits["actions_per_hour"] ?? 0, valueText: t("assistant.usage.actionsValue", { used: usage.data.actions_last_hour, cap: limits["actions_per_hour"] ?? 0 }), onlyWhenNear: true }]),
         ];
 
   return (

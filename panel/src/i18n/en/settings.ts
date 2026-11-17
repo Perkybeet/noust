@@ -750,6 +750,8 @@ export const settings = {
       securityRelease: "Version {version} fixes a security vulnerability",
       securityReleaseDescription: "Install it soon, whatever else the update brings. Until then this server runs the vulnerable code.",
       whatItFixes: "What {version} fixes",
+      viaStore: "New versions arrive through the App Center of the NAS.",
+      viaStoreOther: "New versions arrive through the app store this Noust was installed from.",
     },
     whatsNew: {
       title: "What's new",

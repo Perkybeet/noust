@@ -7,23 +7,25 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 
-import { dockerContainersQuery } from "../../api/queries/docker";
-import type { DockerContainer } from "../../api/queries/docker";
+import { dockerContainersQuery, dockerContainersUsageQuery } from "../../api/queries/docker";
+import type { DockerContainer, DockerUsage } from "../../api/queries/docker";
 import { FilterBar } from "../../components/page/FilterBar";
 import { ListPage } from "../../components/page/ListPage";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Button } from "../../components/ui/Button";
 import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
+import { EmptyCell } from "../../components/ui/EmptyCell";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Mono } from "../../components/ui/Mono";
 import { ICONS } from "../../components/ui/icons";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 import { Select } from "../../components/ui/Select";
 import { useT } from "../../i18n";
+import { formatBytes, formatPercent } from "../../lib/format";
 import { NodeCapabilityGate } from "../../nodes/capability";
 import { ContainerMenu } from "./menus";
-import { stateView } from "./model";
+import { stateView, usageIndex, usageOf, usageReason } from "./model";
 import { ContainerLink, ContainerPill, OwnerCell, StackLink } from "./pieces";
 import { RemoveDialog } from "./RemoveDialog";
 import type { RemoveSubject } from "./RemoveDialog";
@@ -56,10 +58,29 @@ export function visibleContainers(items: readonly DockerContainer[], search: Doc
   );
 }
 
+/** The figure of a reading to sort by, nothing where there is no reading: what was not read is neither the least nor the most. */
+function figureOf(usage: DockerUsage | undefined, pick: (usage: DockerUsage) => number | null | undefined): number | null {
+  return usage?.available === true ? (pick(usage) ?? null) : null;
+}
+
+/** One cell of the use of a container: its figure, or a dash and the reason there is none, and never a zero that was not read. */
+function UsageCell({ usage, pending, figure }: { usage: DockerUsage | undefined; pending: boolean; figure: (usage: DockerUsage) => string | null }) {
+  const t = useT();
+  if (usage === undefined) return <EmptyCell reason={pending ? t("docker.containers.usagePending") : t("docker.container.usage.reason.no_reading")} />;
+  const shown = usage.available ? figure(usage) : null;
+  if (shown === null) return <EmptyCell reason={t(`docker.container.usage.reason.${usageReason(usage.reason)}`)} />;
+  return <>{shown}</>;
+}
+
 export function ContainersPage({ search, onSearchChange }: DockerListProps) {
   const t = useT();
   const query = useQuery(dockerContainersQuery());
   const data = query.data;
+  // What each one uses is one reading for all of them, read again as often as a container's own page is. A server with none to give (a
+  // node of 4.2, or a Docker that does not answer) has no such columns, which is truer than a column of dashes.
+  const usageQuery = useQuery(dockerContainersUsageQuery());
+  const readings = useMemo(() => usageIndex(usageQuery.data?.items), [usageQuery.data]);
+  const showsUsage = usageQuery.isPending || usageQuery.data?.available === true;
   const [removing, setRemoving] = useState<RemoveSubject | null>(null);
   const { searchBox, owner } = useListFilters({ search, onSearchChange }, t("docker.containers.searchLabel"));
   const rows = useMemo(() => (data?.items === undefined ? undefined : visibleContainers(data.items, search)), [data, search]);
@@ -74,9 +95,36 @@ export function ContainersPage({ search, onSearchChange }: DockerListProps) {
       sortValue: (row) => stateView(row.state_kind).word,
       cell: (row) => <ContainerPill kind={row.state_kind} />,
     },
-    { id: "stack", header: t("docker.columns.stack"), card: "meta", sortValue: (row) => row.project, cell: (row) => (row.project === "" ? t("docker.columns.noStack") : <StackLink name={row.project} />) },
+    { id: "stack", header: t("docker.columns.stack"), card: "meta", hideBelow: "lg", sortValue: (row) => row.project, cell: (row) => (row.project === "" ? t("docker.columns.noStack") : <StackLink name={row.project} />) },
     { id: "owner", header: t("docker.columns.owner"), card: "meta", cell: (row) => <OwnerCell owner={row.owner} /> },
-    { id: "image", header: t("docker.columns.image"), card: "hidden", hideBelow: "xl", sortValue: (row) => row.image, cell: (row) => <Mono truncate>{row.image}</Mono> },
+    ...(showsUsage
+      ? [
+          {
+            id: "cpu",
+            header: t("docker.columns.cpu"),
+            card: "meta" as const,
+            align: "end" as const,
+            mono: true,
+            width: "w-28",
+            hideBelow: "md" as const,
+            sortValue: (row: DockerContainer) => figureOf(usageOf(readings, row), (usage) => usage.cpu_percent),
+            cell: (row: DockerContainer) => <UsageCell usage={usageOf(readings, row)} pending={usageQuery.isPending} figure={(usage) => (usage.cpu_percent == null ? null : formatPercent(usage.cpu_percent, t.locale))} />,
+          },
+          {
+            id: "memory",
+            header: t("docker.columns.memory"),
+            card: "meta" as const,
+            align: "end" as const,
+            mono: true,
+            width: "w-28",
+            hideBelow: "md" as const,
+            sortValue: (row: DockerContainer) => figureOf(usageOf(readings, row), (usage) => usage.memory_bytes),
+            cell: (row: DockerContainer) => <UsageCell usage={usageOf(readings, row)} pending={usageQuery.isPending} figure={(usage) => (usage.memory_bytes == null ? null : formatBytes(usage.memory_bytes, t.locale))} />,
+          },
+        ]
+      : []),
+    // The image is the one column a laptop's width cannot hold beside the use of each container: it is there on a wide screen.
+    { id: "image", header: t("docker.columns.image"), card: "hidden", hideBelow: "2xl", sortValue: (row) => row.image, cell: (row) => <Mono truncate>{row.image}</Mono> },
   ];
   const states = [{ value: ANY, label: t("docker.filters.allStates") }, ...STATE_FILTERS.map((state) => ({ value: state, label: state === "running" ? t("common.statusPill.running") : state === "problem" ? t("docker.filters.state.problem") : t("docker.filters.state.stopped") }))];
   const shown = rows?.length ?? 0;

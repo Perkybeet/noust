@@ -7,7 +7,7 @@
 import { keepPreviousData, queryOptions } from "@tanstack/react-query";
 
 import { request } from "../client";
-import type { ResponseOf } from "../client";
+import type { BodyOf, ResponseOf } from "../client";
 import type { DockerAttention, DockerContainer, DockerEngine, DockerImage, DockerNetwork, DockerStack, DockerVolume } from "./docker";
 
 export type DockerView = ResponseOf<"/api/views/docker/containers", "get">;
@@ -68,6 +68,19 @@ export const dockerViewQuery = (kind: DockerViewKind) =>
     placeholderData: keepPreviousData,
     retry: false,
   });
+
+/** What the look for new versions on every server is asked: which servers (none named is all of them), and whether to download what moved. */
+export type FleetLookBody = BodyOf<"/api/fleet/docker/images/check", "post">;
+export type FleetLookAnswer = ResponseOf<"/api/fleet/docker/images/check", "post">;
+
+/**
+ * Looks for new versions of the images in use on every server of the fleet but this central, which is looked at on its own page. With
+ * `plan: true` it only says what it would do, which servers take part and which are left out and why; with `plan: false` it queues one
+ * job of the central that asks each server for its own look. Nothing is asked of a registry unless a person pressed the button.
+ */
+export function lookAcrossFleet(body: FleetLookBody): Promise<FleetLookAnswer> {
+  return request("post", "/api/fleet/docker/images/check", { body });
+}
 
 /** A view with the kind of its rows written on it: the contract leaves them open, and the type says which they are (nothing of it exists at run time). */
 export type ViewRows<T> = Pick<DockerView, "items"> & { readonly rows?: T };

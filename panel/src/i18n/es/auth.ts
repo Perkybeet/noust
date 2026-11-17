@@ -77,10 +77,13 @@ export const auth: Catalog<typeof en> = {
     lostIt: "¿Lo has perdido? Genera uno nuevo en el servidor",
     lostItCost: "El token nuevo anula al anterior: el que usas ahora deja de valer.",
     passkeyRequiredTitle: "El token de acceso ya tiene una llave de acceso",
+    descriptionLog: "Noust lo escribió una vez en el registro del contenedor, en un recuadro, la primera vez que arrancó. Abre ese registro y pega aquí el token.",
   },
   firstTime: {
     hint: "¿Primera vez en este servidor? Entra con el token de acceso que mostró el instalador, en «Otras formas de iniciar sesión», y crea tu propia cuenta.",
     lost: "¿Lo has perdido? Genera uno nuevo en el servidor; el anterior deja de valer.",
+    hintLog: "¿Primera vez en este servidor? Entra con el token de acceso que está en el registro del contenedor, en «Otras formas de iniciar sesión», y crea tu propia cuenta.",
+    whichContainer: "El registro del primer arranque dice cuál es el contenedor de Noust.",
   },
   legal: {
     line: "© 2024-2026 Yago López Prado. Software libre bajo la {license}.",
@@ -358,4 +361,5 @@ export const auth: Catalog<typeof en> = {
   },
   signOutFailed: "No se pudo cerrar la sesión",
   signedOut: "Sesión cerrada",
+  passkeyStillClosing: "El navegador todavía estaba cerrando otra ventana de llaves de acceso. Vuelve a intentarlo.",
 };

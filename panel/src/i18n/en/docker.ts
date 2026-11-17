@@ -66,6 +66,9 @@ export const docker = {
     networks: "Networks",
     failed: "Could not load the stack",
     loading: "Loading the stack",
+    versionsKept: { one: "{count} saved version, kept by Noust", other: "{count} saved versions, kept by Noust" },
+    volumesUncopied: "{count} without a copy",
+    volumesCopied: "All with a copy",
   },
   columns: {
     container: "Container",
@@ -84,6 +87,10 @@ export const docker = {
     driver: "Driver",
     onIt: "On it",
     service: "Service",
+    cpu: "Processor",
+    memory: "Memory",
+    copy: "Backup status",
+    subnet: "Subnet",
   },
   filters: {
     search: "Search by name or image",
@@ -123,6 +130,18 @@ export const docker = {
     succeeded: "Looked for new versions",
     failed: "Could not look for new versions",
     couldNot: "Could not start the look for new versions",
+    fleet: {
+      title: "Look for new versions on every server",
+      description: "Each server asks the registries about the images its containers use, and keeps what it found. Nothing is downloaded unless you ask for it. This central's own Docker is not in it: look at it from its own page.",
+      planning: "Working out which servers would look",
+      planFailed: "Could not work out which servers would look",
+      running: "Looking for new versions on every server",
+      succeeded: "Looked for new versions on every server",
+      failed: "The look for new versions failed on some servers",
+      resultLabel: "What each server found",
+      found: { one: "{server}: {count} image looked at, {newer} with a new version", other: "{server}: {count} images looked at, {newer} with a new version" },
+      foundNone: { one: "{server}: {count} image looked at, none with a new version", other: "{server}: {count} images looked at, none with a new version" },
+    },
   },
   update: {
     title: "Update {name}",
@@ -135,6 +154,7 @@ export const docker = {
     latest: "Latest",
     looked: "Looked at",
     moves: "Also moves",
+    origin: "Comes from",
     stepsLabel: "What the update does, in order",
     steps: {
       pull: "Pull the new images",
@@ -208,6 +228,7 @@ export const docker = {
       bring_first: "Noust did not create this stack. Bring it to Noust first, without touching it, and it can be edited here.",
       no_file: "The stack has no Compose file Noust can read.",
       not_compose: "This is not a Compose stack.",
+      owned: "A database engine or Noust itself keeps this stack: change it where it is managed.",
     },
     apply: {
       title: "Apply the Compose of {name}",
@@ -402,6 +423,7 @@ export const docker = {
     caption: "Containers",
     failed: "Could not load the containers",
     empty: { title: "Docker has no containers yet", description: "When something runs in Docker, it is here with its state and whose it is." },
+    usagePending: "Loading its use",
   },
   container: {
     failed: "Could not load the container",
@@ -501,7 +523,7 @@ export const docker = {
   },
   volumes: {
     title: "Volumes",
-    description: "Where the data of every container lives, whose each volume is and who uses it.",
+    description: "Where Docker keeps the data, whose it is, how much it takes and whether it has a copy.",
     searchLabel: "Search volumes",
     filterLabel: "Filter volumes",
     count: "{shown} of {total} volumes",
@@ -510,6 +532,24 @@ export const docker = {
     anonymous: "Anonymous: made for a container that did not name one",
     sizeLoading: "Counting",
     empty: { title: "Docker has no volumes yet", description: "A volume appears here when a container keeps its data in one." },
+    copy: {
+      scheduled: "Scheduled, {when}",
+      scheduledNone: "Scheduled, none taken yet",
+      copiedOnly: "{when}, not scheduled",
+      none: "No copy",
+      now: "Copy now…",
+      title: "Copy {name} now",
+      description: "The machine takes the copy, with this command.",
+      never: "It has no copy yet.",
+      last: "Its newest copy was made {when}.",
+      unknown: "This server does not say whether it has a copy",
+    },
+    unprotected: {
+      title: { one: "{count} volume holds data with no copy", other: "{count} volumes hold data with no copy" },
+      body: "What is in them could not be recovered if something fails.",
+      bodySized: "That is {size} that could not be recovered if something fails.",
+      schedule: "Schedule copies",
+    },
   },
   networks: {
     title: "Networks",
@@ -521,6 +561,10 @@ export const docker = {
     failed: "Could not load the networks",
     builtin: "Docker's own",
     empty: { title: "Docker has no networks of its own yet", description: "A network appears here when a stack or a container makes one." },
+    containersCount: { one: "{count} container", other: "{count} containers" },
+    noRange: "Docker gives this network no address range",
+    gateway: "Gateway {gateway}",
+    moreRanges: { one: "and {count} more", other: "and {count} more" },
   },
   stacks: {
     title: "Stacks",
@@ -580,5 +624,11 @@ export const docker = {
       fix: "What to do",
       fixes: { via_owner: "Start it from its owner", bring_first: "Bring its stack to Noust", set_policy: "Give it a restart policy" },
     },
+  },
+  source: {
+    registry: "A registry",
+    built_noust: "Built on this machine by Noust",
+    built_other: "Built on this machine",
+    unknown: "Unknown origin",
   },
 } as const;

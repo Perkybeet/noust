@@ -103,6 +103,7 @@ export const databases: Catalog<typeof en> = {
     recordLink: "Registrar que {app} la usa",
     recordLinkDescription: "La aplicación no cambia: su entorno ya nombra esta base de datos.",
     recordFailed: "No se pudo registrar que {app} usa {name}",
+    emptyNoSystemEngine: "Aquí no corre ningún motor de bases de datos. Crea uno en un contenedor y después una base de datos en él.",
   },
   access: {
     title: "Noust no puede leer {engine}",

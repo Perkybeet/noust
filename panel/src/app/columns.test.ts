@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { FeatureNeed } from "../features/central/features";
 import { VIEWS } from "../features/nav/views";
 import { INTENT_ORDER, RESOURCE_PARENT, accountColumn, appColumn, areaColumn, columnKindOf, currentItem, depthOf, resourceColumn } from "./columns";
 import type { ColumnGroup, ColumnKind } from "./columns";
@@ -241,7 +242,7 @@ describe("the column of an area", () => {
   });
 
   it("lists the pages of Docker where the server can do it and with All servers, each with the page of the fleet it has, and not where it cannot", () => {
-    const docker = (scope: "server" | "fleet", features: (key: string | undefined) => boolean) =>
+    const docker = (scope: "server" | "fleet", features: (need: FeatureNeed | undefined) => boolean) =>
       areaColumn("server", { ...everything, features }, scope)
         .filter((group) => group.id === "docker")
         .flatMap((group) => group.items.map((item) => item.to));

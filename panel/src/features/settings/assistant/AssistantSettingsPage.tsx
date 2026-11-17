@@ -16,6 +16,7 @@ import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { InlineMessage } from "../../../components/ui/InlineMessage";
 import { Notice } from "../../../components/ui/Notice";
 import { OBJECT_ICONS, VERB_ICONS } from "../../../components/ui/objectIcons";
+import { ServerText } from "../../../components/ui/ServerText";
 import { SkeletonCard } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { TextLink } from "../../../components/ui/TextLink";
@@ -35,6 +36,8 @@ function OffView({ canTurnOn }: { canTurnOn: boolean }) {
   const t = useT();
   const session = useQuery(sessionQuery());
   const ens = session.data?.security_profile === "ens-medium";
+  // Why there is no assistant for this person, as the session says it: its code and its words, nothing the console works out itself.
+  const reason = session.data?.assistant?.reason ?? null;
   const facts = [
     { title: t("assistantSettings.off.facts.forTitle"), body: t("assistantSettings.off.facts.forBody") },
     { title: t("assistantSettings.off.facts.leavesTitle"), body: t("assistantSettings.off.facts.leavesBody") },
@@ -43,6 +46,17 @@ function OffView({ canTurnOn }: { canTurnOn: boolean }) {
   return (
     <Sections>
       {canTurnOn ? null : <ReadOnlyLine permission="settings.manage" />}
+      {reason !== null ? (
+        <InlineMessage tone="info">
+          <ServerText coded={reason} text={reason.text} />
+          {reason.hint !== null && reason.hint !== undefined ? (
+            <>
+              {" "}
+              <ServerText coded={reason} text={reason.hint} part="hint" />
+            </>
+          ) : null}
+        </InlineMessage>
+      ) : null}
       <Card padding="md" title={t("assistantSettings.off.factsTitle")} icon={OBJECT_ICONS.assistant}>
         <ul className="m-0 flex list-none flex-col gap-4 p-0">
           {facts.map((fact, index) => {

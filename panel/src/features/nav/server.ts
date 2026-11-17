@@ -39,9 +39,11 @@ export const SERVER_SCREENS = strip(
     tab(server, "machine", "server.system.views.machine", { column: "machine", feature: "system_clock", keywords: "server.tabs.systemKeywords" }),
     // What was General about the machine (item 166): where its applications and backups live, what it builds at once.
     tab(server, "folders", "server.system.views.folders", { column: "machine", keywords: "server.tabs.foldersKeywords", permission: "server.read" }),
-    tab(server, "processes", "server.system.views.processes", { column: "machine", keywords: "nav.screens.processes.keywords" }),
+    // The machine's own processes, disks and packages: read from the machine Noust runs on, so a Noust in a container (which sees its
+    // own container and not the server) does not offer them, and a typed address says why (`FeatureGate`).
+    tab(server, "processes", "server.system.views.processes", { column: "machine", feature: "system_processes", keywords: "nav.screens.processes.keywords" }),
     tab(server, "monitor", "server.system.views.monitor", { column: "machine", keywords: "nav.screens.monitor.keywords" }),
-    tab(server, "updates", "server.system.views.updates", { column: "machine", fleetTo: "/fleet/updates", fleetLabel: "nav.fleetBar.updates.label", keywords: "nav.screens.updates.keywords" }),
+    tab(server, "updates", "server.system.views.updates", { column: "machine", feature: "system_updates", fleetTo: "/fleet/updates", fleetLabel: "nav.fleetBar.updates.label", keywords: "nav.screens.updates.keywords" }),
     tab(server, "services", "server.tabs.services", { column: "running", feature: "services" }),
     tab(server, "webserver", "server.tabs.webserver", { column: "running", feature: "sites", keywords: "server.tabs.webserverKeywords", permission: "server.read" }),
     // Publishing this machine's console on a name of its own over HTTPS: the machine's, whatever the central carries to the others.
@@ -79,11 +81,11 @@ export const SERVER_SCREENS = strip(
       command: "server.docker.networksCommand",
     }),
     docker(server, "engine", "server.docker.engine", { column: "docker", feature: "docker_zone", fleetTo: "/fleet/docker/engine", permission: "docker.read", keywords: "server.docker.engineKeywords", command: "server.docker.engineCommand" }),
-    // Turning on the machine's Docker is asked of a hub, never of a server, so the table of functions has no key of its own for it:
-    // the console derives one from what the table says (features/central/features.ts). It is the only place that is not a function.
-    // Last of the Docker group: what the zone shows comes first, and this is where the access it needs is checked.
+    // Turning on the machine's Docker is asked of a hub, never of a server: the table's `deploy_here` is available for a hub (whether
+    // or not it was told to deploy) and says why not for a server. Last of the Docker group: what the zone shows comes first, and this
+    // is where the access it needs is checked.
     tab(server, "deploy-here", "server.tabs.deployHere", { column: "docker", feature: "deploy_here", permission: "docker.manage", keywords: "server.tabs.deployHereKeywords" }),
-    tab(server, "files", "server.tabs.files", { column: "tools", keywords: "server.tabs.filesKeywords" }),
+    tab(server, "files", "server.tabs.files", { column: "tools", feature: "system_files", keywords: "server.tabs.filesKeywords" }),
     // The machine written down in a file: what applying it would change here, before anything does.
     tab(server, "manifest", "manifestPreview.nav.label", { column: "tools", keywords: "manifestPreview.nav.keywords", command: "manifestPreview.nav.command", permission: "apps.read", feature: "applications" }),
     hidden("server.terminal", "/server/terminal", "terminal.page.title", "server", {

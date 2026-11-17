@@ -33,6 +33,7 @@ import type { InstanceActions } from "../instances/useInstanceActions";
 import { canMoveUp, serverTitle } from "../servers";
 import { AddEngineDialog } from "./AddEngineDialog";
 import { ServerLogs } from "./ServerLogs";
+import { useDatabaseServers } from "./useDatabaseServers";
 
 export interface ServerActions {
   /** The menu at the end of a slab. */
@@ -47,7 +48,10 @@ export interface ServerActions {
   other: InstanceActions["openCreate"];
   /** "Install an engine" of the system's own. */
   install: () => void;
-  /** "Add an engine": asks which way (the system's, or a container) and goes on in the dialog of that one. */
+  /**
+   * "Add an engine": asks which way (the system's, or a container) and goes on in the dialog of that one; where the machine has
+   * no engines of its own (it only has Docker) there is nothing to ask, and it opens the dialog that makes one in a container.
+   */
   add: () => void;
   /** Starts a stopped engine: the system's own at once, a container as a job the notice follows. */
   start: (server: DbServer) => void;
@@ -71,6 +75,8 @@ export function useServerActions(): ServerActions {
   const queryClient = useQueryClient();
   const instanceActions = useInstanceActions();
   const instances = useQuery(instancesQuery());
+  // A machine that only has Docker has no package manager to install an engine with: the only engine it adds is one in a container (item 188).
+  const hasSystemEngines = useDatabaseServers().system.available;
   // What a menu offers is what the person may do: starting and stopping take `apps.operate`, the rest of an engine `databases.manage`.
   const operate = useCan("apps.operate");
   const manage = useCan("databases.manage");
@@ -315,8 +321,8 @@ export function useServerActions(): ServerActions {
     notice: instanceActions.notice,
     dialogs,
     other: instanceActions.openCreate,
-    install: () => setInstalling({}),
-    add: () => setAdding(true),
+    install: () => (hasSystemEngines ? setInstalling({}) : undefined),
+    add: () => (hasSystemEngines ? setAdding(true) : instanceActions.openCreate()),
     start: (server) => start.mutate(server),
     starting: start.isPending,
     busy: instanceActions.busy,

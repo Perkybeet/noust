@@ -13,6 +13,7 @@ import { useNode } from "../../nodes/useNode";
 import { ListingProblemsNotice } from "./EngineAccess";
 import { EngineCards } from "./servers/EngineCards";
 import { Moves } from "./servers/Moves";
+import { SystemEnginesNotice } from "./servers/SystemEnginesNotice";
 import { useDatabaseServers } from "./servers/useDatabaseServers";
 import { useServerActions } from "./servers/useServerActions";
 
@@ -44,7 +45,8 @@ export function EnginesPage({ engine }: EnginesPageProps) {
       <ListPage
         header={{
           title: t("dbServers.title"),
-          description: t("dbServers.line"),
+          // A machine with no engine of its own says only what it does have.
+          description: serverList.system.available ? t("dbServers.line") : t("dbServers.noSystem.line"),
           primaryAction: (
             <GuardedButton permission="databases.manage" variant="primary" icon={<Add aria-hidden="true" />} disabled={actions.busy} onClick={actions.add}>
               {t("dbServers.add.open")}
@@ -58,6 +60,7 @@ export function EnginesPage({ engine }: EnginesPageProps) {
           <ErrorBlock error={serverList.error} title={t("dbServers.loadFailed")} onRetry={serverList.refetch} retrying={serverList.isRefetching} />
         ) : (
           <Sections>
+            <SystemEnginesNotice system={serverList.system} />
             <EngineCards
               servers={shown}
               actions={actions}

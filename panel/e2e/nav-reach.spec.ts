@@ -24,7 +24,7 @@ import type { Page, Response } from "@playwright/test";
 import { DESTS, REDIRECTS, isStaged, paletteEntries } from "../src/app/nav";
 import type { Dest } from "../src/app/nav";
 import { offers } from "../src/features/central/offers";
-import type { FeatureKey } from "../src/features/central/offers";
+import type { FeatureNeed } from "../src/features/central/offers";
 import type { PlainKey } from "../src/i18n";
 import { english } from "./catalog";
 import { depthOf } from "./clicks";
@@ -216,11 +216,11 @@ const NOT_ON_THIS_MACHINE: Readonly<Record<string, string>> = {
  * What the seeded machine can do, as its own session says it: a screen that needs what it lacks (the volumes' copies want Docker) is not
  * offered by any list, so it is not looked for either (item 187).
  */
-async function offersOf(page: Page): Promise<(key: FeatureKey | undefined) => boolean> {
+async function offersOf(page: Page): Promise<(need: FeatureNeed | undefined) => boolean> {
   // The console's own filter, read from the pure module the browser's lists read it from: a function the console derives from the table
   // (the page that turns on the machine's Docker, the engines) is answered the same here as there.
   const session = await page.evaluate(async () => (await fetch("/api/auth/session")).json() as Promise<unknown>);
-  return (key) => offers(session as Parameters<typeof offers>[0], key);
+  return (need) => offers(session as Parameters<typeof offers>[0], need);
 }
 
 /** The most clicks a screen may take from the Overview: three, and four when a resource is opened first. */

@@ -161,5 +161,6 @@ export const assistantSettings = {
     monthSpend: "Spend",
     monthTokens: "Tokens read",
     monthTokensValue: "{count} of {cap}",
+    monthFailed: "Could not read what the month has cost",
   },
 } as const;

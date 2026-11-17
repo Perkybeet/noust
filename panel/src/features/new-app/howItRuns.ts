@@ -34,8 +34,22 @@ export function askedHowItRuns(inspection: Inspection): boolean {
  * not say how things run (a node of 4.2) never gets here.
  */
 export function nothingRuns(inspection: Inspection): boolean {
-  const ways = inspection.ways ?? null;
+  return noWayRuns(inspection.ways ?? null);
+}
+
+/** Whether neither way of running is possible here, from the ways themselves: what the summary of the wizard also reads. */
+export function noWayRuns(ways: Ways | null): boolean {
   return ways !== null && ways.server.status !== "yes" && ways.container.status !== "yes";
+}
+
+/**
+ * Whether the source can run nowhere here and this machine does not even offer to run a service of the system: its server way is
+ * hidden (a machine that only has Docker). The step that says so has no plan of install, build and start to show, no type to choose
+ * and nothing to set: what was read, what is missing and the one fix, and nothing else. Decided by the server's own ways, never by
+ * what kind of machine it is.
+ */
+export function nothingRunsNatively(inspection: Inspection): boolean {
+  return nothingRuns(inspection) && inspection.ways?.server.status === "hidden";
 }
 
 /** Which form a type is, for the card that shows it chosen: a type the server does not name is judged by what it is. */

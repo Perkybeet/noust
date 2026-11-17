@@ -9,7 +9,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { renderConsole } from "../../test/console";
-import { SESSION, fakeBackend, json, signedInRoutes } from "../../test/fakes";
+import { SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import { onDesktop, serverRoutes } from "../server/testing";
 import { canGoAhead } from "./UpdateImageDialog";
 import { NOBODY, SHOP, dockerRoutes, dockerSession, image, stack } from "./testing";
@@ -173,7 +173,8 @@ describe("bringing a stack to Noust", () => {
   async function openDialog() {
     const harness = open("/server/docker/stacks", {
       stacks: [stack("nextcloud", NOBODY, { total: 4, running: 3 }), stack("shop-example-com", SHOP)],
-      "POST /api/docker/stacks/nextcloud/bring": () => json(200, PREVIEW),
+      "POST /api/docker/stacks/nextcloud/bring/preview": () => json(200, PREVIEW),
+      "POST /api/docker/stacks/nextcloud/bring": () => json(200, { ...PREVIEW, preview: false, adopted: true }),
     });
     await harness.user.click(await screen.findByRole("button", { name: "Bring to Noust…" }));
     const dialog = await screen.findByRole("alertdialog", { name: "Bring nextcloud to Noust" });
@@ -186,15 +187,52 @@ describe("bringing a stack to Noust", () => {
     expect(within(dialog).getByText("4 containers, 1 jobs that ended, 2 volumes, 1 networks")).toBeInTheDocument();
     expect(within(dialog).getByText("What would not come back after a restart")).toBeInTheDocument();
     expect(within(dialog).getByText("nextcloud-setup-1")).toBeInTheDocument();
-    // Looking changes nothing: the first request is a preview.
-    expect(backend.callsTo("POST /api/docker/stacks/nextcloud/bring")[0]?.body).toEqual({ preview: true, accept_recreate: false, accept_host_access: false });
+    // Looking changes nothing and asks for nothing: it is the route of the preview, which takes no sudo mode, and nothing is registered.
+    expect(backend.callsTo("POST /api/docker/stacks/nextcloud/bring/preview")[0]?.body).toEqual({ accept_recreate: false, accept_host_access: false });
+    expect(backend.callsTo("POST /api/docker/stacks/nextcloud/bring")).toHaveLength(0);
+  });
+
+  it("does not ask who you are to look: the preview opens without sudo mode, and the identity is asked when it is registered", async () => {
+    let elevated = false;
+    const harness = open("/server/docker/stacks", {
+      stacks: [stack("nextcloud", NOBODY, { total: 4, running: 3 })],
+      "POST /api/docker/stacks/nextcloud/bring/preview": () => json(200, PREVIEW),
+      "POST /api/docker/stacks/nextcloud/bring": () => (elevated ? json(200, { ...PREVIEW, preview: false, adopted: true }) : problem(403, "elevation_required", "Confirm it's you to continue.")),
+      "POST /api/auth/elevate": () => {
+        elevated = true;
+        return json(200, { elevated_until: new Date(Date.now() + 600_000).toISOString() });
+      },
+    });
+    await harness.user.click(await screen.findByRole("button", { name: "Bring to Noust…" }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Bring nextcloud to Noust" });
+    expect(await within(dialog).findByText("/srv/nextcloud/compose.yaml")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Confirm it's you" })).not.toBeInTheDocument();
+    expect(harness.backend.callsTo("POST /api/docker/stacks/nextcloud/bring")).toHaveLength(0);
+    await harness.user.click(within(dialog).getByRole("button", { name: "Bring to Noust" }));
+    const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
+    await harness.user.type(within(confirm).getByLabelText("Authentication code"), "123456");
+    await harness.user.click(within(confirm).getByRole("button", { name: "Continue" }));
+    await waitFor(() => {
+      expect(harness.backend.callsTo("POST /api/docker/stacks/nextcloud/bring")).toHaveLength(2);
+    });
+  });
+
+  it("shows what Compose said when the preview is refused, verbatim, with the credentials the server already hid", async () => {
+    const harness = open("/server/docker/stacks", {
+      stacks: [stack("nextcloud", NOBODY, { total: 4, running: 3 })],
+      "POST /api/docker/stacks/nextcloud/bring/preview": () =>
+        problem(409, "docker_blocked", "Compose does not accept the stack.", { output: "service app: image nextcloud:29 pull access denied, token ****" }),
+    });
+    await harness.user.click(await screen.findByRole("button", { name: "Bring to Noust…" }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Bring nextcloud to Noust" });
+    expect(await within(dialog).findByText(/service app: image nextcloud:29 pull access denied, token \*\*\*\*/)).toBeInTheDocument();
   });
 
   it("registers it under the name that was typed, never recreating a container", async () => {
     const { user, dialog, backend } = await openDialog();
     await user.type(await within(dialog).findByRole("textbox", { name: /Name among the applications/ }), "cloud");
     await user.click(within(dialog).getByRole("button", { name: "Bring to Noust" }));
-    const registered = () => backend.callsTo("POST /api/docker/stacks/nextcloud/bring").filter((call) => (call.body as { preview?: boolean }).preview === false);
+    const registered = () => backend.callsTo("POST /api/docker/stacks/nextcloud/bring");
     await waitFor(() => {
       expect(registered()).toHaveLength(1);
     });

@@ -64,6 +64,9 @@ export const docker: Catalog<typeof en> = {
     networks: "Redes",
     failed: "No se pudo cargar la pila",
     loading: "Cargando la pila",
+    versionsKept: { one: "{count} versión guardada, que conserva Noust", other: "{count} versiones guardadas, que conserva Noust" },
+    volumesUncopied: "{count} sin copia",
+    volumesCopied: "Todos con copia",
   },
   columns: {
     container: "Contenedor",
@@ -82,6 +85,10 @@ export const docker: Catalog<typeof en> = {
     driver: "Controlador",
     onIt: "En ella",
     service: "Servicio",
+    cpu: "Procesador",
+    memory: "Memoria",
+    copy: "Copia de seguridad",
+    subnet: "Subred",
   },
   filters: {
     search: "Buscar por nombre o imagen",
@@ -121,6 +128,18 @@ export const docker: Catalog<typeof en> = {
     succeeded: "Versiones nuevas buscadas",
     failed: "No se pudieron buscar versiones nuevas",
     couldNot: "No se pudo empezar a buscar versiones nuevas",
+    fleet: {
+      title: "Buscar versiones nuevas en todos los servidores",
+      description: "Cada servidor pregunta a los registros por las imágenes que usan sus contenedores y guarda lo que encontró. No se descarga nada si no lo pides. El Docker de esta central no entra: míralo desde su propia página.",
+      planning: "Calculando qué servidores buscarían",
+      planFailed: "No se pudo calcular qué servidores buscarían",
+      running: "Buscando versiones nuevas en todos los servidores",
+      succeeded: "Se buscaron versiones nuevas en todos los servidores",
+      failed: "La búsqueda de versiones nuevas falló en algunos servidores",
+      resultLabel: "Lo que encontró cada servidor",
+      found: { one: "{server}: {count} imagen mirada, {newer} con versión nueva", other: "{server}: {count} imágenes miradas, {newer} con versión nueva" },
+      foundNone: { one: "{server}: {count} imagen mirada, ninguna con versión nueva", other: "{server}: {count} imágenes miradas, ninguna con versión nueva" },
+    },
   },
   update: {
     title: "Actualizar {name}",
@@ -133,6 +152,7 @@ export const docker: Catalog<typeof en> = {
     latest: "La última",
     looked: "Comprobada",
     moves: "También mueve",
+    origin: "Viene de",
     stepsLabel: "Lo que hace la actualización, en orden",
     steps: {
       pull: "Descargar las imágenes nuevas",
@@ -206,6 +226,7 @@ export const docker: Catalog<typeof en> = {
       bring_first: "Noust no creó esta pila. Tráela primero a Noust, sin tocarla, y se podrá editar aquí.",
       no_file: "La pila no tiene un archivo Compose que Noust pueda leer.",
       not_compose: "Esto no es una pila de Compose.",
+      owned: "Esta pila la mantiene un motor de bases de datos o el propio Noust: cámbiala donde se gestiona.",
     },
     apply: {
       title: "Aplicar el Compose de {name}",
@@ -400,6 +421,7 @@ export const docker: Catalog<typeof en> = {
     caption: "Contenedores",
     failed: "No se pudieron cargar los contenedores",
     empty: { title: "Docker todavía no tiene contenedores", description: "Cuando algo corra en Docker, estará aquí con su estado y de quién es." },
+    usagePending: "Cargando su consumo",
   },
   container: {
     failed: "No se pudo cargar el contenedor",
@@ -499,7 +521,7 @@ export const docker: Catalog<typeof en> = {
   },
   volumes: {
     title: "Volúmenes",
-    description: "Dónde viven los datos de cada contenedor, de quién es cada volumen y quién lo usa.",
+    description: "Dónde guarda Docker los datos, de quién son, cuánto ocupan y si tienen copia.",
     searchLabel: "Buscar volúmenes",
     filterLabel: "Filtrar volúmenes",
     count: "{shown} de {total} volúmenes",
@@ -508,6 +530,24 @@ export const docker: Catalog<typeof en> = {
     anonymous: "Anónimo: lo creó un contenedor sin darle nombre",
     sizeLoading: "Contando",
     empty: { title: "Docker todavía no tiene volúmenes", description: "Un volumen aparece aquí cuando un contenedor guarda sus datos en uno." },
+    copy: {
+      scheduled: "Programada, {when}",
+      scheduledNone: "Programada, aún sin hacer",
+      copiedOnly: "{when}, sin programar",
+      none: "Sin copia",
+      now: "Copiar ahora…",
+      title: "Copiar {name} ahora",
+      description: "La copia la hace la máquina, con este comando.",
+      never: "Todavía no tiene ninguna copia.",
+      last: "Su copia más reciente se hizo {when}.",
+      unknown: "Este servidor no dice si tiene copia",
+    },
+    unprotected: {
+      title: { one: "{count} volumen con datos sin copia", other: "{count} volúmenes con datos sin copia" },
+      body: "Lo que hay en ellos no se podría recuperar si algo falla.",
+      bodySized: "Son {size} que no se podrían recuperar si algo falla.",
+      schedule: "Programar copias",
+    },
   },
   networks: {
     title: "Redes",
@@ -519,6 +559,10 @@ export const docker: Catalog<typeof en> = {
     failed: "No se pudieron cargar las redes",
     builtin: "De Docker",
     empty: { title: "Docker todavía no tiene redes propias", description: "Una red aparece aquí cuando una pila o un contenedor la crea." },
+    containersCount: { one: "{count} contenedor", other: "{count} contenedores" },
+    noRange: "Docker no da a esta red ningún rango de direcciones",
+    gateway: "Puerta de enlace {gateway}",
+    moreRanges: { one: "y {count} más", other: "y {count} más" },
   },
   stacks: {
     title: "Pilas",
@@ -578,5 +622,11 @@ export const docker: Catalog<typeof en> = {
       fix: "Qué hacer",
       fixes: { via_owner: "Iniciarlo desde su propietario", bring_first: "Traer su pila a Noust", set_policy: "Darle una política de reinicio" },
     },
+  },
+  source: {
+    registry: "Un registro",
+    built_noust: "Construida en esta máquina por Noust",
+    built_other: "Construida en esta máquina",
+    unknown: "Origen desconocido",
   },
 };

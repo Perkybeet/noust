@@ -7,7 +7,7 @@ import { databasesQuery } from "../../api/queries/databases";
 import type { DatabaseList } from "../../api/queries/databases";
 import { sitesQuery } from "../../api/queries/sites";
 import type { SiteList } from "../../api/queries/sites";
-import { useOffers } from "../central/features";
+import { DATABASES_NEED, useOffers } from "../central/features";
 import { countByOwner } from "./organization";
 import { useOrganization } from "./useOrganization";
 
@@ -40,7 +40,7 @@ export function useResources(): Resources {
   // is refused is settled and empty, as one the principal may not read is.
   const offered = useOffers();
   const apps = useQuery({ ...appsQuery(), enabled: org.available && org.can("apps.read"), retry: false, retryOnMount: false });
-  const databases = useQuery({ ...databasesQuery(), enabled: org.available && org.can("databases.read") && offered("databases"), retry: false, retryOnMount: false });
+  const databases = useQuery({ ...databasesQuery(), enabled: org.available && org.can("databases.read") && offered(DATABASES_NEED), retry: false, retryOnMount: false });
   const sites = useQuery({ ...sitesQuery(), enabled: org.available && org.can("apps.read") && offered("sites"), retry: false, retryOnMount: false });
 
   return useMemo(() => {

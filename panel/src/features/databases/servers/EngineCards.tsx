@@ -50,6 +50,8 @@ function stateOf(t: T, server: DbServer): { state: Status; label: string } {
 /** Where an engine runs, in a line: the system's, a container of Noust's, or an application's own stack. */
 function Where({ server, machine, t }: { server: DbServer; machine: string; t: T }) {
   const place = placeOf(server);
+  // An engine in a stack of which Noust knows no application (what a machine already ran) has no application to link to.
+  if (place.kind === "app" && place.app === "") return t("dbServers.place.stack");
   if (place.kind === "app") {
     return t.rich("dbServers.place.app", {
       app: (

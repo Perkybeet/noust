@@ -8,7 +8,8 @@
 import type { ComponentType } from "react";
 import type { LucideIcon } from "lucide-react";
 
-import type { FeatureKey } from "../../features/central/features";
+import { DATABASES_NEED } from "../../features/central/offers";
+import type { FeatureNeed } from "../../features/central/features";
 import type { PlainKey, T } from "../../i18n";
 import { OBJECT_ICONS } from "../ui/objectIcons";
 import { TextLink } from "../ui/TextLink";
@@ -64,7 +65,7 @@ export interface WidgetDef {
   /** What a person must hold, all of it, to see it in a panel of one server. A panel of the fleet needs `fleet.read` instead, whatever the widget reads. */
   needs: readonly string[];
   /** The function of the server's table it reads: a panel of a server that cannot do it has no such widget (item 187). A panel of the fleet reads every server's, not this one's. */
-  feature?: FeatureKey;
+  feature?: FeatureNeed;
   /** The link in its head, to where the whole of it is. */
   link?: { to: string; label: PlainKey };
   /** A head that is drawn from what the widget knows (the count of what needs attention). */
@@ -83,12 +84,12 @@ export const WIDGETS: readonly WidgetDef[] = [
   { type: "apps", icon: OBJECT_ICONS.app, category: "apps", sizes: ["small", "medium", "large", "wide"], scopes: ["server", "fleet"], needs: ["apps.read"], feature: "applications", link: { to: "/apps", label: "widgets.apps.all" }, Body: AppsBody },
   { type: "deployments", icon: OBJECT_ICONS.deployment, category: "apps", sizes: ["small", "medium", "large", "wide"], scopes: ["server"], needs: ["apps.read"], feature: "applications", link: { to: "/activity", label: "widgets.deployments.all" }, Body: DeploymentsBody },
   { type: "tasks", icon: OBJECT_ICONS.schedule, category: "apps", sizes: ["small", "medium"], scopes: ["server"], needs: ["apps.read"], feature: "scheduled_jobs", link: { to: "/cron", label: "widgets.tasks.all" }, Body: TasksBody },
-  { type: "databases", icon: OBJECT_ICONS.database, category: "apps", sizes: ["medium", "large", "tall"], scopes: ["server"], needs: ["databases.read"], feature: "databases", link: { to: "/databases", label: "widgets.databases.all" }, Body: DatabasesBody },
+  { type: "databases", icon: OBJECT_ICONS.database, category: "apps", sizes: ["medium", "large", "tall"], scopes: ["server"], needs: ["databases.read"], feature: DATABASES_NEED, link: { to: "/databases", label: "widgets.databases.all" }, Body: DatabasesBody },
   { type: "resources", icon: OBJECT_ICONS.resources, category: "machine", sizes: ["small", "medium", "tall"], scopes: ["server"], needs: ["server.read"], Body: ResourcesBody },
   { type: "disk", icon: OBJECT_ICONS.disk, category: "machine", sizes: ["small", "medium", "tall"], scopes: ["server"], needs: ["server.read"], Body: DiskBody },
-  { type: "processes", icon: OBJECT_ICONS.processes, category: "machine", sizes: ["medium", "large"], scopes: ["server"], needs: ["server.read"], Body: ProcessesBody },
+  { type: "processes", icon: OBJECT_ICONS.processes, category: "machine", sizes: ["medium", "large"], scopes: ["server"], needs: ["server.read"], feature: "system_processes", Body: ProcessesBody },
   { type: "services", icon: OBJECT_ICONS.service, category: "machine", sizes: ["small", "medium"], scopes: ["server"], needs: ["server.read"], feature: "services", link: { to: "/server/services", label: "widgets.services.all" }, Body: ServicesBody },
-  { type: "updates", icon: OBJECT_ICONS.update, category: "machine", sizes: ["small", "medium", "large"], scopes: ["server", "fleet"], needs: ["server.read"], link: { to: "/server/system", label: "widgets.updates.all" }, Body: UpdatesBody },
+  { type: "updates", icon: OBJECT_ICONS.update, category: "machine", sizes: ["small", "medium", "large"], scopes: ["server", "fleet"], needs: ["server.read"], feature: "system_updates", link: { to: "/server/system", label: "widgets.updates.all" }, Body: UpdatesBody },
   { type: "certificates", icon: OBJECT_ICONS.certificate, category: "protection", sizes: ["small", "medium", "large"], scopes: ["server", "fleet"], needs: ["apps.read"], feature: "certificates", Body: CertificatesBody },
   { type: "backups", icon: OBJECT_ICONS.backup, category: "protection", sizes: ["small", "medium", "tall"], scopes: ["server", "fleet"], needs: ["backups.read"], feature: "application_backups", link: { to: "/backups", label: "widgets.backups.all" }, Body: BackupsBody },
   { type: "probes", icon: OBJECT_ICONS.probe, category: "protection", sizes: ["small", "medium", "wide"], scopes: ["server"], needs: ["server.read"], feature: "process_monitor", link: { to: "/alerts/probes", label: "widgets.probes.all" }, Body: ProbesBody },
@@ -108,7 +109,7 @@ function needsFor(widget: WidgetDef, scope: PanelScope): readonly string[] {
 }
 
 /** What a server offers, as `useScopeOffers` says it; absent: every widget is offered whatever it reads. */
-export type Offers = (key: FeatureKey | undefined) => boolean;
+export type Offers = (need: FeatureNeed | undefined) => boolean;
 
 /**
  * Whether a widget can be in a panel of this scope for a credential that holds these permissions, on a server that can do what the

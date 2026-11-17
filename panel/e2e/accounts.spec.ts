@@ -170,6 +170,8 @@ serial("a role change waits for a second officer, who approves it in the inbox; 
   await createPerson(consoleServer, admin, "gus", "security", "gus@example.com");
   await createPerson(consoleServer, admin, "sec1", "security", "sec1@example.com");
   await createPerson(consoleServer, admin, "viewer1", "viewer", "viewer1@example.com");
+  // For the passkeys of the last test, made now because once approvals are on an account is no longer made with the access token alone.
+  await createPerson(consoleServer, admin, "ben", "viewer", "ben@example.com");
   expect((await admin.patch("/api/config", { data: { path: "approval.enabled", value: true }, headers: await csrf(admin) })).ok()).toBe(true);
   await admin.dispose();
 
@@ -287,5 +289,60 @@ serial("a passkey is added, signs in with no name or password, and confirms it's
   await expectNoA11yViolations(page, "the second step of a sign-in");
   await page.getByRole("button", { name: "Use your passkey" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Account" })).toBeVisible();
+  await context.close();
+});
+
+serial("a second passkey is added behind a confirmation made with the first: the confirmation and the creation, one after the other (item 202)", async ({ browser, consoleServer, browserName, problems }) => {
+  test.skip(browserName !== "chromium", "the virtual authenticator is Chrome's DevTools protocol");
+  // The virtual authenticator closes a window the moment it answers, so it never says "A request is already pending" (a real one does,
+  // a moment after): this proves the path in a real browser, and the faked browser of the unit tests (PasskeysAdd.test.tsx) is what holds the refusal.
+  problems.expect(/status of 403 .* \/api\/auth\/(passkeys\/registration\/options|2fa\/backup-codes)$/);
+  const local = consoleServer.url.replace("127.0.0.1", "localhost");
+  const context = await browser.newContext({ baseURL: local });
+  const page = await context.newPage();
+  // A browser without autofill for passkeys, as in the test above: what is under proof is the two explicit ceremonies.
+  await page.addInitScript(() => {
+    Object.defineProperty(PublicKeyCredential, "isConditionalMediationAvailable", { value: () => Promise.resolve(false) });
+  });
+  await virtualAuthenticator(page);
+  // An account of its own, made with the others: the test above replaced the backup codes of the first one.
+  const ben = person("ben");
+
+  // This browser's authenticator holds no passkey of the account yet: the first one here is added with a code.
+  await signInAs(page, ben, "/account/security");
+  const passkeys = page.getByRole("region", { name: "Passkeys" });
+  await passkeys.getByRole("button", { name: "Add a passkey" }).click();
+  let add = page.getByRole("dialog", { name: "Add a passkey" });
+  await add.getByLabel("Name").fill("Virtual phone");
+  await add.getByRole("button", { name: "Create passkey" }).click();
+  await confirmAsPerson(page, ben);
+  await expect(passkeys.getByRole("row").filter({ hasText: "Virtual phone" })).toBeVisible();
+
+  // A new session confirms nothing yet: the passkey of this browser signs in, and the next one is added behind a confirmation by it.
+  await context.clearCookies();
+  await page.goto("/login?next=%2Faccount%2Fsecurity");
+  await passwordStep(page, ben);
+  await page.getByRole("button", { name: "Use your passkey" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Account" })).toBeVisible();
+  // The passkey that confirms is this browser's only authenticator, and a second one is made on another device: the list of passkeys the
+  // server says the new one must not repeat is left empty, as it is for a device that holds none of them. What is under proof is the
+  // browser's two windows, one after the other, and not that exclusion.
+  await page.route(/\/api\/auth\/passkeys\/registration\/options$/, async (route) => {
+    const response = await route.fetch();
+    const body = (await response.json()) as { public_key?: { excludeCredentials?: unknown[] } };
+    if (body.public_key !== undefined) body.public_key.excludeCredentials = [];
+    await route.fulfill({ response, json: body });
+  });
+  await passkeys.getByRole("button", { name: "Add a passkey" }).click();
+  add = page.getByRole("dialog", { name: "Add a passkey" });
+  await add.getByLabel("Name").fill("Virtual tablet");
+  await add.getByRole("button", { name: "Create passkey" }).click();
+  await page.getByRole("dialog", { name: "Confirm it's you" }).getByRole("button", { name: "Confirm with a passkey" }).click();
+  // The confirmation and the creation are two windows of the browser, one after the other: the second is not refused as pending.
+  await expect(passkeys.getByRole("row").filter({ hasText: "Virtual tablet" })).toBeVisible();
+  await expect(page.getByText("Could not add the passkey")).toHaveCount(0);
+  await expect(page.getByText(/already pending/)).toHaveCount(0);
+  await stillness(page);
+  await expectNoA11yViolations(page, "security with three passkeys");
   await context.close();
 });
