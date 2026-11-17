@@ -15,8 +15,8 @@ once in `noust.web.permissions.roles`:
 | Permission | Governs | viewer | operator | admin | security | auditor |
 |---|---|---|---|---|---|---|
 | `apps.read`, `server.read`, `databases.read`, `backups.read`, `fleet.read`, `settings.read` | Seeing everything, secrets redacted | yes | yes | yes | yes | yes |
-| `apps.operate` | Start, stop, restart, renew certificates, run cron jobs now | | yes | yes | | |
-| `apps.deploy` | Update, roll back, activate a release, rebuild a deployment | | yes | yes | | |
+| `apps.operate` | Start, stop, restart, renew certificates, run scheduled tasks now | | yes | yes | | |
+| `apps.deploy` | Update, roll back, switch to another release, rebuild a deployment | | yes | yes | | |
 | `backups.run` | Take and verify backups | | yes | yes | | |
 | `apps.manage` | Create, configure and delete applications, sites, certificates, domains | | | yes | | |
 | `secrets.reveal` | `.env` in clear, connection strings, exports with secrets, command lines of processes | | | yes | | |

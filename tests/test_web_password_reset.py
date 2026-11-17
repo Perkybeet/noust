@@ -402,8 +402,9 @@ class TestInvitingByMail:
 
         assert body["email_error"] == "There is no way to send mail from this server"
         assert body["email_error_coded"] == {"code": "mail.no_transport", "params": {}}
-        # The way out is said too, naming where Settings keeps it today.
-        assert "monitor.smtp" in body["email_error_hint"]
+        # The way out is said too, naming where Settings keeps it today and no key of the
+        # configuration: the console gives the way there.
+        assert "monitor.smtp" not in body["email_error_hint"]
         assert "Settings > Notification channels" in body["email_error_hint"]
 
     def test_an_invitation_that_was_not_asked_to_be_mailed_has_nothing_to_explain(

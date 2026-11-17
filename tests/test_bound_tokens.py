@@ -184,7 +184,7 @@ class TestWhoMayIssueOne:
     def test_the_owner_must_reach_the_scope(self, world: World) -> None:
         make_person(world.teams, "pia", "viewer", team="globex")
 
-        with pytest.raises(SecurityError, match="does not reach"):
+        with pytest.raises(SecurityError, match="has no role on that"):
             issue("pia", team="acme", project="mobile")
 
     def test_an_ownerless_token_cannot_be_bound(self, world: World) -> None:
@@ -199,7 +199,7 @@ class TestWhoMayIssueOne:
             get_token_manager().create_api_token(
                 "ghost", "read", None, owner=account, bound=("galaxy", 1)
             )
-        with pytest.raises(SecurityError, match="does not reach"):
+        with pytest.raises(SecurityError, match="has no role on that"):
             get_token_manager().create_api_token(
                 "ghost2",
                 "read",

@@ -373,7 +373,7 @@ class TestBoundTokens:
             code=1,
         )
 
-        assert "does not reach" in output
+        assert "has no role on that" in output
 
     def test_a_token_without_an_owner_is_not_bound(self, cli: CliRunner) -> None:
         output = run(cli, "token", "create", "x", "--team", "acme", code=1)

@@ -93,16 +93,16 @@ PUBLIC = "public"
 
 #: Human-readable description of each permission, for the console and --help.
 DESCRIPTIONS: dict[str, str] = {
-    Permission.SELF: "Own session, second factor, password, tokens and usage notice",
+    Permission.SELF: "Own session, second factor, password, tokens and terms of use",
     Permission.APPS_READ: "See applications, sites, certificates, jobs, logs and deployments",
-    Permission.APPS_OPERATE: "Start, stop and restart; renew certificates; run cron jobs",
-    Permission.APPS_DEPLOY: "Update, roll back, activate a release, rebuild",
+    Permission.APPS_OPERATE: "Start, stop and restart; renew certificates; run scheduled tasks",
+    Permission.APPS_DEPLOY: "Update, roll back, switch to another release, rebuild",
     Permission.APPS_MANAGE: "Create, configure and delete applications, sites and domains",
     Permission.APPS_TERMINAL: (
         "A terminal and one-off commands as an application's own account, with its secrets"
     ),
     Permission.SECRETS_REVEAL: "Read secrets in clear: .env values, exports, keys",
-    Permission.ROOT_EQUIVALENT: "Raw units, cron commands, backup hooks, raw site configuration",
+    Permission.ROOT_EQUIVALENT: "Write systemd units, scheduled commands, backup hooks and a site's configuration by hand: each runs as root",
     Permission.SERVER_READ: "See the server: system, services, metrics, monitor",
     Permission.SERVER_MANAGE: "Manage the server: services, the monitor",
     Permission.SERVER_HOST_ACCESS: "Change the host itself: SSH, firewall, packages",

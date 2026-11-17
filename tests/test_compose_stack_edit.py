@@ -296,8 +296,13 @@ class TestWhichStacksAreEditedHere:
             disk=lambda path: None,
         )
 
+        edit = StackEditor(gate, store=store, runner=box)
+        shown = edit.view(names.instance_project("pg16"))
+
+        # Reading it is not a conflict: it answers that it is not edited here and why. Changing it is.
+        assert (shown.editable, shown.why_code) == (False, "owned")
         with pytest.raises(DockerOwnedError):
-            StackEditor(gate, store=store, runner=box).view(names.instance_project("pg16"))
+            edit.check(names.instance_project("pg16"), NEWER)
 
     def test_a_stack_a_person_may_not_see_is_not_there(
         self, store: NoustStore, stack: App, box: DockerMachine

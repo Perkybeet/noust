@@ -332,9 +332,9 @@ only what recovering an account takes.
 |---|---|---|---|---|---|---|---|---|
 | `accounts.manage` | Create, change, lock and remove accounts; others' sessions |  |  | yes | yes |  |  | yes |
 | `accounts.read` | See accounts and separation-of-duties exceptions |  |  | yes | yes | yes |  | yes |
-| `apps.deploy` | Update, roll back, activate a release, rebuild |  | yes | yes |  |  | yes | yes |
+| `apps.deploy` | Update, roll back, switch to another release, rebuild |  | yes | yes |  |  | yes | yes |
 | `apps.manage` | Create, configure and delete applications, sites and domains |  |  | yes |  |  | yes | yes |
-| `apps.operate` | Start, stop and restart; renew certificates; run cron jobs |  | yes | yes |  |  | yes | yes |
+| `apps.operate` | Start, stop and restart; renew certificates; run scheduled tasks |  | yes | yes |  |  | yes | yes |
 | `apps.read` | See applications, sites, certificates, jobs, logs and deployments | yes | yes | yes | yes | yes | yes | yes |
 | `apps.terminal` | A terminal and one-off commands as an application's own account, with its secrets |  |  | yes |  |  | yes | yes |
 | `assistant.use` | Talk to the built-in assistant, which acts with a token of its own that holds at most what you hold, and see what it cost |  | yes | yes |  |  | yes | yes |
@@ -352,10 +352,10 @@ only what recovering an account takes.
 | `docker.read` | See everything Docker has on the server and whose it is: containers, images, volumes, networks, their logs and consumption | yes | yes | yes | yes | yes | yes | yes |
 | `fleet.manage` | Add and remove servers |  |  | yes |  |  | yes | yes |
 | `fleet.read` | See the servers this central manages | yes | yes | yes | yes | yes | yes | yes |
-| `root_equivalent` | Raw units, cron commands, backup hooks, raw site configuration |  |  | yes |  |  | yes | yes |
+| `root_equivalent` | Write systemd units, scheduled commands, backup hooks and a site's configuration by hand: each runs as root |  |  | yes |  |  | yes | yes |
 | `secrets.reveal` | Read secrets in clear: .env values, exports, keys |  |  | yes |  |  | yes | yes |
 | `security.manage` | Change security settings: console access, sign-in policy |  |  | yes | yes |  |  | yes |
-| `self` | Own session, second factor, password, tokens and usage notice | yes | yes | yes | yes | yes | yes | yes |
+| `self` | Own session, second factor, password, tokens and terms of use | yes | yes | yes | yes | yes | yes | yes |
 | `server.host_access` | Change the host itself: SSH, firewall, packages |  |  | yes |  |  | yes | yes |
 | `server.manage` | Manage the server: services, the monitor |  |  | yes |  |  | yes | yes |
 | `server.read` | See the server: system, services, metrics, monitor | yes | yes | yes | yes | yes | yes | yes |

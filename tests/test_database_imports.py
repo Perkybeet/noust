@@ -525,7 +525,9 @@ class TestTheSuperuser:
             make_service(tmp_path / "svc", [mysql]), uploads=UploadStore(tmp_path / "uploads")
         )
 
-        with pytest.raises(ValidationError, match="no superuser load"):
+        with pytest.raises(
+            ValidationError, match="can only be loaded as the superuser into PostgreSQL"
+        ):
             importer.run(
                 "mysql",
                 "shop",
