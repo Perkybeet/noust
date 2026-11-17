@@ -13390,7 +13390,7 @@
         "type": "object"
       },
       "ComposeExceptionModel": {
-        "description": "A compose stack allowed privileged containers and the Docker socket.",
+        "description": "A compose stack allowed what gives the server to its containers.",
         "properties": {
           "allowed_at": {
             "description": "When, ISO 8601",
@@ -91814,7 +91814,7 @@
     },
     "/api/apps/{domain}/sandbox/compose-exception": {
       "delete": {
-        "description": "Stop allowing a compose stack privileged containers and the Docker socket.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The application's regime, without the exception.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "description": "Stop allowing a compose stack what gives the server to its containers.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The application's regime, without the exception.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
         "operationId": "delete_compose_exception_api_apps__domain__sandbox_compose_exception_delete",
         "parameters": [
           {
@@ -91856,7 +91856,7 @@
         "x-noust-permission": "apps.manage"
       },
       "put": {
-        "description": "Allow a compose stack privileged containers and the Docker socket.\n\nEither is root on the server and the compose file comes from the\nrepository, so this needs sudo mode and a reason.\n\nArgs:\n    domain: Domain of the application.\n    body: Why.\n    session: The authenticated, elevated session.\n\nReturns:\n    The application's regime, with the exception.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "description": "Allow a compose stack what gives the server to its containers.\n\nPrivileged mode, the Docker socket, a directory of the server outside the\napplication, a device, a capability that reconfigures the kernel or a\nnamespace of the host is root on the server and the compose file comes\nfrom the repository, so this needs sudo mode and a reason.\n\nArgs:\n    domain: Domain of the application.\n    body: Why.\n    session: The authenticated, elevated session.\n\nReturns:\n    The application's regime, with the exception.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
         "operationId": "put_compose_exception_api_apps__domain__sandbox_compose_exception_put",
         "parameters": [
           {

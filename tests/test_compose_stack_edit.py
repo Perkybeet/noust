@@ -634,6 +634,84 @@ class TestTheTextIsJudgedBeforeComposeReadsIt:
         assert self.configs(box) != []
 
 
+class TestWhatTheContainersHave:
+    """What a stack already has is read from its containers, never from the variables of today."""
+
+    WITH_A_VARIABLE = DOCUMENT.replace(
+        "    ports:", "    volumes:\n      - ${DATA_DIR}:/data\n    ports:"
+    )
+
+    def model(self, source: str) -> dict[str, Any]:
+        """What Compose resolves the document to when ``DATA_DIR`` is ``source``."""
+        return {
+            "services": {
+                "web": {
+                    "image": "nginx:1.28",
+                    "volumes": [{"type": "bind", "source": source, "target": "/data"}],
+                }
+            }
+        }
+
+    def stack_with_a_mount_made_of_a_variable(
+        self, store: NoustStore, tmp_path: Path, source: str
+    ) -> tuple[App, DockerMachine]:
+        stack = make_stack(store, tmp_path)
+        (recipe_source_dir(APP_NAME, store) / COMPOSE_FILE).write_text(self.WITH_A_VARIABLE)
+        box = machine(stack.app_path)
+        box.boxes["stack-web-1"].binds = ["/srv/data"]
+        box.resolved = self.model(source)
+        return stack, box
+
+    def test_a_mount_the_container_has_is_not_new_whatever_the_file_says(
+        self, store: NoustStore, tmp_path: Path
+    ) -> None:
+        stack, box = self.stack_with_a_mount_made_of_a_variable(store, tmp_path, "/srv/data")
+
+        found = editor(box, store, stack.app_path).check(
+            PROJECT, self.WITH_A_VARIABLE.replace("nginx:1.27", "nginx:1.28")
+        )
+
+        assert found.valid is True
+        assert any(
+            "/srv/data" in warning and "the stack runs with this already" in warning
+            for warning in found.warnings
+        )
+
+    def test_a_variable_that_now_says_somewhere_else_is_not_what_the_stack_has(
+        self, store: NoustStore, tmp_path: Path
+    ) -> None:
+        stack, box = self.stack_with_a_mount_made_of_a_variable(store, tmp_path, "/srv/other")
+
+        found = editor(box, store, stack.app_path).check(
+            PROJECT, self.WITH_A_VARIABLE.replace("nginx:1.27", "nginx:1.28")
+        )
+
+        assert found.valid is False
+        assert [p.code for p in found.problems] == ["privileges"]
+        assert "/srv/other" in found.problems[0].message
+
+    def test_docker_that_does_not_say_what_the_containers_have_stops_it_and_says_why(
+        self, store: NoustStore, tmp_path: Path
+    ) -> None:
+        stack, box = self.stack_with_a_mount_made_of_a_variable(store, tmp_path, "/srv/data")
+        box.script(
+            ["docker", "ps", "--all", "--no-trunc", "--filter"],
+            exit_code=1,
+            stderr="Cannot connect to the Docker daemon",
+        )
+
+        found = editor(box, store, stack.app_path).check(
+            PROJECT, self.WITH_A_VARIABLE.replace("nginx:1.27", "nginx:1.28")
+        )
+
+        assert found.valid is False
+        assert found.problems[0].code == "privileges"
+        assert "did not say what" in found.problems[0].message
+        assert "Cannot connect to the Docker daemon" in found.problems[0].output
+        privileges = next(check for check in found.checks if check.name == "privileges")
+        assert privileges.ok is False and privileges.detail == "Docker did not answer"
+
+
 class TestTheHistory:
     def test_the_first_save_keeps_what_the_stack_had_so_there_is_something_to_go_back_to(
         self, store: NoustStore, edit: StackEditor

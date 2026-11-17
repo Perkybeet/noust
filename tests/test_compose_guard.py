@@ -18,6 +18,7 @@ from typing import Any
 import pytest
 
 from noust.core.exceptions import DeploymentError
+from noust.core.runner import FakeRunner
 from noust.core.store import NoustStore
 from noust.deployers.docker_compose import DockerComposeDeployer
 from noust.deployers.helpers import sandbox as build_sandbox
@@ -253,7 +254,7 @@ class TestDeployer:
 
 
 def test_a_running_privileged_stack_is_in_the_warnings_until_it_has_an_exception(
-    tmp_path: Path, store: NoustStore
+    tmp_path: Path, store: NoustStore, runner: FakeRunner
 ) -> None:
     from noust.core.store import App
 

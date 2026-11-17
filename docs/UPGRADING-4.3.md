@@ -133,18 +133,24 @@ state or of another application's directories as they were spelled, and at most 
 devices, the host's namespaces and other paths of the server. It did not follow a link in the repository and did
 not look at the files an `env_file`, a build context or a build secret names. 4.3 refuses all of that in a new
 stack, judges a path by where it leads and asks Compose what the file resolves to
-([the list](compose.md#what-a-stack-may-ask-of-the-server)). Nothing that runs is stopped by it; what happens to
-a stack at its next update depends on how its file says what it carries:
+([the list](compose.md#what-a-stack-may-ask-of-the-server)). Nothing that runs is stopped by it, and no
+application in production stops updating because of it: what a stack already had is what its containers were
+given of the server, which Noust asks Docker for, plus what its file says as written. At its next update:
 
-- **The file spells it out and the update leaves it as it was** (`privileged`, a device, a mount of
-  `/srv/media`, `network_mode: host`): the deploy log says each line and that a new stack would be refused it,
-  and the update goes on. So do a redeploy and a rollback.
-- **It shows only when Compose resolves the file** (a service that an `include` or an `extends` brings in from
-  another file, or a path made of a variable such as `${DATA_DIR}:/data`, whose value is in the stack's `.env`: a
-  recipe's data directory pointed outside the application is the usual one): an update that pulls new commits is
-  refused with "asks for root on this server", the lines and the command, because the commit that served is text
-  and cannot be compared. The stack keeps serving what it served and nothing is stopped.
-- **The update adds it:** refused, as in a new stack.
+- **What its containers already have, or its file says as written** (`privileged` written in the file, a device,
+  a mount of `/srv/media`, `network_mode: host`; a mount made of a variable such as `${DATA_DIR}:/data`, whose
+  value is in the stack's `.env`; a service that an `include` or an `extends` brings in from another file): the
+  deploy log says each line and that a new stack would be refused it, and the update goes on. So do a redeploy, a
+  rollback and an edit in the Docker zone.
+- **What the update adds** (a directory, a device or a capability that no container of that service has, or a
+  variable that now points somewhere else): refused with "asks for root on this server", the lines and the
+  command, as in a new stack. The stack keeps serving what it served.
+- **What 3.1 already refused without an exception** (`privileged`, the Docker socket, Noust's own state, another
+  application's files) is taken from the file that served only, as it always was: a container that has one
+  while the file does not say it in plain words (it came through a variable or an `include`) asks for the
+  recorded exception at its next update. `noust health` lists it.
+- **Docker does not answer** when Noust has to know what the containers have: the update is refused saying
+  why and what to do. Nothing is let through on a guess.
 
 Look before an update does:
 
@@ -152,10 +158,11 @@ Look before an update does:
 noust health
 ```
 
-Under Build sandbox it says how many applications build or run with root's access and, in its warnings, one
-sentence for each stack whose compose file asks for something a new stack would be refused, with the command
-below. `noust ens check` carries the same sentences in the evidence of ENS-BLD-01. Both read the file as written,
-so a stack that hides it behind an `include`, an `extends` or a variable is not there until an update meets it.
+Under Build sandbox it says how many applications build as root and how many Compose stacks run with what gives
+the server to a container and, in its warnings, one sentence for each stack that carries something a new stack
+would be refused, with the command below. It judges the compose file as written and what the stack's containers
+were given, so a stack that hides it behind an `include`, an `extends` or a variable is there too. `noust ens
+check` carries the same sentences in the evidence of ENS-BLD-01.
 
 For each stack, take it out of the compose file and deploy, or record why the application needs it:
 

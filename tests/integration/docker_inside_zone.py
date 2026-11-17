@@ -17,6 +17,7 @@ import os
 import threading
 import time
 from pathlib import Path
+from typing import Any
 
 from docker_inside_lib import (
     BUSYBOX,
@@ -952,6 +953,89 @@ GUARD_DOCUMENTS: dict[str, tuple[dict[str, str], bool, str]] = {
 }
 
 
+#: The Compose project of the stack that already runs; a run on a machine whose Docker is shared names it apart.
+HAD_PROJECT = "privhad"
+
+
+def what_the_containers_have(run: Run, real: Any) -> None:
+    """
+    A stack whose mount is made of a variable already had it: its containers say so, and a variable changed
+    since is not what they were given.
+
+    The stack runs with a directory of the server that only exists once Compose reads its ``.env``
+    (``${DATA_DIR}:/data``), a capability, a device and confinement switched off. What its containers were
+    given is read from the engine and judged by the guard of the compose file, and the new file, resolved by
+    Compose with the ``.env`` of the moment, is compared with it: the same variable is what the stack had,
+    another value (somewhere else, or ``/``) is not.
+
+    Args:
+        run: What reports.
+        real: The runner Noust runs every command through.
+    """
+    from noust.core.docker import grants as docker_grants
+    from noust.deployers.helpers import compose_running, compose_verdict
+    from noust.deployers.helpers.compose_guard import GuardContext, inspect_compose, resolve_model
+
+    folder = WORK / "privileges" / "had"
+    data = WORK / "privileges" / "had-data"
+    data.mkdir(parents=True, exist_ok=True)
+    (folder).mkdir(parents=True, exist_ok=True)
+    (folder / ".env").write_text(f"DATA_DIR={data}\n", encoding="utf-8")
+    file = write_stack(
+        folder,
+        f"services:\n  web:\n    image: {BUSYBOX}\n    command: sleep 3600\n    labels: ['{LABEL}']\n"
+        "    volumes:\n      - ${DATA_DIR}:/data\n    cap_add: [SYS_ADMIN]\n"
+        "    devices:\n      - /dev/null:/dev/null2\n    security_opt:\n      - seccomp:unconfined\n",
+    )
+    base = ["docker", "compose", "-p", HAD_PROJECT, "-f", str(file)]
+    context = GuardContext(app_path=folder, project_dir=folder)
+    try:
+        up(HAD_PROJECT, file)
+        grants = docker_grants.read_project_grants(real, HAD_PROJECT)
+        run.check(
+            "the containers of a stack are read from the engine by the label Compose writes",
+            [g.service for g in grants] == ["web"],
+            grants,
+        )
+        found = compose_running.facts_of(grants, context)
+        for needle in (str(data), "SYS_ADMIN", "/dev/null", "seccomp"):
+            run.check(
+                f"what the engine says the container was given includes {needle}",
+                any(needle in sentence for sentence in found.refused),
+                found.refused,
+            )
+
+        def judged(value: str) -> compose_verdict.Verdict:
+            (folder / ".env").write_text(f"DATA_DIR={value}\n", encoding="utf-8")
+            model, why = resolve_model(real, [[*base, "config", "--format", "json"]], folder)
+            if model is None:
+                raise RuntimeError(f"Compose did not resolve the stack: {why}")
+            heritage = compose_verdict.Heritage(
+                running=lambda: compose_running.read(
+                    lambda: docker_grants.read_project_grants(real, HAD_PROJECT), context
+                )
+            )
+            return compose_verdict.decide(
+                inspect_compose(model, folder, context=context), already=heritage
+            )
+
+        same = judged(str(data))
+        run.check(
+            "the variable as it was is what the stack already had: warned about, nothing stops it",
+            not same.stop and bool(same.had),
+            {"stop": same.stop, "had": same.had},
+        )
+        for other in ("/", str(WORK / "privileges" / "had-elsewhere")):
+            moved = judged(other)
+            run.check(
+                f"the variable changed to {other} is new: refused",
+                bool(moved.stop),
+                {"stop": moved.stop, "had": moved.had},
+            )
+    finally:
+        project_down(HAD_PROJECT, file)
+
+
 @scenario("privileges")
 def privileges(run: Run) -> None:
     """The guard of privileges reads what Compose resolves a stack to, so nothing hides behind include or a variable."""
@@ -1134,6 +1218,7 @@ def privileges(run: Run) -> None:
                 canary not in through.stdout + through.stderr,
                 {"exit": through.exit_code, "stderr": through.stderr[:200]},
             )
+        what_the_containers_have(run, real)
     finally:
         PROVIDER_PATH.unlink(missing_ok=True)
         reset("privileges")

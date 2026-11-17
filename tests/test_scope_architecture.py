@@ -921,6 +921,14 @@ NOT_OWNED: dict[str, str] = {
     "application or database in it, read through /api/assistant/usage which is the instance's",
     "assistant_actions": "the changes the assistant made for a person, counted for the limit per "
     "hour: the instance's ledger, with the tool's name and no application",
+    "assistant_proposals": "a call the assistant prepared for a person to carry out, as its method, "
+    "path, template and fingerprint: its author's own, reached only through the conversation, which "
+    "is its author's, and with no application or database column. What the call touches is judged "
+    "again by the route it is carried out through, which has its own rule in scopes.py",
+    "collected_backups": "the copies a central holds of its servers' backups, with the facts a "
+    "restore needs: the central's own, reached only through /api/backup-collection, which is the "
+    "instance's. It names the server and the owner as the server said them, and the server keeps "
+    "the application and applies its own teams' scope to it",
 }
 
 #: Prefixes whose routes belong to what the tables above hold. None of them may be "open": a route

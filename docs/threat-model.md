@@ -152,10 +152,16 @@ applications run as.
   everything on it, unless the application has a recorded exception; Noust's own state, another
   application's files and anything that belongs to another application are refused with no
   exception. A path is judged by what Docker will mount: `..` is resolved and every link of the
-  repository is followed (`./host` that points at `/` is `/`), the long and the short syntax alike. A stack proven
-  to run with one already is warned about and never stopped; what shows only once Compose resolves the file (an
-  `include`, an `extends`, a variable in a path) cannot be proven and is refused at an update until an exception
-  is recorded.
+  repository is followed (`./host` that points at `/` is `/`), the long and the short syntax alike. A stack that
+  already runs with one is warned about and never stopped, so no application in production stops updating:
+  what a stack already had is what its containers were given of the server, which Noust reads from Docker (a
+  container is not changed without a deployment, which goes through this check, so neither the repository nor
+  the stack's `.env` can write it), and what its file says as written. That holds when it only shows once
+  Compose resolves the file (an `include`, an `extends`, a variable in a path). A variable changed to point
+  somewhere else, or anything an update adds, is new and is refused; `privileged`, the sockets of container
+  runtimes, Noust's state and another application's files are taken only from a file that says them plainly,
+  as they always were, and a container does not make them a stack's to keep. Docker that does not answer is a
+  refusal that says why, never a pass.
 
 ## Deploy hooks
 

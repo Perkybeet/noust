@@ -133,7 +133,13 @@ GUARANTEES: tuple[Guarantee, ...] = (
         "of the server outside the application however a link spells it) unless an exception is "
         "recorded; it is refused, with no exception that can allow it, Noust's state, another "
         "application's files and anything that belongs to another application. What a stack "
-        "already had is warned about and never stopped. Compose and image builds are started "
+        "already had is warned about and never stopped: what its containers were given of the "
+        "server (Noust asks Docker, never the container's environment) and what its compose file "
+        "says as written, whether it comes from a variable, an `include`, an `extends` or is "
+        "written as it is; `noust health` lists it. A container does not make `privileged`, a "
+        "container runtime's socket, Noust's state or another application's files a stack's to "
+        "keep: those are taken only from a file that says them plainly, as before. Compose and "
+        "image builds are started "
         "without Noust's own environment (`NOUST_*`), which a compose file could otherwise "
         "interpolate.",
         "`noust.core.runner.SandboxSpec` and `deployers/helpers/sandbox.py`; "
@@ -155,6 +161,13 @@ GUARANTEES: tuple[Guarantee, ...] = (
             "tests/test_compose_guard_doors.py::TestADoorThatReachesNoustOrAnotherApplication::test_is_refused_and_no_exception_allows_it",
             "tests/test_compose_guard_identity.py::TestTheProject::test_the_project_of_another_application_cannot_be_taken",
             "tests/test_compose_guard_update.py::TestTheUpdate::test_the_same_line_is_refused_when_the_update_is_what_put_the_link_there",
+            "tests/test_compose_guard_running.py::TestWhatOnlyResolvingShows::test_a_mount_made_of_a_variable_that_a_container_already_has_updates_with_a_warning",
+            "tests/test_compose_guard_running.py::TestWhatOnlyResolvingShows::test_a_mount_brought_by_an_include_is_what_the_container_has",
+            "tests/test_compose_guard_running.py::TestWhatOnlyResolvingShows::test_a_redeploy_does_not_take_what_the_env_says_now_for_what_the_stack_had",
+            "tests/test_compose_guard_running.py::TestWhatAnUpdateAdds::test_what_no_container_has_is_refused",
+            "tests/test_compose_guard_running.py::TestWhatIsNotInheritedByRunning::test_a_container_that_has_it_does_not_make_it_the_stacks_to_keep",
+            "tests/test_compose_guard_running.py::TestWhenDockerDoesNotAnswer::test_it_is_a_refusal_that_says_why_and_how_to_mend_it_and_never_a_pass",
+            "tests/test_compose_guard_running.py::TestWhatHealthLists::test_a_stack_whose_file_says_nothing_and_whose_container_mounts_the_server_is_listed",
             "tests/test_compose_exception_who.py::TestNoTeamRole::test_the_permission_is_not_one_a_team_can_own",
             "tests/test_compose_environment.py::TestTheRealRunner::test_compose_is_started_without_what_is_noust_s",
             "tests/test_monorepo_identity.py::TestANewMonorepo::test_it_is_given_an_account_of_its_own",

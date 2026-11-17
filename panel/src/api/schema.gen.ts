@@ -6336,10 +6336,12 @@ export interface paths {
         get?: never;
         /**
          * Put Compose Exception
-         * @description Allow a compose stack privileged containers and the Docker socket.
+         * @description Allow a compose stack what gives the server to its containers.
          *
-         *     Either is root on the server and the compose file comes from the
-         *     repository, so this needs sudo mode and a reason.
+         *     Privileged mode, the Docker socket, a directory of the server outside the
+         *     application, a device, a capability that reconfigures the kernel or a
+         *     namespace of the host is root on the server and the compose file comes
+         *     from the repository, so this needs sudo mode and a reason.
          *
          *     Args:
          *         domain: Domain of the application.
@@ -6356,7 +6358,7 @@ export interface paths {
         post?: never;
         /**
          * Delete Compose Exception
-         * @description Stop allowing a compose stack privileged containers and the Docker socket.
+         * @description Stop allowing a compose stack what gives the server to its containers.
          *
          *     Args:
          *         domain: Domain of the application.
@@ -42604,7 +42606,7 @@ export interface components {
         };
         /**
          * ComposeExceptionModel
-         * @description A compose stack allowed privileged containers and the Docker socket.
+         * @description A compose stack allowed what gives the server to its containers.
          */
         ComposeExceptionModel: {
             /**

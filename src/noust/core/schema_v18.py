@@ -200,7 +200,11 @@ CREATE TABLE IF NOT EXISTS collect_settings (
     updated_at TEXT NOT NULL
 );
 """
-BACKUPS_COLUMNS: list[Column] = []
+# ``collected_backups.meta`` is in the ``CREATE TABLE`` for a new store and here for a store of a build
+# of 4.3 that made the table before the column was written (see ``ASSISTANT_COLUMNS``).
+BACKUPS_COLUMNS: list[Column] = [
+    ("collected_backups", "meta", "TEXT NOT NULL DEFAULT '{}'"),
+]
 
 # Owned by the copies-that-were-not-sent lane (item 201): a copy that was made and could not be
 # sent to a destination is owed to it, and nothing else remembered that.
@@ -447,10 +451,14 @@ CREATE INDEX IF NOT EXISTS idx_assistant_proposals_conversation
 # ``assistant_settings.private_host`` is the host and port of a provider on this machine or the
 # operator's network that the operator consented to this server calling (the assistant's own
 # consent, gone with the provider or with turning the assistant off). Both are in the
-# ``CREATE TABLE`` above and not in the list below: the tables are new in 4.3, which no published
-# store has, so only a store of an unpublished build of 4.3 lacks the columns (drop its
-# ``assistant_*`` tables and open it again: they hold conversations kept for a month).
-ASSISTANT_COLUMNS: list[Column] = []
+# ``CREATE TABLE`` above, for a new store, and in the list below, for a store of a build of 4.3 that
+# made the table before the column was written: ``CREATE TABLE IF NOT EXISTS`` leaves such a table as
+# it is, so the column is added the next time the store opens (a store that came from 4.2 or from a
+# published release never lacks them).
+ASSISTANT_COLUMNS: list[Column] = [
+    ("assistant_settings", "private_host", "TEXT NOT NULL DEFAULT ''"),
+    ("assistant_proposals", "template", "TEXT NOT NULL DEFAULT ''"),
+]
 
 # Owned by the Docker lane that updates images and edits a stack's Compose (item 189).
 # docker_image_checks: what the last look at the registries found of each image a container runs, one

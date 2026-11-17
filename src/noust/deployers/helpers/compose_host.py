@@ -100,6 +100,36 @@ def enabled(value: Any) -> bool:
     return value is True or str(value).strip().lower() in ("true", "yes", "on", "1")
 
 
+def device_identity(entry: str) -> str:
+    """
+    Name the device an entry of ``devices`` or ``device_cgroup_rules`` gives, as the same device
+    whichever way it is spelled.
+
+    Args:
+        entry: ``/dev/kvm``, ``/dev/kvm:/dev/kvm:rwm`` (the short form, which names the device on the
+            host first) or a cgroup rule (``c 13:* rwm``).
+
+    Returns:
+        The device's path on the host, or the rule with its spaces collapsed.
+    """
+    text = entry.strip()
+    if text.startswith("/"):
+        return text.split(":", 1)[0]
+    return " ".join(text.split())
+
+
+def option_identity(option: Any) -> str:
+    """
+    Args:
+        option: One ``security_opt`` as a compose file spells it (``seccomp:unconfined``) or Docker
+            records it (``seccomp=unconfined``).
+
+    Returns:
+        It in one spelling, so that the file and the container that was made from it are one fact.
+    """
+    return str(option).replace(" ", "").lower().replace(":", "=")
+
+
 def _capability(value: Any) -> str:
     """
     Args:
@@ -159,14 +189,14 @@ def judge_settings(findings: ComposeFindings, who: str, service: Mapping[str, An
             else entry
         )
         findings.add(
-            (who, "devices", device),
+            (who, "devices", device_identity(device)),
             say("compose_guard.devices", who=who, device=device),
             refused=True,
         )
     for option in items(service.get("security_opt")):
         if str(option).replace(" ", "").lower() in _UNCONFINED:
             findings.add(
-                (who, "unconfined", str(option)),
+                (who, "unconfined", option_identity(option)),
                 f"{who} turns its confinement off ({option})",
                 refused=True,
             )

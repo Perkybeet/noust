@@ -665,7 +665,7 @@ def get_compose_exception(
     domain: str, *, store: NoustStore | None = None
 ) -> ComposeException | None:
     """
-    Read whether a compose stack may run privileged containers or mount the Docker socket.
+    Read whether a compose stack may be given what gives the server to a container.
 
     Args:
         domain: The application.
@@ -697,7 +697,7 @@ def set_compose_exception(
     store: NoustStore | None = None,
 ) -> ComposeException | None:
     """
-    Allow, or stop allowing, a compose stack privileged containers and the Docker socket.
+    Allow, or stop allowing, a compose stack what gives the server to its containers.
 
     An exception names a domain, so a stack can be allowed before its first
     deployment; it stays until it is revoked.
@@ -725,7 +725,7 @@ def set_compose_exception(
     text = compliance.reason_text(reason)
     if text is None:
         raise ValidationError(
-            "A privileged container needs a reason",
+            "Giving a container what gives this server to it needs a reason",
             details="It is root on this server and this server asks why: --reason '...'.",
         )
     exception = ComposeException(domain, text, actor, utc_now_iso("seconds"))
@@ -821,37 +821,85 @@ def _compose_warning(app: App) -> str | None:
     Returns:
         The warning, or None.
     """
-    from noust.deployers.helpers.compose_guard import stack_findings
+    from noust.deployers.helpers.compose_privileges import stack_findings
 
-    if not app.app_path:
+    if not app.app_path or get_compose_exception(app.domain) is not None:
         return None
-    findings = stack_findings(Path(app.app_path))
-    if not findings.refused or get_compose_exception(app.domain) is not None:
+    report = stack_findings(app)
+    refused = report.findings.refused
+    if not refused and not report.unread:
         return None
+    unread = (
+        f" Its containers could not be read ({report.unread}), so what they have of this server "
+        "is not listed."
+        if report.unread
+        else ""
+    )
+    if not refused:
+        return f"{app.domain}: what its containers have of this server is not known.{unread}"
     return (
         f"{app.domain} runs with what gives this server to its containers or reaches beyond "
-        f"the application ({'; '.join(findings.refused)}). A new stack is refused this; record "
+        f"the application ({'; '.join(refused)}). A new stack is refused this; record "
         f"why this one needs it: noust app sandbox compose-exception {app.domain} --reason '...'"
+        f", or remove it from the compose file.{unread}"
     )
+
+
+def _is_stack(app: App) -> bool:
+    """Whether an application is a Compose stack, whose containers (and not a build) the guard looks at."""
+    return (app.app_type or "") == "docker-compose"
 
 
 def sandbox_warnings(store: NoustStore | None = None) -> dict[str, str]:
     """
-    Collect :func:`sandbox_warning` for every application.
+    Collect :func:`sandbox_warning` for every application that builds, Compose stacks apart.
+
+    A stack builds inside Docker, not in the sandbox: what is said of it is :func:`compose_warnings`.
 
     Args:
         store: The store; the process-wide one by default.
 
     Returns:
-        Domain to warning, for the applications that have one.
+        Domain to warning, for the applications whose builds are not sandboxed.
     """
     store = store or get_store()
     warnings: dict[str, str] = {}
     for app in store.list_apps():
+        if _is_stack(app):
+            continue
         try:
             warning = sandbox_warning(app, get_state(app.domain, store=store))
         except (NoustError, sqlite3.Error) as exc:
             warning = f"{app.domain}: the build regime could not be read ({exc})"
+        if warning:
+            warnings[app.domain] = warning
+    return warnings
+
+
+def compose_warnings(store: NoustStore | None = None) -> dict[str, str]:
+    """
+    Collect what the guard of a compose stack says of every stack that runs with what a new one is refused.
+
+    The same judgement as an update's, applied to what is there now: the compose file as written and what
+    the stack's containers were given of the server (:func:`noust.deployers.helpers.compose_privileges.stack_findings`).
+
+    Args:
+        store: The store; the process-wide one by default.
+
+    Returns:
+        Domain to warning, for the stacks that have one and no exception recorded.
+    """
+    store = store or get_store()
+    warnings: dict[str, str] = {}
+    for app in store.list_apps():
+        if not _is_stack(app):
+            continue
+        try:
+            warning = _compose_warning(app)
+        except (NoustError, sqlite3.Error) as exc:
+            warning = (
+                f"{app.domain}: what its containers have of this server could not be read ({exc})"
+            )
         if warning:
             warnings[app.domain] = warning
     return warnings

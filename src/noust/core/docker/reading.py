@@ -440,12 +440,17 @@ def _ask(runner: CommandRunner, argv: list[str], *, timeout: int = DOCKER_TIMEOU
     return result
 
 
-def list_containers(runner: CommandRunner, *, timeout: int = DOCKER_TIMEOUT) -> list[Container]:
+def list_containers(
+    runner: CommandRunner, *, project: str | None = None, timeout: int = DOCKER_TIMEOUT
+) -> list[Container]:
     """
-    List every container on this machine, running or not, in one call.
+    List the containers on this machine, running or not, in one call.
 
     Args:
         runner: Runs it.
+        project: Only those Compose made for this project: the label is asked of Docker by name, and
+            what comes back is checked to carry it, so an engine that ignored the filter would not hand
+            over the machine's every container as the project's.
         timeout: Seconds Docker has.
 
     Returns:
@@ -454,12 +459,12 @@ def list_containers(runner: CommandRunner, *, timeout: int = DOCKER_TIMEOUT) -> 
     Raises:
         DockerUnavailableError: Docker cannot be asked.
     """
-    result = _ask(
-        runner,
-        ["docker", "ps", "--all", "--no-trunc", "--format", CONTAINER_FORMAT],
-        timeout=timeout,
-    )
-    return parse_containers(result.stdout)
+    argv = ["docker", "ps", "--all", "--no-trunc"]
+    if project is not None:
+        argv += ["--filter", f"label={COMPOSE_PROJECT}={project}"]
+    result = _ask(runner, [*argv, "--format", CONTAINER_FORMAT], timeout=timeout)
+    found = parse_containers(result.stdout)
+    return [c for c in found if c.project == project] if project is not None else found
 
 
 def list_images(runner: CommandRunner, *, timeout: int = DOCKER_TIMEOUT) -> list[Image]:

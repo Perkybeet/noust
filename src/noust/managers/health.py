@@ -686,14 +686,21 @@ def _check_builds(warnings: list[str]) -> HealthCheck:
 
     try:
         found = build_sandbox.sandbox_warnings()
+        stacks = build_sandbox.compose_warnings()
     except (NoustError, OSError, sqlite3.Error) as exc:
         return HealthCheck("Build sandbox", f"Could not check: {exc}", "warning")
-    if not found:
+    if not found and not stacks:
         return HealthCheck("Build sandbox", "Every build runs in the sandbox", "ok")
     warnings.extend(found.values())
-    return HealthCheck(
-        "Build sandbox", f"{len(found)} application(s) build or run with root's access", "warning"
-    )
+    warnings.extend(stacks.values())
+    said = []
+    if found:
+        said.append(f"{len(found)} application(s) build as root")
+    if stacks:
+        said.append(
+            f"{len(stacks)} Compose stack(s) run with what gives this server to a container"
+        )
+    return HealthCheck("Build sandbox", "; ".join(said), "warning")
 
 
 def _check_accounts(warnings: list[str]) -> HealthCheck | None:

@@ -73,7 +73,6 @@ from noust.deployers.helpers import (
 )
 from noust.deployers.helpers import edge as edges
 from noust.deployers.helpers.build_config import BuildConfig, refuse_unsupported, resolve_build
-from noust.deployers.helpers.compose_owners import declared_project
 from noust.deployers.helpers.compose_ports import (
     PortMapping,
     host_port_variables,
@@ -84,6 +83,7 @@ from noust.deployers.helpers.compose_ports import (
     web_root_service,
 )
 from noust.deployers.helpers.compose_retention import ImageRelease
+from noust.deployers.helpers.compose_verdict import Heritage
 from noust.deployers.helpers.deployment_variables import DeploymentVariables, describe_deployment
 from noust.deployers.helpers.env_manager import EnvManager
 from noust.deployers.helpers.env_variables import refuse_reserved
@@ -698,9 +698,9 @@ class DockerComposeDeployer(AppDeployer):
         # caller that pulled can know: what a failed update checks out again.
         self.previous_commit: str | None = None
         # What the guard refuses that the stack already ran with, proven by the
-        # compose file that served (a redeploy, an adoption): None until proven,
-        # and then nothing is accepted.
-        self._accepted_refusals: list[str] | None = None
+        # compose file that served and by its containers (an update, a redeploy,
+        # an adoption): None until proven, and then nothing is accepted.
+        self._accepted_refusals: Heritage | list[str] | None = None
         # The commit and branch of the attempt, kept when a failed update
         # puts the previous commit back, so its history row names what failed.
         self._attempted_git: tuple[str | None, str | None] | None = None
@@ -956,10 +956,8 @@ class DockerComposeDeployer(AppDeployer):
         cmd = ["docker", "compose"]
         if self.compose_path:
             if project is None:
-                project = (
-                    self._pinned_project()
-                    or compose_project_name(self.app_path, self.compose_path)
-                    or declared_project(self.compose_path)
+                project = compose_privileges.stack_project(
+                    self._pinned_project(), self.app_path, self.compose_path
                 )
             if project is not None:
                 cmd.extend(["-p", project])
@@ -1642,7 +1640,11 @@ class DockerComposeDeployer(AppDeployer):
         return own
 
     def _check_host_privileges(
-        self, document: Any, *, accepted: Sequence[str] | None = None, final: bool = False
+        self,
+        document: Any,
+        *,
+        accepted: Heritage | Sequence[str] | None = None,
+        final: bool = False,
     ) -> None:
         """Refuse, or warn about, what the compose file gives this server (see the module it calls)."""
         compose_privileges.check_host_privileges(self, document, accepted=accepted, final=final)
@@ -1659,18 +1661,22 @@ class DockerComposeDeployer(AppDeployer):
 
     def _remember_serving_privileges(self) -> None:
         """
-        Record what the compose file on disk asks of the host, before a redeploy replaces it.
+        Record what the stack already had, before a redeploy replaces its compose file.
 
-        What served is the only proof a finding is not new; when the file
-        cannot be read, nothing is accepted.
+        What served is the file on disk, as written, and what the stack's containers were given: the
+        file resolved with the ``.env`` of now is not proof of anything, since whoever can change a
+        variable would say the stack always had what the variable names. When the file cannot be read,
+        the containers are all that is left.
         """
         try:
             self._discover_compose_file()
         except DeploymentError as exc:
             self.logger.debug(f"No compose file served before this deploy: {exc.message}")
-            self._accepted_refusals = []
+            self._accepted_refusals = compose_privileges.heritage_of(self)
             return
-        self._accepted_refusals = self._refusals_in(self._load_compose_document(), resolve=True)
+        self._accepted_refusals = compose_privileges.heritage_before_a_redeploy(
+            self, self._load_compose_document()
+        )
         self.compose_path = None
 
     def _require_variables(self, document: Any = None) -> None:
@@ -1714,23 +1720,8 @@ class DockerComposeDeployer(AppDeployer):
         Raises:
             DeploymentError: The pull added a refused finding.
         """
-        accepted: list[str] = []
-        compose = self._compose_file_path()
-        if self.previous_commit and compose.is_relative_to(self.app_path):
-            served = self._source_manager().file_at_commit(
-                self.app_path, self.previous_commit, str(compose.relative_to(self.app_path))
-            )
-            if served is not None:
-                try:
-                    accepted = compose_privileges.accepted_since(
-                        self, load_compose(served), self.previous_commit
-                    )
-                except yaml.YAMLError as exc:
-                    self.logger.debug(f"The compose file that served is not valid YAML: {exc}")
-        else:
-            self.logger.debug("No commit served before this update: nothing to compare with")
-        self._accepted_refusals = accepted
-        self._check_host_privileges(document, accepted=accepted)
+        self._accepted_refusals = compose_privileges.heritage_of_update(self)
+        self._check_host_privileges(document, accepted=self._accepted_refusals)
 
     def _configure_environment(self) -> None:
         """

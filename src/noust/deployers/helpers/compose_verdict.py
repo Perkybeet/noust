@@ -17,20 +17,27 @@ redeploy, an adoption, a document edited in the Docker zone and a document paste
   belongs to another application) is refused whatever the exception says, and only a stack that
   already had it is let through, with a warning.
 
-What a stack "already had" is a set of sentences: the findings of the compose file that served,
-judged now. A finding that goes through a link which the update changed is not one that was
-there before (:func:`unchanged`).
+What a stack "already had" is a :class:`Heritage`, and it has two sources that neither the repository
+nor the stack's ``.env`` can write. The compose file that served, **as written** (a finding of it that
+the update did not change; one that goes through a link which the update changed is not one that was
+there before, :func:`unchanged`), is the proof for everything. And what the stack's **containers**
+were given (:mod:`noust.deployers.helpers.compose_running`, read from Docker the first time it matters
+and once) is the proof for what only the model Compose resolves shows: a mount made of a variable, a
+service an ``include`` brought in, a definition an ``extends`` took from another file. The stack
+ran with those, and no file as written says so.
 """
 
 from __future__ import annotations
 
-from collections.abc import Collection
-from dataclasses import dataclass
+from collections.abc import Callable, Collection
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from noust.deployers.helpers import compose_running
+
 if TYPE_CHECKING:
-    from noust.deployers.helpers.compose_guard import ComposeFindings
+    from noust.deployers.helpers.compose_guard import ComposeFindings, FindingKey
     from noust.deployers.helpers.sandbox import ComposeException
 
 
@@ -53,10 +60,101 @@ class Verdict:
     hard: tuple[str, ...] = ()
 
 
+@dataclass
+class Heritage:
+    """
+    What a stack that already runs is known to have had.
+
+    Attributes:
+        sentences: The refused sentences of the compose file that served, as written, which the update
+            did not change.
+        changed_links: The links of the application's tree that the commits since changed
+            (:func:`noust.managers.source_links.links_changed`); None when git could not say, which
+            is every link. A finding of a container that goes through one of them is not inherited.
+        running: Reads what the stack's containers have, or None for a stack that has none to read
+            (a first deployment). It is asked at most once, and only when a finding that nothing else
+            covers could be one of theirs; Docker that cannot be asked raises
+            :class:`~noust.core.docker.errors.DockerUnavailableError`, which nothing here hides.
+    """
+
+    sentences: frozenset[str] = frozenset()
+    changed_links: frozenset[Path] | None = None
+    running: Callable[[], compose_running.Running] | None = None
+    _read: compose_running.Running | None = field(default=None, init=False, repr=False)
+
+    def _keys(self) -> frozenset[FindingKey]:
+        """What the containers have, read the first time it is needed."""
+        if self._read is None:
+            if self.running is None:
+                return frozenset()
+            self._read = self.running()
+        return self._read.keys
+
+    def _could_be_theirs(self, findings: ComposeFindings, sentence: str) -> bool:
+        """
+        Tell whether a container is a possible source of a finding's heritage.
+
+        Args:
+            findings: What the guard found.
+            sentence: One of its refused sentences.
+
+        Returns:
+            Whether the file that served does not already cover it, and it is of a kind a container
+            can vouch for, and no link the update changed is on its way.
+        """
+        if self.running is None or sentence in self.sentences or sentence in findings.hard:
+            return False
+        key = findings.keys.get(sentence)
+        if key is None or key[1] not in compose_running.INHERITED_FROM_CONTAINERS:
+            return False
+        links = findings.links.get(sentence, ())
+        return not (
+            links
+            and (
+                self.changed_links is None
+                or any(Path(link) in self.changed_links for link in links)
+            )
+        )
+
+    def covers(self, findings: ComposeFindings, sentence: str) -> bool:
+        """
+        Tell whether the stack already had what a finding says.
+
+        Args:
+            findings: What the guard found.
+            sentence: One of its refused sentences.
+
+        Returns:
+            True when the file that served says it, or a container of the same service has the same
+            thing.
+
+        Raises:
+            DockerUnavailableError: A container had to be asked about and Docker could not be.
+        """
+        if sentence in self.sentences:
+            return True
+        if not self._could_be_theirs(findings, sentence):
+            return False
+        key = findings.keys[sentence]
+        return compose_running.has(self._keys(), key, linked=bool(findings.links.get(sentence)))
+
+    def undecided(self, findings: ComposeFindings) -> list[str]:
+        """
+        List the refused sentences that only a container could have vouched for.
+
+        Args:
+            findings: What the guard found.
+
+        Returns:
+            The sentences whose heritage depends on what Docker says.
+        """
+        return [s for s in findings.refused if self._could_be_theirs(findings, s)]
+
+
 def decide(
     findings: ComposeFindings,
     *,
-    already: Collection[str] = (),
+    already: Collection[str] | Heritage = (),
     exception: ComposeException | None = None,
 ) -> Verdict:
     """
@@ -64,19 +162,24 @@ def decide(
 
     Args:
         findings: What the guard found.
-        already: The sentences the stack already ran with.
+        already: What the stack already ran with: the sentences of the file that served, or a
+            :class:`Heritage`, which can also ask its containers.
         exception: The exception recorded for the application, if any.
 
     Returns:
         The verdict.
+
+    Raises:
+        DockerUnavailableError: The heritage had to ask a container and Docker could not be asked.
     """
+    heritage = already if isinstance(already, Heritage) else Heritage(frozenset(already))
     stop: list[str] = []
     excused: list[str] = []
     had: list[str] = []
     for sentence in findings.refused:
         if exception is not None and sentence not in findings.hard:
             excused.append(sentence)
-        elif sentence in already:
+        elif heritage.covers(findings, sentence):
             had.append(sentence)
         else:
             stop.append(sentence)

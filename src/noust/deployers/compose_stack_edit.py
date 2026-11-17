@@ -43,7 +43,12 @@ from noust.core import audit
 from noust.core.appdir.layout import code_path_for
 from noust.core.compose_yaml import load_compose
 from noust.core.docker.compose_documents import rehearse_document, resolve_document
-from noust.core.docker.errors import DockerBlockedError, DockerNotFoundError, DockerOwnedError
+from noust.core.docker.errors import (
+    DockerBlockedError,
+    DockerNotFoundError,
+    DockerOwnedError,
+    DockerUnavailableError,
+)
 from noust.core.docker.gate import DockerGate
 from noust.core.docker.models import ComposeProject, OwnerKind
 from noust.core.docker.versions import parse_reference, with_default_tag
@@ -52,10 +57,11 @@ from noust.core.exceptions import NoustError
 from noust.core.fs import FileSystem, get_fs
 from noust.core.logger import Logger
 from noust.core.runner import CommandRunner, get_runner
+from noust.core.server_text import say
 from noust.core.store import App, AppType, NoustStore, get_store
 from noust.core.utils import domain_to_app_name
 from noust.deployers import compose_document
-from noust.deployers.helpers import compose_variables, compose_verdict, sandbox
+from noust.deployers.helpers import compose_running, compose_variables, compose_verdict, sandbox
 from noust.deployers.helpers.app_env import read_app_env
 from noust.deployers.helpers.compose_guard import (
     ComposeFindings,
@@ -823,7 +829,8 @@ class StackEditor:
         # What the text itself asks of the host is judged before Compose is asked to read it: Compose
         # reads an include and an env_file of the server before it judges anything, and its errors come
         # back word for word.
-        if self._stopped_by_the_text(target, text, current, found):
+        heritage = self._heritage(target, current)
+        if self._stopped_by_the_text(target, text, heritage, found):
             found.valid = False
             return found
         model, output = self._resolve(target, text)
@@ -846,7 +853,7 @@ class StackEditor:
             ServiceLine(str(name), spec.get("image") if isinstance(spec, Mapping) else None)
             for name, spec in (model.get("services") or {}).items()
         ]
-        self._privileges(target, document, model, current, found)
+        self._privileges(target, document, model, heritage, found)
         self._images(target, model, current, found)
         self._variables(target, document, found)
         found.valid = not found.problems
@@ -889,7 +896,7 @@ class StackEditor:
         )
 
     def _stopped_by_the_text(
-        self, target: _Target, text: str, current: str, found: EditCheck
+        self, target: _Target, text: str, heritage: compose_verdict.Heritage, found: EditCheck
     ) -> bool:
         """
         Judge what the text asks of the host before Compose reads it, and say so when it stops.
@@ -897,7 +904,7 @@ class StackEditor:
         Args:
             target: Where the stack's document is.
             text: The candidate.
-            current: What the stack has now.
+            heritage: What the stack already had.
             found: The judgement, to which this adds a problem for each line that stops it.
 
         Returns:
@@ -905,19 +912,79 @@ class StackEditor:
         """
         try:
             document = load_compose(text)
-            before = load_compose(current)
         except yaml.YAMLError:
             return False
-        context = self._context(target)
-        findings = inspect_compose(document, target.cwd, context=context)
-        already = inspect_compose(before, target.cwd, context=context).refused
+        findings = inspect_compose(document, target.cwd, context=self._context(target))
         exception = sandbox.get_compose_exception(target.app.domain, store=self.store)
-        verdict = compose_verdict.decide(findings, already=already, exception=exception)
+        try:
+            verdict = compose_verdict.decide(findings, already=heritage, exception=exception)
+        except DockerUnavailableError as exc:
+            self._cannot_tell(target, findings, heritage, exc, found)
+            return True
         if not verdict.stop:
             return False
         self._problems(findings, verdict.stop, found)
         found.checks.append(CheckLine("privileges", False, f"{len(verdict.stop)} found"))
         return True
+
+    def _heritage(self, target: _Target, current: str) -> compose_verdict.Heritage:
+        """
+        Say what the stack already had, which is what its editor never takes from the variables of today.
+
+        Args:
+            target: Where the stack's document is.
+            current: What the stack has now.
+
+        Returns:
+            The findings of its current document as written, and what its containers were given, which
+            Docker is asked for the first time a finding needs it. The tree is the one the stack runs
+            from, and an edit changes no link of it.
+        """
+        context = self._context(target)
+        try:
+            written = inspect_compose(load_compose(current), target.cwd, context=context)
+        except yaml.YAMLError:
+            written = ComposeFindings()
+        gate = self._gate
+        return compose_verdict.Heritage(
+            frozenset(written.refused),
+            changed_links=frozenset(),
+            running=lambda: compose_running.read(
+                lambda: gate.project_grants(target.project), context
+            ),
+        )
+
+    @staticmethod
+    def _cannot_tell(
+        target: _Target,
+        findings: ComposeFindings,
+        heritage: compose_verdict.Heritage,
+        error: DockerUnavailableError,
+        found: EditCheck,
+    ) -> None:
+        """
+        Say that what the stack already had could not be told, which stops the document and does not
+        let it through.
+
+        Args:
+            target: Where the stack's document is.
+            findings: What the guard found.
+            heritage: What the stack already had.
+            error: Why Docker could not say.
+            found: The judgement, to which this adds the problems.
+        """
+        undecided = heritage.undecided(findings)
+        sentence = say(
+            "compose_guard.cannot_tell_what_it_has",
+            domain=target.app.domain,
+            lines="\n".join(f"- {line}" for line in undecided),
+            command=f"noust app sandbox compose-exception {target.app.domain} --reason '...'",
+        )
+        found.problems.append(
+            Problem("privileges", sentence.text, output=error.output or error.message)
+        )
+        StackEditor._problems(findings, undecided, found)
+        found.checks.append(CheckLine("privileges", False, "Docker did not answer"))
 
     @staticmethod
     def _problems(findings: ComposeFindings, sentences: Sequence[str], found: EditCheck) -> None:
@@ -941,7 +1008,7 @@ class StackEditor:
         target: _Target,
         document: Any,
         model: dict[str, Any],
-        current: str,
+        heritage: compose_verdict.Heritage,
         found: EditCheck,
     ) -> None:
         """
@@ -955,7 +1022,7 @@ class StackEditor:
             target: Where the stack's document is.
             document: The candidate, parsed.
             model: What Compose resolves it to.
-            current: What the stack has now.
+            heritage: What the stack already had.
             found: The judgement, to which this adds.
         """
         where = target.cwd
@@ -969,9 +1036,11 @@ class StackEditor:
             found.checks.append(CheckLine("privileges", True, ""))
             return
         exception = sandbox.get_compose_exception(target.app.domain, store=self.store)
-        verdict = compose_verdict.decide(
-            findings, already=self._refused_in(target, current), exception=exception
-        )
+        try:
+            verdict = compose_verdict.decide(findings, already=heritage, exception=exception)
+        except DockerUnavailableError as exc:
+            self._cannot_tell(target, findings, heritage, exc, found)
+            return
         for sentence in verdict.excused:
             found.warnings.append(
                 f"{sentence}; allowed for {target.app.domain} by "
@@ -986,26 +1055,6 @@ class StackEditor:
             return
         self._problems(findings, verdict.stop, found)
         found.checks.append(CheckLine("privileges", False, f"{len(verdict.stop)} found"))
-
-    def _refused_in(self, target: _Target, text: str) -> list[str]:
-        """
-        Args:
-            target: Where the stack's document is.
-            text: A document the stack has run from.
-
-        Returns:
-            What the guard refuses in it and in what Compose resolves it to; empty when it cannot be read.
-        """
-        try:
-            document = load_compose(text)
-        except yaml.YAMLError:
-            return []
-        model, _output = self._resolve(target, text)
-        context = self._context(target)
-        findings = inspect_compose(document, target.cwd, context=context)
-        if model is not None:
-            findings = merge_findings(findings, inspect_compose(model, target.cwd, context=context))
-        return list(findings.refused)
 
     def _images(
         self, target: _Target, model: dict[str, Any], current: str, found: EditCheck

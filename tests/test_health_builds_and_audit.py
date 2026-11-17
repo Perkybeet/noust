@@ -39,10 +39,50 @@ class TestTheBuildSandbox:
 
     def test_nothing_to_say_is_ok(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(build_sandbox, "sandbox_warnings", lambda store=None: {})
+        monkeypatch.setattr(build_sandbox, "compose_warnings", lambda store=None: {})
         warnings: list[str] = []
 
         assert health._check_builds(warnings).status == "ok"
         assert warnings == []
+
+    def test_a_stack_that_has_the_server_is_listed_and_is_not_called_a_build(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(build_sandbox, "sandbox_warnings", lambda store=None: {})
+        monkeypatch.setattr(
+            build_sandbox,
+            "compose_warnings",
+            lambda store=None: {
+                "shop.example.com": "shop.example.com runs with what gives this server"
+            },
+        )
+        warnings: list[str] = []
+
+        check = health._check_builds(warnings)
+
+        assert check.status == "warning"
+        assert warnings == ["shop.example.com runs with what gives this server"]
+        assert "Compose stack" in check.value
+        assert "build as root" not in check.value
+
+    def test_builds_and_stacks_are_counted_apart(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(
+            build_sandbox,
+            "sandbox_warnings",
+            lambda store=None: {"a.example.com": "a.example.com still builds as root."},
+        )
+        monkeypatch.setattr(
+            build_sandbox,
+            "compose_warnings",
+            lambda store=None: {"b.example.com": "b.example.com runs"},
+        )
+        warnings: list[str] = []
+
+        check = health._check_builds(warnings)
+
+        assert "1 application(s) build as root" in check.value
+        assert "1 Compose stack(s)" in check.value
+        assert len(warnings) == 2
 
 
 class TestTheAuditTrail:

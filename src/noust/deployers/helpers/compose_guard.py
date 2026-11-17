@@ -73,7 +73,6 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from noust.core.compose_yaml import load_compose
 from noust.core.runner import CommandRunner
 from noust.core.server_text import ServerText, say
 from noust.deployers.helpers import compose_owners
@@ -971,28 +970,3 @@ def resolve_model(
             return model, ""
         problem = "it printed something that is not a configuration"
     return None, problem
-
-
-def stack_findings(app_path: Path) -> ComposeFindings:
-    """
-    Inspect the compose file a deployed stack runs from.
-
-    Args:
-        app_path: The stack's directory.
-
-    Returns:
-        The findings; none when no compose file can be read.
-    """
-    import yaml
-
-    from noust.deployers.docker_compose import COMPOSE_FILE_PRIORITY
-
-    for name in COMPOSE_FILE_PRIORITY:
-        candidate = app_path / name
-        if candidate.is_file() and not candidate.is_symlink():
-            try:
-                document = load_compose(candidate.read_text(encoding="utf-8"))
-            except (OSError, UnicodeDecodeError, yaml.YAMLError):
-                return ComposeFindings()
-            return inspect_compose(document, app_path)
-    return ComposeFindings()

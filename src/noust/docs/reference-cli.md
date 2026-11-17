@@ -2487,7 +2487,7 @@ Subcommands: [`compose-exception`](#noust-app-sandbox-compose-exception), [`disa
 
 ### noust app sandbox compose-exception
 
-Allow a Docker Compose stack privileged containers and the Docker socket.
+Allow a Docker Compose stack what gives this server to its containers.
 
 ```bash
 noust app sandbox compose-exception [OPTIONS] DOMAIN

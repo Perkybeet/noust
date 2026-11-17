@@ -479,26 +479,38 @@ inside the application that leads out of it is refused saying where it leads; wh
 loop of links, a directory that cannot be read) is refused rather than guessed. An update does not make a
 link that its own commits added or changed look like something the stack already had.
 
-**What an application in production keeps.** Whatever the compose file of the commit that served spells
-out, and the update leaves unchanged, is warned about in the deploy log and never stops an update, a
-redeploy or a rollback. Only what the update adds is refused, unless the application has an exception.
-What shows only when Compose resolves the file with the stack's `.env` (a service an `include` or an
-`extends` brings in from another file, a path made of a variable such as `${DATA_DIR}:/data`) cannot be
-compared with the commit that served, which is text and not a project: an update that pulls finds it new
-and is refused, naming it, until the application has an exception or the repository stops asking for it. A
-redeploy from the file on disk is proven against what runs and only warns; adopting a stack that runs with
-it asks you to accept it first (below).
+**What an application in production keeps.** A stack that already runs goes on updating. What it already
+had is what its containers were given of the server (Noust asks Docker for it: the directories of the
+server they mount, their devices, capabilities, namespaces, confinement, cgroup, runtime and borrowed
+volumes) and whatever the compose file of the commit that served spells out as written. That is warned
+about in the deploy log and never stops an update, a redeploy, a rollback or an edit in the Docker zone,
+whether it comes from a variable (`${DATA_DIR}:/data`), from an `include` or an `extends`, or is written
+as it is. Only what the update adds is refused, unless the application has an exception: a directory, a
+device or a capability that no container of that service has. A container is not changed without a
+deployment, which goes through this check, so it is the record that neither the repository nor the `.env`
+can write: the compose file resolved with the variables of today is not proof of what the stack had, and
+a variable changed to point somewhere else is a new mount, refused saying the new line.
+
+Two things are not taken from a running container. `privileged`, the sockets of container runtimes, Noust's
+own state and another application's files have been refused without an exception since 3.1: a stack that
+has one is let through, with a warning, only when the file that served says it in plain words, and
+otherwise asks for the recorded exception like a new stack. And a path that reaches a place through a link
+of the repository is taken from a container only when git says that no commit since changed the link.
+
+When Docker does not answer, an update that needs to know what the containers have is refused saying why,
+with the fix: nothing is guessed and nothing passes. A stack with nothing in the way does not ask Docker
+anything for this.
 
 An exception is the application's, not one line's: once it is recorded, an update that adds something else
 of the same kind is allowed too, and the deploy log says who allowed it and why. What no exception allows
 (above) stays refused.
 
 After upgrading, `noust health` (the Build sandbox check) and `noust ens check` (ENS-BLD-01, in its
-evidence) list the stacks whose compose file, read as written, carries something a new stack would be
-refused: record why each needs it with the command above, or take it out of its compose file. They do not
-resolve the file, so a stack that hides it behind an `include`, an `extends` or a variable is not on the
-list until an update meets it. The Docker zone's editor and `noust app compose replace` judge a document
-the same way, the editor before Compose is asked to read it.
+evidence) list the stacks that carry something a new stack would be refused, by their compose file as
+written and by what their containers were given: the same judgement an update makes. Record why each needs
+it with the command above, or take it out of its compose file. A stack whose containers cannot be read
+(Docker is down) is listed with the reason. The Docker zone's editor and `noust app compose replace` judge a
+document the same way, the editor before Compose is asked to read it.
 
 **Adopting a stack that runs with any of this** puts under Noust something whose containers have the
 server. The preview lists each line ("gives a container something of this server"), and adopting it needs

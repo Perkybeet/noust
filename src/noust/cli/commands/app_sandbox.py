@@ -9,7 +9,9 @@ builds its current commit in the sandbox without activating anything
 (:func:`noust.deployers.helpers.sandbox_trial.run_trial`); ``enable`` turns
 the sandbox on, after a passing trial unless ``--force``; ``disable`` records
 the decision to build it as root, with a reason; ``compose-exception`` allows a
-Docker Compose stack privileged containers or the Docker socket;
+Docker Compose stack what gives this server to its containers (privileged mode,
+the Docker socket, directories of the server, devices, capabilities, namespaces
+of the host);
 ``self-test`` proves the sandbox holds on this server. Each is
 :mod:`noust.deployers.helpers.sandbox`, which ``/api/apps/{d}/sandbox`` calls
 too, and which records every change in the audit trail. This module only
@@ -202,23 +204,32 @@ def compose_exception_command(
     ctx: Context, domain: str, reason: str | None, revoke: bool, yes: bool
 ) -> None:
     """
-    Allow a Docker Compose stack privileged containers and the Docker socket.
+    Allow a Docker Compose stack what gives this server to its containers.
 
-    Either is root on this server, and the compose file comes from the
-    repository, so a new stack is refused them. This records why this one
-    needs them; it can be given before the stack's first deploy.
+    Privileged mode, the Docker socket, a directory of the server outside the
+    application, a device, a capability that reconfigures the kernel, a
+    namespace of the host or confinement switched off is root on this server,
+    and the compose file comes from the repository, so a new stack is refused
+    all of it. This records why this one needs it; it can be given before the
+    stack's first deploy. A stack that already runs with any of it keeps
+    updating with a warning, and `noust health` lists it.
     """
     validated = validate_domain(domain)
     if revoke:
         build_sandbox.set_compose_exception(validated, allowed=False, actor=cli_actor().label)
-        ctx.logger.success(f"{validated} may no longer run privileged containers")
+        ctx.logger.success(
+            f"{validated} may no longer be given what gives this server to a container"
+        )
         return
     if not (yes or ctx.dry_run):
         click.confirm(f"Allow {validated} containers that are root on this server?", abort=True)
     build_sandbox.set_compose_exception(
         validated, allowed=True, actor=cli_actor().label, reason=reason
     )
-    ctx.logger.warning(f"{validated} may run privileged containers and mount the Docker socket")
+    ctx.logger.warning(
+        f"{validated} may be given what gives this server to its containers: privileged mode, the "
+        "Docker socket, directories of the server, devices, capabilities and namespaces of the host"
+    )
 
 
 @sandbox.command("self-test")

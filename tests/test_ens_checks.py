@@ -275,6 +275,36 @@ class TestFailures:
         assert found["ENS-BLD-01"].status == "warning"
         assert found["ENS-FLT-01"].status == "warning"
 
+    def test_a_compose_stack_is_not_called_a_build_as_root_and_gets_the_fix_that_works(
+        self,
+    ) -> None:
+        facts = good_facts()
+        facts.compose_warnings = {
+            "shop.example.com": "shop.example.com runs with what gives the server"
+        }
+
+        finding = by_id(evaluate(facts))["ENS-BLD-01"]
+
+        assert finding.status == "warning"
+        assert "build as root" not in finding.summary
+        assert "Compose stack" in finding.summary
+        assert finding.evidence == ("shop.example.com runs with what gives the server",)
+        assert "noust app sandbox compose-exception <domain>" in finding.remediation
+        assert "remove" in finding.remediation
+        assert "noust app sandbox test" not in finding.remediation
+
+    def test_builds_as_root_keep_the_sandbox_fix_and_are_counted_without_the_stacks(self) -> None:
+        facts = good_facts()
+        facts.sandbox_warnings = {"a.example.com": "a.example.com still builds as root"}
+        facts.compose_warnings = {"b.example.com": "b.example.com runs with what gives the server"}
+
+        finding = by_id(evaluate(facts))["ENS-BLD-01"]
+
+        assert "1 application(s) build as root" in finding.summary
+        assert "1 Compose stack(s)" in finding.summary
+        assert "noust app sandbox test <domain>" in finding.remediation
+        assert "noust app sandbox compose-exception <domain>" in finding.remediation
+
     def test_a_forgotten_lockdown_warns(self) -> None:
         facts = good_facts()
         facts.lockdown = {"since": "2026-09-29", "by": "cli:root", "reason": "INC-1"}

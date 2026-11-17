@@ -51,7 +51,7 @@ class SandboxTrial(BaseModel):
 
 
 class ComposeExceptionModel(BaseModel):
-    """A compose stack allowed privileged containers and the Docker socket."""
+    """A compose stack allowed what gives the server to its containers."""
 
     reason: str = Field(description="Why, in the operator's words")
     allowed_by: str = Field(description="Who allowed it")
@@ -324,10 +324,12 @@ def put_compose_exception(
     session: Annotated[dict, Depends(require_elevated)],
 ) -> SandboxResponse:
     """
-    Allow a compose stack privileged containers and the Docker socket.
+    Allow a compose stack what gives the server to its containers.
 
-    Either is root on the server and the compose file comes from the
-    repository, so this needs sudo mode and a reason.
+    Privileged mode, the Docker socket, a directory of the server outside the
+    application, a device, a capability that reconfigures the kernel or a
+    namespace of the host is root on the server and the compose file comes
+    from the repository, so this needs sudo mode and a reason.
 
     Args:
         domain: Domain of the application.
@@ -352,7 +354,7 @@ def delete_compose_exception(
     domain: str, session: Annotated[dict, Depends(get_current_session)]
 ) -> SandboxResponse:
     """
-    Stop allowing a compose stack privileged containers and the Docker socket.
+    Stop allowing a compose stack what gives the server to its containers.
 
     Args:
         domain: Domain of the application.

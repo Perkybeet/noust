@@ -92,6 +92,11 @@ class Box:
     finished_at: str = "0001-01-01T00:00:00Z"
     error: str = ""
     privileged: bool = False
+    # What ``inspect`` says of what the server gave the container (``noust.core.docker.grants``):
+    # the directories of the server it has mounted, and the fields of its ``HostConfig`` that differ
+    # from a container given nothing.
+    binds: list[str] = field(default_factory=list)
+    host: dict[str, Any] = field(default_factory=dict)
     mount_list: list[dict[str, Any]] = field(default_factory=list)
     # What ``stats`` and ``logs`` answer.
     stats: dict[str, str] | None = None
@@ -503,6 +508,37 @@ class DockerMachine(FakeRunner):
             "ports": {},
         }
 
+    def _grants_row(self, box: Box) -> dict[str, Any]:
+        """What ``inspect`` says when it is asked what the server gave the container."""
+        host: dict[str, Any] = {
+            "Privileged": box.privileged,
+            "CapAdd": None,
+            "Devices": [],
+            "DeviceCgroupRules": None,
+            "PidMode": "",
+            "IpcMode": "private",
+            "UTSMode": "",
+            "UsernsMode": "",
+            "CgroupnsMode": "private",
+            "NetworkMode": "bridge",
+            "SecurityOpt": None,
+            "CgroupParent": "",
+            "Runtime": "runc",
+            "VolumesFrom": None,
+        } | box.host
+        return {
+            "id": box.id,
+            "name": "/" + box.name,
+            "service": box.service,
+            "oneoff": "True" if box.oneoff else "False",
+            "state": box.state,
+            "mounts": [
+                {"Type": "bind", "Source": source, "Destination": "/data", "RW": True}
+                for source in box.binds
+            ],
+            "host": host,
+        }
+
     def _inspect_image(self, argv: tuple[str, ...]) -> tuple[int, str, str]:
         wanted = list(argv[argv.index("--format") + 2 :])
         rows = []
@@ -585,7 +621,9 @@ class DockerMachine(FakeRunner):
             wanted = list(argv[argv.index("--format") + 2 :])
         boxes = [box for box in self.boxes.values() if box.id in wanted or box.name in wanted]
         missing = [part for part in wanted if part not in {b.id for b in boxes} | set(self.boxes)]
-        out = "\n".join(json.dumps(self._inspect_row(box)) for box in boxes)
+        grants = "--format" in argv and "HostConfig.CapAdd" in argv[argv.index("--format") + 1]
+        row = self._grants_row if grants else self._inspect_row
+        out = "\n".join(json.dumps(row(box)) for box in boxes)
         if missing and not boxes:
             return 1, "", f"Error: No such object: {missing[0]}"
         return 0, out, ""

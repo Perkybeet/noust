@@ -186,6 +186,7 @@ class Facts:
         nodes: On a central, the servers it manages.
         fleet_ceiling: On a node, what its centrals may do.
         sandbox_warnings: Applications whose builds are not sandboxed.
+        compose_warnings: Compose stacks that run with what a new stack is refused of the server.
         inventory: The inventory (``InventoryEntry.to_dict``).
         allowed_sources: Allowed code origins.
         lockdown: The incident lockdown, if any.
@@ -224,6 +225,7 @@ class Facts:
     nodes: list[dict[str, Any]] = field(default_factory=list)
     fleet_ceiling: dict[str, Any] | None = None
     sandbox_warnings: dict[str, str] = field(default_factory=dict)
+    compose_warnings: dict[str, str] = field(default_factory=dict)
     inventory: list[dict[str, Any]] | None = None
     allowed_sources: list[str] = field(default_factory=list)
     lockdown: dict[str, Any] | None = None
@@ -754,9 +756,10 @@ def gather(sources: Sources | None = None) -> Facts:
             facts.fleet_ceiling = {"level": access.level, "host_access": access.host_access}
 
     def sandbox() -> None:
-        from noust.deployers.helpers.sandbox import sandbox_warnings
+        from noust.deployers.helpers.sandbox import compose_warnings, sandbox_warnings
 
         facts.sandbox_warnings = sandbox_warnings(store())
+        facts.compose_warnings = compose_warnings(store())
 
     def inventory() -> None:
         from noust.core.ens.inventory import Inventory
@@ -1969,20 +1972,36 @@ def check_origins(facts: Facts) -> Finding:
 
 
 def check_builds(facts: Facts) -> Finding:
-    """ENS-BLD-01: builds run unprivileged, in the sandbox."""
+    """ENS-BLD-01: builds run unprivileged, in the sandbox, and stacks keep what gives the server to a container to what was decided."""
     title = "Builds sandboxed"
     measures = ("op.exp.6", "op.exp.2.2")
     if "sandbox" in facts.errors:
         return _unknown("ENS-BLD-01", title, measures, "sandbox", facts)
-    if facts.sandbox_warnings:
+    if facts.sandbox_warnings or facts.compose_warnings:
+        said = []
+        fixes = []
+        if facts.sandbox_warnings:
+            said.append(f"{len(facts.sandbox_warnings)} application(s) build as root")
+            fixes.append(
+                "Builds as root: noust app sandbox test <domain>, then noust app sandbox enable <domain>."
+            )
+        if facts.compose_warnings:
+            said.append(
+                f"{len(facts.compose_warnings)} Compose stack(s) run with what gives this server to a "
+                "container"
+            )
+            fixes.append(
+                "A Compose stack: record why it needs it with noust app sandbox compose-exception "
+                "<domain> --reason '...', or remove the line that gives it from the compose file."
+            )
         return Finding(
             "ENS-BLD-01",
             title,
             "warning",
             measures,
-            f"{len(facts.sandbox_warnings)} application(s) build as root.",
-            tuple(facts.sandbox_warnings.values()),
-            "noust app sandbox test <domain>, then noust app sandbox enable <domain>.",
+            "; ".join(said) + ".",
+            (*facts.sandbox_warnings.values(), *facts.compose_warnings.values()),
+            " ".join(fixes),
         )
     return Finding(
         "ENS-BLD-01",

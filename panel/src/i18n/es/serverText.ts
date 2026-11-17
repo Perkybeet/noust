@@ -977,6 +977,10 @@ export const serverText: Catalog<typeof en> = {
       },
       version: { text: "Docker Compose {version}" },
     },
+    grants_unreadable: {
+      text: "Docker no ha dicho qué se dio a los contenedores de la pila",
+      hint: "Comprueba que el servicio funciona: systemctl status docker",
+    },
     engine: {
       image_store: { text: "Las imágenes se guardan en el almacén de imágenes {store} ({driver})" },
       missing: {
@@ -5789,6 +5793,10 @@ export const serverText: Catalog<typeof en> = {
     asks_for_root: {
       text: "El archivo compose de {domain} pide ser root en este servidor",
       hint: "{lines}\n\nEl archivo compose viene del repositorio y Docker lo ejecuta como root: lo de arriba da este servidor a un contenedor, y la pila no funcionaba con ello antes. Quítalo, o registra por qué lo necesita esta pila y vuelve a desplegar: {command}",
+    },
+    cannot_tell_what_it_has: {
+      text: "Docker no ha dicho qué tienen ya de este servidor los contenedores de {domain}",
+      hint: "{lines}\n\nEl archivo compose pide lo que a una pila nueva se le rechaza, y si esta pila ya funcionaba con ello se lee de sus contenedores, que no se han podido consultar. Comprueba que Docker funciona (systemctl status docker) y vuelve a desplegar; o registra por qué la necesita esta pila: {command}",
     },
     asks_for_what_no_stack_may: {
       text: "El archivo compose de {domain} llega a lo que ninguna pila puede alcanzar",

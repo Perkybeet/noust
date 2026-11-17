@@ -988,6 +988,10 @@ export const serverText = {
       },
       version: { text: "Docker Compose {version}" },
     },
+    grants_unreadable: {
+      text: "Docker did not say what the containers of the stack were given",
+      hint: "Check that the daemon runs: systemctl status docker",
+    },
     engine: {
       image_store: { text: "Images are kept in the {store} image store ({driver})" },
       missing: {
@@ -5800,6 +5804,10 @@ export const serverText = {
     asks_for_root: {
       text: "{domain}'s compose file asks for root on this server",
       hint: "{lines}\n\nThe compose file comes from the repository and Docker runs it as root: what is listed above gives a container this server, and the stack did not run with it before. Remove it, or record why this stack needs it and deploy again: {command}",
+    },
+    cannot_tell_what_it_has: {
+      text: "Docker did not say what {domain}'s containers already have of this server",
+      hint: "{lines}\n\nThe compose file asks for what a new stack is refused, and whether this stack already ran with it is read from its containers, which could not be asked. Check that Docker runs (systemctl status docker) and deploy again; or record why this stack needs it: {command}",
     },
     asks_for_what_no_stack_may: {
       text: "{domain}'s compose file reaches what no stack may reach",

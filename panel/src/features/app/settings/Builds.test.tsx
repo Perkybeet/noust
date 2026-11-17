@@ -144,10 +144,10 @@ describe("sandboxed builds", () => {
       },
       [`DELETE /api/apps/${DOMAIN}/sandbox/compose-exception`]: () => json(200, { ...LEGACY, warning: null }),
     }, compose);
-    await screen.findByText("This stack is refused both.");
+    await screen.findByText(/A new stack is refused all of them\. One that already runs with any of them keeps updating/);
     const card = part("Containers that are root on the server");
     await user.click(within(card).getByRole("button", { name: "Allow it…" }));
-    const dialog = await screen.findByRole("dialog", { name: `Allow ${DOMAIN} privileged containers and the Docker socket?` });
+    const dialog = await screen.findByRole("dialog", { name: `Allow ${DOMAIN} what gives this server to its containers?` });
     await user.type(within(dialog).getByRole("textbox", { name: "Why" }), "Runs a CI runner");
     await user.click(within(dialog).getByRole("button", { name: "Allow" }));
     await waitFor(() => {

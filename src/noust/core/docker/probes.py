@@ -19,6 +19,8 @@ READ_ONLY_PROBES: tuple[tuple[object, ...], ...] = (
     ("docker", "compose", "version"),
     ("docker", "context", "inspect"),
     ("docker", "ps", "--all", "--no-trunc", "--format", "*"),
+    # The containers of one Compose project, asked by the label Compose writes on them.
+    ("docker", "ps", "--all", "--no-trunc", "--filter", "*", "--format", "*"),
     ("docker", "image", "ls", "--no-trunc", "--format", "*"),
     ("docker", "volume", "ls", "--format", "*"),
     ("docker", "network", "ls", "--no-trunc", "--format", "*"),
@@ -31,6 +33,9 @@ READ_ONLY_PROBES: tuple[tuple[object, ...], ...] = (
     ("docker", "stats", "--no-stream", "--format", "*", ...),
     # What state a container is in, for the connector of a tunnel (:mod:`noust.core.docker.connector`).
     ("docker", "inspect", "--type", "container", "--format", "*", "*"),
+    # What the containers of a project were given of the server (:mod:`noust.core.docker.grants`), for
+    # any number of them.
+    ("docker", "inspect", "--type", "container", "--format", "*", ...),
     # Asking a registry for the manifest of a tag and the config behind it downloads no layer and moves
     # no local tag (:mod:`noust.core.docker.registry`); a pull does both, and is not here.
     ("docker", "buildx", "imagetools", "inspect", "*"),

@@ -27,21 +27,22 @@ first.
 - **The store moves to schema 18, and 4.2 cannot open it.** The upgrade keeps a copy of the store beside it,
   as before. Going back to 4.2 means putting that copy back (`noust store compat --to 4.2.1`;
   [downgrading.md](downgrading.md)).
-- **A Compose stack that already runs keeps updating, with a warning, when its own file spells out what it
-  carries.** The check on Compose files, which until 4.2.1 refused only `privileged`, the Docker socket and mounts
-  of Noust's own state or of another application's files, now refuses everything that gives the server to a
-  container and every path of the server outside the application, and judges a path by where it leads. A stack
-  that runs with any of it is not stopped for it: an update, a redeploy and a rollback go on and say in the deploy
-  log what the stack carries, and only what a change adds is refused. `noust health` (Build sandbox) and
-  `noust ens check` name each stack whose file says it, with the command that records why it needs what it has;
-  the other way is to take it out of the Compose file
+- **A Compose stack that already runs keeps updating, with a warning, whatever it carries.** The check on
+  Compose files, which until 4.2.1 refused only `privileged`, the Docker socket and mounts of Noust's own state or
+  of another application's files, now refuses everything that gives the server to a container and every path of
+  the server outside the application, and judges a path by where it leads. A stack that runs with any of it is
+  not stopped for it, whether its file spells it out, a variable makes it (`${DATA_DIR}:/data`) or an `include`
+  or an `extends` brings it in: what a stack already had is what its containers were given of the server, which
+  Noust asks Docker for, and what its file says as written. An update, a redeploy, a rollback and an edit in the
+  Docker zone go on and say in the deploy log what the stack carries, and only what a change adds is refused.
+  `noust health` (Build sandbox) and `noust ens check` name each stack that carries it, with the command that
+  records why it needs what it has; the other way is to take it out of the Compose file
   ([UPGRADING-4.3.md](UPGRADING-4.3.md#compose-stacks-that-carry-more-than-a-new-stack-may)).
-- **One that hides it behind an `include`, an `extends` or a variable is refused at its next update**, naming
-  the finding, unless the application has an exception: a service another file of the repository brings in, or a
-  path such as `${DATA_DIR}:/data` that a recipe's operator pointed outside the application. That only shows when
-  Compose resolves the file with the stack's `.env`, and the commit that served is text, so there is nothing to
-  prove the stack already ran with it; the stack keeps serving what it served. A redeploy from the file on disk
-  is proven against what runs and only warns.
+- **Two things are not taken from a running container.** `privileged`, the sockets of container runtimes, Noust's
+  own state and another application's files were refused without an exception before: a stack that has one is
+  let through only when the file that served says it in plain words, and otherwise asks for the recorded
+  exception at its next update, naming it. If Docker does not answer when Noust has to know what the containers
+  have, the update is refused saying why; nothing is let through on a guess.
 - **Asking for the server needs a recorded decision.** A new stack, or an update or a redeploy that adds one of
   those things, is refused unless an administrator records an exception for the application
   (`noust app sandbox compose-exception DOMAIN --reason '...'`, sudo mode, never a team role); adopting a stack
@@ -455,8 +456,8 @@ first.
   ceiling is `admin` without host access. It affected whoever could have a stack deployed from a repository or a
   document they control. 4.3.0 judges a path by where it leads and refuses all of it in a new stack unless an
   administrator records why ([compose.md](compose.md#what-a-stack-may-ask-of-the-server)); a stack that already
-  runs with it keeps updating, with a warning, and `noust health` lists the ones whose file says so
-  ([UPGRADING-4.3.md](UPGRADING-4.3.md#compose-stacks-that-carry-more-than-a-new-stack-may)). **Update, review
+  runs with it keeps updating, with a warning, and `noust health` lists the ones that carry it, by their file and by
+  what their containers were given ([UPGRADING-4.3.md](UPGRADING-4.3.md#compose-stacks-that-carry-more-than-a-new-stack-may)). **Update, review
   the Compose files of repositories you do not control, and rotate the secrets of any server where untrusted
   repositories were deployed.**
 - **Also fixed in releases up to 4.2.1**, each smaller than the one above:

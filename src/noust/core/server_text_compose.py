@@ -49,6 +49,10 @@ SENTENCES: dict[str, str] = {
     # -- What a deployment is refused with -------------------------------------------------------------
     "compose_guard.asks_for_root": "{domain}'s compose file asks for root on this server",
     "compose_guard.asks_for_root.hint": "{lines}\n\nThe compose file comes from the repository and Docker runs it as root: what is listed above gives a container this server, and the stack did not run with it before. Remove it, or record why this stack needs it and deploy again: {command}",
+    "docker.grants_unreadable": "Docker did not say what the containers of the stack were given",
+    "docker.grants_unreadable.hint": "Check that the daemon runs: systemctl status docker",
+    "compose_guard.cannot_tell_what_it_has": "Docker did not say what {domain}'s containers already have of this server",
+    "compose_guard.cannot_tell_what_it_has.hint": "{lines}\n\nThe compose file asks for what a new stack is refused, and whether this stack already ran with it is read from its containers, which could not be asked. Check that Docker runs (systemctl status docker) and deploy again; or record why this stack needs it: {command}",
     "compose_guard.asks_for_what_no_stack_may": "{domain}'s compose file reaches what no stack may reach",
     "compose_guard.asks_for_what_no_stack_may.hint": "{lines}\n\nWhat belongs to another application or to Noust (its files, its volumes, its images, its project) is not for a stack to use, and no exception allows it. Remove it from the compose file.",
 }

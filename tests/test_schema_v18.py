@@ -181,6 +181,8 @@ def test_a_fragment_written_in_an_area_is_in_a_fresh_store(
 ) -> None:
     path = tmp_path / "noust.db"
     monkeypatch.setattr(schema_v18, f"{area}_SQL", probe_sql(area))
+    # What an area's columns are added to can be a table of its own fragment, which this replaces.
+    monkeypatch.setattr(schema_v18, f"{area}_COLUMNS", [])
 
     NoustStore(path)
 
@@ -237,6 +239,68 @@ def test_a_complete_store_is_left_alone(tmp_path: Path, fresh: None) -> None:
         assert not schema_v18.incomplete(conn.cursor())
     finally:
         conn.close()
+
+
+# -- a store of a development build, which made a table before its last columns were written
+
+#: Columns a lane put inside a ``CREATE TABLE`` of v18 after builds of 4.3 that already had the table
+#: were in use. ``CREATE TABLE IF NOT EXISTS`` leaves such a table as it is, so each one is also declared
+#: in its area's ``<AREA>_COLUMNS`` for the completion to add; (table, column, area, a row that exists
+#: without it).
+LATE_COLUMNS = [
+    (
+        "assistant_settings",
+        "private_host",
+        "ASSISTANT",
+        "INSERT INTO assistant_settings (id, updated_at) VALUES (1, '2026-11-13T10:00:00Z')",
+    ),
+    (
+        "assistant_proposals",
+        "template",
+        "ASSISTANT",
+        "INSERT INTO assistant_proposals (id, conversation_id, turn_id, account_id, seq, tool, klass, "
+        "state, method, path, fingerprint, request_id, created_at) VALUES ('p1', 'c1', 't1', 1, 1, "
+        "'x', 'ask', 'pending', 'POST', '/api/x', 'f', 'r', '2026-11-13T10:00:00Z')",
+    ),
+    (
+        "collected_backups",
+        "meta",
+        "BACKUPS",
+        "INSERT INTO collected_backups (node, kind, item_id, owner, folder, origin, created_at, "
+        "collected_at, size, files, verified) VALUES ('n', 'app', 'i', 'o', 'f', 'o', "
+        "'2026-11-12T10:00:00Z', '2026-11-12T10:00:00Z', 1, '[]', '{}')",
+    ),
+]
+
+
+@pytest.mark.parametrize(("table", "column", "area", "row"), LATE_COLUMNS)
+def test_a_column_a_lane_wrote_inside_a_create_table_reaches_a_store_that_had_the_table(
+    table: str, column: str, area: str, row: str, tmp_path: Path, fresh: None
+) -> None:
+    path = tmp_path / "noust.db"
+    NoustStore(path)
+    NoustStore.reset_instance()
+    conn = sqlite3.connect(path)
+    try:
+        # The table as the build before the column wrote it, with a row in it.
+        conn.execute(f"ALTER TABLE {table} DROP COLUMN {column}")
+        conn.execute(row)
+        conn.commit()
+    finally:
+        conn.close()
+    assert column not in columns_of(path, table)
+
+    NoustStore(path)
+    NoustStore.reset_instance()
+
+    assert column in columns_of(path, table)
+    conn = sqlite3.connect(path)
+    try:
+        value = conn.execute(f"SELECT {column} FROM {table}").fetchone()[0]  # noqa: S608 - fixed names
+    finally:
+        conn.close()
+    assert value in ("", "{}"), "the row that was there reads the column's default"
+    assert (table, column) in {(t, c) for t, c, _ in getattr(schema_v18, f"{area}_COLUMNS")}
 
 
 # -- the climb

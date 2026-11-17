@@ -40,7 +40,16 @@ from typing import TYPE_CHECKING, Any, TypeVar, cast
 from noust.core.central_settings import closed_docker_zone, docker_zone_is_open
 from noust.core.docker import cleanup as cleanup_module
 from noust.core.docker import engine as engine_module
-from noust.core.docker import events, image_sources, inspect, reading, registry, states, stats
+from noust.core.docker import (
+    events,
+    grants,
+    image_sources,
+    inspect,
+    reading,
+    registry,
+    states,
+    stats,
+)
 from noust.core.docker import restart_loss as restart_loss_module
 from noust.core.docker import summary as summary_module
 from noust.core.docker.errors import (
@@ -1127,6 +1136,28 @@ class DockerGate:
             )
             items.append(stats.ContainerUsage(container, usage))
         return stats.UsageList(tuple(items), read_at)
+
+    def project_grants(self, project: str) -> tuple[grants.Grants, ...]:
+        """
+        Say what the server gave to every container of a Compose project.
+
+        This is what the guard of a compose file asks when it has to know what a stack already had:
+        the containers themselves, which neither the repository nor the stack's ``.env`` can change
+        from under it. It is a look for whoever deploys, not a page of the console, so it is not
+        filtered by what a principal sees: the principal asked for a change of its own stack.
+
+        Args:
+            project: The Compose project the application runs under.
+
+        Returns:
+            What each container of the project, the stopped ones included, was given; none when the
+            project has no container yet.
+
+        Raises:
+            DockerZoneClosedError: A hub that was not told to deploy on its machine.
+            DockerUnavailableError: Docker cannot be asked, or answered and could not be read.
+        """
+        return grants.read_project_grants(self.runner, project)
 
     def _masked(self, container: Container, seen: inspect.Inspected) -> inspect.Inspected:
         """

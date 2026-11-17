@@ -280,7 +280,9 @@ class TestTheWayThroughTheRealFlows:
 
         compose._remember_serving_privileges()
 
-        assert any("the host device" in sentence for sentence in compose._accepted_refusals or [])
+        remembered = compose._accepted_refusals
+        assert remembered is not None
+        assert any("the host device" in sentence for sentence in remembered.sentences)
         compose._check_host_privileges(stack(devices=["/dev/kvm"]))
 
     def test_an_update_compares_with_the_compose_file_of_the_commit_that_served(

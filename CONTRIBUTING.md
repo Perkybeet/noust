@@ -119,6 +119,8 @@ src/noust/
                     application) and `gate.py` (`DockerGate`); `names.py` is what Noust calls things in
                     Docker. A container from the inside is `states.py` (its state as one word of a closed
                     list), `inspect.py` (how it ended, its policy and limits; never its environment),
+                    `grants.py` (what the server gave it: directories, devices, capabilities, namespaces,
+                    confinement; what a stack already had, for the guard of its compose file),
                     `stats.py` (one reading, or the reason there is none) and `events.py` (restarts in the
                     last minutes); the machine in short is `summary.py` (what asks for attention, worst
                     first) and `restart_loss.py`; a cleanup is a plan applied as it was shown

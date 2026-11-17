@@ -95,10 +95,16 @@ def test_adopting_a_privileged_stack_whose_up_would_recreate_it_is_refused(
         _plan(docker.compose_file.parent, accept_recreate=True)
 
 
-def test_adopting_a_privileged_stack_that_runs_as_its_file_says_is_warned(
+def test_adopting_a_privileged_stack_that_runs_as_its_file_says_needs_it_accepted(
     docker: Docker, store: NoustStore, web: NginxManager
 ) -> None:
-    plan = _plan(docker.compose_file.parent, web=web)
+    # The stack runs with what the file says, so it is not new and is not refused for it; but taking
+    # charge of one that has the server is equivalent to root, so the operator says so.
+    with pytest.raises(DeploymentError, match="whose containers have what is on this server"):
+        _plan(docker.compose_file.parent, web=web)
+
+    plan = _plan(docker.compose_file.parent, web=web, accept_host_access=True)
+
     assert plan.project == "proggest"
 
 
