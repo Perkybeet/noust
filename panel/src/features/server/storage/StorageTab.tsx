@@ -284,6 +284,7 @@ function ImagesDrawer({ onClose }: { onClose: () => void }) {
             if (!open) setRemoving(null);
           }}
           friction="simple"
+          destructive
           size="md"
           title={t("server.storage.removeImageTitle")}
           description={t("server.storage.removeImageDescription")}

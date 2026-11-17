@@ -30,7 +30,6 @@ export function PauseMonitoringDialog({ name, open, onOpenChange }: PauseMonitor
   return (
     <ConfirmDialog
       friction="simple"
-        destructive={false}
       open={open}
       onOpenChange={onOpenChange}
       title={t("servers.settings.monitoring.pauseTitle", { name })}

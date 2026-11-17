@@ -73,6 +73,7 @@ export function DeleteAppDialog({ app, open, onOpenChange, choice, plan, options
         open={open}
         onOpenChange={onOpenChange}
         friction="type"
+        destructive
         server={node}
         title={t("runtime.adopted.stopManagingTitle", { domain })}
         description={t("runtime.adopted.stopManagingSummary", { domain })}
@@ -92,6 +93,7 @@ export function DeleteAppDialog({ app, open, onOpenChange, choice, plan, options
       open={open}
       onOpenChange={onOpenChange}
       friction="type"
+      destructive
       server={node}
       title={t("appPages.deleteApp.title", { domain })}
       description={

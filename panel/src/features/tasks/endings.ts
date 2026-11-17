@@ -6,7 +6,7 @@
  * task centre at all (the server's notice, which every console gets, is what tells a failure nobody was waiting for).
  */
 
-import { launchedFrom } from "./launches";
+import { FRESH_MS, launchedFrom } from "./launches";
 import { isActive, isFinished, isMine, isOnItsPage, placeOf } from "./model";
 import type { Me, Task } from "./model";
 import { LONG_TASK_MS } from "./browserNotice";
@@ -15,9 +15,13 @@ import type { NoticeState } from "../../realtime/jobEnds";
 /** What to do about the end of a task. */
 export type Ending = "toast" | "silent" | "none";
 
-/** The task that has just ended, when this change is the end of one the console knew was running or waiting. */
-export function endedTask(before: Task | undefined, after: Task | undefined): Task | null {
-  return before !== undefined && isActive(before) && after !== undefined && isFinished(after) ? after : null;
+/** The task that has just ended, when this change is the end of one the console knew was running or waiting, or of one that began a moment ago. */
+export function endedTask(before: Task | undefined, after: Task | undefined, now: number = Date.now()): Task | null {
+  if (after === undefined || !isFinished(after)) return null;
+  if (before !== undefined) return isActive(before) ? after : null;
+  // Never seen running, and over: a job that began a moment ago ran from start to end between two events (a refusal), and it is the one
+  // the person just asked for. One that began long ago is the console arriving late, and says nothing.
+  return after.createdAt !== null && now - after.createdAt < FRESH_MS ? after : null;
 }
 
 /**
@@ -44,16 +48,24 @@ function isOnApplicationPage(task: Task, pathname: string): boolean {
   return pathname === app || pathname.startsWith(`${app}/`);
 }
 
+/** The jobs an application's page follows in its own header (`useAppActions`), which keeps a failure with its output until it is dismissed. */
+const DRAWN_BY_THE_PAGE: ReadonlySet<string> = new Set(["update", "rollback"]);
+
+function isDrawnByThePage(task: Task): boolean {
+  return task.type !== null && DRAWN_BY_THE_PAGE.has(task.type);
+}
+
 /**
  * How to tell the person: a job of theirs, away from where they launched it, says so; where they are looking at it it is
  * silent; the rest is not said here. A failure on an application's page is the exception: the card a page draws for its own
  * job does not announce it, and the page of a first deploy that failed has no application to draw it, so this is the one
- * channel that says it (item 141). Only the task's own page, which is its log, says a failure by itself.
+ * channel that says it (item 141). What the page does draw, an update or a rollback with its failure and output in the header,
+ * it says itself: an event is said in one channel, never two. Only the task's own page, which is its log, says a failure by itself.
  */
 export function endingOf(task: Task, me: Me, pathname: string): Ending {
   if (task.kind !== "job" || !isMine(task, me)) return "none";
   if (isOnTaskPage(task, pathname)) return "silent";
-  if (task.state === "failed" && isOnApplicationPage(task, pathname)) return "toast";
+  if (task.state === "failed" && isOnApplicationPage(task, pathname) && !isDrawnByThePage(task)) return "toast";
   return isStaying(task, pathname) ? "silent" : "toast";
 }
 

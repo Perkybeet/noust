@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { setLocale } from "../../../app/locale";
 import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
-import { fakeBackend, json, problem, signedInRoutes } from "../../../test/fakes";
+import { SESSION, fakeBackend, json, problem, signedInRoutes } from "../../../test/fakes";
 
 const METRICS = [
   { id: "cpu", scope: "server", unit: "percent" },
@@ -181,6 +181,40 @@ describe("Alerts", () => {
     });
     expect(await within(ruleRow("shop-memory")).findByRole("button", { name: "Acknowledge the alert for shop.example.com" })).toBeInTheDocument();
     expect(within(ruleRow("shop-memory")).queryByText(/Acknowledged by/)).toBeNull();
+  });
+
+  // "Explain this" was in the menu of the row of an alert that fires and not in the drawer that opens on it: the same component, in both.
+  it("offers 'Explain this' in the drawer of a rule that is firing, the way the row's menu does, and not on one that is well", { timeout: 30_000 }, async () => {
+    const withAssistant = { ...SESSION, assistant: { enabled: true, can_use: true, tools: true, reason: null, model: "tiny-model", location: "machine", mask_personal: true } };
+    alertsBackend([rule("cpu-high"), FIRING], { ...signedInRoutes(withAssistant) });
+    const { user } = renderConsole("/alerts");
+    await screen.findByRole("list", { name: "Alert rules" });
+
+    await user.click(within(ruleRow("shop-memory")).getByRole("button", { name: /Actions for shop-memory/ }));
+    expect(await screen.findByRole("menuitem", { name: "Explain this" })).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+
+    await user.click(within(ruleRow("shop-memory")).getByRole("button", { name: /Actions for shop-memory/ }));
+    await user.click(await screen.findByRole("menuitem", { name: "Edit" }));
+    const drawer = await screen.findByRole("dialog", { name: "Edit shop-memory" });
+    expect(within(drawer).getByRole("button", { name: "Explain this" })).toBeInTheDocument();
+    expect(within(drawer).getByText("1 alert is firing")).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+
+    await user.click(within(ruleRow("cpu-high")).getByRole("button", { name: /Actions for cpu-high/ }));
+    await user.click(await screen.findByRole("menuitem", { name: "Edit" }));
+    const calm = await screen.findByRole("dialog", { name: "Edit cpu-high" });
+    expect(within(calm).queryByRole("button", { name: "Explain this" })).not.toBeInTheDocument();
+  });
+
+  it("draws no 'Explain this' in the drawer while the assistant is off", { timeout: 30_000 }, async () => {
+    alertsBackend();
+    const { user } = renderConsole("/alerts");
+    await screen.findByRole("list", { name: "Alert rules" });
+    await user.click(within(ruleRow("shop-memory")).getByRole("button", { name: /Actions for shop-memory/ }));
+    await user.click(await screen.findByRole("menuitem", { name: "Edit" }));
+    const drawer = await screen.findByRole("dialog", { name: "Edit shop-memory" });
+    expect(within(drawer).queryByRole("button", { name: "Explain this" })).not.toBeInTheDocument();
   });
 
   it("names the person first when a central took the alert for them, in the language of the console", { timeout: 30_000 }, async () => {

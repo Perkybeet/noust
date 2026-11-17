@@ -36,6 +36,7 @@ export function RemoveServerDialog({ name, open, onOpenChange }: RemoveServerDia
     <>
       <ConfirmDialog
         friction="simple"
+        destructive
         open={open}
         onOpenChange={onOpenChange}
         title={t("common.words.removeNamedQuestion", { name })}

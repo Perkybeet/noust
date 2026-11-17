@@ -43,16 +43,20 @@ function Marker({ state, number }: { state: StepState; number: number }) {
 /**
  * The one stepper: numbered, each step done, current or not started, said in words for screen
  * readers ("Source: done"). It never repeats "Step 2 of 5" in text: the list says it.
+ *
+ * The step in hand is always read whole. Horizontally the others give way to their marker: on a phone every label is its marker, and
+ * the step in hand is written under the row, as wide as the dialog; from 640px the labels sit beside their markers and the ones
+ * that are not in hand are cut before the one that is. A label was once squeezed between two markers at 390px, over the next one.
  */
 export function Stepper({ steps, current, orientation = "vertical", onSelect, className }: StepperProps) {
   const t = useT();
   const at = Math.max(0, steps.findIndex((step) => step.id === current));
   const vertical = orientation === "vertical";
-  return (
+  const list = (
     <ol
       aria-label={t("common.stepper.label")}
       data-orientation={orientation}
-      className={cx(vertical ? "flex flex-col" : "flex items-center gap-2", className)}
+      className={cx(vertical ? "flex flex-col" : "flex items-center gap-2", vertical && className)}
     >
       {steps.map((step, index) => {
         const state: StepState = index < at ? "done" : index === at ? "current" : "pending";
@@ -63,11 +67,11 @@ export function Stepper({ steps, current, orientation = "vertical", onSelect, cl
             <span
               aria-hidden="true"
               className={cx(
-                // On a phone the step in hand is the only label drawn and it is read whole, over two lines if it needs them: cut, a
-                // person would not know which step this is. The others are a marker each.
-                vertical || state !== "current" ? "truncate text-13" : "max-w-48 text-13 text-balance sm:max-w-none sm:truncate",
+                "text-13",
+                // Beside a marker only where there is room: on a phone the label of every step is its marker, and the one in hand is drawn
+                // under the row. From 640px the step in hand keeps all its text and the others are cut to what is left.
+                vertical ? "truncate" : state === "current" ? "whitespace-nowrap max-sm:sr-only" : "truncate max-sm:sr-only",
                 state === "current" ? "font-medium text-fg" : "text-fg-muted",
-                !vertical && state !== "current" && "max-sm:sr-only",
               )}
             >
               {step.label}
@@ -80,7 +84,12 @@ export function Stepper({ steps, current, orientation = "vertical", onSelect, cl
           <li
             key={step.id}
             {...(state === "current" ? { "aria-current": "step" as const } : {})}
-            className={cx(vertical ? "relative flex min-h-10 items-center" : "flex min-w-0 items-center gap-2", !vertical && index < steps.length - 1 && "flex-1", !vertical && state === "current" && "max-sm:shrink-0")}
+            className={cx(
+              vertical ? "relative flex min-h-10 items-center" : "flex min-w-6 items-center gap-2",
+              // A marker is never squeezed: the others share what the step in hand leaves, and the one in hand keeps its own width.
+              !vertical && index < steps.length - 1 && "flex-1",
+              !vertical && state === "current" && "shrink-0 sm:flex-none",
+            )}
           >
             {state === "done" && onSelect !== undefined ? (
               <button
@@ -98,5 +107,19 @@ export function Stepper({ steps, current, orientation = "vertical", onSelect, cl
         );
       })}
     </ol>
+  );
+  if (vertical) return list;
+  return (
+    <div data-slot="stepper" className={className}>
+      {list}
+      {/* The step in hand, whole, where a phone has room for it: under the markers, over the width of the dialog, in as many lines as it
+          needs. Drawn from an attribute so that the label is one text in the page and not two: the list already says it in words. */}
+      <div
+        data-slot="stepper-current"
+        data-label={steps[at]?.label}
+        aria-hidden="true"
+        className="mt-2 text-13 font-medium text-balance text-fg after:content-[attr(data-label)] sm:hidden"
+      />
+    </div>
   );
 }

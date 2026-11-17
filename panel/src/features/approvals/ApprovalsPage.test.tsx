@@ -135,16 +135,52 @@ describe("the approvals inbox", () => {
     expect(call?.body).toEqual({ content: "[Service]\nExecStart=/usr/bin/worker" });
   });
 
-  it("says when approvals are off here", async () => {
-    fakeBackend({
+  // The off screen was one sentence naming a configuration key, `approval.enabled`, for the operator to go and set. It has a title, what
+  // it is in a sentence and the switch with its name, which does what the sentence asked for.
+  it("says when approvals are off here, with the switch that turns them on and no configuration key to go and set", async () => {
+    let enabled = false;
+    const backend = fakeBackend({
       ...signedInRoutes(),
-      "GET /api/approvals/policy": () => json(200, { enabled: false, approvers: ["security"], request_hours: 24, execute_minutes: 30, reason_required: false, rules: [] }),
+      "GET /api/approvals/policy": () => json(200, { enabled, approvers: ["security"], request_hours: 24, execute_minutes: 30, reason_required: false, rules: [] }),
       "GET /api/approvals": () => json(200, { approvals: [], pending: 0 }),
+      "PATCH /api/config": () => {
+        enabled = true;
+        return json(200, { message: "ok", path: "approval.enabled", value: true });
+      },
     });
-    renderConsole("/settings/approvals");
+    const { user } = renderConsole("/settings/approvals");
     expect(await screen.findByText("Off", { selector: "[data-state]" })).toHaveAttribute("data-state", "stopped");
-    expect(screen.getByText(/Nothing waits for a second person here/)).toBeInTheDocument();
+    expect(screen.getByText("Calls that wait for a second person, and the ones already decided.")).toBeInTheDocument();
+    expect(screen.queryByText(/approval\.enabled/)).not.toBeInTheDocument();
     expect(await screen.findByText("Nothing waits for approval.")).toBeInTheDocument();
+    const toggle = screen.getByRole("switch", { name: "Ask a second person to approve" });
+    expect(toggle).not.toBeChecked();
+    expect(screen.getByText("Without it, one person can run these calls alone.")).toBeInTheDocument();
+
+    await user.click(toggle);
+    await waitFor(() => {
+      expect(backend.callsTo("PATCH /api/config").at(-1)?.body).toEqual({ path: "approval.enabled", value: true });
+    });
+    expect(await screen.findByText("On", { selector: "[data-state]" })).toHaveAttribute("data-state", "running");
+  });
+
+  it("asks before it stops asking for a second person", async () => {
+    const backend = fakeBackend({
+      ...signedInRoutes(),
+      "GET /api/approvals/policy": () => json(200, { enabled: true, approvers: ["security"], request_hours: 24, execute_minutes: 30, reason_required: false, rules: [] }),
+      "GET /api/approvals": () => json(200, { approvals: [], pending: 0 }),
+      "PATCH /api/config": () => json(200, { message: "ok", path: "approval.enabled", value: false }),
+    });
+    const { user } = renderConsole("/settings/approvals");
+    const toggle = await screen.findByRole("switch", { name: "Ask a second person to approve" });
+    expect(toggle).toBeChecked();
+    await user.click(toggle);
+    const question = await screen.findByRole("alertdialog", { name: "Stop asking for a second person?" });
+    expect(backend.callsTo("PATCH /api/config")).toHaveLength(0);
+    await user.click(within(question).getByRole("button", { name: "Stop asking" }));
+    await waitFor(() => {
+      expect(backend.callsTo("PATCH /api/config").at(-1)?.body).toEqual({ path: "approval.enabled", value: false });
+    });
   });
 });
 

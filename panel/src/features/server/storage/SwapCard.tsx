@@ -145,7 +145,6 @@ function SwapPanel({ data }: { data: Swap }) {
             if (!open) setOpened(null);
           }}
           friction="simple"
-          destructive={false}
           size="md"
           title={t("server.swap.createTitle")}
           description={t("server.swap.createDescription")}
@@ -168,6 +167,7 @@ function SwapPanel({ data }: { data: Swap }) {
             if (!open) setOpened(null);
           }}
           friction="simple"
+          destructive
           size="md"
           title={t("server.swap.removeTitle")}
           description={t("server.swap.removeDescription")}
@@ -186,7 +186,6 @@ function SwapPanel({ data }: { data: Swap }) {
             if (!open) setOpened(null);
           }}
           friction="simple"
-          destructive={false}
           title={t("server.swap.swappinessTitle")}
           description={t("server.swap.swappinessDescription")}
           actionLabel={t("server.swap.swappinessAction")}

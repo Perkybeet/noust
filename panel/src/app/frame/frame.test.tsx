@@ -394,6 +394,18 @@ describe("a phone", () => {
     expect(within(sheet).getByRole("button", { name: "Your account" })).toBeInTheDocument();
   });
 
+  // Under seven groups the account was the row a person scrolled to find, and it is the only way to sign out on a phone: it opens the sheet.
+  it("puts the account before every area, where it is seen without scrolling", async () => {
+    const { user } = await shellAt("/", 390);
+    await user.click(within(screen.getByRole("navigation", { name: "Areas" })).getByRole("button", { name: "More" }));
+    const sheet = await screen.findByRole("dialog", { name: "All areas" });
+    const account = within(sheet).getByRole("button", { name: "Your account" });
+    const firstArea = within(sheet).getAllByRole("link")[0];
+    if (firstArea === undefined) throw new Error("the sheet lists no area");
+    expect(account.compareDocumentPosition(firstArea) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(sheet).getByRole("link", { name: "Settings" }).compareDocumentPosition(account) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+  });
+
   it("draws the server selector and no account button in the top bar", async () => {
     await shellAt("/", 390);
     const bar = screen.getAllByRole("banner")[0] ?? document.body;

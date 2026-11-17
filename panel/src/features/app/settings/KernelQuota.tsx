@@ -80,7 +80,6 @@ export function KernelQuota({ disk, domain }: { disk: AppDisk; domain: string })
           if (!open) setAsking(null);
         }}
         friction="simple"
-        destructive={false}
         server={node}
         title={giving ? t("runtime.disk.kernel.giveTitle", { domain }) : t("runtime.disk.kernel.takeTitle", { domain })}
         description={giving ? t("runtime.disk.kernel.giveDescription", { limit: String(limit ?? "") }) : t("runtime.disk.kernel.takeDescription")}

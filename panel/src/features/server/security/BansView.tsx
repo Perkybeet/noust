@@ -161,7 +161,6 @@ function WebWatch({ state }: { state: Fail2ban }) {
             if (!open) setAsking(false);
           }}
           friction="simple"
-          destructive={false}
           size="md"
           title={state.web_jails ? t("server.bans.web.stopTitle") : t("server.bans.web.startTitle")}
           description={state.web_jails ? t("server.bans.web.stopDescription") : t("server.bans.web.startDescription")}

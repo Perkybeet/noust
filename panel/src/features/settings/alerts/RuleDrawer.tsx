@@ -18,6 +18,7 @@ import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Select } from "../../../components/ui/Select";
 import { useT } from "../../../i18n";
+import { ExplainThis } from "../../assistant/ExplainThis";
 import { splitErrors } from "../formErrors";
 import { FormFailure } from "../SettingsForm";
 import { COMPARATORS, COMPARATOR_KEYS, RULE_FIELDS, emptyRule, limitHint, metricLabel, ruleBody, ruleFormFrom } from "./rules";
@@ -44,6 +45,8 @@ export function RuleDrawer({ rule, metrics, open, onOpenChange }: RuleDrawerProp
   const nameRef = useRef<HTMLInputElement>(null);
   const limitRef = useRef<HTMLInputElement>(null);
 
+  // How many of its subjects fire now: a rule that is off fires nothing, as the row says.
+  const firing = rule?.enabled === true ? (rule.states ?? []).filter((entry) => entry.state === "firing").length : 0;
   const metric = metrics.find((candidate) => candidate.id === form.metric);
   const onApp = metric?.scope === "app";
   const unit = metric?.unit ?? "number";
@@ -121,6 +124,13 @@ export function RuleDrawer({ rule, metrics, open, onOpenChange }: RuleDrawerProp
     >
       <form id={formId} noValidate onSubmit={submit} className="flex min-w-0 flex-col gap-5">
         <FormFailure error={split.form} title={t("alerts.form.saveErrorTitle")} />
+        {firing > 0 && rule !== undefined ? (
+          // What the row's menu offers, here too: the drawer of a rule that fires is where its limit is read, and the question about it is asked.
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2">
+            <p className="min-w-0 text-13 text-pretty text-fg">{t("alerts.rules.firingCount", { count: firing })}</p>
+            <ExplainThis page={{ kind: "alert", rule: rule.name }} />
+          </div>
+        ) : null}
         <Field label={t("common.words.name")} description={t("alerts.form.nameDescription")} error={message("name")}>
           <Input
             ref={nameRef}

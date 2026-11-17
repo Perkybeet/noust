@@ -107,7 +107,6 @@ export function IdentityCard({ domain }: { domain: string }) {
         open={moving}
         onOpenChange={setMoving}
         friction="simple"
-        destructive={false}
         server={node}
         title={t("appSettings.identity.moveTitle", { domain })}
         description={t("appSettings.identity.moveDescription", {

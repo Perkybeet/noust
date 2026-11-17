@@ -520,6 +520,7 @@ export function DeployKeyCard({ domain, repository }: { domain: string; reposito
         open={removing}
         onOpenChange={setRemoving}
         friction="simple"
+        destructive
         server={node}
         title={t("sources.deployKey.removeDialog.title", { domain })}
         description={t("sources.deployKey.removeDialog.description", { forge })}

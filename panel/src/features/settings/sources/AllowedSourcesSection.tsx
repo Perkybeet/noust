@@ -48,7 +48,6 @@ export function AllowedSourcesSection() {
       {asking ? (
         <ConfirmDialog
           friction="simple"
-        destructive={false}
           open
           onOpenChange={(next) => {
             if (!next) setAsking(false);

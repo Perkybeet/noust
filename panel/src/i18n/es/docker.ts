@@ -28,7 +28,7 @@ export const docker: Catalog<typeof en> = {
     unhealthy: "Falla su comprobación",
     loop: "Reiniciándose",
     oom: "Sin memoria",
-    killed: "Matado",
+    killed: "Parado a la fuerza",
     error: "Con error",
     dead: "Muerto",
     ended: "Terminado",
@@ -131,7 +131,7 @@ export const docker: Catalog<typeof en> = {
     reference: "Imagen",
     runs: "Corre",
     latest: "La última",
-    looked: "Mirada",
+    looked: "Comprobada",
     moves: "También mueve",
     stepsLabel: "Lo que hace la actualización, en orden",
     steps: {
@@ -154,12 +154,12 @@ export const docker: Catalog<typeof en> = {
   },
   bring: {
     title: "Traer {name} a Noust",
-    description: "Noust registra la pila tal como corre. No se recrea, reinicia ni cambia ningún contenedor, y su fichero Compose no se reescribe.",
+    description: "Noust registra la pila tal como corre. No se recrea, reinicia ni cambia ningún contenedor, y su archivo Compose no se reescribe.",
     action: "Traer a Noust",
     loading: "Comprobando la pila",
     failed: "No se pudo comprobar la pila",
     folder: "Carpeta",
-    file: "Su fichero Compose",
+    file: "Su archivo Compose",
     has: "Tiene",
     counts: "{containers} contenedores, {jobs} tareas terminadas, {volumes} volúmenes, {networks} redes",
     name: "Nombre entre las aplicaciones",
@@ -204,7 +204,7 @@ export const docker: Catalog<typeof en> = {
       recipe: "Es el de una receta: cambia con la actualización de la receta.",
       generated: "Noust lo genera con los ajustes de contenedor de la aplicación: cámbialos en la aplicación.",
       bring_first: "Noust no creó esta pila. Tráela primero a Noust, sin tocarla, y se podrá editar aquí.",
-      no_file: "La pila no tiene un fichero Compose que Noust pueda leer.",
+      no_file: "La pila no tiene un archivo Compose que Noust pueda leer.",
       not_compose: "Esto no es una pila de Compose.",
     },
     apply: {
@@ -466,7 +466,7 @@ export const docker: Catalog<typeof en> = {
     },
     console: {
       title: "Consola",
-      description: "Una shell dentro del contenedor. Lo que escribes se graba, como en cada terminal de Noust.",
+      description: "Un terminal dentro del contenedor. Lo que escribes se graba, como en cada terminal de Noust.",
     },
     facts: {
       title: "De dónde sale y qué toca",

@@ -525,7 +525,7 @@ def test_every_reversal_runs_even_when_one_raises_something_unexpected(
         return FakeUnits.update_config(machine.units, name, content)
 
     monkeypatch.setattr(machine.units, "update_config", broken_undo)
-    with pytest.raises(DeploymentError, match="did not pass its health check") as failure:
+    with pytest.raises(DeploymentError, match="did not pass its startup check") as failure:
         migrate(DOMAIN, plan)
 
     assert "systemd went away" in failure.value.details

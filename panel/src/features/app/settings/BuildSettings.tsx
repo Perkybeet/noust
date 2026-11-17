@@ -223,6 +223,7 @@ function Form({ build, appType, domain }: { build: AppBuild; appType: string; do
         open={removing}
         onOpenChange={setRemoving}
         friction="simple"
+        destructive
         server={node}
         title={t("appBuild.remove.title", { domain })}
         description={t("appBuild.remove.description")}

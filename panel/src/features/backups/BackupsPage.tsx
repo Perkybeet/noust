@@ -211,7 +211,7 @@ export function BackupsPage({ search, onSearchChange }: BackupsPageProps) {
       ) : null}
       {open?.kind === "copy" ? <PushBackupDialog key={open.backup.backup_id} backup={open.backup} open onOpenChange={(next) => !next && close()} /> : null}
       {open?.kind === "delete" ? (
-        <ConfirmDialog friction="type"
+        <ConfirmDialog friction="type" destructive
           key={open.backup.backup_id}
           open
           onOpenChange={(next) => !next && close()}

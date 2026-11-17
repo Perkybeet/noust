@@ -220,6 +220,7 @@ export function TeamMembers() {
             if (!next) setRemoving(null);
           }}
           friction="simple"
+          destructive
           server={node}
           title={removing.username === me ? t("teams.members.leaveTitle", { team: team.name }) : t("teams.members.removeTitle", { name: removing.username, team: team.name })}
           description={removing.username === me ? t("teams.members.leaveDescription", { team: team.name }) : t("teams.members.removeDescription", { name: removing.username, team: team.name })}

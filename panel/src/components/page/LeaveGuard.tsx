@@ -23,6 +23,7 @@ export function LeaveGuard({ changes, description }: LeaveGuardProps) {
   return (
     <ConfirmDialog
       friction="simple"
+      destructive
       open={guard.blocked}
       onOpenChange={(open) => {
         // Both ways out of the dialog end here; once the navigation was let go, staying is a no-op.

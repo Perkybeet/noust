@@ -140,6 +140,7 @@ export function QueryLibrary({ engine, name, onPick }: { engine: string; name: s
       </TabPanel>
       <ConfirmDialog
         friction="simple"
+        destructive
         open={clearing}
         onOpenChange={setClearing}
         title={t("databases.library.clearTitle")}

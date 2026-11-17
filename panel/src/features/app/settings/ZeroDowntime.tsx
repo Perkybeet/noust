@@ -12,6 +12,7 @@ import { zeroDowntimeKey } from "../../../api/queries/zeroDowntime";
 import type { ZeroDowntime, ZeroDowntimeInstance } from "../../../api/queries/zeroDowntime";
 import { announce } from "../../../app/Announcer";
 import { AppStatePill } from "../../../components/page/AppStatePill";
+import { CommandHint } from "../../../components/page/CommandHint";
 import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Badge } from "../../../components/ui/Badge";
@@ -145,11 +146,13 @@ export function useDrain(domain: string, status: ZeroDowntime | undefined): Drai
  */
 function DefaultNote({ enabled }: { enabled: boolean }) {
   const t = useT();
-  const setting = <Mono key="setting">deploy.zero_downtime</Mono>;
+  // The console has no control for the default of new applications, so the terminal is the way to change it: the key is in the command,
+  // set in mono beside it, and not in the sentence (a configuration key told to a person who has no way to find it is noise).
   return (
-    <p className="max-w-measure text-12 text-pretty text-fg-muted">
-      {enabled ? t.rich("appSettings.zeroDowntime.defaultNoteOn", { setting }) : t.rich("appSettings.zeroDowntime.defaultNoteOff", { setting })}
-    </p>
+    <div className="flex max-w-measure flex-col gap-2">
+      <p className="text-12 text-pretty text-fg-muted">{enabled ? t("appSettings.zeroDowntime.defaultNoteOn") : t("appSettings.zeroDowntime.defaultNoteOff")}</p>
+      <CommandHint reason="solo-terminal" label={t("appSettings.zeroDowntime.defaultCommand")} command="noust config set deploy.zero_downtime false" />
+    </div>
   );
 }
 
@@ -393,6 +396,7 @@ export function ZeroDowntimeCard({ app, status, drain }: { app: App; status: Use
         open={turningOff}
         onOpenChange={setTurningOff}
         friction="simple"
+        destructive
         server={node}
         title={t("appSettings.zeroDowntime.confirmTurnOffTitle", { domain })}
         description={t("appSettings.zeroDowntime.confirmTurnOffDescription")}

@@ -63,7 +63,6 @@ export function ChangeSourceDialog({ rule, guarded, onClose }: ChangeSourceDialo
         if (!next) onClose();
       }}
       friction="simple"
-      destructive={false}
       size="md"
       title={t("network.firewall.sourceTitle", { rule: `${rulePorts(rule)}/${rule.proto}` })}
       description={t("network.firewall.sourceDescription")}

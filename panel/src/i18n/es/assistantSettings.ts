@@ -85,7 +85,7 @@ export const assistantSettings: Catalog<typeof en> = {
     never: "No sale nunca",
     neverList: {
       secrets: "Valores de variables, claves y contraseñas: se ocultan aunque aparezcan en un registro.",
-      files: "Copias, volcados y ficheros de las aplicaciones.",
+      files: "Copias, volcados y archivos de las aplicaciones.",
       accounts: "La auditoría y las cuentas.",
     },
     mask: "Ocultar correos y direcciones IP",

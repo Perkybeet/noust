@@ -301,7 +301,6 @@ function RestartDialog({ onClose }: { onClose: () => void }) {
         if (!open) onClose();
       }}
       friction="simple"
-      destructive={false}
       size="md"
       title={t("server.updates.stale.dialogTitle")}
       description={t("server.updates.stale.dialogDescription")}

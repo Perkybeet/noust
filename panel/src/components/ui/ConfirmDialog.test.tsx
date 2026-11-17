@@ -436,12 +436,23 @@ describe("ConfirmDialog", () => {
       error.mockRestore();
     });
 
+    // Red is a state (a failure) or a destruction: a question that only applies a change is not painted with it, and the one
+    // that deletes or stops asks for it, so a new dialog is neutral until somebody says it destroys.
+    it("draws the action neutral unless the dialog says it destroys or stops something", async () => {
+      const { rerender } = render(<ConfirmDialog friction="simple" open title="Turn on" description="x" actionLabel="Turn on the firewall" onConfirm={() => Promise.resolve()} />);
+      expect(await screen.findByRole("button", { name: "Turn on the firewall" })).toHaveAttribute("data-variant", "primary");
+      rerender(<ConfirmDialog friction="simple" open title="Stop" description="x" actionLabel="Stop application" destructive onConfirm={() => Promise.resolve()} />);
+      expect(await screen.findByRole("button", { name: "Stop application" })).toHaveAttribute("data-variant", "danger");
+      rerender(<ConfirmDialog friction="type" open title="Delete" description="x" confirmText="shop" actionLabel="Delete application" destructive onConfirm={() => Promise.resolve()} />);
+      expect(await screen.findByRole("button", { name: "Delete application" })).toHaveAttribute("data-variant", "danger");
+    });
+
     it("resets the primary of the header behind it: a dialog has its own", async () => {
       const { DemotePrimary } = await import("./demotePrimary");
       render(
         <DemotePrimary active>
           <Button variant="primary">Update</Button>
-          <ConfirmDialog friction="simple" open title="Stop" description="x" actionLabel="Stop application" destructive={false} onConfirm={() => Promise.resolve()} />
+          <ConfirmDialog friction="simple" open title="Stop" description="x" actionLabel="Stop application" onConfirm={() => Promise.resolve()} />
         </DemotePrimary>,
       );
       await screen.findByRole("alertdialog");

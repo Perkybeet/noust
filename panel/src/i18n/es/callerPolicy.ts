@@ -82,7 +82,7 @@ export const callerPolicy: Catalog<typeof en> = {
     open: "Abrir",
     openLabel: "Abrir la intervención {n}",
     empty: "No hizo nada en los últimos {days} días.",
-    incomplete: "La lista se para en su tope: hay más antes.",
+    incomplete: "La lista llega a su límite: hay actividad anterior que no se muestra.",
     intervention: {
       documentTitle: "Intervención de una credencial",
       title: "Intervención {n}",

@@ -43,7 +43,6 @@ export function UpdateTaggedApps({ tag, count }: UpdateTaggedAppsProps) {
           if (!next) setForce(false);
         }}
         friction="simple"
-        destructive={false}
         server={node}
         title={t("appTags.update.title", { tag })}
         description={t("appTags.update.description", { count, tag })}

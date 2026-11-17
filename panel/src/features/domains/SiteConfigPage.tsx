@@ -505,6 +505,7 @@ export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfig
       ) : null}
       <ConfirmDialog
         friction="type"
+        destructive
         open={deleting}
         onOpenChange={setDeleting}
         title={t("common.words.deleteNamed", { name: site })}

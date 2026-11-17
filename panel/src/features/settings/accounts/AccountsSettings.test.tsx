@@ -424,7 +424,7 @@ describe("Settings > Accounts", () => {
     await user.click(await screen.findByRole("menuitem", { name: "See what they can do" }));
     const drawer = await screen.findByRole("dialog", { name: /What .* can do/ });
     expect(within(drawer).getByText("apps.deploy")).toBeInTheDocument();
-    expect(within(drawer).getByText("Update, roll back, activate a release, rebuild")).toBeInTheDocument();
+    expect(within(drawer).getByText("Update, roll back, switch to another release, rebuild")).toBeInTheDocument();
   });
 
   it("removes an account only once its name is typed", { timeout: 20_000 }, async () => {

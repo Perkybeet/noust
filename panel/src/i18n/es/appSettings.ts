@@ -182,8 +182,9 @@ export const appSettings: Catalog<typeof en> = {
     composeRiskDetail: "Las colas, las tareas programadas y lo que un servicio hace una vez al arrancar pueden ejecutarse en ambas un momento.",
     onProblem: "Activados, con un problema",
     turnOffEllipsis: "Desactivar…",
-    defaultNoteOff: "Las aplicaciones nuevas que pueden correr en dos copias empiezan con esto activado. Esta se reinicia en cada actualización hasta que lo actives. El valor por defecto de las aplicaciones nuevas es {setting}.",
-    defaultNoteOn: "Las aplicaciones nuevas que pueden correr en dos copias también empiezan con esto activado. El valor por defecto de las aplicaciones nuevas es {setting}.",
+    defaultNoteOff: "Las aplicaciones nuevas que pueden correr en dos copias empiezan con esto activado. Esta se reinicia en cada actualización hasta que lo actives.",
+    defaultNoteOn: "Las aplicaciones nuevas que pueden correr en dos copias también empiezan con esto activado.",
+    defaultCommand: "Para cambiar ese valor en las aplicaciones nuevas",
   },
   /** Pinning the branch an app deploys from: General and the deploy-on-push warning. */
   branch: {

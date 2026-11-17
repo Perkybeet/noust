@@ -226,6 +226,7 @@ function TrustedHosts({ canManage }: { canManage: boolean }) {
             if (!open) setForgetting(null);
           }}
           friction="simple"
+          destructive
           server={node}
           title={t("sources.server.hosts.forgetTitle", { host: forgetting.host })}
           description={t("sources.server.hosts.forgetDescription")}

@@ -324,7 +324,7 @@ function Danger() {
             title="Delete this application"
             description="Stops and removes the service, the site, the certificate and the files. Backups are kept."
             action={
-              <ConfirmDialog friction="type"
+              <ConfirmDialog friction="type" destructive
                 title="Delete shop.example.dev"
                 description="Stops and removes the service, the site, the certificate and the app's files. Backups are kept."
                 confirmText="shop.example.dev"

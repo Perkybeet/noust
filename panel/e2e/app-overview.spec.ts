@@ -70,10 +70,12 @@ test("Update queues a job; the header follows it over the event stream to its en
   expect((await queued).postDataJSON()).toEqual({ domain: DOMAIN, force: false });
 
   // The sandbox has no checkout to update, so the job fails; the header keeps the failure,
-  // in the updater's own words, until it is dismissed.
+  // in the updater's own words, until it is dismissed. The words are a sentence of Noust's (what is not found and how to deploy
+  // it), set as text; mono is for what a program printed.
   const failure = page.getByText(`Update of ${DOMAIN} failed`);
   await expect(failure).toBeVisible();
-  await expect(page.locator("pre").filter({ hasText: `Application not found: ${DOMAIN}` }).first()).toBeVisible();
+  await expect(page.getByText(`Application not found: ${DOMAIN}`, { exact: true })).toBeVisible();
+  await expect(page.getByText(`Deploy it with: noust create -d ${DOMAIN}`)).toBeVisible();
 
   // The stream said deploying, then the app's state once the job ended; the header shows it.
   await expect

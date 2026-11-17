@@ -220,6 +220,7 @@ export function GitCredentialCard({ domain, repository }: { domain: string; repo
         open={removing}
         onOpenChange={setRemoving}
         friction="simple"
+        destructive
         server={node}
         title={t("sources.credential.removeDialog.title", { domain })}
         description={t("sources.credential.removeDialog.description", { host })}

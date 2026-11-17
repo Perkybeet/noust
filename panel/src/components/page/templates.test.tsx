@@ -378,6 +378,29 @@ describe("Stepper and Wizard (T5)", () => {
     expect(screen.getByRole("list", { name: "Steps" })).toHaveAttribute("data-orientation", "horizontal");
   });
 
+  // At 390px the label of the step in hand was squeezed between two markers and drawn over the next one. The step in hand is written whole
+  // under the row, from an attribute so the page has one text of it, and every other label gives way to its marker before it does.
+  it("reads the step in hand whole on a phone and cuts the others first", () => {
+    render(<Stepper steps={steps} current="address" orientation="horizontal" />);
+    const under = document.querySelector('[data-slot="stepper-current"]');
+    expect(under).toHaveAttribute("data-label", "Address");
+    expect(under).toHaveAttribute("aria-hidden", "true");
+    expect(under).toHaveClass("sm:hidden");
+    expect(screen.getAllByText("Address")).toHaveLength(1);
+    const [first, second] = within(screen.getByRole("list", { name: "Steps" })).getAllByRole("listitem");
+    if (first === undefined || second === undefined) throw new Error("the stepper drew no steps");
+    expect(within(first).getByText("Source")).toHaveClass("truncate", "max-sm:sr-only");
+    expect(within(second).getByText("Address")).toHaveClass("whitespace-nowrap", "max-sm:sr-only");
+    expect(within(second).getByText("Address")).not.toHaveClass("truncate");
+    expect(second).toHaveClass("shrink-0", "sm:flex-none");
+    expect(first).not.toHaveClass("shrink-0");
+  });
+
+  it("has no line under it when it is vertical, where every label is beside its marker", () => {
+    render(<Stepper steps={steps} current="address" />);
+    expect(document.querySelector('[data-slot="stepper-current"]')).toBeNull();
+  });
+
   it("keeps Continue enabled and points at what is missing instead of moving on", async () => {
     const onNext = vi.fn();
     const onMissing = vi.fn();

@@ -174,7 +174,6 @@ function AcceptedRow({ check }: { check: SecurityCheck }) {
         onOpenChange={setConfirm}
         friction="simple"
         server={node}
-        destructive={false}
         title={t("server.checks.withdrawTitle", { check: checkTitle(t, check) })}
         description={t("server.checks.withdrawDescription")}
         actionLabel={t("server.checks.withdrawAction")}

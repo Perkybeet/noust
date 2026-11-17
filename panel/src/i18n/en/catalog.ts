@@ -1,4 +1,4 @@
-/** Strings of the console's catalogue of recipes: its page, its cards, one recipe's page, and the recipes installed. */
+/** Strings of the console's catalog of recipes: its page, its cards, one recipe's page, and the recipes installed. */
 export const catalog = {
   page: {
     description: "Applications ready to install, with their settings already chosen.",

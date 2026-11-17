@@ -253,7 +253,6 @@ export function AppDatabaseTab({ domain }: { domain: string }) {
       {rotating?.username ? (
         <ConfirmDialog
           friction="simple"
-          destructive={false}
           open
           onOpenChange={(open) => (open ? undefined : setRotating(null))}
           title={t("databases.users.rotateTitle", { user: rotating.username })}
@@ -272,6 +271,7 @@ export function AppDatabaseTab({ domain }: { domain: string }) {
       {unlinking !== null ? (
         <ConfirmDialog
           friction="simple"
+          destructive
           open
           onOpenChange={(open) => (open ? undefined : setUnlinking(null))}
           title={t("databases.appTab.unlinkTitle", { name: unlinking.database })}

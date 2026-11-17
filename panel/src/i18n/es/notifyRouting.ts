@@ -116,8 +116,8 @@ export const notifyRouting: Catalog<typeof en> = {
       system: "Sistema",
     },
     threadsNote: {
-      one: "{count} evento tiene un tema propio, puesto en el fichero de configuración. Va a ese tema se elija lo que se elija aquí.",
-      other: "{count} eventos tienen un tema propio, puesto en el fichero de configuración. Van a esos temas se elija lo que se elija aquí.",
+      one: "{count} evento tiene un tema propio, puesto en el archivo de configuración. Va a ese tema se elija lo que se elija aquí.",
+      other: "{count} eventos tienen un tema propio, puesto en el archivo de configuración. Van a esos temas se elija lo que se elija aquí.",
     },
     create: {
       button: "Crear los temas que faltan",

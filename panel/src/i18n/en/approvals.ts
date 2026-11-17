@@ -98,7 +98,6 @@ export const approvals = {
     descriptionWho: "Calls that wait for a second person. Who decides: {approvers}. Nobody decides their own.",
     on: "On",
     offLabel: "Off",
-    off: "Nothing waits for a second person here. They are on with approval.enabled in the configuration, or when a compliance framework such as ENS asks for them.",
     filterLabel: "Filter requests",
     viewLabel: "Show",
     viewWaiting: "Pending",
@@ -140,5 +139,16 @@ export const approvals = {
     yours: "This request is yours: someone else decides it.",
     cannotReplay:
       "This call carried a secret, which the console does not keep. Make it again from where you started it: the server runs it under this approval.",
+  },
+  /** The switch that makes approvals apply, on the page of the requests: it was a configuration key in a sentence. */
+  require: {
+    label: "Ask a second person to approve",
+    help: "Calls that change the server as root wait for a second person, never the one who asked.",
+    risk: "Without it, one person can run these calls alone.",
+    noPermission: "Changing it takes the permission to change settings.",
+    failed: "Could not change whether a second person approves",
+    confirmTitle: "Stop asking for a second person?",
+    confirmBody: "What needs approval will run on one person's word alone.",
+    confirmAction: "Stop asking",
   },
 } as const;

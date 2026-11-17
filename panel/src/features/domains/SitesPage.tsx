@@ -303,6 +303,7 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
       />
       <ConfirmDialog
         friction="type"
+        destructive
         open={deleting !== null}
         onOpenChange={(next) => {
           if (!next) setDeleting(null);

@@ -78,7 +78,7 @@ export const newApp = {
     variables: { one: "It reads {count} variable, all with a default.", other: "It reads {count} variables, all with a default." },
     coolify: {
       convert: "Convert a Coolify template",
-      help: "Paste a service template from Coolify's catalogue and it becomes a Compose file Noust deploys: the variables get values (new secrets), and the routing becomes a port on this server.",
+      help: "Paste a service template from Coolify's catalog and it becomes a Compose file Noust deploys: the variables get values (new secrets), and the routing becomes a port on this server.",
       title: "Converted from a Coolify template",
       body: { one: "{count} value was made here. The secret stays in this page until you deploy and is not shown again.", other: "{count} values were made here. The secrets stay in this page until you deploy and are not shown again." },
       changed: "What was changed",
@@ -324,7 +324,7 @@ export const newApp = {
     branch: "Branch {branch}",
     commit: "Commit {commit}",
     notGit: "Not a Git checkout",
-    noType: "No type recognised this source. Choose one below: its deployer decides the install, build and start commands when it runs.",
+    noType: "No type recognised this source. Choose one below: the type decides the install, build and start commands.",
     notDeployable: "Not deployable as it is:",
     canDeploy: "Noust can deploy this as {type}.",
     looksLike: "Looks like a {type} app.",

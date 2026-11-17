@@ -229,6 +229,7 @@ export const appPages = {
     nothingInPlace: "There is nothing to go back to yet. A backup of this app can be restored from Backups.",
     openBackups: "Backups",
     listError: "Could not list what this app can go back to",
+    whyNot: "Why each of the latest versions cannot be gone back to",
     loading: "Loading what this app can go back to",
     notStarted: "The rollback did not start",
   },

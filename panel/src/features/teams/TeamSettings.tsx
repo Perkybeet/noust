@@ -133,7 +133,7 @@ export function TeamSettings() {
           />
         </DangerZone>
       ) : null}
-      <ConfirmDialog friction="type"
+      <ConfirmDialog friction="type" destructive
         open={deleting}
         onOpenChange={setDeleting}
         server={node}

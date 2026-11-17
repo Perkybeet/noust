@@ -44,7 +44,7 @@ export const consoleAccess = {
     twoFactor: "A second factor on every account that can sign in",
     twoFactorOk: "Every account that can sign in has an authenticator or a passkey.",
     twoFactorLacking: { one: "{count} account signs in with a password alone", other: "{count} accounts sign in with a password alone" },
-    twoFactorFix: "Each owner enrols an authenticator or a passkey in Security after signing in, or the account is disabled.",
+    twoFactorFix: "Each owner enrolls an authenticator or a passkey in Security after signing in, or the account is disabled.",
     twoFactorUnknown: "Noust checks it again when you preview, and says which accounts lack one.",
     accountsLink: "Open accounts",
     ens: "The ENS profile",

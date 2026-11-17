@@ -288,7 +288,6 @@ export function FirewallPage() {
             if (!next) setOpened(null);
           }}
           {...typedHost(hostname)}
-          destructive={false}
           size="md"
           title={t("server.firewall.enableTitle")}
           description={t("server.firewall.enableDescription")}
@@ -306,6 +305,7 @@ export function FirewallPage() {
             if (!next) setOpened(null);
           }}
           {...typedHost(hostname)}
+          destructive
           size="md"
           title={t("server.firewall.disableTitle")}
           description={t("server.firewall.disableDescription")}
@@ -326,6 +326,7 @@ export function FirewallPage() {
             if (!next) setOpened(null);
           }}
           friction="simple"
+          destructive
           size="md"
           title={t("server.firewall.deleteTitle", { rule: `${rulePorts(opened.rule)}/${opened.rule.proto}` })}
           description={t("server.firewall.deleteDescription")}

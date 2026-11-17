@@ -7,6 +7,7 @@ import { renderConsole } from "../../../test/console";
 import { fakeBackend, json, problem } from "../../../test/fakes";
 import type { RouteHandler } from "../../../test/fakes";
 import { screenWidth } from "../../app/testRoutes";
+import { FIREWALL } from "../../server/testing";
 import { databaseRoutes } from "../testFixtures";
 
 const BASE = "/api/databases/databases/postgresql/example_production";
@@ -139,6 +140,42 @@ describe("a database's public access", () => {
     expect(within(secret).getByRole("textbox", { name: "Password" })).toHaveValue("s3cret-Pa55");
     await user.click(within(secret).getByRole("button", { name: "Done" }));
     await waitFor(() => expect(screen.queryByDisplayValue("s3cret-Pa55")).not.toBeInTheDocument());
+  });
+
+  // There is one way to open a port. The dialog that opens a service says, at its plan, that a rule letting everyone in on the port leaves
+  // "only these addresses" with nothing to do (item 139); the one that makes a database public said nothing of it, and the same warning is the
+  // same piece here, at the review, where the port is known.
+  it("warns at the review, as opening a port does, that a firewall rule for everyone leaves it open to everyone", async () => {
+    const rules = [
+      { id: "db-any", backend: "ufw", action: "allow", ports: [[5433, 5433]], proto: "tcp", source: "any", spec: "5433/tcp ALLOW IN Anywhere", comment: "temporary: migration from the old host", noust: false, known: true, service: null, source_changeable: true },
+      { id: "web", backend: "ufw", action: "allow", ports: [[80, 80], [443, 443]], proto: "tcp", source: "any", spec: "80,443/tcp ALLOW IN Anywhere", comment: "", noust: false, known: true, service: null, source_changeable: false },
+    ];
+    const { user } = await connectAt({
+      "GET /api/server/security/firewall": () => json(200, { ...FIREWALL, firewall: { ...FIREWALL.firewall, rules }, protected_ports: [{ port: 22, reason: "SSH" }] }),
+    });
+    await user.click(await screen.findByRole("button", { name: "Open access…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Open access to example_production" });
+    await user.type(within(dialog).getByLabelText(/^Reachable from/), "203.0.113.7");
+    await user.click(within(dialog).getByRole("button", { name: "Review" }));
+
+    expect(await within(dialog).findByText("Port 5433 stays open to everyone")).toBeInTheDocument();
+    expect(within(dialog).getByText("5433/tcp ALLOW IN Anywhere")).toBeInTheDocument();
+    expect(within(dialog).getByText("temporary: migration from the old host")).toBeInTheDocument();
+    // A rule for other ports is not this port's: it is not listed.
+    expect(within(dialog).queryByText("80,443/tcp ALLOW IN Anywhere")).not.toBeInTheDocument();
+    // This call opens a relay and has no step for a rule it did not write, so the way to take it out is the firewall's own page, not a tick.
+    expect(within(dialog).getByRole("link", { name: "Take it out from the firewall's rules" })).toHaveAttribute("href", "/network/firewall");
+    expect(within(dialog).queryByRole("checkbox", { name: /Remove it in the same step/ })).not.toBeInTheDocument();
+  });
+
+  it("says nothing of it when nobody is let in on that port, or when the firewall cannot be read", async () => {
+    const { user } = await connectAt();
+    await user.click(await screen.findByRole("button", { name: "Open access…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Open access to example_production" });
+    await user.type(within(dialog).getByLabelText(/^Reachable from/), "203.0.113.7");
+    await user.click(within(dialog).getByRole("button", { name: "Review" }));
+    expect(await within(dialog).findByText(/whoever can reach the port can try the account's password/)).toBeInTheDocument();
+    expect(within(dialog).queryByText(/stays open to everyone/)).not.toBeInTheDocument();
   });
 
   it("refuses an address that is not one, before asking the server", async () => {

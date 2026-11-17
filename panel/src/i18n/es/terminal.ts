@@ -56,7 +56,7 @@ export const terminal: Catalog<typeof en> = {
       title: "Una shell en {name}",
       summary: "Dentro del contenedor, como la cuenta con la que corre.",
       description:
-        "Obtienes una shell dentro del contenedor, como la cuenta con la que corre, con lo que tiene: sus ficheros y su entorno. Se graba como cada terminal de Noust, y lo que cambies se queda en el contenedor hasta que lo sustituyan.",
+        "Obtienes un terminal dentro del contenedor, como la cuenta con la que corre, con lo que tiene: sus archivos y su entorno. Se graba como cada terminal de Noust, y lo que cambies se queda en el contenedor hasta que lo sustituyan.",
     },
     server: {
       title: "Una shell de root en el servidor",

@@ -178,6 +178,31 @@ describe("the question of going back", { timeout: 20_000 }, () => {
     expect(await within(dialog).findByText(/There is nothing to go back to yet\. Each update keeps the version before it/)).toBeInTheDocument();
   });
 
+  // "Roll back" was a verb that opened onto "there is nothing to go back to" and left the person guessing why: the server knows,
+  // deployment by deployment (`rollback_unavailable_reason`), in its own words, which are said as they came.
+  it("says why each recent version cannot be gone back to, in the server's own words, when there is none to go back to", async () => {
+    const { dialog } = await openDialog([
+      deploy(25, { rollback_unavailable_reason: "Release 25 is already live" }),
+      deploy(24, { rollback_unavailable_reason: "The release of deployment 24 is no longer on disk; rebuild its commit instead" }),
+      deploy(23, { status: "failed", rollback_unavailable_reason: "Deployment 23 did not finish serving anything to go back to" }),
+      deploy(22, { rollback_unavailable_reason: "Deployment 22 built no release" }),
+    ]);
+    const why = await within(dialog).findByRole("list", { name: "Why each of the latest versions cannot be gone back to" });
+    const lines = within(why).getAllByRole("listitem").map((line) => line.textContent);
+    // The newest three, each with its number: what an operator would otherwise have to open each deployment to read.
+    expect(lines).toEqual([
+      "#25 Release 25 is already live",
+      "#24 The release of deployment 24 is no longer on disk; rebuild its commit instead",
+      "#23 Deployment 23 did not finish serving anything to go back to",
+    ]);
+  });
+
+  it("says nothing of reasons when a version can be gone back to", async () => {
+    const { dialog } = await openDialog(HISTORY);
+    await within(dialog).findByRole("combobox", { name: "Version to go back to" });
+    expect(within(dialog).queryByRole("list", { name: /cannot be gone back to/ })).not.toBeInTheDocument();
+  });
+
   it("lists an in-place app's backups after its deployments, and goes back to one as a job", async () => {
     const { user, dialog, backend } = await openDialog(
       [deploy(25)],

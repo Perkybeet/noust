@@ -283,6 +283,7 @@ export function VolumeDetailDrawer({ row, open, onOpenChange, onEdit, onRun, onR
       {restoring !== null ? (
         <ConfirmDialog
           friction="type"
+          destructive
           open
           onOpenChange={(next) => (next ? undefined : setRestoring(null))}
           title={t("volumeBackups.restore.title", { domain: row.domain })}
@@ -330,6 +331,7 @@ export function VolumeDetailDrawer({ row, open, onOpenChange, onEdit, onRun, onR
       {deleting !== null ? (
         <ConfirmDialog
           friction="type"
+          destructive
           open
           onOpenChange={(next) => (next ? undefined : setDeleting(null))}
           title={t("volumeBackups.delete.title", { id: deleting.id })}

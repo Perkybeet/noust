@@ -59,7 +59,8 @@ class TestWhenItIsPossible:
     def test_sending_without_a_way_to_send_says_what_to_set(self) -> None:
         FakeNotifier.transport = False
 
-        with pytest.raises(MailUnavailable, match=r"monitor\.smtp"):
+        # The route in the console is the answer; the configuration key behind it is not asked of a person who has the page.
+        with pytest.raises(MailUnavailable, match=r"Settings > Notification channels"):
             _mailer().send_invitation("a@example.com", "ana", "noust_inv_x", 24)
 
     def test_sending_without_a_public_address_says_what_to_set(self) -> None:

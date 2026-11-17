@@ -125,7 +125,6 @@ export function useBranchPin(app: App): BranchPinActions {
           open={unpinOpen}
           onOpenChange={setUnpinOpen}
           friction="simple"
-          destructive={false}
           server={node}
           title={t("appSettings.branch.unpinTitle", { domain })}
           description={t("appSettings.branch.unpinDescription")}

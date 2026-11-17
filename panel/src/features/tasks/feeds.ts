@@ -45,7 +45,8 @@ const NO_ME: Me = { username: null, session: null };
 
 /**
  * Who the console is signed in as, in the labels a task's actor can carry: an account's name, or, for the master
- * token (no account), the first characters of this browser's own session, which is how its jobs are labelled.
+ * token (no account), `master`, which is how its jobs are labelled since item 152 (the first characters of the browser's own session
+ * still name a job of an older server, and a session that is neither).
  */
 export function useMe(): Me {
   const { data: session } = useQuery(sessionQuery());
@@ -53,7 +54,13 @@ export function useMe(): Me {
   const needsSession = session?.authenticated === true && username === null;
   const sessions = useQuery({ ...sessionsQuery(), enabled: needsSession, staleTime: Infinity, retry: false });
   const current = sessions.data?.current_session ?? null;
-  return useMemo(() => (username === null && current === null ? NO_ME : { username, session: current === null ? null : current.slice(0, 12) }), [username, current]);
+  return useMemo(
+    () =>
+      username === null && current === null && !needsSession
+        ? NO_ME
+        : { username, session: current === null ? null : current.slice(0, 12), ...(needsSession ? { master: true } : {}) },
+    [username, current, needsSession],
+  );
 }
 
 /** Moves the console to a place of a task: what a toast's "See" and a notification's click do. */

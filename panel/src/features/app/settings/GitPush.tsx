@@ -241,6 +241,7 @@ function TurnedOn({ domain, info }: { domain: string; info: AppPush }) {
           if (!open) setRemoving(null);
         }}
         friction="simple"
+        destructive
         server={node}
         title={t("gitPush.on.removeTitle", { label: removing?.label ?? "" })}
         description={t("gitPush.on.removeDescription")}
@@ -256,6 +257,7 @@ function TurnedOn({ domain, info }: { domain: string; info: AppPush }) {
         open={turningOff}
         onOpenChange={setTurningOff}
         friction="simple"
+        destructive
         server={node}
         title={t("gitPush.on.turnOffTitle", { domain })}
         description={t("gitPush.on.turnOffDescription")}

@@ -31,6 +31,9 @@ import { useSchemaChangeConfirmation } from "./SchemaChangeDialog";
 /** The newest deployments the app's history keeps: the store prunes beyond twenty. */
 const HISTORY = 20;
 
+/** How many versions are explained when there is none to go back to: enough to see the pattern, not a page of reasons. */
+const WHY_NOT = 3;
+
 /** What the dialog is opened on: the version asked for, or nothing for the one before the live one. */
 export interface RollbackChoice {
   /** A deployment of the app, by its number. */
@@ -127,6 +130,15 @@ export function RollbackDialog({ domain, layout, open, onOpenChange, onJobQueued
     return [...rollbackTargets(deployments), ...backups];
   }, [deployments, points.data]);
   const serving = servingDeployment(deployments)?.id ?? null;
+  // Why the latest versions cannot be gone back to, for when none can: the newest three the server has a reason for.
+  const unavailable = useMemo(
+    () =>
+      deployments
+        .filter((deployment) => !deployment.rollback_available && typeof deployment.rollback_unavailable_reason === "string" && deployment.rollback_unavailable_reason !== "")
+        .sort((a, b) => b.id - a.id)
+        .slice(0, WHY_NOT),
+    [deployments],
+  );
 
   // What the operator picked in this opening: each opening starts from what it was asked on.
   const [session, setSession] = useState<{ open: boolean; picked: string | null }>({ open, picked: null });
@@ -156,19 +168,31 @@ export function RollbackDialog({ domain, layout, open, onOpenChange, onJobQueued
     );
   } else if (chosen === null) {
     body = (
-      <EmptyState
-        variant="inline"
-        title={inPlace ? t("appPages.rollback.nothingInPlace") : t("appPages.rollback.nothing")}
-        {...(inPlace
-          ? {
-              action: (
-                <TextLink to="/backups" size="ui">
-                  {t("appPages.rollback.openBackups")}
-                </TextLink>
-              ),
-            }
-          : {})}
-      />
+      <div className="flex min-w-0 flex-col gap-3">
+        <EmptyState
+          variant="inline"
+          title={inPlace ? t("appPages.rollback.nothingInPlace") : t("appPages.rollback.nothing")}
+          {...(inPlace
+            ? {
+                action: (
+                  <TextLink to="/backups" size="ui">
+                    {t("appPages.rollback.openBackups")}
+                  </TextLink>
+                ),
+              }
+            : {})}
+        />
+        {unavailable.length > 0 ? (
+          // The server says why, deployment by deployment, in sentences that are its own: they are shown as they came.
+          <ul aria-label={t("appPages.rollback.whyNot")} className="flex flex-col gap-1.5 text-13 text-pretty text-fg-muted">
+            {unavailable.map((deployment) => (
+              <li key={deployment.id} className="min-w-0">
+                <Mono tone="default">{`#${String(deployment.id)}`}</Mono> {deployment.rollback_unavailable_reason}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
     );
   } else {
     body = (
@@ -223,7 +247,6 @@ export function RollbackDialog({ domain, layout, open, onOpenChange, onJobQueued
         open={open}
         onOpenChange={onOpenChange}
         friction="simple"
-        destructive={false}
         size="md"
         server={node}
         title={t("appPages.rollback.title", { domain })}

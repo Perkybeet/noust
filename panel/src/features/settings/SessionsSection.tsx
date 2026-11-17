@@ -17,6 +17,7 @@ import { Dialog } from "../../components/ui/Dialog";
 import { Mono } from "../../components/ui/Mono";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
+import { useSignOut } from "../auth/useSignOut";
 import { reportActionError } from "../apps/useAppActions";
 import { RowAction } from "./RowAction";
 
@@ -34,6 +35,8 @@ export function SessionsSection() {
   const t = useT();
   const queryClient = useQueryClient();
   const query = useQuery(sessionsQuery());
+  // This browser's own session ends the way the account menu ends it, from its own row: the other rows end somebody else's.
+  const { signOut, pending: signingOut } = useSignOut();
   const refresh = (): void => {
     void queryClient.invalidateQueries({ queryKey: authKeys.sessions });
   };
@@ -156,7 +159,17 @@ export function SessionsSection() {
               getRowId={(session) => session.sid_prefix}
               density="compact"
               rowActions={(session) =>
-                session.is_current ? null : (
+                session.is_current ? (
+                  <RowAction
+                    label={t("settings.security.sessions.signOutThis")}
+                    text={t("settings.security.sessions.signOutThis")}
+                    icon={<LogOut />}
+                    loading={signingOut}
+                    onClick={() => {
+                      void signOut();
+                    }}
+                  />
+                ) : (
                   <RowAction
                     label={t("settings.security.sessions.signOutLabel", { sid: session.sid_prefix })}
                     text={t("settings.security.sessions.signOutText")}

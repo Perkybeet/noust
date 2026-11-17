@@ -33,8 +33,8 @@ export const serverWeb: Catalog<typeof en> = {
     protections: "Protecciones que el sitio nuevo no tendrá",
     loses: "Lo que el sitio nuevo no hará",
     notes: "Se traslada de otra forma",
-    fileNow: "Fichero ahora",
-    fileAfter: "Fichero después",
+    fileNow: "Archivo ahora",
+    fileAfter: "Archivo después",
     mode: {
       handover: "{target} no está en marcha, así que toma los puertos 80 y 443 de {source}. Todos los sitios pasan a la vez y quedan sin servicio los segundos que dura el cambio.",
       live: "{target} ya está en marcha, así que cada sitio pasa por su cuenta.",

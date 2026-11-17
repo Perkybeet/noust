@@ -279,7 +279,7 @@ function RemoveApp({ status, open, onOpenChange, onRemoved }: { status: GitHubSt
   const queryClient = useQueryClient();
   const name = status.name ?? status.slug ?? "github";
   return (
-    <ConfirmDialog friction="type"
+    <ConfirmDialog friction="type" destructive
       open={open}
       onOpenChange={onOpenChange}
       title={t("settings.integrations.github.remove.confirmTitle", { name })}

@@ -350,7 +350,6 @@ export function AccessTab({ engine, name }: { engine: string; name: string }) {
       {rotating !== null ? (
         <ConfirmDialog
           friction="simple"
-          destructive={false}
           open
           onOpenChange={(open) => (open ? undefined : setRotating(null))}
           title={t("databases.users.rotateTitle", { user: rotating.username })}
@@ -370,6 +369,7 @@ export function AccessTab({ engine, name }: { engine: string; name: string }) {
       {deleting !== null ? (
         <ConfirmDialog
           friction="simple"
+          destructive
           open
           onOpenChange={(open) => (open ? undefined : setDeleting(null))}
           title={t("databases.users.deleteTitle", { user: deleting.username })}

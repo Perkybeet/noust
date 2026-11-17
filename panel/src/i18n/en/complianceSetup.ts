@@ -179,7 +179,7 @@ export const complianceSetup = {
     },
     second_factor: {
       title: "Second factor required",
-      summary: "Every account enrols an authenticator or a passkey before anything else.",
+      summary: "Every account enrolls an authenticator or a passkey before anything else.",
     },
     approvals: {
       title: "Approval by a second person",

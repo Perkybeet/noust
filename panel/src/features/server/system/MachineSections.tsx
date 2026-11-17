@@ -195,7 +195,6 @@ function ThisMachine({ clock, host }: { clock: ServerClock; host: Identity["host
             if (!open) setZoneOpen(false);
           }}
           friction="simple"
-          destructive={false}
           size="md"
           title={t("server.clock.zoneTitle")}
           description={t("server.clock.zoneDescription")}
@@ -220,7 +219,6 @@ function ThisMachine({ clock, host }: { clock: ServerClock; host: Identity["host
             if (!open) setInstallOpen(false);
           }}
           friction="simple"
-          destructive={false}
           size="md"
           title={t("server.clock.installTitle")}
           description={t("server.clock.installDescription")}
@@ -241,7 +239,6 @@ function ThisMachine({ clock, host }: { clock: ServerClock; host: Identity["host
             if (!next) setRenameOpen(false);
           }}
           friction="simple"
-          destructive={false}
           size="md"
           title={t("server.hostname.renameTitle")}
           description={t("server.hostname.renameDescription")}

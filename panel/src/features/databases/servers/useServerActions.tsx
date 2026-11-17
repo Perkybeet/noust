@@ -245,6 +245,7 @@ export function useServerActions(): ServerActions {
       {uninstalling !== null ? (
         <ConfirmDialog
           friction="type"
+          destructive
           open
           onOpenChange={(open) => (open ? undefined : setUninstalling(null))}
           title={t("databases.engines.uninstallTitle", { engine: uninstalling.display_name })}
@@ -267,7 +268,6 @@ export function useServerActions(): ServerActions {
         <ConfirmDialog
           open
           friction="simple"
-        destructive={false}
           onOpenChange={(open) => (open ? undefined : setRefreshing(null))}
           server={node}
           title={t("databases.instances.upgradeTitle", { name: refreshing.name ?? refreshing.key })}
@@ -287,6 +287,7 @@ export function useServerActions(): ServerActions {
       {removing !== null ? (
         <ConfirmDialog
           friction="type"
+          destructive
           open
           onOpenChange={(open) => (open ? undefined : setRemoving(null))}
           server={node}

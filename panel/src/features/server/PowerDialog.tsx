@@ -164,6 +164,7 @@ function PowerDialog({ kind, onClose }: { kind: PowerKind; onClose: () => void }
     <ConfirmDialog
       {...confirmation}
       {...(rebooting ? { friction: "simple" as const } : typedHost(shownHost))}
+      destructive
       open
       onOpenChange={(open) => {
         if (!open) onClose();

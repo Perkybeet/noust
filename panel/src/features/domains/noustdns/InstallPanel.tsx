@@ -119,7 +119,6 @@ export function InstallPanel({ server }: { server: NoustServer }) {
           if (!next) setEpel(null);
         }}
         friction="simple"
-        destructive={false}
         server={node}
         title={t("noustDns.install.epelTitle")}
         description={t.rich("noustDns.install.epelBody", { packages: <Mono>{epel ?? ""}</Mono> })}

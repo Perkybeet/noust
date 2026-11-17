@@ -420,7 +420,7 @@ export const SERVER_TEXT = {
   "backups.redis_snapshot_test_restored": { text: [], hint: [], commands: [] },
   "backups.redis_snapshot_test_restored_2": { text: [], hint: [], commands: [] },
   "backups.restore_into_temporary_database": { text: ["backup_name"], hint: ["value"], commands: [] },
-  "backups.superuser_load_ask": { text: ["display_name"], hint: [], commands: [] },
+  "backups.superuser_load_ask": { text: ["display_name"], hint: ["display_name"], commands: [] },
   "backups.whole_number_1": { text: ["ceiling", "field_name"], hint: [], commands: [] },
   "central_backups.central_holds_copy": { text: ["item", "node"], hint: null, commands: [] },
   "central_backups.server_named_managed_central": { text: ["node"], hint: null, commands: [] },

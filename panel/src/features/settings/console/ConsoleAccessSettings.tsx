@@ -200,6 +200,7 @@ export function ConsoleAccessSettings() {
       {exposure !== undefined && publishing ? <PublishConsoleDialog open onOpenChange={(next) => setPublishing(next)} ensAllows={exposure.ensAllows} /> : null}
       <ConfirmDialog
         friction="simple"
+        destructive
         open={unpublishing}
         onOpenChange={setUnpublishing}
         title={t("consoleAccess.unpublish.title")}

@@ -139,5 +139,5 @@ class TestWhoTheFileIsLoadedAs:
         result = restore("shop", str(foreign(tmp_path)), "-e", "mysql", "--force", "--as-superuser")
 
         assert result.exit_code != 0
-        assert "no superuser load" in result.output
+        assert "as the superuser into PostgreSQL" in result.output
         assert mysql.state["calls"] == []

@@ -51,7 +51,6 @@ export function useCancelJob(): CancelJob {
           if (!open) setTarget(null);
         }}
         friction="simple"
-        destructive={false}
         server={node}
         title={target.stage === "queued" ? t("queue.cancel.queued.title", { name: target.name }) : t("queue.cancel.running.title", { domain: target.domain ?? target.name })}
         description={target.stage === "queued" ? t("queue.cancel.queued.description") : t("queue.cancel.running.description")}

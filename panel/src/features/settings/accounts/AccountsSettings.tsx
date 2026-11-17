@@ -284,6 +284,7 @@ function ExceptionsSection({ t, canManage, onAdd }: { t: T; canManage: boolean; 
       {revoking !== null ? (
         <ConfirmDialog
           friction="simple"
+          destructive
           open
           onOpenChange={(next) => {
             if (!next) setRevoking(null);
@@ -490,6 +491,7 @@ export function AccountsSettings({ search, onSearchChange }: AccountsSettingsPro
       {pending?.kind === "reset" ? (
         <ConfirmDialog
           friction="simple"
+          destructive
           open
           onOpenChange={(next) => {
             if (!next) setPending(null);

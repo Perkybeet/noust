@@ -33,6 +33,7 @@ import { attentionKeys } from "../../api/queries/attention";
 import { approvalKeys, approvalPolicyQuery, approvalsQuery, approve, reject } from "./api";
 import type { Approval } from "./api";
 import { ApprovalStateLabel } from "./ApprovalStateLabel";
+import { RequireApproval } from "./RequireApproval";
 import { approvalDescription, callFromSnapshot, inView } from "./data";
 import type { ApprovalsSearch, ApprovalsView } from "./data";
 import { forgetHeld, heldCall } from "./store";
@@ -267,15 +268,10 @@ export function ApprovalsPage({ search, onSearchChange }: ApprovalsPageProps) {
         {...(policy.data !== undefined
           ? { badge: <StatusPill state={policy.data.enabled ? "running" : "stopped"} label={policy.data.enabled ? t("approvals.page.on") : t("approvals.page.offLabel")} size="sm" /> }
           : {})}
-        description={
-          policy.data === undefined
-            ? t("approvals.page.description")
-            : policy.data.enabled
-              ? t("approvals.page.descriptionWho", { approvers: deciders })
-              : t("approvals.page.off")
-        }
+        description={policy.data?.enabled === true ? t("approvals.page.descriptionWho", { approvers: deciders }) : t("approvals.page.description")}
       >
         <div className="flex min-w-0 flex-col gap-4">
+          {policy.data !== undefined ? <RequireApproval enabled={policy.data.enabled} /> : null}
           <FilterBar
             label={t("approvals.page.filterLabel")}
             filters={

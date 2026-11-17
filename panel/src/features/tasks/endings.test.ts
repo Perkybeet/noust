@@ -17,8 +17,19 @@ describe("the end of a task", () => {
     expect(endedTask(task({ state: "queued" }), task({ state: "cancelled" }))?.state).toBe("cancelled");
     expect(endedTask(task({ state: "running" }), task({ state: "running" }))).toBeNull();
     expect(endedTask(task({ state: "succeeded" }), task({ state: "succeeded" }))).toBeNull();
-    // Heard of only as ended: the console was not there to see it run.
+    // Heard of only as ended, long after it began: the console was not there to see it run.
     expect(endedTask(undefined, task({ state: "failed" }))).toBeNull();
+  });
+
+  // A job that fails in a moment (a refusal) is over before the console has heard it was running, and it is the one the person just
+  // asked for: it is told as any other of theirs would be, instead of leaving the server's own notice to say it beside the page's card.
+  it("is also a job heard of only as ended when it began a moment ago", () => {
+    const justNow = task({ state: "failed", createdAt: NOW - 400 });
+    expect(endedTask(undefined, justNow, NOW)?.state).toBe("failed");
+    expect(endedTask(undefined, task({ state: "failed", createdAt: NOW - 120_000 }), NOW)).toBeNull();
+    expect(endedTask(undefined, task({ state: "failed", createdAt: null }), NOW)).toBeNull();
+    // Still running is not an end.
+    expect(endedTask(undefined, task({ state: "running", createdAt: NOW - 400 }), NOW)).toBeNull();
   });
 });
 
@@ -40,6 +51,19 @@ describe("telling the person", () => {
     expect(endingOf(task({ state: "failed" }), me, "/apps/shop.example.com/deployments")).toBe("toast");
     // Its own page says it with its log, which is what the person is reading.
     expect(endingOf(task({ state: "failed", id: "ab12" }), me, "/activity/tasks/ab12")).toBe("silent");
+  });
+
+  // An update or a rollback started from an application's page is followed in that page's header, which keeps its failure with the
+  // output until it is dismissed: said there, it is not said a second time by a toast (an event in one channel, DESIGN 6.12).
+  it("is silent about the failure of an update or a rollback on its application's page, where the header says it", () => {
+    for (const type of ["update", "rollback"]) {
+      expect(endingOf(task({ state: "failed", type }), me, "/apps/shop.example.com")).toBe("silent");
+      expect(endingOf(task({ state: "failed", type }), me, "/apps/shop.example.com/deployments")).toBe("silent");
+      // Away from that page it is the task centre that says it.
+      expect(endingOf(task({ state: "failed", type }), me, "/databases")).toBe("toast");
+    }
+    // A first deploy has no header to say it: the toast is still the channel (item 141).
+    expect(endingOf(task({ state: "failed", type: "deploy" }), me, "/apps/shop.example.com")).toBe("toast");
   });
 
   it("is silent on the Software page for an install it started there, which the page already says it ended", () => {

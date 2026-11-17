@@ -223,7 +223,6 @@ function FreezeDialogs({ domain, making, setMaking, lifting, setLifting }: { dom
           if (!open) setLifting(null);
         }}
         friction="simple"
-        destructive={false}
         server={node}
         title={t("rollout.freeze.liftTitle")}
         description={t("rollout.freeze.liftDescription", { reason: lifting?.reason ?? "" })}

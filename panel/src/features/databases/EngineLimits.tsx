@@ -211,7 +211,6 @@ function LimitsForm({ engine, display, data }: { engine: string; display: string
         <ConfirmDialog
           open
           friction="simple"
-        destructive={false}
           onOpenChange={(open) => (open ? undefined : setWarnings(null))}
           title={t("databases.engineSettings.limits.confirmTitle", { engine: display })}
           description={

@@ -562,6 +562,7 @@ export function DeployOnPush() {
         open={confirm === "disable"}
         onOpenChange={(open) => setConfirm(open ? "disable" : null)}
         friction="simple"
+        destructive
         server={node}
         title={t("appSettings.webhook.disableTitle", { domain })}
         description={t("appSettings.webhook.disableDescription")}

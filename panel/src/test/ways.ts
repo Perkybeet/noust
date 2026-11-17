@@ -13,7 +13,7 @@ const RUNNING = new Set(["Already running", "Ya en marcha"]);
 /** The five cards of the first page, by the start of their name in either language. */
 const CARD = {
   catalog: /^(From the catalog|Del catálogo)/,
-  files: /^(Upload files|Subir los ficheros)/,
+  files: /^(Upload files|Subir los archivos)/,
   existing: /^(Something that already runs here|Algo que ya corre aquí)/,
 };
 
@@ -36,7 +36,7 @@ export async function chooseWay(user: User, name: string): Promise<void> {
   }
   if (IMPORT.has(name)) {
     await user.click(await screen.findByRole("radio", { name: CARD.existing }));
-    await user.click(await screen.findByRole("radio", { name: /^(From another platform or a file|De otra plataforma o de un fichero)$/ }));
+    await user.click(await screen.findByRole("radio", { name: /^(From another platform or a file|De otra plataforma o de un archivo)$/ }));
     return;
   }
   if (RUNNING.has(name)) {

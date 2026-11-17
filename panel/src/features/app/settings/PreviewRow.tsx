@@ -263,7 +263,6 @@ export function PreviewRow({ domain, preview, can, onLogs }: PreviewRowProps) {
         open={approving}
         onOpenChange={setApproving}
         friction="simple"
-        destructive={false}
         server={node}
         title={t("rollout.previews.approveTitle", { commit: (preview.head_sha ?? "").slice(0, 7), name })}
         description={t("rollout.previews.approveDescription")}
@@ -280,6 +279,7 @@ export function PreviewRow({ domain, preview, can, onLogs }: PreviewRowProps) {
         open={stopping}
         onOpenChange={setStopping}
         friction="simple"
+        destructive
         server={node}
         title={t("previewHand.list.stopTitle", { name })}
         description={t("previewHand.list.stopDescription", { domain: preview.domain })}
@@ -296,6 +296,7 @@ export function PreviewRow({ domain, preview, can, onLogs }: PreviewRowProps) {
         open={removing}
         onOpenChange={setRemoving}
         friction="simple"
+        destructive
         server={node}
         title={t("previewHand.list.removeTitle", { name })}
         description={t("appSettings.previews.removeConfirmDescription", { domain: preview.domain })}

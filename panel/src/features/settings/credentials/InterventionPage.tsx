@@ -82,7 +82,6 @@ function UndoDialog({ id, n, onClose }: { id: number; n: number; onClose: () => 
         if (!open) onClose();
       }}
       friction="simple"
-      destructive={false}
       size="md"
       title={t("callerPolicy.activity.undo.dialogTitle")}
       description={t("callerPolicy.activity.undo.dialogDescription")}

@@ -304,8 +304,9 @@ describe("zero-downtime deploys, by default", () => {
     await screen.findByRole("button", { name: "Turn on…" });
     const card = part("Zero-downtime deploys");
     expect(within(card).getByText(/New applications that can run as two copies start with this on\. This one restarts on every update until you turn it on\./)).toBeInTheDocument();
-    // The server's own setting is named, as the system value it is.
-    expect(within(card).getByText("deploy.zero_downtime")).toBeInTheDocument();
+    // The key is not in the sentence; it is in the command that changes it, the one thing the terminal alone can do.
+    expect(within(card).getByText("To change that default for new applications")).toBeInTheDocument();
+    expect(within(card).getByText("noust config set deploy.zero_downtime false")).toBeInTheDocument();
   });
 
   it("says the same to an application that already updates without a cut, beside which copy serves", async () => {

@@ -463,7 +463,7 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
         onClose={() => setOpened(null)}
         onRenew={(cert) => renew.mutate({ cert, force: true })}
       />
-      <ConfirmDialog friction="type"
+      <ConfirmDialog friction="type" destructive
         open={revoking !== null}
         onOpenChange={(open) => {
           if (!open) setRevoking(null);
@@ -479,7 +479,7 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
           toast.success(t("domains.certificatesTab.revokedToast", { domain: revoking.domain }));
         }}
       />
-      <ConfirmDialog friction="type"
+      <ConfirmDialog friction="type" destructive
         open={deleting !== null}
         onOpenChange={(open) => {
           if (!open) setDeleting(null);

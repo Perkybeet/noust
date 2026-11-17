@@ -229,6 +229,7 @@ function PolicyCard({
       )}
       <ConfirmDialog
         friction="simple"
+        destructive
         open={removing}
         onOpenChange={setRemoving}
         title={all ? t("policyScope.card.removeTitle", { engine: display }) : t("databases.backups.policy.removeTitle", { name })}
@@ -625,7 +626,7 @@ export function BackupsTab({ engine, name }: { engine: string; name: string }) {
         }}
       />
       {deleting !== null ? (
-        <ConfirmDialog friction="type"
+        <ConfirmDialog friction="type" destructive
           open
           onOpenChange={(open) => (open ? undefined : setDeleting(null))}
           title={t("databases.dumps.deleteTitle")}

@@ -361,7 +361,7 @@ export const domains: Catalog<typeof en> = {
     purposeRedirect: "Redirigir a otro nombre",
     purposeRedirectHelp: "Quien entre aquí acaba en otro nombre, por ejemplo de www al nombre principal.",
     purposeSite: "Un sitio propio",
-    purposeSiteHelp: "Ficheros estáticos o un servicio que no es una aplicación de Noust. Se crea como sitio.",
+    purposeSiteHelp: "Archivos estáticos o un servicio que no es una aplicación de Noust. Se crea como sitio.",
     redirectsTo: "Redirige a",
     moreOptions: "Más opciones",
     appLabel: "Aplicación",

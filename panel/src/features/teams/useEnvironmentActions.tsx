@@ -107,6 +107,7 @@ export function useEnvironmentActions(
               if (!next) setDeleting(null);
             }}
             friction="simple"
+            destructive
             server={node}
             title={t("common.words.deleteNamed", { name: deleting.name })}
             description={t("teams.environments.deleteDescription", { name: deleting.name })}

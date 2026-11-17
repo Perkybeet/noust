@@ -73,6 +73,7 @@ function RemoveDestinationDialog({
   return (
     <ConfirmDialog
       friction="simple"
+      destructive
       open={open}
       onOpenChange={(next) => {
         if (!next) setForce(false);

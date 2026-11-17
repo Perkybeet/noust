@@ -207,7 +207,6 @@ export function ManifestPreview() {
       {plan !== undefined && previewed !== null ? (
         <ConfirmDialog
           friction="simple"
-        destructive={false}
           open={confirming}
           onOpenChange={setConfirming}
           title={t("manifestPreview.apply.confirm.title")}

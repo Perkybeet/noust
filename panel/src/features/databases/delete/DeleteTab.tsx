@@ -96,6 +96,7 @@ export function DeleteTab({ engine, name }: { engine: string; name: string }) {
       </div>
       <ConfirmDialog
         friction="simple"
+        destructive
         open={forgetting}
         onOpenChange={setForgetting}
         title={t("databases.delete.forgetConfirmTitle", { name })}
@@ -108,6 +109,7 @@ export function DeleteTab({ engine, name }: { engine: string; name: string }) {
       />
       <ConfirmDialog
         friction="type"
+        destructive
         open={dropping}
         onOpenChange={setDropping}
         title={t("databases.drop.title", { name })}

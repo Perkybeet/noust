@@ -462,6 +462,7 @@ function PreviewSettingsForm({
         open={confirmOff}
         onOpenChange={setConfirmOff}
         friction="simple"
+        destructive
         server={node}
         title={t("appSettings.previews.turnOffConfirmTitle", { domain })}
         description={

@@ -141,6 +141,7 @@ export function useProjectActions(resources: Pick<Resources, "held" | "known">, 
             if (!next) setDeleting(null);
           }}
           friction="simple"
+          destructive
           server={node}
           title={t("common.words.deleteNamed", { name: deleting.name })}
           description={t("teams.projects.deleteDescription", { name: deleting.name })}

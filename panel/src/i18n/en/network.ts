@@ -714,6 +714,7 @@ export const network = {
     },
     wideMore: "It also names other ports, so it is not removed here: take it out from the firewall's rules.",
     wideKept: "It keeps this server reachable, so it stays.",
+    wideRules: "Take it out from the firewall's rules",
     wideRemove: { one: "Remove it in the same step", other: "Remove them in the same step" },
     stepRemove: "Server firewall: remove {rule}, which lets anyone in on this port.",
     inside: "It listens only inside this machine (127.0.0.1), so a firewall rule alone would not reach it.",

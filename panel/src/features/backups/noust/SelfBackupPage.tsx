@@ -392,6 +392,7 @@ export function SelfBackupPage() {
       {deleting !== null ? (
         <ConfirmDialog
           friction="type"
+          destructive
           open
           onOpenChange={(next) => (next ? undefined : setDeleting(null))}
           title={t("common.words.deleteNamed", { name: deleting.name })}
@@ -415,6 +416,7 @@ export function SelfBackupPage() {
       />
       <ConfirmDialog
         friction="simple"
+        destructive
         open={removing}
         onOpenChange={setRemoving}
         title={t("selfBackup.schedule.removeTitle")}

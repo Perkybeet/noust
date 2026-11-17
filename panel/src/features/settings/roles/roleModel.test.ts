@@ -96,8 +96,8 @@ describe("saying a permission and its area", () => {
   const t = ((key: string) => translate("en", key as PlainKey)) as unknown as T;
 
   it("says a known permission in the console's catalog and an unknown one as the server sent it", () => {
-    expect(permissionText(t, "apps.deploy", "the server's words")).toBe("Update, roll back, activate a release, rebuild");
-    expect(permissionText(t, "root_equivalent", "the server's words")).toBe("Raw units, cron commands, backup hooks, raw site configuration");
+    expect(permissionText(t, "apps.deploy", "the server's words")).toBe("Update, roll back, switch to another release, rebuild");
+    expect(permissionText(t, "root_equivalent", "the server's words")).toBe("Write systemd units, scheduled commands, backup hooks and a site's configuration by hand: each runs as root");
     expect(permissionText(t, "apps.something_new", "A permission of a newer server")).toBe("A permission of a newer server");
   });
 

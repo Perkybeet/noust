@@ -199,6 +199,7 @@ export function Setting(props: SettingProps) {
       {isSwitch && props.confirmOff !== undefined ? (
         <ConfirmDialog
           friction="simple"
+          destructive
           open={asking}
           onOpenChange={setAsking}
           title={props.confirmOff.title}

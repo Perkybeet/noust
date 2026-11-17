@@ -18,7 +18,7 @@ Where the system lives:
 | Page header and URL tabs | `panel/src/app/PageHeader.tsx`, `panel/src/app/LinkTabs.tsx` |
 | The frame: the main bar, the second column, the phone's bar and section selector, the breadcrumbs | `panel/src/app/frame/`, with the layout rules in `panel/src/app/navLayout.ts` and the saved choices in `panel/src/app/preferences.ts` |
 | The executable specification | the gallery, `/__design` (development builds only; `panel/src/dev/`) |
-| Enforcement | `styles/tokens.test.ts`, `styles/design-rules.test.ts`, `styles/design-structure.test.ts`, `styles/setting-copy.test.ts`, `styles/concept-doors.test.ts`, `styles/dead-class.test.ts`, `i18n/verbs.test.ts`, `i18n/glossary.test.ts`, `eslint.config.js`, `e2e/design-contract.spec.ts`, `e2e/indicator.spec.ts`, `e2e/field-edge.spec.ts`, `e2e/tab-switch-layout.spec.ts`, `e2e/leave-guard.spec.ts`, `e2e/settings-length.spec.ts`, `e2e/home-arrange.spec.ts`, `e2e/home-customise-length.spec.ts`, `e2e/arrival.spec.ts` |
+| Enforcement | `styles/tokens.test.ts`, `styles/design-rules.test.ts`, `styles/design-structure.test.ts`, `styles/setting-copy.test.ts`, `styles/concept-doors.test.ts`, `styles/dead-class.test.ts`, `i18n/verbs.test.ts`, `i18n/glossary.test.ts`, `eslint.config.js`, `e2e/design-contract.spec.ts`, `e2e/indicator.spec.ts`, `e2e/field-edge.spec.ts`, `e2e/tab-switch-layout.spec.ts`, `e2e/leave-guard.spec.ts`, `e2e/settings-length.spec.ts`, `e2e/home-arrange.spec.ts`, `e2e/home-customise-length.spec.ts`, `e2e/arrival.spec.ts`, `e2e/table-room.spec.ts`, `e2e/stepper-phone.spec.ts`, `styles/confirm-tone.test.ts` |
 
 The brand (the mark, its violet, its construction) is `docs/brand/BRAND.md`. Copy rules and the
 English/Spanish glossary are `panel/src/i18n/README.md`. This document says how the console
@@ -1542,11 +1542,24 @@ explains, and the console says it once, with a padlock, where it matters; a line
 *Enforced by:* `components/assistant/{replyText,MessageText,ProposalCard}.test.ts(x)` (a reply that tries to slip in HTML, a disguised link and an
 image; one primary; no approve-all; the foreign value), `components/ui/PlanPreview.test.tsx` and `components/page/PolicyMatrix.test.tsx` (with axe).
 
-**Three fixes the assistant's panel brought to the kit.** `DataTable` answers to the room its parent gives it and not to the window's: with the
-assistant docked beside the page (from 1792 px) a table that no longer fits becomes cards, and a column that asks for a wide window (`xl`, `2xl`)
-waits for the room it needs; a page without a docked panel looks as it always did. The label of the step in hand in `Stepper` is read whole on a
-phone, over two lines if it needs them. And `ConfirmDialog` paints its button in the danger colour only for what destroys or interrupts: an
-action that applies a change, installs, renews or approves says `destructive={false}` and is a primary button.
+**Three fixes the assistant's panel brought to the kit, and three more at the close of 4.3.** `DataTable` answers to the room its parent gives it
+and not to the window's: with the assistant docked beside the page (from 1792 px) a table that no longer fits becomes cards, and a column that
+asks for a wide window (`xl`, `2xl`) waits for the room it needs; a page without a docked panel looks as it always did. The label of the step in
+hand in `Stepper` is read whole on a phone. And `ConfirmDialog` paints its button in the danger colour only for what destroys.
+
+At the close of 4.3 the three were finished. **A table never cuts the actions of its rows** (6.8): at a laptop's 1280, 1366 or 1440 px the two bars
+of navigation leave a page 816 to 1010 px, and a table that was wider than that was cut at its edge, the menu of each row half drawn (the Docker
+zone's containers at 1440). The table measures what its parent gives it, and while it does not fit it cuts its widest column of text with an
+ellipsis, its value in a `title`, before anything else, down to 128 px; a column of figures (`align="end"`), one with a `width` of its own, one
+that stacks lines (`stacked`), a moment (`RelativeTime`) and a column that says `fixed` are never cut. What still does not fit scrolls inside the table, and the cell of actions is
+`sticky` at its right edge, so it is always in view. *Enforced by:* `components/ui/DataTable.fit.test.tsx`; `e2e/table-room.spec.ts` (every
+route at 1280, 1366 and 1440: the actions of a row whole inside the table, a cut cell with its title, the page never sideways). **`Stepper`** is its
+markers on a phone and the step in hand written whole under them, over the width of the dialog; from 640 px the labels sit beside their markers
+and the others are cut before the one in hand. *Enforced by:* `components/page/templates.test.tsx`; `e2e/stepper-phone.spec.ts`. **`ConfirmDialog`
+is neutral unless its call says `destructive`**: red is a failure or a loss, so the call that deletes, revokes, stops or turns something off asks for
+it, and a question that applies a change, installs, renews, approves or goes back needs to say nothing (before, red was the default and thirty-seven
+calls had to remember `destructive={false}`). A question that asks for the name to be typed destroys: it says `destructive` or spreads a bag of
+props that does. *Enforced by:* `styles/confirm-tone.test.ts`; `components/ui/ConfirmDialog.test.tsx`.
 **The Docker zone (4.3, item 189).** Four pieces for the pages of Server > Docker, drawn in the gallery under "Components (4.3)", and two
 object icons (`OBJECT_ICONS.image`, `OBJECT_ICONS.engine`: the zone's other objects already had theirs). Docker is Noust's own now, so every
 list says whose each thing is, in the same place and in the same way, and offers only what the server says can be done to it.
@@ -1792,7 +1805,8 @@ forms go in a drawer.
 - Initial order: newest first in histories, alphabetical in inventories; severity is one click
   on the state column (`STATE_RANK`).
 - Density per D-2; truncation is a last resort, with the full value in a tooltip, and system
-  values are truncated in mono.
+  values are truncated in mono. When a table is wider than the room its page gives it, the widest column of text is the
+  one that is cut (an ellipsis, the value in a `title`), never the row's actions, which stay in view whatever the width.
 - A cell has no vertical padding: its height is a minimum, a row is as tall as its tallest content,
   and a 32px control and the row's border already fill 44px. A cell that stacks lines (a name with its
   tags under it) says so with `Column.stacked` and keeps 6px above and below, so its content never touches

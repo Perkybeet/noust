@@ -145,7 +145,6 @@ export function FixDialog({ check, onClose }: FixDialogProps) {
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
-      destructive={false}
       size="md"
       title={t("server.fix.title", { check: checkTitle(t, check) })}
       description={fix?.summary !== undefined && fix.summary !== "" ? fix.summary : t("server.fix.description")}

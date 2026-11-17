@@ -150,7 +150,18 @@ export default defineConfig(({ mode }) => {
           // the first screen's shell adds 0.5 kB to totalJs and nothing to initialJs (the templates are already
           // dropped, being only declarations), and "sideEffects": ["**/*.css"] re-partitions the shared chunks
           // and makes the console 9.6 kB heavier. Measure again before trying it.
-          codeSplitting: { groups: [{ name: "lucide", test: /node_modules[\\/]lucide-react/, minShareCount: 3 }] },
+          codeSplitting: {
+            groups: [
+              { name: "lucide", test: /node_modules[\\/]lucide-react/, minShareCount: 3 },
+              // The options of every route (its search, its guard) in two chunks. The first page loads all of them anyway, and each one was a
+              // chunk of its own that carried, written out, the list of files its page's chunk imports (the preload of a dynamic import): about
+              // a hundred copies of the same few hundred names, 145 kB of the 491 the first page weighed. A chunk writes each name once. Two and
+              // not one because the largest single script is held to a budget of its own (`chunk`): the applications, the databases, the
+              // domains and the teams are the first, everything else the second, about the same weight each.
+              { name: "routes-work", priority: 2, test: /[\\/]src[\\/]routes[\\/]_console[\\/](?:apps|databases|domains|teams|projects|catalog|backups)[\\/][^?]*$/ },
+              { name: "routes", priority: 1, test: /[\\/]src[\\/]routes[\\/][^?]*$/ },
+            ],
+          },
           chunkFileNames: (chunk) => catalogChunkName(chunk.facadeModuleId) ?? "assets/[name]-[hash].js",
         },
       },

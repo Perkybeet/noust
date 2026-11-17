@@ -383,6 +383,7 @@ function Leave40() {
       <Stage>
         <ConfirmDialog
           friction="simple"
+          destructive
           title="Discard unsaved changes?"
           description="Leaving this page discards 3 unsaved changes."
           actionLabel="Discard changes"
@@ -445,7 +446,6 @@ function Confirm40() {
                 title="Turn on the firewall"
                 description="Only the ports below stay open."
                 actionLabel="Turn on the firewall"
-                destructive={false}
                 onConfirm={() => Promise.resolve()}
                 trigger={<Button>{`Plan, ${size}`}</Button>}
               >
@@ -459,7 +459,6 @@ function Confirm40() {
               title="Turn on the firewall"
               description="Only the ports below stay open."
               actionLabel="Turn on the firewall"
-              destructive={false}
               onConfirm={refuse}
               trigger={<Button>Fails</Button>}
             />
@@ -467,6 +466,7 @@ function Confirm40() {
           <Item label="Typing the host name">
             <ConfirmDialog
               friction="type"
+              destructive
               confirmText="web-2"
               title="Restart web-2"
               description="Every application on it stops for about a minute."

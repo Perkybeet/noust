@@ -678,7 +678,7 @@ export const serverText: Catalog<typeof en> = {
         text: "nginx no envía {domain} a ningún servidor, pero la instancia {serving} escucha en el {port}.",
       },
       worker: {
-        text: "El worker: {summary}; mira su salida más abajo.",
+        text: "Los contenedores de este stack no están sanos: {summary}. Lo que imprimen está más abajo.",
       },
       worker_port: {
         text: "{domain} no publica ningún puerto, pero tiene registrado el {port}: quítalo con {command}.",
@@ -1175,7 +1175,7 @@ export const serverText: Catalog<typeof en> = {
     },
     store: {
       orphan: {
-        text: "{path} es un fichero vacío que quedó donde iría el almacén: no es el almacén, y el traslado lo sustituye",
+        text: "{path} es un archivo vacío que quedó donde iría el almacén: no es el almacén, y el traslado lo sustituye",
       },
       outside: {
         text: "El almacén de Noust está en {store}, fuera de {state}, el directorio de estado de este servidor: lo que mira solo ahí (una copia de ese directorio, una actualización del paquete) no lo encuentra",
@@ -1547,11 +1547,11 @@ export const serverText: Catalog<typeof en> = {
     },
     stack: {
       no_deployer: {
-        text: "Es un proyecto {stack} ({marker}); Noust no tiene un desplegador de {stack}.",
+        text: "Es un proyecto {stack} ({marker}) y Noust no sabe desplegar proyectos {stack} por sí solo.",
         hint: "Despliégalo como contenedor: añade un Dockerfile al repositorio y despliégalo con --type container. Sin Dockerfile, instala Railpack ({setup_command}), que lo construye como contenedor por sí solo: --type container --builder railpack.",
       },
       no_deployer_with_railpack: {
-        text: "Es un proyecto {stack} ({marker}); Noust no tiene un desplegador de {stack}.",
+        text: "Es un proyecto {stack} ({marker}) y Noust no sabe desplegar proyectos {stack} por sí solo.",
         hint: "Despliégalo como contenedor, que Railpack construye sin Dockerfile (está instalado aquí): {command}. O añade un Dockerfile y despliégalo con --type container.",
       },
       no_program: {
@@ -1936,7 +1936,7 @@ export const serverText: Catalog<typeof en> = {
     },
     no_transport: {
       text: "Este servidor no tiene ninguna forma de enviar correo",
-      hint: "Define monitor.smtp.* o monitor.email_api.* (Ajustes > Canales de aviso) y vuelve a pedirlo.",
+      hint: "Configura una cuenta de correo o un servicio de correo en Ajustes > Canales de aviso y vuelve a pedirlo.",
     },
   },
   names: {
@@ -2078,7 +2078,7 @@ export const serverText: Catalog<typeof en> = {
         text: "Ahora no se puede volver al despliegue {deployment} de {domain}",
       },
       snapshot: {
-        text: "Restaura los ficheros de {domain} desde la copia {backup} tras hacer una copia de seguridad previa, la compila de nuevo y la reinicia tras la comprobación de arranque.",
+        text: "Restaura los archivos de {domain} desde la copia {backup} tras hacer una copia de seguridad previa, la compila de nuevo y la reinicia tras la comprobación de arranque.",
       },
     },
     found: {
@@ -2092,7 +2092,7 @@ export const serverText: Catalog<typeof en> = {
         text: "Ahora sirve la versión {release}",
       },
       delete_files_kept: {
-        text: "El directorio de {domain} se queda en disco: los ficheros solo se eliminan si lo pides",
+        text: "El directorio de {domain} se queda en disco: los archivos solo se eliminan si lo pides",
       },
       delete_certificate_kept: {
         text: "El certificado de {domain} se queda: solo se elimina si lo pides",
@@ -2110,7 +2110,7 @@ export const serverText: Catalog<typeof en> = {
         text: "{count} rutas pasan al directorio compartido y se quedan allí",
       },
       migrate_untracked: {
-        text: "{count} ficheros que git no sigue se quedan solo en la primera versión",
+        text: "{count} archivos que git no sigue se quedan solo en la primera versión",
       },
       migrate_warning: {
         text: "{warning}",
@@ -2118,7 +2118,7 @@ export const serverText: Catalog<typeof en> = {
     },
     unknown: {
       build: {
-        text: "Qué órdenes de instalación y compilación se ejecutan, si pasan y cuánto tardan: salen de los ficheros y guiones del propio repositorio, que un plan no descarga ni ejecuta",
+        text: "Qué órdenes de instalación y compilación se ejecutan, si pasan y cuánto tardan: salen de los archivos y guiones del propio repositorio, que un plan no descarga ni ejecuta",
       },
       new_code: {
         text: "Qué cambia el código nuevo: si pide variables nuevas, ejecuta una migración o altera el esquema de la base de datos está en código que aún no se ha descargado",
@@ -2197,7 +2197,7 @@ export const serverText: Catalog<typeof en> = {
         text: "Reinicia {domain}: su servicio se para y vuelve a arrancar, así que puede no responder unos segundos.",
       },
       stop: {
-        text: "Para {domain}: no responde hasta que alguien lo arranque otra vez. Sus ficheros y sus datos se quedan.",
+        text: "Para {domain}: no responde hasta que alguien lo arranque otra vez. Sus archivos y sus datos se quedan.",
       },
       start: {
         text: "Arranca el servicio de {domain}.",
@@ -2919,7 +2919,7 @@ export const serverText: Catalog<typeof en> = {
     },
     included: {
       text: "La línea {line} incluye {path}, que no se traslada",
-      hint: "La traducción no lee los ficheros que un sitio incluye. Copia a mano lo que contiene ese fichero al sitio nuevo, o deja la aplicación donde está.",
+      hint: "La traducción no lee los archivos que un sitio incluye. Copia a mano lo que contiene ese archivo al sitio nuevo, o deja la aplicación donde está.",
     },
     left_behind: {
       text: "{name} es un sitio de {source} que Noust no puede mover",
@@ -2930,7 +2930,7 @@ export const serverText: Catalog<typeof en> = {
       hint: "Léelas en el plan. Para seguir de todos modos, acéptalas: accept_losses en la API, --accept-losses en la línea de órdenes.",
     },
     no_site: {
-      text: "{domain} no tiene fichero de sitio en {source}",
+      text: "{domain} no tiene archivo de sitio en {source}",
       hint: "No hay nada que traducir. Despliega la aplicación otra vez para que tenga un sitio y planifica el cambio de nuevo.",
     },
     not_restored: {
@@ -2943,7 +2943,7 @@ export const serverText: Catalog<typeof en> = {
     },
     operator_site: {
       text: "El sitio de {domain} es tuyo, no de Noust ({path})",
-      hint: "Noust nunca reescribe un sitio que escribiste tú. Escribe tú su equivalente para {target} en {target_path} y planifica el cambio de nuevo: los dos ficheros se dejan como están y solo se mueve la aplicación.",
+      hint: "Noust nunca reescribe un sitio que escribiste tú. Escribe tú su equivalente para {target} en {target_path} y planifica el cambio de nuevo: los dos archivos se dejan como están y solo se mueve la aplicación.",
     },
     partial_handover: {
       text: "{target} no está sirviendo: mover {count} de los {total} sitios dejaría a los demás sin servidor web",
@@ -3110,7 +3110,7 @@ export const serverText: Catalog<typeof en> = {
       hint: "Para esta, añade la regla que quieres y elimina después esta.",
     },
     port_in_use: {
-      text: "Se rechaza aplicar «{action}» al puerto {port}: {what} escucha ahí",
+      text: "Se rechazó la regla «{action}» para el puerto {port}: {what} escucha ahí",
       hint: "Cerrarlo podría cortar las sesiones SSH abiertas ahora y el túnel de una central. Para limitar quién llega, permite las direcciones que usas y deja que la política por defecto cierre el resto.",
     },
     read_only: {
@@ -3607,7 +3607,7 @@ export const serverText: Catalog<typeof en> = {
       text: "Esta credencial no puede listar los tokens de API.",
     },
     person_accepts_notice_credential: {
-      text: "Solo una persona acepta el aviso; esta credencial no lo es.",
+      text: "Solo una persona acepta las condiciones de uso; esta credencial no lo es.",
     },
     sudo_mode_asks_account: {
       text: "El modo sudo pide la contraseña de la cuenta, y esta cuenta no tiene",
@@ -3661,7 +3661,7 @@ export const serverText: Catalog<typeof en> = {
   },
   token_activity: {
     intervention_token: {
-      text: "No hay ninguna intervención {n} de este token",
+      text: "Este token no tiene la intervención número {n}",
     },
     needs_deploy: {
       text: "Esto necesita el permiso '{permission}' en {domain}",
@@ -3673,7 +3673,7 @@ export const serverText: Catalog<typeof en> = {
     },
     undo_unavailable: {
       text: "Ninguna de las aplicaciones pedidas se puede dejar como estaba.",
-      hint: "Consulta con GET el plan de esta intervención para ver por qué no se puede cada una.",
+      hint: "Lee el plan de esta intervención para ver por qué no se puede dejar como estaba cada una.",
     },
   },
   tokens: {
@@ -3706,7 +3706,7 @@ export const serverText: Catalog<typeof en> = {
       hint: "Envía más caracteres del id de la sesión para que coincida exactamente una.",
     },
     reach: {
-      text: "{username} no tiene acceso a ese {kind}",
+      text: "{username} no tiene ningún rol en ese {kind}, así que no se puede limitar un token a él",
       hint: "Un token ligado a un ámbito solo lo puede emitir quien tiene un rol en él: dale antes uno a la cuenta ('noust access grant').",
     },
     read_two_factor_state: {
@@ -4189,7 +4189,7 @@ export const serverText: Catalog<typeof en> = {
       hint: "Su comprobación de arranque es que el directorio que sirve tenga un index.html.",
     },
     static_site_process_own: {
-      text: "{domain} es un sitio estático; no se ejecuta un proceso propio que pueda {purpose}",
+      text: "{domain} es un sitio estático y no tiene un proceso propio: nada suyo puede {purpose}",
       hint: "El servidor web lo sirve directamente desde el disco.",
     },
     tag_names_exactly_deploy: {
@@ -4340,7 +4340,7 @@ export const serverText: Catalog<typeof en> = {
   },
   ssh_keys: {
     key_damaged_key_base64: {
-      text: "La clave está dañada: su contenido no está en base64",
+      text: "La clave pública está dañada: su parte codificada no es base64 válido",
     },
     public_key_damaged: {
       text: "La clave pública está dañada",
@@ -5198,8 +5198,8 @@ export const serverText: Catalog<typeof en> = {
       hint: "{value}",
     },
     superuser_load_ask: {
-      text: "{display_name} no tiene una carga como superusuario que pedir",
-      hint: "Solo PostgreSQL carga por defecto un volcado como el propietario de la base de datos.",
+      text: "Un volcado solo se puede cargar como superusuario en PostgreSQL, no en {display_name}",
+      hint: "Quita la opción de superusuario: {display_name} carga el volcado con la cuenta que restaura.",
     },
     whole_number_1: {
       text: "{field_name} debe ser un número entero de 1 a {ceiling}",

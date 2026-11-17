@@ -725,6 +725,7 @@ export function AppDomainsTab({ domain }: { domain: string }) {
         // A name can be added again in a moment: one question, not the name typed (DESIGN 6.2). The
         // application's own deletion is the one that asks for its name.
         friction="simple"
+        destructive
         actionLabel={t("domains.appTab.removeDomain")}
         onConfirm={async () => {
           if (!removing) return;

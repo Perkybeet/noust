@@ -328,7 +328,7 @@ function Friction() {
     <Section
       id="friction"
       title="Confirmation friction"
-      description="How much is asked is proportional to what can be lost. none: reversible, it just runs. simple: one resource that can be made again, one question, focus on Cancel. type: data lost for good or a wide reach, type the name. On a fleet, the dialog names the server."
+      description="How much is asked is proportional to what can be lost. none: reversible, it just runs. simple: one resource that can be made again, one question, focus on Cancel. type: data lost for good or a wide reach, type the name. On a fleet, the dialog names the server. The tone is a second question: the action is neutral unless the dialog says it destroys, so only what deletes, revokes, stops or turns something off is red."
     >
       <Stage>
         <Row>
@@ -345,6 +345,7 @@ function Friction() {
           <Item label='friction="simple"'>
             <ConfirmDialog
               friction="simple"
+              destructive
               server="web-2"
               title="Stop shop.example.com"
               description="It stops answering until you start it again. Nothing is deleted."
@@ -354,13 +355,23 @@ function Friction() {
             />
           </Item>
           <Item label='friction="type"'>
-            <ConfirmDialog friction="type"
+            <ConfirmDialog friction="type" destructive
               title="Delete shop.example.com"
               description="Stops the service and removes its files and site. Backups are kept."
               confirmText="shop.example.com"
               actionLabel="Delete application"
               onConfirm={() => Promise.resolve()}
               trigger={<Button variant="danger">Delete</Button>}
+            />
+          </Item>
+          <Item label="Neutral by default: it applies a change and destroys nothing">
+            <ConfirmDialog
+              friction="simple"
+              title="Turn on the firewall"
+              description="It starts blocking what is not allowed. Port 22 stays open, so this session does not end."
+              actionLabel="Turn on the firewall"
+              onConfirm={() => Promise.resolve()}
+              trigger={<Button data-testid="open-confirm-neutral">Turn on</Button>}
             />
           </Item>
         </Row>

@@ -28,6 +28,7 @@ export function DnsConflictDialog({
         if (!open) onClose();
       }}
       friction="simple"
+      destructive
       server={node}
       title={conflict === null ? "" : t("network.dnsConflict.title", { name: conflict.hostname })}
       description={

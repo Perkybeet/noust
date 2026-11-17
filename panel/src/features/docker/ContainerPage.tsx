@@ -350,6 +350,7 @@ export function ContainerPage({ name, console: consoleRequested = false }: { nam
       <Can permission="docker.manage">
         <ConfirmDialog
           friction="simple"
+          destructive
           open={stopping}
           onOpenChange={setStopping}
           title={t("docker.stop.title", { name })}

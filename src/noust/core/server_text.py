@@ -303,7 +303,7 @@ CATALOG: dict[str, str] = {
     "fleet_job.docker_images_check.several": (
         "Look for new versions of the images in use on {count} servers"
     ),
-    # -- The recipe catalogue: why a recipe is listed and cannot be installed ---------------
+    # -- The recipe catalog: why a recipe is listed and cannot be installed ---------------
     "recipes.unavailable.licence": "Its licence does not let an operator run it for others",
     "recipes.unavailable.licence.hint": (
         "If you hold a licence that does, deploy it from its own repository with 'noust create'."
@@ -331,7 +331,7 @@ CATALOG: dict[str, str] = {
     "recipes.unavailable.host_ports.hint": "Run it on a server of its own.",
     "recipes.unavailable.archived": "The project is archived and no longer maintained",
     "recipes.unavailable.archived.hint": (
-        "Use the recipe that replaces it, when the catalogue names one."
+        "Use the recipe that replaces it, when the catalog names one."
     ),
     "recipes.unavailable.platform_stack": (
         "It is a platform of dozens of services with a proxy of its own"
@@ -352,7 +352,7 @@ CATALOG: dict[str, str] = {
     "recipes.unavailable.root_equivalent.hint": (
         "Deploy it yourself with 'noust create' if you accept that, on a server that is yours."
     ),
-    # -- The recipe catalogue: what is root on the server by design ---------------------------
+    # -- The recipe catalog: what is root on the server by design ---------------------------
     "recipes.root_equivalent.docker_socket": (
         "{title} controls the Docker daemon of this server, which is the same as having root on it"
     ),
@@ -379,7 +379,7 @@ CATALOG: dict[str, str] = {
     # -- Mail an account is sent (an invitation, a password reset) -------------------------
     "mail.no_transport": "There is no way to send mail from this server",
     "mail.no_transport.hint": (
-        "Set monitor.smtp.* or monitor.email_api.* (Settings > Notification channels), then ask again."
+        "Set up an email account or an email service in Settings > Notification channels, then ask again."
     ),
     "mail.no_public_url": "The console has no public address to put in the link",
     "mail.no_public_url.hint": "Set web.public_url to the address people open the console at.",
@@ -1546,7 +1546,7 @@ CATALOG: dict[str, str] = {
     "diagnose.zero_downtime.could": "Its updates restart it in place; it could update without a cut",
     # What the checks add up to, the most likely cause (``probable_cause``). A pool's cause is the
     # sentence of its own check, so it has no entry here.
-    "diagnose.cause.worker": "The worker's {summary}; see their output below.",
+    "diagnose.cause.worker": "The containers of this stack are not healthy: {summary}. What they print is below.",
     "diagnose.cause.no_unit": (
         "No systemd unit found for {unit}; it has never been started or its unit was removed."
     ),
@@ -1942,11 +1942,11 @@ CATALOG: dict[str, str] = {
     ),
     "inspect.stack.no_program_with_railpack.hint": _CONTAINER_ROUTE_RAILPACK,
     "inspect.stack.no_deployer": (
-        "This is a {stack} project ({marker}); Noust has no {stack} deployer."
+        "This is a {stack} project ({marker}), and Noust cannot deploy {stack} projects by itself."
     ),
     "inspect.stack.no_deployer.hint": _CONTAINER_ROUTE,
     "inspect.stack.no_deployer_with_railpack": (
-        "This is a {stack} project ({marker}); Noust has no {stack} deployer."
+        "This is a {stack} project ({marker}), and Noust cannot deploy {stack} projects by itself."
     ),
     "inspect.stack.no_deployer_with_railpack.hint": _CONTAINER_ROUTE_RAILPACK,
     "inspect.dotnet.no_web_project": (

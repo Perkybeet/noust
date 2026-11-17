@@ -24,6 +24,7 @@ export function StopAppDialog({ domain, open, onOpenChange, stop }: StopAppDialo
       open={open}
       onOpenChange={onOpenChange}
       friction="simple"
+      destructive
       size="md"
       server={node}
       title={t("appPages.actions.stopTitle", { domain })}

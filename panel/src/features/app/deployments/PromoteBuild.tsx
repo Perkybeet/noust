@@ -44,7 +44,6 @@ export function usePromoteBuild(domain: string): PromoteBuild {
           if (!open) setChosen(null);
         }}
         friction="simple"
-        destructive={false}
         server={node}
         title={t("rollout.releases.promoteTitle", { id: chosen?.id ?? "" })}
         description={commit ? t("rollout.releases.promoteDescriptionCommit", { commit }) : t("rollout.releases.promoteDescription")}

@@ -193,6 +193,7 @@ export function ServiceLayout({ name }: { name: string }) {
         open={confirmStop}
         onOpenChange={setConfirmStop}
         friction="simple"
+        destructive
         server={node}
         title={t("services.detail.stopTitle", { name })}
         description={t("services.detail.stopDescription")}
@@ -204,6 +205,7 @@ export function ServiceLayout({ name }: { name: string }) {
       />
       <ConfirmDialog
         friction="type"
+        destructive
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
         server={node}

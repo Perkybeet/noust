@@ -40,7 +40,6 @@ function EpelQuestion({ item, onClose }: { item: SoftwareItem; onClose: () => vo
       title={t("software.install.epelTitle", { name })}
       description={t("software.install.epelDescription", { name })}
       actionLabel={t("software.install.action", { name })}
-      destructive={false}
       onConfirm={async () => {
         const accepted = await installSoftware(item.id, epel);
         jobs.track(accepted.job_id, "software");

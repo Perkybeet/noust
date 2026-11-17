@@ -261,6 +261,27 @@ const STEPS = [
   { id: "deploy", label: "Deploy" },
 ];
 
+const LONG_STEPS = [
+  { id: "server", label: "Choose where it connects" },
+  { id: "authorize", label: "Authorize the connection" },
+  { id: "join", label: "Paste the join code from the other server" },
+  { id: "review", label: "Review what will be shared" },
+  { id: "done", label: "Done" },
+];
+
+/** A phone's dialog is 358px wide: the label of the step in hand must read whole at the first, the middle and the last step. */
+function StepperOnAPhone() {
+  return (
+    <div className="flex flex-col gap-4">
+      {["server", "join", "done"].map((current) => (
+        <div key={current} className="max-w-[326px] rounded-card border border-border bg-surface p-4">
+          <Stepper orientation="horizontal" steps={LONG_STEPS} current={current} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function WizardDemo() {
   const [domain, setDomain] = useState("");
   const [dialog, setDialog] = useState(false);
@@ -434,6 +455,9 @@ export function Templates() {
       >
         <Frame id="wizard" name="Wizard, Stepper, WizardActions">
           <WizardDemo />
+        </Frame>
+        <Frame id="stepper-phone" name="Stepper at a phone's width: the step in hand is read whole, the others are a marker each">
+          <StepperOnAPhone />
         </Frame>
       </Section>
       <Section

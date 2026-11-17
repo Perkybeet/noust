@@ -137,7 +137,6 @@ function SaveDialog({ body, count, onClose, onSaved }: { body: PolicyChange; cou
         if (!open) onClose();
       }}
       friction="simple"
-      destructive={false}
       size="md"
       title={t("callerPolicy.save.title")}
       description={t("callerPolicy.save.description")}

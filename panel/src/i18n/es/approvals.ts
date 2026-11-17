@@ -100,7 +100,6 @@ export const approvals: Catalog<typeof en> = {
     descriptionWho: "Las llamadas que esperan a una segunda persona. Quién decide: {approvers}. Nadie decide las suyas.",
     on: "Activadas",
     offLabel: "Desactivadas",
-    off: "Aquí nada espera a una segunda persona. Se activan con approval.enabled en la configuración, o cuando un marco de cumplimiento como el ENS las pide.",
     filterLabel: "Filtrar solicitudes",
     viewLabel: "Mostrar",
     viewWaiting: "Pendientes",
@@ -142,5 +141,15 @@ export const approvals: Catalog<typeof en> = {
     yours: "Esta solicitud es tuya: la decide otra persona.",
     cannotReplay:
       "Esta llamada llevaba un secreto, que la consola no guarda. Vuelve a hacerla desde donde empezaste: el servidor la ejecuta con esta aprobación.",
+  },
+  require: {
+    label: "Pedir que apruebe una segunda persona",
+    help: "Las llamadas que cambian el servidor como root esperan a una segunda persona, nunca a quien las pidió.",
+    risk: "Sin esto, una sola persona puede ejecutar esas llamadas.",
+    noPermission: "Cambiarlo exige el permiso para cambiar ajustes.",
+    failed: "No se pudo cambiar si aprueba una segunda persona",
+    confirmTitle: "¿Dejar de pedir una segunda persona?",
+    confirmBody: "Lo que necesita aprobación se ejecutará con la palabra de una sola persona.",
+    confirmAction: "Dejar de pedirla",
   },
 };

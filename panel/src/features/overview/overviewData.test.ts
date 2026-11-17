@@ -26,6 +26,25 @@ describe("isEmptyServer", () => {
     expect(isEmptyServer(overviewFixture({ apps: none, attention: [failure], attention_total: 1 }))).toBe(false);
     expect(isEmptyServer(overviewFixture({ apps: none, attention: [], attention_total: 0 }))).toBe(true);
   });
+
+  // The machine always has something to say (a pending update of Noust, root over SSH, a port in the firewall) and a server just
+  // installed is no less empty for it: the first steps are what it needs. Only news about an application hides them (item 141).
+  it("is still empty when what it has to say is about the machine and not about an application", () => {
+    const none = { running: 0, failed: 0, stopped: 0, static: 0, unmanaged: 0, error: null };
+    const about = (kind: string, subject: Record<string, unknown>) => ({
+      id: `${kind}:x`,
+      subject,
+      title: kind,
+      severity: "warn",
+      reasons: [{ kind, severity: "warn", code: `${kind}_x`, params: {}, detail: null, when: null, deployment_id: null, actions: [] }],
+    });
+    const machine = [about("security", { kind: "machine" }), about("noust", { kind: "noust" }), about("security", { kind: "finding", id: "ssh-root" })];
+    expect(isEmptyServer(overviewFixture({ apps: none, attention: machine, attention_total: 3 }))).toBe(true);
+    // With one about an application among them, it is not.
+    expect(isEmptyServer(overviewFixture({ apps: none, attention: [...machine, about("first_deploy", { kind: "app", domain: "shop.example.com" })], attention_total: 4 }))).toBe(false);
+    // A list that was cut may hold what is not shown: it is not taken for empty.
+    expect(isEmptyServer(overviewFixture({ apps: none, attention: machine, attention_total: 101 }))).toBe(false);
+  });
 });
 
 describe("an overview from a node before 3.3", () => {

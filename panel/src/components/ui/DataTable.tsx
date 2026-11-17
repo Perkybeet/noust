@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
-import { isValidElement, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { isValidElement, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 
 import { useT } from "../../i18n";
@@ -30,6 +30,12 @@ export interface Column<T> {
   width?: string;
   /** Hide the column on narrow screens to keep rows legible; `xl` and `2xl` for the one a laptop's width cannot hold beside the others. */
   hideBelow?: "sm" | "md" | "lg" | "xl" | "2xl";
+  /**
+   * Keeps the column at the width its content has, whatever the room. By default a table that does not fit its room cuts its
+   * widest column of text with an ellipsis (the full value in its `title`) before it lets the row's actions be cut; a column
+   * of figures, a state or a short code that no ellipsis could read says `fixed`. A column with a `width`, one that is `stacked` and one of figures (`align="end"`) are never cut.
+   */
+  fixed?: boolean;
   /**
    * Its place in a card row (`mobile="cards"`): `title` is the row's name (the first column
    * by default), `status` the line above it, `meta` the line below it (every other column by
@@ -165,6 +171,12 @@ function useRoom(): [(element: HTMLElement | null) => void, number | null] {
   return [ref, width];
 }
 
+/**
+ * The narrowest a column of text is cut to, in pixels: about fourteen characters of text, where an ellipsis still says what the value is: a column narrower than this (a state, a date, a short code) is never cut.
+ * A table that does not fit with every column at this width scrolls inside itself, with its actions kept in view.
+ */
+const CUT_TO_AT_LEAST = 128;
+
 const INTERACTIVE = "a, button, input, select, textarea, [role='menuitem'], [role='checkbox'], [role='switch']";
 
 function compare(a: string | number | null, b: string | number | null): number {
@@ -173,6 +185,45 @@ function compare(a: string | number | null, b: string | number | null): number {
   if (b === null) return -1;
   if (typeof a === "number" && typeof b === "number") return a - b;
   return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" });
+}
+
+/**
+ * The next cut for a table that does not fit its room: its widest column of text, cut by what is missing and no further than
+ * {@link CUT_TO_AT_LEAST}. The first column names the row, so it is cut only after the others; a column of figures or one that
+ * says `fixed` is never cut. Null when nothing is left to cut (the table then scrolls inside itself).
+ *
+ * @param region - The scroll box of the table, with its header cells already laid out.
+ * @param columns - The table's columns, for what each says of itself.
+ * @param caps - What is cut already, by column.
+ * @param over - How many pixels the table is wider than its room.
+ * @returns The widths to cut to, or null.
+ */
+function cutWidestText<T>(region: HTMLElement, columns: readonly Column<T>[], caps: Readonly<Record<string, number>>, over: number): Record<string, number> | null {
+  const candidates: { id: string; width: number; first: boolean }[] = [];
+  region.querySelectorAll<HTMLTableCellElement>("thead th[data-column]").forEach((head, index) => {
+    const id = head.dataset["column"] ?? "";
+    const column = columns.find((entry) => entry.id === id);
+    // A column with a width of its own is the page's choice of how much room it has; a moment is never cut to its first letters.
+    if (column === undefined || column.fixed === true || column.width !== undefined || column.stacked !== undefined || column.align === "end") return;
+    if (region.querySelector(`tbody td:nth-child(${String(index + 1)}) time`) !== null) return;
+    const width = head.getBoundingClientRect().width;
+    const cut = caps[id];
+    // A column that did not shrink to what it was told has nothing more to give; one at its least is not cut again.
+    if (width <= CUT_TO_AT_LEAST + 1 || (cut !== undefined && width > cut + 1)) return;
+    candidates.push({ id, width, first: index === 0 });
+  });
+  candidates.sort((a, b) => Number(a.first) - Number(b.first) || b.width - a.width);
+  const pick = candidates[0];
+  if (pick === undefined) return null;
+  return { ...caps, [pick.id]: Math.max(CUT_TO_AT_LEAST, Math.floor(pick.width - over)) };
+}
+
+/** What a cut cell says in full: its text, as its `title`, when it is in fact cut. */
+function titleTheCut(region: HTMLElement): void {
+  region.querySelectorAll<HTMLElement>("td[data-cut]").forEach((cell) => {
+    if (cell.scrollWidth > cell.clientWidth + 1) cell.title = cell.textContent.trim();
+    else cell.removeAttribute("title");
+  });
 }
 
 /**
@@ -216,6 +267,35 @@ export function DataTable<T>({
   // A hook cannot be skipped: without paging the (empty) id reads nothing that is used.
   const [pageSize, setPageSize] = usePageSize(pagination ?? "");
   const bodyRef = useRef<HTMLTableSectionElement>(null);
+  // What a table that is wider than its room does before its actions are cut: its widest text gives way, with an ellipsis.
+  const regionRef = useRef<HTMLDivElement | null>(null);
+  const placeRegion = useCallback(
+    (element: HTMLDivElement | null) => {
+      regionRef.current = element;
+      roomRef(element);
+    },
+    [roomRef],
+  );
+  const [caps, setCaps] = useState<Readonly<Record<string, number>>>({});
+  const fitted = useRef<{ room: number | null; rows: readonly T[] | undefined; sort: SortState | null; page: number; size: number | "all" } | null>(null);
+  useLayoutEffect(() => {
+    const region = regionRef.current;
+    if (region === null) return;
+    // Another room, other rows, another order or another page have other natural widths: what was cut is measured again from the whole text.
+    const before = fitted.current;
+    fitted.current = { room, rows: given, sort: activeSort, page, size: pageSize };
+    const same = before !== null && before.room === room && before.rows === given && before.sort === activeSort && before.page === page && before.size === pageSize;
+    if (!same && before !== null && Object.keys(caps).length > 0) {
+      setCaps({});
+      return;
+    }
+    const over = region.scrollWidth - region.clientWidth;
+    if (over > 1) {
+      const next = cutWidestText(region, columns, caps, over);
+      if (next !== null) setCaps(next);
+    }
+    titleTheCut(region);
+  }, [room, given, columns, caps, activeSort, page, pageSize, loading, wide]);
 
   const sorted = useMemo(() => {
     if (!activeSort) return rows;
@@ -317,7 +397,7 @@ export function DataTable<T>({
 
   const table = (
     <div
-      ref={roomRef}
+      ref={placeRegion}
       role="region"
       aria-labelledby={captionId}
       {...(hasInteractive ? {} : { tabIndex: 0 })}
@@ -342,6 +422,7 @@ export function DataTable<T>({
                 <th
                   key={column.id}
                   scope="col"
+                  data-column={column.id}
                   {...(sortedHere ? { "aria-sort": sortedHere } : {})}
                   className={cx(
                     "h-10 px-3 text-12 font-semibold whitespace-nowrap text-fg-faint first:pl-4",
@@ -377,7 +458,8 @@ export function DataTable<T>({
               );
             })}
             {rowActions ? (
-              <th scope="col" className="w-12 px-3">
+              // Sticky: a table that still scrolls inside itself after its text is cut keeps the row's actions in view.
+              <th scope="col" className="sticky right-0 w-12 bg-surface px-3">
                 <span className="sr-only">{t("common.dataTable.actions")}</span>
               </th>
             ) : null}
@@ -397,7 +479,7 @@ export function DataTable<T>({
                       <Skeleton className={cx("h-3", column.align === "end" ? "ml-auto w-12" : "w-3/4 max-w-40")} />
                     </td>
                   ))}
-                  {rowActions ? <td className={cellHeight} /> : null}
+                  {rowActions ? <td className={cx(cellHeight, "sticky right-0 bg-inherit")} /> : null}
                 </tr>
               ))
             : null}
@@ -417,22 +499,21 @@ export function DataTable<T>({
                   <tr
                     key={id}
                     onClick={(event) => onRowClick(event, row)}
-                    className={cx(
-                      "border-b border-border last:border-0",
-                      onRowActivate && "cursor-pointer hover:bg-surface-hover",
-                    )}
+                    // The row has the colour of its table so the cell of actions, which sticks over what scrolls under it, takes it from the row.
+                    className={cx("border-b border-border bg-surface last:border-0", onRowActivate && "cursor-pointer hover:bg-surface-hover")}
                   >
                     {columns.map((column, index) => {
                       const content = column.cell(row);
                       return (
                         <td
                           key={column.id}
+                          {...(caps[column.id] !== undefined ? { "data-cut": "", style: { maxWidth: caps[column.id] } } : {})}
                           className={cx(
                             cellHeight,
                             // Every cell is centred on its line, so a name with its tags and a lone button share one row height.
                             "px-3 align-middle whitespace-nowrap text-fg first:pl-4",
                             column.stacked?.(row) === true && STACKED,
-                            layout === "fixed" && "truncate",
+                            (layout === "fixed" || caps[column.id] !== undefined) && "truncate",
                             column.align === "end" && "text-right",
                             column.mono && "mono text-12",
                             hide(column),
@@ -456,7 +537,10 @@ export function DataTable<T>({
                         </td>
                       );
                     })}
-                    {rowActions ? <td className={cx(cellHeight, "px-2 text-right")}>{rowActions(row)}</td> : null}
+                    {rowActions ? (
+                      // Kept in view when the table scrolls inside itself, in the colour the row has under the pointer.
+                      <td className={cx(cellHeight, "sticky right-0 bg-inherit px-2 text-right whitespace-nowrap")}>{rowActions(row)}</td>
+                    ) : null}
                   </tr>
                 );
               })

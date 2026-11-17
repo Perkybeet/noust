@@ -267,6 +267,7 @@ export function UpdateScheduleSetting({ domain }: { domain: string }) {
         open={removing}
         onOpenChange={setRemoving}
         friction="simple"
+        destructive
         server={node}
         title={t("rollout.schedule.removeTitle", { domain })}
         description={t("rollout.schedule.removeDescription")}

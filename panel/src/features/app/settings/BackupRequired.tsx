@@ -84,6 +84,7 @@ export function BackupRequiredRow({ domain }: { domain: string }) {
         open={asking}
         onOpenChange={setAsking}
         friction="simple"
+        destructive
         server={node}
         title={t("appSettings.backupRequired.offTitle", { domain })}
         description={t("appSettings.backupRequired.offDescription")}

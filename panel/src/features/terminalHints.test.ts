@@ -22,6 +22,8 @@ const SOURCES: [string, string][] = Object.entries(RAW)
 const KEPT: Readonly<Record<string, readonly string[]>> = {
   "app/SchemaChangeDialog.tsx": ["solo-terminal", "solo-terminal"],
   "app/metrics/MetricsTab.tsx": ["salida-del-sistema"],
+  // The default of new applications is a setting of the server that no page of the console edits: the terminal alone can change it.
+  "app/settings/ZeroDowntime.tsx": ["solo-terminal"],
   "backups/MisplacedBackupsNotice.tsx": ["salida-del-sistema"],
   "catalog/CatalogPackage.tsx": ["solo-terminal"],
   "catalog/RecipeRequirements.tsx": ["salida-del-sistema"],

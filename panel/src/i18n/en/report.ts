@@ -92,7 +92,7 @@ export const report = {
     cli: "The command line",
     docs: "Documentation",
     install: "Installing or updating Noust",
-    recipes: "Recipes of the catalogue",
+    recipes: "Recipes of the catalog",
     other: "Other",
   },
 } as const;

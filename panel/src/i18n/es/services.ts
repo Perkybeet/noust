@@ -107,8 +107,8 @@ export const services: Catalog<typeof en> = {
     stopService: "Detener servicio",
   },
   unitFile: {
-    noAccessTitle: "Abrir este fichero pide más acceso",
-    noAccessDescription: "Un fichero de unidad puede llevar secretos escritos dentro, así que solo lo lee un rol con {permission}.",
+    noAccessTitle: "Abrir este archivo pide más acceso",
+    noAccessDescription: "Un archivo de unidad puede llevar secretos escritos dentro, así que solo lo lee un rol con {permission}.",
     checkedTitle: "Se comprueba con systemd-analyze antes de guardarlo. Reiniciar el servicio lo aplica.",
     rejected: "No se escribió nada: systemd-analyze rechazó la configuración. Corrige lo que indica y vuelve a intentarlo.",
     passed: "systemd-analyze no encontró ningún problema.",
@@ -119,7 +119,7 @@ export const services: Catalog<typeof en> = {
     backToService: "Volver al servicio",
   },
   createDialog: {
-    check: "Comprobar el fichero de unidad",
+    check: "Comprobar el archivo de unidad",
     title: "Nuevo servicio",
     description: "Un comando que se ejecuta con el usuario de servicio de esta máquina, se reinicia solo y arranca con el sistema.",
     create: "Crear servicio",

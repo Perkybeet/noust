@@ -201,6 +201,7 @@ export function SchedulesPage() {
       {editing !== null ? <ScheduleDialog key={editing.domain} existing={editing} open onOpenChange={(next) => !next && setEditing(null)} /> : null}
       <ConfirmDialog
         friction="simple"
+        destructive
         open={removing !== null}
         onOpenChange={(next) => {
           if (!next) setRemoving(null);

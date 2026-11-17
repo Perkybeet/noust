@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 
 import { ElevationCancelledError, isApiError, request } from "../../../api/client";
@@ -19,6 +19,9 @@ import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { parseAddresses } from "../../../lib/addresses";
+import { WideRulesNotice } from "../../network/WideRules";
+import { openToEveryone } from "../../network/openPort";
+import { firewallQuery } from "../../server/queries";
 import { engineName } from "../engines";
 import { ACCESS_PROFILES, MAX_SOURCES, canRequireTls, initialForm, namedSources, requestOf, validPort } from "./publicAccess";
 import type { AccessProfile, PublicForm, TlsMode } from "./publicAccess";
@@ -132,6 +135,12 @@ export function OpenPublicDialog({ engine, database, open, onOpenChange, onOpene
     publish.mutate();
   };
 
+  // The firewall's own list, read for the review only: a rule that lets everyone in on this port is what opening it to some does not change.
+  // A person who may not read it (or a server that cannot say) has no warning and is told nothing false: the plan above still says what it does.
+  const firewall = useQuery({ ...firewallQuery(), enabled: open && step === "review", retry: false });
+  const named = plan === null ? [] : namedSources(plan.sources);
+  const wide = plan === null || named.length === 0 ? [] : openToEveryone(firewall.data?.firewall.rules ?? [], plan.port, "tcp", firewall.data?.protected_ports ?? []);
+
   const steps = [
     { id: "choose", label: t("publicAccess.dialog.steps.choose") },
     { id: "review", label: t("publicAccess.dialog.steps.review") },
@@ -236,6 +245,7 @@ export function OpenPublicDialog({ engine, database, open, onOpenChange, onOpene
                 ]}
               />
             </div>
+            <WideRulesNotice port={plan.port} wide={wide} guard={firewall.data?.protected_ports ?? []} />
             {plan.warnings.length > 0 ? (
               <Notice tone="warning" title={t("publicAccess.dialog.warningsTitle")}>
                 <ul className="flex flex-col gap-2" translate="no">

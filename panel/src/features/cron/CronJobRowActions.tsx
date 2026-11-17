@@ -54,6 +54,7 @@ export function CronJobRowActions({ job, onEdit, onViewRuns }: CronJobRowActions
       {/* One question: a job can be made again, and the runs it already made are in the journal. */}
       <ConfirmDialog
         friction="simple"
+        destructive
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
         title={t("common.words.deleteNamed", { name })}

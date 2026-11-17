@@ -689,7 +689,7 @@ export const serverText = {
         text: "nginx proxies {domain} to no upstream, but the {serving} instance listens on {port}.",
       },
       worker: {
-        text: "The worker's {summary}; see their output below.",
+        text: "The containers of this stack are not healthy: {summary}. What they print is below.",
       },
       worker_port: {
         text: "{domain} publishes no port, yet port {port} is recorded for it: clear it with {command}.",
@@ -1558,11 +1558,11 @@ export const serverText = {
     },
     stack: {
       no_deployer: {
-        text: "This is a {stack} project ({marker}); Noust has no {stack} deployer.",
+        text: "This is a {stack} project ({marker}), and Noust cannot deploy {stack} projects by itself.",
         hint: "Deploy it as a container: add a Dockerfile to the repository and deploy it with --type container. Without a Dockerfile, install Railpack ({setup_command}), which builds it into a container by itself: --type container --builder railpack.",
       },
       no_deployer_with_railpack: {
-        text: "This is a {stack} project ({marker}); Noust has no {stack} deployer.",
+        text: "This is a {stack} project ({marker}), and Noust cannot deploy {stack} projects by itself.",
         hint: "Deploy it as a container, which Railpack builds without a Dockerfile (it is installed here): {command}. Or add a Dockerfile and deploy it with --type container.",
       },
       no_program: {
@@ -1947,7 +1947,7 @@ export const serverText = {
     },
     no_transport: {
       text: "There is no way to send mail from this server",
-      hint: "Set monitor.smtp.* or monitor.email_api.* (Settings > Notification channels), then ask again.",
+      hint: "Set up an email account or an email service in Settings > Notification channels, then ask again.",
     },
   },
   names: {
@@ -2259,7 +2259,7 @@ export const serverText = {
     unavailable: {
       archived: {
         text: "The project is archived and no longer maintained",
-        hint: "Use the recipe that replaces it, when the catalogue names one.",
+        hint: "Use the recipe that replaces it, when the catalog names one.",
       },
       host_ports: {
         text: "It needs ports that the server's web server and mail already hold",
@@ -3121,7 +3121,7 @@ export const serverText = {
       hint: "For this one, add the rule you want and then delete this one.",
     },
     port_in_use: {
-      text: "Refusing to {action} port {port}: {what} listens there",
+      text: "The rule to {action} port {port} was refused: {what} listens there",
       hint: "Closing it could cut off the SSH sessions open now and a central's tunnel. To restrict who reaches it, allow the addresses you use and let the default policy close the rest.",
     },
     read_only: {
@@ -3618,7 +3618,7 @@ export const serverText = {
       text: "This credential cannot list API tokens.",
     },
     person_accepts_notice_credential: {
-      text: "Only a person accepts the notice; this credential is not one.",
+      text: "Only a person accepts the terms of use; this credential is not one.",
     },
     sudo_mode_asks_account: {
       text: "Sudo mode asks for the account's password, and this account has none",
@@ -3626,7 +3626,7 @@ export const serverText = {
     },
     sudo_mode_needs_second: {
       text: "Sudo mode needs a second factor, and this account has none",
-      hint: "Enrol an authenticator first: POST /api/auth/2fa/enroll.",
+      hint: "Enroll an authenticator first: POST /api/auth/2fa/enroll.",
     },
     credentials_refused: {
       text: "Invalid credentials",
@@ -3672,7 +3672,7 @@ export const serverText = {
   },
   token_activity: {
     intervention_token: {
-      text: "No intervention {n} of this token",
+      text: "This token has no intervention number {n}",
     },
     needs_deploy: {
       text: "This needs the '{permission}' permission on {domain}",
@@ -3684,7 +3684,7 @@ export const serverText = {
     },
     undo_unavailable: {
       text: "None of the applications asked for can be put back.",
-      hint: "GET the plan of this intervention to see why each one cannot.",
+      hint: "Read the plan of this intervention to see why each one cannot be put back.",
     },
   },
   tokens: {
@@ -3717,7 +3717,7 @@ export const serverText = {
       hint: "Send more characters of the session id so exactly one matches.",
     },
     reach: {
-      text: "{username} does not reach that {kind}",
+      text: "{username} has no role on that {kind}, so a token cannot be limited to it",
       hint: "A token bound to a scope can only be issued by someone who has a role there: give the account one first ('noust access grant').",
     },
     read_two_factor_state: {
@@ -3766,14 +3766,14 @@ export const serverText = {
     },
     two_factor_authentication_enabled: {
       text: "Two-factor authentication is not enabled",
-      hint: "There is nothing to disable. Enrol first from Settings.",
+      hint: "There is nothing to disable. Enroll first from Settings.",
     },
     two_factor_authentication_enabled_2: {
       text: "Two-factor authentication is not enabled",
-      hint: "There is nothing to regenerate. Enrol first from Settings.",
+      hint: "There is nothing to regenerate. Enroll first from Settings.",
     },
     two_factor_enrolment_progress: {
-      text: "No two-factor enrolment is in progress",
+      text: "No two-factor enrollment is in progress",
       hint: "Begin one first: POST /api/auth/2fa/enroll, or Enable in Settings.",
     },
     two_factor_state_file: {
@@ -3996,7 +3996,7 @@ export const serverText = {
       hint: "Install it where the service can run it, or name the program by its path in the project (./bin/server).",
     },
     deployer_configured: {
-      text: "Deployer was not configured",
+      text: "The deployment was not configured",
       hint: "Call configure(domain=DOMAIN, source=SOURCE) before deploy().",
     },
     runs_blue_green_needs: {
@@ -4200,7 +4200,7 @@ export const serverText = {
       hint: "Its startup check is that the directory it serves has an index.html.",
     },
     static_site_process_own: {
-      text: "{domain} is a static site; no process of its own runs to be {purpose}",
+      text: "{domain} is a static site, with no process of its own: nothing about it can be {purpose}",
       hint: "The web server serves it straight from disk.",
     },
     tag_names_exactly_deploy: {
@@ -4286,7 +4286,7 @@ export const serverText = {
       hint: "{journal}",
     },
     gate_failed_back: {
-      text: "{domain} did not pass its health check on the release layout; the in-place layout was put back",
+      text: "{domain} did not pass its startup check on the release layout; the in-place layout was put back",
       hint: "{evidence}",
     },
   },
@@ -4351,7 +4351,7 @@ export const serverText = {
   },
   ssh_keys: {
     key_damaged_key_base64: {
-      text: "The key is damaged: its key is not base64",
+      text: "The public key is damaged: its encoded part is not valid base64",
     },
     public_key_damaged: {
       text: "The public key is damaged",
@@ -5209,8 +5209,8 @@ export const serverText = {
       hint: "{value}",
     },
     superuser_load_ask: {
-      text: "{display_name} has no superuser load to ask for",
-      hint: "Only PostgreSQL loads a dump as the database's owner by default.",
+      text: "A dump can only be loaded as the superuser into PostgreSQL, not into {display_name}",
+      hint: "Leave the superuser option out: {display_name} loads the dump with the account that restores it.",
     },
     whole_number_1: {
       text: "{field_name} must be a whole number from 1 to {ceiling}",

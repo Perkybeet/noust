@@ -205,6 +205,7 @@ export function StackPage({ name }: { name: string }) {
         <Can permission="docker.manage">
           <ConfirmDialog
             friction="simple"
+            destructive
             open={stopping}
             onOpenChange={setStopping}
             title={t("docker.stack.stopTitle", { name })}

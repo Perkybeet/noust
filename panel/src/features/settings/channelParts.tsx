@@ -399,6 +399,7 @@ export function ChannelDrawer({
       {remove !== undefined ? (
         <ConfirmDialog
           friction="simple"
+          destructive
           open={removing}
           onOpenChange={setRemoving}
           title={remove.title}

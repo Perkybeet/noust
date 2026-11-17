@@ -54,6 +54,7 @@ import {
 } from "../components/ui";
 import type { Column, LogLine, ScreenSource, Status } from "../components/ui";
 import { Logo } from "../components/brand/Logo";
+import { RelativeTime } from "../components/page";
 import { Terminal } from "../lib/terminal/terminal";
 import { cx } from "../lib/cx";
 import { BothThemes, Item, Row, Section, Stage } from "./gallery";
@@ -287,7 +288,7 @@ function Overlays() {
             </Dialog>
           </Item>
           <Item label="Type to confirm">
-            <ConfirmDialog friction="type"
+            <ConfirmDialog friction="type" destructive
               title="Delete shop.example.dev"
               description="Stops the service, removes the nginx site and the release directories. Backups and the database are kept."
               confirmText="shop.example.dev"
@@ -301,7 +302,7 @@ function Overlays() {
             />
           </Item>
           <Item label="Options that destroy more, unchecked">
-            <ConfirmDialog friction="type"
+            <ConfirmDialog friction="type" destructive
               title="Delete legacy.example.dev"
               description="Stops the service and removes the site. Backups are kept."
               confirmText="legacy.example.dev"
@@ -318,7 +319,7 @@ function Overlays() {
             </ConfirmDialog>
           </Item>
           <Item label="Failure shown verbatim">
-            <ConfirmDialog friction="type"
+            <ConfirmDialog friction="type" destructive
               title="Stop worker.example.dev"
               description="The worker stops taking jobs. Jobs in progress are cancelled."
               confirmText="worker.example.dev"
@@ -476,7 +477,7 @@ function Navigation() {
             <Tab value="domains">Domains</Tab>
             <Tab value="diagnose">Diagnose</Tab>
             <Tab value="settings" disabled>
-              OBJECT_ICONS.settings
+              Settings
             </Tab>
           </TabList>
           {["overview", "deployments", "logs", "metrics", "environment", "domains", "diagnose", "settings"].map((value) => (
@@ -894,6 +895,28 @@ const COLUMNS: Column<SampleApp>[] = [
   },
 ];
 
+interface NarrowRow {
+  name: string;
+  state: "running" | "stopped";
+  stack: string;
+  image: string;
+  daysAgo: number;
+}
+
+const NARROW_ROWS: NarrowRow[] = [
+  { name: "shop-example-net-web-1", state: "running", stack: "shop-example-net", image: "registry.example.com/shop/web:release-41-a1b2c3d", daysAgo: 3 },
+  { name: "shop-example-net-worker-1", state: "running", stack: "shop-example-net", image: "registry.example.com/shop/worker:release-41-a1b2c3d", daysAgo: 3 },
+  { name: "nextcloud-db-1", state: "stopped", stack: "nextcloud", image: "mariadb:11", daysAgo: 9 },
+];
+
+const NARROW_COLUMNS: Column<NarrowRow>[] = [
+  { id: "name", header: "Container", cell: (row) => row.name, mono: true },
+  { id: "state", header: "State", cell: (row) => <StatusPill state={row.state} appearance="inline" size="sm" />, width: "w-32" },
+  { id: "stack", header: "Stack", cell: (row) => row.stack },
+  { id: "image", header: "Image", cell: (row) => row.image, mono: true },
+  { id: "since", header: "Since", cell: (row) => <RelativeTime value={Date.now() - row.daysAgo * 86_400_000} /> },
+];
+
 /** Fifty-seven applications: three pages at 20 to a page, two at 50, one from 100 up. */
 const PAGED_APPS: SampleApp[] = Array.from({ length: 57 }, (_, index) => {
   const base = SAMPLE_APPS[index % SAMPLE_APPS.length] ?? SAMPLE_APPS[0];
@@ -926,6 +949,28 @@ function Tables() {
           </Menu>
         )}
       />
+      <div className="flex flex-col gap-2">
+        <p className="text-12 text-fg-faint">
+          In the room a page gives it, not the window&apos;s: here 760px, what a laptop leaves a page with both columns of navigation open. The widest column
+          of text is cut with an ellipsis (its value in a title) before the actions are, and a state or a date is never cut.
+        </p>
+        <div className="max-w-[760px]">
+          <DataTable
+            caption="Containers, in a narrow page"
+            columns={NARROW_COLUMNS}
+            rows={NARROW_ROWS}
+            getRowId={(row) => row.name}
+            rowActions={(row) => (
+              <Menu align="end" trigger={<IconButton label={`Actions for ${row.name}`} icon={<Ellipsis />} size="sm" tooltip={false} />}>
+                <MenuItem icon={<RotateCw />}>Restart</MenuItem>
+                <MenuItem icon={<ICONS.delete />} destructive>
+                  Remove
+                </MenuItem>
+              </Menu>
+            )}
+          />
+        </div>
+      </div>
       <div className="flex flex-col">
         <DataTable
           caption="Applications, paged"

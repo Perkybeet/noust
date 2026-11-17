@@ -222,7 +222,6 @@ function PendingChangeBanner({ change }: { change: PendingChange }) {
         title={t("server.pending.undoTitle")}
         description={t("server.pending.undoDescription")}
         actionLabel={t("server.pending.undoAction")}
-        destructive={false}
         onConfirm={revert}
       />
     </Notice>

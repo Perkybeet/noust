@@ -318,8 +318,13 @@ export function queuedCount(tasks: readonly Task[]): number {
 export interface Me {
   /** An account's name: how a job it started is labelled, directly or through a central. */
   username: string | null;
-  /** The first characters of this browser's session, for a session of the master token (no account). */
+  /** The first characters of this browser's session, for a session that is neither an account's nor the master token's. */
   session: string | null;
+  /**
+   * Signed in with the master token, which has no account: the jobs it starts are labelled `master` whichever browser started them
+   * (item 152), so that is the label of the person's own. Before that they were the first characters of the session's id.
+   */
+  master?: boolean;
 }
 
 /** The central's label for an operator acting through it: `fleet-fra-1 on behalf of marta`. */
@@ -334,7 +339,7 @@ export function isMine(task: Pick<Task, "actor">, me: Me): boolean {
   const actor = task.actor;
   if (actor === null) return false;
   if (me.username !== null) return actor === me.username || personBehind(actor) === me.username;
-  return me.session !== null && actor === me.session;
+  return (me.master === true && actor === "master") || (me.session !== null && actor === me.session);
 }
 
 /** A place a task can be seen: a path of the console, and the node it is on when it is not this server. */

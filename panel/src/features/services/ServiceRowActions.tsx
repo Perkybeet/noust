@@ -92,6 +92,7 @@ export function ServiceRowActions({ service }: { service: ServiceInfo }) {
       open={confirmStop}
       onOpenChange={setConfirmStop}
       friction="simple"
+      destructive
       server={node}
       title={t("services.detail.stopTitle", { name })}
       description={t("services.detail.stopDescription")}

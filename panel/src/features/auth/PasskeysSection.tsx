@@ -335,6 +335,7 @@ export function PasskeysSection() {
       {removing !== null ? (
         <ConfirmDialog
           friction="simple"
+          destructive
           open
           onOpenChange={(next) => {
             if (!next) setRemoving(null);

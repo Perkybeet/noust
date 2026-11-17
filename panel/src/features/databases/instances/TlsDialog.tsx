@@ -241,7 +241,6 @@ export function TlsDialog({ instance, onOpenChange, onQueued }: TlsDialogProps) 
         <ConfirmDialog
           open
           friction="simple"
-        destructive={false}
           onOpenChange={(open) => (open ? undefined : setRenewing(false))}
           server={node}
           title={t("databases.tls.renewTitle", { name: instance.name })}

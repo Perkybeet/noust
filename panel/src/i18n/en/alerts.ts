@@ -74,7 +74,7 @@ export const alerts = {
         sentence: { one: "{count} day before an API token expires.", other: "{count} days before an API token expires." },
       },
       releases: { name: "A security release is out", sentence: "A Noust release fixes a vulnerability and this server has not installed it." },
-      recipes: { name: "A recipe has a newer version", sentence: "An application installed from a recipe has a newer version in the catalogue." },
+      recipes: { name: "A recipe has a newer version", sentence: "An application installed from a recipe has a newer version in the catalog." },
     },
   },
   checksPage: { documentTitle: "Checks", loading: "Loading the checks", loadFailed: "Could not load the checks", refreshFailed: "Could not refresh the checks" },

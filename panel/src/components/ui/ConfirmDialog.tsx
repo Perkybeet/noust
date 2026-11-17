@@ -44,9 +44,10 @@ interface ConfirmDialogBase {
   /** What the other button says: "Cancel" unless the question is about leaving ("Keep editing"). */
   cancelLabel?: string;
   /**
-   * Whether the action destroys or interrupts something, which is what paints its button red (the danger colour is for the last
-   * step of a destructive flow and for nothing else). True unless said otherwise, because a confirmation is asked for what is
-   * lost; an action that only applies a change, installs, renews or approves is `destructive={false}` and is a primary button.
+   * Whether the action deletes, revokes, stops or turns off something, which is what paints its button red: the danger colour is a
+   * failure or a loss, the last step of a destructive flow and nothing else. False unless the dialog says it, so a question that
+   * only applies a change, installs, renews, approves or goes back is a primary button without anybody remembering to ask for it,
+   * and the one that destroys says so at its own call.
    */
   destructive?: boolean;
   /** Runs the action. The dialog stays open, busy, until it settles; a rejection is shown verbatim. */
@@ -163,7 +164,7 @@ function Confirmation({
   friction,
   actionLabel,
   cancelLabel,
-  destructive = true,
+  destructive = false,
   onConfirm,
   trigger,
   open,

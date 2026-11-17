@@ -22,14 +22,19 @@ export function appsTotal(apps: Overview["apps"]): number {
 }
 
 /**
- * Whether this server runs nothing yet and has nothing to say: the Overview is a list of first steps instead. A first deploy
- * that failed leaves no application, so a server whose only news is that one is not empty: the first steps would hide the one
- * thing the person has to look at, on the day they matter most (item 141).
+ * Whether this server runs nothing yet and has nothing to say about an application: the Overview is a list of first steps
+ * instead. A first deploy that failed leaves no application, so a server whose news is that one is not empty: the first steps
+ * would hide the one thing the person has to look at, on the day they matter most (item 141). The machine's own news (a
+ * pending update, root over SSH, a port the firewall leaves open) is on every new server and is no reason to hide them: it is
+ * in the attention panel beside the steps.
  */
 export function isEmptyServer(overview: Overview): boolean {
   const { apps } = overview;
   if (apps.error) return false;
-  if ((overview.attention?.length ?? 0) > 0 || overview.attention_total > 0) return false;
+  const listed = overview.attention ?? [];
+  // A list that was cut may hold news about an application that is not shown: it is not taken for empty.
+  if (overview.attention_total > listed.length) return false;
+  if (listed.some((item) => item.subject["kind"] === "app")) return false;
   return appsTotal(apps) === 0;
 }
 

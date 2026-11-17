@@ -185,8 +185,9 @@ export const appSettings = {
     composeRiskDetail: "Queues, scheduled jobs and anything a service does once at start may run in both for a moment.",
     onProblem: "On, with a problem",
     turnOffEllipsis: "Turn off…",
-    defaultNoteOff: "New applications that can run as two copies start with this on. This one restarts on every update until you turn it on. The default for new applications is {setting}.",
-    defaultNoteOn: "New applications that can run as two copies start with this on too. The default for new applications is {setting}.",
+    defaultNoteOff: "New applications that can run as two copies start with this on. This one restarts on every update until you turn it on.",
+    defaultNoteOn: "New applications that can run as two copies start with this on too.",
+    defaultCommand: "To change that default for new applications",
   },
   /** Pinning the branch an app deploys from: General and the deploy-on-push warning. */
   branch: {

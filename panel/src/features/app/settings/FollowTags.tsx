@@ -115,7 +115,6 @@ export function FollowTagsActions({ app }: { app: App }) {
         open={stopping}
         onOpenChange={setStopping}
         friction="simple"
-        destructive={false}
         server={node}
         title={t("appSettings.tags.stopTitle", { domain })}
         description={t("appSettings.tags.stopDescription")}

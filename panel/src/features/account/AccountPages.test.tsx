@@ -220,10 +220,12 @@ describe("Account > Sign-in security", () => {
     const table = screen.getByRole("region", { name: "Active sessions" });
     if (!current) throw new Error("no row");
     expect(within(current).getByText("This browser")).toBeInTheDocument();
-    expect(within(current).queryByRole("button", { name: /Sign out/ })).not.toBeInTheDocument();
+    // This browser has its own button, which ends this session; the others end somebody else's, and say so.
+    expect(within(current).getByRole("button", { name: "Sign out this session" })).toBeInTheDocument();
+    expect(within(current).queryByRole("button", { name: /Sign out that session/ })).not.toBeInTheDocument();
     await expectNoAxeViolations(container);
 
-    await user.click(within(table).getByRole("button", { name: "Sign out session a1b2c3d4" }));
+    await user.click(within(table).getByRole("button", { name: "Sign out that session (a1b2c3d4)" }));
     await expectToast("Signed out session a1b2c3d4");
 
     await user.click(screen.getByRole("button", { name: "Sign out other sessions" }));

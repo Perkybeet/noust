@@ -130,7 +130,6 @@ function ApplyFix({ applying, hostname, minutes, onClose }: { applying: NonNulla
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
-      destructive={false}
       size="md"
       title={fixLabel(t, applying.fix, applying.plan)}
       description={t("server.ssh.applyDescription", { count: minutes })}
@@ -377,7 +376,6 @@ function Keys({ hostname }: { hostname: string }) {
             if (!open) setAdding(false);
           }}
           friction="simple"
-          destructive={false}
           size="md"
           title={t("server.ssh.keys.addTitle")}
           description={t("server.ssh.keys.addDescription")}
@@ -400,6 +398,7 @@ function Keys({ hostname }: { hostname: string }) {
         <ConfirmDialog
           {...confirmation}
           {...typedHost(hostname)}
+          destructive
           open
           onOpenChange={(open) => {
             if (!open) setRemoving(null);

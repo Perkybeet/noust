@@ -187,6 +187,7 @@ export function PublicAccessSection({ engine, name }: { engine: string; name: st
       />
       <ConfirmDialog
         friction="simple"
+        destructive
         open={closing}
         onOpenChange={setClosing}
         title={t("publicAccess.close.title", { name })}

@@ -11,7 +11,7 @@ export const plans: Catalog<typeof en> = {
     title: "Ver lo que hará",
     from: "Lo calcula Noust con una simulación y no ejecuta nada.",
     commandsCount: { one: "{count} orden", other: "{count} órdenes" },
-    filesCount: { one: "{count} fichero", other: "{count} ficheros" },
+    filesCount: { one: "{count} archivo", other: "{count} archivos" },
     unknownCount: { one: "{count} cosa que no sabe", other: "{count} cosas que no sabe" },
     loading: "Calculando lo que hará",
     failed: "No se pudo calcular lo que hará",
@@ -23,8 +23,8 @@ export const plans: Catalog<typeof en> = {
     runsAs: "Como {account}",
     writesTo: "Escribe en {path}",
     seconds: "Hasta {seconds} s",
-    files: "Ficheros que cambia",
-    filesList: "Ficheros que cambian",
+    files: "Archivos que cambia",
+    filesList: "Archivos que cambian",
     fileChange: {
       create: "Crea",
       modify: "Cambia",
@@ -57,6 +57,6 @@ export const plans: Catalog<typeof en> = {
     needsConfirmation: "Te pide confirmar:",
     blocked: "Ahora mismo se rechazaría",
     askedRemote: "Para calcularlo ha preguntado al repositorio o al registro por la red.",
-    omitted: { one: "{count} orden o fichero más no cabe y no se muestra.", other: "{count} órdenes y ficheros más no caben y no se muestran." },
+    omitted: { one: "{count} orden o archivo más no cabe y no se muestra.", other: "{count} órdenes y archivos más no caben y no se muestran." },
   },
 } as const;

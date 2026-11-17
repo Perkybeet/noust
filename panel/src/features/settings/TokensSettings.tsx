@@ -231,6 +231,7 @@ export function TokensSettings() {
       {revoking !== null ? (
         <ConfirmDialog
           friction="simple"
+          destructive
           open
           onOpenChange={(next) => {
             if (!next) setRevoking(null);

@@ -133,6 +133,15 @@ describe("whose a task is", () => {
     expect(isMine({ actor: "master" }, token)).toBe(false);
     expect(isMine({ actor: "abcdef123456" }, { username: null, session: null })).toBe(false);
   });
+
+  // Since item 152 the master token's jobs are labelled `master`, not with the session's id: the browser signed in with it owns them,
+  // or a failure of its own update was said by the server's notice beside the card of the page that started it.
+  it("is `master` for the browser signed in with the master token, and nobody else's", () => {
+    expect(isMine({ actor: "master" }, { username: null, session: null, master: true })).toBe(true);
+    expect(isMine({ actor: "master" }, { username: null, session: "abcdef123456", master: true })).toBe(true);
+    expect(isMine({ actor: "ben" }, { username: null, session: null, master: true })).toBe(false);
+    expect(isMine({ actor: "master" }, { username: "ana", session: null })).toBe(false);
+  });
 });
 
 describe("where a task's page is", () => {

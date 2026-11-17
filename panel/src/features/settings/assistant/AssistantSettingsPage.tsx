@@ -122,6 +122,7 @@ function OnView({ settings }: { settings: AssistantSettings }) {
           <div>
             <ConfirmDialog
               friction="simple"
+              destructive
               title={t("assistantSettings.on.off.confirmTitle")}
               description={t("assistantSettings.on.off.confirmBody")}
               actionLabel={t("assistantSettings.on.off.confirmAction")}

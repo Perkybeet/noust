@@ -135,7 +135,7 @@ test("a failure toast is announced once and stays reachable from the keyboard", 
   const prefix = sid.slice(0, 8);
 
   await signIn(page, consoleServer, "/account/security");
-  const signOut = page.getByRole("button", { name: `Sign out session ${prefix}` });
+  const signOut = page.getByRole("button", { name: `Sign out that session (${prefix})` });
   await expect(signOut).toBeVisible();
   // The other browser signs out while this page still lists it.
   expect((await other.post("/api/auth/logout", { headers: await csrfHeaders(other) })).ok()).toBe(true);

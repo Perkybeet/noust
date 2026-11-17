@@ -25,8 +25,10 @@ test("the overview puts what needs attention first, and fits the first screen", 
   await expectNoA11yViolations(page, "the server overview");
 });
 
-// The card of what is not well is as wide as its column, and the line that wraps first is the one with the longest sentence and
-// the widest word on its button (the reboot's): it fell under its text on a window a few pixels narrower than the others.
+// One list says what needs attention in every place that shows it (NV-16), and a row of it has its one button under its words, at the
+// right, in the row at every width: a phone has no hover to reveal it, and the longest sentence with the widest word on a button (the
+// reboot's) cannot push it under the text of a line in one place and beside it in another. So the buttons of every line share one right
+// edge, inside their line and clear of its words, at every desktop width.
 for (const width of [1100, 1280, 1366, 1440, 1600]) {
   test(`what is not well puts the action of every line at its right on a ${String(width)}px window`, async ({ page, consoleServer }) => {
     await page.setViewportSize({ width, height: 900 });
@@ -38,20 +40,23 @@ for (const width of [1100, 1280, 1366, 1440, 1600]) {
       items.map((row) => {
         const edge = row.getBoundingClientRect();
         const action = row.querySelector("a, button")?.getBoundingClientRect();
-        const sentence = row.querySelector("span.text-13")?.getBoundingClientRect();
+        const words = [...row.querySelectorAll("span.text-13")].map((span) => span.getBoundingClientRect());
+        // Over a word is the one place it must never be: the box of the button and the box of any of the line's words share no pixel.
+        const covers = (a: DOMRect, b: DOMRect): boolean => a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1;
         return {
           row: row.textContent,
-          beside: action !== undefined && sentence !== undefined && action.left >= sentence.right - 1 && action.top < sentence.bottom,
+          clear: action !== undefined && !words.some((word) => covers(action, word)),
+          inside: action !== undefined && action.left >= edge.left && action.right <= edge.right && action.top >= edge.top && action.bottom <= edge.bottom,
           rightGap: action === undefined ? null : Math.round(edge.right - action.right),
         };
       }),
     );
     expect(placed.length).toBeGreaterThan(3);
-    // At the right of its line, always: where the card is too narrow for the sentence and the word it wraps under the sentence,
-    // and then it is at the same right edge all the same.
+    // At the right of its line, always, at the same right edge as every other line's.
     expect(new Set(placed.map((line) => line.rightGap)).size, JSON.stringify(placed)).toBe(1);
-    // Beside it wherever the card has the room for both, which is every desktop width but the narrowest.
-    if (width >= 1280) expect(placed.filter((line) => !line.beside), "an action that is not beside its line").toEqual([]);
+    // Inside its line and over none of its words.
+    expect(placed.filter((line) => !line.inside), "an action that is outside its line").toEqual([]);
+    expect(placed.filter((line) => !line.clear), "an action over the words of its line").toEqual([]);
   });
 }
 
@@ -152,7 +157,8 @@ test("Security shows its findings, SSH as it runs, the firewall against what lis
 test("the storage, logs and system tabs show the machine", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/server/files");
   await expect(page.getByRole("list", { name: "Filesystems" }).getByText("/srv")).toBeVisible();
-  await expect(page.getByRole("region", { name: "Places that take space" }).first().getByText("System logs")).toBeVisible();
+  // The places are a list of rows, each with what it holds and what can be freed (it was a table in a region before the cleanups were on the rows).
+  await expect(page.getByRole("list", { name: "Places that take space" }).getByText("System logs")).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the storage tab");
 

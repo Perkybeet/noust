@@ -220,6 +220,7 @@ export function VolumesPage({ search, onSearchChange }: VolumesPageProps) {
       {removing !== null ? (
         <ConfirmDialog
           friction="simple"
+          destructive
           open
           onOpenChange={(next) => (next ? undefined : setRemoving(null))}
           title={t("volumeBackups.detail.removeTitle", { domain: removing.domain })}

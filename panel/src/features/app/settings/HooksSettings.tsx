@@ -238,6 +238,7 @@ function OperatorHooks({
         open={removing}
         onOpenChange={setRemoving}
         friction="simple"
+        destructive
         server={node}
         title={t("appSettings.hooks.removeTitle", { domain })}
         description={t("appSettings.hooks.removeDescription")}

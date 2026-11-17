@@ -79,6 +79,7 @@ export function BuildCacheCard({ domain }: { domain: string }) {
         open={emptying}
         onOpenChange={setEmptying}
         friction="simple"
+        destructive
         server={node}
         title={t("buildExtras.cache.emptyTitle", { domain })}
         description={t("buildExtras.cache.emptyDescription")}

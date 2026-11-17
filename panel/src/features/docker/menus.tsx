@@ -86,6 +86,7 @@ export function ContainerMenu({ container, onRemove }: { container: DockerContai
       <Can permission="docker.manage">
         <ConfirmDialog
           friction="simple"
+          destructive
           open={stopping}
           onOpenChange={setStopping}
           title={t("docker.stop.title", { name: container.name })}
@@ -195,6 +196,7 @@ export function StackMenu({ stack }: { stack: DockerStack }) {
       <Can permission="docker.manage">
         <ConfirmDialog
           friction="simple"
+          destructive
           open={stopping}
           onOpenChange={setStopping}
           title={t("docker.stack.stopTitle", { name: stack.name })}
