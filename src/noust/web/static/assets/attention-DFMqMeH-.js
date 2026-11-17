@@ -1,0 +1,1 @@
+var e=new Set([`machine`,`unit`,`finding`]);function t(t){return t.filter(t=>e.has(String(t.subject.kind)))}function n(e){return e.some(e=>e.severity===`fail`)?{state:`failed`,label:`critical`}:e.length>0?{state:`warning`,label:`attention`}:{state:`running`,label:`healthy`}}export{n,t};

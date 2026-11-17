@@ -1,0 +1,1 @@
+import{t as e}from"./ConfigPage-Con4o05j.js";import{Nr as t,xt as n}from"./routes-work-8asmFgM_.js";var r=t();function i(){let{domain:t}=n.useParams();return(0,r.jsx)(e,{page:`access`,domain:t})}export{i as component};

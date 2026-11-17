@@ -1,0 +1,3 @@
+function e(e,t){if(e===t)return 0;let n=e.split(`
+`),r=t.split(`
+`),i=0;for(;i<n.length&&i<r.length&&n[i]===r[i];)i+=1;let a=n.length,o=r.length;for(;a>i&&o>i&&n[a-1]===r[o-1];)--a,--o;let s=n.slice(i,a),c=r.slice(i,o);if(s.length===0||c.length===0||s.length*c.length>4e6)return Math.max(s.length,c.length);let l=c.length+1,u=new Uint32Array((s.length+1)*l);for(let e=s.length-1;e>=0;--e)for(let t=c.length-1;t>=0;--t)u[e*l+t]=s[e]===c[t]?(u[(e+1)*l+t+1]??0)+1:Math.max(u[(e+1)*l+t]??0,u[e*l+t+1]??0);let d=0,f=0,p=0,m=0,h=0,g=()=>{d+=Math.max(f,p),f=0,p=0};for(;m<s.length||h<c.length;)m<s.length&&h<c.length&&s[m]===c[h]?(g(),m+=1,h+=1):h<c.length&&(m===s.length||(u[m*l+h+1]??0)>=(u[(m+1)*l+h]??0))?(p+=1,h+=1):(f+=1,m+=1);return g(),d}export{e as t};

@@ -1,1 +1,0 @@
-import{t as e}from"./SystemTab-BMTAGenU.js";import{Q as t}from"./objectIcons-BSsKqrc9.js";var n=t();function r(){return(0,n.jsx)(e,{view:`monitor`})}export{r as component};

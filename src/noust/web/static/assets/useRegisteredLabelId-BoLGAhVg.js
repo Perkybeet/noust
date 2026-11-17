@@ -1,0 +1,1 @@
+import{k as e}from"./useRenderElement-C4qBBn3v.js";import{a as t}from"./Tooltip-BAeaN8jN.js";function n(n,r){let i=t(n);return e(()=>(r(i),()=>{r(e=>e===i?void 0:e)}),[i,r]),i}export{n as t};

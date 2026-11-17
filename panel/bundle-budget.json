@@ -1,9 +1,9 @@
 {
-  "initialJs": 456192,
-  "initialCss": 19456,
+  "initialJs": 343040,
+  "initialCss": 19968,
   "chunk": 101376,
-  "totalJs": 2265600,
-  "catalogEn": 270848,
-  "catalogEs": 321536,
-  "catalogCommunity": 307200
+  "totalJs": 2457600,
+  "catalogEn": 348160,
+  "catalogEs": 405504,
+  "catalogCommunity": 417792
 }

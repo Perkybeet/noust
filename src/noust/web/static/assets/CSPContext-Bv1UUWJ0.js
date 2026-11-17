@@ -1,0 +1,1 @@
+import{n as e}from"./rolldown-runtime-WkwZ5CU-.js";import{Pr as t}from"./routes-work-8asmFgM_.js";var n=e(t(),1),r=n.createContext(void 0),i={disableStyleElements:!1};function a(){return n.useContext(r)??i}export{a as n,r as t};
