@@ -18,11 +18,11 @@ import re
 import shutil
 import struct
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
 import pytest
-import tomllib
 import yaml
 
 from noust.cli.commands.central import DEFAULT_PORT
@@ -32,6 +32,17 @@ from noust.core.compose_yaml import load_compose
 REPOSITORY = Path(__file__).resolve().parent.parent
 PACKAGE = REPOSITORY / "packaging" / "ugreen"
 CONTAINER_COMPOSE = REPOSITORY / "packaging" / "container" / "compose.yaml"
+
+
+def _pyproject() -> dict[str, Any]:
+    """Read pyproject.toml: tomllib joined the standard library in 3.11, and Noust runs on 3.10."""
+    if sys.version_info >= (3, 11):
+        import tomllib
+    else:  # pragma: no cover - only on 3.10
+        import tomli as tomllib
+
+    return tomllib.loads((REPOSITORY / "pyproject.toml").read_text(encoding="utf-8"))
+
 
 #: What the folder holds. A file that is not here is not part of the package, and one of these that
 #: goes missing is a package that cannot be built.
@@ -254,9 +265,7 @@ class TestTheVersion:
     def test_the_image_the_store_runs_is_the_release_by_its_version(
         self, project: dict[str, Any], service: dict[str, Any]
     ) -> None:
-        released = tomllib.loads((REPOSITORY / "pyproject.toml").read_text("utf-8"))["project"][
-            "version"
-        ]
+        released = _pyproject()["project"]["version"]
 
         assert project["version"] == released
         assert service["image"] == f"ghcr.io/perkybeet/noust:{released}"
