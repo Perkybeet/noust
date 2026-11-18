@@ -2347,8 +2347,8 @@ def scenario_remote_backups(sc: Scenario) -> None:
     stopped, a scheduled run ends well (item 201): its backup is made and kept, owed to the
     destination with the reason and the time of the next try (``noust backup list`` says so), and
     nothing is announced. The retry that fails too is announced once for the destination, and
-    when the server is back ``noust backup resend`` sends the copy and a second message closes
-    the first.
+    when the server is back the copy is sent (by ``noust backup resend``, or by the timer's pass
+    if it got there first), it stops being owed, and a second message closes the first.
     """
     probe = sc.run("rclone version | head -1", timeout=30, check=False, label="rclone version")
     sc.check(probe.returncode == 0, "rclone is not installed in the image (Dockerfile.systemd)")
@@ -2369,6 +2369,9 @@ def scenario_remote_backups(sc: Scenario) -> None:
             "noust backup destination remove itlocal -f; "
             "noust backup destination remove itsftp -f; "
             f"noust delete {BK_DOMAIN} -f; rm -rf {BK_REMOTE_DIR}; "
+            # The scenario named the SFTP server's address a decision of this machine's; it ends as
+            # it began, or the next run is not refused first, as it asserts.
+            "noust config set security.allow_private_hosts '' --list; "
             # The first copy that was owed made the timer that sends again what is owed, and it stays.
             "systemctl disable --now noust-backup-resend.timer; "
             "rm -f /etc/systemd/system/noust-backup-resend.timer "
@@ -2774,41 +2777,64 @@ def _remote_backups_sftp(sc: Scenario, sftp: str, findings: list[str]) -> None:
         ),
         "backup resend",
     )
+    # Who sends the copy is not what is pinned: the timer of the resend (every five minutes, for what
+    # is due) and the deferred retry are as much the product as the command, and a clock that jumps
+    # forward (a machine that was suspended in the middle of a pause) makes the copy due while the
+    # command is still in its own pause, so that a pass of the timer's delivers it as the destination
+    # comes back and the command finds nothing owed. What is pinned is what happened: nothing failed,
+    # nothing is left owed, the copy is at the destination, and one message closes the one that said
+    # it was not there.
     sc.check(
-        sent["sent"] == 1 and sent["failed"] == 0 and sent["owed"] == 0,
+        sent["failed"] == 0 and sent["owed"] == 0,
         f"the copy did not go when the destination came back: {sent!r}",
     )
-    listing = json_of(
-        sc.run(
-            f"noust backup remote-list itsftp --app {BK_APP} --json",
-            timeout=120,
-            label=f"noust backup remote-list itsftp --app {BK_APP} --json",
-        ),
-        "remote-list",
+    sc.evidence.append(
+        "[note] the copy was sent by this command"
+        if sent["sent"]
+        else "[note] the copy was already sent by another pass (the timer's or the deferred retry)"
     )
+    # What the command saw and what the other pass has done are two moments: the message that closes
+    # the first is delivered a moment after the row is gone. Wait for what is asserted.
+    deadline = time.monotonic() + 120
+    while True:
+        listing = json_of(
+            sc.run(
+                f"noust backup remote-list itsftp --app {BK_APP} --json",
+                timeout=120,
+                label=f"noust backup remote-list itsftp --app {BK_APP} --json",
+            ),
+            "remote-list",
+        )
+        after_all = json_of(
+            sc.run(
+                f"noust backup list {BK_DOMAIN} --json",
+                timeout=60,
+                label=f"noust backup list {BK_DOMAIN} --json (nothing is owed)",
+            ),
+            "backup list",
+        )
+        closing = [
+            event
+            for event in recorded_notifications(sc, "the notifications after the copy arrived")
+            if event.get("event") == "backup_failed"
+        ]
+        codes = [event.get("code") for event in closing]
+        settled = (
+            copy in remote_ids(listing)
+            and all(not item.get("pending_sends") for item in after_all)
+            and "backup.sends_recovered" in codes
+        )
+        if settled or time.monotonic() > deadline:
+            break
+        time.sleep(3)
     sc.check(copy in remote_ids(listing), f"{copy} is not at itsftp: {listing!r}")
-    after_all = json_of(
-        sc.run(
-            f"noust backup list {BK_DOMAIN} --json",
-            timeout=60,
-            label=f"noust backup list {BK_DOMAIN} --json (nothing is owed)",
-        ),
-        "backup list",
-    )
     sc.check(
         all(not item.get("pending_sends") for item in after_all),
         f"a copy is still listed as owed after it arrived: {after_all!r}",
     )
-    closing = [
-        event
-        for event in recorded_notifications(sc, "the notifications after the copy arrived")
-        if event.get("event") == "backup_failed"
-    ]
     sc.check(
-        [event.get("code") for event in closing]
-        == ["backup.sends_failed", "backup.sends_recovered"],
-        f"expected the one that said it, then the one that closes it: "
-        f"{[event.get('code') for event in closing]!r}",
+        codes == ["backup.sends_failed", "backup.sends_recovered"],
+        f"expected the one that said it, then the one that closes it, and no other: {codes!r}",
     )
     # A destination that does not answer ends a send in the time three tries and their pauses take
     # (a connection waits a minute, the pauses are half a minute and two), not in the night.
