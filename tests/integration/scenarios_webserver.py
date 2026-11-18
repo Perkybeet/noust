@@ -213,7 +213,29 @@ def scenario_webserver_move(sc: Scenario) -> None:
         )
 
 
+def clear_the_machine(sc: Scenario) -> None:
+    """
+    Delete every application that is not this scenario's.
+
+    While Apache is not serving, moving to it is a handover of ports 80 and 443, and a handover
+    moves every site of the machine and is blocked by any that cannot go (a release application in
+    zero-downtime mode, which only nginx supports). In a run of the whole suite the machine still
+    carries what the scenarios before this one deployed, so a plan that is meant to be about four
+    applications came out blocked by the release applications of others. ``run.py`` loads this
+    module last, so nothing that runs after it needs what is deleted here.
+
+    Args:
+        sc: The scenario.
+    """
+    listed = json.loads(sc.run("noust list --json", timeout=60, label="noust list --json").stdout)
+    for item in listed["items"]:
+        if item["domain"] not in DOMAINS:
+            command = f"noust delete {item['domain']} --force"
+            sc.run(command, timeout=180, label=f"{command} (left by another scenario)")
+
+
 def _deploy(sc: Scenario) -> None:
+    clear_the_machine(sc)
     _, node_url = make_node_repo(sc, "mv-node")
     sc.run(
         "rm -rf /root/fixtures/mv-php && mkdir -p /root/fixtures/mv-php && "

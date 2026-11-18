@@ -44,6 +44,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+from noust.core import journalctl
 from noust.core.exceptions import NoustError, ValidationError
 from noust.core.redact import Scrubber, scrubber_for
 from noust.core.runner import CommandRunner, get_runner
@@ -563,7 +564,7 @@ class LogSearch:
         if not done.success:
             reason = (done.stderr or done.stdout).strip().splitlines()
             # journalctl exits 1 for "no entries" on some versions; a real failure says something.
-            if reason and "No entries" not in reason[0]:
+            if reason and not journalctl.says_nothing_matched(done):
                 result.note(say("log_search.journal_failed", reason=reason[0][:200]))
             return
         lines = done.stdout.splitlines()

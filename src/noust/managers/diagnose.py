@@ -47,7 +47,7 @@ from pathlib import Path
 from typing import Any, Literal
 from urllib.error import HTTPError, URLError
 
-from noust.core import cert_life, cgroup_events, descriptors
+from noust.core import cert_life, cgroup_events, descriptors, journalctl
 from noust.core.appdir.layout import app_root
 from noust.core.appdir.releases import Release, ReleaseManager
 from noust.core.config import Config
@@ -1065,6 +1065,8 @@ def _check_oom(ctx: _Context) -> ProbeResult:
         timeout=15,
     )
     logged = result.stdout.strip() if result.success else ""
+    # A week with no line is not a log that cannot be read, though journalctl exits 1 for it.
+    nothing_found = journalctl.says_nothing_matched(result)
     facts = {"found": bool(logged), **attribution}
 
     if attribution.get("attributed"):
@@ -1077,7 +1079,7 @@ def _check_oom(ctx: _Context) -> ProbeResult:
         else:
             said = say("diagnose.oom.killed_several", count=count, since=since)
         return _check("oom", "warn", said, _oom_evidence(attribution, logged)), facts
-    if not result.success:
+    if not (result.success or nothing_found):
         return _check("oom", "skip", say("diagnose.oom.unreadable"), result.stderr.strip()), {}
     if not logged:
         return _check("oom", "ok", say("diagnose.oom.none")), facts

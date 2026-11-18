@@ -706,8 +706,14 @@ def test_an_allow_list_has_a_ceiling() -> None:
 def account(
     name: str, *, mfa: bool, signs_in: bool = True, password: bool = True
 ) -> SimpleNamespace:
+    # No owner among them: whether the last owner can be disabled is the accounts' rule, tested
+    # with real accounts in test_second_factor_pending.py.
     return SimpleNamespace(
-        username=name, has_mfa=mfa, has_password=password, can_sign_in=lambda: signs_in
+        username=name,
+        has_mfa=mfa,
+        has_password=password,
+        can_sign_in=lambda: signs_in,
+        roles=("operator",),
     )
 
 

@@ -302,12 +302,37 @@ def wait_for_systemd(name: str, timeout: int = SYSTEMD_READY_TIMEOUT) -> str:
         last = result.stdout.strip() or last
         if last in ("running", "degraded"):
             print(f"[setup] systemd is {last}")
+            forget_the_hosts_kernel_log(name)
             return last
         time.sleep(2)
     journal = docker_exec(name, "journalctl -xb --no-pager | tail -100", timeout=15, check=False)
     raise HarnessError(
         f"systemd never reached running/degraded in {timeout}s (last state: {last!r})\n"
         f"--- journalctl -xb (tail) ---\n{journal.stdout}"
+    )
+
+
+def forget_the_hosts_kernel_log(name: str) -> None:
+    """Drop from the container's journal the kernel records it replayed when it started.
+
+    The container shares the machine's kernel, and the journal inside it reads that kernel's whole
+    ring buffer when it starts, stamping each record with the moment it did so: an out-of-memory
+    kill of some other container, days ago, arrives as if it had happened a second before the
+    scenarios began. ``noust diagnose`` reads the kernel log of the last week, so every application
+    of a machine that had such a record came out "degraded" with no cause, and a scenario that
+    deploys something healthy and asks whether it is could not pass on a machine that had ever
+    killed anything for its memory. A real server's journal holds its own boot's records with their
+    own times; what this removes is the replay, and a kill that happens during the run is still
+    recorded and still seen.
+
+    Args:
+        name: The container, with systemd running.
+    """
+    docker_exec(
+        name,
+        "journalctl --rotate && journalctl --vacuum-size=1K",
+        timeout=60,
+        check=False,
     )
 
 
@@ -983,15 +1008,18 @@ def scenario_release_update(sc: Scenario) -> None:
         timeout=15,
         label="SELECT the deploy log of the update",
     ).stdout.strip()
+    # "Running: npm ci" is the line of an install that ran. The line that opens every deploy
+    # ("Detected Node.js ... Install: npm ci. Start: ...") only says what the type would install,
+    # so matching a bare "npm ci" took the announcement for the install itself.
     log = sc.run(
-        f"grep -E 'Dependencies reused|npm ci|Activated release' {log_path}",
+        f"grep -E 'Dependencies reused|Running: npm ci|Activated release' {log_path}",
         timeout=15,
         check=False,
-        label=f"grep 'Dependencies reused|npm ci|Activated release' {log_path}",
+        label=f"grep 'Dependencies reused|Running: npm ci|Activated release' {log_path}",
     )
     sc.check(
         f"Dependencies reused from {before.split('/')[-1]}" in log.stdout
-        and "npm ci" not in log.stdout,
+        and "Running: npm ci" not in log.stdout,
         "the update installed again although the lockfile did not change",
     )
 
@@ -2315,8 +2343,11 @@ def scenario_remote_backups(sc: Scenario) -> None:
     A local directory destination takes three scheduled runs and keeps two;
     the local copies keep one; a backup is listed and restored from the
     remote. An SFTP server, a container of the harness container's own Docker, takes a push; with it
-    stopped, a scheduled run exits non-zero, keeps its local backup and
-    sends a backup_failed notification.
+    stopped, a scheduled run ends well (item 201): its backup is made and kept, owed to the
+    destination with the reason and the time of the next try (``noust backup list`` says so), and
+    nothing is announced. The retry that fails too is announced once for the destination, and
+    when the server is back ``noust backup resend`` sends the copy and a second message closes
+    the first.
     """
     probe = sc.run("rclone version | head -1", timeout=30, check=False, label="rclone version")
     sc.check(probe.returncode == 0, "rclone is not installed in the image (Dockerfile.systemd)")
@@ -2336,7 +2367,11 @@ def scenario_remote_backups(sc: Scenario) -> None:
             f"noust backup schedule delete {BK_DOMAIN}; "
             "noust backup destination remove itlocal -f; "
             "noust backup destination remove itsftp -f; "
-            f"noust delete {BK_DOMAIN} -f; rm -rf {BK_REMOTE_DIR}",
+            f"noust delete {BK_DOMAIN} -f; rm -rf {BK_REMOTE_DIR}; "
+            # The first copy that was owed made the timer that sends again what is owed, and it stays.
+            "systemctl disable --now noust-backup-resend.timer; "
+            "rm -f /etc/systemd/system/noust-backup-resend.timer "
+            "/etc/systemd/system/noust-backup-resend.service; systemctl daemon-reload",
             timeout=180,
             check=False,
             label="cleanup",
@@ -2605,49 +2640,183 @@ def _remote_backups_sftp(sc: Scenario, sftp: str, findings: list[str]) -> None:
     )
     sc.check(backup_id in remote_ids(listing), f"remote-list itsftp: {listing!r}")
 
-    # The server goes away: the run fails, keeps its local backup, and says so.
+    # The server goes away. A scheduled run that cannot send a copy is not a failed run (item 201):
+    # the copy is made and kept here, it is owed to the destination with what the destination said,
+    # and it is sent again by itself. A first try that fails is no announcement (a night of bad
+    # network is not nine messages); one message goes out, for the destination, when a second try
+    # fails too, and one more, answering it, when the copy arrives.
     sc.run(f"docker stop -t 1 {sftp}", timeout=60, label=f"docker stop {sftp}")
     start_notifications(sc, started=False)
     before = local_backup_ids(sc, "the local archives (before the run with SFTP down)")
     started = time.monotonic()
-    failed = sc.run(
+    owed = sc.run(
         f"noust backup run-schedule {BK_DOMAIN}",
-        timeout=600,
+        timeout=900,
         check=False,
         label=f"noust backup run-schedule {BK_DOMAIN} (SFTP server stopped)",
     )
     elapsed = time.monotonic() - started
-    sc.evidence.append(f"[timing] the failing run took {elapsed:.1f}s")
-    sc.check(failed.returncode != 0, "run-schedule succeeded with the destination down")
-    if "dial tcp" not in failed.stdout + failed.stderr:
-        findings.append(
-            "`noust backup run-schedule` (what the timer runs, so also its journal) does not say "
-            "why a destination failed: run_schedule() raises a summary BackupError once any "
-            "destination fails (managers/backup_scheduler.py:745-749, 'see the notification for "
-            "rclone's own error'), so the CLI's per-destination 'Failed to send to' lines "
-            "(cli/commands/backup.py _run_schedule) never run; without a notification channel "
-            "rclone's error is not shown anywhere"
-        )
+    sc.evidence.append(f"[timing] the run with the destination down took {elapsed:.1f}s")
+    said = owed.stdout + owed.stderr
+    sc.check(
+        owed.returncode == 0,
+        "run-schedule failed with the destination down: the copy is made and owed, and the run "
+        f"goes well: {said!r}",
+    )
+    sc.check("Backup created" in said, f"the run did not say it made the backup: {said!r}")
+    sc.check(
+        "attempt 1 of 3 failed" in said and "attempt 2 of 3 failed" in said,
+        f"the run does not say each try it made: {said!r}",
+    )
+    sc.check(
+        "Not sent to itsftp yet" in said,
+        f"the run does not say the copy is owed: {said!r}",
+    )
     after = local_backup_ids(sc, "the local archives (after the run with SFTP down)")
     sc.check(
         len(after) == len(before) + 1 and set(before) < set(after),
         f"the local backup was not kept: before {before!r}, after {after!r}",
     )
-    events = [
+    copy = sorted(set(after) - set(before))[0]
+
+    # It is listed as owed, with the destination, the reason and when it is tried again.
+    listing = json_of(
+        sc.run(
+            f"noust backup list {BK_DOMAIN} --json",
+            timeout=60,
+            label=f"noust backup list {BK_DOMAIN} --json (the copy is owed)",
+        ),
+        "backup list",
+    )
+    entry = next((item for item in listing if item["id"] == copy), {})
+    rows = entry.get("pending_sends") or []
+    sc.check(
+        len(rows) == 1
+        and rows[0]["destination"] == "itsftp"
+        and rows[0]["attempts"] == 0
+        and not rows[0]["permanent"]
+        and rows[0]["next_attempt_at"],
+        f"{copy} is not listed as owed to itsftp with its next try: {entry!r}",
+    )
+    if rows and "dial tcp" not in rows[0]["reason"]:
+        findings.append(
+            f"the owed copy does not keep what the destination said: reason {rows[0]['reason']!r}"
+        )
+    plain = sc.run(
+        f"noust backup list {BK_DOMAIN}", timeout=60, label=f"noust backup list {BK_DOMAIN}"
+    )
+    sc.check(
+        "not sent to itsftp" in plain.stdout + plain.stderr,
+        f"the list does not say the copy is not at the destination: {plain.stdout!r}",
+    )
+    owed_events = [
         event
-        for event in recorded_notifications(sc, "the notifications the recorder received")
-        if event.get("event") == "backup_failed" and event.get("domain") == BK_DOMAIN
+        for event in recorded_notifications(sc, "the notifications after the first try that failed")
+        if event.get("event") == "backup_failed"
+    ]
+    sc.check(not owed_events, f"a send that will be tried again was announced: {owed_events!r}")
+
+    # The retry fails as well: now it is said, once, for the destination.
+    started = time.monotonic()
+    again = sc.run(
+        "noust backup resend --now --json",
+        timeout=900,
+        check=False,
+        label="noust backup resend --now --json (SFTP server still stopped)",
+    )
+    elapsed_again = time.monotonic() - started
+    sc.evidence.append(f"[timing] the retry with the destination down took {elapsed_again:.1f}s")
+    report = json_of(again, "backup resend")
+    sc.check(
+        again.returncode == 0 and report["failed"] == 1 and report["sent"] == 0,
+        f"the retry with the destination down: exit {again.returncode}, {report!r}",
+    )
+    said_events = [
+        event
+        for event in recorded_notifications(sc, "the notifications after the retry that failed")
+        if event.get("event") == "backup_failed"
     ]
     sc.check(
-        # 3.1: the title names the application; the destination is one of the facts.
-        len(events) == 1
-        and any(fact.get("value") == "itsftp" for fact in events[0].get("facts") or []),
-        f"expected one backup_failed notification naming itsftp: {events!r}",
+        len(said_events) == 1
+        and said_events[0].get("code") == "backup.sends_failed"
+        and any(
+            fact.get("key") == "destination" and fact.get("value") == "itsftp"
+            for fact in said_events[0].get("facts") or []
+        ),
+        f"expected one backup.sends_failed notification naming itsftp: {said_events!r}",
     )
-    if elapsed > 120:
-        findings.append(
-            f"a scheduled run with its SFTP destination unreachable took {elapsed:.0f}s to fail"
-        )
+
+    # The destination comes back, and the copy goes by itself: it is sent, it stops being owed, and
+    # one message closes the one that said it was not there.
+    sc.run(f"docker start {sftp}", timeout=60, label=f"docker start {sftp}")
+    back = sc.run(
+        f"docker inspect -f '{{{{range .NetworkSettings.Networks}}}}{{{{.IPAddress}}}} {{{{end}}}}' "
+        f"{sftp}",
+        timeout=30,
+        label=f"docker inspect {sftp} (its address again)",
+    ).stdout.split()[0]
+    sc.check(
+        back == address,
+        f"the server came back at {back}, not at {address}: the destination cannot find it",
+    )
+    sc.run(
+        f"for i in $(seq 1 60); do timeout 1 bash -c '</dev/tcp/{address}/22' && exit 0; "
+        "sleep 0.5; done; exit 1",
+        timeout=60,
+        label=f"wait for sshd on {address}:22",
+    )
+    sent = json_of(
+        sc.run(
+            "noust backup resend --now --json",
+            timeout=300,
+            label="noust backup resend --now --json (SFTP server back)",
+        ),
+        "backup resend",
+    )
+    sc.check(
+        sent["sent"] == 1 and sent["failed"] == 0 and sent["owed"] == 0,
+        f"the copy did not go when the destination came back: {sent!r}",
+    )
+    listing = json_of(
+        sc.run(
+            f"noust backup remote-list itsftp --app {BK_APP} --json",
+            timeout=120,
+            label=f"noust backup remote-list itsftp --app {BK_APP} --json",
+        ),
+        "remote-list",
+    )
+    sc.check(copy in remote_ids(listing), f"{copy} is not at itsftp: {listing!r}")
+    after_all = json_of(
+        sc.run(
+            f"noust backup list {BK_DOMAIN} --json",
+            timeout=60,
+            label=f"noust backup list {BK_DOMAIN} --json (nothing is owed)",
+        ),
+        "backup list",
+    )
+    sc.check(
+        all(not item.get("pending_sends") for item in after_all),
+        f"a copy is still listed as owed after it arrived: {after_all!r}",
+    )
+    closing = [
+        event
+        for event in recorded_notifications(sc, "the notifications after the copy arrived")
+        if event.get("event") == "backup_failed"
+    ]
+    sc.check(
+        [event.get("code") for event in closing]
+        == ["backup.sends_failed", "backup.sends_recovered"],
+        f"expected the one that said it, then the one that closes it: "
+        f"{[event.get('code') for event in closing]!r}",
+    )
+    # A destination that does not answer ends a send in the time three tries and their pauses take
+    # (a connection waits a minute, the pauses are half a minute and two), not in the night.
+    for what, seconds in (("a scheduled run", elapsed), ("a retry", elapsed_again)):
+        if seconds > 420:
+            findings.append(
+                f"{what} with its SFTP destination unreachable took {seconds:.0f}s to give up, "
+                "more than three tries of a minute and their pauses"
+            )
 
 
 # -- Pull request previews ---------------------------------------------------------
@@ -7471,7 +7640,9 @@ def scenario_console_exposed_through_nginx(sc: Scenario) -> None:
     real; only certbot is a stand-in that issues a self-signed certificate. What is pinned:
     the refusals before anything is written (no second factor), the nginx allow-list enforced
     before the console sees a request, the console's unit trusting nginx and still answering,
-    and `unexpose` leaving the machine as it found it.
+    the accounts that sign in each holding a second factor (the only owner is told to enrol one,
+    never to be disabled, which the server refuses; an account that can be disabled is told the
+    command and it works), and `unexpose` leaving the machine as it found it.
     """
     require_cli(sc, "console expose", what="the console on a public name")
     sc.run("command -v openssl nginx", timeout=15, label="openssl and nginx are there")
@@ -7505,23 +7676,8 @@ def scenario_console_exposed_through_nginx(sc: Scenario) -> None:
             "a refused exposure wrote the site",
         )
 
-        # An account that signs in with a password alone stops it too.
-        sc.run(
-            "printf '%s\n' 'a-long-passphrase-for-the-admin-7' | noust user create alice --role admin --stdin",
-            label="noust user create alice",
-        )
-        refused = sc.run(
-            f"noust console expose --domain {CONSOLE_NAME} --skip-dns-check --yes",
-            check=False,
-            label="expose with an account lacking a second factor",
-        )
-        sc.check(refused.returncode != 0, "published while alice has no second factor")
-        sc.check(
-            "alice" in refused.stderr + refused.stdout, "the refusal does not name the account"
-        )
-        sc.run("noust user disable alice", label="noust user disable alice")
-
-        # The access token's own second factor, enrolled the way an operator does.
+        # The access token's own second factor, enrolled the way an operator does. With no account
+        # yet it is the only sign-in there is, so it is what lets the console be published.
         enroll = docker_exec(sc.container, "noust 2fa enroll", timeout=30, check=False)
         match = re.search(r"Secret\W+([A-Z2-7]{16,})", enroll.stdout)
         sc.check(match is not None, "noust 2fa enroll printed no secret")
@@ -7587,6 +7743,94 @@ def scenario_console_exposed_through_nginx(sc: Scenario) -> None:
             f"the console does not answer through nginx: {answered.stdout}",
         )
 
+        # Accounts. Once somebody can sign in with a password, the second factor of the access token
+        # is not what protects the sign-in form any more: every account that can sign in must hold one,
+        # and a refusal says how to go on with commands that work as they are written. The first account
+        # is the server's owner, and a server always keeps an owner who can sign in, so for her the way
+        # out is to enrol an authenticator: disabling her is refused, and the sentence must not offer it.
+        install_tools(sc)
+        passphrase = "a-long-passphrase-for-the-admin-7"
+        created = sc.run(
+            f"printf '%s\\n' '{passphrase}' | noust user create alice --role admin --stdin",
+            label="noust user create alice",
+        )
+        sc.check(
+            "owner" in created.stdout, f"the first account is not the owner: {created.stdout!r}"
+        )
+        expose_again = f"noust console expose --domain {CONSOLE_NAME} --allow-ip 127.0.0.1 --skip-dns-check --yes"
+        refused = sc.run(
+            expose_again,
+            timeout=180,
+            check=False,
+            label="expose again, the only owner has no factor",
+        )
+        said = refused.stderr + refused.stdout
+        sc.check(refused.returncode != 0, "published again while alice has no second factor")
+        sc.check("alice" in said, f"the refusal does not name the account: {said!r}")
+        sc.check(
+            "authenticator or a passkey" in said,
+            f"the refusal does not say how to go on: {said!r}",
+        )
+        sc.check(
+            "noust user disable alice" not in said,
+            f"the refusal offers a command the server refuses for the only owner: {said!r}",
+        )
+        last = sc.run(
+            "noust user disable alice",
+            check=False,
+            label="noust user disable alice (what the refusal used to offer)",
+        )
+        sc.check(
+            last.returncode != 0 and "owner" in last.stdout + last.stderr,
+            f"the only owner was disabled: {last.stdout!r} {last.stderr!r}",
+        )
+
+        # An account that is not the owner can be disabled, and the refusal says so with the command.
+        sc.run(
+            f"printf '%s\\n' '{passphrase}' | noust user create bob --role operator --stdin",
+            label="noust user create bob",
+        )
+        refused = sc.run(
+            expose_again,
+            timeout=180,
+            check=False,
+            label="expose again, two accounts have no factor",
+        )
+        said = refused.stderr + refused.stdout
+        sc.check(refused.returncode != 0 and "bob" in said and "alice" in said, said)
+        sc.check(
+            "noust user disable bob" in said and "noust user disable alice" not in said,
+            f"only the account that can be disabled is told how: {said!r}",
+        )
+        sc.run("noust user disable bob", label="noust user disable bob (the command it named)")
+        refused = sc.run(
+            expose_again, timeout=180, check=False, label="expose again, only alice has no factor"
+        )
+        sc.check(
+            refused.returncode != 0 and "bob" not in refused.stderr + refused.stdout,
+            f"a disabled account still stops the exposure: {refused.stderr}{refused.stdout}",
+        )
+
+        # What the refusal says: she signs in, and enrols an authenticator. Then it goes through.
+        enrolled = docker_exec(
+            sc.container,
+            f"printf '%s\\n' '{passphrase}' | /opt/noust/bin/python -I "
+            f"{CONTAINER_TOOLS}/account_enrol.py {PANEL_URL} alice",
+            timeout=60,
+            check=False,
+        )
+        sc.evidence.append(
+            "$ alice signs in and enrols an authenticator (output withheld: it holds secrets)"
+        )
+        sc.check(enrolled.returncode == 0, f"alice could not enrol one: {enrolled.stderr[-300:]}")
+        sc.run(expose_again, timeout=180, label="noust console expose again, every account has one")
+        wait_until_health(sc, PANEL_URL)
+        answered = sc.run(via_nginx, check=False, label="through nginx, with her factor enrolled")
+        sc.check(
+            answered.stdout.strip() == "200",
+            f"the console does not answer once every account has a second factor: {answered.stdout}",
+        )
+
         # Take it off: exactly what it made, and the console keeps running on loopback.
         sc.run("noust console unexpose --yes", timeout=180, label="noust console unexpose")
         sc.check(
@@ -7619,7 +7863,17 @@ def scenario_console_exposed_through_nginx(sc: Scenario) -> None:
                 check=False,
             ).stdout.strip()
             docker_exec(sc.container, f"noust 2fa disable {code}", timeout=30, check=False)
-        sc.run("noust user remove alice --force", check=False, label="cleanup: alice")
+        sc.run("noust user remove bob --force", check=False, label="cleanup: bob")
+        # A server never loses its last owner through the product, so this one account is taken off
+        # with that single rule lifted for the call, and every other step of removing it is the
+        # product's own: leaving it would give the next scenario a server that already has accounts.
+        sc.run(
+            "/opt/noust/bin/python -c 'from noust.core.accounts import AccountManager, role_rules; "
+            "role_rules.refuse_last_owner = lambda *args, **kwargs: None; "
+            'AccountManager().remove("alice")\'',
+            check=False,
+            label="cleanup: alice (the harness's own account, the last-owner rule lifted)",
+        )
         sc.run("noust web disable", timeout=60, check=False, label="cleanup: web disable")
         sc.run("rm -f /usr/local/bin/certbot", check=False, label="cleanup: certbot stand-in")
 

@@ -331,8 +331,9 @@ def second_factor_blockers() -> list[str]:
     """
     from noust.core.accounts import AccountManager
 
+    manager = AccountManager()
     try:
-        accounts = AccountManager().list_all()
+        accounts = manager.list_all()
     except (NoustError, sqlite3.Error) as exc:
         return [
             f"The accounts could not be read ({exc}); the console is not published on a guess. "
@@ -349,9 +350,15 @@ def second_factor_blockers() -> list[str]:
             # stands in for the account's own second factor.
             f"The account {account.username} signs in with "
             f"{'a password' if account.has_password else 'its identity provider'} alone. "
-            "Its owner enrols an authenticator or a passkey (Security, after signing in), or "
-            f"the account is disabled (noust user disable {account.username}); then publish "
-            "the console."
+            "Its owner enrols an authenticator or a passkey (Security, after signing in)"
+            # The way out that is offered must be one that works: the last account that can use
+            # the owner role is never disabled, so for it there is only the first.
+            + (
+                f", or the account is disabled (noust user disable {account.username})"
+                if manager.can_be_disabled(account)
+                else ""
+            )
+            + "; then publish the console."
             for account in lacking
         ]
     if _master_second_factor():

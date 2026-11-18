@@ -36,6 +36,7 @@ from noust.core.access.combination import (
     duties_apply,
     refuse_conflicting_roles,
 )
+from noust.core.access.model import AccessError
 from noust.core.access.roles import RoleStore, mirror_of, replace_roles
 from noust.core.accounts import passwords, role_rules
 from noust.core.accounts.model import (
@@ -1231,6 +1232,27 @@ class AccountManager:
             disabled_reason=(reason or "").strip()[:500] or None,
         )
         return self.require(username)
+
+    def can_be_disabled(self, account: Account) -> bool:
+        """
+        Say whether disabling an account would be allowed, without disabling it.
+
+        Whoever suggests ``noust user disable`` (a refusal that lists what an operator can do) asks
+        this, so that the command it names is one that works as written: it is the same rule
+        :meth:`disable` applies, not a copy of it.
+
+        Args:
+            account: The account.
+
+        Returns:
+            False when it is the last account that can use the owner role (a server always keeps
+            somebody who can do everything), True otherwise.
+        """
+        try:
+            role_rules.refuse_last_owner(RoleStore(self.store), account, None)
+        except AccessError:
+            return False
+        return True
 
     def enable(self, username: str) -> Account:
         """

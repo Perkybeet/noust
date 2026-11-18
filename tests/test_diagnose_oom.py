@@ -256,3 +256,39 @@ class TestAServerThatCannotSay:
         result = _diagnose(monkeypatch, runner, app=_app(ssl_enabled=False), cgroup_mount=tmp_path)
 
         assert _check(result, "oom").status == "ok"
+
+
+_KERNEL_LOG = ["journalctl", "-k", "--since", "-7d", "--grep", "oom", "-o", "short-iso"]
+
+
+class TestWhatJournalctlSaysWhenNothingMatches:
+    """systemd 255 (Ubuntu 24.04) exits 1 for ``--grep`` with no match, and prints ``-- No entries --``."""
+
+    def test_a_week_without_an_oom_line_is_a_clean_check_not_an_unreadable_one(
+        self, monkeypatch: pytest.MonkeyPatch, runner: FakeRunner, tmp_path: Path
+    ) -> None:
+        _running(runner)
+        runner.script(_KERNEL_LOG, stdout="-- No entries --\n", exit_code=1)
+
+        result = _diagnose(monkeypatch, runner, app=_app(ssl_enabled=False), cgroup_mount=tmp_path)
+
+        check = _check(result, "oom")
+        assert check.status == "ok"
+        assert check.coded is not None and check.coded.code == "diagnose.oom.none"
+        assert result.verdict == "healthy"
+
+    def test_a_journal_that_cannot_be_read_is_still_said_to_be_unreadable(
+        self, monkeypatch: pytest.MonkeyPatch, runner: FakeRunner, tmp_path: Path
+    ) -> None:
+        _running(runner)
+        runner.script(
+            _KERNEL_LOG,
+            stderr="Failed to open /var/log/journal: No such file or directory\n",
+            exit_code=1,
+        )
+
+        result = _diagnose(monkeypatch, runner, app=_app(ssl_enabled=False), cgroup_mount=tmp_path)
+
+        check = _check(result, "oom")
+        assert check.status == "skip"
+        assert check.coded is not None and check.coded.code == "diagnose.oom.unreadable"

@@ -28,7 +28,9 @@ from typing import Any
 
 import pytest
 
-from noust.core.accounts import AuthPolicy
+from noust.core import totp
+from noust.core.access.model import AccessError
+from noust.core.accounts import AccountManager, AuthPolicy
 from noust.core.accounts.policy import PROFILE_ENS_MEDIUM
 from noust.core.console_exposure_store import (
     STATE_ACTIVE,
@@ -40,6 +42,7 @@ from noust.core.console_exposure_store import (
 from noust.core.store import NoustStore
 from noust.managers.console_exposure import second_factor_blockers
 from tests.support.web_accounts import (  # noqa: F401 - fixtures used by name
+    PASSWORD,
     build,
     cheap_hashes,
     make_account,
@@ -184,4 +187,57 @@ def test_the_guard_is_quiet_once_every_account_has_a_second_factor(
     build(sandbox)
     make_account("maria", "admin")
 
+    assert second_factor_blockers() == []
+
+
+def make_owner(username: str, *, mfa: bool = True) -> None:
+    """Make an account that holds the owner role, as the first account of a server does."""
+    manager = AccountManager()
+    account = manager.create(username, "admin", roles=["admin", "owner"], password=PASSWORD)
+    if mfa:
+        secret = manager.begin_totp(account.id)
+        assert manager.confirm_totp(account.id, totp.totp_now(secret)) is not None
+
+
+def test_the_only_owner_is_not_told_to_be_disabled(sandbox: Path, store: NoustStore) -> None:
+    # A server always keeps an owner who can sign in, so the command the sentence used to offer is
+    # refused for the only one: the sentence must not offer a way out that does not exist.
+    build(sandbox)
+    make_owner("maria", mfa=False)
+
+    (blocker,) = second_factor_blockers()
+
+    assert "maria" in blocker and "password alone" in blocker
+    assert "noust user disable" not in blocker
+    assert "authenticator or a passkey" in blocker
+    with pytest.raises(AccessError):
+        AccountManager().disable("maria")
+
+
+def test_an_account_that_can_be_disabled_is_told_how_and_the_command_works(
+    sandbox: Path, store: NoustStore
+) -> None:
+    build(sandbox)
+    make_owner("maria")
+    make_account("bob", "operator", mfa=False)
+
+    (blocker,) = second_factor_blockers()
+
+    assert "noust user disable bob" in blocker
+    AccountManager().disable("bob")
+    assert second_factor_blockers() == []
+
+
+def test_an_owner_among_other_owners_is_told_how_to_be_disabled(
+    sandbox: Path, store: NoustStore
+) -> None:
+    # Not the last: another owner can sign in, so disabling this one is allowed.
+    build(sandbox)
+    make_owner("maria")
+    make_owner("jorge", mfa=False)
+
+    (blocker,) = second_factor_blockers()
+
+    assert "noust user disable jorge" in blocker
+    AccountManager().disable("jorge")
     assert second_factor_blockers() == []
