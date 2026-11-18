@@ -24,6 +24,7 @@ The private key stays with whoever publishes: nothing here reads the network.
 from __future__ import annotations
 
 import argparse
+import gzip
 import hashlib
 import io
 import json
@@ -118,7 +119,12 @@ def pack_directory(
     members[MANIFEST] = manifest_bytes
     members[SIGNATURE] = private_key.sign(manifest_bytes).hex().encode("ascii") + b"\n"
     buffer = io.BytesIO()
-    with tarfile.open(fileobj=buffer, mode="w:gz") as archive:
+    # The compressed stream is written with no moment of its own: gzip stamps the time into its
+    # header unless told otherwise, and the same folder would give a different file each second.
+    with (
+        gzip.GzipFile(fileobj=buffer, mode="wb", mtime=0) as compressed,
+        tarfile.open(fileobj=compressed, mode="w") as archive,
+    ):
         for name in sorted(members):
             info = tarfile.TarInfo(name)
             info.size = len(members[name])

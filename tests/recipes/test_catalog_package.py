@@ -10,6 +10,7 @@ import io
 import json
 import sys
 import tarfile
+import time
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -396,6 +397,24 @@ class TestTheTool:
 
         assert first.read_bytes() == second.read_bytes()
         assert tool.verify_package(first, public_hex(key)).serial == 1
+
+    def test_a_package_made_a_minute_later_is_the_same_bytes(
+        self,
+        tool: ModuleType,
+        tmp_path: Path,
+        key: ed25519.Ed25519PrivateKey,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # A gzip file carries the moment it was written unless it is told not to: two packs of
+        # the same folder a second apart were two different files, and so two different hashes.
+        first = package(tool, tmp_path, key, ("acme-wiki", {}), name="one.tar.gz")
+        folder = tmp_path / "folder-1-one.tar.gz"
+        second = tmp_path / "two.tar.gz"
+        later = time.time() + 60
+        monkeypatch.setattr(time, "time", lambda: later)
+        tool.pack_directory(folder, second, private_key=key, serial=1)
+
+        assert first.read_bytes() == second.read_bytes()
         with pytest.raises(RecipeError, match="does not verify"):
             tool.verify_package(first, public_hex(ed25519.Ed25519PrivateKey.generate()))
 
