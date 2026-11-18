@@ -31,7 +31,8 @@ the port answers to every kind of request, are in
 
 The first time, the browser warns about the certificate: the console made it for itself and nobody else
 vouches for it. Compare the fingerprint it shows with the one in the log and continue. Then sign in with the
-token: a central with no accounts opens on **Create the first account**, and every account needs a second
+token (the sign-in page opens on it, says that it is in the container's log and gives the command that issues
+another): a central with no accounts opens on **Create the first account**, and every account needs a second
 factor before the central adds its first server ([First sign-in and accounts](CENTRAL.md#first-sign-in-and-accounts)).
 Lost the token: `docker exec -it <container> noust web token --new`, where the first start's log says which
 container.
@@ -73,8 +74,9 @@ is fixed and few apps use it, but if another one does, the icon opens that other
 
 A new version of Noust arrives through the App Center, as a package that UGREEN reviews, and not by a command
 of Docker's: running `docker compose pull` on the container would leave the app in a state the App Center knows
-nothing about. The console says so where it would show that command (the package says where it came from in
-`NOUST_INSTALLED_FROM`), and it does not offer to update itself.
+nothing about. The console says so where it would show that command (**Settings > About Noust**, **Fleet >
+Updates** and the notice of a newer version; the package says where it came from in `NOUST_INSTALLED_FROM`), and
+it offers neither a command nor a button to update itself.
 
 ## Your data
 

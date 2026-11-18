@@ -84,7 +84,8 @@ recipe that needs any of these is not a recipe:
   (`./media`): the operator may point it elsewhere, the recipe may not. A directory outside the application's
   own folder is a path of the server, so the application is refused it unless an administrator records why
   (`noust app sandbox compose-exception DOMAIN --reason '...'`, which can be done before the first deployment;
-  [what a stack may ask of the server](compose.md#what-a-stack-may-ask-of-the-server)).
+  [what a stack may ask of the server](compose.md#what-a-stack-may-ask-of-the-server)); one that already runs
+  with it keeps updating, with a warning.
 
 ## Updating what you installed
 

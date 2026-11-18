@@ -515,8 +515,9 @@ document the same way, the editor before Compose is asked to read it.
 **Adopting a stack that runs with any of this** puts under Noust something whose containers have the
 server. The preview lists each line ("gives a container something of this server"), and adopting it needs
 saying so: `noust app adopt DOMAIN --path DIR --accept-host-access` (`accept_host_access` in the API and
-in the Docker zone), which needs the root-equivalent permission and records the lines, with who and when,
-as the application's compose exception. Take it back with `noust app sandbox compose-exception DOMAIN
+in the Docker zone; in the console, a box beside the lines that only an account with the root-equivalent
+permission is offered), which needs that permission and records the lines, with who and when, as the
+application's compose exception. Take it back with `noust app sandbox compose-exception DOMAIN
 --revoke`.
 
 ## Other things that changed for Compose

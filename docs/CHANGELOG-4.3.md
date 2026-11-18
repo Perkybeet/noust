@@ -99,6 +99,14 @@ first.
   out of memory, how often it restarted lately, its restart policy and limits, what it touches), its last lines
   with credentials masked, its logs live, what it uses and a console in any container, recorded like the other
   terminals. What would not come back after the machine restarts is listed, with the line that fixes each.
+- **What the lists say** (item 189). The list of containers shows processor and memory, and a container that
+  belongs to no stack says so. An image says where it comes from (a registry, built on the machine by Noust or by
+  somebody else, or unknown), and "not looked at yet" is a state of its own in its version, apart from "could not
+  be asked". A volume says in words whether it is copied and how, and a network its address range. A stack's
+  history of Compose texts can always be read, also where the stack cannot be edited. From All servers, **Look
+  for new versions** asks every server of the fleet (the central is looked at on its own page), after a plan that
+  says which servers take part and which are left out and why. The preview of bringing a stack in opens without
+  asking you to confirm who you are: that is asked when it is applied.
 - **Whose each thing is is decided by what Noust registered**, never by what an object says of itself, before
   anything is done to it. Two permissions are new: `docker.read` (every role) and `docker.manage` (the
   administrator); a person of a team is refused all of the zone, because Docker is the machine's. The audit
@@ -119,7 +127,10 @@ first.
   come back after a restart, and recreates, restarts and rewrites nothing. A stack nobody of Noust made can
   also be started, stopped and restarted as a whole. One that runs with something of the server (the Docker socket,
   a device, a path outside its folder) is brought only with `--accept-host-access`, which records what it has,
-  with who accepted it and when, as the application's exception (root-equivalent; item 189).
+  with who accepted it and when, as the application's exception (root-equivalent; item 189). In the console,
+  **Bring to Noust** and the adoption step of the new-application wizard list each line with the server's own
+  reason; whoever holds the root-equivalent permission accepts them with a box of its own (the plan is asked for
+  again, and sudo mode as ever), and whoever does not sees the lines and who can accept them.
 - **A stack's Compose, edited with a net.** `noust docker stack compose` (and the stack's page) judges a document
   by the model Compose resolves it to, says what it would recreate before anything changes, keeps every saved
   text as a version with who saved it and why (the latest 30), applies it as the application's update behind the
@@ -183,6 +194,14 @@ first.
   where Noust was installed from (`installed_from`, set by `NOUST_INSTALLED_FROM`) and gives no command, and
   `POST /api/system/update` answers `501 app_store` where a container image answered `container_image`.
   [ugreen.md](ugreen.md).
+- **The console offers only what the machine holds** (items 187, 188). Databases lists the engines Noust runs in
+  containers with their databases and users, and offers no engine of the system where there is none, saying why in
+  the server's own words. Processes, Updates, Files, **Deploy on this machine** and the zero-downtime switch
+  appear only where the server says they work (a destination may need any of several functions). Adding an
+  application with no Dockerfile and no Compose file says what is missing instead of a native plan nothing there
+  can run, and Home shows no panel and sends to no screen the machine does not have. A hub that was not told to
+  deploy on its machine's Docker offers no Docker zone, and an address typed by hand says why in the server's
+  words and leads to **Deploy on this machine**.
 - **What each server can do is one table** (item 187). Each function says what it needs (the server role, or a
   fact of the machine: systemd, a web server, Docker, root, the journal), the refusal of a hub takes its words
   from it, and the session says for every function whether it works here and why not. A hub on a NAS is simply a
@@ -218,6 +237,12 @@ first.
   conversation and in a month (against a price table the operator writes) and changes in an hour, said at 80 % and
   cut between steps. Conversations are kept per account, masked, for `retention.assistant_days` (30). Turning it
   off revokes every token it holds.
+- **The console says why, and what it costs** (item 171). When the assistant is not offered it says why in the
+  server's own words (it is off, the role lacks the permission, or the caller is not a person's account). Whoever
+  reads the settings sees the month's spending, and the changes of the last hour beside their limit. Settings
+  shows the host you consented to for the assistant, and says before saving that the key kept belongs to the
+  previous provider. An account that already has two answers being written is told to wait, not that something
+  failed. A link the model wrote shows its whole address and opens on a second click.
 - **A battery decides whether it ships.** [assistant-battery.md](assistant-battery.md) says what 56 scenarios with
   deterministic oracles test (secrets, actions, approval, injection through a journal, a build log, a commit
   message and a branch name, limits and the fleet), the four defects it found and what it does not say.
@@ -249,6 +274,10 @@ first.
   its permissions let it, so nothing changes until somebody changes the table; the assistant proposes everything.
   Who calls is read from the credential and never from what a client says of itself, and the table is edited by a
   person, never by a token. **Settings > Approval policy** and `noust approval policy show|set|reset`.
+- **The table says what only a person decides.** A row says how many of its operations are only confirmed by a
+  person (going back past a change of schema, making and lifting a deploy freeze) and offers no "does it" where
+  there is none. The dialog that makes a token leaves out `assistant.use`, which no token holds: `GET
+  /api/auth/roles` says what a token never holds (`token_never`).
 - **Approvals say who asked.** A request carries the class of caller, the token, the environment, the application
   and the client the token said it was (labelled as its word), and is decided by a person who holds what the
   call needs; a token never approves, not even its own. A tool of MCP that changes something takes `approval`,
@@ -290,7 +319,8 @@ first.
   every checksum matched; a full disk stops the pass, says so and deletes nothing. They are listed, restored on
   the server they came from or on another, or let go from **Copies on the central** in the fleet's Backups, and
   `noust fleet collect enable|disable|follow|set|run|list|delete|restore|status`. A server gives its copies only
-  with the `admin` ceiling, and a server before 4.3 only gives its database dumps until it is updated. It is one copy on one machine, which `noust health` and the compliance
+  with the `admin` ceiling, and its row in **Copies on the central** says so, as a notice with the command, when
+  its level is `deploy` or `read`. A server before 4.3 only gives its database dumps until it is updated. It is one copy on one machine, which `noust health` and the compliance
   checks say. [central-maintain.md](central-maintain.md#taking-the-copies-of-your-servers).
 
 ## Notifications
@@ -333,7 +363,10 @@ first.
   deleted to make room; the run does not fail, and it is said once for the destination when the retry fails too,
   with an answer when everything arrives. The monitor no longer repeats the failure of a unit whose command said it,
   and needs three failed probes to call a destination unreachable. `pending_sends` in the API and
-  `noust backup list` say which copies were not sent.
+  `noust backup list` say which copies were not sent, and so does the console: a copy that waits is "Pending to
+  X" in the four lists (applications, volumes, databases and Noust's own state), with what the destination said,
+  how many times it was tried again and since when. There is no "send now" in the console, because the API has no
+  operation for it: `noust backup resend` does it.
 - **A database copy made with Back up now is kept** (item 140): it is recorded as manual (`noust db backup-run
   --manual`), and retention, local and on a destination, only deletes what a schedule made. Copies recorded before
   4.3 cannot be told from the rest and stay recorded as scheduled.
@@ -387,6 +420,14 @@ first.
   nobody, cannot be tied to a team, a project or an environment, and shows what a token will hold before it is
   made. The sign-in's "lost it" link issues a new one (`noust web token --new`) and says that the token in use stops
   working.
+- **A server with no account opens sign-in on the access token** (item 198) and says where it is: in the box the
+  installer printed or, where no installer ever ran (a central in a container), in the container's log, with the
+  command that issues another (`docker exec -it <container> noust web token --new`). It does not offer **With a
+  password** while nobody has one. Once there are accounts, the page names the access token of this server and how
+  to make a new one.
+- **A Noust installed from an app store says its new versions come from the store**: About Noust, Fleet > Updates and
+  the notice of a newer version name it, with no command to run and no button to update
+  (`installed_from`, [ugreen.md](ugreen.md)).
 - **An invitation's link comes from the console's public address** (item 149), `web.public_url`, and says when it
   cannot work for the person invited (through an SSH tunnel the address of the browser is a local one). The
   installer prints `http://localhost:8080/login`, because a passkey is bound to a name and refused on an address of
@@ -526,6 +567,13 @@ first.
 
 ## Fixes
 
+- Adding a passkey, or signing in with one, no longer fails with "A request is already pending" (item 202). The
+  console asks the browser for one passkey window at a time: the one the sign-in field keeps open is ended and
+  waited for before another is asked, and a browser that still says the last one is closing is asked again a few
+  times, briefly, before an error is shown, with the browser's own words under ours.
+- **Change the model** in the assistant's settings led nowhere while the assistant was on; it opens the settings
+  now.
+- A long command in the console wraps on a phone instead of running off the screen.
 - A first deployment that fails is remembered, and a deployment that fails on an application that exists is amber
   when its service runs, instead of red (items 141, 147).
 - `PUT /api/config/smtp` with no host answers 422 on the field instead of saving a channel that cannot send

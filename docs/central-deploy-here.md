@@ -160,7 +160,8 @@ that deploys here:
   refused with each line and the command, nothing touched; `noust app adopt DOMAIN --path DIR
   --accept-host-access` (or `noust docker stack bring NAME --accept-host-access`) goes on, needs the
   root-equivalent permission and records the lines, with who and when, as the application's exception
-  ([what it means](compose.md#what-a-stack-may-ask-of-the-server)). **Preview** lists the same lines.
+  ([what it means](compose.md#what-a-stack-may-ask-of-the-server)). **Preview** lists the same lines, and
+  **Bring to Noust** in the console shows them with a box that only an account with that permission is offered.
 
 ## Check it
 

@@ -71,3 +71,15 @@ The provider knows you, but this server has no account for you. Ask a security o
 
 The identity provider let you in, and this server has no account linked to that identity. A
 security officer invites you or links the account ([Single sign-on](sso.md)).
+
+## The browser says another passkey window is still closing
+
+```text
+The browser was still closing another passkey window. Try again.
+```
+
+A browser allows one passkey window at a time, and it says when the last one is over a moment after the page was
+told. The console asks for one window at a time and, when the browser still answers that the previous one is
+open ("A request is already pending"), asks again a few times by itself before it shows the message, with the
+browser's own words under it. If it does show, close the browser's passkey window (Cancel, or Escape) and press
+the button once more. Nothing is wrong with the account or the server.

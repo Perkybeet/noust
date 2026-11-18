@@ -95,7 +95,8 @@ one from a browser session needs sudo mode.
 `POST /api/auth/tokens` takes `name`, `scope` (`read`, `deploy` or `admin`), `expires_hours`,
 `permissions` (a list to narrow it to, each held by the issuing account) or `preset` (a name for
 the sets a job usually needs, `deploy_only` among them; `GET /api/auth/roles` lists them as
-`token_presets`, and a token made by the master token is narrowed the same way), `allowed_cidrs` (the
+`token_presets`, and what no token holds, whatever its owner holds, as `token_never`: `assistant.use`, since the
+built-in assistant is for people; a token made by the master token is narrowed the same way), `allowed_cidrs` (the
 networks it is accepted from) and `allow_elevated` (whether it may call routes that need sudo
 mode; off by default, refused wherever the `restricted_tokens` control is on, as the ENS frameworks
 do). A token cannot confirm sudo mode, so one made for an account is refused on those routes unless

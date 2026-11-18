@@ -46,9 +46,12 @@ each is what a client written against 4.2 could notice.
   `POST /api/docker/stacks/{name}/compose/check`) report each line, and `PUT .../compose/document` is a `400` on
   `document` that lists them. A document sent as text to `analyze` or to `compose/document` takes no exception;
   the Docker zone's editor, which edits a stack's own document, does. What a stack already ran with is warned
-  about and not refused, except what shows only once Compose resolves the file (an `include`, an `extends`, a
-  variable in a path), which an update that pulls refuses. The exception is recorded at
-  `PUT /api/apps/{domain}/sandbox/compose-exception` (`root_equivalent`, sudo mode).
+  about and not refused, whether its file says it or only a variable, an `include` or an `extends` does (what a
+  stack had is what its containers were given of the server, which Noust asks Docker for), except `privileged`,
+  the socket of a container runtime, Noust's state and another application's files, which are let through only
+  when the file that served says them plainly; when Docker does not answer, the update is refused with its own
+  words. The exception is recorded at `PUT /api/apps/{domain}/sandbox/compose-exception` (`root_equivalent`,
+  sudo mode).
 - **Adopting, or bringing, a stack that runs with what gives the server to a container is a `409`.**
   `POST /api/apps/adopt`, `POST /api/docker/stacks/{name}/bring` and `.../bring/preview` answered with the plan or
   the registration, with a warning in the log; they now refuse with the error body of every refusal plus
@@ -396,9 +399,9 @@ each is what a client written against 4.2 could notice.
   `deploy_and_restart` or `backups`) instead of `permissions`, and `GET /api/auth/roles` lists them as
   `token_presets` (`id`, `permissions`) with `tenant_permissions`, what a token bound to a team, a project or an
   environment can ever hold. A preset the issuer does not hold all of is refused whole.
-  `GET /api/auth/roles` also says `token_never`, what no token holds whatever its owner holds (`assistant.use`: the
-  built-in assistant is for people), which a role does hold, so that a dialog that makes a token leaves it out of
-  what the token will be able to do (item 171).
+  `GET /api/auth/roles` also says `token_never`, a list of the permissions that no token holds whatever its owner
+  holds (`assistant.use` today: the built-in assistant is for people, though a role holds it), so that a dialog that
+  makes a token leaves them out of what the token will be able to do (item 171).
 - **The proof a first second factor asks for** (item 132). `POST /api/auth/2fa/enroll` and `POST
   /api/auth/passkeys/registration/options` take an optional body, `{"password": ...}`, which an account without a
   second factor gives when its sign-in is older than ten minutes.

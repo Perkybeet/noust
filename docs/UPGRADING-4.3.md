@@ -13,9 +13,9 @@ The store moves to schema 18 the first time Noust starts (a copy of the old one 
 API token changes in production waits for a person on a server under the ENS profile.
 
 4.3 also closes a vulnerability in the check on Compose files that dates from 3.1.0
-([CHANGELOG-4.3.md](CHANGELOG-4.3.md#security)). Nothing that runs is stopped by it, but the check now refuses
-more in a new stack, in what an update adds and in an adoption, and a stack that hides what it carries behind
-an `include`, an `extends` or a variable is refused at its next update. Run `noust health` after updating and read
+([CHANGELOG-4.3.md](CHANGELOG-4.3.md#security)). Nothing that runs is stopped by it, and a stack that already
+runs keeps updating, with a warning, whatever its containers were given; the check refuses more in a new stack, in
+what an update adds and in an adoption. Run `noust health` after updating and read
 [the first section below](#compose-stacks-that-carry-more-than-a-new-stack-may).
 
 ## Action required
@@ -30,12 +30,12 @@ an `include`, an `extends` or a variable is refused at its next update. Run `nou
   `noust approval policy set`. A server not under ENS changes nothing: a token is `alone` everywhere its
   permissions let it, until somebody changes the table
   ([security-approvals.md](security-approvals.md#tokens-and-the-built-in-assistant-the-approval-policy)).
-- **Review the Compose stacks that carry something of the server.** After updating, `noust health` lists the
-  stacks whose compose file asks for what gives the server to a container or for a path of the server outside the
-  application, each with the command to record why it needs it. A stack that hides it behind an `include`, an
-  `extends` or a variable (a recipe whose data directory you pointed outside the application) is not on that
-  list and is refused at its next update, naming the finding: record the exception first, or take it out of the
-  repository
+- **Review the Compose stacks that carry something of the server.** After updating, `noust health` lists every
+  stack that carries what gives the server to a container or a path of the server outside the application, by its
+  compose file and by what its containers were given, each with the command to record why it needs it. They keep
+  updating, with a warning. The one place an update stops is `privileged`, a container runtime's socket, Noust's
+  own state or another application's files that a stack has without its file saying so plainly (it comes through
+  a variable or an `include`): that asks for the recorded exception at its next update
   ([how](#compose-stacks-that-carry-more-than-a-new-stack-may)). Where untrusted repositories were deployed
   before, review their Compose files and rotate the secrets of that server.
 - **Adopting, or bringing, a stack that runs with something of the server needs `--accept-host-access`**
@@ -74,7 +74,8 @@ an `include`, an `extends` or a variable is refused at its next update. Run `nou
   tried again by itself (`noust backup resend` shows and forces it; the first copy that is owed makes the timer
   `noust-backup-resend`, or the central's scheduler runs it) and is said once for the destination. If you
   watched the journal of `noust-backup-*` for a failed unit, watch `noust backup list` (it says which copies were
-  not sent) or the notice instead. A schedule with `remote_only` keeps the copy until every destination holds it.
+  not sent), the console (the copy is "Pending to X" in its list, with what the destination said) or the notice
+  instead. A schedule with `remote_only` keeps the copy until every destination holds it.
 - **New permissions reach the roles by themselves, unless you edited the role.** A role Noust ships and nobody
   edited follows what Noust ships: `docker.read` on every role, `docker.manage` and `backups.collect` on the
   administrator, `assistant.use` on the administrator and the operator. A role somebody edited is offered them,
@@ -208,8 +209,10 @@ noust docker stack bring shop --accept-host-access
 `--accept-host-access` needs the root-equivalent permission, and `accept_host_access: true` in
 `POST /api/apps/adopt` and `POST /api/docker/stacks/{name}/bring` does too (`403` without it). It registers the
 stack as it runs and records the lines, who accepted them and when, as the application's compose exception (the
-section above). The console shows the refusal with its lines and the command, and cannot accept: do it from the
-command line or the API.
+section above). In the console, **Bring to Noust** and the adoption step of the new-application wizard show the
+same lines, each with the server's reason; whoever holds the root-equivalent permission ticks the box that accepts
+them (the plan is asked for again, and sudo mode as ever), and whoever does not reads the lines and who can accept
+them. Nothing changes until somebody does.
 
 Check: the **Containers that are root on the server** card of the application's Settings > Build shows the
 exception with its reason, who and when (`compose_exception` in `GET /api/apps/{domain}/sandbox`), and

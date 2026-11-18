@@ -220,8 +220,9 @@ service there.
 
 ## First sign-in and accounts
 
-1. Sign in with the token from the first start. A central with no accounts opens **Create the
-   first account**: an administrator, and (recommended) a security officer for another person.
+1. Sign in with the token from the first start: the sign-in page of a central with no accounts opens on
+   **Access token** and says that it is in the container's log, with the command that issues another. A
+   central with no accounts then opens **Create the first account**: an administrator, and (recommended) a security officer for another person.
    Or from the command line: `docker exec -it noust noust user create alice --role admin`.
 2. Sign in as that account and enrol its second factor, an authenticator app or a passkey. Every
    account must have one, and **a central refuses to add its first server without it**. From

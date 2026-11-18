@@ -62,7 +62,9 @@ else is refused.
 host or port) without giving a key in the same request empties the key that was saved and leaves the assistant
 off until you give one (`--key-stdin`, or the key field of the console). Whoever may change the settings does not
 thereby know the key, and the next request carries what the settings hold: this is what keeps it from going to an
-address somebody else chose. Changing only the path of the address, or the model, keeps it.
+address somebody else chose. Changing only the path of the address, or the model, keeps it. The console says it
+before you save ("The saved key was for the previous provider") and shows, under the address, the host and port
+you consented to for the assistant.
 
 ### What a model of your own asks of the machine
 
@@ -194,9 +196,12 @@ In the console, from the panel and from "explain this". The panel is the **AI as
 over it from 1024 and a sheet on a phone; its title, the mark of every answer (with the model and where it runs) and the line under the box where a question
 is typed all say it is an AI. It says which page it reads (a failed deployment, a diagnosis) and a cross takes it away. "Explain this" is in the block
 of the page that holds the error, and in the menu of an alert that is firing. What the model writes is drawn as text and never as markup (a tag, an image
-or a link that lies shows what it is, and a link shows its host), a proposal is a card the console draws from the exact call with its simulation folded
+or a link that lies shows what it is, and a link the model wrote shows its whole address and opens on a second
+click, not on the first), a proposal is a card the console draws from the exact call with its simulation folded
 under it, and what the policy forbids is a line, never a disabled button. **With the assistant off, or for a person who may not use it, nothing of
-it is drawn**: only its page in Settings, for whoever may turn it on. From the terminal:
+it is drawn**: only its page in Settings, for whoever may turn it on, which says why it is not offered in the
+server's own words when it is not. An account that already has two answers being written is told to wait, not that
+something failed. From the terminal:
 
 ```
 noust assistant ask --as marta "Why does shop.example.com keep restarting?"
@@ -272,7 +277,8 @@ a role nobody edited has it by itself, and one you edited is offered it, which y
 whoever manages the settings without using the assistant sees the month's spending and the limits it runs under,
 as they see the rest of the settings (a person who only sees some teams does not). It opens nothing else. What
 the assistant made it do for the person in the last hour, and the totals of one conversation (`?conversation=`,
-which asks for `assistant.use` and is its author's alone), are the assistant's.
+which asks for `assistant.use` and is its author's alone), are the assistant's; the console shows the changes of
+the last hour beside their limit to whoever may use it.
 
 **How the console knows whether to offer it.** One answer, typed: `assistant` of `GET /api/auth/session`
 (`enabled`, `can_use`, `tools`, `reason`, `model`, `location`, `mask_personal`). When it is not offered, `reason`

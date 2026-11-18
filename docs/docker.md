@@ -98,6 +98,20 @@ taken. Compose's own words, when starting it the way Noust would changes somethi
 the credentials in them masked (Noust's own, the secrets the stack's own `.env` holds and whatever has the shape of
 one), and so is the address the checkout would fetch from, which can carry the credential its owner cloned with.
 
+A stack whose containers run with something of this server (the Docker socket, a device, a directory of the
+server) is refused first with each line and the command, and nothing is touched, because bringing it puts that
+under Noust and is the same as giving it root:
+
+```bash
+noust docker stack bring nextcloud --accept-host-access
+```
+
+It needs the root-equivalent permission and records the lines, with who accepted them and when, as the
+application's exception ([what it covers](compose.md#what-a-stack-may-ask-of-the-server)). In the console the
+dialog of **Bring to Noust** lists the same lines, each with the server's reason, and offers a box that accepts
+them only to an account that holds that permission; anybody else reads the lines and who can accept them.
+Ticking the box asks for the plan again with the lines accepted, and applying asks sudo mode as it always does.
+
 Looking changes nothing, so it asks no sudo mode: `POST /api/docker/stacks/{name}/bring/preview` is read with the
 permission to read the zone, and the one command it runs is Compose's rehearsal (`up --dry-run`), which only
 looks. The confirmation is asked when it is applied (`POST .../bring`, which keeps its `preview` flag for whoever
@@ -124,7 +138,8 @@ already sends it, and asks sudo mode like the rest of that route).
 
 ## Looking for new versions on every server
 
-`POST /api/fleet/docker/images/check` (permission `docker.manage`) asks every server of the fleet for its own look
+`POST /api/fleet/docker/images/check` (permission `docker.manage`; the console's **Look for new versions** under All
+servers, which first says which servers take part) asks every server of the fleet for its own look
 through its tunnel and puts what they found side by side, as one job with a record per server: how many images each
 looked at, how many have a new version and which. A server before 4.3 and one with no Docker are shown in the
 plan (`"plan": true`) as unable to take part, not as failures. Sudo mode is what each server's own schema asks.

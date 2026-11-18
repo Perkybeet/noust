@@ -157,8 +157,12 @@ tells your servers apart, and Settings > Sign-in image puts your company's logo,
 the space of Noust's drawing. After signing in, the console says when and from where you last signed
 in and how many attempts failed since.
 
-**A server with no accounts** signs in with the access token (the **Access token** door, or the
-link the installer printed, which opens the page on its field) and then opens one form that
+**A server with no accounts** opens the sign-in page on the access token, with no password form because
+nobody has a password yet, and says where the token is: in the box the installer printed or, where no installer
+ever ran (a central in a container), in the container's log, with the command that issues another
+(`docker exec -it <container> noust web token --new`). Once there are accounts, the page names the access token
+of this server and how to make a new one. The token signs in (the **Access token** door, or the
+link the installer printed, which opens the page on its field) and then the console opens one form that
 creates the first administrator and signs in with it: a username and a password, with the name and
 the email a click away. The console then offers to **Protect your account**, which can wait (**Set
 up later**) unless a compliance framework asks for a second factor or the console is published.

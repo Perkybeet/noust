@@ -162,6 +162,9 @@ message, or none:
   for ever) and says it in the audit trail (`backup.unsent_delete`). A schedule that keeps nothing on this server
   (`remote_only`) keeps the copy until every destination holds it. `noust backup list` says which copies were
   not sent, to where and when they are tried next, and the API gives the same in `pending_sends` on every copy.
+  The console shows it as a state of its own, "Pending to X" (or "Pending to N destinations"), in the lists of
+  applications, volumes, databases and Noust's own state, and its help says what the destination answered, how
+  many times it was tried again and since when. It has no "send now": the pass is `noust backup resend`.
 - **It is said once for a destination, when it matters.** When a retry fails too, or at once when what the
   destination refused is of the kind waiting does not mend, one `backup_failed` notice names the destination,
   how many copies are owed and for which applications, what was tried, when it is tried next, where the copies

@@ -163,7 +163,8 @@ out. Reading it is open to whoever reads the settings. Giving a token or the ass
 has waits for a second person where the server asks for one; taking it away does not. Before saving, the
 console shows what it would change and to which credentials (`POST /api/config/approval-policy/preview`). In the console it is
 **Settings > Approval policy**: one table for each area, a padlock where the assistant never does it, a key where the row asks you to confirm it is you
-(and "Does it" is not offered), the factory's value said only where a cell differs from it, and the **Approvals** list says who called, with what a token
+(and "Does it" is not offered), a line that says how many of a row's operations only a person confirms (a deploy
+freeze, going back past a change of schema), the factory's value said only where a cell differs from it, and the **Approvals** list says who called, with what a token
 said it was ("Says it is ...") labelled as its own word.
 
 **The MCP.** A tool of MCP is a call of the API with the caller's token, so it comes through the same
