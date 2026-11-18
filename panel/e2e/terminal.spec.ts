@@ -12,6 +12,7 @@
 
 import type { Locator, Page } from "@playwright/test";
 
+import { csrf } from "./apps-cleanup";
 import { confirmItsYou, expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
 
 const APP = "tienda.example.org";
@@ -38,6 +39,23 @@ async function coloursDrawn(canvas: Locator): Promise<number> {
     return seen.size;
   });
 }
+
+/**
+ * A terminal whose browser went away is kept for a minute (so a dropped connection can come back to it), and a person may
+ * have three open at once: a test that leaves one open would, a few seconds later, use a seat of the next, and the fourth
+ * test of a worker was refused with 429. Each test ends what it opened, and waits for the seats to be free.
+ */
+test.afterEach(async ({ page }) => {
+  const listing = await page.request.get("/api/terminal/sessions");
+  // A test that never signed in has nothing open.
+  if (!listing.ok()) return;
+  const { sessions } = (await listing.json()) as { sessions: { id: string }[] };
+  const headers = await csrf(page);
+  for (const session of sessions) await page.request.delete(`/api/terminal/sessions/${session.id}`, { headers });
+  await expect
+    .poll(async () => ((await (await page.request.get("/api/terminal/sessions")).json()) as { sessions: unknown[] }).sessions.length)
+    .toBe(0);
+});
 
 /** The refusal sudo mode answers first, which Chromium logs as a failed resource. */
 const ELEVATION = {

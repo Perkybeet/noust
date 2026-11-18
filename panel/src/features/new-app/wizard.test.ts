@@ -369,6 +369,31 @@ describe("the steps with nothing to ask (checklist M-12)", () => {
     for (const step of ["source", "address", "deploy"] as const) expect(stepAsks(step, "code", ask(CLEAN))).toBe(true);
   });
 
+  it("asks only for the source and for what is missing where nothing in it can run here: no address, no variables, no deploy", () => {
+    const missing = { form: "server" as const, status: "no" as const, app_type: null, via: null, reason: null };
+    const stuck: Inspection = {
+      ...CLEAN,
+      // A variable with no value would ask for the Variables step on a machine where the source runs.
+      env_keys: [{ name: "DATABASE_URL", default: null, secret: true, required: true }],
+      ways: {
+        choice: false,
+        proposed: "container",
+        why: { code: "how_it_runs.why.nothing_runs_here", params: {}, text: "Nothing in it runs here.", hint: null },
+        server: { ...missing, status: "hidden" },
+        container: { ...missing, form: "container" },
+      },
+    };
+    const wanted = (step: Parameters<typeof stepAsks>[0]) => stepAsks(step, "code", ask(stuck));
+    expect(["source", "address", "configure", "variables", "database", "deploy"].map((step) => [step, wanted(step as Parameters<typeof stepAsks>[0])])).toEqual([
+      ["source", true],
+      ["address", false],
+      ["configure", true],
+      ["variables", false],
+      ["database", false],
+      ["deploy", false],
+    ]);
+  });
+
   it("passes over configuration and variables for a project that is detected and declares nothing", () => {
     expect(stepAsks("configure", "code", ask(CLEAN))).toBe(false);
     expect(stepAsks("variables", "code", ask(CLEAN))).toBe(false);

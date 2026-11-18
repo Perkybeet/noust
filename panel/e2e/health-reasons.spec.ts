@@ -20,17 +20,23 @@ test("the server's verdict stands beside the reasons that make it, each with whe
   await expect(main.getByRole("heading", { level: 1 })).toBeVisible();
   const reasons = main.getByRole("list", { name: "What needs attention" });
   await expect(reasons.getByRole("listitem").first()).toBeVisible();
-  // The worst reason decides the verdict, and it comes first.
+  // The worst reason decides the verdict, and it comes first: the verdict is critical because something failed, and the list opens
+  // with a failure. Each row says its level as a word ("Failure: ", "Warning: ") ahead of its name, and the failures come first.
   await expect(main.getByText("Critical", { exact: true }).first()).toBeVisible();
-  await expect(reasons.getByRole("listitem").first()).toContainText(/^Critical/);
-  // Every reason carries its level as a word and one way to fix it.
+  await expect(reasons.getByRole("listitem").first()).toHaveAttribute("data-severity", "fail");
+  await expect(reasons.getByRole("listitem").first()).toContainText(/^Failure: /);
+  const levels: string[] = [];
   for (const item of await reasons.getByRole("listitem").all()) {
-    await expect(item).toContainText(/^(Critical|Warning)\S/);
+    // Every reason carries its level as a word and one way to fix it.
+    await expect(item).toContainText(/^(Failure|Warning): \S/);
     await expect(item.getByRole("link").or(item.getByRole("button"))).toHaveCount(1);
+    levels.push((await item.getAttribute("data-severity")) ?? "");
   }
+  expect(levels, "the failures come before the warnings").toEqual([...levels].sort((a, b) => (a === b ? 0 : a === "fail" ? -1 : 1)));
   const exposed = reasons.getByRole("listitem").filter({ hasText: "A database or internal service is reachable from the internet" });
   await expect(exposed.getByRole("link", { name: "Review" })).toHaveAttribute("href", "/network/firewall");
-  const disk = reasons.getByRole("listitem").filter({ hasText: /^Warning\/srv is \d+% full/ });
+  // A row is its level, what it is about (the disk), where it comes from, and the reason in words.
+  const disk = reasons.getByRole("listitem").filter({ hasText: /^Warning: Disk.*\/srv is \d+% full/ });
   await expect(disk.getByRole("link", { name: "Free space" })).toHaveAttribute("href", "/server/files");
   await settle(page);
   await expectNoA11yViolations(page, "the server's verdict and its reasons");

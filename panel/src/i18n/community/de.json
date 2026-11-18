@@ -900,6 +900,7 @@
   "appPages.overview.viewAll": "Alle ansehen",
   "appPages.overview.deploysAppearHere": "Bereitstellungen und Aktualisierungen erscheinen hier",
   "appPages.overview.loadingDeploys": "Die Bereitstellungen werden geladen",
+  "appPages.overview.loadingHow": "Es wird geladen, wie sie läuft",
   "appPages.overview.healthTitle": "Zustand",
   "appPages.overview.editLimits": "Limits bearbeiten",
   "appPages.overview.uptimeLabel": "Laufzeit",

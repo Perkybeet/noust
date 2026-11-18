@@ -51,8 +51,9 @@ describe("how an application is reached on a machine that only has Docker (item 
     expect(screen.getByText(/Answers at/)).toBeInTheDocument();
     expect(screen.queryByText("Manage domains")).not.toBeInTheDocument();
     // How it runs says it is a container, and does not offer the other way, which this machine has not got.
-    const how = await screen.findByRole("region", { name: /How it is running/ });
-    expect(within(how).getByText("In a container, from an image of a registry.")).toBeInTheDocument();
+    // The card holds its place until the server has answered, so what it says is waited for and the region read after it.
+    expect(await screen.findByText("In a container, from an image of a registry.")).toBeInTheDocument();
+    const how = screen.getByRole("region", { name: /How it is running/ });
     expect(within(how).queryByText(/not converted on the fly/)).not.toBeInTheDocument();
     // No certificate is read, and none is said.
     expect(backend.callsTo("GET /api/certs")).toHaveLength(0);

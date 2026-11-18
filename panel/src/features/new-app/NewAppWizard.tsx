@@ -395,8 +395,8 @@ export function NewAppWizard() {
    */
   const stepAfterSource = (inspection: Inspection, proposed: ReviewForm): Step => {
     const ask = { inspection, review: proposed, context: { ...context, temporaryAvailable: proposed.temporaryDomain !== "" } };
-    // Nothing in the source can run here: the step that says what is missing is the first thing seen, before an address is asked for.
-    if (nothingRuns(inspection)) return "configure";
+    // Where nothing in the source can run here, `stepAsks` leaves the step that says what is missing as the only one: it is the
+    // first thing seen, before an address is asked for.
     const steps = withDatabaseStep(WIZARD_STEPS.code, databaseAvailable && !NO_DATABASE_STEP_TYPES.has(proposed.appType));
     return steps.slice(1).find((id) => stepAsks(id, "code", ask)) ?? "deploy";
   };

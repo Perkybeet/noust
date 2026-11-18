@@ -292,6 +292,7 @@ export const appPages = {
     viewAll: "View all",
     deploysAppearHere: "Deploys and updates appear here",
     loadingDeploys: "Loading the deployments",
+    loadingHow: "Loading how it is running",
     healthTitle: "Health",
     editLimits: "Edit limits",
     uptimeLabel: "Uptime",

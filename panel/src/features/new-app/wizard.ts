@@ -127,10 +127,16 @@ const DATABASE_VARIABLES: ReadonlySet<string> = new Set(["DATABASE_URL", "REDIS_
  * something in it needs a fix. Variables ask when one is required and still has no value.
  * The database asks only when the project names one. Before anything was inspected, everything
  * asks: nothing is passed over on a guess. A recipe's and an export's steps are all asked.
+ * Where nothing in the source can run on this machine the exception is the other way: only the source and the
+ * step that says what is missing ask, and what comes after them is not listed, because it cannot be reached.
  */
 export function stepAsks(step: Step, kind: StartKind, { inspection, review, context }: AskContext): boolean {
   if (kind !== "code") return true;
   if (inspection === null || review === null) return true;
+  // Nothing in the source can run on this machine: the step that says what is missing is the only one after the source, with no
+  // address to ask for something that cannot run, no variables and no deploy to reach. Listing them would call an address nobody
+  // was asked "done", and Back would lead to a step that was passed over; the one way on is to change what is deployed.
+  if (nothingRuns(inspection)) return step === "source" || step === "configure";
   // The address asks, unless there is nothing to ask: no domain of the operator's own is in use
   // here (so they have not shown they want one), a temporary address is available, and it is the
   // one chosen. The deploy summary says so and opens the step on "Change".

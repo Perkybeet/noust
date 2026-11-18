@@ -891,6 +891,7 @@
   "appPages.overview.viewAll": "查看全部",
   "appPages.overview.deploysAppearHere": "部署和更新会显示在这里",
   "appPages.overview.loadingDeploys": "正在加载部署",
+  "appPages.overview.loadingHow": "正在加载运行方式",
   "appPages.overview.healthTitle": "健康",
   "appPages.overview.editLimits": "编辑限制",
   "appPages.overview.uptimeLabel": "运行时长",

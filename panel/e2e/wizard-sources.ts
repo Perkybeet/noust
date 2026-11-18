@@ -45,18 +45,26 @@ export async function typedSource(page: Page) {
 }
 
 /**
- * Inspects a source from the wizard's first step and waits for the next one, Address,
- * confirming it's the operator when the session is not in sudo mode yet.
+ * Inspects a source from the wizard's first step and waits for the next one, focused, confirming it's the operator
+ * when the session is not in sudo mode yet. That is Address, except where nothing in the source can run on the machine
+ * (a lone Dockerfile where there is no Docker): the first thing seen is then Configuration, which says what is missing,
+ * before an address is asked for something that cannot run. Say so with `lands`.
  */
-export async function inspectSource(page: Page, server: ConsoleServer, problems: PageProblems, source: string): Promise<void> {
+export async function inspectSource(
+  page: Page,
+  server: ConsoleServer,
+  problems: PageProblems,
+  source: string,
+  lands: "Address" | "Configuration" = "Address",
+): Promise<void> {
   problems.expect(INSPECT_NEEDS_SUDO);
   await (await typedSource(page)).fill(source);
   await page.getByRole("button", { name: "Continue" }).click();
   const confirm = page.getByRole("dialog", { name: "Confirm it's you" });
-  const address = page.getByRole("heading", { level: 2, name: "Address" });
-  await expect(confirm.or(address)).toBeVisible();
+  const next = page.getByRole("heading", { level: 2, name: lands });
+  await expect(confirm.or(next)).toBeVisible();
   if (await confirm.isVisible()) await confirmItsYou(page, server);
-  await expect(address).toBeFocused();
+  await expect(next).toBeFocused();
 }
 
 /** Presses the wizard's Continue and waits for the step it leads to, focused. */

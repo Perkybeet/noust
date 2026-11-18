@@ -172,10 +172,13 @@ function ServerStrip({ className, showName }: { className?: string | undefined; 
             of a language are longer than the widths below assume, and the badge must never be what gives. */}
         <div className="flex h-7 min-w-0 flex-1 flex-wrap items-center gap-x-2 overflow-hidden @min-[26rem]:gap-x-4">
           {showName ? (
-            // The name never gives way: which machine this is matters more than any reading.
-            <Link to="/server" className={cx("flex shrink-0 items-baseline gap-2", STRIP_LINK)}>
+            // The name gives way last: the readings and the trail go first. A name wider than the strip's floor (a cloud host's is as
+            // long as its provider made it) ends in an ellipsis, with the whole name on hover, and is never sliced at the strip's edge.
+            <Link to="/server" className={cx("flex max-w-full shrink-0 items-baseline gap-2", STRIP_LINK)}>
               {name !== undefined ? (
-                <Mono className="text-13 font-medium">{name}</Mono>
+                <Mono truncate className="text-13 font-medium">
+                  {name}
+                </Mono>
               ) : (
                 <Skeleton className="h-3.5 w-28" />
               )}

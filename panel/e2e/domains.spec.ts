@@ -170,10 +170,11 @@ test("the certificates and sites tabs: the most urgent certificate first, renewi
   await signIn(page, consoleServer, "/domains/certificates");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Certificates");
   const certificates = page.getByRole("region", { name: "Certificates" });
-  // example.com expires in 12 days: first, and flagged.
+  // example.com has 12 days left of a 90-day life: first, and flagged. The server judges a certificate by the share of its own
+  // life that is left (a sixth or less is critical), so this one is past the point where it should have been renewed, and the row
+  // says it was not renewed, with the days that remain.
   await expect(certificates.getByRole("row").nth(1)).toContainText("example.com");
-  await expect(certificates.getByRole("row").nth(1)).toContainText(/Expires in 1[12] days/);
-  await expect(certificates.getByRole("row").nth(1)).toContainText(/Expires in \d+ days/);
+  await expect(certificates.getByRole("row").nth(1)).toContainText(/Not renewed: 1[12] days left/);
   await settle(page);
   await expectNoA11yViolations(page, "the certificates tab");
   // CertInfo.issuer, in words rather than the raw "C = US, O = Let's Encrypt, CN = R11": the

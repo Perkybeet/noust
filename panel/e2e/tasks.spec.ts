@@ -35,7 +35,7 @@ function bar(page: Page) {
 test.describe("a deploy that is started and left", () => {
   test.setTimeout(150_000);
 
-  test("is counted, pinned through a reload, told at its end, and has a page of its own", async ({ page, consoleServer }) => {
+  test("is counted and pinned to the foot of every page, which a reload keeps", async ({ page, consoleServer }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await signIn(page, consoleServer, "/databases");
     await jobsEnded(page, LIVE_APP);
@@ -64,6 +64,35 @@ test.describe("a deploy that is started and left", () => {
     await expect(page.getByRole("list", { name: "Pinned tasks" }).getByRole("link", { name: new RegExp(TITLE.replace(/\./g, "\\.")) })).toBeVisible();
     await settle(page);
     await expectNoA11yViolations(page, "a pinned task, after a reload");
+
+    // It ends where the person has stayed since the console heard of it: the chip says so, and nothing else does.
+    await expect(bar(page).getByRole("button", { name: "Tasks, nothing running" })).toBeVisible({ timeout: 120_000 });
+    await expect(page.getByRole("list", { name: "Pinned tasks" }).getByText("Succeeded")).toBeVisible();
+    await expect(toasts(page).getByText(`${TITLE}: done`)).toHaveCount(0);
+
+    await page.getByRole("list", { name: "Pinned tasks" }).getByRole("button", { name: `Unpin ${TITLE}` }).click();
+    await expect(page.getByRole("list", { name: "Pinned tasks" })).toHaveCount(0);
+    await jobsEnded(page, LIVE_APP);
+  });
+
+  test("is told at its end to a person who left, with a way to see it, and has a page of its own", async ({ page, consoleServer }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signIn(page, consoleServer, "/databases");
+    await jobsEnded(page, LIVE_APP);
+
+    const queued = await page.request.post("/api/jobs/update", { data: { domain: LIVE_APP, force: true }, headers: await csrf(page) });
+    expect(queued.ok(), await queued.text()).toBe(true);
+    const icon = bar(page).getByRole("button", { name: /^Tasks: 1 running/ });
+    await expect(icon).toBeVisible();
+
+    // The person leaves. A person is told they left only once they are somewhere else: the page the console was on when it heard of
+    // a task that had only just been created is taken as the page it was launched from, so staying there says nothing.
+    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: /^Domains/ }).click();
+    await expect(page).toHaveURL(/\/domains/);
+    await icon.click();
+    const away = page.getByRole("dialog", { name: "Tasks" }).getByRole("region", { name: /^Yours, running/ });
+    await away.getByRole("button", { name: `Pin ${TITLE} to the bottom` }).click();
+    await page.keyboard.press("Escape");
 
     // It ends while the person is on another page: one notice, with a way to see it.
     const notice = toasts(page).getByText(`${TITLE}: done`);

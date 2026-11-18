@@ -285,6 +285,7 @@ export const appPages: Catalog<typeof en> = {
     viewAll: "Ver todos",
     deploysAppearHere: "Los despliegues y actualizaciones aparecen aquí",
     loadingDeploys: "Cargando los despliegues",
+    loadingHow: "Cargando cómo se ejecuta",
     healthTitle: "Salud",
     editLimits: "Editar límites",
     uptimeLabel: "Tiempo activo",

@@ -1,4 +1,4 @@
-import { act, screen, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { setLocale } from "../../app/locale";
@@ -39,8 +39,13 @@ async function overview(runs: RouteHandler | null, app: Record<string, unknown> 
   return { ...harness, backend };
 }
 
+/** The card once the server has answered: until then the same region holds its place and is busy. */
 async function card(): Promise<HTMLElement> {
-  return await screen.findByRole("region", { name: /How it is running|Cómo corre/ });
+  return await waitFor(() => {
+    const section = screen.getByRole("region", { name: /How it is running|Cómo corre/ });
+    expect(section).not.toHaveAttribute("aria-busy");
+    return section;
+  });
 }
 
 describe("how an application runs, on its page (item 189)", () => {
@@ -117,11 +122,25 @@ describe("how an application runs, on its page (item 189)", () => {
     expect(within(section).getByText("ghcr.io/owner/app:1.4")).toBeInTheDocument();
   });
 
+  it("holds its place while the answer is on its way, so the cards under it are not pushed down when it comes", async () => {
+    await overview(() => new Promise<Response>(() => undefined));
+
+    // Its title and a region that says what it is reading: the facts are not drawn before they are known.
+    const section = await screen.findByRole("region", { name: "How it is running" });
+    expect(section).toHaveAttribute("aria-busy", "true");
+    expect(within(section).getByText("Loading how it is running")).toBeInTheDocument();
+    expect(within(section).queryByText("Directly on the server")).not.toBeInTheDocument();
+    await expectNoAxeViolations(screen.getByRole("main"));
+  });
+
   it("draws nothing against a server that has no such route, as the page always was", async () => {
     await overview(null);
 
     expect(await screen.findByRole("heading", { level: 2, name: "Health" })).toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "How it is running" })).not.toBeInTheDocument();
+    // The place it held while the answer came is let go once the answer is that there is none.
+    await waitFor(() => {
+      expect(screen.queryByRole("region", { name: "How it is running" })).not.toBeInTheDocument();
+    });
   });
 
   it("says a failure of the server that is not that, in the server's own words", async () => {

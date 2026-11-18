@@ -900,6 +900,7 @@
   "appPages.overview.viewAll": "Ver todas",
   "appPages.overview.deploysAppearHere": "Implantações e atualizações aparecem aqui",
   "appPages.overview.loadingDeploys": "Carregando as implantações",
+  "appPages.overview.loadingHow": "Carregando como ela é executada",
   "appPages.overview.healthTitle": "Integridade",
   "appPages.overview.editLimits": "Editar limites",
   "appPages.overview.uptimeLabel": "Tempo ativo",

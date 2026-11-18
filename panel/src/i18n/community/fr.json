@@ -900,6 +900,7 @@
   "appPages.overview.viewAll": "Tout voir",
   "appPages.overview.deploysAppearHere": "Les déploiements et les mises à jour apparaissent ici",
   "appPages.overview.loadingDeploys": "Chargement des déploiements",
+  "appPages.overview.loadingHow": "Chargement de la façon dont elle s'exécute",
   "appPages.overview.healthTitle": "État",
   "appPages.overview.editLimits": "Modifier les limites",
   "appPages.overview.uptimeLabel": "Temps de fonctionnement",

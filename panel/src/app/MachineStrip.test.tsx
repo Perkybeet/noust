@@ -71,7 +71,15 @@ describe("the unit tally", () => {
     const { strip } = await stripAt({ running: 9, failed: 1, stopped: 2, scheduled: 0 });
     const name = within(strip).getByText("web-01");
     expect(name.closest("a")).toHaveClass("shrink-0");
-    expect(name).not.toHaveClass("truncate");
+  });
+
+  it("ends a name the strip cannot hold with an ellipsis and says it whole on hover, never sliced at the strip's edge", async () => {
+    // A cloud host's name is as long as its provider made it, and the strip's floor is a fixed width: the name is cut at the link, which is as wide as the strip at most.
+    const { strip } = await stripAt({ running: 9, failed: 1, stopped: 2, scheduled: 0 });
+    const name = within(strip).getByText("web-01");
+    expect(name).toHaveClass("truncate");
+    expect(name).toHaveAttribute("title", "web-01");
+    expect(name.closest("a")).toHaveClass("max-w-full");
   });
 
   it("shows the same sentence as a tooltip on keyboard focus", async () => {

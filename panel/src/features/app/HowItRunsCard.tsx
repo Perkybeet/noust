@@ -4,22 +4,50 @@ import { Link } from "@tanstack/react-router";
 import { isApiError } from "../../api/client";
 import { appRunsQuery } from "../../api/queries/apps";
 import type { App } from "../../api/queries/apps";
-import { KeyValueList } from "../../components/page/KeyValueList";
+import { KeyValueList, KeyValueListSkeleton } from "../../components/page/KeyValueList";
 import type { KeyValueItem } from "../../components/page/KeyValueList";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { useCan } from "../../components/page/permissions";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { SurfaceSection } from "../../components/page/SurfaceSection";
 import { appStatus } from "../../components/page/status";
 import { buttonClassName } from "../../components/ui/Button";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
+import { Skeleton } from "../../components/ui/Skeleton";
 import type { T } from "../../i18n";
 import { useScopeOffers } from "../../nodes/useNode";
+import { formOfType } from "../new-app/howItRuns";
 import { runsWords } from "./howItRuns";
 
 /** The folder the service runs from: the active release on releases, the folder itself in place. */
 function folderOf(app: App): string | null {
   if (app.path === null || app.path === undefined) return null;
   return app.layout === "releases" ? `${app.path}/current` : app.path;
+}
+
+/**
+ * The card's place while the server's answer is on its way, with the rows and the line it will have: what the application says
+ * of itself says which form it is, and so how many facts the form has. The card used to be drawn only when the answer came, a
+ * moment after the page, and everything under it moved down by its height.
+ */
+function Holding({ app, t, otherWay }: { app: App; t: T; otherWay: boolean }) {
+  const server = formOfType(app.app_type ?? "") === "server";
+  const folder = folderOf(app);
+  // The facts of a service of the system are its form, its unit, its account and its folder; a container's, its form and its image (a stack has none).
+  const rows = server ? 1 + (app.unit ? 1 : 0) + (app.run_as ? 1 : 0) + (folder !== null ? 1 : 0) : app.app_type === "docker-compose" ? 1 : 2;
+  return (
+    <SurfaceSection
+      title={t("appPages.overview.howTitle")}
+      icon={server ? OBJECT_ICONS.service : OBJECT_ICONS.container}
+      description={<Skeleton className="h-5 w-64 max-w-full" />}
+      loading
+    >
+      <LoadingRegion label={t("appPages.overview.loadingHow")} className="flex flex-col gap-4">
+        <KeyValueListSkeleton rows={rows} />
+        {otherWay ? <Skeleton className="h-9 max-w-measure" /> : null}
+      </LoadingRegion>
+    </SurfaceSection>
+  );
 }
 
 /**
@@ -44,6 +72,8 @@ export function HowItRunsCard({ app, t }: { app: App; t: T }) {
     if (runs.isError && !(isApiError(runs.error) && runs.error.status === 404)) {
       return <ErrorBlock compact error={runs.error} title={t("appPages.overview.howLoadError")} onRetry={() => void runs.refetch()} retrying={runs.isRefetching} />;
     }
+    // Its place is held while the answer comes, in the shape it will have, so nothing under it moves when it does.
+    if (runs.isPending) return <Holding app={app} t={t} otherWay={formOfType(app.app_type ?? "") === "server" ? canRunInContainer : canRunDirectly} />;
     return null;
   }
   const staticSite = appStatus(app.status).state === "static";

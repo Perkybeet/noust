@@ -3,14 +3,17 @@
  * A-31, A-14, A-30, A-41, A-42, A-43): an image from a registry configured in the wizard with
  * its registry password typed masked and sent once, a repository with a Dockerfile proposed as a
  * container whose Dockerfile settings go with the deploy, and an application's build commands
- * saved behind "Confirm it's you" and taken out again. The machine the console server models
- * has no Docker, so a deploy of either ends in the server's own refusal, which is shown as it
- * was written. The container and build settings of seeded applications are catalog.spec.ts's.
+ * saved behind "Confirm it's you" and taken out again. The deploy of either ends in the server's
+ * own refusal, shown as it was written: the image's on the machine the console server models by
+ * default, which has no Docker, and the Dockerfile's on the one `--docker` models, because a
+ * Dockerfile on a machine that cannot run it is not taken further than the step that says so
+ * (how-it-runs.spec.ts). The container and build settings of seeded applications are catalog.spec.ts's.
  */
 
 import type { Page } from "@playwright/test";
 
 import { forgetApp } from "./apps-cleanup";
+import { testWithDocker } from "./docker-machine";
 import { confirmItsYou, expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
 import { inspectSource, wizardSource } from "./wizard-sources";
 
@@ -75,7 +78,7 @@ test("an image from a registry is configured in the wizard and sent with its reg
   await forgetApp(page, consoleServer, domain);
 });
 
-test("a repository with only a Dockerfile is configured as a container, its Dockerfile settings sent with the deploy", async ({ page, consoleServer, problems }) => {
+testWithDocker("a repository with only a Dockerfile is configured as a container, its Dockerfile settings sent with the deploy", async ({ page, consoleServer, problems }) => {
   test.setTimeout(240_000);
   const domain = "caja-dockerfile.example.net";
   await signIn(page, consoleServer, "/apps/new");

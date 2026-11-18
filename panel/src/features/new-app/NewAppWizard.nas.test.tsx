@@ -196,6 +196,23 @@ describe("a new application on a machine that only has Docker (items 187 and 188
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 
+  it("lists only the source and what is missing as steps, and Back goes to the source that can be changed", { timeout: 60_000 }, async () => {
+    const { harness } = wizard(NOTHING);
+    await fromTheSource(harness.user);
+    await screen.findByRole("heading", { level: 2, name: "Configuration" });
+
+    // An address nobody was asked is not "done", and a deploy that cannot be reached is not "next".
+    const steps = screen.getByRole("list", { name: "Steps" });
+    expect(within(steps).getByRole("button", { name: "Source: done" })).toBeInTheDocument();
+    expect(within(steps).getByText("Configuration: current step")).toBeInTheDocument();
+    expect(within(steps).queryAllByText(/Address/)).toHaveLength(0);
+    expect(within(steps).queryAllByText(/Deploy/)).toHaveLength(0);
+
+    // The one way on is to change what is deployed: Back leads to the source, not to a step that was skipped.
+    await harness.user.click(screen.getByRole("button", { name: "Back" }));
+    expect(await screen.findByRole("heading", { level: 2, name: "Source" })).toBeInTheDocument();
+  });
+
   it("shows no plan of the toolchain, no choice of type and nothing to set when nothing can run natively, only what was read, what is missing and the fix", { timeout: 60_000 }, async () => {
     const { harness } = wizard(NOTHING);
     await fromTheSource(harness.user);

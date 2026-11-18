@@ -6,6 +6,7 @@
  */
 
 import { forgetApp } from "./apps-cleanup";
+import { testWithDocker } from "./docker-machine";
 import { confirmItsYou, expect, expectNoA11yViolations, settle, signIn, stillness, test } from "./fixtures";
 import { recordFrames, recordedFrames } from "./handover";
 import { continueTo, fillStorefrontVariables, inspectSource, openConfiguration, typedSource, wizardSource } from "./wizard-sources";
@@ -207,24 +208,41 @@ test("a repository with only a Dockerfile is proposed as a container application
   const source = await wizardSource(page, "container-api");
   // The first answer of a session is the sudo-mode 403; the one that counts is the inspection's own.
   const inspected = page.waitForResponse((response) => response.url().endsWith("/api/apps/inspect") && response.status() !== 403);
-  await inspectSource(page, consoleServer, problems, source);
+  // The machine the console server models has no Docker, which the container type needs: what is missing is the first thing
+  // seen, on the Configuration step, and no address is asked for something that cannot run.
+  await inspectSource(page, consoleServer, problems, source, "Configuration");
   const response = await inspected;
   expect(response.status()).toBe(200);
   // What the real inspection read: the Dockerfile's port, and the one type that builds it.
   expect(await response.json()).toMatchObject({ app_type: "container", detected_types: ["container"], default_port: 3000 });
+  await expect(page.getByLabel("Domain", { exact: true })).toHaveCount(0);
+  // The source is read and proposed as a container; what keeps it from running here is said once, under how it runs, with the
+  // server's own words and the fix, and not a second time as a verdict on the source.
+  await expect(page.getByText("Noust cannot deploy", { exact: false })).toHaveCount(0);
+  await expect(page.getByText("Not deployable as it is:", { exact: false })).toHaveCount(0);
+  await expect(page.getByRole("group", { name: "What Noust found" }).getByText("Looks like a Container app.")).toBeVisible();
+  const how = page.getByRole("group", { name: "How it runs" });
+  await expect(how.getByText("In a container it is not possible yet")).toBeVisible();
+  await expect(how.getByText("Docker is not installed on this server")).toBeVisible();
+  await settle(page);
+  await expectNoA11yViolations(page, "the configuration of a container application");
+});
+
+testWithDocker("on a machine with Docker a lone Dockerfile goes on to the address as a container application", async ({ page, consoleServer, problems }) => {
+  await signIn(page, consoleServer, "/apps/new");
+  const source = await wizardSource(page, "container-api");
+  const inspected = page.waitForResponse((response) => response.url().endsWith("/api/apps/inspect") && response.status() !== 403);
+  await inspectSource(page, consoleServer, problems, source);
+  expect((await inspected).status()).toBe(200);
   // Not refused: the wizard went on to the address, with no verdict on the source.
   await expect(page.getByText("Noust cannot deploy", { exact: false })).toHaveCount(0);
   await page.getByLabel("Domain", { exact: true }).fill("contenedor.example.net");
   await settle(page);
   await expectNoA11yViolations(page, "the address of a container application");
 
-  // The machine the console server models has no Docker, which the container type needs: the
-  // wizard says so on the Configuration step, which it asks for, instead of passing over it.
   await continueTo(page, "Configuration");
-  const found = page.getByRole("group", { name: "What Noust found" });
-  await expect(found.getByText("This is a Container project, but this server does not have docker.")).toBeVisible();
-  await expect(found.getByText("Not deployable as it is:", { exact: false })).toBeVisible();
   await expect(page.getByRole("combobox", { name: "App type" })).toHaveText(/Container/);
+  await expect(page.getByRole("radio", { name: /A Dockerfile/ })).toBeChecked();
   await settle(page);
   await expectNoA11yViolations(page, "the configuration of a container application");
 });
