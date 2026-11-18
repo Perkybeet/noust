@@ -121,8 +121,10 @@ class TestTheSessionSaysWhatWorksHere:
         assert features["root_shell"]["reason"]["code"] == "features.needs_root"
         assert features["sites"]["reason"]["code"] == "features.needs_web_server"
         # No Docker is said by the engine's doctor, in its own words.
-        assert features["volume_backups"]["reason"]["code"] == "docker.engine.missing"
-        assert features["volume_backups"]["reason"]["hint"]
+        assert features["database_instances"]["reason"]["code"] == "docker.engine.missing"
+        assert features["database_instances"]["reason"]["hint"]
+        # Copying the folders an application keeps needs no engine: only a named volume does.
+        assert features["volume_backups"]["available"] is True
 
     def test_a_machine_that_cannot_be_read_does_not_keep_the_console_from_starting(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
