@@ -11,7 +11,8 @@
  *   it will read;
  * - adopting a running stack from "New application" shows Compose's dry run verbatim before
  *   anything is adopted (the seeded machine has no Docker: the adoption's answers are the
- *   contract's, answered here);
+ *   contract's, answered here), and a stack whose containers have what is on the server is listed line by line and goes on only
+ *   once the person accepts them (the guard's refusal is the contract's too);
  * - the sites list says who wrote each site and which application it serves;
  * - whether a feature is on is a pill in the head of its card, not a neutral notice.
  */
@@ -207,9 +208,91 @@ test("adopting a running stack previews first, with Compose's dry run verbatim",
   await expect(page.getByRole("heading", { name: "What Noust found" })).toBeVisible();
   await expect(page.locator("pre").filter({ hasText: "Container shop-web-1  Running" })).toHaveText(dryRun);
   await expect(page.getByRole("button", { name: "Adopt" })).toBeVisible();
-  expect(bodies).toEqual([{ domain: "stack.example.org", path: "/srv/stack", preview: true, accept_recreate: false }]);
+  // Nothing of the server is given to a container unless the person says so: the field is sent, false, with every request.
+  expect(bodies).toEqual([{ domain: "stack.example.org", path: "/srv/stack", preview: true, accept_recreate: false, accept_host_access: false }]);
   await settle(page);
   await expectNoA11yViolations(page, "the adoption's preview");
+});
+
+test("adopting a stack whose containers have what is on the server lists each line, and goes on only once the person accepts them", async ({ page, consoleServer, problems }) => {
+  // The refusal is the answer the preview is meant to get first: a 409 with the lines, which the browser logs as a failed request.
+  problems.expect(/status of 409 .*\/api\/apps\/adopt$/);
+  const lines = ["service app mounts the Docker socket", "service app is privileged", "service app mounts /srv/media, a folder outside the application"];
+  const bodies: { preview: boolean; accept_host_access: boolean }[] = [];
+  await page.route("**/api/apps/adopt", async (route) => {
+    const sent = route.request().postDataJSON() as { preview: boolean; accept_host_access: boolean };
+    bodies.push(sent);
+    if (!sent.accept_host_access) {
+      await route.fulfill({
+        status: 409,
+        json: {
+          error: "adoptionrefusederror",
+          detail: "Adopting stack.example.org puts under Noust a stack whose containers have what is on this server",
+          hint: "Each line above gives a container something of this server.",
+          fields: null,
+          output: null,
+          host_access: lines,
+          coded: { code: "compose_guard.adopt_host_access", params: { domain: "stack.example.org", lines: lines.map((line) => `- ${line}`).join("\n"), command: "noust app adopt stack.example.org --accept-host-access" } },
+        },
+      });
+      return;
+    }
+    await route.fulfill({
+      json: {
+        domain: "stack.example.org",
+        app_name: "stack-example-org",
+        app_path: "/srv/stack",
+        compose_file: "docker-compose.yml",
+        project: "shop",
+        project_from: "containers",
+        containers: ["shop-app-1"],
+        running: true,
+        source: null,
+        branch: null,
+        commit: null,
+        site: null,
+        site_name: null,
+        ssl: false,
+        port: 8080,
+        headless: false,
+        dry_run: " Container shop-app-1  Running",
+        changes: [],
+        warnings: [],
+        adopted: false,
+        unit: "stack-example-org",
+        deployment_id: null,
+        host_access: lines,
+        accepted_by: "master",
+      },
+    });
+  });
+  await signIn(page, consoleServer, "/apps/new");
+  await chooseWay(page, "Already running");
+  await page.getByRole("textbox", { name: "Domain" }).fill("stack.example.org");
+  await page.getByRole("textbox", { name: "Directory" }).fill("/srv/stack");
+  await page.getByRole("button", { name: "Preview" }).click();
+
+  // The lines the server listed, one by one and as they came, and a box with the whole sentence beside it: not one more button.
+  const listed = page.getByRole("list", { name: "What the containers of this stack have of this server" });
+  await expect(listed.getByRole("listitem")).toHaveCount(3);
+  await expect(listed.getByRole("listitem").first()).toHaveText("service app mounts the Docker socket");
+  const accept = page.getByRole("checkbox", { name: /I accept that the containers keep what these 3 lines give them of this server/ });
+  await expect(accept).not.toBeChecked();
+  await expect(page.getByRole("heading", { name: "What Noust found" })).toHaveCount(0);
+  await settle(page);
+  await expectNoA11yViolations(page, "the lines a stack gives the server, before they are accepted");
+
+  // Accepted, the preview is asked again with the field true, and the plan that comes back is read before anything is adopted.
+  await accept.check();
+  await page.getByRole("button", { name: "Preview" }).click();
+  await expect(page.getByRole("heading", { name: "What Noust found" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Adopt" })).toBeVisible();
+  expect(bodies.map(({ preview, accept_host_access: accepted }) => ({ preview, accepted }))).toEqual([
+    { preview: true, accepted: false },
+    { preview: true, accepted: true },
+  ]);
+  await settle(page);
+  await expectNoA11yViolations(page, "the adoption's preview, with the lines accepted");
 });
 
 test("adopting a site lists what the server has and previews what is kept as it is", async ({ page, consoleServer }) => {
