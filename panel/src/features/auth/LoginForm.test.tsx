@@ -363,18 +363,28 @@ describe("sign-in with an account", () => {
     accountBackend();
     renderConsole("/login");
     await screen.findByLabelText("Username or email");
-    // A fixed sentence, the same on every server: the page does not say whether there are accounts, nor where the token was shown.
-    expect(screen.getByText(/First time on this server\? Sign in with this server's access token, under/)).toBeInTheDocument();
+    // A fixed sentence, the same on every server: the page does not say where the token was shown, and does not promise an account made here.
+    expect(
+      screen.getByText(
+        "No account yet? Ask whoever runs this server for one. If you run it and cannot get in, sign in with its access token: this command, on the server, prints a new one.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/create your own account/i)).toBeNull();
     expect(screen.queryByText(/installer/i)).toBeNull();
     expect(screen.getByText("noust web token --new")).toBeInTheDocument();
-    expect(screen.getByText(/Lost it\? Issue a new one on the server; the old one stops working\./)).toBeInTheDocument();
+    expect(screen.getByText("A new token cancels the old one: the one in use stops working.")).toBeInTheDocument();
   });
 
   it("does not frighten the person who reaches the token from the form: it says what to do first (item 158)", async () => {
     accountBackend();
     const { user } = renderConsole("/login");
     await useAccessToken(user);
-    expect(screen.getByText(/Just installed Noust\? Sign in with it and create your own account/)).toBeInTheDocument();
+    // On a server that has accounts the token is the key of whoever runs it, not the way in of somebody new, who is given an account.
+    expect(
+      screen.getByText("It is the key of whoever runs this server: use it only when you cannot get in any other way, and keep it for emergencies."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Just installed Noust/)).toBeNull();
+    expect(screen.queryByText(/create your own account/i)).toBeNull();
     // The warning about using it once there are accounts is said where it is known to be true: signed in with it, beside the account.
     expect(screen.queryByText(/Once there are accounts/)).toBeNull();
     expect(screen.queryByText(/recorded as a warning/)).toBeNull();
@@ -579,7 +589,7 @@ describe("the access token", () => {
     expect(doors.getByRole("button", { name: "Access token" })).toBeInTheDocument();
     await useAccessToken(user);
     expect(screen.getByLabelText("Access token")).toHaveFocus();
-    expect(screen.getByText(/It is the key of whoever is root on this machine, so keep it for emergencies afterwards/)).toBeInTheDocument();
+    expect(screen.getByText(/It is the key of whoever runs this server: use it only when you cannot get in any other way/)).toBeInTheDocument();
     expect(screen.queryByText("For recovery only")).toBeNull();
   });
 
@@ -625,7 +635,8 @@ describe("the access token", () => {
     });
     expect(screen.getByText("The installer printed it once, in a box. Paste it here.")).toBeInTheDocument();
     // Whoever follows the installer's link needs no talk of recovery.
-    expect(screen.queryByText(/It is the key of whoever is root/)).toBeNull();
+    expect(screen.queryByText(/It is the key of whoever runs this server/)).toBeNull();
+    expect(screen.queryByText(/Just installed Noust/)).toBeNull();
     expect(screen.queryByText("For recovery only")).toBeNull();
   });
 

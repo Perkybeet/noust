@@ -165,7 +165,8 @@ test.describe("the sign-in of a central that had no installer", () => {
       await route.fulfill({ response, json: { ...body, accounts_exist: true, first_start: null } });
     });
     await page.goto("/login");
-    await expect(page.getByText(/First time on this server\? Sign in with this server's access token/)).toBeVisible();
+    await expect(page.getByText(/No account yet\? Ask whoever runs this server for one\. If you run it and cannot get in, sign in with its access token/)).toBeVisible();
+    await expect(page.getByText(/create your own account/i)).toHaveCount(0);
     await expect(page.getByText(/installer printed/)).toHaveCount(0);
     await expect(page.getByText("noust web token --new")).toBeVisible();
   });

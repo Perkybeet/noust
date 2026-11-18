@@ -106,12 +106,14 @@ export interface LoginFormProps {
   expired: boolean;
   /**
    * The way the page opens on. Without it, the password form (or, where passwords are turned off
-   * for single sign-on, the company's sign-in): the link the installer prints opens on `token`.
+   * for single sign-on, the company's sign-in; or, where the server says it has no account, the access
+   * token): the link the installer prints opens on `token`.
    */
   initialWay?: SignInWay;
   /**
-   * Say what the access token is for, under its field: shown when the person came to it from the
-   * account form, not when a link (`?with=token`) opened the page on it, as the installer's does.
+   * Say what the access token is for, under its field: it is the key of whoever runs the server, for when they cannot get in. Shown
+   * when the person came to it from the account form, not when a link (`?with=token`) opened the page on it, as the installer's does,
+   * and never on a server with no account, where the token is the way in and needs no such warning.
    */
   recoveryHelp?: boolean;
   /** The ticket an identity provider's answer left (`?sso=`): collected once, on arrival. */
@@ -213,7 +215,10 @@ export function LoginForm({ next, expired, initialWay, recoveryHelp = false, sso
   // the password (and the passkey) become a door for the accounts that were left a way back. Otherwise
   // the password form is the way in and the company's sign-in is a door under it.
   const ssoLed = !localSignIn && buttonProviders.length > 0 && directories.length === 0;
-  const rootWay: SignInWay = ssoLed ? "company" : "password";
+  // A server with no account has none to sign in with: the access token is the way the page opens on, whenever the server says so. It is
+  // read from the session here and not decided once on arrival, because the first answer may have been lost and a later one say it.
+  const noAccounts = hasNoAccounts(session);
+  const rootWay: SignInWay = noAccounts ? "token" : ssoLed ? "company" : "password";
   // A sign-in that came back from the provider with a refusal opens on the provider's own way, so the
   // words and the button to try again are together, with the password one step back.
   const [picked, setPicked] = useState<SignInWay | null>(initialWay ?? (ssoError !== undefined ? "company" : null));
@@ -626,7 +631,7 @@ export function LoginForm({ next, expired, initialWay, recoveryHelp = false, sso
   // Above the title of every way the page does not open on: the way back to the one it does.
   const back = (
     <Button variant="ghost" size="sm" icon={<ChevronLeft aria-hidden="true" />} className="-ml-3" onClick={() => openWay(null)}>
-      {rootWay === "password" ? t("auth.ways.back") : t("auth.ways.backToCompany")}
+      {rootWay === "company" ? t("auth.ways.backToCompany") : t("auth.ways.back")}
     </Button>
   );
 
@@ -694,7 +699,7 @@ export function LoginForm({ next, expired, initialWay, recoveryHelp = false, sso
         <Button type="submit" variant="primary" size="lg" loading={pending} disabled={locked} className="w-full">
           {tokenStep === "token" ? t("auth.signIn") : t("auth.verify")}
         </Button>
-        {recoveryHelp && tokenStep === "token" ? <p className="max-w-measure-help text-12 text-pretty text-fg-muted">{t("auth.token.recoveryHelp")}</p> : null}
+        {recoveryHelp && !noAccounts && tokenStep === "token" ? <p className="max-w-measure-help text-12 text-pretty text-fg-muted">{t("auth.token.recoveryHelp")}</p> : null}
       </form>
       {masterPasskey && passkeysHere ? passkeyButton("secondary") : null}
     </div>
@@ -706,7 +711,7 @@ export function LoginForm({ next, expired, initialWay, recoveryHelp = false, sso
         title={t("auth.token.title")}
         description={shownBy === "container_log" ? t("auth.token.descriptionLog") : shownBy === "installer" ? t("auth.token.description") : t("auth.token.descriptionServer")}
         // A server with no account has no form to go back to: the account one asks for what nobody has yet.
-        {...(hasNoAccounts(session) && rootWay === "password" ? {} : { back })}
+        {...(noAccounts ? {} : { back })}
         footer={
           <div className="flex flex-col gap-2">
             {/* `noust web token` alone only reports: it is --new that gives a token, and it ends the one in use. */}
@@ -926,23 +931,21 @@ export function LoginForm({ next, expired, initialWay, recoveryHelp = false, sso
     );
   }
 
-  // For whoever arrives without the installer's link (item 158): where the token is and the command that issues one. While the
-  // server has no account it says where the token was shown, and the command that is run where it was; once there is one the page
-  // is not told, so it does not name where the token came from (a central installed as a container or from a NAS's store had no
-  // installer): it says "this server's access token", and how to issue a new one.
-  const firstTime = (
+  // The foot of the account form. A server with no account opens on the access token (`LoginRoute`), so this is read on a server
+  // that has accounts, where the token is the way in of whoever runs the server and not the way of somebody new: a person without
+  // an account is told to ask for one, and the one who runs the server, how to get a token when they cannot get in. It names no
+  // installer: a central installed as a container or from a NAS's store had none. The command cancels the token in use, which its
+  // label says.
+  const noAccount = (
     <div className="flex flex-col gap-2">
-      <p className="max-w-measure-help text-12 text-pretty text-fg-muted">
-        {shownBy === "container_log" ? t("auth.firstTime.hintLog") : shownBy === "installer" ? t("auth.firstTime.hint") : t("auth.firstTime.hintServer")}
-      </p>
-      <CommandHint label={t("auth.firstTime.lost")} command={newToken} reason="solo-terminal" />
-      {shownBy === "container_log" ? <p className="max-w-measure-help text-12 text-pretty text-fg-muted">{t("auth.firstTime.whichContainer")}</p> : null}
+      <p className="max-w-measure-help text-12 text-pretty text-fg-muted">{t("auth.noAccountYet")}</p>
+      <CommandHint label={t("auth.token.lostItCost")} command={newToken} reason="solo-terminal" />
     </div>
   );
 
   // The words of a refusal are the form's own: the first thing in it, where a screen reader reads the form from.
   return (
-    <AuthFrame title={t("auth.area")} description={t("auth.account.description")} footer={firstTime}>
+    <AuthFrame title={t("auth.area")} description={t("auth.account.description")} footer={noAccount}>
       <div className="flex flex-col gap-5">
         {accountForm(true)}
         <OtherWays doors={doors} label={t("auth.ways.label")} />

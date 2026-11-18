@@ -2959,11 +2959,9 @@
   "auth.token.link": "Zugriffstoken",
   "auth.token.title": "Mit dem Zugriffstoken anmelden",
   "auth.token.description": "Der Installer hat es einmal in einem Kasten ausgegeben. Fügen Sie es hier ein.",
-  "auth.token.recoveryHelp": "Gerade erst Noust installiert? Melden Sie sich damit an und legen Sie Ihr eigenes Konto an. Es ist der Schlüssel dessen, der auf dieser Maschine root ist; bewahren Sie es danach für Notfälle auf.",
+  "auth.token.recoveryHelp": "Es ist der Schlüssel dessen, der diesen Server betreibt: Nutzen Sie es nur, wenn Sie anders nicht hineinkommen, und bewahren Sie es für Notfälle auf.",
   "auth.token.lostIt": "Verloren? Auf dem Server ein neues ausstellen",
   "auth.token.passkeyRequiredTitle": "Das Zugriffstoken hat jetzt einen Passkey",
-  "auth.firstTime.hint": "Zum ersten Mal auf diesem Server? Melden Sie sich mit dem Zugriffstoken an, das der Installer ausgegeben hat (unter „Andere Arten der Anmeldung“), und legen Sie Ihr eigenes Konto an.",
-  "auth.firstTime.lost": "Verloren? Stellen Sie auf dem Server ein neues aus; das alte wird ungültig.",
   "auth.legal.line": "© 2024-2026 Yago López Prado. Freie Software unter der {license}.",
   "auth.legal.license": "AGPL-3.0-or-later",
   "auth.accessToken": "Zugriffstoken",
@@ -20843,7 +20841,6 @@
   "assistantSettings.on.facts.privateHost": "Erlaubte Adresse",
   "assistantSettings.on.facts.privateHostHint": "Noust ruft sie für den Assistenten und für nichts sonst auf. Die Erlaubnis entfällt, wenn Sie die Adresse ändern oder den Assistenten ausschalten.",
   "auth.token.descriptionLog": "Noust hat es beim ersten Start einmal in das Protokoll des Containers geschrieben, in einem Kasten. Öffnen Sie dieses Protokoll und fügen Sie das Token hier ein.",
-  "auth.firstTime.hintLog": "Zum ersten Mal auf diesem Server? Melden Sie sich mit dem Zugriffstoken aus dem Protokoll des Containers an (unter „Andere Arten der Anmeldung“) und legen Sie Ihr eigenes Konto an.",
   "auth.firstTime.whichContainer": "Das Protokoll des ersten Starts sagt, welcher Container der von Noust ist.",
   "settings.about.version.viaStore": "Neue Versionen kommen über das App Center des NAS.",
   "settings.about.version.viaStoreOther": "Neue Versionen kommen über den App-Store, aus dem dieses Noust installiert wurde.",
@@ -20861,6 +20858,6 @@
   },
   "auth.passkeyStillClosing": "Der Browser hat noch ein anderes Passkey-Fenster geschlossen. Versuche es noch einmal.",
   "auth.token.descriptionServer": "Fügen Sie den Zugriffstoken dieses Servers ein.",
-  "auth.firstTime.hintServer": "Zum ersten Mal auf diesem Server? Melden Sie sich unter „Andere Anmeldearten“ mit dem Zugriffstoken dieses Servers an und legen Sie Ihr eigenes Konto an.",
-  "dbServers.noSystem.line": "Die Programme, die die Datenbanken halten: die Instanzen, die Noust in Containern ausführt, in weiteren Versionen."
+  "dbServers.noSystem.line": "Die Programme, die die Datenbanken halten: die Instanzen, die Noust in Containern ausführt, in weiteren Versionen.",
+  "auth.noAccountYet": "Noch kein Konto? Bitten Sie die Person, die diesen Server betreibt, um eines. Wenn Sie ihn selbst betreiben und nicht hineinkommen, melden Sie sich mit seinem Zugriffstoken an: Dieser Befehl gibt auf dem Server ein neues aus."
 }

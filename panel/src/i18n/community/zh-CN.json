@@ -2900,11 +2900,9 @@
   "auth.token.link": "访问令牌",
   "auth.token.title": "使用访问令牌登录",
   "auth.token.description": "安装程序在一个方框里打印过一次。请把它粘贴到这里。",
-  "auth.token.recoveryHelp": "刚装好 Noust？用它登录，然后创建你自己的账户。它是这台机器上 root 用户的钥匙，之后请留作紧急使用。",
+  "auth.token.recoveryHelp": "它是管理这台服务器的人的钥匙：只有在无法用其他方式登录时才使用，并把它留作应急之用。",
   "auth.token.lostIt": "丢了？在服务器上签发一个新的",
   "auth.token.passkeyRequiredTitle": "访问令牌现在要求通行密钥",
-  "auth.firstTime.hint": "第一次使用这台服务器？用安装程序打印出的访问令牌登录（在“其他登录方式”下），然后创建你自己的账户。",
-  "auth.firstTime.lost": "丢了？在服务器上签发一个新的；旧的会失效。",
   "auth.legal.line": "© 2024-2026 Yago López Prado。遵循 {license} 的自由软件。",
   "auth.legal.license": "AGPL-3.0-or-later",
   "auth.accessToken": "访问令牌",
@@ -20423,7 +20421,6 @@
   "assistantSettings.on.facts.privateHost": "已允许的地址",
   "assistantSettings.on.facts.privateHostHint": "Noust 仅为助手调用它。如果您更改地址或关闭助手，这项许可就会失效。",
   "auth.token.descriptionLog": "Noust 在首次启动时把它在容器日志里写了一次,放在一个方框中。打开该日志,把令牌粘贴到这里。",
-  "auth.firstTime.hintLog": "第一次使用这台服务器?请在“其他登录方式”下用容器日志中的访问令牌登录,然后创建你自己的账户。",
   "auth.firstTime.whichContainer": "首次启动的日志会说明哪个容器是 Noust 的。",
   "settings.about.version.viaStore": "新版本会通过 NAS 的应用中心提供。",
   "settings.about.version.viaStoreOther": "新版本会通过安装此 Noust 的应用商店提供。",
@@ -20439,6 +20436,6 @@
   },
   "auth.passkeyStillClosing": "浏览器还在关闭另一个通行密钥窗口。请再试一次。",
   "auth.token.descriptionServer": "粘贴此服务器的访问令牌。",
-  "auth.firstTime.hintServer": "第一次使用此服务器？请在“其他登录方式”下用此服务器的访问令牌登录，然后创建您自己的账户。",
-  "dbServers.noSystem.line": "存放数据库的程序:Noust 在容器中运行的实例,可以选择其他版本。"
+  "dbServers.noSystem.line": "存放数据库的程序:Noust 在容器中运行的实例,可以选择其他版本。",
+  "auth.noAccountYet": "还没有账户？请向管理这台服务器的人申请。如果你自己管理它却无法登录，请用它的访问令牌登录：在服务器上运行此命令会打印一个新令牌。"
 }

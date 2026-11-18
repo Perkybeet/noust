@@ -165,8 +165,10 @@ test.describe("a new console, from the door to the first account (item 158)", ()
     try {
       await page.goto(`${withAccounts.url}/login`);
       await expect(page.getByRole("heading", { level: 1, name: "Sign in", exact: true })).toBeVisible();
-      // A server that has accounts does not say where its token was shown: there may have been no installer (a container, a store's app).
-      await expect(page.getByText(/First time on this server\? Sign in with this server's access token, under/)).toBeVisible();
+      // A server that has accounts does not say where its token was shown (there may have been no installer: a container, a store's app),
+      // and does not promise an account made here: somebody new asks for one, and whoever runs the server who cannot get in has the token.
+      await expect(page.getByText(/No account yet\? Ask whoever runs this server for one\. If you run it and cannot get in, sign in with its access token/)).toBeVisible();
+      await expect(page.getByText(/create your own account/i)).toHaveCount(0);
       await expect(page.getByText(/installer printed/i)).toHaveCount(0);
       await expect(page.getByText("noust web token --new")).toBeVisible();
       await settle(page);
@@ -175,7 +177,10 @@ test.describe("a new console, from the door to the first account (item 158)", ()
       await page.getByRole("button", { name: "Access token" }).click();
       await expect(page.getByRole("heading", { level: 1, name: "Sign in with the access token" })).toBeVisible();
       await expect(page.getByText("Paste this server's access token.")).toBeVisible();
-      await expect(page.getByText(/Just installed Noust\? Sign in with it and create your own account/)).toBeVisible();
+      // What the token is, said of a server that has accounts: the key of whoever runs it, for when they cannot get in.
+      await expect(page.getByText("It is the key of whoever runs this server: use it only when you cannot get in any other way, and keep it for emergencies.")).toBeVisible();
+      await expect(page.getByText(/Just installed Noust/)).toHaveCount(0);
+      await expect(page.getByText(/create your own account/i)).toHaveCount(0);
       await expect(page.getByText(/Once there are accounts/)).toHaveCount(0);
       await settle(page);
       await expectNoA11yViolations(page, "the access token, from the account form");
@@ -315,23 +320,29 @@ test.describe("the pictures for review @screens", () => {
 
   test("the entry and the first account", async ({ page, problems }) => {
     problems.expect(/status of 401 .* \/api\/auth\/session$/);
-    const server = await startConsoleServer(["--empty"]);
+    // The entry of a server that has accounts, and then the first account of a server that has none.
+    const withAccounts = await startServerWithAccounts();
     try {
       await page.setViewportSize({ width: 1440, height: 900 });
-      await page.goto(`${server.url}/login`);
-      await expect(page.getByText(/First time on this server\?/)).toBeVisible();
+      await page.goto(`${withAccounts.url}/login`);
+      await expect(page.getByText(/No account yet\?/)).toBeVisible();
       await settle(page);
       await page.screenshot({ path: out("entry-1440") });
       await page.getByRole("button", { name: "Access token" }).click();
-      await expect(page.getByText(/Just installed Noust\?/)).toBeVisible();
+      await expect(page.getByText(/It is the key of whoever runs this server/)).toBeVisible();
       await settle(page);
       await page.screenshot({ path: out("entry-token-1440") });
       await page.setViewportSize({ width: 390, height: 844 });
-      await page.goto(`${server.url}/login`);
-      await expect(page.getByText(/First time on this server\?/)).toBeVisible();
+      await page.goto(`${withAccounts.url}/login`);
+      await expect(page.getByText(/No account yet\?/)).toBeVisible();
       await settle(page);
       await page.screenshot({ path: out("entry-390") });
-
+    } finally {
+      await page.goto("about:blank");
+      await withAccounts.stop();
+    }
+    const server = await startConsoleServer(["--empty"]);
+    try {
       await page.setViewportSize({ width: 1440, height: 900 });
       await page.goto(`${server.url}/login?with=token`);
       await page.getByLabel("Access token").fill(server.token);

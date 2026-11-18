@@ -78,19 +78,17 @@ export const auth = {
     description: "The installer printed it once, in a box. Paste it here.",
     descriptionServer: "Paste this server's access token.",
     recoveryHelp:
-      "Just installed Noust? Sign in with it and create your own account. It is the key of whoever is root on this machine, so keep it for emergencies afterwards.",
+      "It is the key of whoever runs this server: use it only when you cannot get in any other way, and keep it for emergencies.",
     lostIt: "Lost it? Issue a new one on the server",
     lostItCost: "A new token cancels the old one: the one in use stops working.",
     passkeyRequiredTitle: "The access token has a passkey now",
     descriptionLog: "Noust wrote it once in the container's log, in a box, the first time it started. Open that log and paste the token here.",
   },
   firstTime: {
-    hint: "First time on this server? Sign in with the access token the installer printed, under “Other ways to sign in”, and create your own account.",
-    lost: "Lost it? Issue a new one on the server; the old one stops working.",
-    hintLog: "First time on this server? Sign in with the access token in the container's log, under “Other ways to sign in”, and create your own account.",
-    hintServer: "First time on this server? Sign in with this server's access token, under “Other ways to sign in”, and create your own account.",
     whichContainer: "The log of the first start says which container is Noust's.",
   },
+  noAccountYet:
+    "No account yet? Ask whoever runs this server for one. If you run it and cannot get in, sign in with its access token: this command, on the server, prints a new one.",
   legal: {
     line: "© 2024-2026 Yago López Prado. Free software under the {license}.",
     license: "AGPL-3.0-or-later",

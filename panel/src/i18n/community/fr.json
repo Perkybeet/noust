@@ -2959,11 +2959,9 @@
   "auth.token.link": "Jeton d'accès",
   "auth.token.title": "Se connecter avec le jeton d'accès",
   "auth.token.description": "L'installeur l'a affiché une seule fois, dans un cadre. Collez-le ici.",
-  "auth.token.recoveryHelp": "Vous venez d'installer Noust ? Connectez-vous avec lui et créez votre propre compte. C'est la clé de celui qui est root sur cette machine : gardez-le ensuite pour les urgences.",
+  "auth.token.recoveryHelp": "C'est la clé de la personne qui gère ce serveur : ne l'utilisez que si vous ne pouvez pas entrer autrement, et gardez-le pour les urgences.",
   "auth.token.lostIt": "Perdu ? En émettre un nouveau sur le serveur",
   "auth.token.passkeyRequiredTitle": "Le jeton d'accès a désormais une clé d'accès",
-  "auth.firstTime.hint": "Première fois sur ce serveur ? Connectez-vous avec le jeton d'accès affiché par l'installateur, sous « Autres façons de se connecter », et créez votre propre compte.",
-  "auth.firstTime.lost": "Perdu ? Émettez-en un nouveau sur le serveur ; l'ancien cesse de fonctionner.",
   "auth.legal.line": "© 2024-2026 Yago López Prado. Logiciel libre sous licence {license}.",
   "auth.legal.license": "AGPL-3.0-or-later",
   "auth.accessToken": "Jeton d'accès",
@@ -20851,7 +20849,6 @@
   "assistantSettings.on.facts.privateHost": "Adresse autorisée",
   "assistantSettings.on.facts.privateHostHint": "Noust l'appelle pour l'assistant et pour rien d'autre. L'autorisation disparaît si vous changez l'adresse ou éteignez l'assistant.",
   "auth.token.descriptionLog": "Noust l'a écrit une seule fois dans le journal du conteneur, dans un encadré, au premier démarrage. Ouvrez ce journal et collez le jeton ici.",
-  "auth.firstTime.hintLog": "Première fois sur ce serveur ? Connectez-vous avec le jeton d'accès du journal du conteneur, sous « Autres façons de se connecter », et créez votre propre compte.",
   "auth.firstTime.whichContainer": "Le journal du premier démarrage dit quel conteneur est celui de Noust.",
   "settings.about.version.viaStore": "Les nouvelles versions arrivent par l'App Center du NAS.",
   "settings.about.version.viaStoreOther": "Les nouvelles versions arrivent par la boutique d'applications d'où ce Noust a été installé.",
@@ -20869,6 +20866,6 @@
   },
   "auth.passkeyStillClosing": "Le navigateur était encore en train de fermer une autre fenêtre de clé d'accès. Réessayez.",
   "auth.token.descriptionServer": "Collez le jeton d'accès de ce serveur.",
-  "auth.firstTime.hintServer": "Première fois sur ce serveur ? Connectez-vous avec le jeton d'accès de ce serveur, sous « Autres façons de se connecter », et créez votre propre compte.",
-  "dbServers.noSystem.line": "Les programmes qui hébergent les bases de données : les instances que Noust exécute dans des conteneurs, en d'autres versions."
+  "dbServers.noSystem.line": "Les programmes qui hébergent les bases de données : les instances que Noust exécute dans des conteneurs, en d'autres versions.",
+  "auth.noAccountYet": "Pas encore de compte ? Demandez-en un à la personne qui gère ce serveur. Si vous le gérez vous-même et ne pouvez pas entrer, connectez-vous avec son jeton d'accès : cette commande, sur le serveur, en affiche un nouveau."
 }

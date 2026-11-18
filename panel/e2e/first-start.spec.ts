@@ -97,8 +97,9 @@ test("a server that has accounts opens on the account form, and does not say whe
   await open(page, "accounts");
   await expect(page.getByLabel("Username or email")).toBeVisible();
   // Once there is an account the server says nothing of the first start: a container or a store's app had no installer, so the token is
-  // the server's, and the command that issues another is the one that was always there.
-  await expect(page.getByText(/First time on this server\? Sign in with this server's access token, under/)).toBeVisible();
+  // the server's, the way in of whoever runs it, and somebody new is told to ask for an account and not to make one with it.
+  await expect(page.getByText(/No account yet\? Ask whoever runs this server for one\. If you run it and cannot get in, sign in with its access token/)).toBeVisible();
+  await expect(page.getByText(/create your own account/i)).toHaveCount(0);
   await expect(page.getByText(/installer printed/i)).toHaveCount(0);
   await expect(page.getByText("noust web token --new")).toBeVisible();
   await settle(page);
