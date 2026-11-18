@@ -271,8 +271,9 @@ below. The steps are exactly the scenario's.
    Coolify runs `docker compose` in a helper that mounts the directory at `/artifacts/<id>`, so its
    containers' labels name a path that is not on the host; Noust recognises them by the project
    (Coolify names it after the directory) and the file's name. A Coolify stack is not a checkout, so it
-   is adopted with no repository and says so: an update pulls the images the compose file names and
-   recreates the containers, and fetches no code. The domain is the one you name; Noust does not read it
+   is adopted with no repository and says so: adopting changes nothing that runs, and the first update
+   pulls the images the compose file names and recreates only the containers whose image or settings
+   changed, and fetches no code. The domain is the one you name; Noust does not read it
    from Coolify's Traefik labels.
 2. **Take Coolify down for good.** `docker stop` is not enough: three of its containers (`coolify`,
    `coolify-db`, `coolify-redis`) restart `always`, so they come back with Docker, and a Coolify that is

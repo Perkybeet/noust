@@ -986,12 +986,13 @@ def _plan_legacy(
         The plan.
     """
     app_name = domain_to_app_name(domain)
+    app_path = str(Config().apps_directory / app_name)
     context: dict[str, Any] = {
         "domain": domain,
-        "url": f"{'https' if ssl else 'http'}://{domain}",
+        "url": DeploymentContext(domain, ssl, port, app_name, app_path).value("url"),
         "https": ssl,
         "app_name": app_name,
-        "app_path": str(Config().apps_directory / app_name),
+        "app_path": app_path,
         "port": port,
     }
     database = None

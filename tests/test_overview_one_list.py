@@ -189,6 +189,46 @@ def test_findings_that_cannot_be_read_cost_the_list_only_the_findings(store: Nou
     assert "machine:disk" in {item["id"] for item in body["attention"]}
 
 
+def test_the_containers_of_applications_join_the_row_their_application_already_has(
+    store: NoustStore,
+) -> None:
+    units = [
+        {
+            "name": "tools-example-net",
+            "load": "loaded",
+            "active": "failed",
+            "sub": "failed",
+            "app": "tools.example.net",
+        }
+    ]
+    store.create_app(
+        App(domain="tools.example.net", app_type="container", port=8081, status="running")
+    )
+    loop = {
+        "kind": "loop",
+        "subject": "tools-web-1",
+        "owner": {"kind": "app", "subject": "tools.example.net", "project": "tools"},
+        "facts": {"oom": False, "restarts_recent": 4, "window_minutes": 10},
+    }
+
+    body = collect(store, services=lambda: units, containers=lambda: [loop])
+
+    [item] = [row for row in body["attention"] if row["id"] == "app:tools.example.net"]
+    assert [why["code"] for why in item["reasons"]] == ["service_failed", "service_failed"]
+    assert item["reasons"][1]["detail_coded"]["code"] == "attention.container_loop"
+
+
+def test_containers_that_cannot_be_read_cost_the_list_only_the_containers(
+    store: NoustStore,
+) -> None:
+    def unavailable() -> list[dict[str, Any]]:
+        raise NoustError("Docker cannot be used on this server")
+
+    body = collect(store, updates=lambda: SUMMARY, containers=unavailable)
+
+    assert "machine:disk" in {item["id"] for item in body["attention"]}
+
+
 def test_the_summary_is_read_once_for_the_figure_and_for_the_list(store: NoustStore) -> None:
     calls: list[int] = []
 

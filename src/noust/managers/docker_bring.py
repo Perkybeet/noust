@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import os
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
@@ -39,6 +40,7 @@ from noust.core.docker.models import ComposeProject, OwnerKind
 from noust.core.exceptions import DomainError
 from noust.core.redact import Scrubber, scrubber_for
 from noust.core.runner import CommandRunner, get_runner
+from noust.core.server_text import ServerText, say
 from noust.core.store import DeploymentTrigger, NoustStore, get_store
 from noust.deployers import compose_adopt
 from noust.deployers.compose_adopt import AdoptionPlan, AdoptionRefusedError
@@ -82,7 +84,8 @@ class Bringing:
             many ``volumes`` and ``networks`` it has.
         recreates: What starting the stack the way Noust would changes, in Compose's own words; empty when
             it changes nothing, which is what an adoption proves.
-        warnings: What adopting found worth saying, one sentence each.
+        warnings: What adopting found worth saying, one sentence each; the plan holds each one's sentence of the
+            catalog (``warnings_coded``), for a console to say in its own language.
         restart_loss: What a restart of the machine would not bring back.
         plan: What :func:`noust.deployers.compose_adopt.plan_adoption` found.
         adopted: Whether it was registered; false for a preview.
@@ -126,6 +129,10 @@ class Bringing:
             "rehearsal": self.plan.dry_run,
             "recreates": list(self.recreates),
             "warnings": list(self.warnings),
+            "warnings_coded": [
+                None if sentence is None else sentence.to_dict()
+                for sentence in self.plan.warnings_coded
+            ],
             "restart_loss": [
                 {"container": item.container, "policy": item.policy, "why": item.why}
                 for item in self.restart_loss
@@ -133,6 +140,24 @@ class Bringing:
             "adopted": self.adopted,
             "deployment_id": self.deployment_id,
         }
+
+
+def _scrubbed(sentence: ServerText, scrub: Callable[[str], str]) -> ServerText:
+    """
+    Args:
+        sentence: A sentence of the plan, whose values come from the stack and its folder.
+        scrub: What masks a credential in words about the stack.
+
+    Returns:
+        The same sentence with every text value masked, like the line it stands beside.
+    """
+    return say(
+        sentence.code,
+        **{
+            name: scrub(value) if isinstance(value, str) else value
+            for name, value in sentence.params.items()
+        },
+    )
 
 
 def proposed_name(project: str) -> str | None:
@@ -456,6 +481,10 @@ class StackBringer:
             source=scrub(plan.source),
             changes=tuple(scrub(line) for line in plan.changes),
             warnings=tuple(scrub(line) for line in plan.warnings),
+            warnings_coded=tuple(
+                None if sentence is None else _scrubbed(sentence, scrub)
+                for sentence in plan.warnings_coded
+            ),
         )
         return Bringing(
             stack=project.name,

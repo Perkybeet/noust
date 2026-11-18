@@ -131,6 +131,56 @@ def test_an_unreachable_destination_is_a_4xx_with_rclones_words(
     assert body["hint"]
 
 
+def test_what_a_destination_that_does_not_answer_is_told_is_a_sentence_with_a_code(
+    client: TestClient, runner: FakeRunner
+) -> None:
+    # The fix above rclone's words was English typed in the route, and a console in Spanish drew it
+    # between its own sentences. Now the answer says it as the catalog does: a code and its values, with
+    # the English beside it, and rclone's words still travel verbatim in `output`.
+    from noust.core.server_text import say
+
+    create_destination(client)
+    runner.script(
+        ("rclone", "mkdir", "nas:noust-backups"),
+        stderr="couldn't connect SSH: dial tcp: i/o timeout",
+        exit_code=1,
+    )
+
+    body = client.post("/api/backup-destinations/nas/test").json()
+
+    said = say("backup_destinations.unreachable", name="nas")
+    assert body["coded"] == said.to_dict()
+    assert (body["detail"], body["hint"]) == (said.text, said.hint)
+    assert "the output below is rclone's own" in body["hint"]
+    assert "couldn't connect SSH: dial tcp: i/o timeout" in body["output"]
+
+
+def test_browsing_a_destination_that_does_not_answer_says_the_same_sentence(
+    client: TestClient, runner: FakeRunner
+) -> None:
+    create_destination(client)
+    runner.script(("rclone", "lsjson"), stderr="connection refused", exit_code=1)
+
+    body = client.get("/api/backup-destinations/nas/backups").json()
+
+    assert body["coded"] == {"code": "backup_destinations.unreachable", "params": {"name": "nas"}}
+
+
+def test_an_error_that_is_not_about_reaching_it_keeps_its_own_words(
+    client: TestClient, runner: FakeRunner
+) -> None:
+    # Naming an application with something that is not a name is refused before rclone is asked, and
+    # it is not a destination that did not answer: it is not given that sentence.
+    create_destination(client)
+
+    response = client.get("/api/backup-destinations/nas/backups", params={"app": "../etc"})
+
+    assert 400 <= response.status_code < 500
+    body = response.json()
+    assert body["coded"] is None
+    assert "Invalid application name" in body["detail"]
+
+
 def test_a_destination_that_fails_the_listing_is_a_4xx_too(
     client: TestClient, runner: FakeRunner
 ) -> None:

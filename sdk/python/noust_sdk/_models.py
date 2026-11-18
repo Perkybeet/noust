@@ -3603,6 +3603,7 @@ DockerBringOut = TypedDict("DockerBringOut", {
     "stack": Required[str],
     "unit": NotRequired[str],
     "warnings": NotRequired[list[str]],
+    "warnings_coded": NotRequired[list[Union["CodedText", None]]],
 })
 
 DockerBringPreviewRequest = TypedDict("DockerBringPreviewRequest", {
@@ -13186,6 +13187,7 @@ NoustWebApiAppAdoptAdoptResponse = TypedDict("NoustWebApiAppAdoptAdoptResponse",
     "ssl": Required[bool],
     "unit": Required[str],
     "warnings": Required[list[str]],
+    "warnings_coded": NotRequired[list[Union["CodedText", None]]],
 })
 
 NoustWebApiAppFilesMoveRequest = TypedDict("NoustWebApiAppFilesMoveRequest", {
@@ -13751,6 +13753,7 @@ NoustWebApiServerSecurityCheckOut = TypedDict("NoustWebApiServerSecurityCheckOut
     "group": Required[str],
     "id": Required[str],
     "reason": Required[str],
+    "reason_coded": NotRequired[Union["CodedText", None]],
     "severity": Required[str],
     "status": Required[str],
     "title": Required[str],

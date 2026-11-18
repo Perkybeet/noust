@@ -305,6 +305,93 @@ class TestChecks:
         assert check.evidence == ("0.0.0.0:5432/tcp postgres (PostgreSQL): no firewall",)
         assert report.get("fw.inactive").severity == "critical"
 
+    def test_the_finding_of_a_public_database_is_a_sentence_with_a_code(self, runner, host, risks):
+        # It was English typed in the check, and the console in Spanish drew it in English in the middle of
+        # a sentence of its own, on Home, in the bell and in the checks.
+        runner.script(
+            ["ss", "-Hltnup"],
+            stdout='tcp LISTEN 0 244 0.0.0.0:5432 0.0.0.0:* users:(("postgres",pid=77,fd=5))\n',
+        )
+
+        check = _run(runner, host, risks, host_checks=False).get("fw.public_listener")
+
+        assert check.reason_coded is not None
+        assert check.reason_coded.code == "security_checks.public_listener_anyone"
+        assert check.reason_coded.text == check.reason
+        assert check.to_dict()["reason_coded"] == {
+            "code": "security_checks.public_listener_anyone",
+            "params": {},
+        }
+
+    def test_one_open_only_to_some_addresses_says_that_instead(self, runner, host, risks):
+        runner.script(
+            ["ss", "-Hltnup"],
+            stdout='tcp LISTEN 0 244 0.0.0.0:5432 0.0.0.0:* users:(("postgres",pid=77,fd=5))\n',
+        )
+        runner.script(
+            ["ufw", "status", "verbose"],
+            stdout="Status: active\nDefault: deny (incoming), allow (outgoing), disabled (routed)\n",
+        )
+        runner.script(
+            ["ufw", "show", "added"],
+            stdout="ufw allow from 10.0.0.0/8 to any port 5432 proto tcp comment 'noust: office db'\n",
+        )
+
+        check = _run(runner, host, risks, host_checks=False).get("fw.public_listener")
+
+        assert check.status == "warn"
+        assert check.reason_coded is not None
+        assert check.reason_coded.code == "security_checks.public_listener_some"
+        assert check.reason_coded.text == check.reason
+
+    def test_a_finding_keeps_its_sentence_when_it_is_accepted_and_when_that_ends(
+        self, runner, host, store
+    ):
+        runner.script(
+            ["ss", "-Hltnup"],
+            stdout='tcp LISTEN 0 244 0.0.0.0:5432 0.0.0.0:* users:(("postgres",pid=77,fd=5))\n',
+        )
+        accepting = AcceptedRisks(store, clock=lambda: NOW_DT)
+        accepting.accept(
+            "fw.public_listener",
+            reason="The office reaches it through a tunnel",
+            by="me",
+            expires_at=NOW_DT + timedelta(days=3),
+        )
+
+        now = _run(runner, host, accepting, host_checks=False)
+        later = security_checks.reapply_risks(
+            now, AcceptedRisks(store, clock=lambda: NOW_DT + timedelta(days=4))
+        )
+
+        assert now.get("fw.public_listener").status == "accepted"
+        assert now.get("fw.public_listener").reason_coded is not None
+        assert later.get("fw.public_listener").status == "fail"
+        assert later.get("fw.public_listener").reason_coded is not None
+
+    def test_a_kept_report_is_read_back_with_its_sentences_and_without_them(
+        self, runner, host, risks
+    ):
+        runner.script(
+            ["ss", "-Hltnup"],
+            stdout='tcp LISTEN 0 244 0.0.0.0:5432 0.0.0.0:* users:(("postgres",pid=77,fd=5))\n',
+        )
+        kept = _run(runner, host, risks, host_checks=False).to_dict()
+
+        again = security_checks.CheckReport.from_dict(kept).get("fw.public_listener")
+        assert again.reason_coded is not None
+        assert again.reason_coded.code == "security_checks.public_listener_anyone"
+        # A report kept by a version that had no sentences has no such field; one kept by a newer version
+        # may name a sentence this one lacks: neither is an error, the English reason is still there.
+        for item in kept["checks"]:
+            item.pop("reason_coded", None)
+        older = security_checks.CheckReport.from_dict(kept).get("fw.public_listener")
+        assert older.reason_coded is None and older.reason == again.reason
+        for item in kept["checks"]:
+            item["reason_coded"] = {"code": "security_checks.no_such_sentence", "params": {}}
+        newer = security_checks.CheckReport.from_dict(kept).get("fw.public_listener")
+        assert newer.reason_coded is None and newer.reason == again.reason
+
     def test_a_console_on_the_network_without_tls_is_critical(self, runner, host, risks):
         runner.script(
             ["ss", "-Hltnup"],

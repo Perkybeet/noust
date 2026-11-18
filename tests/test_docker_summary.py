@@ -557,6 +557,101 @@ class TestWhatAsksForAttention:
         assert gate(machine).summary().attention == ()
 
 
+class TestWhatAnApplicationsContainersAskFor:
+    """The part of the summary that an application's own page and the list of what needs attention read."""
+
+    def test_only_the_containers_of_applications_are_asked_about_and_only_what_is_broken(
+        self,
+    ) -> None:
+        found = gate(web_01()).app_failures()
+
+        assert [
+            (item.kind, item.subject, item.owner.subject if item.owner else None) for item in found
+        ] == [("loop", "api-example-org-api-1", "api.example.org")]
+        facts = found[0].facts
+        assert (facts["oom"], facts["memory_limit_bytes"], facts["restarts_recent"]) == (
+            True,
+            256 * 2**20,
+            6,
+        )
+        assert facts["window_minutes"] == 10
+
+    def test_it_does_not_read_the_disk_the_images_or_the_registries(self) -> None:
+        machine = web_01()
+
+        gate(machine).app_failures()
+
+        asked = [call[:3] for call in machine.calls if call[:1] == ("docker",)]
+        assert not [
+            call
+            for call in asked
+            if call[:3] in (("docker", "system", "df"), ("docker", "image", "ls"))
+        ]
+        assert sum(1 for call in asked if call[:2] == ("docker", "ps")) == 1
+        assert sum(1 for call in asked if call[:2] == ("docker", "inspect")) == 1
+
+    def test_a_container_that_died_of_memory_and_stayed_down_is_asked_about(self) -> None:
+        machine = web_01()
+        box = machine.boxes["api-example-org-api-1"]
+        box.state, box.status = "exited", "Exited (137) 40 seconds ago"
+        box.restarts_recent = 0
+
+        [found] = gate(machine).app_failures()
+
+        assert (found.kind, found.facts["kind"]) == ("stopped", "oom")
+
+    def test_one_somebody_stopped_or_that_failed_in_its_own_way_is_not_a_failure_of_the_application(
+        self,
+    ) -> None:
+        # An application stopped on purpose leaves its containers exited (143) under a policy that
+        # would bring them back: that is not something to be woken for, as the zone's own list would.
+        machine = web_01()
+        box = machine.boxes["api-example-org-api-1"]
+        box.state, box.status, box.exit_code, box.oom = (
+            "exited",
+            "Exited (143) 3 days ago",
+            143,
+            False,
+        )
+        box.restarts_recent = 0
+        machine.boxes["shop-db-1"].state = "exited"
+        machine.boxes["shop-db-1"].status = "Exited (1) 3 days ago"
+        machine.boxes["shop-db-1"].exit_code = 1
+
+        assert gate(machine).app_failures() == ()
+
+    def test_a_container_that_is_not_an_applications_is_not_here(self) -> None:
+        machine = DockerMachine()
+        machine.box(
+            "loopy",
+            state="restarting",
+            status="Restarting (1) 5 seconds ago",
+            exit_code=1,
+            restarts_recent=9,
+            policy="unless-stopped",
+        )
+
+        assert gate(machine).app_failures() == ()
+        # Nothing of an application's: nothing is inspected and the events are not read.
+        assert not [
+            call
+            for call in machine.calls
+            if call[:2] in (("docker", "inspect"), ("docker", "events"))
+        ]
+
+    def test_it_is_what_the_principal_sees(self) -> None:
+        mine = gate(web_01(), scope=Scope.nothing(), sees={"shop.example.com"})
+
+        assert mine.app_failures() == ()
+
+    def test_without_docker_it_is_unavailable_and_not_a_machine_with_nothing_wrong(self) -> None:
+        machine = DockerMachine()
+        machine.installed = False
+
+        with pytest.raises(DockerUnavailableError):
+            gate(machine).app_failures()
+
+
 class TestTheCounters:
     def test_each_kind_of_thing_is_counted(self) -> None:
         counts = gate(web_01()).summary().counts

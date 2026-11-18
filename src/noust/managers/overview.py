@@ -45,7 +45,13 @@ from noust.core.exceptions import NoustError
 from noust.core.first_deploys import FirstDeploys
 from noust.core.server_text import ServerText
 from noust.core.timeutil import to_iso_offset
-from noust.managers.attention import ATTENTION_LIMIT, AttentionList, machine_items, security_items
+from noust.managers.attention import (
+    ATTENTION_LIMIT,
+    AttentionList,
+    container_items,
+    machine_items,
+    security_items,
+)
 from noust.managers.attention import reason as _reason
 from noust.monitor import sampler
 
@@ -145,6 +151,7 @@ def collect_overview(
     metrics: Any | None = None,
     updates: Callable[[], dict[str, Any] | None] | None = None,
     security: Callable[[], list[dict[str, Any]] | None] | None = None,
+    containers: Callable[[], list[dict[str, Any]] | None] | None = None,
     recording: Callable[[], Any] | None = None,
     now: datetime | None = None,
 ) -> dict[str, Any]:
@@ -174,6 +181,9 @@ def collect_overview(
             reboot, the clock), read once for both.
         security: Returns the open findings of the hardening checks, as the last run left them
             (``attention`` of the server's security overview), or None when this Noust has none.
+        containers: Returns what is broken in the containers of applications (what the Docker zone
+            says of a container that keeps falling), or None when this machine has no Docker to ask.
+            It is asked once for each answer the cache keeps, never once for each request.
         recording: Says whether metrics history is being recorded.
         now: The current moment; the clock when None.
 
@@ -206,7 +216,16 @@ def collect_overview(
         "updates": _updates(summary),
     }
     items, total = _attention(
-        store, units, certificates, observations, alerts, probes, apps, summary, security
+        store,
+        units,
+        certificates,
+        observations,
+        alerts,
+        probes,
+        apps,
+        summary,
+        security,
+        containers,
     )
     overview["attention"] = items
     overview["attention_total"] = total
@@ -641,6 +660,7 @@ def _attention(
     apps: list[Any],
     summary: Callable[[], dict[str, Any] | None] | None = None,
     security: Callable[[], list[dict[str, Any]] | None] | None = None,
+    containers: Callable[[], list[dict[str, Any]] | None] | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
     """
     Gather every problem that needs an operator, worst first.
@@ -668,6 +688,7 @@ def _attention(
         apps: The deployed applications.
         summary: Reads the server area's summary, for what is wrong with the machine.
         security: Reads the open findings of the hardening checks.
+        containers: Reads what is broken in the containers of applications.
 
     Returns:
         The items, at most :data:`ATTENTION_LIMIT`, and how many there were.
@@ -719,6 +740,7 @@ def _attention(
     _add_probes(probes, add)
     rows.extend(_machine_facts(summary, services))
     rows.extend(_findings(security))
+    rows.extend(_broken_containers(containers))
     return rows.result(ATTENTION_LIMIT)
 
 
@@ -761,6 +783,27 @@ def _findings(
         log.warning("The attention list could not read the security findings: %s", exc)
         return []
     return security_items(checks)
+
+
+def _broken_containers(
+    containers: Callable[[], list[dict[str, Any]] | None] | None,
+) -> list[dict[str, Any]]:
+    """
+    Args:
+        containers: Reads what is broken in the containers of applications.
+
+    Returns:
+        Their rows, joined by the list to the row their application has; none when this machine has no
+        Docker to ask or it cannot be asked: the rest of the list is still worth showing.
+    """
+    if containers is None:
+        return []
+    try:
+        failures = containers()
+    except _SECTION_ERRORS as exc:
+        log.warning("The attention list could not read the containers of applications: %s", exc)
+        return []
+    return container_items(failures)
 
 
 def _first_line(text: str | None) -> str | None:

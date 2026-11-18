@@ -4749,6 +4749,10 @@ export const serverText = {
     gave_up_after: {
       text: "Noust tried {count} times over {span} and gave up.",
     },
+    unreachable: {
+      text: "Backup destination {name} did not answer",
+      hint: "Check the destination's address, credentials and permissions; the output below is rclone's own.",
+    },
   },
   backup_encryption: {
     backups_sealed_server: {
@@ -5812,6 +5816,42 @@ export const serverText = {
     asks_for_what_no_stack_may: {
       text: "{domain}'s compose file reaches what no stack may reach",
       hint: "{lines}\n\nWhat belongs to another application or to Noust (its files, its volumes, its images, its project) is not for a stack to use, and no exception allows it. Remove it from the compose file.",
+    },
+  },
+  compose_adopt: {
+    no_repository: {
+      text: "{path} has no repository, so Noust fetches no code for it. Adopting changes nothing that runs now. The first update downloads the images the compose file names and recreates only the containers whose image or settings changed. To follow a repository instead, clone it in that folder and adopt the stack again with that repository as its source.",
+    },
+    nothing_ran: {
+      text: "Nothing made from {file} has run yet, so there is nothing to keep as it is. Adopting registers the stack under the project name {project} and starts nothing; the first start creates everything the file describes.",
+    },
+    nothing_ran_named: {
+      text: "Nothing made from {file} has run yet, so there is nothing to keep as it is. Adopting registers the stack under the project name its own file gives it and starts nothing; the first start creates everything the file describes.",
+    },
+  },
+  security_checks: {
+    public_listener_anyone: {
+      text: "These services listen on every interface and the firewall lets anyone reach them.",
+    },
+    public_listener_some: {
+      text: "These services listen on every interface and the firewall lets some addresses reach them.",
+    },
+  },
+  attention: {
+    container_restarting: {
+      text: "Its container {container} is restarting right now",
+    },
+    container_loop: {
+      text: "Its container {container} keeps restarting: {restarts} times in the last {minutes} minutes",
+    },
+    container_loop_oom: {
+      text: "Out of memory: its container {container} was restarted {restarts} times in the last {minutes} minutes",
+    },
+    container_loop_oom_limit: {
+      text: "Out of memory (limit {limit_mb} MB): its container {container} was restarted {restarts} times in the last {minutes} minutes",
+    },
+    container_oom: {
+      text: "Out of memory: its container {container} stopped and has not started again",
     },
   },
 } as const;

@@ -46920,6 +46920,8 @@ export interface components {
          *         rehearsal: What ``docker compose up --dry-run`` said, verbatim.
          *         recreates: What starting it the way Noust would changes, in Compose's own words; empty when nothing.
          *         warnings: What adopting found worth saying.
+         *         warnings_coded: ``warnings`` as sentences with a code, in the same order, for the console to say in
+         *             its own language; null where a line has no sentence of its own.
          *         restart_loss: What a restart of the machine would not bring back.
          *         adopted: It was registered; false for a preview.
          *         deployment_id: The adoption's history row.
@@ -46990,6 +46992,8 @@ export interface components {
             unit: string;
             /** Warnings */
             warnings?: string[];
+            /** Warnings Coded */
+            warnings_coded?: (components["schemas"]["CodedText"] | null)[];
         };
         /**
          * DockerBringPreviewRequest
@@ -76966,6 +76970,11 @@ export interface components {
             unit: string;
             /** Warnings */
             warnings: string[];
+            /**
+             * Warnings Coded
+             * @description warnings as sentences with a code, in the same order; null where a line has no sentence of its own
+             */
+            warnings_coded?: (components["schemas"]["CodedText"] | null)[];
         };
         /**
          * MoveRequest
@@ -78725,7 +78734,9 @@ export interface components {
          * @description One hardening check.
          *
          *     ``status`` is ``pass``, ``warn``, ``fail``, ``unknown``, ``n/a`` or
-         *     ``accepted``; ``evidence`` is what the system said, verbatim.
+         *     ``accepted``; ``evidence`` is what the system said, verbatim. ``reason_coded`` is
+         *     ``reason`` as a sentence with a code and its values when it is one, for the console to say in
+         *     its own language; null otherwise.
          */
         noust__web__api__server__security__CheckOut: {
             accepted?: components["schemas"]["AcceptedRiskOut"] | null;
@@ -78741,6 +78752,7 @@ export interface components {
             id: string;
             /** Reason */
             reason: string;
+            reason_coded?: components["schemas"]["CodedText"] | null;
             /** Severity */
             severity: string;
             /** Status */

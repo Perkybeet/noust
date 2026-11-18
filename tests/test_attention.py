@@ -20,6 +20,7 @@ import pytest
 from noust.managers import attention
 from noust.managers.attention import (
     AttentionList,
+    container_items,
     machine_items,
     noust_item,
     origin_of,
@@ -289,6 +290,128 @@ class TestTheMachine:
         )
 
 
+def broken(what: str = "loop", container: str = "tools-web-1", **facts: Any) -> dict[str, Any]:
+    """One thing the Docker zone asks for (``what``), as ``Attention.to_dict`` says it, of an application's container."""
+    return {
+        "kind": what,
+        "subject": container,
+        "owner": {"kind": "app", "subject": "tools.example.net", "project": "tools-example-net"},
+        "count": 1,
+        "facts": {
+            "exit_code": 137,
+            "oom": False,
+            "memory_limit_bytes": None,
+            "restarts_recent": 6,
+            "window_minutes": 10,
+            "restart_count": 6,
+            **facts,
+        },
+    }
+
+
+class TestContainersOfApplications:
+    def test_a_container_in_a_loop_is_a_failure_of_its_application_with_its_story(self) -> None:
+        [item] = container_items([broken(oom=True, memory_limit_bytes=256 * 2**20)])
+
+        assert item["id"] == "app:tools.example.net"
+        assert item["subject"] == {"kind": "app", "domain": "tools.example.net"}
+        assert (item["title"], item["severity"], item["origin"]) == (
+            "tools.example.net",
+            "fail",
+            "state",
+        )
+        [why] = item["reasons"]
+        # The code the console already words for an application whose service failed; what happened to
+        # the container is the sentence under it, with its link to the diagnosis beside.
+        assert (why["kind"], why["code"]) == ("state", "service_failed")
+        assert why["params"] == {"container": "tools-web-1"}
+        assert why["detail_coded"] == {
+            "code": "attention.container_loop_oom_limit",
+            "params": {"container": "tools-web-1", "restarts": 6, "minutes": 10, "limit_mb": 256},
+        }
+        # The cause leads, because the bell clips the line and what clips last is the name of the container.
+        assert why["detail"].startswith("Out of memory (limit 256 MB): its container tools-web-1")
+        assert why["actions"] == ["view_log", "diagnose"]
+
+    @pytest.mark.parametrize(
+        ("thing", "code", "params"),
+        [
+            (
+                broken(),
+                "attention.container_loop",
+                {"container": "tools-web-1", "restarts": 6, "minutes": 10},
+            ),
+            (
+                broken(oom=True),
+                "attention.container_loop_oom",
+                {"container": "tools-web-1", "restarts": 6, "minutes": 10},
+            ),
+            (
+                broken(restarts_recent=0),
+                "attention.container_restarting",
+                {"container": "tools-web-1"},
+            ),
+            (
+                broken("stopped", kind="oom", policy="no", exit_code=137),
+                "attention.container_oom",
+                {"container": "tools-web-1"},
+            ),
+        ],
+    )
+    def test_each_story_is_a_sentence_of_the_catalog(
+        self, thing: dict[str, Any], code: str, params: dict[str, Any]
+    ) -> None:
+        [item] = container_items([thing])
+
+        assert item["reasons"][0]["detail_coded"] == {"code": code, "params": params}
+
+    def test_two_containers_of_one_application_are_one_row_with_two_reasons(self) -> None:
+        rows = AttentionList()
+        rows.extend(container_items([broken(), broken(container="tools-worker-1", oom=True)]))
+
+        [item], total = rows.result()
+
+        assert total == 1
+        assert [why["params"]["container"] for why in item["reasons"]] == [
+            "tools-web-1",
+            "tools-worker-1",
+        ]
+
+    def test_it_joins_the_row_the_applications_own_state_made(self) -> None:
+        rows = AttentionList()
+        rows.add(
+            "app:tools.example.net",
+            {"kind": "app", "domain": "tools.example.net"},
+            "tools.example.net",
+            reason("state", "warn", "running_outside_unit"),
+        )
+        rows.extend(container_items([broken()]))
+
+        [item], _ = rows.result()
+
+        assert [why["code"] for why in item["reasons"]] == [
+            "running_outside_unit",
+            "service_failed",
+        ]
+        assert item["severity"] == "fail"
+
+    def test_what_is_not_an_applications_is_not_a_row_of_the_list(self) -> None:
+        thing = broken()
+        thing["owner"] = {"kind": "nobody", "subject": "", "project": "loose"}
+        none = broken()
+        none["owner"] = None
+
+        assert container_items([thing, none]) == []
+
+    def test_what_the_zone_asks_for_that_is_not_a_container_failing_is_left_to_the_zone(
+        self,
+    ) -> None:
+        # The disk, a new version of an image: none is a failure of an application.
+        assert (
+            container_items([{"kind": "disk", "subject": None, "owner": None, "facts": {}}]) == []
+        )
+
+
 class TestSecurity:
     def test_a_critical_finding_is_a_failure_and_a_warning_one_a_warning(self) -> None:
         items = security_items(
@@ -309,6 +432,19 @@ class TestSecurity:
         }
         assert items[0]["reasons"][0]["origin"] == "security"
         assert items[0]["origin"] == "security"
+
+    def test_a_finding_that_is_a_sentence_of_noust_goes_with_its_code(self) -> None:
+        sentence = {"code": "security_checks.public_listener_anyone", "params": {}}
+
+        [coded, plain] = security_items(
+            [
+                check("fw.public_listener", reason_coded=sentence),
+                check("fw.docker_bypass", reason_coded=None),
+            ]
+        )
+
+        assert coded["reasons"][0]["detail_coded"] == sentence
+        assert plain["reasons"][0]["detail_coded"] is None
 
     def test_what_the_check_found_travels_in_its_own_words(self) -> None:
         [item] = security_items(

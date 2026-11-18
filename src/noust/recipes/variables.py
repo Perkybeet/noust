@@ -370,14 +370,21 @@ class DeploymentContext:
                 ``app_name`` or ``app_path``.
 
         Returns:
-            The value as text. ``https`` is ``true`` or ``false``.
+            The value as text. ``https`` is ``true`` or ``false``. ``url`` is where the application
+            answers on this machine (:func:`noust.deployers.helpers.edge.answers_at`).
 
         Raises:
             ValidationError: It is none of those, or ``port`` was not decided.
         """
         scheme = "https" if self.ssl else "http"
         if source == "url":
-            return f"{scheme}://{self.domain}"
+            # Where the application answers is the one answer of the machine's edge: behind a site it is the
+            # domain, and where there is none (a NAS) the name is not an address, the port of the machine is.
+            from noust.deployers.helpers.edge import answers_at
+
+            return (
+                answers_at(self.domain, ssl=self.ssl, port=self.port) or f"{scheme}://{self.domain}"
+            )
         if source == "fqdn":
             return self.domain
         if source == "scheme":

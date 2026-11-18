@@ -407,6 +407,102 @@ def test_a_directory_with_no_repository_is_planned_with_no_source(
     assert not any(call[:1] == ("git",) for call in docker.calls)
 
 
+def _sentences(plan: Any) -> dict[str, Any]:
+    """The warnings of a plan that carry a sentence of the catalog, by code."""
+    return {sentence.code: sentence for sentence in plan.warnings_coded if sentence is not None}
+
+
+def test_every_warning_is_followed_by_its_sentence_in_the_same_place(
+    root: Path, docker: Docker, web: NginxManager, store: NoustStore
+) -> None:
+    # What a console says in its own language is read from `warnings_coded` at the place of the English
+    # warning: a list that is shorter or shifted says one sentence in the place of another.
+    from noust.deployers.compose_adopt import plan_adoption
+
+    shutil.rmtree(root / ".git")
+
+    plan = plan_adoption(DOMAIN, root, web=web, accept_host_access=True, accepted_by="alice")
+
+    assert len(plan.warnings_coded) == len(plan.warnings) >= 2
+    for words, sentence in zip(plan.warnings, plan.warnings_coded, strict=True):
+        if sentence is not None:
+            assert sentence.text == words
+    # One that already was a sentence when it was written keeps its code.
+    assert "compose_guard.adopted_host_access" in _sentences(plan)
+    shown = plan.to_dict()["warnings_coded"]
+    assert [None if item is None else item["code"] for item in shown] == [
+        None if sentence is None else sentence.code for sentence in plan.warnings_coded
+    ]
+
+
+def test_a_directory_with_no_repository_says_what_changes_now_what_the_first_update_does_and_what_is_accepted(
+    root: Path, docker: Docker, web: NginxManager, store: NoustStore
+) -> None:
+    # The two lines the person read before accepting were English, one said that an update "recreates
+    # the containers" right under the sentence that says no container is recreated, and neither said
+    # what accepting meant. Now nothing changes, then the first update, then what to do to follow a
+    # repository; and it stands on its own in any screen, with no "below".
+    from noust.deployers.compose_adopt import plan_adoption
+
+    shutil.rmtree(root / ".git")
+
+    plan = plan_adoption(DOMAIN, root, web=web, accept_host_access=True, accepted_by="alice")
+
+    sentence = _sentences(plan)["compose_adopt.no_repository"]
+    assert dict(sentence.params) == {"path": str(root)}
+    text = sentence.text
+    assert "no repository" in text
+    assert "nothing that runs" in text  # now
+    assert "first update" in text and "whose image" in text  # later, and only what changed
+    assert "clone" in text and "source" in text  # how to follow a repository instead
+    assert "below" not in text and "rehearsal" not in text and "--source" not in text
+
+
+def test_a_stack_nothing_ran_from_says_so_without_pointing_at_a_rehearsal(
+    root: Path, docker: Docker, web: NginxManager, store: NoustStore
+) -> None:
+    # "...and the rehearsal below creates everything": a dialog of the Docker zone has no rehearsal
+    # below it, and the sentence said it anyway. What the person needs is that there is nothing
+    # running to keep, that adopting starts nothing, and what the first start does.
+    from noust.deployers.compose_adopt import plan_adoption
+
+    docker.containers = [
+        ("a" * 64, "other-web", "running", "other", "/srv/other/compose.yml", "/srv/other")
+    ]
+    compose = root / "docker-compose.prod.yml"
+    compose.write_text(
+        compose.read_text().replace("      - /var/run/docker.sock:/var/run/docker.sock:ro\n", "")
+    )
+
+    plan = plan_adoption(DOMAIN, root, web=web)
+
+    sentence = _sentences(plan)["compose_adopt.nothing_ran"]
+    assert dict(sentence.params) == {"file": "docker-compose.prod.yml", "project": "proggest-src"}
+    text = sentence.text
+    assert "has run" in text and "starts nothing" in text and "first start" in text
+    assert "below" not in text and "rehearsal" not in text
+
+
+def test_a_stack_that_names_its_own_project_is_not_given_one_in_the_sentence(
+    root: Path, docker: Docker, web: NginxManager, store: NoustStore
+) -> None:
+    from noust.deployers.compose_adopt import plan_adoption
+
+    docker.containers = []
+    compose = root / "docker-compose.prod.yml"
+    compose.write_text(
+        "name: custom\n"
+        + compose.read_text().replace("      - /var/run/docker.sock:/var/run/docker.sock:ro\n", "")
+    )
+
+    plan = plan_adoption(DOMAIN, root, web=web)
+
+    assert plan.project is None
+    sentence = _sentences(plan)["compose_adopt.nothing_ran_named"]
+    assert dict(sentence.params) == {"file": "docker-compose.prod.yml"}
+    assert "below" not in sentence.text and "rehearsal" not in sentence.text
+
+
 def test_a_source_for_a_directory_with_no_repository_is_refused(
     root: Path, docker: Docker, web: NginxManager, store: NoustStore
 ) -> None:
@@ -748,6 +844,33 @@ def test_the_api_previews_then_adopts(
     assert done.json()["adopted"] is True
     assert done.json()["deployment_id"] is not None
     assert store.get_app(DOMAIN) is not None
+
+
+def test_the_api_sends_each_warning_beside_its_sentence(
+    root: Path,
+    docker: Docker,
+    web: NginxManager,
+    store: NoustStore,
+    units: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from noust.deployers import compose_adopt
+
+    monkeypatch.setattr(compose_adopt, "_default_web", lambda: web)
+    shutil.rmtree(root / ".git")
+
+    body = (
+        adopt_client(elevated=True)
+        .post(
+            "/api/apps/adopt",
+            json={"domain": DOMAIN, "path": str(root), "preview": True, "accept_host_access": True},
+        )
+        .json()
+    )
+
+    assert len(body["warnings_coded"]) == len(body["warnings"])
+    said = [item for item in body["warnings_coded"] if item is not None]
+    assert {"code": "compose_adopt.no_repository", "params": {"path": str(root)}} in said
 
 
 def test_the_api_refuses_a_recreate_with_409_and_the_output(

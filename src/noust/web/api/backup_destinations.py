@@ -338,7 +338,7 @@ def create_destination(
         )
     except BackupError as exc:
         if "could not be reached" in exc.message:
-            raise _unreachable(exc) from exc
+            raise _unreachable(exc, name) from exc
         raise
     return DestinationActionResponse(
         success=True,
@@ -401,7 +401,7 @@ def update_destination(
         )
     except BackupError as exc:
         if "could not be reached" in exc.message:
-            raise _unreachable(exc) from exc
+            raise _unreachable(exc, name) from exc
         raise
     return DestinationActionResponse(
         success=True,
@@ -451,7 +451,23 @@ def delete_destination(
     return DestinationActionResponse(success=True, message=f"Backup destination removed: {name}")
 
 
-def _unreachable(exc: BackupError) -> HTTPException:
+#: The sentences of the manager that say a destination did not answer: what the answer below is for.
+#: Any other error that reaches :func:`_unreachable` (a name that is not an application's) keeps its own
+#: words, because telling it the destination did not answer would be false.
+_DID_NOT_ANSWER = frozenset(
+    f"backup_destinations.{code}"
+    for code in (
+        "backup_destination_saved_reached",
+        "backup_destination_changed_reached",
+        "reach_backup_destination",
+        "reach_backup_destination_2",
+        "reach_backup_destination_bucket",
+        "list",
+    )
+)
+
+
+def _unreachable(exc: BackupError, name: str) -> HTTPException:
     """
     Answer a destination that could not be reached as what it is: the operator's to fix.
 
@@ -459,24 +475,27 @@ def _unreachable(exc: BackupError) -> HTTPException:
     or a missing permission, not a fault of this server, so it is a 4xx and
     not the 500 a bare :class:`~noust.core.exceptions.BackupError` becomes.
     What rclone said travels verbatim in ``output`` (already scrubbed of the
-    destination's secrets by the manager), under a fixed hint.
+    destination's secrets by the manager), under a fixed hint; both the
+    sentence and the hint are a sentence of the catalog, so the console says
+    them in its own language and shows rclone's words as they came.
 
     Args:
         exc: What the manager raised.
+        name: The destination.
 
     Returns:
         The exception to raise, in the API's error contract.
     """
+    said = say("backup_destinations.unreachable", name=name)
+    reached = exc.coded is not None and exc.coded.code in _DID_NOT_ANSWER
     return HTTPException(
         status_code=400,
         detail={
             "error": "destination_unreachable",
-            "detail": exc.message,
-            "hint": (
-                "Check the destination's address, credentials and permissions; "
-                "the output below is rclone's own."
-            ),
+            "detail": said.text if reached else exc.message,
+            "hint": said.hint,
             "output": exc.details or None,
+            "coded": said.to_dict() if reached else None,
         },
     )
 
@@ -502,7 +521,7 @@ def test_destination(
     try:
         result = BackupDestinationManager().test(name)
     except BackupError as exc:
-        raise _unreachable(exc) from exc
+        raise _unreachable(exc, name) from exc
     return TestDestinationResponse(ok=bool(result["ok"]), entries=list(result["entries"]))
 
 
@@ -556,7 +575,7 @@ def list_remote_backups(
     try:
         result = BackupDestinationManager().remote_list(name, app)
     except BackupError as exc:
-        raise _unreachable(exc) from exc
+        raise _unreachable(exc, name) from exc
     return RemoteBackupsResponse(
         apps=list(result.get("apps", [])),
         backups=[RemoteBackupInfo(**entry) for entry in result.get("backups", [])],

@@ -412,7 +412,8 @@ with its **values**:
   the sentence; `error` is still the one line of English it always was), `title_coded` of a change to the
   firewall or SSH (`access_changes.*`, the same words as the notification that says it), `coded` of what
   passkeys, HTTP/3 and the WAF lack, and the `coded` of every error that the areas a person goes through
-  raise: signing in, tokens, the firewall, roles, backups and deploying. An error whose
+  raise: signing in, tokens, the firewall, roles, backups and deploying; `warnings_coded` of adopting or bringing
+  a stack, `reason_coded` of a hardening check and `coded` of a backup destination that did not answer. An error whose
   `detail` is one of the server's sentences carries it as `coded`, and its `hint` is that sentence's fix.
   A field that is `null` or
   absent is a sentence nobody coded: another program's output, or a line from a module that has

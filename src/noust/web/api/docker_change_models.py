@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from noust.deployers.compose_stack_edit import ComposeView, EditCheck, VersionView
 from noust.managers.docker_bring import Bringing
 from noust.managers.docker_updates import UpdatePlan
+from noust.web.api.deps import CodedText
 from noust.web.api.docker_models import DockerCopyOut, DockerOwnerOut, DockerUpdateOut
 
 
@@ -136,6 +137,8 @@ class DockerBringOut(BaseModel):
         rehearsal: What ``docker compose up --dry-run`` said, verbatim.
         recreates: What starting it the way Noust would changes, in Compose's own words; empty when nothing.
         warnings: What adopting found worth saying.
+        warnings_coded: ``warnings`` as sentences with a code, in the same order, for the console to say in
+            its own language; null where a line has no sentence of its own.
         restart_loss: What a restart of the machine would not bring back.
         adopted: It was registered; false for a preview.
         deployment_id: The adoption's history row.
@@ -159,6 +162,7 @@ class DockerBringOut(BaseModel):
     rehearsal: str = ""
     recreates: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+    warnings_coded: list[CodedText | None] = Field(default_factory=list)
     restart_loss: list[DockerBringRestartOut] = Field(default_factory=list)
     adopted: bool = False
     deployment_id: int | None = None

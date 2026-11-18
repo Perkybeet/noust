@@ -20,6 +20,7 @@ import pytest
 
 from noust.core import audit
 from noust.core.runner import set_runner
+from noust.core.server_text import say
 from noust.core.store import NoustStore
 from noust.deployers import compose_adopt
 from noust.deployers.compose_adopt import AdoptionRefusedError
@@ -291,6 +292,19 @@ class TestThePreviewDoesNotShowSecrets:
         assert user not in str(body)
         assert body["source"].startswith(source.split("//", 1)[0] + "//***@")
         assert body["source"].endswith(source.split("@", 1)[1])
+
+    def test_the_sentence_of_a_warning_is_sent_with_its_code_and_values(
+        self, docker: DockerWorld, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        sentence = say("compose_adopt.no_repository", path="/srv/nextcloud")
+        Adoption(monkeypatch, warnings=(sentence.text,), warnings_coded=(sentence,))
+
+        body = docker.send("aud", "POST", "/stacks/nextcloud/bring/preview", json={}).json()
+
+        assert body["warnings"] == [sentence.text]
+        assert body["warnings_coded"] == [
+            {"code": "compose_adopt.no_repository", "params": {"path": "/srv/nextcloud"}}
+        ]
 
     def test_an_ssh_address_has_no_secret_and_stays(
         self, docker: DockerWorld, monkeypatch: pytest.MonkeyPatch

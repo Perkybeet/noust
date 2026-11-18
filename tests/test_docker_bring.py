@@ -25,6 +25,7 @@ from noust.core.docker.errors import DockerBlockedError, DockerNotFoundError, Do
 from noust.core.docker.gate import DockerGate
 from noust.core.docker.owners import AppRecord, Registry
 from noust.core.exceptions import DomainError
+from noust.core.server_text import say
 from noust.core.store import App, NoustStore
 from noust.core.teams import Scope
 from noust.managers.docker_bring import StackBringer, proposed_name
@@ -262,6 +263,20 @@ class TestWhatThePreviewSays:
         assert shown.recreates == []  # the rehearsal changes nothing
         assert shown.adopted is False
         assert "no repository" in shown.warnings[0]
+
+    def test_each_warning_travels_beside_its_sentence_with_its_values_masked(
+        self, store: NoustStore, folder: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        sentence = say("compose_adopt.no_repository", path="/srv/shop password=hunter2hunter2")
+        Adoption(monkeypatch, warnings=(sentence.text, "a line"), warnings_coded=(sentence, None))
+
+        shown = bringer(machine(folder), store).preview("nextcloud").to_dict()
+
+        assert [None if item is None else item["code"] for item in shown["warnings_coded"]] == [
+            "compose_adopt.no_repository",
+            None,
+        ]
+        assert "hunter2hunter2" not in str(shown)
 
     def test_what_would_not_come_back_after_a_restart_is_said_with_the_stack(
         self, store: NoustStore, folder: Path, monkeypatch: pytest.MonkeyPatch

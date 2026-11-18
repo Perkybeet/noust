@@ -26,6 +26,9 @@ from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime, timezone
 from typing import Any
 
+from noust.core.docker.events import LOOP_MINUTES
+from noust.core.docker.summary import LOOP_AT
+from noust.core.server_text import ServerText, say
 from noust.core.timeutil import to_iso_offset
 
 #: Most rows the list returns; the total still counts every one.
@@ -417,7 +420,93 @@ def security_items(checks: Iterable[Mapping[str, Any]] | None) -> list[dict[str,
                     "security_finding",
                     params={"check": identifier, "group": group, "severity": check.get("severity")},
                     detail=str(check["reason"]) if check.get("reason") else None,
+                    detail_coded=check.get("reason_coded"),
                     actions=["review_finding"],
+                ),
+            )
+        )
+    return items
+
+
+def _container_story(failure: Mapping[str, Any]) -> ServerText | None:
+    """
+    Args:
+        failure: One thing the Docker zone asks for, as ``Attention.to_dict`` says it.
+
+    Returns:
+        What happened to the container, as a sentence of the catalog; None for what is not a container
+        of an application falling (a disk, a new version, a container that failed and stays stopped).
+    """
+    facts = failure.get("facts") or {}
+    container = str(failure.get("subject") or "")
+    kind = failure.get("kind")
+    if kind == "stopped":
+        return (
+            say("attention.container_oom", container=container)
+            if facts.get("kind") == "oom"
+            else None
+        )
+    if kind != "loop":
+        return None
+    restarts = int(facts.get("restarts_recent") or 0)
+    if restarts < LOOP_AT:
+        # Docker is bringing it back right now, and it has not yet done it often enough for a count to say it.
+        return say("attention.container_restarting", container=container)
+    minutes = int(facts.get("window_minutes") or LOOP_MINUTES)
+    if not facts.get("oom"):
+        return say(
+            "attention.container_loop", container=container, restarts=restarts, minutes=minutes
+        )
+    limit = facts.get("memory_limit_bytes")
+    if isinstance(limit, int) and limit > 0:
+        return say(
+            "attention.container_loop_oom_limit",
+            container=container,
+            restarts=restarts,
+            minutes=minutes,
+            limit_mb=max(1, round(limit / 2**20)),
+        )
+    return say(
+        "attention.container_loop_oom", container=container, restarts=restarts, minutes=minutes
+    )
+
+
+def container_items(failures: Iterable[Mapping[str, Any]] | None) -> list[dict[str, Any]]:
+    """
+    Read what the Docker zone knows of the containers of applications: the ones that keep falling.
+
+    The application said it ran while its container was restarted six times in ten minutes, because
+    that fact lived only in the zone. It is a failure of the application and joins the row its own state
+    makes, with the story of the container as the detail and the same two ways in as any failed
+    service: its log and its diagnosis.
+
+    Args:
+        failures: What :meth:`noust.core.docker.gate.DockerGate.app_failures` found, as plain data.
+
+    Returns:
+        One row per container of an application that is broken (rows of one application are joined by
+        :class:`AttentionList`); what is not an application's, or is not a container falling, is none.
+    """
+    items: list[dict[str, Any]] = []
+    for failure in failures or ():
+        owner = failure.get("owner") or {}
+        domain = str(owner.get("subject") or "")
+        story = _container_story(failure)
+        if owner.get("kind") != "app" or not domain or story is None:
+            continue
+        items.append(
+            _row(
+                f"app:{domain}",
+                {"kind": "app", "domain": domain},
+                domain,
+                reason(
+                    "state",
+                    "fail",
+                    "service_failed",
+                    params={"container": str(failure.get("subject") or "")},
+                    detail=story.text,
+                    detail_coded=story.to_dict(),
+                    actions=["view_log", "diagnose"],
                 ),
             )
         )

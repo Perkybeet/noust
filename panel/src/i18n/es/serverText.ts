@@ -4738,6 +4738,10 @@ export const serverText: Catalog<typeof en> = {
     gave_up_after: {
       text: "Noust lo ha intentado {count} veces en {span} y se ha rendido.",
     },
+    unreachable: {
+      text: "El destino de copias {name} no respondió",
+      hint: "Comprueba la dirección, las credenciales y los permisos del destino; lo que hay debajo es de rclone, tal cual.",
+    },
   },
   backup_encryption: {
     backups_sealed_server: {
@@ -5801,6 +5805,42 @@ export const serverText: Catalog<typeof en> = {
     asks_for_what_no_stack_may: {
       text: "El archivo compose de {domain} llega a lo que ninguna pila puede alcanzar",
       hint: "{lines}\n\nLo que es de otra aplicación o de Noust (sus archivos, sus volúmenes, sus imágenes, su proyecto) no es para que lo use una pila, y ninguna excepción lo permite. Quítalo del archivo compose.",
+    },
+  },
+  compose_adopt: {
+    no_repository: {
+      text: "{path} no tiene repositorio, así que Noust no descarga código para ella. Registrarla en Noust no cambia nada de lo que está en marcha. La primera actualización descarga las imágenes que nombra el archivo compose y recrea solo los contenedores cuya imagen o ajustes hayan cambiado. Si prefieres seguir un repositorio, clónalo en esa carpeta y vuelve a registrar la pila indicándolo como origen.",
+    },
+    nothing_ran: {
+      text: "Todavía no se ha puesto en marcha nada creado con {file}, así que no hay nada corriendo que conservar tal cual. Registrar la pila la guarda con el nombre de proyecto {project} y no arranca nada; el primer arranque crea todo lo que describe el archivo.",
+    },
+    nothing_ran_named: {
+      text: "Todavía no se ha puesto en marcha nada creado con {file}, así que no hay nada corriendo que conservar tal cual. Registrar la pila la guarda con el nombre de proyecto que le da su propio archivo y no arranca nada; el primer arranque crea todo lo que describe el archivo.",
+    },
+  },
+  security_checks: {
+    public_listener_anyone: {
+      text: "Estos servicios escuchan en todas las interfaces y el cortafuegos deja que cualquiera llegue a ellos.",
+    },
+    public_listener_some: {
+      text: "Estos servicios escuchan en todas las interfaces y el cortafuegos deja que lleguen a ellos algunas direcciones.",
+    },
+  },
+  attention: {
+    container_restarting: {
+      text: "Su contenedor {container} se está reiniciando ahora mismo",
+    },
+    container_loop: {
+      text: "Su contenedor {container} se reinicia sin parar: {restarts} veces en los últimos {minutes} minutos",
+    },
+    container_loop_oom: {
+      text: "Se queda sin memoria: su contenedor {container} se ha reiniciado {restarts} veces en los últimos {minutes} minutos",
+    },
+    container_loop_oom_limit: {
+      text: "Se queda sin memoria (límite de {limit_mb} MB): su contenedor {container} se ha reiniciado {restarts} veces en los últimos {minutes} minutos",
+    },
+    container_oom: {
+      text: "Se quedó sin memoria: su contenedor {container} se paró y no ha vuelto a arrancar",
     },
   },
 };

@@ -46,6 +46,12 @@ SENTENCES: dict[str, str] = {
     "compose_guard.adopt_host_access": "Adopting {domain} puts under Noust a stack whose containers have what is on this server",
     "compose_guard.adopt_host_access.hint": "{lines}\n\nEach line above gives a container something of this server, and adopting the stack is equivalent to root: it is recorded as accepted, with who and when, as the compose exception of {domain}. If you still want it adopted: {command}",
     "compose_guard.adopted_host_access": "Recorded as accepted by {who}: the containers of {domain} keep what they have of this server ({count}). To take it back: {command}",
+    # -- What adopting a stack says it found: what changes now, what the first update does, what is accepted ---
+    # Said in the dialog of the Docker zone and in the wizard alike, so none points at a rehearsal that one of
+    # them may not draw.
+    "compose_adopt.no_repository": "{path} has no repository, so Noust fetches no code for it. Adopting changes nothing that runs now. The first update downloads the images the compose file names and recreates only the containers whose image or settings changed. To follow a repository instead, clone it in that folder and adopt the stack again with that repository as its source.",
+    "compose_adopt.nothing_ran": "Nothing made from {file} has run yet, so there is nothing to keep as it is. Adopting registers the stack under the project name {project} and starts nothing; the first start creates everything the file describes.",
+    "compose_adopt.nothing_ran_named": "Nothing made from {file} has run yet, so there is nothing to keep as it is. Adopting registers the stack under the project name its own file gives it and starts nothing; the first start creates everything the file describes.",
     # -- What a deployment is refused with -------------------------------------------------------------
     "compose_guard.asks_for_root": "{domain}'s compose file asks for root on this server",
     "compose_guard.asks_for_root.hint": "{lines}\n\nThe compose file comes from the repository and Docker runs it as root: what is listed above gives a container this server, and the stack did not run with it before. Remove it, or record why this stack needs it and deploy again: {command}",

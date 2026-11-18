@@ -56,6 +56,7 @@ from noust.core import paths
 from noust.core.exceptions import NoustError
 from noust.core.fs import get_fs
 from noust.core.package_family import PackageFamily, for_this_machine
+from noust.core.server_text import ServerText, say
 from noust.fleet.authorize import key_removal_command
 from noust.managers.server.host import PROBE_TIMEOUT, read_os_release, read_text
 from noust.managers.server.security_catalog import CATALOG, SEVERITIES
@@ -137,6 +138,8 @@ class Check:
         evidence: What the system said, verbatim, one item per line.
         fix: How to fix it; None when it passes.
         accepted: The acceptance, for ``accepted``.
+        reason_coded: ``reason`` as a sentence of the catalog, for a console to say in its own language;
+            None for a reason that has no sentence of its own yet.
     """
 
     id: str
@@ -148,6 +151,7 @@ class Check:
     evidence: tuple[str, ...] = ()
     fix: CheckFix | None = None
     accepted: AcceptedRisk | None = None
+    reason_coded: ServerText | None = None
 
     @property
     def failing(self) -> bool:
@@ -165,6 +169,7 @@ class Check:
         data["evidence"] = list(self.evidence)
         if self.fix is not None:
             data["fix"]["steps"] = list(self.fix.steps)
+        data["reason_coded"] = None if self.reason_coded is None else self.reason_coded.to_dict()
         return data
 
 
@@ -304,6 +309,7 @@ class CheckReport:
                     if fix
                     else None,
                     accepted=AcceptedRisk(**accepted) if accepted else None,
+                    reason_coded=_sentence_of(item.get("reason_coded")),
                 )
             )
         return cls(
@@ -314,10 +320,30 @@ class CheckReport:
         )
 
 
+def _sentence_of(kept: Any) -> ServerText | None:
+    """
+    Read back the sentence a kept report holds for a reason.
+
+    Args:
+        kept: ``{"code": ..., "params": {...}}`` as :meth:`Check.to_dict` wrote it, or nothing.
+
+    Returns:
+        The sentence; None when the report has none (one kept before the reasons were sentences) or
+        names one this version does not have (one kept by a newer version): the English reason is
+        still there, so the check is read whole either way.
+    """
+    if not isinstance(kept, dict):
+        return None
+    try:
+        return say(str(kept["code"]), **dict(kept.get("params") or {}))
+    except (KeyError, ValueError, TypeError):
+        return None
+
+
 def _result(
     check_id: str,
     ok: bool,
-    reason: str,
+    reason: str | ServerText,
     evidence: list[str] | tuple[str, ...] = (),
     fix: CheckFix | None = None,
     *,
@@ -329,7 +355,7 @@ def _result(
     Args:
         check_id: The check.
         ok: It passed.
-        reason: What was found.
+        reason: What was found; a sentence of the catalog travels with its code.
         evidence: What the system said.
         fix: How to fix it, when it did not pass.
         severity: This finding's severity, when not the catalog's.
@@ -347,9 +373,10 @@ def _result(
         title=spec.title,
         severity=level,
         status=status,
-        reason=reason,
+        reason=reason.text if isinstance(reason, ServerText) else reason,
         evidence=tuple(evidence),
         fix=None if ok else fix,
+        reason_coded=reason if isinstance(reason, ServerText) else None,
     )
 
 
@@ -762,9 +789,11 @@ class HardeningChecks:
                 _result(
                     "fw.public_listener",
                     False,
-                    "These services listen on every interface and the firewall lets "
-                    + ("some addresses" if only_restricted else "anyone")
-                    + " reach them.",
+                    say(
+                        "security_checks.public_listener_some"
+                        if only_restricted
+                        else "security_checks.public_listener_anyone"
+                    ),
                     [_describe(exposure) for exposure in risky],
                     _guided(
                         "Bind each one to 127.0.0.1, or allow only the addresses that need it",
@@ -1426,6 +1455,7 @@ def _apply_risk(check: Check, risk: AcceptedRisk | None) -> Check:
         evidence=check.evidence,
         fix=check.fix,
         accepted=risk,
+        reason_coded=check.reason_coded,
     )
 
 
@@ -1744,6 +1774,7 @@ def reapply_risks(report: CheckReport, risks: AcceptedRisks | None = None) -> Ch
                 reason=check.reason,
                 evidence=check.evidence,
                 fix=check.fix,
+                reason_coded=check.reason_coded,
             )
         checks.append(_apply_risk(base, accepted.get(check.id)))
     updated = CheckReport(checks, report.checked_at, report.complete, report.stale)

@@ -1399,6 +1399,41 @@ class DockerGate:
             disk=disk,
         )
 
+    def app_failures(self) -> tuple[summary_module.Attention, ...]:
+        """
+        Say which containers of applications are broken, for the list of what needs attention.
+
+        The zone's summary (:meth:`summary`) says it with everything else the machine has, and reads the
+        disk, the images and the registries to do it. What asks for the operator in an application's own
+        containers is a part of it that does not need any of that, and is the one thing the list that Home
+        and the bell read has to know: a container that keeps restarting (``loop``) and one that ran out
+        of memory and stayed down (``stopped``, ``kind`` ``oom``). One that was stopped on purpose, or that
+        failed in a way of its own and is not coming back, is the zone's to tell, not a failure to wake
+        anyone for. The rules are the summary's (:func:`noust.core.docker.summary.attention`), not a second
+        reading of them.
+
+        Whether there is a Docker to ask is for the caller to know from the table of functions: this asks
+        it and, when it cannot be asked, says so.
+
+        Returns:
+            The failures, worst first, each of a container an application owns and the principal sees.
+            Nothing is read beyond the listing when there is no such container.
+
+        Raises:
+            DockerUnavailableError: Docker cannot be asked.
+        """
+        owned, _index = self._look()
+        mine = [c for c in owned if c.owner.kind is OwnerKind.APP and self._visible(c.owner)]
+        if not mine:
+            return ()
+        seen = inspect.read_inspect(self.runner, [c.id for c in mine])
+        restarts = events.recent_restarts(self.runner, now=self._clock())
+        return tuple(
+            item
+            for item in summary_module.attention(mine, seen, restarts, None)
+            if item.kind == "loop" or (item.kind == "stopped" and item.facts.get("kind") == "oom")
+        )
+
     def version_records(self) -> dict[str, VersionRecord]:
         """
         Say what the last look at the registries found of the images the principal's containers run.

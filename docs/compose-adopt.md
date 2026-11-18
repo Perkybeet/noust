@@ -38,8 +38,9 @@ Where the code is > **A running stack**.
 - `--path` is a git checkout with an `origin` (or `--source` names where to fetch from): an
   update brings an adopted stack up to date by resetting the checkout to the branch. A directory
   that is **not** a checkout, which is what Coolify and Portainer leave, is adopted too, with no
-  source and a warning saying so: an update then pulls the images the compose file names and
-  recreates the containers, and fetches no code. Naming `--source` for such a directory is
+  source and a warning saying so: adopting changes nothing that runs, and the first update then
+  pulls the images the compose file names and recreates only the containers whose image or
+  settings changed, and fetches no code. Naming `--source` for such a directory is
   refused, because Noust does not turn a directory it did not make into a checkout.
 - Docker Compose 2.20 or later, for `up --dry-run`.
 

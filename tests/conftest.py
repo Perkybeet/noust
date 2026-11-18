@@ -165,6 +165,10 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "real_listeners: let the registry of held ports read the sockets the runner reports",
     )
+    config.addinivalue_line(
+        "markers",
+        "real_app_containers: let the Overview ask Docker which containers of applications are broken",
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -309,6 +313,26 @@ def machine_ports_unread(request: pytest.FixtureRequest, monkeypatch: pytest.Mon
     monkeypatch.setattr("noust.managers.port_claims.listening_sockets", lambda *a, **k: [])
     monkeypatch.setattr("noust.managers.port_claims.ssh_port", lambda *a, **k: 22)
     monkeypatch.setattr("noust.managers.port_claims.stack_published_ports", lambda *a, **k: [])
+
+
+@pytest.fixture(autouse=True)
+def app_containers_unread(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Keep the Overview from asking Docker which containers of applications are broken.
+
+    The list of what needs attention reads the containers an application owns where the machine has
+    Docker (:func:`noust.web.api.overview.app_container_problems`), and a test that answers the
+    Overview for the sake of its figures has a machine that "has Docker" (see below) and no runner to
+    answer it. By default no container is broken; the tests of that list model a machine with
+    Docker and opt out with ``@pytest.mark.real_app_containers``.
+
+    Args:
+        request: The pytest request, used to honour the opt-out marker.
+        monkeypatch: Patching helper, scoped to the test.
+    """
+    if request.node.get_closest_marker("real_app_containers"):
+        return
+    monkeypatch.setattr("noust.web.api.overview.app_container_problems", lambda: [])
 
 
 @pytest.fixture(autouse=True)

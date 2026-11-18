@@ -44,7 +44,7 @@ import dataclasses
 import os
 import re
 import sqlite3
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -247,6 +247,8 @@ class AdoptionPlan:
         dry_run: Compose's output for the rehearsed ``up``, verbatim.
         changes: The lines of it that would change something (accepted).
         warnings: What the operator should know, one sentence each.
+        warnings_coded: ``warnings`` as sentences of the catalog, in the same order, for a console to say in
+            its own language; None where the line has no sentence of its own yet.
         kept_by: ``unit`` (a unit is created, enabled and not started) or ``docker`` (no systemd here:
             the restart policy of the containers keeps the stack alive and nothing is written for it).
         address: Where the stack is reached when there is no site for it, ``http://<machine>:<port>``;
@@ -278,6 +280,7 @@ class AdoptionPlan:
     dry_run: str
     changes: tuple[str, ...] = ()
     warnings: tuple[str, ...] = ()
+    warnings_coded: tuple[ServerText | None, ...] = ()
     kept_by: str = KEPT_BY_UNIT
     address: str | None = None
     restart_loss: tuple[LostOnRestart, ...] = ()
@@ -299,6 +302,9 @@ class AdoptionPlan:
         data["containers"] = list(self.containers)
         data["changes"] = list(self.changes)
         data["warnings"] = list(self.warnings)
+        data["warnings_coded"] = [
+            None if sentence is None else sentence.to_dict() for sentence in self.warnings_coded
+        ]
         data["restart_loss"] = [dataclasses.asdict(item) for item in self.restart_loss]
         data["host_access"] = list(self.host_access)
         return data
@@ -761,6 +767,39 @@ def refuse_shared_directory(path: Path, domain: str, store: NoustStore) -> None:
             )
 
 
+class _Warnings:
+    """
+    What a plan found worth saying: each line in English and, when it is a sentence of the catalog, as that.
+
+    The command line prints the English, a console says the sentence in its own language from the code, and
+    the two lists must stay the same length, so a line is added in one place that keeps both.
+    """
+
+    def __init__(self) -> None:
+        self.lines: list[str] = []
+        self.sentences: list[ServerText | None] = []
+
+    def add(self, warning: str | ServerText) -> None:
+        """
+        Args:
+            warning: A sentence of the catalog, or a line that has none yet.
+        """
+        if isinstance(warning, ServerText):
+            self.lines.append(warning.text)
+            self.sentences.append(warning)
+        else:
+            self.lines.append(warning)
+            self.sentences.append(None)
+
+    def extend(self, warnings: Iterable[str | ServerText]) -> None:
+        """
+        Args:
+            warnings: Several, as :meth:`add` takes them.
+        """
+        for warning in warnings:
+            self.add(warning)
+
+
 def plan_adoption(
     domain: str,
     path: Path,
@@ -824,7 +863,7 @@ def plan_adoption(
             details=f"Adopting registers a stack Noust has no record of. See it with: "
             f"noust status {domain}",
         )
-    warnings: list[str] = []
+    warnings = _Warnings()
 
     deployer = DockerComposeDeployer(runner=runner)
     deployer.configure(
@@ -868,18 +907,14 @@ def plan_adoption(
         # then downloads the images the compose file names instead of fetching code.
         fetch_from = ""
         repo = {**repo, "branch": None, "commit": None}
-        warnings.append(
-            f"{path} has no repository: an update pulls the images the compose file names and "
-            "recreates the containers, and fetches no code. To follow a repository, clone it "
-            "there and adopt with --source."
-        )
+        warnings.add(say("compose_adopt.no_repository", path=str(path)))
     elif not fetch_from:
         raise DeploymentError(
             f"The checkout in {path} has no remote 'origin'",
             details="Name where updates fetch from with --source (source in the API).",
         )
     if repo["dirty"]:
-        warnings.append(
+        warnings.add(
             "The checkout has changes to tracked files; the next update resets them to the "
             "branch (files git does not track, such as .env and data, are kept)."
         )
@@ -889,9 +924,11 @@ def plan_adoption(
     if project is None:
         project = compose_project_name(path, compose_path)
         project_from = "compose" if project is not None else "stack"
-        warnings.append(
-            f"Nothing made from {deployer.compose_file or compose_path.name} has run; the "
-            "project is the name Compose gives it, and the rehearsal below creates everything."
+        shown_file = deployer.compose_file or compose_path.name
+        warnings.add(
+            say("compose_adopt.nothing_ran", file=shown_file, project=project)
+            if project is not None
+            else say("compose_adopt.nothing_ran_named", file=shown_file)
         )
 
     dry_run, changes = rehearse_up(
@@ -912,19 +949,19 @@ def plan_adoption(
         raise _refused_for_host_access(domain, path, host_access)
     if host_access:
         accepted_by = accepted_by or "adoption"
-        warnings.append(
+        warnings.add(
             say(
                 "compose_guard.adopted_host_access",
                 who=accepted_by,
                 domain=domain,
                 count=len(host_access),
                 command=f"noust app sandbox compose-exception {domain} --revoke",
-            ).text
+            )
         )
     if changes:
-        warnings.append("Accepted: the next start or update changes " + "; ".join(changes) + ".")
+        warnings.add("Accepted: the next start or update changes " + "; ".join(changes) + ".")
     for line in _starting_lines(dry_run):
-        warnings.append(f"Stopped now, started by the next start or update: {line}.")
+        warnings.add(f"Stopped now, started by the next start or update: {line}.")
 
     headless = deployer._is_headless()
     site_file: str | None = None
@@ -939,12 +976,12 @@ def plan_adoption(
             )
         site_file, site_text, enabled = find_site(domain, found_web, requested=site)
         if site_file is None:
-            warnings.append(
+            warnings.add(
                 f"No site in sites-available answers on {domain}; nothing serves it through "
                 "the web server until one does."
             )
         elif not enabled:
-            warnings.append(f"The site {site_file} is not enabled.")
+            warnings.add(f"The site {site_file} is not enabled.")
 
     port = None if headless else deployer._get_primary_port()
     address: str | None = None
@@ -953,7 +990,7 @@ def plan_adoption(
         if port is not None:
             address = edges.address(port, runner=runner)
             if loopback_only(deployer.services):
-                warnings.append(
+                warnings.add(
                     "It publishes its port on 127.0.0.1 only: it is reachable from the NAS itself "
                     "and not from your network. Publish it on the network in your compose file, or "
                     "reach it through a reverse proxy on the NAS."
@@ -981,7 +1018,8 @@ def plan_adoption(
         headless=headless,
         dry_run=dry_run,
         changes=changes,
-        warnings=tuple(warnings),
+        warnings=tuple(warnings.lines),
+        warnings_coded=tuple(warnings.sentences),
         kept_by=KEPT_BY_DOCKER if docker_keeps_it else KEPT_BY_UNIT,
         address=address,
         restart_loss=lost,

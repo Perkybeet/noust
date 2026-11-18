@@ -67,6 +67,20 @@ each is what a client written against 4.2 could notice.
 
 ### Added
 
+- **More of what the server says carries its code.** `warnings_coded` beside `warnings` on the answers of
+  `POST /api/apps/adopt` and `POST /api/docker/stacks/{name}/bring` (and `.../bring/preview`): the same order,
+  a code and values for each line that is a sentence of the catalog and `null` for one that is not yet, so a
+  console says "this folder has no repository" and "nothing made from this file has run" in its own language.
+  `reason_coded` beside `reason` on each check of `GET /api/server/security`, which also reaches the `detail_coded`
+  of the attention list's security findings. A destination that does not answer
+  (`400 destination_unreachable`) carries `coded` (`backup_destinations.unreachable`, whose fix is the `hint`),
+  with rclone's words still verbatim in `output`.
+- **A container of an application that keeps falling is a failure of the application in the attention list.**
+  `GET /api/overview` and `GET /api/attention` carry it as a reason of the application's own row
+  (`code` `service_failed`, `kind` `state`, `actions` `view_log` and `diagnose`, and `detail_coded`
+  `attention.container_*`, which says how often the container restarted and whether memory ran out). It is read
+  from Docker only where the machine has one this Noust may use, once for each time the Overview is kept (15
+  seconds), and only for containers an application owns.
 - **Copies that were made and have not reached a destination** (item 201). The listing of every kind of
   copy (`GET /api/backups` and `GET /api/backups/{backup_id}`, `GET /api/volume-backups`, `GET /api/databases/backups`
   and `GET /api/self-backup`) carries `pending_sends` on each copy: an empty list for one that is everywhere it

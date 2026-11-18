@@ -122,6 +122,8 @@ SENTENCES: dict[str, str] = {
     "backup_destinations.must_be_not.hint": "{value}",
     "backup_destinations.name_bucket_destination_writes": "Name the bucket this destination writes into",
     "backup_destinations.name_bucket_destination_writes.hint": "The folder of an object store starts with its bucket: --field path=BUCKET/noust-backups. Noust does not create buckets.",
+    "backup_destinations.unreachable": "Backup destination {name} did not answer",
+    "backup_destinations.unreachable.hint": "Check the destination's address, credentials and permissions; the output below is rclone's own.",
     "backup_destinations.rclone_obscure_password": "rclone could not obscure a password",
     "backup_destinations.rclone_obscure_password.hint": "{value}",
     "backup_destinations.rclone_required_backup_destinations": "rclone is required for backup destinations",

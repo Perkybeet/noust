@@ -490,6 +490,36 @@ def security_findings() -> list[dict[str, Any]] | None:
     return [check.to_dict() for check in reapply_risks(report).attention()]
 
 
+def app_container_problems() -> list[dict[str, Any]] | None:
+    """
+    Read what is broken in the containers of applications, where the machine has a Docker to ask.
+
+    Whether there is one is the table of functions' to say (``docker_zone``: this Noust may use its
+    machine's Docker, and the engine's doctor says it can be used), read from the engine's one cached
+    reading: a central that was not told to deploy here leaves that Docker alone and nothing is asked,
+    and a machine without one has nothing to say. The Overview is kept for a few seconds, so Docker is
+    asked once in each of those windows and not once for each request, and only for the containers
+    an application owns, with none of the disk, the images or the registries the zone's page reads.
+
+    Returns:
+        What :meth:`~noust.core.docker.gate.DockerGate.app_failures` found, as plain data; an empty list
+        where Docker is not there to ask.
+    """
+    from noust import central
+    from noust.central import features, machine
+    from noust.core.central_settings import machine_docker_is_open
+    from noust.core.docker.gate import DockerGate
+    from noust.core.teams import Scope
+
+    role, told = central.role(), central.deploy_here()
+    facts = machine.read_machine_facts(ask_docker=machine_docker_is_open(role, told))
+    if not features.availability("docker_zone", role=role, facts=facts, deploy_here=told).available:
+        return []
+    # The Overview is the instance's, whoever asked first: a person of a team never reads it.
+    gate = DockerGate(scope=Scope.everything())
+    return [failure.to_dict() for failure in gate.app_failures()]
+
+
 def current_overview(*, spark: bool = False) -> dict[str, Any]:
     """
     Answer with a recent Overview: the one the console, a script and the list of what needs attention
@@ -506,6 +536,7 @@ def current_overview(*, spark: bool = False) -> dict[str, Any]:
         metrics=metrics_collector.get_metrics_store(),
         updates=server_summary,
         security=security_findings,
+        containers=app_container_problems,
         recording=metrics_collector.history_status,
     )
 

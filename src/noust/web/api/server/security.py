@@ -82,7 +82,9 @@ class CheckOut(BaseModel):
     One hardening check.
 
     ``status`` is ``pass``, ``warn``, ``fail``, ``unknown``, ``n/a`` or
-    ``accepted``; ``evidence`` is what the system said, verbatim.
+    ``accepted``; ``evidence`` is what the system said, verbatim. ``reason_coded`` is
+    ``reason`` as a sentence with a code and its values when it is one, for the console to say in
+    its own language; null otherwise.
     """
 
     id: str
@@ -91,6 +93,7 @@ class CheckOut(BaseModel):
     severity: str
     status: str
     reason: str
+    reason_coded: CodedText | None = None
     evidence: list[str] = []
     fix: CheckFixOut | None = None
     accepted: AcceptedRiskOut | None = None

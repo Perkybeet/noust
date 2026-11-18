@@ -48,6 +48,7 @@ __all__ = [
     "ReadinessOptions",
     "Skipped",
     "address",
+    "answers_at",
     "edge",
     "port_taken",
     "propose_port",
@@ -231,6 +232,33 @@ def address(port: int, *, runner: CommandRunner | None = None) -> str | None:
     return f"http://{name if _HOST.fullmatch(name) else '<this machine>'}:{port}"
 
 
+def answers_at(
+    domain: str, *, ssl: bool, port: int | None, runner: CommandRunner | None = None
+) -> str | None:
+    """
+    Say where an application answers: the one answer every line that writes an address asks for.
+
+    The name an application has on a machine that gives it no site is not an address (nothing answers
+    to ``http://paperless``), so a line that says where to open it, the page of the application and a
+    recipe's notes must not spell one out of the name: they ask here.
+
+    Args:
+        domain: The application's domain, or its name where it has no domain.
+        ssl: Whether a certificate covers it, which only matters behind a site.
+        port: The port of the machine it is published on, when it has one.
+        runner: Asks Docker the machine's name; the process-wide one by default.
+
+    Returns:
+        Behind a site, the domain over HTTPS when there is a certificate and over HTTP when there is not;
+        without one, ``http://<machine>:<port>``; None where there is no site and no port to say.
+    """
+    if edge().has_site:
+        return f"{'https' if ssl else 'http'}://{domain}"
+    if not port:
+        return None
+    return address(port, runner=runner)
+
+
 def port_taken(said: str) -> int | None:
     """
     Read a port of the machine out of what Docker said when it could not open one.
@@ -300,9 +328,8 @@ def reached(app: App, *, runner: CommandRunner | None = None) -> Reached:
     """
     if not app.port:
         return Reached("none", None, None)
-    if edge().has_site:
-        return Reached("site", f"{'https' if app.ssl_enabled else 'http'}://{app.domain}", app.port)
-    return Reached("port", address(app.port, runner=runner), app.port)
+    where = answers_at(app.domain, ssl=bool(app.ssl_enabled), port=app.port, runner=runner)
+    return Reached("site" if edge().has_site else "port", where, app.port)
 
 
 @dataclass(frozen=True)

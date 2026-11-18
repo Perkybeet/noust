@@ -25,7 +25,13 @@ from pydantic import BaseModel, Field
 from noust.core.store import DeploymentTrigger
 from noust.deployers import compose_adopt
 from noust.deployers.compose_adopt import AdoptionRefusedError
-from noust.web.api.deps import ErrorResponse, NoustErrorRoute, error_response, require_elevated
+from noust.web.api.deps import (
+    CodedText,
+    ErrorResponse,
+    NoustErrorRoute,
+    error_response,
+    require_elevated,
+)
 from noust.web.api.docker_change_models import DockerBringRestartOut
 from noust.web.auth import actor_label
 from noust.web.permissions import Permission
@@ -96,6 +102,11 @@ class AdoptResponse(BaseModel):
     dry_run: str = Field(description="docker compose up --dry-run's output, verbatim")
     changes: list[str] = Field(description="What starting the stack would change (accepted)")
     warnings: list[str]
+    warnings_coded: list[CodedText | None] = Field(
+        default_factory=list,
+        description="warnings as sentences with a code, in the same order; null where a line has "
+        "no sentence of its own",
+    )
     adopted: bool = Field(description="False for a preview or a rehearsal")
     unit: str = Field(description="The unit created for it; empty where Docker keeps it alive")
     deployment_id: int | None = Field(description="The adoption's history row")

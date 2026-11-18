@@ -59,6 +59,28 @@ class TestReads:
         assert body["fixes"]["disable-passwords"]["allowed"] is False
         assert body["confirm_window"] == CONFIRM_WINDOW == 300
 
+    def test_the_api_keeps_the_sentence_a_finding_is_said_with(self):
+        from noust.core.server_text import say
+        from noust.managers.server.security_checks import Check
+        from noust.web.api.server.security import _check
+
+        sentence = say("security_checks.public_listener_anyone")
+        found = Check(
+            "fw.public_listener",
+            "firewall",
+            "A database is reachable",
+            "critical",
+            "fail",
+            sentence.text,
+            reason_coded=sentence,
+        )
+
+        shown = _check(found.to_dict())
+
+        assert shown.reason == sentence.text
+        assert shown.reason_coded is not None
+        assert (shown.reason_coded.code, shown.reason_coded.params) == (sentence.code, {})
+
     def test_the_keys_view_lists_root_first(self, client):
         body = client.get(f"{PREFIX}/ssh/keys").json()
 

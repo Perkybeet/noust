@@ -21249,7 +21249,7 @@
         "type": "object"
       },
       "DockerBringOut": {
-        "description": "What bringing a stack to Noust registers, or did.\n\nAttributes:\n    stack: The Compose project.\n    name: What the application is called in Noust's list.\n    folder: The directory the stack runs from, where it stays.\n    compose_file: Its compose file, relative to the folder.\n    project: The Compose project every command passes with ``-p`` from then on.\n    containers: The containers of the stack.\n    running: Whether any of them runs.\n    headless: The stack publishes no port.\n    port: The port registered for it; null for a worker.\n    site: The operator's site file that serves it, never rewritten.\n    source: Where updates fetch from; empty for a stack that is not a checkout.\n    unit: The unit created for it, enabled and not started; empty where Docker keeps it alive.\n    kept_by: ``unit`` (a unit of systemd) or ``docker`` (the central deploys with the machine's Docker:\n        the restart policy of the containers keeps the stack alive, and no unit is written).\n    address: Where it is reached when no site serves it, ``http://<machine>:<port>``.\n    counts: ``containers``, ``jobs`` (of them, the ones that already ended), ``volumes`` and ``networks``.\n    rehearsal: What ``docker compose up --dry-run`` said, verbatim.\n    recreates: What starting it the way Noust would changes, in Compose's own words; empty when nothing.\n    warnings: What adopting found worth saying.\n    restart_loss: What a restart of the machine would not bring back.\n    adopted: It was registered; false for a preview.\n    deployment_id: The adoption's history row.",
+        "description": "What bringing a stack to Noust registers, or did.\n\nAttributes:\n    stack: The Compose project.\n    name: What the application is called in Noust's list.\n    folder: The directory the stack runs from, where it stays.\n    compose_file: Its compose file, relative to the folder.\n    project: The Compose project every command passes with ``-p`` from then on.\n    containers: The containers of the stack.\n    running: Whether any of them runs.\n    headless: The stack publishes no port.\n    port: The port registered for it; null for a worker.\n    site: The operator's site file that serves it, never rewritten.\n    source: Where updates fetch from; empty for a stack that is not a checkout.\n    unit: The unit created for it, enabled and not started; empty where Docker keeps it alive.\n    kept_by: ``unit`` (a unit of systemd) or ``docker`` (the central deploys with the machine's Docker:\n        the restart policy of the containers keeps the stack alive, and no unit is written).\n    address: Where it is reached when no site serves it, ``http://<machine>:<port>``.\n    counts: ``containers``, ``jobs`` (of them, the ones that already ended), ``volumes`` and ``networks``.\n    rehearsal: What ``docker compose up --dry-run`` said, verbatim.\n    recreates: What starting it the way Noust would changes, in Compose's own words; empty when nothing.\n    warnings: What adopting found worth saying.\n    warnings_coded: ``warnings`` as sentences with a code, in the same order, for the console to say in\n        its own language; null where a line has no sentence of its own.\n    restart_loss: What a restart of the machine would not bring back.\n    adopted: It was registered; false for a preview.\n    deployment_id: The adoption's history row.",
         "properties": {
           "address": {
             "anyOf": [
@@ -21390,6 +21390,20 @@
               "type": "string"
             },
             "title": "Warnings",
+            "type": "array"
+          },
+          "warnings_coded": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/CodedText"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Warnings Coded",
             "type": "array"
           }
         },
@@ -76476,6 +76490,21 @@
             },
             "title": "Warnings",
             "type": "array"
+          },
+          "warnings_coded": {
+            "description": "warnings as sentences with a code, in the same order; null where a line has no sentence of its own",
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/CodedText"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Warnings Coded",
+            "type": "array"
           }
         },
         "required": [
@@ -79586,7 +79615,7 @@
         "type": "object"
       },
       "noust__web__api__server__security__CheckOut": {
-        "description": "One hardening check.\n\n``status`` is ``pass``, ``warn``, ``fail``, ``unknown``, ``n/a`` or\n``accepted``; ``evidence`` is what the system said, verbatim.",
+        "description": "One hardening check.\n\n``status`` is ``pass``, ``warn``, ``fail``, ``unknown``, ``n/a`` or\n``accepted``; ``evidence`` is what the system said, verbatim. ``reason_coded`` is\n``reason`` as a sentence with a code and its values when it is one, for the console to say in\nits own language; null otherwise.",
         "properties": {
           "accepted": {
             "anyOf": [
@@ -79627,6 +79656,16 @@
           "reason": {
             "title": "Reason",
             "type": "string"
+          },
+          "reason_coded": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodedText"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "severity": {
             "title": "Severity",

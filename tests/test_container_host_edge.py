@@ -131,6 +131,98 @@ class TestTheAddress:
         assert edges.address(8081, runner=runner) == "http://<this machine>:8081"
 
 
+class TestWhereAnApplicationAnswers:
+    """The one answer, which the application's page, the recipe's notes and every other line that says it share."""
+
+    @pytest.fixture
+    def named(self) -> FakeRunner:
+        runner = FakeRunner()
+        runner.script(["docker", "info", "--format", "{{.Name}}"], stdout="nas-oficina\n")
+        return runner
+
+    def test_behind_a_site_it_is_the_domain_over_https_when_there_is_a_certificate(
+        self, named: FakeRunner
+    ) -> None:
+        assert (
+            edges.answers_at("shop.example.com", ssl=True, port=3001, runner=named)
+            == "https://shop.example.com"
+        )
+        assert (
+            edges.answers_at("shop.example.com", ssl=False, port=3001, runner=named)
+            == "http://shop.example.com"
+        )
+        assert named.calls == []
+
+    def test_without_a_site_it_is_the_port_of_the_machine_whatever_the_name_the_application_has(
+        self, container_host: None, named: FakeRunner
+    ) -> None:
+        # The name an application has there is not an address: nothing answers to http://paperless.
+        assert edges.answers_at("paperless", ssl=False, port=8000, runner=named) == (
+            "http://nas-oficina:8000"
+        )
+        assert edges.answers_at("paperless", ssl=True, port=8000, runner=named) == (
+            "http://nas-oficina:8000"
+        )
+
+    def test_without_a_site_and_without_a_port_there_is_no_address_to_give(
+        self, container_host: None, named: FakeRunner
+    ) -> None:
+        assert edges.answers_at("paperless", ssl=False, port=None, runner=named) is None
+
+    def test_the_page_of_an_application_says_the_same(
+        self, container_host: None, named: FakeRunner
+    ) -> None:
+        app = App(domain="paperless", app_type="docker-compose", app_path="/x", port=8000)
+
+        assert edges.reached(app, runner=named).url == edges.answers_at(
+            "paperless", ssl=False, port=8000, runner=named
+        )
+
+
+class TestWhatARecipeTellsAfterItDeploys:
+    """A recipe's notes and its variables ask where the application answers; on a NAS that is not a name."""
+
+    @pytest.fixture
+    def named(self, store: NoustStore) -> Iterator[FakeRunner]:
+        from noust.core.runner import set_runner
+
+        runner = FakeRunner()
+        runner.script(["docker", "info", "--format", "{{.Name}}"], stdout="nas-casa\n")
+        set_runner(runner)
+        yield runner
+        set_runner(None)
+
+    def test_the_sign_in_address_is_the_port_of_the_machine(
+        self, container_host: None, named: FakeRunner, store: NoustStore
+    ) -> None:
+        from noust.core.logger import Logger
+        from noust.recipes.deploy import plan_recipe
+
+        plan = plan_recipe(
+            "paperless-ngx", "paperless", port=8000, ssl=False, logger=Logger(verbose=False)
+        )
+
+        assert plan.notes[0].startswith("Sign in at http://nas-casa:8000 as ")
+        assert "http://paperless" not in " ".join(plan.notes)
+        # What the application is told is its address is the same one, so it trusts the origin people use.
+        assert plan.env_vars["PAPERLESS_URL"] == "http://nas-casa:8000"
+
+    def test_on_a_server_it_is_still_the_domain(self, named: FakeRunner, store: NoustStore) -> None:
+        from noust.core.logger import Logger
+        from noust.recipes.deploy import plan_recipe
+
+        plan = plan_recipe(
+            "paperless-ngx",
+            "paperless.example.com",
+            port=8000,
+            ssl=True,
+            logger=Logger(verbose=False),
+        )
+
+        assert plan.notes[0].startswith("Sign in at https://paperless.example.com as ")
+        assert plan.env_vars["PAPERLESS_URL"] == "https://paperless.example.com"
+
+
 class TestAPortTheMachineUses:
     @pytest.mark.parametrize(
         ("said", "port"),
