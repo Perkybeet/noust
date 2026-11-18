@@ -53,6 +53,7 @@ import time
 import traceback
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -5036,6 +5037,135 @@ def compose_exec(
     )
 
 
+def _service_container(domain: str, service: str) -> str:
+    """A shell fragment that names a stack's service container, whatever state it is in."""
+    return (
+        f"$(docker ps -aq -f label=com.docker.compose.project={compose_project(domain)} "
+        f"-f label=com.docker.compose.service={service} "
+        "-f label=com.docker.compose.oneoff=False | head -1)"
+    )
+
+
+def compose_exec_when_up(
+    sc: Scenario, domain: str, service: str, script: str, label: str, *, seconds: int = 60
+) -> None:
+    """
+    Run a script inside a service container that is in a crash loop, once it takes it.
+
+    ``docker exec`` refuses a container that is between two runs ("is restarting, wait until the
+    container is running"), and a looping one is up only for the second it takes to fail: a single
+    try lands in the gap most of the time and, with its failure unchecked, leaves the script
+    undone. The script is the thing the scenario needs, so it is tried until it has run.
+
+    Args:
+        sc: The scenario.
+        domain: The stack's application.
+        service: The service.
+        script: What to run; it holds no single quote.
+        label: What the evidence calls it.
+        seconds: How long to keep trying.
+
+    Raises:
+        AssertionError: The script never ran in that time.
+    """
+    command = f"docker exec {_service_container(domain, service)} sh -c '{script}'"
+    deadline = time.monotonic() + seconds
+    tries = 0
+    answer = ""
+    while time.monotonic() < deadline:
+        tries += 1
+        done = docker_exec(sc.container, command, timeout=30, check=False)
+        if done.returncode == 0:
+            sc.evidence.append(f"$ {label}\n(exit=0, on try {tries})")
+            return
+        answer = done.stderr.strip() or done.stdout.strip()
+        time.sleep(0.2)
+    raise AssertionError(f"{label}: it did not run in {seconds}s ({tries} tries): {answer}")
+
+
+def _service_state(sc: Scenario, domain: str, service: str) -> list[str]:
+    """What Docker says of a service container: its status, restart count and when the run began."""
+    shown = docker_exec(
+        sc.container,
+        f"docker inspect --format '{{{{.State.Status}}}} {{{{.RestartCount}}}} "
+        f"{{{{.State.StartedAt}}}}' {_service_container(domain, service)}",
+        timeout=30,
+        check=False,
+    )
+    return shown.stdout.split()
+
+
+def wait_for_a_crash_loop(
+    sc: Scenario, domain: str, service: str, *, restarts: int = 3, seconds: int = 60
+) -> None:
+    """
+    Wait until Docker has restarted a service container often enough to call it a loop.
+
+    The number is the product's own (``CRASH_LOOP_RESTARTS``): what the diagnosis is asked about
+    afterwards is a container Docker restarted that many times, not one a few seconds after a
+    restart.
+
+    Args:
+        sc: The scenario.
+        domain: The stack's application.
+        service: The service.
+        restarts: How many restarts Docker must have counted.
+        seconds: How long to wait.
+
+    Raises:
+        AssertionError: Docker did not count them in that time.
+    """
+    deadline = time.monotonic() + seconds
+    state: list[str] = []
+    while time.monotonic() < deadline:
+        state = _service_state(sc, domain, service)
+        if len(state) >= 2 and state[1].isdigit() and int(state[1]) >= restarts:
+            sc.evidence.append(f"(the {service} container: {' '.join(state[:2])}, a loop)")
+            return
+        time.sleep(0.5)
+    raise AssertionError(
+        f"Docker did not restart the {service} of {domain} {restarts} times in {seconds}s: {state!r}"
+    )
+
+
+def wait_for_a_steady_run(
+    sc: Scenario, domain: str, service: str, *, run_seconds: int = 11, seconds: int = 90
+) -> None:
+    """
+    Wait until a service container has been running, without a stop, for a given time.
+
+    Docker counts the restarts it made, so a container that has just been fixed still counts as
+    one in a loop until its current run is past the ten seconds after which Docker starts its
+    back-off over (``CRASH_LOOP_RUN_SECONDS``): that is the run being waited for, and it is read
+    from the container, not assumed from a pause.
+
+    Args:
+        sc: The scenario.
+        domain: The stack's application.
+        service: The service.
+        run_seconds: How long the current run must have lasted.
+        seconds: How long to wait for that.
+
+    Raises:
+        AssertionError: The container was not up for that long in that time.
+    """
+    deadline = time.monotonic() + seconds
+    state: list[str] = []
+    while time.monotonic() < deadline:
+        state = _service_state(sc, domain, service)
+        if len(state) >= 3 and state[0] == "running":
+            began = re.fullmatch(r"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(\.\d+)?Z", state[2])
+            if began is not None:
+                started = datetime.fromisoformat(began.group(1) + "+00:00")
+                if (datetime.now(timezone.utc) - started).total_seconds() >= run_seconds:
+                    sc.evidence.append(f"(the {service} container has run {run_seconds}s: {state})")
+                    return
+        time.sleep(0.5)
+    raise AssertionError(
+        f"the {service} of {domain} was not running for {run_seconds}s in {seconds}s: {state!r}"
+    )
+
+
 def compose_logs(sc: Scenario, domain: str, service: str) -> str:
     """The last lines a stack's service printed."""
     return docker_exec(
@@ -5344,7 +5474,7 @@ def scenario_compose_worker_not_down(sc: Scenario) -> None:
         )
 
         # A stack that crashes in a loop: the version file the process reads at start says so.
-        compose_exec(
+        compose_exec_when_up(
             sc, domain, "worker", "echo crash > /app/VERSION", "make the worker crash on start"
         )
         sc.run(
@@ -5353,7 +5483,7 @@ def scenario_compose_worker_not_down(sc: Scenario) -> None:
             timeout=60,
             label="restart the worker into its crash loop",
         )
-        time.sleep(5)
+        wait_for_a_crash_loop(sc, domain, "worker")
         down = json_of(
             sc.run(f"noust diagnose {domain} --json", timeout=60, check=False, label="diagnose"),
             "noust diagnose",
@@ -5366,7 +5496,9 @@ def scenario_compose_worker_not_down(sc: Scenario) -> None:
             "the diagnosis does not show the stack's own last log lines",
         )
 
-        compose_exec(
+        # The worker is looping, so it is up only for the second it takes to fail: the version has
+        # to be written in one of those seconds, and the run that follows has to last.
+        compose_exec_when_up(
             sc, domain, "worker", "echo v1 > /app/VERSION", "give the worker its version back"
         )
         sc.run(
@@ -5375,10 +5507,7 @@ def scenario_compose_worker_not_down(sc: Scenario) -> None:
             timeout=60,
             label="restart the worker, steady again",
         )
-        # Docker counts the restarts it made, so a worker that has just been fixed still looks
-        # like one in a loop until its current run is past the ten seconds after which Docker
-        # starts its back-off over.
-        time.sleep(12)
+        wait_for_a_steady_run(sc, domain, "worker")
 
         # Registered the way WASM 1.x left it: a port, and a site Noust wrote for it.
         store_rows(

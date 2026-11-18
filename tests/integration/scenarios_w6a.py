@@ -24,6 +24,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import secrets
 import shlex
 import time
 from typing import Any
@@ -257,14 +258,33 @@ STACK_PORT = 18161
 STACK_ROOT = "/var/www/apps/w6a-stack-test"
 STACK_TOKEN = "s3cret-w6a-build-token"
 
-STACK_DOCKERFILE = """\
+
+def stack_dockerfile(run_id: str) -> str:
+    """
+    The stack's Dockerfile: a step that records whether the build was given a secret.
+
+    BuildKit does not put a secret's value in the cache key of the step that mounts it, so a step
+    that already ran, here or in an earlier run of this scenario on the same Docker, is not run
+    again and keeps what it recorded then: the first build of a second run came out with the hash
+    of the token the first run had set. ``ENV`` is part of the step's key, so a value that is new
+    every run makes the step run for real in the first build.
+
+    Args:
+        run_id: A value that has not been used before.
+
+    Returns:
+        The Dockerfile's text.
+    """
+    return f"""\
 FROM nginx:alpine
+ENV W6A_RUN={run_id}
 COPY html /usr/share/nginx/html
 RUN --mount=type=secret,id=build_token,required=false \\
     sh -c 'if [ -s /run/secrets/build_token ]; then \\
       sha256sum /run/secrets/build_token | cut -c1-12 > /usr/share/nginx/html/build-hash; \\
     else echo none > /usr/share/nginx/html/build-hash; fi'
 """
+
 
 STACK_COMPOSE = f"""\
 services:
@@ -326,7 +346,8 @@ def scenario_compose_variables(sc: Scenario) -> None:
     require_docker(sc)
     pull_images(sc, "nginx:alpine")
     init_repo(sc, STACK_REPO)
-    put_file(sc, f"{STACK_REPO}/Dockerfile", STACK_DOCKERFILE)
+    dockerfile = stack_dockerfile(secrets.token_hex(8))
+    put_file(sc, f"{STACK_REPO}/Dockerfile", dockerfile)
     put_file(sc, f"{STACK_REPO}/docker-compose.yml", STACK_COMPOSE)
     put_file(sc, f"{STACK_REPO}/html/index.html", "w6a v1\n")
     first = commit_all(sc, STACK_REPO, "v1")
@@ -390,7 +411,7 @@ def scenario_compose_variables(sc: Scenario) -> None:
             timeout=30,
             label="the tree and the .env that serve, before the update",
         ).stdout
-        slow = STACK_DOCKERFILE + "RUN echo w6a-slow-step && sleep 150\n"
+        slow = dockerfile + "RUN echo w6a-slow-step && sleep 150\n"
         put_file(sc, f"{STACK_REPO}/Dockerfile", slow)
         put_file(sc, f"{STACK_REPO}/html/index.html", "w6a v2\n")
         commit_all(sc, STACK_REPO, "v2: a build that takes two minutes")
