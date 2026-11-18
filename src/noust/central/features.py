@@ -274,7 +274,9 @@ FEATURES: dict[str, Feature] = _table(
         (_SERVER, Need.ROOT),
         on_containers=_DOCKER_ONLY,
     ),
-    Feature("volume_backups", "Volume backups", (_SERVER, Need.DOCKER), on_containers=_DOCKER_ONLY),
+    # A policy copies named volumes and the folders an application keeps on the server: only the
+    # first need the engine, which the door to Docker says when one is asked for and it is not there.
+    Feature("volume_backups", "Volume backups", (_SERVER,), on_containers=_DOCKER_ONLY),
     Feature("restoring_a_server", "Restoring a server", (_SERVER, *_UNIT)),
     Feature("moving_a_server", "Moving a server", (_SERVER, Need.ROOT)),
     Feature("checking_a_moved_server", "Checking a moved server", (_SERVER,)),

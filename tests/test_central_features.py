@@ -206,11 +206,33 @@ class TestWhatTheMachineNeedsIsWhatTheFunctionNeeds:
         assert Need.WEB_SERVER in FEATURES["native_deploy"].needs
         assert Need.DOCKER not in FEATURES["native_deploy"].needs
 
-    def test_an_engine_in_a_container_and_a_docker_volume_copy_need_only_docker_of_the_machine(
-        self,
+    def test_an_engine_in_a_container_needs_only_docker_of_the_machine(self) -> None:
+        assert set(FEATURES["database_instances"].needs) == {Need.ROLE, Need.DOCKER}
+
+    def test_a_copy_of_a_folder_needs_no_docker(self) -> None:
+        # A volume policy also copies the folders an application declares as persistent, which
+        # are directories of the server: a server with no Docker made those copies in 4.2 and
+        # goes on making them. A named volume needs the engine, and the door to Docker says so
+        # when one is asked for.
+        no_docker = MachineFacts(
+            systemd=True, web_server=True, docker=False, root=True, journal=True
+        )
+
+        assert set(FEATURES["volume_backups"].needs) == {Need.ROLE}
+        assert features.availability("volume_backups", role="server", facts=no_docker).available
+
+    def test_on_a_container_host_a_volume_copy_needs_docker(self) -> None:
+        assert FEATURES["volume_backups"].on_containers == (Need.DOCKER,)
+
+    def test_the_guard_of_volume_copies_lets_a_server_with_no_docker_through(
+        self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        for key in ("database_instances", "volume_backups"):
-            assert set(FEATURES[key].needs) == {Need.ROLE, Need.DOCKER}, key
+        no_docker = MachineFacts(
+            systemd=True, web_server=True, docker=False, root=True, journal=True
+        )
+        monkeypatch.setattr("noust.central.machine.read_machine_facts", lambda *a, **k: no_docker)
+
+        central.require_server_role("volume_backups")
 
     def test_what_a_machine_decides_alone_does_not_ask_for_the_role(self) -> None:
         for key in ("system_clock", "power", "system_logs", "root_shell"):
@@ -299,7 +321,7 @@ class TestWhatIsAvailable:
     def test_docker_missing_without_the_doors_words_still_says_why(self) -> None:
         facts = MachineFacts(systemd=True, web_server=True, docker=False, root=True, journal=True)
 
-        answer = features.availability("volume_backups", role="server", facts=facts)
+        answer = features.availability("database_instances", role="server", facts=facts)
 
         assert not answer.available
         assert answer.reason is not None

@@ -3,15 +3,12 @@
  * up on their own. The policy is made from what the application declares, the schedule and the
  * retention are the ones of every backup policy, a backup runs by hand as a job, and a restore
  * is a decision the operator confirms. Against the real backend and its sandboxed machine, which
- * really writes the archives and the timer units. The machine has Docker (`console_server.py --docker`): the server's table of
- * what each function needs asks for it before the page is offered, so the default machine, which has none, says it is not
- * available there instead.
+ * really writes the archives and the timer units.
  */
 
 import type { Page } from "@playwright/test";
 
-import { testWithDocker as test } from "./docker-machine";
-import { confirmItsYou, expect, expectNoA11yViolations, settle } from "./fixtures";
+import { confirmItsYou, expect, expectNoA11yViolations, settle, test } from "./fixtures";
 import type { ConsoleServer } from "./fixtures";
 
 /** The application whose data the sandbox declares: its `uploads` folder, kept across releases. */
