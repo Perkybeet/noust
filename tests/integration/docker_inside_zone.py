@@ -1039,7 +1039,8 @@ def what_the_containers_have(run: Run, real: Any) -> None:
 @scenario("privileges")
 def privileges(run: Run) -> None:
     """The guard of privileges reads what Compose resolves a stack to, so nothing hides behind include or a variable."""
-    from noust.deployers.helpers.compose_guard import inspect_compose, load_compose, with_resolved
+    from noust.core.compose_yaml import load_compose
+    from noust.deployers.helpers.compose_guard import inspect_compose, with_resolved
 
     reset("privileges")
     real = runner()
