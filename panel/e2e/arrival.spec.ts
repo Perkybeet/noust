@@ -11,6 +11,7 @@
 import type { Locator, Page } from "@playwright/test";
 import path from "node:path";
 
+import { startServerWithAccounts } from "./accounts-server";
 import { expect, expectNoA11yViolations, settle, signIn, startConsoleServer, stillness, test } from "./fixtures";
 import type { RunningServer } from "./fixtures";
 
@@ -145,19 +146,43 @@ test.describe("a new console, from the door to the first account (item 158)", ()
 
   test("tells whoever arrives without the installer's link where the token is, and does not frighten them with recovery", async ({ page, problems }) => {
     problems.expect(/status of 401 .* \/api\/auth\/session$/);
+    // A server with no account has nobody to ask for a name: the page opens on the token itself, and says who printed it.
     await page.goto(`${server.url}/login`);
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-    await expect(page.getByText(/First time on this server\? Sign in with the access token the installer printed/)).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Sign in with the access token", exact: true })).toBeVisible();
+    await expect(page.getByText("The installer printed it once, in a box. Paste it here.")).toBeVisible();
     await expect(page.getByText("noust web token --new")).toBeVisible();
-    await settle(page);
-    await expectNoA11yViolations(page, "the sign-in, without the installer's link");
-
-    await page.getByRole("button", { name: "Access token" }).click();
-    await expect(page.getByRole("heading", { level: 1, name: "Sign in with the access token" })).toBeVisible();
-    await expect(page.getByText(/Just installed Noust\? Sign in with it and create your own account/)).toBeVisible();
+    // Nothing of recovery: this is the first sign-in, not the way back in. And no doors to an account form that has no accounts.
+    await expect(page.getByText(/Just installed Noust\?/)).toHaveCount(0);
     await expect(page.getByText(/Once there are accounts/)).toHaveCount(0);
+    await expect(page.getByRole("navigation", { name: "Other ways to sign in" })).toHaveCount(0);
     await settle(page);
-    await expectNoA11yViolations(page, "the access token, from the account form");
+    await expectNoA11yViolations(page, "the sign-in of a new server, without the installer's link");
+  });
+
+  test("a server that has accounts says its token is the server's, and what the token is for only once it is chosen", async ({ page, problems }) => {
+    problems.expect(/status of 401 .* \/api\/auth\/session$/);
+    const withAccounts = await startServerWithAccounts();
+    try {
+      await page.goto(`${withAccounts.url}/login`);
+      await expect(page.getByRole("heading", { level: 1, name: "Sign in", exact: true })).toBeVisible();
+      // A server that has accounts does not say where its token was shown: there may have been no installer (a container, a store's app).
+      await expect(page.getByText(/First time on this server\? Sign in with this server's access token, under/)).toBeVisible();
+      await expect(page.getByText(/installer printed/i)).toHaveCount(0);
+      await expect(page.getByText("noust web token --new")).toBeVisible();
+      await settle(page);
+      await expectNoA11yViolations(page, "the sign-in of a server with accounts, without the installer's link");
+
+      await page.getByRole("button", { name: "Access token" }).click();
+      await expect(page.getByRole("heading", { level: 1, name: "Sign in with the access token" })).toBeVisible();
+      await expect(page.getByText("Paste this server's access token.")).toBeVisible();
+      await expect(page.getByText(/Just installed Noust\? Sign in with it and create your own account/)).toBeVisible();
+      await expect(page.getByText(/Once there are accounts/)).toHaveCount(0);
+      await settle(page);
+      await expectNoA11yViolations(page, "the access token, from the account form");
+    } finally {
+      await page.goto("about:blank");
+      await withAccounts.stop();
+    }
   });
 
   test("says the account is the person's own, and does not bring the page back at the next sign-in with the token", async ({ page, problems }) => {

@@ -5,9 +5,10 @@
  * value in an application's Deploys and pressing "Resources" in the side list dropped the edit.
  * The save bar owns one question now ("Discard unsaved changes?", with "Keep editing" focused so
  * that Enter loses nothing), for a navigation inside the console and for the browser's own
- * "leave this page" when the tab is closed or reloaded. This walks it on three real forms of
- * different shapes, a server's General (a text field), an application's Deploys (a number) and the
- * Notifications settings (a choice of language), because a guard that works on one page and not on
+ * "leave this page" when the tab is closed or reloaded. This walks it on four real forms of
+ * different shapes, a server's Machine (a text field, the name it is called by), the policy of
+ * Settings > General (the email certificates are issued to), an application's Deploys (a number) and
+ * the Notifications settings (a choice of language), because a guard that works on one page and not on
  * the next is the failure this prevents.
  */
 
@@ -30,11 +31,18 @@ interface Form {
 
 const FORMS: readonly Form[] = [
   {
-    id: "settings",
-    path: "/settings/general",
+    id: "server-machine",
+    path: "/server/machine",
     first: (page) => page.getByLabel("Server name"),
     read: (page) => page.getByLabel("Server name").inputValue(),
     change: (page) => page.getByLabel("Server name").fill("web-leave-guard"),
+  },
+  {
+    id: "settings-general",
+    path: "/settings/general",
+    first: (page) => page.getByLabel("Email for certificates"),
+    read: (page) => page.getByLabel("Email for certificates").inputValue(),
+    change: (page) => page.getByLabel("Email for certificates").fill("ops-leave-guard@example.org"),
   },
   {
     id: "app-settings-deploys",

@@ -2,7 +2,7 @@
  * The sign-in of a server that has no account yet, against the real backend (item 198): it opens on the access token, because there is no
  * account to type, and says where the token was shown. A server installed by the installer says the installer printed it; one in a
  * container (the NAS's app store) says it is in the container's log, and the command that issues another is the one run through
- * `docker exec`. Once an account exists the server says nothing of the first start and the page says what it always said.
+ * `docker exec`. Once an account exists the server says nothing of the first start and the page says the token is the server's, naming no installer.
  *
  * The `--empty` server has no account and is not in a container, so it says "installer"; the sandbox is never inside a container, so the
  * container's answer is the real server's answer with `first_start` as a container's server gives it. With `NOUST_SCREENS=1` the three
@@ -93,10 +93,13 @@ test("a server with no account, in a container, says the token is in the contain
   await expectNoA11yViolations(page, "the token of a server with no account, in a container");
 });
 
-test("a server that has accounts opens on the account form, and says what it always said", async ({ page }) => {
+test("a server that has accounts opens on the account form, and does not say where its token was shown", async ({ page }) => {
   await open(page, "accounts");
   await expect(page.getByLabel("Username or email")).toBeVisible();
-  await expect(page.getByText(/First time on this server\? Sign in with the access token the installer printed/)).toBeVisible();
+  // Once there is an account the server says nothing of the first start: a container or a store's app had no installer, so the token is
+  // the server's, and the command that issues another is the one that was always there.
+  await expect(page.getByText(/First time on this server\? Sign in with this server's access token, under/)).toBeVisible();
+  await expect(page.getByText(/installer printed/i)).toHaveCount(0);
   await expect(page.getByText("noust web token --new")).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the sign-in of a server that has accounts");

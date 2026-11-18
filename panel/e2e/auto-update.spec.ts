@@ -1,7 +1,8 @@
 /**
- * Settings > About > Automatic updates against the real backend (checklist N-28): the section
- * reads the server's settings, the editor checks a time before asking, saving asks to confirm it is
- * you, and what was saved is what the server now reports.
+ * Server > Updates > Automatic updates of Noust against the real backend (checklist N-28): the
+ * section reads the server's settings, the editor checks a time before asking, saving asks to confirm
+ * it is you, and what was saved is what the server now reports. It is a thing of the machine, so it
+ * is on the page of the machine's updates and no longer on Settings > About (item 166).
  */
 
 import { confirmItsYou, expect, expectNoA11yViolations, settle, signIn, test, toasts } from "./fixtures";
@@ -9,11 +10,12 @@ import { confirmItsYou, expect, expectNoA11yViolations, settle, signIn, test, to
 test("the automatic update is off, is set up in a drawer after confirming it is you, and is read back", async ({ page, consoleServer, problems }) => {
   // Saving it installs a timer as root, which asks to confirm it is you first.
   problems.expect(/status of 403 .* \/api\/system\/update\/auto$/);
-  await signIn(page, consoleServer, "/settings/about");
+  await signIn(page, consoleServer, "/server/updates");
   await settle(page);
 
-  // A card, not a region: it is found by its heading.
-  const section = page.getByRole("heading", { name: "Automatic updates", level: 3 }).locator("xpath=ancestor::section[1]");
+  // A card, not a region: it is found by its heading. The system's own automatic updates is another card of the page, with
+  // a name that this one's begins with, so the whole name is asked for.
+  const section = page.getByRole("heading", { name: "Automatic updates of Noust", level: 3, exact: true }).locator("xpath=ancestor::section[1]");
   await expect(section.getByText("Off", { exact: true })).toBeVisible();
   await expectNoA11yViolations(page, "the automatic update, off");
 

@@ -82,13 +82,14 @@ const SERVER_TEXT: readonly { page: string; text: RegExp; origin: string }[] = [
   { page: "container settings", text: /^Container$/, origin: "deployers/container.py DISPLAY_NAME" },
   // The status page's title is the operator's: the seeded server's page is titled "Status", and the probes' page shows it as the help of its title row.
   ...["settings-probes", "alerts-probes", "alerts-status"].map((page) => ({ page, text: /^Status$/, origin: "the status page's title, as the operator wrote it" })),
-  // core/teams: the default team, project and environment are named "Default" and "default",
-  // and the pages of teams and projects show names as the operator (or the server) gave them.
-  ...["projects", "project", "teams", "projects-teams", "team", "team-members", "team-settings", "team-variables", "team-notifications"].map((page) => ({
-    page,
-    text: /^[Dd]efault$/,
-    origin: "the name of the default team and project",
-  })),
+  // core/teams: the default team and project are named "Default" and "default", and the environment every project
+  // starts with is named "Production" (PRODUCTION_NAME); the pages of teams and projects show names as the operator (or
+  // the server) gave them. "Production" reads like the environment of the caller policy's matrix, a text of the console's
+  // own that a Spanish page translates, but that one is drawn in the policy's table and never on these pages.
+  ...["projects", "project", "teams", "projects-teams", "team", "team-members", "team-settings", "team-variables", "team-notifications"].flatMap((page) => [
+    { page, text: /^[Dd]efault$/, origin: "the name of the default team and project" },
+    { page, text: /^Production$/, origin: "the name of the environment every project starts with" },
+  ]),
 ];
 
 /**

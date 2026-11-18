@@ -44,6 +44,12 @@
       "toleranceReason": "The three sections are slabs with a header each in 4.2 (Connections, Passwords and passkeys, Provisioning), and with nothing connected each of the two lists says its first step: the page is the same fields under three headers and two first steps, about 120 pixels more than the flat page measured. It goes down when a section with nothing in it folds its first step into its header."
     },
     "settings-approvals": { "path": "/settings/approvals", "height": 245 },
+    "settings-approval-policy": {
+      "path": "/settings/approval-policy",
+      "height": 4612,
+      "reason": "One table for every area that has a permission which changes something (what a token and the AI assistant do with each, in production and elsewhere), and the legend above them: the length is the number of permissions, not a second subject. The areas are already its sections, so an area at a time (the area in the address, the legend kept) is what shortens it."
+    },
+    "settings-assistant": { "path": "/settings/assistant", "height": 330 },
     "settings-audit": {
       "path": "/settings/audit",
       "height": 1291,
@@ -64,8 +70,8 @@
     },
     "app-triggers": {
       "path": "/apps/tienda.example.org/triggers",
-      "height": 1506,
-      "reason": "Releases and rollback, the startup check and zero-downtime are the page and are open; automation, deploy on push, hooks and previews are one press each. The page is the frame (the application's header and its place in the column) and Releases and rollback, which can leave for a page of its own if it grows."
+      "height": 1536,
+      "reason": "Releases and rollback, the startup check and zero-downtime are the page and are open; automation, deploy on push, hooks and previews are one press each. The page is the frame (the application's header and its place in the column) and Releases and rollback, which can leave for a page of its own if it grows. It grew by thirty pixels in 4.3, the one place the baseline went up: zero-downtime says, under its card, which command changes the default of new applications (item 162), where it used to name a configuration key in a sentence."
     },
     "app-resources": {
       "path": "/apps/shop.example.net/resources",

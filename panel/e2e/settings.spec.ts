@@ -1,8 +1,10 @@
 /**
  * The server's settings (General, Notifications, Integrations, About) against the real
  * backend: every one is a T3 subsection that loads without anything still busy and passes
- * axe, and General is one form with one save bar - a value the server refuses comes back
- * beside its field in the server's own words while the rest of the save goes through.
+ * axe, and what was General is three forms with a save bar each - the policy in Settings,
+ * the folders and builds and the machine's name in Server (item 166) - where a value the
+ * server refuses comes back beside its field in the server's own words while the rest of
+ * the save goes through.
  */
 
 import type { Page } from "@playwright/test";
@@ -11,7 +13,7 @@ import { expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures
 import { confirmItsYou, stillness } from "./settings.helpers";
 
 const PAGES = [
-  { path: "/settings/general", heading: "This server", title: /^General settings/ },
+  { path: "/settings/general", heading: "Policy", title: /^General settings/ },
   // Nothing recorded yet: the first time is one sentence in a region named by what the page holds, not a heading.
   { path: "/settings/registries", region: "Accounts", title: /^Image registries/ },
   { path: "/settings/notifications", heading: "Channels", title: /^Notifications settings/ },
@@ -77,16 +79,16 @@ test("About says a security release is out, with what it fixes, and passes axe i
 test("General saves from one bar; a refused value stays beside its field, verbatim", async ({ page, consoleServer, problems }) => {
   // Saving configuration is sudo mode: the bar asks "Confirm it's you" before the first write.
   problems.expect(/status of 422 .* \/api\/config\/backup$/);
-  problems.expect(/status of 400 .* \/api\/config\/apps-directory$/);
   await signIn(page, consoleServer, "/settings/general");
-  const name = page.getByLabel("Server name");
+  const email = page.getByLabel("Email for certificates");
   const retention = page.getByLabel("Backups kept per app");
   await expect(retention).toHaveValue(/^\d+$/);
   const original = await retention.inputValue();
+  const originalEmail = await email.inputValue();
   await expect(saveBar(page).getByText("No unsaved changes")).toBeVisible();
   await expect(saveBar(page).getByRole("button", { name: "Save" })).toBeDisabled();
 
-  await name.fill("web-e2e");
+  await email.fill("ops-e2e@example.org");
   await retention.fill("500");
   await expect(saveBar(page).getByText("2 unsaved changes")).toBeVisible();
   await stillness(page);
@@ -95,35 +97,86 @@ test("General saves from one bar; a refused value stays beside its field, verbat
 
   await confirmItsYou(page, consoleServer);
 
-  // The name was saved; the count was refused in pydantic's words, beside it.
+  // The email was saved; the count was refused in pydantic's words, beside it.
   await expect(page.getByText(/less than or equal to 100/)).toBeVisible();
   await expect(retention).toHaveAttribute("aria-invalid", "true");
   await expect(retention).toHaveAccessibleDescription(/less than or equal to 100/);
   await expect(saveBar(page).getByText("1 unsaved change")).toBeVisible();
-  const saved = (await (await page.request.get("/api/config")).json()) as { config: { server?: { name?: string } } };
-  expect(saved.config.server?.name).toBe("web-e2e");
+  const saved = (await (await page.request.get("/api/config/ssl")).json()) as { email: string };
+  expect(saved.email).toBe("ops-e2e@example.org");
   await stillness(page);
   await expectNoA11yViolations(page, "a refused value");
 
-  // A path the configuration's own rule refuses (a 400 with no field): beside its one field.
-  const directory = page.getByLabel("Applications folder");
-  const originalDirectory = await directory.inputValue();
-  await directory.fill("relative/apps");
+  // A value the server accepts goes through the same bar, and is what the server holds after a reload.
   await retention.fill("12");
   await saveBar(page).getByRole("button", { name: "Save" }).click();
+  await expect(saveBar(page).getByText("No unsaved changes")).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel("Backups kept per app")).toHaveValue("12");
+  await expect(page.getByLabel("Email for certificates")).toHaveValue("ops-e2e@example.org");
+
+  // Leave the worker's server as it was.
+  await page.getByLabel("Backups kept per app").fill(original);
+  await page.getByLabel("Email for certificates").fill(originalEmail);
+  await saveBar(page).getByRole("button", { name: "Save" }).click();
+  await expect(saveBar(page).getByText("No unsaved changes")).toBeVisible();
+});
+
+test("Folders and builds saves from one bar; a path the configuration refuses stays beside its field while the rest goes through", async ({ page, consoleServer, problems }) => {
+  // Saving configuration is sudo mode, and a path that is not absolute is a 400 by the configuration's own rule.
+  problems.expect(/status of 400 .* \/api\/config\/apps-directory$/);
+  await signIn(page, consoleServer, "/server/folders");
+  const directory = page.getByLabel("Applications folder");
+  const waiting = page.getByLabel("Deployments that may wait");
+  await expect(waiting).toHaveValue(/^\d+$/);
+  const originalDirectory = await directory.inputValue();
+  const original = await waiting.inputValue();
+  await expect(saveBar(page).getByText("No unsaved changes")).toBeVisible();
+
+  await directory.fill("relative/apps");
+  await waiting.fill(String(Number(original) + 1));
+  await expect(saveBar(page).getByText("2 unsaved changes")).toBeVisible();
+  await saveBar(page).getByRole("button", { name: "Save" }).click();
+  await confirmItsYou(page, consoleServer);
+  // The refusal has no field of its own in the server's answer: it is shown beside the one field it is about.
   await expect(page.getByText(/apps_directory must be an absolute path/)).toBeVisible();
   await expect(directory).toHaveAttribute("aria-invalid", "true");
+  await stillness(page);
+  await expectNoA11yViolations(page, "a refused path");
   await saveBar(page).getByRole("button", { name: "Discard" }).click();
   await expect(directory).toHaveValue(originalDirectory);
   await expect(saveBar(page).getByText("No unsaved changes")).toBeVisible();
 
-  // The server holds what was saved.
+  // The server holds what was saved: the number that was accepted in the same save.
   await page.reload();
-  await expect(page.getByLabel("Backups kept per app")).toHaveValue("12");
+  await expect(page.getByLabel("Deployments that may wait")).toHaveValue(String(Number(original) + 1));
+
+  // Leave the worker's server as it was.
+  await page.getByLabel("Deployments that may wait").fill(original);
+  await saveBar(page).getByRole("button", { name: "Save" }).click();
+  await expect(saveBar(page).getByText("No unsaved changes")).toBeVisible();
+});
+
+test("Machine saves the server's name from its bar, and the server holds it", async ({ page, consoleServer }) => {
+  await signIn(page, consoleServer, "/server/machine");
+  const name = page.getByLabel("Server name");
+  await expect(name).toBeVisible();
+  await expect(saveBar(page).getByText("No unsaved changes")).toBeVisible();
+
+  await name.fill("web-e2e");
+  await expect(saveBar(page).getByText("1 unsaved change")).toBeVisible();
+  await stillness(page);
+  await expectNoA11yViolations(page, "Machine with an unsaved name");
+  await saveBar(page).getByRole("button", { name: "Save" }).click();
+  await confirmItsYou(page, consoleServer);
+  await expect(saveBar(page).getByText("No unsaved changes")).toBeVisible();
+  const saved = (await (await page.request.get("/api/config")).json()) as { config: { server?: { name?: string } } };
+  expect(saved.config.server?.name).toBe("web-e2e");
+
+  await page.reload();
   await expect(page.getByLabel("Server name")).toHaveValue("web-e2e");
 
   // Leave the worker's server as it was.
-  await page.getByLabel("Backups kept per app").fill(original);
   await page.getByLabel("Server name").fill("");
   await saveBar(page).getByRole("button", { name: "Save" }).click();
   await expect(saveBar(page).getByText("No unsaved changes")).toBeVisible();

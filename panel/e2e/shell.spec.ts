@@ -67,12 +67,13 @@ test("an anonymous visit lands on sign-in, which asks for the token and then the
   await page.goto("/apps");
 
   await expect(page).toHaveURL(/\/login\?next=%2Fapps$/);
-  await expect(heading(page)).toHaveText("Sign in");
+  // The suite's server has no account yet, so nobody has a name to give: the page opens on the access token itself, where a
+  // server with accounts shows its account form with the token one door away (access-slab.spec.ts walks that one).
+  await expect(heading(page)).toHaveText("Sign in with the access token");
+  await expect(page.getByLabel("Access token")).toBeFocused();
   await settle(page);
   await expectNoA11yViolations(page, "sign in");
 
-  // The access token is one button away from the account form.
-  await page.getByRole("button", { name: "Access token" }).click();
   await page.getByLabel("Access token").fill(consoleServer.token);
   await page.getByRole("button", { name: "Sign in" }).click();
 

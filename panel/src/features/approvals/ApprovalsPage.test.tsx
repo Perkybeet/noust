@@ -150,11 +150,15 @@ describe("the approvals inbox", () => {
     });
     const { user } = renderConsole("/settings/approvals");
     expect(await screen.findByText("Off", { selector: "[data-state]" })).toHaveAttribute("data-state", "stopped");
-    expect(screen.getByText("Calls that wait for a second person, and the ones already decided.")).toBeInTheDocument();
+    // What the switch does and what leaving it off risks are the page's own description, under its title: the switch itself is the
+    // page's master switch, in the header, on the title's line, and not a row above the queue (HD-1).
+    expect(screen.getByText("Calls that change the server as root wait for a second person, never the one who asked.")).toBeInTheDocument();
     expect(screen.queryByText(/approval\.enabled/)).not.toBeInTheDocument();
     expect(await screen.findByText("Nothing waits for approval.")).toBeInTheDocument();
     const toggle = screen.getByRole("switch", { name: "Ask a second person to approve" });
     expect(toggle).not.toBeChecked();
+    expect(within(screen.getByRole("region", { name: "Requests" })).queryByRole("switch")).toBeNull();
+    expect(toggle.closest('[data-slot="section-switch"]')).not.toBeNull();
     expect(screen.getByText("Without it, one person can run these calls alone.")).toBeInTheDocument();
 
     await user.click(toggle);
@@ -180,6 +184,52 @@ describe("the approvals inbox", () => {
     await user.click(within(question).getByRole("button", { name: "Stop asking" }));
     await waitFor(() => {
       expect(backend.callsTo("PATCH /api/config").at(-1)?.body).toEqual({ path: "approval.enabled", value: false });
+    });
+  });
+
+  // A choice with one answer is not a choice, and a second row of controls is the length Settings > Approvals is held to
+  // (e2e/settings-length.spec.ts): who calls is asked where a token or the assistant has made a request, and where a choice is
+  // already made, so it can be left.
+  describe("the filter of who calls", () => {
+    const policy = () => json(200, { enabled: true, approvers: ["security"], request_hours: 24, execute_minutes: 30, reason_required: false, rules: [] });
+
+    it("is not drawn while every request on the page was made by a person", async () => {
+      fakeBackend({
+        ...signedInRoutes(DECIDER),
+        "GET /api/approvals/policy": policy,
+        "GET /api/approvals": () => json(200, { approvals: [request(7)], pending: 1 }),
+      });
+      renderConsole("/settings/approvals");
+      await findLoadedRegion("Approval requests");
+      expect(screen.getByLabelText("Show")).toBeInTheDocument();
+      expect(screen.queryByLabelText("Who calls")).toBeNull();
+    });
+
+    it("is drawn where a token or the assistant made a request, and asks the server for that class of caller", async () => {
+      const backend = fakeBackend({
+        ...signedInRoutes(DECIDER),
+        "GET /api/approvals/policy": policy,
+        "GET /api/approvals": () => json(200, { approvals: [request(7), request(8, { caller: "token", credential: { name: "ci", owner: "dani" } })], pending: 2 }),
+      });
+      const { user } = renderConsole("/settings/approvals");
+      await findLoadedRegion("Approval requests");
+      const who = await screen.findByLabelText("Who calls");
+      await user.click(within(who).getByRole("radio", { name: "Tokens" }));
+      await waitFor(() => {
+        expect(backend.callsTo("GET /api/approvals").some((call) => call.search.get("caller") === "token")).toBe(true);
+      });
+    });
+
+    it("stays while a class is chosen, even when it leaves nothing, so the choice can be undone", async () => {
+      fakeBackend({
+        ...signedInRoutes(DECIDER),
+        "GET /api/approvals/policy": policy,
+        "GET /api/approvals": () => json(200, { approvals: [], pending: 0 }),
+      });
+      renderConsole("/settings/approvals?caller=assistant");
+      await findLoadedRegion("Approval requests");
+      const who = await screen.findByLabelText("Who calls");
+      expect(within(who).getByRole("radio", { name: "The AI assistant" })).toBeChecked();
     });
   });
 });

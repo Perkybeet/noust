@@ -37,6 +37,7 @@ import { RequireApproval } from "./RequireApproval";
 import { approvalDescription, callFromSnapshot, inView } from "./data";
 import type { ApprovalsSearch, ApprovalsView } from "./data";
 import { forgetHeld, heldCall } from "./store";
+import { ICONS } from "../../components/ui/icons";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 function who(t: T, actor: Approval["requester"] | null | undefined): string {
@@ -258,6 +259,9 @@ export function ApprovalsPage({ search, onSearchChange }: ApprovalsPageProps) {
     const next = { ...search, ...patch };
     onSearchChange({ ...(next.view !== undefined && next.view !== "waiting" ? { view: next.view } : {}), ...(next.mine === true ? { mine: true } : {}), ...(next.caller !== undefined ? { caller: next.caller } : {}) }, { replace: true });
   };
+  // Who calls is a choice only where somebody other than a person has called, or one is already made (so it can be undone): a row
+  // of controls that has one answer is a second line of the page for nothing.
+  const callersToChoose = search.caller !== undefined || all.some((item) => item.caller === "token" || item.caller === "assistant");
   const deciders = (policy.data?.approvers ?? []).map((role) => roleLabel(t, role)).join(", ");
   const decider = session?.role !== null && session?.role !== undefined && (policy.data?.approvers ?? []).includes(session.role);
 
@@ -268,7 +272,23 @@ export function ApprovalsPage({ search, onSearchChange }: ApprovalsPageProps) {
         {...(policy.data !== undefined
           ? { badge: <StatusPill state={policy.data.enabled ? "running" : "stopped"} label={policy.data.enabled ? t("approvals.page.on") : t("approvals.page.offLabel")} size="sm" /> }
           : {})}
-        description={policy.data?.enabled === true ? t("approvals.page.descriptionWho", { approvers: deciders }) : t("approvals.page.description")}
+        description={
+          policy.data?.enabled === true ? (
+            t("approvals.page.descriptionWho", { approvers: deciders })
+          ) : policy.data?.enabled === false ? (
+            // The switch that would make them apply is in the header and says only its name: what it does and what leaving it off risks are said here.
+            <>
+              {t("approvals.require.help")}{" "}
+              <span className="whitespace-nowrap text-fg">
+                <ICONS.warning aria-hidden="true" className="mr-1 -mt-0.5 inline size-icon-xs text-warn" />
+                <span className="sr-only">{t("common.notice.warning")}: </span>
+                {t("approvals.require.risk")}
+              </span>
+            </>
+          ) : (
+            t("approvals.page.description")
+          )
+        }
       >
         <div className="flex min-w-0 flex-col gap-4">
           {policy.data !== undefined ? <RequireApproval enabled={policy.data.enabled} /> : null}
@@ -286,16 +306,18 @@ export function ApprovalsPage({ search, onSearchChange }: ApprovalsPageProps) {
                   value={view}
                   onValueChange={(value) => set({ view: value })}
                 />
-                <SegmentedControl<"all" | "token" | "assistant">
-                  label={t("callerPolicy.queue.callerFilter")}
-                  options={[
-                    { value: "all", label: t("callerPolicy.queue.all") },
-                    { value: "token", label: t("callerPolicy.queue.tokens") },
-                    { value: "assistant", label: t("callerPolicy.queue.assistant") },
-                  ]}
-                  value={search.caller ?? "all"}
-                  onValueChange={(value) => set({ caller: value === "all" ? undefined : value })}
-                />
+                {callersToChoose ? (
+                  <SegmentedControl<"all" | "token" | "assistant">
+                    label={t("callerPolicy.queue.callerFilter")}
+                    options={[
+                      { value: "all", label: t("callerPolicy.queue.all") },
+                      { value: "token", label: t("callerPolicy.queue.tokens") },
+                      { value: "assistant", label: t("callerPolicy.queue.assistant") },
+                    ]}
+                    value={search.caller ?? "all"}
+                    onValueChange={(value) => set({ caller: value === "all" ? undefined : value })}
+                  />
+                ) : null}
                 {decider ? (
                   <Checkbox
                     label={t("approvals.page.onlyMine")}

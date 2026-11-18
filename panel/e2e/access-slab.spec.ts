@@ -12,6 +12,7 @@
 import type { Page } from "@playwright/test";
 import path from "node:path";
 
+import { withAccounts } from "./accounts-server";
 import { expect, expectNoA11yViolations, settle, test } from "./fixtures";
 import type { ConsoleServer } from "./fixtures";
 
@@ -133,11 +134,11 @@ for (const size of SIZES) {
   test.describe(`at ${size.name} px`, () => {
     test.use({ viewport: { width: size.width, height: size.height } });
 
-    test("the sign-in is the slab, in this theme, with nothing from outside and nothing of the server", async ({ page, consoleServer }, testInfo) => {
+    withAccounts("the sign-in is the slab, in this theme, with nothing from outside and nothing of the server", async ({ page, consoleServer }, testInfo) => {
       const project = testInfo.project.name;
       const foreign = collectForeignRequests(page, new URL(consoleServer.url).origin);
       await page.goto("/login");
-      await expect(page.getByRole("heading", { level: 1, name: "Sign in" })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: "Sign in", exact: true })).toBeVisible();
       await settle(page);
       await expectSlab(page, size.width);
 
@@ -170,9 +171,9 @@ for (const size of SIZES) {
       await expectNoA11yViolations(page, `the sign-in at ${size.name}px`);
     });
 
-    test("the doors share the width, open in the form's place and come back, with the keyboard", async ({ page }, testInfo) => {
+    withAccounts("the doors share the width, open in the form's place and come back, with the keyboard", async ({ page }, testInfo) => {
       await page.goto("/login");
-      await expect(page.getByRole("heading", { level: 1, name: "Sign in" })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: "Sign in", exact: true })).toBeVisible();
       const doors = page.getByRole("navigation", { name: "Other ways to sign in" }).getByRole("button");
       await expect(doors.first()).toBeVisible();
       const boxes = await doors.evaluateAll((all) => all.map((door) => door.getBoundingClientRect().width));
@@ -213,11 +214,11 @@ for (const size of SIZES) {
       // And back to the password with the keyboard; the title takes focus, as it does on every screen.
       await page.getByRole("button", { name: "With a password" }).focus();
       await page.keyboard.press("Enter");
-      await expect(page.getByRole("heading", { level: 1, name: "Sign in" })).toBeFocused();
+      await expect(page.getByRole("heading", { level: 1, name: "Sign in", exact: true })).toBeFocused();
       await expect(page.getByLabel("Username or email")).toBeVisible();
     });
 
-    test("a company's door and an account's second step are the same slab", async ({ page }, testInfo) => {
+    withAccounts("a company's door and an account's second step are the same slab", async ({ page }, testInfo) => {
       const project = testInfo.project.name;
       await page.route("**/api/auth/oidc/providers", (route) => route.fulfill({ json: { providers: [{ name: "corp", label: "Acme SSO", protocol: "oidc" }] } }));
       await page.route("**/api/auth/login", (route) => {
@@ -244,6 +245,20 @@ for (const size of SIZES) {
       await expectSlab(page, size.width);
       await capture(page, project, size.name, "second-factor");
       await expectNoA11yViolations(page, `an account's second step at ${size.name}px`);
+    });
+
+    test("a server with no account opens on the access token, in the same slab, with no doors to leave it by", async ({ page }, testInfo) => {
+      // Nobody has a name to give yet: the token is the way in, as the installer's link says, and the account form is
+      // not a place this page has to go back to.
+      await page.goto("/login");
+      await expect(page.getByRole("heading", { level: 1, name: "Sign in with the access token", exact: true })).toBeVisible();
+      await expect(page.getByLabel("Access token")).toBeFocused();
+      await settle(page);
+      await expectSlab(page, size.width);
+      await expect(page.getByRole("navigation", { name: "Other ways to sign in" })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "With a password" })).toHaveCount(0);
+      await capture(page, testInfo.project.name, size.name, "token-first");
+      await expectNoA11yViolations(page, `the sign-in of a server with no account at ${size.name}px`);
     });
 
     test("the invitation, the new password and the first account are the same slab", async ({ page, consoleServer }, testInfo) => {

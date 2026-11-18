@@ -216,7 +216,8 @@ test("a company's logo and then a photograph take the space of the drawing, and 
       await expect(page.locator("[data-slot='identity']").getByRole("img", { name: "Noust" })).toBeVisible();
       await expect(page.getByText("Your apps and servers, kept safe.")).toBeVisible();
       await expect(page.getByRole("contentinfo")).toContainText("Yago López Prado");
-      await expect(page.getByLabel("Username or email")).toBeVisible();
+      // The suite's server has no account, so the form a stranger meets is the access token's: a server with accounts opens on the name and password.
+      await expect(page.getByLabel("Access token")).toBeVisible();
       // And the slab is the size it was: the picture has the room the drawing had.
       const withLogo = await slabBoxes(page);
       expect(Math.abs(withLogo.slab.height - withDrawing.slab.height)).toBeLessThanOrEqual(1);

@@ -91,6 +91,8 @@ const SERVER_SETTINGS: readonly Route[] = [
   { id: "settings-access", path: "/settings/access" },
   { id: "settings-sso", path: "/settings/sso" },
   { id: "settings-approvals", path: "/settings/approvals" },
+  { id: "settings-approval-policy", path: "/settings/approval-policy" },
+  { id: "settings-assistant", path: "/settings/assistant" },
   { id: "settings-audit", path: "/settings/audit" },
   { id: "settings-compliance", path: "/settings/compliance" },
   { id: "settings-cloud", path: "/settings/cloud" },

@@ -171,8 +171,9 @@ test.describe("reporting a problem from the screen of a page that broke", () => 
     problems.expect(/A page failed to render|Cannot read|apps/);
     await page.setViewportSize({ width: 1440, height: 900 });
     await signIn(page, consoleServer, "/apps");
-    // The list answers something that is not a list: the page cannot be drawn.
-    await page.route("**/api/apps*", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ total: 1, apps: [{ domain: 5, name: null }] }) }));
+    // The list holds an entry that is nothing at all: the page cannot be drawn. (An entry whose fields have the wrong types is
+    // drawn, as an application of an unknown state and type: that is not a page that broke.)
+    await page.route("**/api/apps*", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ total: 1, apps: [null] }) }));
     await page.goto("/apps");
 
     const broken = page.getByRole("heading", { level: 1, name: "This page broke" });

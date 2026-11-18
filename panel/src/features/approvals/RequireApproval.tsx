@@ -3,21 +3,28 @@ import { useState } from "react";
 
 import { patchConfig } from "../../api/queries/config";
 import { useCan } from "../../components/page/permissions";
-import { Setting } from "../../components/ui/Setting";
+import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
+import { SectionSwitch } from "../../components/ui/SectionSwitch";
 import { useT } from "../../i18n";
 import { reportActionError } from "../apps/useAppActions";
+import { SettingsMasterSwitch } from "../settings/SettingsPrimaryAction";
 import { approvalKeys } from "./api";
 
 /**
  * The switch that makes approvals apply: calls that change the server as root wait for a second person. It was a sentence naming the
- * configuration key (`approval.enabled`) for the operator to go and set; it is the switch the sentence stood for, with its name, what it
- * does, and the one way it can go wrong. Turning it off removes a safeguard, so it asks first.
+ * configuration key (`approval.enabled`) for the operator to go and set; it is the switch the sentence stood for, with its name, and the
+ * one question that goes with it: turning it off removes a safeguard, so it asks first.
+ *
+ * It is the master switch of the page it governs, so it is where a master switch is: in the page's header, on the line of the title
+ * (docs/DESIGN.md HD-1), and not a row of its own above the queue, which made the page a third longer than the subject it holds
+ * (e2e/settings-length.spec.ts). What it does and what it risks are said by the page's own description (`ApprovalsPage`).
  */
 export function RequireApproval({ enabled }: { enabled: boolean }) {
   const t = useT();
   const queryClient = useQueryClient();
   const canChange = useCan("settings.manage");
   const [busy, setBusy] = useState(false);
+  const [asking, setAsking] = useState(false);
 
   const apply = async (value: boolean): Promise<void> => {
     setBusy(true);
@@ -29,30 +36,35 @@ export function RequireApproval({ enabled }: { enabled: boolean }) {
     }
   };
 
+  // Turning it on is a press that reports its own failure; turning it off waits in the question, which shows a failure in its words.
+  const change = (next: boolean): void => {
+    if (!next) {
+      setAsking(true);
+      return;
+    }
+    void apply(true).catch((error: unknown) => {
+      reportActionError(t("approvals.require.failed"), error);
+    });
+  };
+
+  const label = t("approvals.require.label");
   return (
-    <Setting
-      label={t("approvals.require.label")}
-      help={t("approvals.require.help")}
-      checked={enabled}
-      busy={busy}
-      // Turning it on is a press that reports its own failure; turning it off waits in the question, which shows a failure in its words.
-      onCheckedChange={(next) => {
-        if (!next) return apply(false);
-        void apply(true).catch((error: unknown) => {
-          reportActionError(t("approvals.require.failed"), error);
-        });
-        return undefined;
-      }}
-      {...(enabled
-        ? {
-            confirmOff: {
-              title: t("approvals.require.confirmTitle"),
-              description: t("approvals.require.confirmBody"),
-              actionLabel: t("approvals.require.confirmAction"),
-            },
-          }
-        : { risk: t("approvals.require.risk") })}
-      {...(!canChange ? { disabled: true as const, reason: t("approvals.require.noPermission") } : {})}
-    />
+    <SettingsMasterSwitch>
+      {canChange ? (
+        <SectionSwitch label={label} checked={enabled} busy={busy} onCheckedChange={change} />
+      ) : (
+        <SectionSwitch label={label} checked={enabled} onCheckedChange={change} disabled reason={t("approvals.require.noPermission")} />
+      )}
+      <ConfirmDialog
+        friction="simple"
+        destructive
+        open={asking}
+        onOpenChange={setAsking}
+        title={t("approvals.require.confirmTitle")}
+        description={t("approvals.require.confirmBody")}
+        actionLabel={t("approvals.require.confirmAction")}
+        onConfirm={() => apply(false)}
+      />
+    </SettingsMasterSwitch>
   );
 }
