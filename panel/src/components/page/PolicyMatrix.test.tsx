@@ -56,6 +56,17 @@ describe("PolicyCell", () => {
     expect(screen.getByText("As it has always been: choose another value and it does not come back.")).toBeInTheDocument();
   });
 
+  it("says in the assistant's cell how many of the operations only a person confirms, and says it all when none is the assistant's to do", () => {
+    const { rerender } = render(<PolicyCell rowLabel="Deploy" cell={cell({ caller: "assistant", value: "propose", default: "propose", person: 2 })} onChange={() => undefined} />);
+    expect(screen.getByText("2 of these are only confirmed by a person")).toBeInTheDocument();
+    rerender(<PolicyCell rowLabel="Deploy" cell={cell({ caller: "assistant", value: "propose", default: "propose", person: 1 })} onChange={() => undefined} />);
+    expect(screen.getByText("1 of these is only confirmed by a person")).toBeInTheDocument();
+    rerender(<PolicyCell rowLabel="Deploy" cell={cell({ caller: "assistant", value: "propose", default: "propose", person: 3, personAll: true, offered: ["propose", "never"] })} onChange={() => undefined} />);
+    expect(screen.getByText("Only a person confirms these")).toBeInTheDocument();
+    rerender(<PolicyCell rowLabel="Deploy" cell={cell({ caller: "assistant", value: "propose", default: "propose" })} onChange={() => undefined} />);
+    expect(screen.queryByText(/only confirmed by a person|Only a person confirms/)).toBeNull();
+  });
+
   it("is read-only without a handler", () => {
     render(<PolicyCell rowLabel="Back up now" cell={cell()} />);
     expect(screen.queryByRole("button")).toBeNull();

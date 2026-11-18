@@ -69,6 +69,33 @@ describe("the edits of the policy", () => {
     expect(edited?.offered).toEqual(["alone", "propose", "never"]);
   });
 
+  it("say, in the assistant's cells only, how many of the row's operations a person decides whatever the cell says", () => {
+    const mixed = table([row("apps.deploy", { operations: { total: 5, strong: 1, person: 2 } })]);
+    const model = rowModel(only(mixed), {}, "Deploy", null);
+    expect(model.cells.filter((c) => c.caller === "assistant").map((c) => [c.person, c.personAll])).toEqual([
+      [2, false],
+      [2, false],
+    ]);
+    // A token is not the assistant: it does what its cell says, so the line is not drawn for it.
+    expect(model.cells.filter((c) => c.caller === "token").map((c) => c.person)).toEqual([0, 0]);
+    // The server offered "Does it" for the rest of the row, and it is still offered.
+    expect(model.cells.find((c) => c.caller === "assistant")?.offered).toEqual(["alone", "propose", "never"]);
+  });
+
+  it("do not offer the assistant 'Does it' in a row where every operation is a person's decision, and keep what the server offered otherwise", () => {
+    const whole = table([row("apps.freeze", { operations: { total: 2, strong: 0, person: 2 } })]);
+    const cells = rowModel(only(whole), {}, "Freeze deploys", null).cells;
+    expect(cells.filter((c) => c.caller === "assistant").map((c) => [c.personAll, c.offered])).toEqual([
+      [true, ["propose", "never"]],
+      [true, ["propose", "never"]],
+    ]);
+    expect(cells.filter((c) => c.caller === "token").every((c) => c.offered.includes("alone"))).toBe(true);
+    // Nothing for a row with no such operation: the same offer as ever.
+    const none = rowModel(only(table([row("apps.operate")])), {}, "x", null).cells.find((c) => c.caller === "assistant");
+    expect(none?.person).toBe(0);
+    expect(none?.personAll).toBe(false);
+  });
+
   it("keep a row in the 'Changed' view while it has a choice or an edit", () => {
     expect(rowChanged(row("a.b"), {})).toBe(false);
     expect(rowChanged(row("a.b", { changed: true }), {})).toBe(true);

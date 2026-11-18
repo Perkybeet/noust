@@ -72,7 +72,7 @@ export const docker: Catalog<typeof en> = {
     container: "Contenedor",
     containers: "Contenedores",
     stack: "Pila",
-    noStack: "Ninguna",
+    noStack: "Sin pila",
     state: "Estado",
     owner: "Propietario",
     image: "Imagen",
@@ -186,6 +186,16 @@ export const docker: Catalog<typeof en> = {
     nameHelp: "Déjalo como está o elige otro. Es lo único que se pregunta.",
     lostTitle: "Lo que no volvería tras un reinicio",
     lostBody: "Estos no tienen una política de reinicio que los traiga de vuelta:",
+  },
+  hostAccess: {
+    linesLabel: "Lo que los contenedores de esta pila tienen de este servidor",
+    why: "Cada línea da a un contenedor algo de este servidor, y aceptarlo equivale a darle root. La excepción se puede retirar más adelante.",
+    accept: {
+      one: "Acepto que los contenedores conserven lo que les da esta línea de este servidor",
+      other: "Acepto que los contenedores conserven lo que les dan estas {count} líneas de este servidor",
+    },
+    acceptHelp: "Se registra con tu nombre y la fecha, como la excepción de esta pila.",
+    who: "Solo una cuenta con el permiso equivalente a root puede aceptarlo. Pídeselo a quien administre este servidor: no cambia nada hasta que lo haga.",
   },
   compose: {
     crumb: "Documento Compose",

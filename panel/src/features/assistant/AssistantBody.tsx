@@ -10,6 +10,7 @@ import { locationWord } from "../../components/assistant/AiMark";
 import { UsageLine } from "../../components/assistant/UsageLine";
 import type { UsageReading } from "../../components/assistant/UsageLine";
 import { ErrorBlock } from "../../components/page/QueryState";
+import { Notice } from "../../components/ui/Notice";
 import { Button } from "../../components/ui/Button";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { HelpPopover } from "../../components/ui/HelpPopover";
@@ -25,6 +26,8 @@ import { useCan } from "../../components/page/permissions";
 import { announce } from "../../app/Announcer";
 import { useT } from "../../i18n";
 import { useServerEvent } from "../../realtime/events";
+import { describeError } from "../../lib/errors";
+import { waitOf } from "./waiting";
 import { formatCount } from "../../lib/format";
 import { useSelection } from "../../nodes/useNode";
 import { applyLive, asTurn, pageBody, startLive } from "./model";
@@ -128,6 +131,23 @@ function History({ onOpen, onNew }: { onOpen: (id: string) => void; onNew: () =>
         </Button>
       </div>
     </div>
+  );
+}
+
+/**
+ * What a question that was not taken says. A server that is answering as many people as it may, or a person who already has as many
+ * answers being written as they may, is a wait and not a failure: nothing broke, and it says to wait for one to end and ask again, so it
+ * is a quiet notice with the server's own words. Anything else is an error, as it always was.
+ */
+function AskRefused({ error }: { error: unknown }) {
+  const t = useT();
+  if (waitOf(error) === null) return <ErrorBlock compact live error={error} title={t("assistant.panel.askFailed")} />;
+  const said = describeError(error);
+  return (
+    <Notice live title={t("assistant.panel.waitTitle")}>
+      <span className="block">{said.detail}</span>
+      {said.hint !== null ? <span className="block">{said.hint}</span> : null}
+    </Notice>
   );
 }
 
@@ -346,7 +366,7 @@ export function AssistantBody({ docked, onClose }: { docked: boolean; onClose: (
                 />
               ))}
             {live !== null ? <LiveView live={live} question={asked} fleet={fleet} onStop={stopTurn} /> : null}
-            {ask.isError ? <ErrorBlock compact live error={ask.error} title={t("assistant.panel.askFailed")} /> : null}
+            {ask.isError ? <AskRefused error={ask.error} /> : null}
             {decide.isError ? <ErrorBlock compact live error={decide.error} title={t("assistant.panel.decideFailed")} /> : null}
           </div>
           <div className="flex shrink-0 flex-col gap-2 border-t border-border p-3">

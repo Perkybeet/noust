@@ -232,6 +232,7 @@ export const accounts: Catalog<typeof en> = {
     cappedMaster: "Lo que podrá hacer el token",
     dropped: "Se quedan fuera, porque el propietario no puede: {permissions}.",
     droppedBound: "Se quedan fuera, porque un token atado a un equipo nunca llega al servidor: {permissions}.",
+    droppedNever: "Se queda fuera: un token nunca tiene {permissions}, que es para personas.",
     scopeDeploy: "Leer, y además desplegar y revertir aplicaciones. El de CI.",
     scopeAdmin: "Todo lo que puede un administrador, nunca más que su propietario. Ni cuentas ni configuración de seguridad.",
   },

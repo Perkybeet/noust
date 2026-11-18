@@ -704,7 +704,7 @@ export function LoginForm({ next, expired, initialWay, recoveryHelp = false, sso
     return (
       <AuthFrame
         title={t("auth.token.title")}
-        description={shownBy === "container_log" ? t("auth.token.descriptionLog") : t("auth.token.description")}
+        description={shownBy === "container_log" ? t("auth.token.descriptionLog") : shownBy === "installer" ? t("auth.token.description") : t("auth.token.descriptionServer")}
         // A server with no account has no form to go back to: the account one asks for what nobody has yet.
         {...(hasNoAccounts(session) && rootWay === "password" ? {} : { back })}
         footer={
@@ -928,10 +928,13 @@ export function LoginForm({ next, expired, initialWay, recoveryHelp = false, sso
 
   // For whoever arrives without the installer's link (item 158): where the token is and the command that issues one. While the
   // server has no account it says where the token was shown, and the command that is run where it was; once there is one the page
-  // is not told, so it says what it always said, which is true on every server.
+  // is not told, so it does not name where the token came from (a central installed as a container or from a NAS's store had no
+  // installer): it says "this server's access token", and how to issue a new one.
   const firstTime = (
     <div className="flex flex-col gap-2">
-      <p className="max-w-measure-help text-12 text-pretty text-fg-muted">{shownBy === "container_log" ? t("auth.firstTime.hintLog") : t("auth.firstTime.hint")}</p>
+      <p className="max-w-measure-help text-12 text-pretty text-fg-muted">
+        {shownBy === "container_log" ? t("auth.firstTime.hintLog") : shownBy === "installer" ? t("auth.firstTime.hint") : t("auth.firstTime.hintServer")}
+      </p>
       <CommandHint label={t("auth.firstTime.lost")} command={newToken} reason="solo-terminal" />
       {shownBy === "container_log" ? <p className="max-w-measure-help text-12 text-pretty text-fg-muted">{t("auth.firstTime.whichContainer")}</p> : null}
     </div>

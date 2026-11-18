@@ -71,7 +71,9 @@ describe("a server that has accounts", () => {
     server({ accounts_exist: true, first_start: null });
     renderConsole("/login");
     expect(await screen.findByLabelText("Username or email")).toBeInTheDocument();
-    expect(screen.getByText(/First time on this server\? Sign in with the access token the installer printed/)).toBeInTheDocument();
+    // Not told where the token was shown, so it does not name an installer: a central installed as a container or from a NAS's store had none.
+    expect(screen.getByText(/First time on this server\? Sign in with this server's access token, under/)).toBeInTheDocument();
+    expect(screen.queryByText(/installer/i)).toBeNull();
     expect(screen.getByText("noust web token --new")).toBeInTheDocument();
   });
 

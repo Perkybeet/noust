@@ -15,6 +15,15 @@ describe("CommandHint", () => {
     expect(screen.getByText("From a terminal")).toBeInTheDocument();
   });
 
+  it("lets a long command be read whole on a phone: it breaks at its spaces onto the next line and is never cut with an ellipsis", () => {
+    render(<CommandHint command="docker exec -it <container> noust web token --new" />);
+    const code = screen.getByText("docker exec -it <container> noust web token --new", { exact: false });
+    // jsdom lays nothing out: what is held is the style that lets the command wrap where it must instead of being truncated.
+    expect(code).toHaveClass("break-words");
+    expect(code).not.toHaveClass("truncate");
+    expect(code).toHaveAttribute("title", "docker exec -it <container> noust web token --new");
+  });
+
   it("copies the command alone", async () => {
     const writeText = vi.fn(() => Promise.resolve());
     vi.stubGlobal("isSecureContext", true);

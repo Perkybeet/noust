@@ -53,7 +53,7 @@ const SPECS = {
     columns: (t: T): Column<FleetContainer>[] => [
       { id: "name", header: t("docker.columns.container"), card: "title", sortValue: (row) => row.name, cell: (row) => <Mono>{row.name}</Mono> },
       { id: "state", header: t("docker.columns.state"), card: "status", width: "w-44", cell: (row) => <ContainerPill kind={row.state_kind} /> },
-      { id: "stack", header: t("docker.columns.stack"), card: "meta", hideBelow: "lg", cell: (row) => (row.project === "" ? t("docker.columns.noStack") : <Mono>{row.project}</Mono>) },
+      { id: "stack", header: t("docker.columns.stack"), card: "meta", hideBelow: "lg", cell: (row) => (row.project === "" ? <span className="text-fg-muted">{t("docker.columns.noStack")}</span> : <Mono>{row.project}</Mono>) },
       { id: "owner", header: t("docker.columns.owner"), card: "meta", cell: (row) => <OwnerCell owner={row.owner} /> },
     ],
     keep: (row: FleetContainer, search: DockerListProps["search"]) =>

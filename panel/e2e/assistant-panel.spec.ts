@@ -147,9 +147,18 @@ serial.describe("The assistant's panel", () => {
     // Whatever the model wrote, nothing of it is markup: the tag is on screen as the characters it is.
     await expect(answer).toContainText('<img src=x onerror="alert(1)">');
     expect(await panel.locator("img, script, iframe").count()).toBe(0);
-    // A link shows where it goes, and a destination that is not a web address is no link.
-    await expect(answer.getByRole("link", { name: /https:\/\/noust\.example\/docs/ })).toHaveAttribute("href", "https://evil.example.net/login");
+    // A link that is not the product's own documentation shows where it goes and opens only on a second gesture: it is a button that
+    // shows the whole address, and the link that opens it is inside. A destination that is not a web address is no link at all.
+    await expect(answer.getByRole("link", { name: /https:\/\/noust\.example\/docs/ })).toHaveCount(0);
     await expect(answer.getByText("(evil.example.net)")).toBeVisible();
+    await answer.getByRole("button", { name: /https:\/\/noust\.example\/docs/ }).click();
+    const far = page.getByRole("dialog", { name: "This link goes to another site" });
+    await expect(far.getByText("https://evil.example.net/login")).toBeVisible();
+    await expect(far.getByRole("link", { name: /Open it in a new tab/ })).toHaveAttribute("href", "https://evil.example.net/login");
+    await settle(page);
+    await expectNoA11yViolations(page, "the panel with the address of a link shown whole");
+    await page.keyboard.press("Escape");
+    await expect(far).toBeHidden();
     await expect(answer.getByRole("link", { name: /run me/ })).toHaveCount(0);
     await expect(answer.getByText("[image not shown: tracking pixel]")).toBeVisible();
     // It says it is an AI, with the model and where it runs.

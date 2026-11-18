@@ -95,7 +95,7 @@ export function ContainersPage({ search, onSearchChange }: DockerListProps) {
       sortValue: (row) => stateView(row.state_kind).word,
       cell: (row) => <ContainerPill kind={row.state_kind} />,
     },
-    { id: "stack", header: t("docker.columns.stack"), card: "meta", hideBelow: "lg", sortValue: (row) => row.project, cell: (row) => (row.project === "" ? t("docker.columns.noStack") : <StackLink name={row.project} />) },
+    { id: "stack", header: t("docker.columns.stack"), card: "meta", hideBelow: "lg", sortValue: (row) => row.project, cell: (row) => (row.project === "" ? <span className="text-fg-muted">{t("docker.columns.noStack")}</span> : <StackLink name={row.project} />) },
     { id: "owner", header: t("docker.columns.owner"), card: "meta", cell: (row) => <OwnerCell owner={row.owner} /> },
     ...(showsUsage
       ? [

@@ -19,6 +19,9 @@ export const assistant = {
   },
   message: {
     opensInNewTab: "(opens in a new tab)",
+    farTitle: "This link goes to another site",
+    farBody: "The assistant wrote it. Read the address, and open it only if you mean to.",
+    openFar: "Open it in a new tab",
     notALink: "(not a link: only web addresses open)",
     destination: "Goes to {host}",
     codeLabel: "Code the assistant wrote. Read it before you run it.",
@@ -150,6 +153,7 @@ export const assistant = {
     empty: "Ask whatever you want to know about this server. It reads what you let it read and tells you what it found.",
     onlyExplains: "This model only explains what you show it: it does not investigate or propose changes.",
     askFailed: "Could not send the question",
+    waitTitle: "Wait a moment before asking again",
     decideFailed: "Could not decide the proposal",
     announce: { done: "The assistant answered" },
     context: {

@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { renderConsole } from "../../test/console";
 import { SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
+import type { RouteHandler } from "../../test/fakes";
 import { onDesktop, serverRoutes } from "../server/testing";
 import { canGoAhead } from "./UpdateImageDialog";
 import { NOBODY, SHOP, dockerRoutes, dockerSession, image, stack } from "./testing";
@@ -243,6 +244,88 @@ describe("bringing a stack to Noust", () => {
     open("/server/docker/stacks", { stacks: [stack("shop-example-com", SHOP)] });
     await screen.findByText("shop-example-com");
     expect(screen.queryByRole("button", { name: "Bring to Noust…" })).not.toBeInTheDocument();
+  });
+
+  describe("a stack that runs with what gives this server to its containers", () => {
+    const LINES = ["service app mounts the Docker socket", "service app is privileged"];
+    /** The 409 the server answers: the lines of the Compose file, one by one, and the sentence it says of them. */
+    const refusal = () =>
+      json(409, {
+        error: "adoptionrefusederror",
+        detail: "Adopting nextcloud puts under Noust a stack whose containers have what is on this server",
+        hint: "service app mounts the Docker socket\nservice app is privileged\n\nEach line above gives a container something of this server. Go on knowing that: noust docker stack bring nextcloud --accept-host-access",
+        fields: null,
+        output: null,
+        host_access: LINES,
+        coded: { code: "compose_guard.adopt_host_access", params: { domain: "nextcloud", lines: LINES.map((line) => `- ${line}`).join("\n"), command: "noust docker stack bring nextcloud --accept-host-access" } },
+      });
+
+    function withLines(extra: Parameters<typeof dockerRoutes>[0] = {}, permissions?: string[]) {
+      const base = dockerSession(true);
+      const session = permissions === undefined ? base : { ...base, permissions };
+      const backend = fakeBackend({
+        ...signedInRoutes(session),
+        ...serverRoutes(),
+        ...dockerRoutes({
+          stacks: [stack("nextcloud", NOBODY, { total: 4, running: 3 })],
+          "POST /api/docker/stacks/nextcloud/bring/preview": ((call) => ((call.body as { accept_host_access?: boolean }).accept_host_access === true ? json(200, { ...PREVIEW, warnings: ["Recorded as accepted by admin: the containers of nextcloud keep what they have of this server (2)."] }) : refusal())) satisfies RouteHandler,
+          "POST /api/docker/stacks/nextcloud/bring": () => json(200, { ...PREVIEW, preview: false, adopted: true }),
+          ...extra,
+        }),
+      });
+      return { ...renderConsole("/server/docker/stacks"), backend };
+    }
+
+    it("lists each line as what it gives this server, with the server's sentence, and offers no way to go on until it is accepted", async () => {
+      const { user, backend } = withLines();
+      await user.click(await screen.findByRole("button", { name: "Bring to Noust…" }));
+      const dialog = await screen.findByRole("alertdialog", { name: "Bring nextcloud to Noust" });
+      expect(await within(dialog).findByText("Adopting nextcloud puts under Noust a stack whose containers have what is on this server")).toBeInTheDocument();
+      const list = within(dialog).getByRole("list", { name: "What the containers of this stack have of this server" });
+      expect(within(list).getAllByRole("listitem").map((item) => item.textContent)).toEqual(LINES);
+      // Not the error block with the command of the terminal: the way to go on is the box, beside what it accepts.
+      expect(within(dialog).queryByText(/--accept-host-access/)).not.toBeInTheDocument();
+      expect(within(dialog).getByRole("checkbox", { name: /I accept that the containers keep what these 2 lines give them of this server/ })).not.toBeChecked();
+      expect(within(dialog).getByRole("button", { name: "Bring to Noust" })).toBeDisabled();
+      expect(backend.callsTo("POST /api/docker/stacks/nextcloud/bring")).toHaveLength(0);
+    });
+
+    it("looks again accepting them when the box is ticked, and brings it with the acceptance", async () => {
+      const { user, backend } = withLines();
+      await user.click(await screen.findByRole("button", { name: "Bring to Noust…" }));
+      const dialog = await screen.findByRole("alertdialog", { name: "Bring nextcloud to Noust" });
+      await user.click(await within(dialog).findByRole("checkbox", { name: /I accept that the containers keep/ }));
+      expect(await within(dialog).findByText("/srv/nextcloud/compose.yaml")).toBeInTheDocument();
+      expect(backend.callsTo("POST /api/docker/stacks/nextcloud/bring/preview").map((call) => (call.body as { accept_host_access: boolean }).accept_host_access)).toEqual([false, true]);
+      // What was listed stays on screen after it is accepted: it is what is being accepted.
+      expect(within(dialog).getByRole("list", { name: "What the containers of this stack have of this server" })).toBeInTheDocument();
+      expect(within(dialog).getByText(/Recorded as accepted by admin/)).toBeInTheDocument();
+      await user.click(within(dialog).getByRole("button", { name: "Bring to Noust" }));
+      await waitFor(() => {
+        expect(backend.callsTo("POST /api/docker/stacks/nextcloud/bring")).toHaveLength(1);
+      });
+      expect(backend.callsTo("POST /api/docker/stacks/nextcloud/bring")[0]?.body).toEqual({ preview: false, accept_recreate: false, accept_host_access: true });
+    });
+
+    it("says who can accept them, with nothing to tick, to an account that does not hold the permission", async () => {
+      const { user, backend } = withLines({}, ["self", "apps.read", "apps.manage", "docker.read", "docker.manage"]);
+      await user.click(await screen.findByRole("button", { name: "Bring to Noust…" }));
+      const dialog = await screen.findByRole("alertdialog", { name: "Bring nextcloud to Noust" });
+      expect(await within(dialog).findByText(/Only an account that holds the root-equivalent permission can accept this/)).toBeInTheDocument();
+      expect(within(dialog).getAllByRole("listitem")).toHaveLength(2);
+      expect(within(dialog).queryByRole("checkbox")).not.toBeInTheDocument();
+      expect(within(dialog).getByRole("button", { name: "Bring to Noust" })).toBeDisabled();
+      expect(backend.callsTo("POST /api/docker/stacks/nextcloud/bring")).toHaveLength(0);
+    });
+
+    it("does not touch a stack that runs with nothing of the kind: no box, and the plan as it always was", async () => {
+      const { user } = withLines({ "POST /api/docker/stacks/nextcloud/bring/preview": () => json(200, PREVIEW) });
+      await user.click(await screen.findByRole("button", { name: "Bring to Noust…" }));
+      const dialog = await screen.findByRole("alertdialog", { name: "Bring nextcloud to Noust" });
+      expect(await within(dialog).findByText("/srv/nextcloud/compose.yaml")).toBeInTheDocument();
+      expect(within(dialog).queryByRole("checkbox")).not.toBeInTheDocument();
+      expect(within(dialog).getByRole("button", { name: "Bring to Noust" })).toBeEnabled();
+    });
   });
 });
 

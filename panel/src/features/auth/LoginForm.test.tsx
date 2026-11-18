@@ -36,11 +36,11 @@ const ACCOUNT = {
 const ANA = { ...SESSION, account: ACCOUNT, role: "operator", grant: null, permissions: ["self", "apps.read", "apps.operate", "apps.deploy"] };
 
 /** The master token with two-factor on: a signed-out session until a login succeeds. */
-function tokenBackend() {
+function tokenBackend(signedOut: typeof SIGNED_OUT = SIGNED_OUT) {
   let signedIn = false;
   const backend = fakeBackend({
     ...signedInRoutes(),
-    "GET /api/auth/session": () => json(200, signedIn ? SESSION : SIGNED_OUT),
+    "GET /api/auth/session": () => json(200, signedIn ? SESSION : signedOut),
     "POST /api/auth/login": (call: RecordedCall) => {
       const body = call.body as { token: string; totp_code?: string };
       if (body.token !== TOKEN) return problem(401, "invalid_token", "Invalid token.");
@@ -363,8 +363,9 @@ describe("sign-in with an account", () => {
     accountBackend();
     renderConsole("/login");
     await screen.findByLabelText("Username or email");
-    // A fixed sentence, the same on every server: the page does not say whether there are accounts.
-    expect(screen.getByText(/First time on this server\? Sign in with the access token the installer printed/)).toBeInTheDocument();
+    // A fixed sentence, the same on every server: the page does not say whether there are accounts, nor where the token was shown.
+    expect(screen.getByText(/First time on this server\? Sign in with this server's access token, under/)).toBeInTheDocument();
+    expect(screen.queryByText(/installer/i)).toBeNull();
     expect(screen.getByText("noust web token --new")).toBeInTheDocument();
     expect(screen.getByText(/Lost it\? Issue a new one on the server; the old one stops working\./)).toBeInTheDocument();
   });
@@ -605,8 +606,18 @@ describe("the access token", () => {
     ]);
   });
 
-  it("opens on the token, with the field ready, from the link the installer prints, and warns of nothing", async () => {
+  it("does not say where the token came from when the server does not say it: it is this server's access token, and a new one is one command away", async () => {
+    // A central installed as a container or from a NAS's store had no installer: once there are accounts the page is not told.
     tokenBackend();
+    renderConsole("/login?with=token");
+    expect(await screen.findByRole("heading", { level: 1, name: "Sign in with the access token" })).toBeInTheDocument();
+    expect(screen.getByText("Paste this server's access token.")).toBeInTheDocument();
+    expect(screen.getByText("noust web token --new")).toBeInTheDocument();
+    expect(screen.queryByText(/installer printed/i)).toBeNull();
+  });
+
+  it("opens on the token, with the field ready, from the link the installer prints, and warns of nothing", async () => {
+    tokenBackend({ ...SIGNED_OUT, accounts_exist: false, first_start: { token_shown_by: "installer" } });
     renderConsole("/login?with=token");
     expect(await screen.findByRole("heading", { level: 1, name: "Sign in with the access token" })).toBeInTheDocument();
     await waitFor(() => {

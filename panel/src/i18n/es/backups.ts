@@ -441,6 +441,23 @@ export const backups: Catalog<typeof en> = {
     local: { label: "Ruta local", description: "Otro directorio o sistema de archivos montado en esta máquina." },
   },
 
+  pending: {
+    state: "Pendiente de enviar a {destination}",
+    stateMany: "Pendiente de enviar a {count} destinos",
+    next: "Se reintenta {when}",
+    dueNow: "Se reintenta en la próxima pasada",
+    helpLabel: "Por qué aún no se ha enviado",
+    helpTitle: "Esperando a enviarse",
+    explain: "La copia se conserva en este servidor y se vuelve a enviar sola. La retención no la borra mientras se deba.",
+    said: "Lo que dijo {destination}",
+    since: "Falló por primera vez {when}",
+    attempts: { one: "Se ha reintentado una vez desde entonces", other: "Se ha reintentado {count} veces desde entonces" },
+    notRetried: "Aún no se ha reintentado",
+    permanent: "Esperar no lo arregla: hace falta un cambio en el destino.",
+    column: "Sin enviar aún",
+    none: "No hay nada pendiente de enviar",
+  },
+
   toast: {
     createError: "No se pudo poner en cola una copia de seguridad de {domain}",
     backupQueuedDescription: "Se te avisará cuando termine la copia de seguridad.",

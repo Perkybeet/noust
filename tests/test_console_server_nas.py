@@ -197,3 +197,88 @@ class TestWhatTheCheckFinds:
         self.checks(tmp_path, None)
 
         assert not list((tmp_path / "apps").glob(".noust-witness-*"))
+
+
+class TestAClientInsideAStacksContainer:
+    """
+    What the database of a stack answers on a NAS, where the central's own container has no database client.
+
+    On a real machine the client of a stack's database runs inside the stack's container, which has it, so the
+    central's missing ``psql`` is not what the Databases page meets. The model said "Command not found: psql"
+    because the programs of the central's container were asked about the client of another container.
+    """
+
+    def inside(self, tmp_path: Path, *client: str):
+        from noust.managers.database.instances import CLIENT_SCRIPT
+        from scripts.console_server import host_profile
+        from scripts.console_server.engine_settings import DB_CONTAINER_NAME
+
+        runner = make_runner(
+            {},
+            {},
+            {},
+            [],
+            tmp_path / "units",
+            programs=(*(host_profile.CONTAINER.programs or ()), "docker"),
+        )
+        # What Noust builds for a client inside a container: the script, then the mode, the variable, the
+        # sources, the programs to try and the program's own arguments.
+        argv = [
+            "docker",
+            "exec",
+            "-i",
+            DB_CONTAINER_NAME,
+            "sh",
+            "-c",
+            CLIENT_SCRIPT,
+            "sh",
+            "stdin",
+            "-",
+            "-",
+            client[0],
+            *client[1:],
+        ]
+        return runner.run(argv)
+
+    def test_the_central_has_no_psql_and_the_stacks_database_answers_all_the_same(
+        self, tmp_path: Path
+    ) -> None:
+        result = self.inside(
+            tmp_path,
+            "psql",
+            "-U",
+            "catalogo",
+            "-d",
+            "postgres",
+            "-At",
+            "-c",
+            "SELECT datname FROM pg_database",
+        )
+
+        assert result.exit_code == 0
+        # The container's own databases, with the owner and the size the model gives them.
+        assert "catalogo|UTF8|31457280" in result.stdout
+
+    def test_it_says_it_accepts_connections_and_dumps_what_it_holds(self, tmp_path: Path) -> None:
+        ready = self.inside(tmp_path, "pg_isready", "-U", "catalogo")
+        dump = self.inside(tmp_path, "pg_dump", "-U", "catalogo", "-d", "catalogo", "-Fc")
+
+        assert ready.exit_code == 0 and "accepting connections" in ready.stdout
+        assert dump.exit_code == 0 and dump.stdout != ""
+
+    def test_the_central_itself_still_has_no_database_client(self, tmp_path: Path) -> None:
+        from scripts.console_server import host_profile
+
+        runner = make_runner(
+            {},
+            {},
+            {},
+            [],
+            tmp_path / "units",
+            programs=(*(host_profile.CONTAINER.programs or ()), "docker"),
+        )
+
+        missing = runner.run(["psql", "-U", "postgres", "-c", "SELECT 1"])
+
+        assert missing.exit_code == 127
+        assert "Command not found: psql" in missing.stderr

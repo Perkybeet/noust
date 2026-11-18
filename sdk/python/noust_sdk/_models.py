@@ -13238,6 +13238,7 @@ NoustWebApiAuthRolesResponse = TypedDict("NoustWebApiAuthRolesResponse", {
     "permissions": Required[dict[str, str]],
     "roles": Required[dict[str, list[str]]],
     "tenant_permissions": NotRequired[list[str]],
+    "token_never": NotRequired[list[str]],
     "token_presets": NotRequired[list["TokenPresetInfo"]],
 })
 

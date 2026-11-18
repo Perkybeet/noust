@@ -97,10 +97,17 @@ describe("how a server reads in the list", () => {
     });
   });
 
+  it("tells a server whose access level does not let its central collect as something to look at, not as a failure of collecting", () => {
+    expect(nodeView(node({ last_error: "web-2 does not let this central collect its copies", last_error_code: "ceiling" }))).toEqual({
+      status: "warning",
+      label: "centralBackups.servers.state.ceiling",
+      hint: "centralBackups.servers.hint.ceiling",
+    });
+  });
+
   it.each([
     ["unreachable", "unreachable"],
     ["refused", "refused"],
-    ["ceiling", "ceiling"],
     ["disk_full", "diskFull"],
     ["mismatch", "mismatch"],
   ])("tells %s with its own words and its fix", (code, key) => {

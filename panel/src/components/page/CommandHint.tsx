@@ -42,7 +42,8 @@ export function CommandHint({ command, label, reason, className }: CommandHintPr
     <div {...(reason !== undefined ? { "data-reason": reason } : {})} className={cx("flex max-w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-1", className)}>
       {lead !== undefined ? <span className="text-12 text-fg-faint">{lead}</span> : null}
       <div className="flex max-w-full min-w-0 items-center gap-1 rounded-control border border-border bg-bg-sunken py-0.5 pr-0.5 pl-2.5">
-        <code translate="no" className="truncate text-12 text-fg-muted" title={command}>
+        {/* A command is read whole to be trusted and typed: on a phone it breaks onto the next line, and is never cut with an ellipsis. */}
+        <code translate="no" className="min-w-0 py-1 text-12 leading-4 break-words text-fg-muted" title={command}>
           <span aria-hidden="true" className="text-fg-faint select-none">
             ${" "}
           </span>

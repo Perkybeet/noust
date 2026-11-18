@@ -301,8 +301,9 @@ function SandboxCard({ app, sandbox }: { app: App; sandbox: Sandbox }) {
 
 /**
  * A compose stack builds inside Docker, not in the sandbox; what is guarded instead is what
- * would be root on the server (privileged containers, the Docker socket), refused unless this
- * stack was allowed it, with a reason.
+ * would be root on the server (privileged mode, the Docker socket, devices, folders outside the
+ * application), refused unless this stack was allowed it, with a reason: who allowed it and when is
+ * what the card says, for a stack adopted with it as much as for one allowed by hand.
  */
 function ComposeCard({ app, sandbox }: { app: App; sandbox: Sandbox }) {
   const t = useT();

@@ -30,7 +30,7 @@ import { Textarea } from "../../../components/ui/Textarea";
 import { locationWord } from "../../../components/assistant/AiMark";
 import { useT } from "../../../i18n";
 import { LimitsFields } from "./LimitsFields";
-import { OTHER_ADDRESS, draftFrom, isOwn, limitsBody, modelBody, modelMissing } from "./model";
+import { OTHER_ADDRESS, draftFrom, isOwn, keyWentWith, keyWouldGo, limitsBody, modelBody, modelMissing } from "./model";
 import type { Draft, Origin } from "./model";
 import { ProbeResult } from "./ProbeResult";
 import type { Step } from "./search";
@@ -57,7 +57,8 @@ function ModelStep({ draft, onDraft, settings, onTested }: { draft: Draft; onDra
   const ens = session.data?.security_profile === "ens-medium";
   const own = isOwn(draft.origin);
   const preset = presets.data?.presets.find((candidate) => candidate.id === draft.preset);
-  const testing = useMutation({
+  // The variable is whether a key was saved when the request was sent: the answer says only what is left, and a key that went is told as what happened.
+  const testing = useMutation<AssistantSettings, Error, boolean>({
     mutationFn: () => saveAssistantSettings(modelBody(draft, preset)),
     onSuccess: (saved) => {
       queryClient.setQueryData(assistantKeys.settings, saved);
@@ -98,9 +99,12 @@ function ModelStep({ draft, onDraft, settings, onTested }: { draft: Draft; onDra
         <Input mono value={draft.baseUrl} placeholder="https://api.example.org/v1" onChange={(event) => onDraft({ ...draft, baseUrl: event.target.value, preset: OTHER_ADDRESS })} />
       </Field>
       {own ? (
-        <Checkbox label={t("assistantSettings.model.allowPrivate")} description={t("assistantSettings.model.allowPrivateHelp")} checked={draft.allowPrivate} onCheckedChange={(checked) => onDraft({ ...draft, allowPrivate: checked })} />
+        <div className="flex flex-col gap-2">
+          <Checkbox label={t("assistantSettings.model.allowPrivate")} description={t("assistantSettings.model.allowPrivateHelp")} checked={draft.allowPrivate} onCheckedChange={(checked) => onDraft({ ...draft, allowPrivate: checked })} />
+          {settings.private_host !== "" ? <p className="pl-8 text-12 text-pretty text-fg-muted">{t("assistantSettings.model.privateConsented", { host: settings.private_host })}</p> : null}
+        </div>
       ) : (
-        <Field label={t("assistantSettings.model.key")} description={settings.has_key && draft.apiKey === "" ? t("assistantSettings.model.keySaved") : t("assistantSettings.model.keyHelp")} optional={preset?.needs_key === false}>
+        <Field label={t("assistantSettings.model.key")} description={keyWouldGo(settings, draft) ? t("assistantSettings.model.keyOther") : settings.has_key && draft.apiKey === "" ? t("assistantSettings.model.keySaved") : t("assistantSettings.model.keyHelp")} optional={preset?.needs_key === false}>
           <Input mono type="password" autoComplete="off" spellCheck={false} value={draft.apiKey} onChange={(event) => onDraft({ ...draft, apiKey: event.target.value })} />
         </Field>
       )}
@@ -135,12 +139,17 @@ function ModelStep({ draft, onDraft, settings, onTested }: { draft: Draft; onDra
       ) : null}
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-3">
-          <Button variant="secondary" icon={<VERB_ICONS.test aria-hidden="true" />} loading={testing.isPending} onClick={() => (missing === null && can("settings.manage") ? testing.mutate() : undefined)} aria-disabled={missing !== null || undefined}>
+          <Button variant="secondary" icon={<VERB_ICONS.test aria-hidden="true" />} loading={testing.isPending} onClick={() => (missing === null && can("settings.manage") ? testing.mutate(settings.has_key) : undefined)} aria-disabled={missing !== null || undefined}>
             {t("assistantSettings.model.test")}
           </Button>
           <p className="min-w-0 flex-1 text-13 text-pretty text-fg-muted">{missing !== null ? t("assistantSettings.model.missingAddress") : t("assistantSettings.model.testHelp")}</p>
         </div>
         {testing.isError ? <ErrorBlock compact live error={testing.error} title={t("assistantSettings.model.testFailed")} /> : null}
+        {testing.isSuccess && keyWentWith(testing.variables, testing.data) ? (
+          <Notice live title={t("assistantSettings.model.keyWent.title")}>
+            {t("assistantSettings.model.keyWent.body")}
+          </Notice>
+        ) : null}
       </div>
       {settings.probe !== null && settings.probe !== undefined && !testing.isPending ? <ProbeResult probe={settings.probe} /> : null}
     </div>

@@ -88,3 +88,58 @@ describe("what the month cost, read with the settings", () => {
     expect(screen.queryByText(/The month's quota belongs to the instance/)).not.toBeInTheDocument();
   });
 });
+
+describe("the address you allowed, and the key that stays with its provider", () => {
+  const SERVICE: AssistantSettings = { ...SETTINGS, enabled: true, base_url: "https://api.example.org/v1", has_key: true, location: "eu", model: "big-model", prices: {} };
+  const ON = { enabled: true, can_use: true, tools: true, reason: null, model: "big-model", location: "eu", mask_personal: true };
+
+  it("says the host and port that were allowed beside the provider, with what the permission is for", async () => {
+    open("/settings/assistant", administrator(ON), { "GET /api/assistant/settings": () => json(200, { ...SETTINGS, private_host: "localhost:11434" }) });
+    const facts = await screen.findByRole("region", { name: "The model" });
+    expect(within(facts).getByText("Allowed address")).toBeInTheDocument();
+    expect(within(facts).getByText("localhost:11434")).toBeInTheDocument();
+    expect(within(facts).getByText(/for the assistant and for nothing else/)).toBeInTheDocument();
+  });
+
+  it("draws no such line while no address was allowed", async () => {
+    open("/settings/assistant", administrator(ON));
+    await screen.findByText("tiny-model");
+    expect(screen.queryByText("Allowed address")).not.toBeInTheDocument();
+  });
+
+  it("warns before saving that the key is for the previous provider, and stops warning once this provider's key is typed", async () => {
+    const { user } = open("/settings/assistant?step=model", administrator(ON), { "GET /api/assistant/settings": () => json(200, SERVICE) });
+    const address = await screen.findByLabelText("Address");
+    expect(screen.getByText(/A key is saved\. Leave this empty to keep it/)).toBeInTheDocument();
+    await user.clear(address);
+    await user.type(address, "https://api.other.example.net/v1");
+    expect(screen.getByText("The saved key is for the previous provider and is not kept for this one: type this provider's key.")).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Key"), "sk-for-this-one");
+    expect(screen.queryByText(/is for the previous provider/)).not.toBeInTheDocument();
+  });
+
+  it("does not warn for a change of path only: the key stays", async () => {
+    const { user } = open("/settings/assistant?step=model", administrator(ON), { "GET /api/assistant/settings": () => json(200, SERVICE) });
+    const address = await screen.findByLabelText("Address");
+    await user.clear(address);
+    await user.type(address, "https://api.example.org/v2");
+    expect(screen.queryByText(/is for the previous provider/)).not.toBeInTheDocument();
+    expect(screen.getByText(/A key is saved\. Leave this empty to keep it/)).toBeInTheDocument();
+  });
+
+  it("says after saving, as what happened and not as an error, that the key went and the assistant is off", async () => {
+    const { user, backend } = open("/settings/assistant?step=model", administrator(ON), {
+      "GET /api/assistant/settings": () => json(200, SERVICE),
+      "PUT /api/assistant/settings": () => json(200, { ...SERVICE, base_url: "https://api.other.example.net/v1", has_key: false, enabled: false }),
+    });
+    const address = await screen.findByLabelText("Address");
+    await user.clear(address);
+    await user.type(address, "https://api.other.example.net/v1");
+    await user.click(screen.getByRole("button", { name: "Test the connection" }));
+    const said = await screen.findByText("The saved key was for the previous provider");
+    expect(said.closest("[data-tone]")).toHaveAttribute("data-tone", "info");
+    expect(screen.getByText(/the assistant is off until you give this provider's key\. Nothing failed\./)).toBeInTheDocument();
+    expect(screen.queryByText("Could not test the connection")).not.toBeInTheDocument();
+    expect(backend.callsTo("PUT /api/assistant/settings")[0]?.body).not.toHaveProperty("api_key");
+  });
+});

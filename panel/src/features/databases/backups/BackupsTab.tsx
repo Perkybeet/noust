@@ -35,8 +35,10 @@ import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { useT } from "../../../i18n";
 import type { PlainKey, T } from "../../../i18n";
 import { formatBytes } from "../../../lib/format";
+import { anyPending, pendingSendsOf } from "../../../lib/pendingSends";
 import { useNode } from "../../../nodes/useNode";
 import { reportActionError } from "../../apps/useAppActions";
+import { PendingSendsCell } from "../../backups/PendingSends";
 import { can, engineName, isSlotEngine } from "../engines";
 import { engineFamilyOf } from "../engineKey";
 import { useDatabaseJob } from "../jobs";
@@ -543,6 +545,10 @@ export function BackupsTab({ engine, name }: { engine: string; name: string }) {
                     </span>
                   ),
               },
+              // Only while some dump is owed to a destination, and not hidden on a phone: it is the state of the copy.
+              ...(anyPending(rows)
+                ? [{ id: "sending", header: t("backups.pending.column"), width: "w-48", card: "meta" as const, cell: (dump: DatabaseBackup) => <PendingSendsCell sends={pendingSendsOf(dump)} /> }]
+                : []),
               {
                 id: "size",
                 header: t("databases.dumps.size"),

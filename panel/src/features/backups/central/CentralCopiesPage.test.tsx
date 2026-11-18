@@ -115,10 +115,13 @@ describe("the copies on the central", () => {
     const servers = await screen.findByRole("region", { name: "How collecting is going with each server" });
     expect(within(servers).getByText("Up to date")).toBeInTheDocument();
     expect(within(servers).getByText("Only database dumps")).toBeInTheDocument();
-    // A refusal says it in its own words and then the server's, verbatim, with the fix above them.
-    expect(within(servers).getByText("Its access level does not allow it")).toBeInTheDocument();
-    expect(within(servers).getByText(/noust fleet access/)).toBeInTheDocument();
-    expect(within(servers).getByText("403: the access level of db-1 does not allow reading copies")).toBeInTheDocument();
+    // A server whose access level does not let the central collect says so in its own row, with the fix: the others go on being collected,
+    // so it is a warning and not a failed collection, and Noust's own sentence is not printed again as if a program had said it.
+    const refusing = within(servers).getByText("db-1").closest("tr") as HTMLElement;
+    expect(within(refusing).getByText("Its access level does not allow it").closest("[data-state]")).toHaveAttribute("data-state", "warning");
+    expect(within(refusing).getByText(/noust fleet access/)).toBeInTheDocument();
+    expect(within(refusing).queryByText("403: the access level of db-1 does not allow reading copies")).not.toBeInTheDocument();
+    expect(within(servers).getByText("web-2").closest("tr")?.querySelector("[data-state='failed']")).toBeNull();
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     await expectNoAxeViolations(screen.getByRole("main"));
   });

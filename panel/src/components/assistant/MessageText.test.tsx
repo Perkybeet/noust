@@ -1,4 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { useT } from "../../i18n";
@@ -36,14 +37,44 @@ describe("MessageText", () => {
     expect(document.querySelector("img")).toBeNull();
   });
 
-  it("shows where a link really goes, whatever its label says, and opens it only when pressed", () => {
-    render(<MessageText text="[https://noust.example/docs](https://evil.example.net/login)" />);
-    const link = screen.getByRole("link", { name: /https:\/\/noust\.example\/docs/ });
-    expect(link).toHaveAttribute("href", "https://evil.example.net/login");
-    expect(link).toHaveAttribute("rel", "noopener noreferrer nofollow");
-    expect(link).toHaveAttribute("target", "_blank");
+  it("makes no link of an address that is not the product's own documentation until a second gesture: the whole address is shown first, whatever the label says", async () => {
+    const user = userEvent.setup();
+    render(<MessageText text="[https://noust.example/docs](https://evil.example.net/login?next=/apps&token=abc)" />);
+    // Nothing to follow yet: the label is a button, and the browser has no link to open by one press.
+    expect(screen.queryByRole("link")).toBeNull();
     // The host it goes to is drawn beside it, in view, not in a tooltip.
     expect(screen.getByText("(evil.example.net)")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: /https:\/\/noust\.example\/docs/ }));
+    const check = await screen.findByRole("dialog", { name: "This link goes to another site" });
+    // The whole address, as the browser would read it, and the one link that opens it, which is the second gesture.
+    expect(within(check).getByText("https://evil.example.net/login?next=/apps&token=abc")).toBeVisible();
+    const open = within(check).getByRole("link", { name: /Open it in a new tab/ });
+    expect(open).toHaveAttribute("href", "https://evil.example.net/login?next=/apps&token=abc");
+    expect(open).toHaveAttribute("rel", "noopener noreferrer nofollow");
+    expect(open).toHaveAttribute("target", "_blank");
+  });
+
+  it("opens a link to the product's own documentation as a link, with the host beside it as ever", () => {
+    render(<MessageText text="See [the guide to hooks](https://github.com/Perkybeet/noust/blob/main/docs/compose.md#hooks)." />);
+    const link = screen.getByRole("link", { name: /the guide to hooks/ });
+    expect(link).toHaveAttribute("href", "https://github.com/Perkybeet/noust/blob/main/docs/compose.md#hooks");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer nofollow");
+    expect(screen.getByText("(github.com)")).toBeVisible();
+    expect(screen.queryByRole("button", { name: /the guide to hooks/ })).toBeNull();
+  });
+
+  it("is not fooled by an address that only reads like the documentation", () => {
+    render(<MessageText text="[docs](https://github.com.evil.example.net/Perkybeet/noust/blob/main/docs/x.md)" />);
+    expect(screen.queryByRole("link")).toBeNull();
+    expect(screen.getByRole("button", { name: /docs/ })).toBeInTheDocument();
+  });
+
+  it("has no accessibility violations with the address open", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<MessageText text="[a site](https://example.net/path)" />);
+    await user.click(screen.getByRole("button", { name: /a site/ }));
+    await screen.findByRole("dialog", { name: "This link goes to another site" });
+    await expectNoAxeViolations(container);
   });
 
   it("does not make a link of anything that is not a web address", () => {

@@ -172,6 +172,23 @@ class TestInTheApi:
         assert "apps.deploy" in body["tenant_permissions"]
         assert "server.manage" not in body["tenant_permissions"]
 
+    def test_the_roles_answer_says_what_no_token_ever_holds_for_the_console_to_leave_out(
+        self, sandbox: Path
+    ) -> None:
+        from noust.web.auth.records import TOKEN_NEVER_HOLDS
+
+        client = build(sandbox)
+        self.elevated(client)
+
+        body = client.get("/api/auth/roles").json()
+
+        # The assistant is for people: a token never holds its permission, so a dialog that makes one does not offer it. The
+        # list is the one the server strips from every token, and not a second list the console keeps.
+        assert body["token_never"] == sorted(TOKEN_NEVER_HOLDS)
+        assert "assistant.use" in body["token_never"]
+        # A role still holds it: the administrator uses the assistant, the token an administrator makes does not.
+        assert "assistant.use" in body["roles"]["admin"]
+
     def test_a_token_is_issued_by_preset(self, sandbox: Path) -> None:
         client = build(sandbox)
         csrf = self.elevated(client)

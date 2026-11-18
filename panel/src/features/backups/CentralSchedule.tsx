@@ -26,6 +26,7 @@ export function taskTitle(t: T, task: ScheduledTask): string {
     case "sweep":
     case "cleanup":
     case "image_check":
+    case "resend":
       return t(`containerHost.schedule.kinds.${task.kind}`);
     default:
       return t("containerHost.schedule.kinds.other", { kind: task.kind });

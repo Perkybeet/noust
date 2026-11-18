@@ -27,6 +27,8 @@ export const callerPolicy: Catalog<typeof en> = {
     fixed: "fijo, nunca se ofrece",
     key: "Pide confirmar que eres tú: nunca se hace sola",
     legacy: "De fábrica, como siempre: elige otro valor y ya no vuelve.",
+    person: { one: "{count} de estas solo la confirma una persona", other: "{count} de estas solo las confirma una persona" },
+    personAll: "Estas solo las confirma una persona",
     reason: {
       assistant_floor: "El asistente no lo hace nunca, diga lo que diga la tabla.",
       confirm: "Pide confirmar que eres tú, así que «Lo hace» no se ofrece.",

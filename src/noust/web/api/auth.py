@@ -64,6 +64,7 @@ from noust.web.auth import (
     sign_in_lockout_key,
     verify_credential,
 )
+from noust.web.auth.records import TOKEN_NEVER_HOLDS
 from noust.web.permissions import ALL_PERMISSIONS, DESCRIPTIONS, Permission
 from noust.web.permissions.access import AccessManager
 from noust.web.permissions.enforce import ensure_notice_accepted, has_permission
@@ -2171,12 +2172,16 @@ class RolesResponse(BaseModel):
         tenant_permissions: What a token bound to a team, a project or an environment can ever
             hold, whatever its owner does: the permissions about applications, databases and
             backups, never the server's.
+        token_never: What no API token holds, whatever its owner holds and whatever it was asked
+            for (``assistant.use``: the built-in assistant is for people). A role holds them, so
+            a dialog that makes a token leaves these out of what the token will be able to do.
     """
 
     roles: dict[str, list[str]]
     permissions: dict[str, str]
     token_presets: list[TokenPresetInfo] = Field(default_factory=list)
     tenant_permissions: list[str] = Field(default_factory=list)
+    token_never: list[str] = Field(default_factory=list)
 
 
 @router.get("/roles", response_model=RolesResponse)
@@ -2198,6 +2203,7 @@ def list_roles(session: dict[str, Any] = Depends(require_auth)) -> RolesResponse
             for preset in TOKEN_PRESETS
         ],
         tenant_permissions=sorted(TENANT_PERMISSIONS),
+        token_never=sorted(TOKEN_NEVER_HOLDS),
     )
 
 

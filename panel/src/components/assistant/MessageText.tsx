@@ -6,6 +6,7 @@ import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { CopyValue } from "../ui/CopyValue";
 import { Mono } from "../ui/Mono";
+import { Popover } from "../ui/Popover";
 import { textLinkClassName } from "../ui/TextLink";
 import { readReply } from "./replyText";
 import type { Inline } from "./replyText";
@@ -45,14 +46,38 @@ function Marks({ inline }: { inline: readonly Inline[] }) {
               </span>
             );
           case "link":
-            // Where it goes is drawn beside it whatever it says it is: a label can say any address.
+            // Where it goes is drawn beside it whatever it says it is: a label can say any address. The product's own documentation opens as
+            // a link; any other address is a button that shows itself whole, and the link that opens it is the second gesture.
             return (
               <span key={key} className="inline-flex max-w-full flex-wrap items-baseline gap-x-1">
-                <a href={piece.href} target="_blank" rel="noopener noreferrer nofollow" className={cx(textLinkClassName("inline"), "inline-flex items-baseline gap-1")}>
-                  {piece.label}
-                  <ExternalIcon aria-hidden="true" className="size-icon-xs shrink-0 self-center" />
-                  <span className="sr-only">{t("assistant.message.opensInNewTab")}</span>
-                </a>
+                {piece.docs ? (
+                  <a href={piece.href} target="_blank" rel="noopener noreferrer nofollow" className={cx(textLinkClassName("inline"), "inline-flex items-baseline gap-1")}>
+                    {piece.label}
+                    <ExternalIcon aria-hidden="true" className="size-icon-xs shrink-0 self-center" />
+                    <span className="sr-only">{t("assistant.message.opensInNewTab")}</span>
+                  </a>
+                ) : (
+                  <Popover
+                    title={t("assistant.message.farTitle")}
+                    description={t("assistant.message.farBody")}
+                    trigger={
+                      <button type="button" className={cx(textLinkClassName("inline"), "inline-flex cursor-pointer items-baseline gap-1 text-left")}>
+                        {piece.label}
+                        <ExternalIcon aria-hidden="true" className="size-icon-xs shrink-0 self-center" />
+                      </button>
+                    }
+                  >
+                    <div className="mt-3 flex flex-col gap-3">
+                      <Mono tone="default" className="text-12 break-all">
+                        {piece.href}
+                      </Mono>
+                      <a href={piece.href} target="_blank" rel="noopener noreferrer nofollow" className={cx(textLinkClassName("ui"), "inline-flex items-baseline gap-1")}>
+                        {t("assistant.message.openFar")}
+                        <ExternalIcon aria-hidden="true" className="size-icon-xs shrink-0 self-center" />
+                      </a>
+                    </div>
+                  </Popover>
+                )}
                 <Mono tone="muted" className="text-12">
                   {`(${piece.host})`}
                 </Mono>

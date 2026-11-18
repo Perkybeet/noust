@@ -172,7 +172,10 @@ function Facts({ detail }: { detail: Detail }) {
   const policy = detail.restart_policy;
   const items: KeyValueItem[] = [
     { label: t("docker.container.facts.image"), value: <TextLink to="/server/docker/images" search={{ q: container.image }} size="ui">{container.image}</TextLink>, mono: true, copy: container.image },
-    ...(container.project !== "" ? [{ label: t("docker.container.facts.stack"), value: <TextLink to="/server/docker/stacks/$name" params={{ name: container.project }} size="ui">{container.project}</TextLink>, mono: true, copy: container.project }] : []),
+    // A container that is of no stack says so in words, dimmed: the row is not left out, because its absence says nothing.
+    container.project !== ""
+      ? { label: t("docker.container.facts.stack"), value: <TextLink to="/server/docker/stacks/$name" params={{ name: container.project }} size="ui">{container.project}</TextLink>, mono: true, copy: container.project }
+      : { label: t("docker.container.facts.stack"), value: <span className="text-fg-muted">{t("docker.columns.noStack")}</span>, mono: false, copy: false as const },
     ...(owner !== null ? [{ label: t("docker.columns.owner"), value: <OwnerMark kind={owner.kind} subject={owner.subject} {...(target !== undefined ? { target } : {})} />, mono: false, copy: false as const }] : []),
     { label: t("docker.container.facts.volumes"), value: mounts.length === 0 ? t("docker.container.facts.none") : mounts.map((mount) => (mount.name !== "" ? mount.name : mount.destination)).join(", "), mono: mounts.length > 0 },
     { label: t("docker.container.facts.networks"), value: (touches?.networks ?? []).length === 0 ? t("docker.container.facts.none") : (touches?.networks ?? []).join(", "), mono: (touches?.networks ?? []).length > 0 },

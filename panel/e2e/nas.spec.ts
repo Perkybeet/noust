@@ -306,6 +306,31 @@ off.describe("a hub that was not told to deploy is what it was, plus the way in 
     await settle(page);
     await expectNoA11yViolations(page, "what a hub does not do, said calmly");
   });
+
+  off("the Docker zone of a machine that was not told to is not offered, and a typed address says the server's sentence about the consent", async ({ page, nas: server }) => {
+    await signIn(page, server, "/server");
+    await expect(page.getByRole("link", { name: "Stacks" })).toHaveCount(0);
+    await page.goto("/server/docker/stacks");
+    await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
+    await expect(page.getByText("The Docker zone: this central does not use its machine's Docker until it is told to")).toBeVisible();
+    await expect(page.getByText(/NOUST_DEPLOY_HERE=containers/).first()).toBeVisible();
+    // Two ways to the same page: the second column and the button of this one.
+    await expect(page.getByRole("link", { name: "Deploy on this machine" })).toHaveCount(2);
+    await expect(page.getByRole("main").getByRole("link", { name: "Deploy on this machine" })).toHaveAttribute("href", "/server/deploy-here");
+    // Nothing of the machine's Docker was read to say it: no listing came back for the page to draw.
+    await expect(page.getByText(/Command not found|permission denied/i)).toHaveCount(0);
+    await settle(page);
+    await expectNoA11yViolations(page, "the Docker zone, not told to be used");
+  });
+
+  on("the databases a stack runs are read from inside its container, which has what the central's own container lacks", async ({ page, nas: server }) => {
+    await signIn(page, server, "/databases");
+    await expect(page.getByRole("heading", { level: 1, name: "Databases" })).toBeVisible();
+    await settle(page);
+    await expect(page.getByText(/Command not found/)).toHaveCount(0);
+    await expect(page.getByText("catalogo").first()).toBeVisible();
+    await expectNoA11yViolations(page, "the databases of a NAS, read from inside the stack's container");
+  });
 });
 
 if (process.env.NOUST_SCREENS === "1") {
@@ -353,5 +378,23 @@ if (process.env.NOUST_SCREENS === "1") {
         await page.screenshot({ path: path.join(dir, `${screen.name}-390.png`) });
       });
     }
+  });
+
+  /** The Docker zone typed into the address bar of a machine that was not told to use its Docker: the server's sentence, calmly. */
+  off.describe("the NAS that was not told to @screens", () => {
+    off("nas docker-sin-consentimiento", async ({ page, nas: server }, testInfo) => {
+      off.setTimeout(240_000);
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await signIn(page, server, "/server/docker/stacks");
+      await expect(page.getByText("The Docker zone: this central does not use its machine's Docker until it is told to")).toBeVisible();
+      await settle(page);
+      await page.waitForTimeout(500);
+      const dir = path.join(OUT, testInfo.project.name);
+      await page.screenshot({ path: path.join(dir, "docker-sin-consentimiento-1440.png") });
+      await page.setViewportSize(PHONE);
+      await settle(page);
+      await page.waitForTimeout(400);
+      await page.screenshot({ path: path.join(dir, "docker-sin-consentimiento-390.png") });
+    });
   });
 }

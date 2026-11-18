@@ -30,6 +30,8 @@ export const callerPolicy = {
     fixed: "fixed, it is never offered",
     key: "It asks you to confirm it is you: it is never done on its own",
     legacy: "As it has always been: choose another value and it does not come back.",
+    person: { one: "{count} of these is only confirmed by a person", other: "{count} of these are only confirmed by a person" },
+    personAll: "Only a person confirms these",
     reason: {
       assistant_floor: "The assistant never does this, whatever the table says.",
       confirm: "It asks you to confirm it is you, so “Does it” is not offered.",

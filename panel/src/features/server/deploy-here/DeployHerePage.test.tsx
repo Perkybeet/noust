@@ -74,6 +74,10 @@ describe("Deploy on this machine, on a hub that was not told to (item 188)", () 
     expect(screen.getByText("Docker access is root access on this machine")).toBeInTheDocument();
     // It is said where it is turned on, and that it is not here.
     expect(screen.getByText(/not from this console/)).toBeInTheDocument();
+    // The server refuses to write it from the console or the API (`config.deploy_here_not_from_console`), so nothing here offers to: no
+    // switch, and no button that turns it on.
+    expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Turn on/ })).not.toBeInTheDocument();
     const lines = screen.getByRole("group", { name: "Lines to add to Noust's compose.yaml" });
     expect(within(lines).getByText("NOUST_DEPLOY_HERE: containers")).toBeInTheDocument();
     expect(within(lines).getByText(`- /var/run/docker.sock:/var/run/docker.sock`)).toBeInTheDocument();

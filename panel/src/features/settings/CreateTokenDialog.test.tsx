@@ -182,6 +182,39 @@ describe("Create an API token, narrowed to what a job needs (item 163)", () => {
     expect(await within(dialog).findByText(/Left out, since the owner may not: .*apps\.deploy/)).toBeInTheDocument();
   });
 
+  describe("what no token holds", () => {
+    // The administrator role holds the assistant's permission; the token an administrator makes does not, and the server says so.
+    const WITH_ASSISTANT = { ...ROLES, roles: { ...ROLES.roles, admin: [...ADMIN, "assistant.use"] }, token_never: ["assistant.use"] };
+    const OWNER_WITH_ASSISTANT = { ...PERSON, permissions: [...ADMIN, "assistant.use"] };
+
+    it("does not offer it in what an admin token will be able to do, and says it was left out because it is for people", { timeout: 30_000 }, async () => {
+      tokensBackend(OWNER_WITH_ASSISTANT, WITH_ASSISTANT);
+      const { user } = renderConsole("/settings/tokens");
+      const dialog = await openDialog(user);
+      await user.click(within(dialog).getByRole("radio", { name: /^Admin/ }));
+      expect(await within(dialog).findByText("server.manage")).toBeInTheDocument();
+      expect(within(dialog).queryByText("assistant.use")).not.toBeInTheDocument();
+      expect(within(dialog).getByText(/a token never holds assistant\.use/)).toBeInTheDocument();
+    });
+
+    it("says nothing of it for a scope that does not ask for it", { timeout: 30_000 }, async () => {
+      tokensBackend(OWNER_WITH_ASSISTANT, WITH_ASSISTANT);
+      const { user } = renderConsole("/settings/tokens");
+      const dialog = await openDialog(user);
+      await user.click(within(dialog).getByRole("radio", { name: /^Read/ }));
+      await within(dialog).findByText("apps.read");
+      expect(within(dialog).queryByText(/a token never holds/)).not.toBeInTheDocument();
+    });
+
+    it("is not told of by a server that does not say it (an older one): the list shown is the roles' own", { timeout: 30_000 }, async () => {
+      tokensBackend(OWNER_WITH_ASSISTANT, { ...WITH_ASSISTANT, token_never: undefined });
+      const { user } = renderConsole("/settings/tokens");
+      const dialog = await openDialog(user);
+      await user.click(within(dialog).getByRole("radio", { name: /^Admin/ }));
+      expect(await within(dialog).findByText("assistant.use")).toBeInTheDocument();
+    });
+  });
+
   it("is not offered by a server that does not serve the list: a token would come out as plain read", { timeout: 30_000 }, async () => {
     tokensBackend(PERSON, { roles: ROLES.roles, permissions: {} });
     const { user } = renderConsole("/settings/tokens");

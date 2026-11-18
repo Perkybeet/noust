@@ -85,6 +85,43 @@ export function draftFrom(settings: AssistantSettings): Draft {
   };
 }
 
+/** An address as the server judges where it points: scheme, host and port, and never its path. Null for a text that is no address. */
+function placeOf(address: string): string | null {
+  try {
+    return new URL(address.trim()).origin;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Whether saving this draft would empty the saved key: the key stays with the provider it was given for, so changing the address to
+ * another scheme, host or port without typing a key in the same request leaves the assistant without one (and off). Changing only the
+ * path, or the model, keeps it. The page says so before it saves; the server decides all the same.
+ *
+ * @param settings - What is saved.
+ * @param draft - What was typed.
+ * @returns True when a key is saved, none was typed and the address is another place.
+ */
+export function keyWouldGo(settings: Pick<AssistantSettings, "has_key" | "base_url">, draft: Pick<Draft, "apiKey" | "baseUrl">): boolean {
+  if (!settings.has_key || draft.apiKey !== "") return false;
+  const saved = placeOf(settings.base_url);
+  const typed = placeOf(draft.baseUrl);
+  return saved !== null && typed !== null && saved !== typed;
+}
+
+/**
+ * Whether the answer to a save says the key did not stay with the provider: it had one and has none now, which turns the assistant off.
+ * Said afterwards as what happened, not as an error: nothing failed, the key was not for this provider.
+ *
+ * @param before - Whether a key was saved when the request was sent.
+ * @param saved - What the server answered.
+ * @returns True when the key went.
+ */
+export function keyWentWith(before: boolean, saved: Pick<AssistantSettings, "has_key" | "enabled">): boolean {
+  return before && !saved.has_key && !saved.enabled;
+}
+
 /**
  * What the model step still lacks, as a key of the page's texts, or null when it has what it needs to be tested.
  *

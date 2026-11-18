@@ -47,6 +47,12 @@ export const assistantSettings: Catalog<typeof en> = {
     key: "Clave",
     keyHelp: "Se guarda sellada y la API no la devuelve nunca: solo dice que hay una.",
     keySaved: "Hay una clave guardada. Déjalo vacío para conservarla, o escribe otra para cambiarla.",
+    keyOther: "La clave guardada es del proveedor anterior y no se conserva para este: escribe la de este proveedor.",
+    keyWent: {
+      title: "La clave guardada era del proveedor anterior",
+      body: "No se conserva para este, así que el asistente queda apagado hasta que des la clave de este proveedor. No ha fallado nada.",
+    },
+    privateConsented: "Has permitido que este servidor llame a {host}, para el asistente y para nada más.",
     model: "Modelo",
     modelHelp: "El nombre del modelo, como lo llama el proveedor.",
     pickModel: "Elige uno de sus modelos",
@@ -133,7 +139,17 @@ export const assistantSettings: Catalog<typeof en> = {
   },
   on: {
     model: { title: "El modelo", description: "Quién escribe lo que lees, y dónde corre." },
-    facts: { model: "Modelo", where: "Dónde corre", address: "Dirección", key: "Clave", keyYes: "Guardada, sellada", keyNo: "Ninguna", probed: "Última prueba" },
+    facts: {
+      model: "Modelo",
+      where: "Dónde corre",
+      address: "Dirección",
+      privateHost: "Dirección permitida",
+      privateHostHint: "Noust la llama para el asistente y para nada más. El permiso desaparece si cambias la dirección o apagas el asistente.",
+      key: "Clave",
+      keyYes: "Guardada, sellada",
+      keyNo: "Ninguna",
+      probed: "Última prueba",
+    },
     can: {
       title: "Qué puede hacer con este modelo",
       yes: "Explica, investiga y propone. Lo que cambia algo lo aprueba una persona, salvo lo que la política le deja hacer sola.",

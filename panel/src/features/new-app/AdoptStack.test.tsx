@@ -72,6 +72,8 @@ describe("the adoption's form", () => {
       accept_recreate: false,
       accept_host_access: false,
     });
+    // What gives the server to a container is a decision of its own, sent only when it was taken.
+    expect(adoptBody({ domain: "proggest.es", path: "/srv/proggest", composeFile: "", site: "", source: "", branch: "" }, { preview: false, acceptRecreate: false, acceptHostAccess: true })).toMatchObject({ preview: false, accept_host_access: true });
   });
 });
 
@@ -170,6 +172,80 @@ describe("adopting a running stack from New application", { timeout: 20_000 }, (
     await screen.findByText("Starting the stack as Noust would recreate containers");
     expect(backend.callsTo("POST /api/apps/adopt").at(-1)?.body).toMatchObject({ path: "/srv/proggest-two", preview: true, accept_recreate: false });
     expect(screen.getByRole("checkbox", { name: /Adopt anyway/ })).not.toBeChecked();
+  });
+
+  describe("a stack that runs with what gives this server to its containers", () => {
+    const LINES = ["service backend mounts the Docker socket", "service backend is privileged"];
+    const refusal = () =>
+      json(409, {
+        error: "adoptionrefusederror",
+        detail: "Adopting proggest.es puts under Noust a stack whose containers have what is on this server",
+        hint: "Each line above gives a container something of this server. Go on knowing that: noust app adopt proggest.es --accept-host-access",
+        fields: null,
+        output: null,
+        host_access: LINES,
+        coded: { code: "compose_guard.adopt_host_access", params: { domain: "proggest.es", lines: LINES.map((line) => `- ${line}`).join("\n"), command: "noust app adopt proggest.es --path /srv/proggest --accept-host-access" } },
+      });
+    const answer = (call: { body: unknown }) => {
+      const body = call.body as { accept_host_access: boolean; preview: boolean };
+      if (!body.accept_host_access) return refusal();
+      return json(200, { ...PREVIEW, adopted: !body.preview, host_access: LINES, accepted_by: "admin", warnings: ["Recorded as accepted by admin: the containers of proggest.es keep what they have of this server (2)."] });
+    };
+
+    async function previewed(permissions?: string[]) {
+      const session = permissions === undefined ? ELEVATED : { ...ELEVATED, permissions };
+      const { backend, harness } = wizard({ "GET /api/auth/session": () => json(200, session), "POST /api/apps/adopt": answer });
+      const { user } = harness;
+      await openAdopt(user);
+      await user.type(screen.getByRole("textbox", { name: "Domain" }), "proggest.es");
+      await user.type(screen.getByRole("textbox", { name: "Directory" }), "/srv/proggest");
+      await user.click(screen.getByRole("button", { name: "Preview" }));
+      await screen.findByText("Adopting proggest.es puts under Noust a stack whose containers have what is on this server");
+      return { backend, user };
+    }
+
+    it("lists each line as what it gives this server, and the box to accept them is not a button", async () => {
+      const { backend } = await previewed();
+      const list = screen.getByRole("list", { name: "What the containers of this stack have of this server" });
+      expect(within(list).getAllByRole("listitem").map((item) => item.textContent)).toEqual(LINES);
+      // The terminal's command is the server's hint for a client without a console: here the way to go on is the box.
+      expect(screen.queryByText(/--accept-host-access/)).not.toBeInTheDocument();
+      expect(screen.getByRole("checkbox", { name: /I accept that the containers keep what these 2 lines give them of this server/ })).not.toBeChecked();
+      expect(backend.callsTo("POST /api/apps/adopt").map((call) => (call.body as { accept_host_access: boolean }).accept_host_access)).toEqual([false]);
+      await expectNoAxeViolations(screen.getByRole("main"));
+    });
+
+    it("previews again with them accepted and adopts with the acceptance, keeping the lines in sight", async () => {
+      const { backend, user } = await previewed();
+      await user.click(screen.getByRole("checkbox", { name: /I accept that the containers keep/ }));
+      await user.click(screen.getByRole("button", { name: "Preview" }));
+      expect(await screen.findByRole("heading", { name: "What Noust found" })).toBeInTheDocument();
+      expect(backend.callsTo("POST /api/apps/adopt").at(-1)?.body).toMatchObject({ preview: true, accept_host_access: true });
+      expect(screen.getByRole("list", { name: "What the containers of this stack have of this server" })).toBeInTheDocument();
+      expect(screen.getByRole("checkbox", { name: /I accept that the containers keep/ })).toBeChecked();
+      await user.click(screen.getByRole("button", { name: "Adopt" }));
+      await waitFor(() => {
+        expect(backend.callsTo("POST /api/apps/adopt").at(-1)?.body).toMatchObject({ preview: false, accept_host_access: true });
+      });
+    });
+
+    it("forgets the acceptance when the stack changes: it was about the last one", async () => {
+      const { backend, user } = await previewed();
+      await user.click(screen.getByRole("checkbox", { name: /I accept that the containers keep/ }));
+      await user.type(screen.getByRole("textbox", { name: "Directory" }), "-two");
+      expect(screen.queryByRole("checkbox", { name: /I accept that the containers keep/ })).not.toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Preview" }));
+      await screen.findByRole("checkbox", { name: /I accept that the containers keep/ });
+      expect(backend.callsTo("POST /api/apps/adopt").at(-1)?.body).toMatchObject({ path: "/srv/proggest-two", accept_host_access: false });
+      expect(screen.getByRole("checkbox", { name: /I accept that the containers keep/ })).not.toBeChecked();
+    });
+
+    it("says who can accept them, with nothing to tick, to an account that does not hold the permission", async () => {
+      await previewed(["self", "apps.read", "apps.manage"]);
+      expect(screen.getByText(/Only an account that holds the root-equivalent permission can accept this/)).toBeInTheDocument();
+      expect(within(screen.getByRole("list", { name: "What the containers of this stack have of this server" })).getAllByRole("listitem")).toHaveLength(2);
+      expect(screen.queryByRole("checkbox", { name: /I accept that the containers keep/ })).not.toBeInTheDocument();
+    });
   });
 
   it("speaks Spanish", async () => {

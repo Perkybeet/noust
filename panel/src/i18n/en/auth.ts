@@ -76,6 +76,7 @@ export const auth = {
     link: "Access token",
     title: "Sign in with the access token",
     description: "The installer printed it once, in a box. Paste it here.",
+    descriptionServer: "Paste this server's access token.",
     recoveryHelp:
       "Just installed Noust? Sign in with it and create your own account. It is the key of whoever is root on this machine, so keep it for emergencies afterwards.",
     lostIt: "Lost it? Issue a new one on the server",
@@ -87,6 +88,7 @@ export const auth = {
     hint: "First time on this server? Sign in with the access token the installer printed, under “Other ways to sign in”, and create your own account.",
     lost: "Lost it? Issue a new one on the server; the old one stops working.",
     hintLog: "First time on this server? Sign in with the access token in the container's log, under “Other ways to sign in”, and create your own account.",
+    hintServer: "First time on this server? Sign in with this server's access token, under “Other ways to sign in”, and create your own account.",
     whichContainer: "The log of the first start says which container is Noust's.",
   },
   legal: {

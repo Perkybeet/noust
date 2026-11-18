@@ -5,6 +5,8 @@
  * escapes. There is no image: a `![x](y)` is a sentence that says an image was not shown.
  */
 
+import { isOwnDocumentation } from "../../app/help";
+
 /** A piece of a line: text, bold, code or a link whose destination is judged here. */
 export type Inline =
   | { k: "text"; text: string }
@@ -12,7 +14,8 @@ export type Inline =
   | { k: "code"; text: string }
   /** A destination that is not a web address: drawn as its label, with the destination in view and no link. */
   | { k: "dead"; label: string; destination: string }
-  | { k: "link"; label: string; href: string; host: string }
+  /** `docs`: it goes to the product's own documentation, which opens as a link; any other address shows itself whole and asks for a second gesture. */
+  | { k: "link"; label: string; href: string; host: string; docs: boolean }
   | { k: "image"; alt: string };
 
 export type ReplyBlock = { k: "p"; inline: Inline[] } | { k: "list"; ordered: boolean; items: Inline[][] } | { k: "code"; text: string };
@@ -61,7 +64,7 @@ export function readInline(text: string): Inline[] {
       out.push({ k: "image", alt: imageAlt });
     } else if (label !== undefined && destination !== undefined) {
       const judged = judgeDestination(destination);
-      out.push(judged === null ? { k: "dead", label, destination } : { k: "link", label, href: judged.href, host: judged.host });
+      out.push(judged === null ? { k: "dead", label, destination } : { k: "link", label, href: judged.href, host: judged.host, docs: isOwnDocumentation(judged.href) });
     } else if (code !== undefined) {
       out.push({ k: "code", text: code });
     } else {

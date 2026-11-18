@@ -132,6 +132,35 @@ describe("the Volumes tab", () => {
     await expectNoAxeViolations(drawer);
   });
 
+  describe("a backup that waits to be sent to a destination", () => {
+    const owed = { destination: "offsite", reason: "dial tcp: i/o timeout", attempts: 1, since: "2026-11-16T22:00:00+00:00", next_attempt_at: new Date(Date.now() + 3_600_000).toISOString(), permanent: false };
+    const backups = [backup("shop-example-com.uploads_20261006_020003", SHOP, { remote_copies: [{ destination: "nas" }], pending_sends: [owed] }), backup("shop-example-com.uploads_20261005_020003", SHOP, { created_at: "2026-10-05T02:00:03+00:00", pending_sends: [] })];
+
+    it("is said in the application's row, because the policy's last result stays ok while it waits", async () => {
+      await volumesAt("/backups/volumes", {}, { policies: [policy(SHOP, { last_status: "ok" })], backups });
+      const table = await screen.findByRole("region", { name: "Application data and its backups" });
+      const row = within(table).getByRole("button", { name: new RegExp(`^${SHOP.replace(/\./g, "\\.")}`) }).closest("tr") as HTMLElement;
+      expect(within(row).getByText("Pending to offsite")).toBeInTheDocument();
+    });
+
+    it("is said in the row of the backup that waits, and not in the one that is everywhere", async () => {
+      const { user } = await volumesAt("/backups/volumes", {}, { policies: [policy(SHOP, { last_status: "ok" })], backups });
+      const table = await screen.findByRole("region", { name: "Application data and its backups" });
+      await user.click(within(table).getByRole("button", { name: new RegExp(`^${SHOP.replace(/\./g, "\\.")}`) }));
+      const drawer = await screen.findByRole("dialog", { name: SHOP });
+      const list = within(drawer).getByRole("region", { name: `Data backups of ${SHOP}` });
+      expect(within(list).getByRole("columnheader", { name: "Not sent yet" })).toBeInTheDocument();
+      expect(within(list).getAllByText("Pending to offsite")).toHaveLength(1);
+      await expectNoAxeViolations(drawer);
+    });
+
+    it("draws nothing of it while every backup is where it was meant to be", async () => {
+      await volumesAt("/backups/volumes", {}, { policies: [policy(SHOP, { last_status: "ok" })], backups: backups.map((one) => ({ ...one, pending_sends: [] })) });
+      await screen.findByRole("region", { name: "Application data and its backups" });
+      expect(screen.queryByText(/Pending to/)).not.toBeInTheDocument();
+    });
+  });
+
   it("puts the data back only after the application's name is typed, with a copy of what is there first", async () => {
     const { user, backend } = await volumesAt(`/backups/volumes?domain=${SHOP}`, {
       "POST /api/volume-backups/shop-example-com.uploads_20261006_020003/restore": () => json(202, ACCEPTED),

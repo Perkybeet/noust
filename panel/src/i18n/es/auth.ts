@@ -72,6 +72,7 @@ export const auth: Catalog<typeof en> = {
     link: "Token de acceso",
     title: "Inicia sesión con el token de acceso",
     description: "El instalador lo mostró una vez, en un recuadro. Pégalo aquí.",
+    descriptionServer: "Pega el token de acceso de este servidor.",
     recoveryHelp:
       "¿Acabas de instalar Noust? Entra con él y crea tu propia cuenta. Es la llave de quien es root en esta máquina, así que después guárdalo para emergencias.",
     lostIt: "¿Lo has perdido? Genera uno nuevo en el servidor",
@@ -83,6 +84,7 @@ export const auth: Catalog<typeof en> = {
     hint: "¿Primera vez en este servidor? Entra con el token de acceso que mostró el instalador, en «Otras formas de iniciar sesión», y crea tu propia cuenta.",
     lost: "¿Lo has perdido? Genera uno nuevo en el servidor; el anterior deja de valer.",
     hintLog: "¿Primera vez en este servidor? Entra con el token de acceso que está en el registro del contenedor, en «Otras formas de iniciar sesión», y crea tu propia cuenta.",
+    hintServer: "¿Primera vez en este servidor? Entra con el token de acceso de este servidor, en «Otras formas de iniciar sesión», y crea tu propia cuenta.",
     whichContainer: "El registro del primer arranque dice cuál es el contenedor de Noust.",
   },
   legal: {

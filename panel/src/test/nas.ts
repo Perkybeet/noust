@@ -73,7 +73,6 @@ const MACHINE_ONLY: ReadonlyMap<TableKey, string> = new Map<TableKey, string>([
   ["server_security", "features.needs_systemd"],
   ["system_clock", "features.needs_systemd"],
   ["system_logs", "features.needs_journal"],
-  ["docker_zone", "docker.engine.missing"],
   // What the pages of the machine show is read from the machine Noust runs on: in the central's image that is the container.
   ["system_processes", "features.needs_host"],
   ["system_files", "features.needs_host"],
@@ -93,11 +92,24 @@ function tableOn(): NonNullable<NonNullable<SessionInfo["central"]>["features"]>
   return states as never;
 }
 
+/**
+ * What the server says of the Docker zone on a hub that was not told to deploy here: the socket may be mounted, but the machine's Docker is
+ * left alone until it is told to, outside the console (`features.needs_deploy_here`, said once for the zone and for the disk's Docker rows).
+ */
+const NEEDS_DEPLOY_HERE = {
+  code: "features.needs_deploy_here",
+  params: { feature: "The Docker zone" },
+  text: "The Docker zone: this central does not use its machine's Docker until it is told to",
+  hint: "Docker's socket is root on the machine, so a central that has it mounted still leaves what runs there alone until deploying here is turned on, outside the console: add NOUST_DEPLOY_HERE=containers to the central's environment (see the guide to deploying where the central runs), then recreate the container.",
+};
+
 /** The table of a hub that was not told to: nothing works, for being a hub, or for what the machine lacks, but the page that turns Docker on, which is a hub's. */
 function tableOff(): NonNullable<NonNullable<SessionInfo["central"]>["features"]> {
   const states: Record<string, unknown> = {};
   for (const key of Object.keys(NAS_ON) as TableKey[]) {
-    states[key] = key === "deploy_here" ? { available: true, reason: null } : { available: false, reason: reason(key, MACHINE_ONLY.get(key) ?? "features.hub_role") };
+    if (key === "deploy_here") states[key] = { available: true, reason: null };
+    else if (key === "docker_zone") states[key] = { available: false, reason: NEEDS_DEPLOY_HERE };
+    else states[key] = { available: false, reason: reason(key, MACHINE_ONLY.get(key) ?? "features.hub_role") };
   }
   return states as never;
 }

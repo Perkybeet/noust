@@ -440,6 +440,23 @@ export const backups = {
     local: { label: "Local path", description: "Another directory or mounted filesystem on this machine." },
   },
 
+  pending: {
+    state: "Pending to {destination}",
+    stateMany: "Pending to {count} destinations",
+    next: "Tries again {when}",
+    dueNow: "Tries again on the next pass",
+    helpLabel: "Why it has not been sent yet",
+    helpTitle: "Waiting to be sent",
+    explain: "The copy is kept on this server and is sent again by itself. Retention does not delete it while it is owed.",
+    said: "What {destination} said",
+    since: "First failed {when}",
+    attempts: { one: "Tried again once since", other: "Tried again {count} times since" },
+    notRetried: "Not tried again yet",
+    permanent: "Waiting will not fix this: it needs a change at the destination.",
+    column: "Not sent yet",
+    none: "Nothing waits to be sent",
+  },
+
   toast: {
     createError: "Could not queue a backup of {domain}",
     backupQueuedDescription: "You will be told when the backup finishes.",

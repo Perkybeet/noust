@@ -75,6 +75,80 @@ const SCREENS: readonly Screen[] = [
       await expect(dialog.getByRole("button", { name: "Bring to Noust" })).toBeEnabled();
     },
   },
+  {
+    name: "bring-host-access",
+    path: "/server/docker/stacks",
+    heading: "Stacks",
+    before: async (page) => {
+      // A stack that runs with what gives the server to a container is refused with its lines until they are accepted (the sandbox's
+      // Docker has no such stack): the 409 the server answers, and then the real plan once the preview says it is accepted.
+      await page.route("**/api/docker/stacks/nextcloud/bring/preview", async (route) => {
+        const sent = route.request().postDataJSON() as { accept_host_access?: boolean };
+        if (sent.accept_host_access === true) {
+          await route.continue();
+          return;
+        }
+        const lines = ["service app mounts the Docker socket", "service app is privileged", "service app mounts /srv/media, a folder outside the application"];
+        await route.fulfill({
+          status: 409,
+          json: {
+            error: "adoptionrefusederror",
+            detail: "Adopting nextcloud puts under Noust a stack whose containers have what is on this server",
+            hint: "Each line above gives a container something of this server.",
+            fields: null,
+            output: null,
+            host_access: lines,
+            coded: { code: "compose_guard.adopt_host_access", params: { domain: "nextcloud", lines: lines.map((line) => `- ${line}`).join("\n"), command: "noust docker stack bring nextcloud --accept-host-access" } },
+          },
+        });
+      });
+    },
+    ready: async (page, { expectError }) => {
+      // The refusal is the answer the dialog is meant to get: a 409 with the lines, which the browser logs as a failed request.
+      expectError(/status of 409 .*bring\/preview/);
+      await page.getByRole("button", { name: "Bring to Noust…" }).first().click();
+      const dialog = page.getByRole("alertdialog", { name: "Bring nextcloud to Noust" });
+      await expect(dialog.getByRole("list", { name: "What the containers of this stack have of this server" }).getByRole("listitem")).toHaveCount(3);
+      // Not a button more: a box with the whole sentence beside it, and nothing to bring until it is ticked.
+      await expect(dialog.getByRole("button", { name: "Bring to Noust" })).toBeDisabled();
+      await expect(dialog.getByRole("checkbox", { name: /I accept that the containers keep what these 3 lines give them of this server/ })).not.toBeChecked();
+    },
+  },
+  {
+    name: "bring-host-access-accepted",
+    path: "/server/docker/stacks",
+    heading: "Stacks",
+    before: async (page) => {
+      await page.route("**/api/docker/stacks/nextcloud/bring/preview", async (route) => {
+        const sent = route.request().postDataJSON() as { accept_host_access?: boolean };
+        if (sent.accept_host_access === true) {
+          await route.continue();
+          return;
+        }
+        const lines = ["service app mounts the Docker socket", "service app is privileged"];
+        await route.fulfill({
+          status: 409,
+          json: {
+            error: "adoptionrefusederror",
+            detail: "Adopting nextcloud puts under Noust a stack whose containers have what is on this server",
+            hint: null,
+            fields: null,
+            output: null,
+            host_access: lines,
+            coded: { code: "compose_guard.adopt_host_access", params: { domain: "nextcloud", lines: "", command: "" } },
+          },
+        });
+      });
+    },
+    ready: async (page, { expectError }) => {
+      expectError(/status of 409 .*bring\/preview/);
+      await page.getByRole("button", { name: "Bring to Noust…" }).first().click();
+      const dialog = page.getByRole("alertdialog", { name: "Bring nextcloud to Noust" });
+      await dialog.getByRole("checkbox", { name: /I accept that the containers keep/ }).click();
+      await expect(dialog.getByText(/compose\.ya?ml/).first()).toBeVisible();
+      await expect(dialog.getByRole("button", { name: "Bring to Noust" })).toBeEnabled();
+    },
+  },
   { name: "containers", path: "/server/docker/containers", heading: "Containers", ready: async (page) => {
       await expect(page.getByRole("link", { name: "adminer" })).toBeVisible();
     },
@@ -196,6 +270,19 @@ test.describe("what each thing says of its use, its origin and its copies", () =
 });
 
 test.describe("whose each thing is, and what it offers", () => {
+  test("a container of no stack says so in words, dimmed, in the list and in its own page", async ({ page, consoleServer }) => {
+    await page.setViewportSize(DESKTOP);
+    await signIn(page, consoleServer, "/server/docker/containers?owner=nobody");
+    const row = page.getByRole("row").filter({ has: page.getByRole("link", { name: "adminer", exact: true }) });
+    await expect(row.getByText("No stack")).toBeVisible();
+    await expect(row.getByText("None", { exact: true })).toHaveCount(0);
+    await page.goto("/server/docker/containers/adminer");
+    await expect(page.getByRole("heading", { level: 1, name: "adminer" })).toBeVisible();
+    await expect(page.getByText("No stack")).toBeVisible();
+    await settle(page);
+    await expectNoA11yViolations(page, "the page of a container that is of no stack");
+  });
+
   test("an application's container is read here and changed from the application", async ({ page, consoleServer }) => {
     await page.setViewportSize(DESKTOP);
     await signIn(page, consoleServer, "/server/docker/containers?app=shop.example.net");

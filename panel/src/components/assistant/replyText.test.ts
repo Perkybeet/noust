@@ -30,9 +30,18 @@ describe("readInline", () => {
       { k: "text", text: " in " },
       { k: "code", text: ".env" },
       { k: "text", text: ", see " },
-      { k: "link", label: "the docs", href: "https://docs.example.org/", host: "docs.example.org" },
+      { k: "link", label: "the docs", href: "https://docs.example.org/", host: "docs.example.org", docs: false },
       { k: "text", text: "." },
     ]);
+  });
+
+  it("knows a link to the product's own documentation from any other, by where it really goes", () => {
+    const docs = "https://github.com/Perkybeet/noust/blob/main/docs/compose.md#hooks";
+    expect(readInline(`[the guide](${docs})`)).toEqual([{ k: "link", label: "the guide", href: docs, host: "github.com", docs: true }]);
+    // The label says nothing: a link that reads like the documentation and goes somewhere else is somewhere else.
+    expect(readInline(`[${docs}](https://github.com.evil.example.net/Perkybeet/noust/blob/main/docs/x.md)`)[0]).toMatchObject({ docs: false });
+    // The same host is not the documentation: it is the repository's own pages and nothing else of GitHub's.
+    expect(readInline("[someone's repository](https://github.com/Perkybeet/another/blob/main/docs/x.md)")[0]).toMatchObject({ docs: false });
   });
 
   it("never makes an image: it becomes a mark that says one was not shown", () => {

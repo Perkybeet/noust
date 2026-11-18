@@ -107,6 +107,7 @@ function OnView({ settings }: { settings: AssistantSettings }) {
             { label: t("assistantSettings.on.facts.model"), value: settings.model, mono: true },
             { label: t("assistantSettings.on.facts.where"), value: locationWord(t, settings.location), mono: false },
             { label: t("assistantSettings.on.facts.address"), value: settings.base_url, mono: true },
+            ...(settings.private_host !== "" ? [{ label: t("assistantSettings.on.facts.privateHost"), value: settings.private_host, hint: t("assistantSettings.on.facts.privateHostHint"), mono: true }] : []),
             { label: t("assistantSettings.on.facts.key"), value: settings.has_key ? t("assistantSettings.on.facts.keyYes") : t("assistantSettings.on.facts.keyNo"), mono: false },
             ...(settings.probed_at !== null && settings.probed_at !== undefined ? [{ label: t("assistantSettings.on.facts.probed"), value: <RelativeTime value={settings.probed_at} />, mono: false }] : []),
           ]}
@@ -184,10 +185,11 @@ export function AssistantSettingsPage({ step, onStep }: { step: Step | undefined
       ) : null}
       <QueryState query={query} label={t("assistantSettings.loadingLabel")} skeleton={<SkeletonCard lines={4} />}>
         {(settings) =>
-          settings.enabled ? (
-            <OnView settings={settings} />
-          ) : step !== undefined && canManage ? (
+          // A step in the address is the wizard, whether the assistant is on or off: "Change the model" of the page it is on leads to it.
+          step !== undefined && canManage ? (
             <TurnOnWizard settings={settings} step={step} onStep={onStep} />
+          ) : settings.enabled ? (
+            <OnView settings={settings} />
           ) : (
             <OffView canTurnOn={canManage} />
           )

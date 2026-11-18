@@ -6,7 +6,7 @@ import { renderConsole } from "../../../test/console";
 import { fakeBackend, json } from "../../../test/fakes";
 import type { RouteHandler } from "../../../test/fakes";
 import { screenWidth } from "../../app/testRoutes";
-import { databaseRoutes } from "../testFixtures";
+import { databaseRoutes, dump } from "../testFixtures";
 
 const JOB = { id: "restore-1", type: "restore", name: "Restore", description: "", status: "running", progress: 10, total_steps: 100, current_step: "", created_at: "2026-09-29T10:00:00", logs: [{ message: "pg_restore: processing data for table public.orders" }], metadata: { engine: "postgresql", database: "example_production" } };
 
@@ -36,6 +36,24 @@ describe("a database's backups", () => {
     expect(within(dumps).getByText("Check failed")).toBeInTheDocument();
     expect(within(dumps).getByText("offsite-sftp")).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
+  });
+
+  it("says in the row of a dump that it waits to be sent, with what the destination said, and only in that row", async () => {
+    const owed = { destination: "offsite-sftp", reason: "ssh: connect to host backup.example.net port 22: Connection timed out", attempts: 2, since: "2026-09-28T23:00:00+00:00", next_attempt_at: new Date(Date.now() + 7_200_000).toISOString(), permanent: false };
+    const { user } = await backupsAt({
+      "GET /api/databases/backups": () => json(200, { backups: [dump("postgresql-example_production-20260929_020000.dump", { pending_sends: [owed] }), dump("postgresql-example_production-20260921_020000.dump", { pending_sends: [] })], total: 2 }),
+    });
+    const dumps = await screen.findByRole("region", { name: "Dumps of example_production" });
+    expect(within(dumps).getByRole("columnheader", { name: "Not sent yet" })).toBeInTheDocument();
+    expect(within(dumps).getAllByText("Pending to offsite-sftp")).toHaveLength(1);
+    await user.click(within(dumps).getByRole("button", { name: "Why it has not been sent yet" }));
+    expect(await screen.findByText("ssh: connect to host backup.example.net port 22: Connection timed out")).toBeInTheDocument();
+  });
+
+  it("draws no column of sending while every dump is where it was meant to be", async () => {
+    await backupsAt();
+    const dumps = await screen.findByRole("region", { name: "Dumps of example_production" });
+    expect(within(dumps).queryByRole("columnheader", { name: "Not sent yet" })).not.toBeInTheDocument();
   });
 
   it("restores into a new database by default, and follows the job in the page's slot", async () => {

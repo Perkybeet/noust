@@ -31,6 +31,13 @@ export interface PolicyCellModel {
   reason: PolicyReason | null;
   /** A token that was issued to act in sudo mode keeps "Does it" in a row that asks for confirmation: it is said, and not offered. */
   legacy: boolean;
+  /**
+   * How many of the row's operations are a person's decision whole (making or lifting a deploy freeze), whatever this cell says:
+   * the assistant only proposes them. Said in the assistant's cells; 0 or absent for a token and for a row that has none.
+   */
+  person?: number;
+  /** Every operation of the row is such a decision, so "Does it" says nothing in this cell and is not offered. */
+  personAll?: boolean;
 }
 
 export interface PolicyRowModel {
@@ -82,6 +89,9 @@ export function PolicyCell({ rowLabel, cell, onChange }: PolicyCellProps) {
     <>
       {cell.value !== cell.default ? <span className="text-12 text-fg-muted">{t("callerPolicy.cell.factory", { value: t(`callerPolicy.value.${cell.default}`).toLowerCase() })}</span> : null}
       {cell.legacy && cell.value === "alone" ? <span className="max-w-60 text-12 text-pretty text-fg-muted">{t("callerPolicy.cell.legacy")}</span> : null}
+      {cell.caller === "assistant" && (cell.person ?? 0) > 0 ? (
+        <span className="max-w-60 text-12 text-pretty text-fg-muted">{cell.personAll === true ? t("callerPolicy.cell.personAll") : t("callerPolicy.cell.person", { count: cell.person ?? 0 })}</span>
+      ) : null}
       {cell.fixed && !floor && cell.reason !== null ? <span className="max-w-60 text-12 text-pretty text-fg-muted">{t(`callerPolicy.cell.reason.${cell.reason}`)}</span> : null}
     </>
   );

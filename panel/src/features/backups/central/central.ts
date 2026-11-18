@@ -152,7 +152,9 @@ export interface NodeView {
 const ERROR_VIEW: Readonly<Record<string, NodeView>> = {
   unreachable: { status: "failed", label: "centralBackups.servers.state.unreachable", hint: "centralBackups.servers.hint.unreachable" },
   refused: { status: "failed", label: "centralBackups.servers.state.refused", hint: "centralBackups.servers.hint.refused" },
-  ceiling: { status: "failed", label: "centralBackups.servers.state.ceiling", hint: "centralBackups.servers.hint.ceiling" },
+  // A limit that server set for its central, not something that broke: it is a decision to look at and the others go on being collected,
+  // so it is amber, says its fix, and does not print the sentence again as if it were a program's output.
+  ceiling: { status: "warning", label: "centralBackups.servers.state.ceiling", hint: "centralBackups.servers.hint.ceiling" },
   disk_full: { status: "failed", label: "centralBackups.servers.state.diskFull", hint: "centralBackups.servers.hint.diskFull" },
   mismatch: { status: "failed", label: "centralBackups.servers.state.mismatch", hint: "centralBackups.servers.hint.mismatch" },
 };

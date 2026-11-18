@@ -50,6 +50,12 @@ export const assistantSettings = {
     key: "Key",
     keyHelp: "It is saved sealed and the API never returns it: it only says there is one.",
     keySaved: "A key is saved. Leave this empty to keep it, or type another to replace it.",
+    keyOther: "The saved key is for the previous provider and is not kept for this one: type this provider's key.",
+    keyWent: {
+      title: "The saved key was for the previous provider",
+      body: "It is not kept for this one, so the assistant is off until you give this provider's key. Nothing failed.",
+    },
+    privateConsented: "You allowed this server to call {host}, for the assistant and for nothing else.",
     model: "Model",
     modelHelp: "The model's name, as the provider calls it.",
     pickModel: "Choose one of its models",
@@ -136,7 +142,17 @@ export const assistantSettings = {
   },
   on: {
     model: { title: "The model", description: "What writes what you read, and where it runs." },
-    facts: { model: "Model", where: "Where it runs", address: "Address", key: "Key", keyYes: "Saved, sealed", keyNo: "None", probed: "Last test" },
+    facts: {
+      model: "Model",
+      where: "Where it runs",
+      address: "Address",
+      privateHost: "Allowed address",
+      privateHostHint: "Noust calls it for the assistant and for nothing else. The permission goes if you change the address or turn the assistant off.",
+      key: "Key",
+      keyYes: "Saved, sealed",
+      keyNo: "None",
+      probed: "Last test",
+    },
     can: {
       title: "What it can do with this model",
       yes: "It explains, investigates and proposes. What changes something is approved by a person, unless the policy lets it do it on its own.",

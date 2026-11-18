@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { AssistantSettings } from "../../../api/queries/assistant";
-import { LIMIT_KEYS, draftFrom, hasPrice, isOwn, limitsBody, modelBody, modelMissing, originOf, parseNumber, probeState } from "./model";
+import { LIMIT_KEYS, draftFrom, hasPrice, isOwn, keyWentWith, keyWouldGo, limitsBody, modelBody, modelMissing, originOf, parseNumber, probeState } from "./model";
 
 function settings(overrides: Partial<AssistantSettings> = {}): AssistantSettings {
   return {
@@ -97,6 +97,32 @@ describe("what saving a step sends", () => {
     const body = limitsBody({ ...draftFrom(other), inputPrice: "5", outputPrice: "6" }, other);
     expect(body.prices?.["other-model"]).toEqual({ input_per_million: 3, output_per_million: 4 });
     expect(body.prices?.["tiny-model"]).toEqual({ input_per_million: 5, output_per_million: 6 });
+  });
+});
+
+describe("the key stays with the provider it was given for", () => {
+  const saved = settings({ has_key: true, base_url: "https://api.example.org/v1", location: "eu" });
+  const typed = (baseUrl: string, apiKey = "") => ({ apiKey, baseUrl });
+
+  it("goes when the address becomes another scheme, host or port and no key is typed with it", () => {
+    expect(keyWouldGo(saved, typed("https://other.example.net/v1"))).toBe(true);
+    expect(keyWouldGo(saved, typed("https://api.example.org:8443/v1"))).toBe(true);
+    expect(keyWouldGo(saved, typed("http://api.example.org/v1"))).toBe(true);
+  });
+
+  it("stays when only the path or the model changes, when a key is typed, when none is saved or the text is no address yet", () => {
+    expect(keyWouldGo(saved, typed("https://api.example.org/v2/chat"))).toBe(false);
+    expect(keyWouldGo(saved, typed("https://other.example.net/v1", "sk-typed"))).toBe(false);
+    expect(keyWouldGo({ ...saved, has_key: false }, typed("https://other.example.net/v1"))).toBe(false);
+    expect(keyWouldGo(saved, typed("api.other.example.net/v1"))).toBe(false);
+    expect(keyWouldGo(saved, typed(""))).toBe(false);
+  });
+
+  it("is said afterwards only when the key was there and is not, and the assistant is off with it", () => {
+    expect(keyWentWith(true, { has_key: false, enabled: false })).toBe(true);
+    expect(keyWentWith(false, { has_key: false, enabled: false })).toBe(false);
+    expect(keyWentWith(true, { has_key: true, enabled: true })).toBe(false);
+    expect(keyWentWith(true, { has_key: false, enabled: true })).toBe(false);
   });
 });
 

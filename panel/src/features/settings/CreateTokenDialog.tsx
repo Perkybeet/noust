@@ -27,7 +27,7 @@ import { focusFirstInvalid, splitErrors } from "./formErrors";
 import { NO_REACH, reachBody, reachReady } from "./tokenReach";
 import type { TokenReach } from "./tokenReach";
 import { TokenReachFields } from "./TokenReachFields";
-import { DEFAULT_EXPIRY, expiryOptions, expiryPhrase, heldPermissions, scopes } from "./tokens";
+import { DEFAULT_EXPIRY, expiryOptions, expiryPhrase, heldPermissions, scopes, withoutNever } from "./tokens";
 import type { TokenScope } from "./tokens";
 
 /** What the first card of the choice of level is: not a scope but a name for what one job needs (item 163). */
@@ -75,9 +75,11 @@ export function parseCidrs(text: string): string[] {
  * do today, and, tied to a team, a project or an environment, by what a team can own. A token never does more than the
  * person it belongs to, and one tied to a team never reaches the server.
  */
-function Capped({ t, wanted, own, owner, tenant }: { t: T; wanted: readonly string[] | undefined; own: readonly string[]; owner: string | null; tenant: readonly string[] | null }) {
+function Capped({ t, wanted, never, own, owner, tenant }: { t: T; wanted: readonly string[] | undefined; never: readonly string[]; own: readonly string[]; owner: string | null; tenant: readonly string[] | null }) {
   if (wanted === undefined) return null;
-  const { kept, droppedByOwner, droppedByReach } = heldPermissions(wanted, own, tenant);
+  // What the server says no token holds comes out first, whoever the owner is: the roles hold it and the token never does.
+  const { kept: holdable, left } = withoutNever(wanted, never);
+  const { kept, droppedByOwner, droppedByReach } = heldPermissions(holdable, own, tenant);
   return (
     <div className="flex flex-col gap-1.5 text-13">
       <p className="font-medium text-fg">{owner === null ? t("accounts.tokens.cappedMaster") : t("accounts.tokens.capped", { name: owner })}</p>
@@ -88,6 +90,7 @@ function Capped({ t, wanted, own, owner, tenant }: { t: T; wanted: readonly stri
           </Mono>
         ))}
       </p>
+      {left.length > 0 ? <p className="text-fg-muted">{t("accounts.tokens.droppedNever", { permissions: left.join(", ") })}</p> : null}
       {droppedByOwner.length > 0 ? <p className="text-fg-muted">{t("accounts.tokens.dropped", { permissions: droppedByOwner.join(", ") })}</p> : null}
       {droppedByReach.length > 0 ? <p className="text-fg-muted">{t("accounts.tokens.droppedBound", { permissions: droppedByReach.join(", ") })}</p> : null}
     </div>
@@ -321,6 +324,7 @@ export function CreateTokenDialog({ open, onClose }: CreateTokenDialogProps) {
         <Capped
           t={t}
           wanted={wantedPermissions(roles.data, level, limited ? chosenPreset : null)}
+          never={roles.data?.token_never ?? []}
           own={session?.permissions ?? []}
           owner={session?.account?.username ?? null}
           tenant={reach.kind === "all" ? null : (roles.data?.tenant_permissions ?? null)}

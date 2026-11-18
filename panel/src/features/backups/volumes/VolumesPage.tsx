@@ -20,12 +20,14 @@ import { Mono } from "../../../components/ui/Mono";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
 import { formatBytes } from "../../../lib/format";
+import { pendingAcross } from "../../../lib/pendingSends";
 import { useNode } from "../../../nodes/useNode";
 import { reportActionError } from "../../apps/useAppActions";
 import { useJobInHand } from "../../jobs/useJobInHand";
 import type { JobWords } from "../../jobs/useJobInHand";
 import type { Accepted } from "../../databases/jobs";
 import { BackupsListPage } from "../BackupsListPage";
+import { PendingSends } from "../PendingSends";
 import { STATE_RANK, scheduleWords, totalBytes, viewOf, volumeRows } from "./data";
 import type { VolumeRow } from "./data";
 import { VolumeDetailDrawer, coversWords } from "./VolumeDetailDrawer";
@@ -92,7 +94,14 @@ export function VolumesPage({ search, onSearchChange }: VolumesPageProps) {
       sortValue: (row) => STATE_RANK[row.state],
       cell: (row) => {
         const view = viewOf(row.state);
-        return <StatusPill appearance="inline" size="sm" state={view.state} label={t(view.label)} />;
+        const owed = pendingAcross(row.backups);
+        // The policy's last result stays "ok" while a copy only waits for a destination, so the row says it too.
+        return (
+          <span className="flex min-w-0 flex-col gap-1">
+            <StatusPill appearance="inline" size="sm" state={view.state} label={t(view.label)} />
+            <PendingSends sends={owed} />
+          </span>
+        );
       },
     },
     {

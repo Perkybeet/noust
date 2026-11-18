@@ -34,6 +34,16 @@ const BRANCH = "main";
  */
 export const DOCS_SITE: string | null = null;
 
+/**
+ * Whether an address is a page of the product's own documentation: the `docs/` folder of its repository, or its documentation site once
+ * one is published. Judged by where the address goes (it is the address as the browser would read it), never by what its label says.
+ */
+export function isOwnDocumentation(href: string): boolean {
+  const prefixes = [`${REPOSITORY}/blob/${BRANCH}/docs/`, `${REPOSITORY}/tree/${BRANCH}/docs/`];
+  if (DOCS_SITE !== null) prefixes.push(DOCS_SITE.endsWith("/") ? DOCS_SITE : `${DOCS_SITE}/`);
+  return prefixes.some((prefix) => href.startsWith(prefix));
+}
+
 const ENTRIES: readonly Entry[] = table.pages;
 const DEFAULT_LINK: HelpLink = table.default;
 

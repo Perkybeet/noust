@@ -396,6 +396,9 @@ each is what a client written against 4.2 could notice.
   `deploy_and_restart` or `backups`) instead of `permissions`, and `GET /api/auth/roles` lists them as
   `token_presets` (`id`, `permissions`) with `tenant_permissions`, what a token bound to a team, a project or an
   environment can ever hold. A preset the issuer does not hold all of is refused whole.
+  `GET /api/auth/roles` also says `token_never`, what no token holds whatever its owner holds (`assistant.use`: the
+  built-in assistant is for people), which a role does hold, so that a dialog that makes a token leaves it out of
+  what the token will be able to do (item 171).
 - **The proof a first second factor asks for** (item 132). `POST /api/auth/2fa/enroll` and `POST
   /api/auth/passkeys/registration/options` take an optional body, `{"password": ...}`, which an account without a
   second factor gives when its sign-in is older than ten minutes.

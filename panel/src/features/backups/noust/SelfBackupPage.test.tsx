@@ -124,6 +124,20 @@ describe("the Noust tab", () => {
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 
+  it("says in the row of a bundle that it waits to be sent to a destination, and draws no column for it otherwise", async () => {
+    const owed = { destination: "nas", reason: "rclone: failed to open: connection refused", attempts: 0, since: "2026-10-06T03:00:30+00:00", next_attempt_at: new Date(Date.now() + 900_000).toISOString(), permanent: false };
+    await pageAt(ON, [bundle(NAME, { remote_copies: [], pending_sends: [owed] }), bundle("noust-state-20261005.tar.gz.enc", { pending_sends: [] })]);
+    const table = await screen.findByRole("region", { name: "Bundles of Noust's own state" });
+    expect(within(table).getByRole("columnheader", { name: "Not sent yet" })).toBeInTheDocument();
+    expect(within(table).getAllByText("Pending to nas")).toHaveLength(1);
+  });
+
+  it("has no column of sending while every bundle is where it was meant to be", async () => {
+    await pageAt(ON);
+    const table = await screen.findByRole("region", { name: "Bundles of Noust's own state" });
+    expect(within(table).queryByRole("columnheader", { name: "Not sent yet" })).not.toBeInTheDocument();
+  });
+
   it("is amber, with what is wrong said, when the schedule is on but cannot work", async () => {
     await pageAt({ ...ON, passphrase_stored: false, last_status: "failed", last_error: "openssl: bad decrypt" });
     expect(await screen.findByText("On, with a problem")).toBeInTheDocument();

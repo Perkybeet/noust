@@ -77125,6 +77125,9 @@ export interface components {
          *         tenant_permissions: What a token bound to a team, a project or an environment can ever
          *             hold, whatever its owner does: the permissions about applications, databases and
          *             backups, never the server's.
+         *         token_never: What no API token holds, whatever its owner holds and whatever it was asked
+         *             for (``assistant.use``: the built-in assistant is for people). A role holds them, so
+         *             a dialog that makes a token leaves these out of what the token will be able to do.
          */
         noust__web__api__auth__RolesResponse: {
             /** Permissions */
@@ -77137,6 +77140,8 @@ export interface components {
             };
             /** Tenant Permissions */
             tenant_permissions?: string[];
+            /** Token Never */
+            token_never?: string[];
             /** Token Presets */
             token_presets?: components["schemas"]["TokenPresetInfo"][];
         };

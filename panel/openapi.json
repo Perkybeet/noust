@@ -76740,7 +76740,7 @@
         "type": "object"
       },
       "noust__web__api__auth__RolesResponse": {
-        "description": "What each role may do, for the console's account screens.\n\nAttributes:\n    roles: Role name to its permissions.\n    permissions: Every permission, with what it allows.\n    token_presets: The sets of permissions a token can be narrowed to by name: the one\n        list the command line, the API and the console's dialog take.\n    tenant_permissions: What a token bound to a team, a project or an environment can ever\n        hold, whatever its owner does: the permissions about applications, databases and\n        backups, never the server's.",
+        "description": "What each role may do, for the console's account screens.\n\nAttributes:\n    roles: Role name to its permissions.\n    permissions: Every permission, with what it allows.\n    token_presets: The sets of permissions a token can be narrowed to by name: the one\n        list the command line, the API and the console's dialog take.\n    tenant_permissions: What a token bound to a team, a project or an environment can ever\n        hold, whatever its owner does: the permissions about applications, databases and\n        backups, never the server's.\n    token_never: What no API token holds, whatever its owner holds and whatever it was asked\n        for (``assistant.use``: the built-in assistant is for people). A role holds them, so\n        a dialog that makes a token leaves these out of what the token will be able to do.",
         "properties": {
           "permissions": {
             "additionalProperties": {
@@ -76764,6 +76764,13 @@
               "type": "string"
             },
             "title": "Tenant Permissions",
+            "type": "array"
+          },
+          "token_never": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Token Never",
             "type": "array"
           },
           "token_presets": {

@@ -35,6 +35,8 @@ import { BackupsListPage } from "../BackupsListPage";
 import { PushToDestinationDialog } from "../PushToDestinationDialog";
 import { isFalse, isTrue, textOf } from "../policy/record";
 import { scheduleWords } from "../volumes/data";
+import { anyPending, pendingSendsOf } from "../../../lib/pendingSends";
+import { PendingSendsCell } from "../PendingSends";
 import { bundleKind, passphraseKnown, readSchedule } from "./data";
 import { MigrationDialog } from "./MigrationDialog";
 import { MigrationReport } from "./MigrationReport";
@@ -311,6 +313,10 @@ export function SelfBackupPage() {
                       </span>
                     ),
                 },
+                // Only while some bundle is owed to a destination, and not hidden on a phone: it is the state of the copy.
+                ...(anyPending(bundles)
+                  ? [{ id: "sending", header: t("backups.pending.column"), width: "w-48", card: "meta" as const, cell: (bundle: Bundle) => <PendingSendsCell sends={pendingSendsOf(bundle)} /> }]
+                  : []),
                 {
                   id: "size",
                   header: t("selfBackup.table.size"),

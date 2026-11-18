@@ -139,7 +139,8 @@ test("restoring into a different domain is confirmed by typing that domain", asy
 test("checking a backup's integrity updates its row with the result, and a reload keeps it", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/backups");
   const drawer = await openBackupsOf(page, "taller.example.com");
-  const row = drawer.getByRole("row").filter({ has: page.getByRole("button", { name: /^Actions for/ }) }).first();
+  // A drawer is narrow, so its backups are a list of cards and not rows of a table: the backup is one or the other.
+  const row = drawer.locator("tr, li").filter({ has: page.getByRole("button", { name: /^Actions for/ }) }).first();
   await expect(row.getByText("Not checked")).toBeVisible();
 
   await row.getByRole("button", { name: /^Actions for/ }).click();

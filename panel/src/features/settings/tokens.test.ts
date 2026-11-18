@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ApiToken } from "../../api/queries/auth";
 import { bindT, loadCatalog } from "../../i18n";
-import { expiryPhrase, heldPermissions, sortTokens, tokenState } from "./tokens";
+import { expiryPhrase, heldPermissions, sortTokens, tokenState, withoutNever } from "./tokens";
 
 const en = bindT("en");
 const NOW = Date.UTC(2026, 8, 25, 12);
@@ -59,5 +59,15 @@ describe("what a token will hold (items 133 and 163)", () => {
 
   it("holds nothing of what it was not asked for", () => {
     expect(heldPermissions(["self"], ["self", "apps.read"], null)).toEqual({ kept: [], droppedByOwner: [], droppedByReach: [] });
+  });
+});
+
+describe("what no token holds", () => {
+  it("leaves out what the server says no token holds, and says what it left out, keeping the order of the rest", () => {
+    expect(withoutNever(["apps.read", "assistant.use", "apps.deploy"], ["assistant.use"])).toEqual({ kept: ["apps.read", "apps.deploy"], left: ["assistant.use"] });
+  });
+
+  it("takes nothing out for a server that says nothing of it (an older one): no list of the console's own stands in", () => {
+    expect(withoutNever(["apps.read", "assistant.use"], [])).toEqual({ kept: ["apps.read", "assistant.use"], left: [] });
   });
 });

@@ -38,17 +38,25 @@ export const AREA_ORDER = ["apps", "databases", "backups", "docker", "server", "
  * @returns The row model.
  */
 export function rowModel(row: PolicyRow, edits: Edits, label: string, floor: string | null): PolicyRowModel {
+  // What a person decides whole is not the assistant's to do whatever its cell says: how many of the row's operations are is said in its
+  // cells, and when every one is, "Does it" would promise what the server never does, so it is not offered there.
+  const { total, person } = row.operations;
+  const allPerson = person > 0 && person >= total;
   const cells: PolicyCellModel[] = row.cells.map((cell) => {
     const edited = edits[cellKey(row.permission, cell.caller, cell.environment)];
+    const assistant = cell.caller === "assistant";
+    const offered = cell.offered.map(valueOf);
     return {
-      caller: cell.caller === "assistant" ? "assistant" : "token",
+      caller: assistant ? "assistant" : "token",
       environment: cell.environment === "other" ? "other" : "production",
       value: edited ?? valueOf(cell.value),
       default: valueOf(cell.default),
-      offered: cell.offered.map(valueOf),
+      offered: assistant && allPerson ? offered.filter((value) => value !== "alone") : offered,
       fixed: cell.fixed,
       reason: reasonOf(cell.reason),
       legacy: cell.legacy,
+      person: assistant ? person : 0,
+      personAll: assistant && allPerson,
     };
   });
   return { permission: row.permission, label, key: row.key, floor, cells };

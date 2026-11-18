@@ -16,6 +16,9 @@ export const assistant: Catalog<typeof en> = {
   },
   message: {
     opensInNewTab: "(se abre en otra pestaña)",
+    farTitle: "Este enlace va a otro sitio",
+    farBody: "Lo ha escrito el asistente. Lee la dirección y ábrela solo si es lo que quieres.",
+    openFar: "Abrirlo en una pestaña nueva",
     notALink: "(no es un enlace: solo se abren direcciones web)",
     destination: "Va a {host}",
     codeLabel: "Código que ha escrito el asistente. Léelo antes de ejecutarlo.",
@@ -147,6 +150,7 @@ export const assistant: Catalog<typeof en> = {
     empty: "Pregunta lo que quieras saber de este servidor. Lee lo que le dejas leer y te cuenta lo que ha encontrado.",
     onlyExplains: "Este modelo solo explica lo que le enseñes: ni investiga ni propone cambios.",
     askFailed: "No se pudo enviar la pregunta",
+    waitTitle: "Espera un momento antes de preguntar otra vez",
     decideFailed: "No se pudo decidir la propuesta",
     announce: { done: "El asistente ha contestado" },
     context: {

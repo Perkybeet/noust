@@ -189,6 +189,29 @@ describe("the Backups tab", () => {
     await expectNoAxeViolations(container);
   });
 
+  it("says in the row of a backup that it waits to be sent, and draws no column for it while every backup is where it was meant to be", async () => {
+    fakeBackend(
+      backupsRoutes([
+        backup({ backup_id: "b-owed", timestamp: ago(HOUR), pending_sends: [{ destination: "offsite", reason: "connection timed out", attempts: 1, since: ago(HOUR), next_attempt_at: new Date(Date.now() + HOUR).toISOString(), permanent: false }] }),
+        backup({ backup_id: "b-there", timestamp: ago(2 * HOUR), pending_sends: [] }),
+      ]),
+    );
+    const { user } = renderConsole("/backups");
+    const drawer = await openBackupsOf(user, "shop.example.com");
+    expect(within(drawer).getByRole("columnheader", { name: "Not sent yet" })).toBeInTheDocument();
+    expect(within(backupRow(drawer, "b-owed")).getByText("Pending to offsite")).toBeInTheDocument();
+    expect(within(backupRow(drawer, "b-there")).queryByText(/Pending to/)).not.toBeInTheDocument();
+    // A backup that is everywhere has a dash with its reason, and not a label with nothing after it.
+    expect(within(backupRow(drawer, "b-there")).getByText("Nothing waits to be sent")).toBeInTheDocument();
+  });
+
+  it("draws no column of sending for backups that are all where they were meant to be", async () => {
+    fakeBackend(backupsRoutes([backup({ backup_id: "b-there", pending_sends: [] })]));
+    const { user } = renderConsole("/backups");
+    const drawer = await openBackupsOf(user, "shop.example.com");
+    expect(within(drawer).queryByRole("columnheader", { name: "Not sent yet" })).not.toBeInTheDocument();
+  });
+
   it("lands on an application's backups from its address, as 3.0's filtered list did", async () => {
     fakeBackend(backupsRoutes([backup({ backup_id: "b-1" })]));
     renderConsole("/backups?domain=shop.example.com");

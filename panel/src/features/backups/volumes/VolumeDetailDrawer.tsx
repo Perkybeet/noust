@@ -27,7 +27,9 @@ import { backupRetentionWords } from "../policy/retention";
 import type { Accepted } from "../../databases/jobs";
 import type { JobWords } from "../../jobs/useJobInHand";
 import { formatBytes } from "../../../lib/format";
+import { anyPending, pendingSendsOf } from "../../../lib/pendingSends";
 import { useNode } from "../../../nodes/useNode";
+import { PendingSendsCell } from "../PendingSends";
 import { PushToDestinationDialog } from "../PushToDestinationDialog";
 import { isTrue, textOf } from "../policy/record";
 import { backupKind, checkOf, scheduleWords, totalBytes, viewOf } from "./data";
@@ -253,6 +255,10 @@ export function VolumeDetailDrawer({ row, open, onOpenChange, onEdit, onRun, onR
                     </span>
                   ),
               },
+              // Only while some backup is owed to a destination, and not hidden on a phone: it is the state of the copy.
+              ...(anyPending(row.backups)
+                ? [{ id: "sending", header: t("backups.pending.column"), width: "w-48", card: "meta" as const, cell: (backup: VolumeBackup) => <PendingSendsCell sends={pendingSendsOf(backup)} /> }]
+                : []),
               {
                 id: "size",
                 header: t("volumeBackups.table.size"),

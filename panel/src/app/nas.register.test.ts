@@ -83,6 +83,16 @@ describe("a hub that was not told to deploy", () => {
     for (const id of ["apps", "databases", "domains", "cron"]) expect(items, `the bar has ${id}`).not.toContain(id);
   });
 
+  it("does not offer the Docker zone, though Docker's socket may be mounted: the server says it leaves its machine's Docker alone until it is told to", () => {
+    const hub = context(hubSession());
+    expect(offers(hubSession(), "docker_zone")).toBe(false);
+    expect(paths(tabsById("server", hub)).filter((to) => to.startsWith("/server/docker"))).toEqual([]);
+    const found = paletteEntries({ ...hub, t: (key) => key, scope: "server" }).map((entry) => entry.id);
+    expect(found.filter((id) => id.startsWith("server.docker"))).toEqual([]);
+    // And the one that is told to has it all: the same filter, the other table.
+    expect(paths(tabsById("server", context(nasSession()))).filter((to) => to.startsWith("/server/docker")).length).toBeGreaterThan(0);
+  });
+
   it("offers the way in to Deploy on this machine, in its Server column and in the palette", () => {
     const hub = context(hubSession());
     expect(paths(tabsById("server", hub))).toContain("/server/deploy-here");

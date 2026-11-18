@@ -215,7 +215,11 @@ def make_runner(
             # Answered as the command it runs: switching the account (runuser -u
             # postgres -- psql) asks the same question of the machine.
             program = args[0] if args else ""
-            if programs is not None and program.rsplit("/", 1)[-1] not in programs:
+            # What is on the machine's path says nothing of what a container has: a client run inside
+            # one (`docker exec` of a database's container, or of a stack's) is the container's own, so
+            # the central's missing psql does not make it a program that cannot be found.
+            inside = getattr(self._inside, "container", None) is not None
+            if programs is not None and not inside and program.rsplit("/", 1)[-1] not in programs:
                 return CommandResult(args, 127, "", f"Command not found: {program}")
             # The Server area's tools first: see model_server_host.
             server = (
@@ -277,6 +281,9 @@ def make_runner(
                 return CommandResult(args, 1, "", "")
             if program == "pg_dump":
                 return ok(args, _PG_DUMP_BYTES)
+            if program == "pg_isready":
+                # What the server's own check prints: the address it asked and that it is taking connections.
+                return ok(args, "/var/run/postgresql:5432 - accepting connections\n")
             if program == "pg_restore" and "--list" in args:
                 return ok(args, _PG_RESTORE_LIST)
             if program == "psql":

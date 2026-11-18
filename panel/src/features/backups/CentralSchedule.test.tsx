@@ -105,6 +105,8 @@ describe("the sentence of a task", () => {
 
     expect(taskTitle(t, { ...base, key: "a", kind: "volume_backup", subject: "vault.casa.example.org" })).toBe("Copy of the data of vault.casa.example.org");
     expect(taskTitle(t, { ...base, key: "b", kind: "sweep" })).toBe("Retention sweep of the copies");
+    // The pass that sends again the copies that were made and did not reach a destination (item 201).
+    expect(taskTitle(t, { ...base, key: "r", kind: "resend" })).toBe("Send again the copies that did not arrive");
     expect(taskTitle(t, { ...base, key: "c", kind: "future_kind" })).toBe("future_kind");
   });
 });

@@ -139,6 +139,7 @@ export const containerHost = {
       sweep: "Retention sweep of the copies",
       cleanup: "Cleanup of Docker and the disk",
       image_check: "Look for new versions of the images",
+      resend: "Send again the copies that did not arrive",
       other: "{kind}",
     },
     failed: "It failed: {detail}",

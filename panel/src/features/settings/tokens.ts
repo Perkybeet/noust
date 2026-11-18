@@ -53,6 +53,19 @@ export function heldPermissions(wanted: readonly string[], own: readonly string[
   };
 }
 
+/**
+ * What a token is asked to hold, less what no token ever holds (the server's own list, `token_never` of its roles: a role holds them and
+ * the token its owner makes does not). The console never keeps a list of its own: what the server strips is what the dialog leaves out and
+ * says it left out.
+ *
+ * @param wanted - What the scope or the preset asks for.
+ * @param never - What the server says no token holds.
+ * @returns What can still be held, and what was left out for that reason.
+ */
+export function withoutNever(wanted: readonly string[], never: readonly string[]): { kept: string[]; left: string[] } {
+  return { kept: wanted.filter((permission) => !never.includes(permission)), left: wanted.filter((permission) => never.includes(permission)) };
+}
+
 export interface ExpiryOption {
   value: string;
   label: string;

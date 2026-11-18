@@ -138,6 +138,7 @@ export const containerHost: Catalog<typeof en> = {
       sweep: "Limpieza de retención de las copias",
       cleanup: "Limpieza de Docker y del disco",
       image_check: "Buscar versiones nuevas de las imágenes",
+      resend: "Reenviar las copias que no llegaron",
       other: "{kind}",
     },
     failed: "Ha fallado: {detail}",

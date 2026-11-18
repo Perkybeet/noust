@@ -33,7 +33,10 @@ import { SystemOutput } from "../../components/ui/SystemOutput";
 import type { WizardActionsProps } from "../../components/page/Wizard";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
+import { hostAccessOf } from "../../lib/hostAccess";
+import type { HostAccess } from "../../lib/hostAccess";
 import { useContainerHost } from "../central/features";
+import { HostAccessLines } from "../docker/HostAccessLines";
 import { splitErrors } from "../settings/formErrors";
 import { normalizeDomain } from "../domains/names";
 import { useSiteAdoption } from "./AdoptSite";
@@ -63,7 +66,7 @@ export function adoptProblems(form: AdoptForm, t: (key: "newApp.adopt.domainRequ
 }
 
 /** The request, with what was left empty left out: found by looking. */
-export function adoptBody(form: AdoptForm, extra: { preview: boolean; acceptRecreate: boolean }) {
+export function adoptBody(form: AdoptForm, extra: { preview: boolean; acceptRecreate: boolean; acceptHostAccess?: boolean }) {
   const optional = (value: string): string | undefined => (value.trim() === "" ? undefined : value.trim());
   const composeFile = optional(form.composeFile);
   const site = optional(form.site);
@@ -74,9 +77,9 @@ export function adoptBody(form: AdoptForm, extra: { preview: boolean; acceptRecr
     path: form.path.trim(),
     preview: extra.preview,
     accept_recreate: extra.acceptRecreate,
-    // Accepting what gives the server to a container is a decision of its own, asked for where the
+    // Accepting what gives the server to a container is a decision of its own, taken where the
     // refusal lists each line; until then the server refuses and says them.
-    accept_host_access: false,
+    accept_host_access: extra.acceptHostAccess === true,
     ...(composeFile !== undefined ? { compose_file: composeFile } : {}),
     ...(site !== undefined ? { site } : {}),
     ...(source !== undefined ? { source } : {}),
@@ -100,6 +103,7 @@ function sameStack(a: AdoptForm, b: AdoptForm): boolean {
 interface AdoptRequest {
   form: AdoptForm;
   acceptRecreate: boolean;
+  acceptHostAccess: boolean;
 }
 
 function Found({ preview, t }: { preview: Adoption; t: T }) {
@@ -188,12 +192,18 @@ function useStackAdoption(): AdoptionState {
   // ticking "Adopt anyway" must not take away the output it asks the operator to have read,
   // nor the box itself with the focus on it.
   const [refused, setRefused] = useState<{ for: AdoptForm; error: unknown } | null>(null);
+  // The lines of the Compose file that give this server to a container, kept the same way: the box that accepts them goes on
+  // answering for them after the preview that follows has no refusal left to read them from.
+  const [acceptHostAccess, setAcceptHostAccess] = useState(false);
+  const [listed, setListed] = useState<{ for: AdoptForm; access: HostAccess } | null>(null);
 
   const keepRefusal = (error: unknown, sent: AdoptRequest): void => {
     if (recreateRefusal(error) !== null) setRefused({ for: sent.form, error });
+    const access = hostAccessOf(error);
+    if (access !== null) setListed({ for: sent.form, access });
   };
   const preview = useMutation({
-    mutationFn: (sent: AdoptRequest) => request("post", "/api/apps/adopt", { body: adoptBody(sent.form, { preview: true, acceptRecreate: sent.acceptRecreate }) }),
+    mutationFn: (sent: AdoptRequest) => request("post", "/api/apps/adopt", { body: adoptBody(sent.form, { preview: true, acceptRecreate: sent.acceptRecreate, acceptHostAccess: sent.acceptHostAccess }) }),
     onSuccess: (answer, sent) => {
       setPreviewed({ for: sent, answer });
       announce(t("newApp.adopt.previewReady"));
@@ -201,7 +211,7 @@ function useStackAdoption(): AdoptionState {
     onError: keepRefusal,
   });
   const adopt = useMutation({
-    mutationFn: (sent: AdoptRequest) => request("post", "/api/apps/adopt", { body: adoptBody(sent.form, { preview: false, acceptRecreate: sent.acceptRecreate }) }),
+    mutationFn: (sent: AdoptRequest) => request("post", "/api/apps/adopt", { body: adoptBody(sent.form, { preview: false, acceptRecreate: sent.acceptRecreate, acceptHostAccess: sent.acceptHostAccess }) }),
     onError: keepRefusal,
     onSuccess: (answer) => {
       void queryClient.invalidateQueries({ queryKey: appKeys.list, exact: true });
@@ -212,8 +222,11 @@ function useStackAdoption(): AdoptionState {
 
   const failure = preview.error ?? adopt.error;
   const refusal = refused !== null && sameStack(refused.for, form) ? refused : null;
-  const split = splitErrors(recreateRefusal(failure) === null ? failure : null, FIELDS);
-  const ready = previewed !== null && previewed.for.acceptRecreate === acceptRecreate && JSON.stringify(previewed.for.form) === JSON.stringify(form);
+  const hostAccess = listed !== null && sameStack(listed.for, form) ? listed.access : null;
+  // The two refusals have their own place with their own box; what is left is a failure to say as it came.
+  const split = splitErrors(recreateRefusal(failure) === null && hostAccessOf(failure) === null ? failure : null, FIELDS);
+  const ready =
+    previewed !== null && previewed.for.acceptRecreate === acceptRecreate && previewed.for.acceptHostAccess === acceptHostAccess && JSON.stringify(previewed.for.form) === JSON.stringify(form);
 
   const edit = (patch: Partial<AdoptForm>): void => {
     const next = { ...form, ...patch };
@@ -223,6 +236,8 @@ function useStackAdoption(): AdoptionState {
       // Another stack: what Compose said, and what the operator accepted, were about the last.
       setRefused(null);
       setAcceptRecreate(false);
+      setListed(null);
+      setAcceptHostAccess(false);
     }
     if (preview.isError) preview.reset();
     if (adopt.isError) adopt.reset();
@@ -234,8 +249,8 @@ function useStackAdoption(): AdoptionState {
       setErrors(found);
       return;
     }
-    if (ready) adopt.mutate({ form, acceptRecreate });
-    else preview.mutate({ form, acceptRecreate });
+    if (ready) adopt.mutate({ form, acceptRecreate, acceptHostAccess });
+    else preview.mutate({ form, acceptRecreate, acceptHostAccess });
   };
 
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
@@ -287,7 +302,21 @@ function useStackAdoption(): AdoptionState {
             }}
           />
         </div>
-      ) : failure !== null && split.form !== null ? (
+      ) : null}
+
+      {hostAccess !== null ? (
+        <HostAccessLines
+          access={hostAccess}
+          accepted={acceptHostAccess}
+          onAcceptedChange={(accepted) => {
+            setAcceptHostAccess(accepted);
+            preview.reset();
+            adopt.reset();
+          }}
+        />
+      ) : null}
+
+      {failure !== null && split.form !== null ? (
         <ErrorBlock live compact error={split.form} title={adopt.isError ? t("newApp.adopt.notAdopted") : t("newApp.adopt.notPreviewed")} />
       ) : null}
 

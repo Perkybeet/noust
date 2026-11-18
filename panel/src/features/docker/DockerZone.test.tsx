@@ -73,6 +73,27 @@ describe("what a container's menu offers", () => {
     expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["See logs", "Open console", "Restart", "Stop", "Remove…"]);
   });
 
+  it("says in words that a container belongs to no stack, dimmed, and names the stack of one that has it", async () => {
+    open("/server/docker/containers", true, { containers: [container("adminer", NOBODY), container("nextcloud-app-1", NOBODY, { project: "nextcloud" })] });
+    const lone = (await screen.findByText("adminer")).closest("tr") as HTMLElement;
+    const said = within(lone).getByText("No stack");
+    expect(said).toHaveClass("text-fg-muted");
+    expect(within(lone).queryByText("None")).not.toBeInTheDocument();
+    const stacked = screen.getByText("nextcloud-app-1").closest("tr") as HTMLElement;
+    expect(within(stacked).getByRole("link", { name: "nextcloud" })).toBeInTheDocument();
+    expect(within(stacked).queryByText("No stack")).not.toBeInTheDocument();
+  });
+
+  it("says it in the container's own page too, where the row of its stack used to be left out", async () => {
+    const lone = container("adminer", NOBODY);
+    open("/server/docker/containers/adminer", true, {
+      containers: [lone],
+      "GET /api/docker/containers/adminer": () => json(200, { available: true, engine: ENGINE_OK, container: lone, owner: NOBODY, can: CAN_ALL, touches: { mounts: [], networks: [], ports: "", privileged: false }, restart_policy: null }),
+    });
+    const said = await screen.findByText("No stack");
+    expect(said).toHaveClass("text-fg-muted");
+  });
+
   it("draws the link of an application's container in the filter its page opens with", async () => {
     open("/server/docker/containers?app=shop.example.com", true, { containers: rows });
     expect(await screen.findByText("shop-example-com-web-1")).toBeInTheDocument();

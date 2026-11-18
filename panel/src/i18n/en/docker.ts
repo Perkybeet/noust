@@ -74,7 +74,7 @@ export const docker = {
     container: "Container",
     containers: "Containers",
     stack: "Stack",
-    noStack: "None",
+    noStack: "No stack",
     state: "State",
     owner: "Owner",
     image: "Image",
@@ -188,6 +188,16 @@ export const docker = {
     nameHelp: "Leave it as it is, or choose another. It is the only thing that is asked.",
     lostTitle: "What would not come back after a restart",
     lostBody: "These have no restart policy that brings them back:",
+  },
+  hostAccess: {
+    linesLabel: "What the containers of this stack have of this server",
+    why: "Each line gives a container something of this server, and accepting is the same as giving it root. The exception can be taken back later.",
+    accept: {
+      one: "I accept that the containers keep what this line gives them of this server",
+      other: "I accept that the containers keep what these {count} lines give them of this server",
+    },
+    acceptHelp: "It is recorded with your name and the date, as the exception of this stack.",
+    who: "Only an account that holds the root-equivalent permission can accept this. Ask an administrator of this server: nothing changes until they do.",
   },
   compose: {
     crumb: "Compose document",

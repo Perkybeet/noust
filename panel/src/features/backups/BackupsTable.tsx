@@ -16,6 +16,8 @@ import { useT } from "../../i18n";
 import type { PlainKey, T } from "../../i18n";
 import { describeError } from "../../lib/errors";
 import { formatBytes, parseTimestamp } from "../../lib/format";
+import { anyPending, pendingSendsOf } from "../../lib/pendingSends";
+import { PendingSendsCell } from "./PendingSends";
 import { useBackupActions } from "./useBackupActions";
 
 export type BackupRow = BackupList["backups"][number];
@@ -162,6 +164,18 @@ export function BackupsTable({ backups, caption, loading = false, skeletonRows, 
       card: "status",
       cell: (row) => <IntegrityCell backup={row} checking={checking.has(row.backup_id)} t={t} />,
     },
+    // Only while some backup is owed to a destination: a column that is empty on every row says nothing and costs the room.
+    ...(anyPending(backups)
+      ? [
+          {
+            id: "sending",
+            header: t("backups.pending.column"),
+            width: "w-48",
+            card: "meta" as const,
+            cell: (row: BackupRow) => <PendingSendsCell sends={pendingSendsOf(row)} />,
+          },
+        ]
+      : []),
   ];
 
   return (

@@ -47,8 +47,10 @@ export function FeatureUnavailable({ entry, feature }: { entry: Dest; feature: F
   const area = areaOf(entry.to) ?? entry;
   const landing = areaLanding(area, ctx);
   const elsewhere = landing.to !== entry.to || landing.search !== undefined;
-  // What a hub refuses for being a hub, a hub that can be told to deploy on its machine's Docker can have: the way to the page that says how.
-  const deployHere = useFeature("deploy_here") && answer?.reason?.code === "features.hub_role" && entry.to !== "/server/deploy-here";
+  // What a hub refuses for being a hub, and what it leaves alone until it is told to use its machine's Docker, a hub that can be told to
+  // deploy there can have: the way to the page that says how.
+  const code = answer?.reason?.code;
+  const deployHere = useFeature("deploy_here") && (code === "features.hub_role" || code === "features.needs_deploy_here") && entry.to !== "/server/deploy-here";
   const section = t(area.label);
   const server = hostname ?? t("fleet.selector.thisServer");
   return (
