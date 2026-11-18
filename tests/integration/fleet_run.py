@@ -1872,6 +1872,11 @@ def scenario_host_key_change(env: FleetEnv) -> None:
     something to break). It then regenerates the node's host keys, kills the
     open tunnel so the next call must renegotiate, and checks the central
     refuses it - loudly, and without re-pinning on its own.
+
+    It ends the way an operator who has compared the new fingerprint does: the node is
+    removed and added again, which pins the key it has now, and the node answers. A
+    scenario that breaks the fleet puts it back, so the next one (the bastion's) starts
+    from a node the central reaches and not from the stale pin this one leaves on purpose.
     """
     central, node = env.central, env.node
 
@@ -1883,57 +1888,84 @@ def scenario_host_key_change(env: FleetEnv) -> None:
     )
     enroll_node(env)
     pinned_before = env.node_host_key
+    try:
+        node.run("rm -f /etc/ssh/ssh_host_*_key*", timeout=15, label="rm the node's SSH host keys")
+        node.run("ssh-keygen -A", timeout=30, label="ssh-keygen -A  (regenerate them)")
+        node.run("systemctl restart ssh", timeout=30, label="systemctl restart ssh")
 
-    node.run("rm -f /etc/ssh/ssh_host_*_key*", timeout=15, label="rm the node's SSH host keys")
-    node.run("ssh-keygen -A", timeout=30, label="ssh-keygen -A  (regenerate them)")
-    node.run("systemctl restart ssh", timeout=30, label="systemctl restart ssh")
+        # The tunnel opened by enroll_node() above is still alive; a running
+        # tunnel is reused as-is and never re-checks the host key. Killing it is
+        # what forces the next call to renegotiate against the new key.
+        central.run(
+            "pkill -f '[s]sh -N -T -F /dev/null' 2>/dev/null; true",
+            timeout=10,
+            label="kill the open tunnel to force a reconnect",
+        )
+        time.sleep(1)
 
-    # The tunnel opened by enroll_node() above is still alive; a running
-    # tunnel is reused as-is and never re-checks the host key. Killing it is
-    # what forces the next call to renegotiate against the new key.
-    central.run(
-        "pkill -f '[s]sh -N -T -F /dev/null' 2>/dev/null; true",
-        timeout=10,
-        label="kill the open tunnel to force a reconnect",
+        test_result = central.run(
+            f"noust node test {env.node_name} --json",
+            timeout=30,
+            check=False,
+            label=f"noust node test {env.node_name} --json  (after the node's host key changed)",
+        )
+        test_info = as_json(test_result, what="noust node test --json")
+        central.check(
+            test_info.get("reachable") is not True,
+            f"a changed host key was not detected: {test_info!r}",
+        )
+        central.check(
+            "does not match the one pinned" in (test_info.get("error") or ""),
+            f"the refusal does not say the host key changed: {test_info!r}",
+        )
+
+        show_result = central.run(
+            f"noust node show {env.node_name} --json",
+            label=f"noust node show {env.node_name} --json  (unchanged pin)",
+        )
+        show_info = as_json(show_result, what="noust node show --json")
+        central.check(
+            show_info.get("host_key") == pinned_before,
+            "the central accepted the node's new host key on its own instead of keeping the old pin",
+        )
+
+        retry_result = central.run(
+            f"noust node test {env.node_name} --json",
+            timeout=30,
+            check=False,
+            label=f"noust node test {env.node_name} --json  (again: still refused, not self-healed)",
+        )
+        retry_info = as_json(retry_result, what="noust node test --json")
+        central.check(
+            retry_info.get("reachable") is not True,
+            "the central started trusting the new host key by itself",
+        )
+    finally:
+        # The pin the central kept is what was proven above; the way to accept the node's new key
+        # is the operator's: remove the node and add it again, which pins what it presents now.
+        central.run(
+            f"noust node remove {env.node_name} --no-revoke -f",
+            timeout=30,
+            check=False,
+            label=f"noust node remove {env.node_name} --no-revoke -f  (the operator has compared the new fingerprint)",
+        )
+        enroll_node(env)
+
+    again = as_json(
+        central.run(
+            f"noust node test {env.node_name} --json",
+            timeout=60,
+            label=f"noust node test {env.node_name} --json  (added again, with the key it has now)",
+        ),
+        what="noust node test --json",
     )
-    time.sleep(1)
-
-    test_result = central.run(
-        f"noust node test {env.node_name} --json",
-        timeout=30,
-        check=False,
-        label=f"noust node test {env.node_name} --json  (after the node's host key changed)",
-    )
-    test_info = as_json(test_result, what="noust node test --json")
     central.check(
-        test_info.get("reachable") is not True,
-        f"a changed host key was not detected: {test_info!r}",
+        again.get("reachable") is True,
+        f"the node does not answer after it was added again: {again!r}",
     )
     central.check(
-        "does not match the one pinned" in (test_info.get("error") or ""),
-        f"the refusal does not say the host key changed: {test_info!r}",
-    )
-
-    show_result = central.run(
-        f"noust node show {env.node_name} --json",
-        label=f"noust node show {env.node_name} --json  (unchanged pin)",
-    )
-    show_info = as_json(show_result, what="noust node show --json")
-    central.check(
-        show_info.get("host_key") == pinned_before,
-        "the central accepted the node's new host key on its own instead of keeping the old pin",
-    )
-
-    retry_result = central.run(
-        f"noust node test {env.node_name} --json",
-        timeout=30,
-        check=False,
-        label=f"noust node test {env.node_name} --json  (again: still refused, not self-healed)",
-    )
-    retry_info = as_json(retry_result, what="noust node test --json")
-    central.check(
-        retry_info.get("reachable") is not True,
-        "the central started trusting the new host key by itself",
+        env.node_host_key != pinned_before,
+        "adding the node again pinned the key it had before, not the one it presents now",
     )
 
 
@@ -3282,6 +3314,71 @@ def issue_token(env: FleetEnv, name: str, owner: str, permissions: list[str] | N
     return found.group(1)
 
 
+def sign_in_as_a_person(env: FleetEnv, username: str) -> str:
+    """
+    Sign an account of the central in with its password, as a person does, and keep it out of the evidence.
+
+    A new account is held at "set up a second factor" until it has one, so the sign-in enrols an
+    authenticator first. The code is made here from the secret the central gave; the secret, the
+    password and the session never reach an argument or the evidence.
+
+    Args:
+        env: The fleet.
+        username: The account; its password is :data:`ROLES_PASSWORD`.
+
+    Returns:
+        The session token (a bearer one), which carries what the person holds.
+    """
+    central = env.central
+    base = f"https://127.0.0.1:{CENTRAL_PORT}"
+    status, body, raw = api_call(
+        CENTRAL_NAME,
+        "POST",
+        f"{base}/api/auth/login",
+        json_body={"username": username, "password": ROLES_PASSWORD, "bearer": True},
+    )
+    log_api(
+        central,
+        "POST",
+        f"/api/auth/login ({username}, with a password)",
+        status,
+        "<redacted: session + csrf tokens>",
+    )
+    central.check(status == 200, f"{username} could not sign in: {status} {raw[:200]!r}")
+    session_token = str(body["session_token"])
+    csrf = csrf_headers(str(body["csrf_token"]))
+    status, body, raw = api_call(
+        CENTRAL_NAME,
+        "POST",
+        f"{base}/api/auth/2fa/enroll",
+        token=session_token,
+        headers=csrf,
+        json_body={},
+    )
+    log_api(
+        central, "POST", "/api/auth/2fa/enroll", status, "<redacted: the authenticator's secret>"
+    )
+    central.check(
+        status == 200, f"{username} could not begin a second factor: {status} {raw[:200]!r}"
+    )
+    # A step of its own: the secret is new, so no code of it was used before, and this does not take
+    # the step the console's own factor (``totp_code``) keeps apart.
+    code = _hotp(str(body["secret"]), int(time.time() // TOTP_PERIOD))
+    status, body, raw = api_call(
+        CENTRAL_NAME,
+        "POST",
+        f"{base}/api/auth/2fa/confirm",
+        token=session_token,
+        headers=csrf,
+        json_body={"code": code},
+    )
+    log_api(central, "POST", "/api/auth/2fa/confirm", status, "<redacted: backup codes>")
+    central.check(
+        status == 200, f"{username} could not confirm a second factor: {status} {raw[:200]!r}"
+    )
+    return session_token
+
+
 def what_the_node_makes_of(env: FleetEnv, token: str, what: str) -> set[str]:
     """
     Ask a node, through the central, what it grants the person behind a token.
@@ -3318,6 +3415,10 @@ def edited_roles_reach_the_node(env: FleetEnv, *, node_reads_permissions: bool) 
     - the owner is the widest role there is: the node grants everything its ceiling lets a central
       do and never ``security.manage``, ``accounts.manage`` or ``audit.manage``, however the
       central names the person;
+    - what only a person holds (``assistant.use``, which the central publishes as ``token_never``)
+      is held by the owner signed in and by no token, however much it was asked for: the owner's
+      token, made with every permission there is, holds all but that on the central and on the node,
+      and the owner signed in holds it on both;
     - the ceiling manda: held to ``read`` the node grants only reading, and the host's permissions
       come only when the node says so (``--host-access on``);
     - a 4.1 node, asked directly with a fleet token, drops the governing permissions a forged
@@ -3362,11 +3463,29 @@ def edited_roles_reach_the_node(env: FleetEnv, *, node_reads_permissions: bool) 
     )
     owner_token = issue_token(env, "roles-owner", "founder", every)
     ana_token = issue_token(env, "roles-ana", "ana")
+    owner_signed_in = sign_in_as_a_person(env, "founder")
+
+    # -- what a token never holds is the central's to say (``GET /api/auth/roles``): a role holds it
+    #    and the token asked for it above, so what the sessions below show is the rule, not a gap
+    status, body, raw = api_call(
+        CENTRAL_NAME,
+        "GET",
+        f"https://127.0.0.1:{CENTRAL_PORT}/api/auth/roles",
+        token=owner_token,
+    )
+    log_api(central, "GET", "/api/auth/roles (what no token holds)", status, raw[:200])
+    central.check(status == 200, f"the central's roles: {status} {raw[:200]!r}")
+    token_never = set((body or {}).get("token_never") or [])
+    central.check(
+        "assistant.use" in token_never and "assistant.use" in every,
+        f"the central does not say a token never holds assistant.use: {sorted(token_never)}",
+    )
 
     # -- what the central itself believes of each
     for token, who, must_hold, must_not in (
         (ana_token, "ana", {"databases.write", "apps.read"}, {"apps.manage", "accounts.manage"}),
-        (owner_token, "the owner", set(every), set()),
+        (owner_token, "the owner's token", set(every) - token_never, token_never),
+        (owner_signed_in, "the owner signed in", set(every), set()),
     ):
         status, body, raw = api_call(
             CENTRAL_NAME, "GET", f"https://127.0.0.1:{CENTRAL_PORT}/api/auth/session", token=token
@@ -3401,12 +3520,22 @@ def edited_roles_reach_the_node(env: FleetEnv, *, node_reads_permissions: bool) 
     central.check(not (on_node & NEVER_FOR_A_CENTRAL), f"the node granted governing: {on_node}")
 
     everything_a_central_may = set(every) - NEVER_FOR_A_CENTRAL - THE_HOST
-    owner_on_node = what_the_node_makes_of(env, owner_token, "the owner")
+    owner_on_node = what_the_node_makes_of(env, owner_token, "the owner's token")
+    a_token_may = everything_a_central_may - token_never
     central.check(
-        owner_on_node == everything_a_central_may,
-        "the owner on the node holds "
-        f"{sorted(owner_on_node ^ everything_a_central_may)} apart from what a central may",
+        owner_on_node == a_token_may,
+        "the owner's token on the node holds "
+        f"{sorted(owner_on_node ^ a_token_may)} apart from what a central may and a token holds",
     )
+    if node_reads_permissions:
+        # A node before 4.1 reads the name of a role, which never carried the permissions of a
+        # person: only a node that reads them can tell the person from the token.
+        owner_person_on_node = what_the_node_makes_of(env, owner_signed_in, "the owner signed in")
+        central.check(
+            owner_person_on_node == everything_a_central_may,
+            "the owner signed in holds "
+            f"{sorted(owner_person_on_node ^ everything_a_central_may)} apart from what a central may",
+        )
 
     # -- what the node makes of its own roles is the node's to say (a framework is judged where it
     #    runs): a 4.1 node answers its review through the central, a node before 4.1 has none
@@ -3435,6 +3564,15 @@ def edited_roles_reach_the_node(env: FleetEnv, *, node_reads_permissions: bool) 
             all(p.endswith(".read") or p == "self" for p in only_reading) and only_reading,
             f"a node held to read granted {sorted(p for p in only_reading if not p.endswith('.read'))}",
         )
+        if node_reads_permissions:
+            person_reading = what_the_node_makes_of(
+                env, owner_signed_in, "the owner signed in, ceiling read"
+            )
+            central.check(
+                all(p.endswith(".read") or p == "self" for p in person_reading) and person_reading,
+                "a node held to read granted the owner signed in "
+                f"{sorted(p for p in person_reading if not p.endswith('.read'))}",
+            )
         ana_reading = what_the_node_makes_of(env, ana_token, "ana, ceiling read")
         central.check(
             "databases.write" not in ana_reading,

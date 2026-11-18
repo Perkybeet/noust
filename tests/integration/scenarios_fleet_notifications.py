@@ -299,14 +299,24 @@ def register(fr: Any) -> None:
                 label="the central may be quiet for a minute (and never less than three calls)",
             )
             fr.wait_until(
-                lambda: ", 30)" in centrals_noted(),
+                lambda: f"('{env.central_label}', 30)" in centrals_noted(),
                 "the first node to note that its central keeps watch (calls every 30 seconds)",
                 timeout=240,
             )
+            # A node lists every central that has called it, and an earlier scenario may have left
+            # another one (the packaged central of ``central_image`` registered this node too and
+            # called it once). Ours is found by its name; what is asked of the others is that none of
+            # them says it keeps watch, which is what keeps a central nobody looks at from being missed.
             listed = proxied(node1_name, "managed-settings")["centrals"]
+            ours = [c for c in listed if c["central"] == env.central_label]
+            others = [c for c in listed if c["central"] != env.central_label]
             central.check(
-                len(listed) == 1 and listed[0]["keeps_watch"] and listed[0]["heartbeat_s"] == 30,
+                len(ours) == 1 and ours[0]["keeps_watch"] and ours[0]["heartbeat_s"] == 30,
                 f"the first node does not list the central that keeps watch: {listed!r}",
+            )
+            central.check(
+                not any(c["keeps_watch"] for c in others),
+                f"the first node lists another central as one that keeps watch: {listed!r}",
             )
             before = said("central.silent")
             central.run(
