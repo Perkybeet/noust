@@ -73,9 +73,12 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+import yaml
+
+from noust.core.compose_yaml import load_compose
 from noust.core.runner import CommandRunner
 from noust.core.server_text import ServerText, say
-from noust.deployers.helpers import compose_owners
+from noust.deployers.helpers import compose_keys, compose_owners
 from noust.deployers.helpers.compose_host import items, judge_settings
 from noust.deployers.helpers.compose_owners import Owners
 from noust.deployers.helpers.compose_paths import (
@@ -97,6 +100,9 @@ DOCKER_SOCKET = "docker.sock"
 #: Compose specification took them in (2026-08-16), its jobs. The word is the one the
 #: sentences use.
 _RUNNABLE = (("services", "service"), ("jobs", "job"))
+
+#: The files Compose reads and folds into what it prints, leaving no path in the model it prints.
+_FOLDED_DOORS = ("env_file", "label_file")
 
 #: The ``file:`` sections: the file of a secret or a config is mounted into the container.
 _FILE_SECTIONS = (("secrets", "secret"), ("configs", "config"))
@@ -129,6 +135,10 @@ class ComposeFindings:
         links: For a sentence about a path that goes through a link of the tree, that link: what
             an update that changed the link did not leave as it was (:func:`~noust.deployers.
             helpers.compose_verdict.unchanged`).
+        doors: For each service whose ``env_file`` or ``label_file`` is named through a variable, which
+            of them: Compose folds what those files hold into the model it prints, so where the
+            variable led is only seen in a path it keeps (``config --no-env-resolution``), and a
+            service whose path it did not keep is refused (:func:`with_resolved`).
     """
 
     refused: list[str] = field(default_factory=list)
@@ -137,6 +147,7 @@ class ComposeFindings:
     hard: set[str] = field(default_factory=set, repr=False, compare=False)
     said: dict[str, ServerText] = field(default_factory=dict, repr=False, compare=False)
     links: dict[str, tuple[str, ...]] = field(default_factory=dict, repr=False, compare=False)
+    doors: dict[str, list[str]] = field(default_factory=dict, repr=False, compare=False)
 
     def __bool__(self) -> bool:
         """True when anything was found."""
@@ -192,6 +203,10 @@ class GuardContext:
             names a file claims.
         pasted: The document was typed or pasted: it has no repository, so a download is refused
             for it with no exception.
+        closed_keys: Refuse the keys the guard does not know
+            (:mod:`~noust.deployers.helpers.compose_keys`). It is asked of the files as a person
+            wrote them, and not of the model Compose prints, which has no key that those files do
+            not and may spell its own.
     """
 
     app_path: Path
@@ -201,6 +216,7 @@ class GuardContext:
     env_project: str = ""
     owners: Owners | None = None
     pasted: bool = False
+    closed_keys: bool = True
 
     @property
     def base(self) -> Path:
@@ -259,16 +275,57 @@ def _noust_roots() -> tuple[PurePosixPath, ...]:
     return tuple(roots)
 
 
-def _exposure(reached: Reached, app_path: Path) -> tuple[str, str] | None:
+def _trees_of(directory: str | Path) -> list[PurePosixPath]:
+    """
+    Args:
+        directory: A directory, as a store or a setting records it.
+
+    Returns:
+        Where it is under the name it has and where a link of an alias (a NAS's shared folder)
+        really leads: the daemon takes a path for either.
+    """
+    forms = [PurePosixPath(posixpath.normpath(str(directory)))]
+    forms.extend(form for form in [followed(directory)] if form is not None)
+    return forms
+
+
+def _other_trees(context: GuardContext) -> list[PurePosixPath]:
+    """
+    List the trees of the other applications, as the store registered them.
+
+    An application does not have to live under the applications directory: an adopted stack runs
+    where it already was (``/opt/billing``), and what the store says is another application's is
+    another application's whatever its path looks like.
+
+    Args:
+        context: What the guard knows of the application, whose ``owners`` hold the store's list.
+
+    Returns:
+        The tree of every registered application but this one, each as :func:`_trees_of` gives it.
+    """
+    if context.owners is None:
+        return []
+    trees: list[PurePosixPath] = []
+    for record in context.owners.index.registry.apps:
+        if record.domain == context.owners.domain or not record.path:
+            continue
+        trees.extend(form for form in _trees_of(record.path) if form not in trees)
+    return trees
+
+
+def _exposure(reached: Reached, context: GuardContext) -> tuple[str, str] | None:
     """
     Say whether a path hands over Noust's state or another application.
 
     Every place the daemon may take the path for is judged, not the one it is spelled as: a link
-    of the repository that leads to ``/etc/noust`` is ``/etc/noust``.
+    of the repository that leads to ``/etc/noust`` is ``/etc/noust``. Another application is what
+    the store says is one (:func:`_other_trees`) and, for a tree the store does not know, whatever
+    is under the applications directory.
 
     Args:
         reached: Where the path leads.
-        app_path: The application directory.
+        context: What the guard knows of the application: its tree, and the store's list of the
+            others.
 
     Returns:
         ``(what, directory)``: ``noust`` (it is Noust's own), ``contains_noust`` (it holds
@@ -278,11 +335,9 @@ def _exposure(reached: Reached, app_path: Path) -> tuple[str, str] | None:
     from noust.core.config import Config
 
     roots = _noust_roots()
-    own = [PurePosixPath(posixpath.normpath(str(app_path)))]
-    own.extend(form for form in [followed(app_path)] if form is not None)
-    apps_directory = str(Config().apps_directory)
-    apps = [PurePosixPath(posixpath.normpath(apps_directory))]
-    apps.extend(form for form in [followed(apps_directory)] if form is not None)
+    own = _trees_of(context.app_path)
+    apps = _trees_of(Config().apps_directory)
+    others = _other_trees(context)
     for place in reached.places:
         for directory in roots:
             if within(place, directory):
@@ -291,9 +346,13 @@ def _exposure(reached: Reached, app_path: Path) -> tuple[str, str] | None:
                 return "contains_noust", str(directory)
         if any(within(place, app) for app in own):
             continue
-        if any(place == directory or place in directory.parents for directory in apps):
+        if any(within(directory, place) for directory in apps) or any(
+            place in directory.parents for directory in others
+        ):
             return "all_apps", ""
-        if any(directory in place.parents for directory in apps):
+        if any(directory in place.parents for directory in apps) or any(
+            within(place, tree) for tree in others
+        ):
             return "other_app", ""
     return None
 
@@ -335,7 +394,7 @@ def _judge_source(
     if reached is None:
         return
     where = str(reached.places[0])
-    exposure = _exposure(reached, context.app_path)
+    exposure = _exposure(reached, context)
     if any(place.name == DOCKER_SOCKET for place in reached.places) or (
         source.rstrip("/").endswith(DOCKER_SOCKET)
     ):
@@ -411,7 +470,7 @@ def _judge_door(
     if reached is None:
         return
     where = str(reached.places[0])
-    exposure = _exposure(reached, context.app_path)
+    exposure = _exposure(reached, context)
     if exposure is None and reached.unresolved and reached.inside:
         findings.add(
             (who, "unresolved", source),
@@ -486,7 +545,7 @@ def _leaves(path: str, context: GuardContext) -> tuple[bool, bool]:
         return False, False
     if reached.unresolved:
         return True, False
-    return not reached.inside, _exposure(reached, context.app_path) is not None
+    return not reached.inside, _exposure(reached, context) is not None
 
 
 def _judge_download(
@@ -605,6 +664,11 @@ def _door_sources(service: Mapping[str, Any]) -> Iterator[tuple[str, str, str]]:
         path = entry.get("path") if isinstance(entry, Mapping) else entry
         if isinstance(path, str) and path:
             yield "env_file", PATH, path
+    # The labels of a file are read by Compose as root and show in ``docker inspect``, which the
+    # console shows to whoever may look at the container: a file read, like an env_file.
+    for entry in _items(service.get("label_file")):
+        if isinstance(entry, str) and entry:
+            yield "label_file", PATH, entry
     build = service.get("build")
     if isinstance(build, str):
         build = {"context": build}
@@ -613,6 +677,12 @@ def _door_sources(service: Mapping[str, Any]) -> Iterator[tuple[str, str, str]]:
     context = build.get("context", ".")
     if isinstance(context, str) and context:
         yield "build.context", kind_of(context), context
+        dockerfile = build.get("dockerfile")
+        # The Dockerfile is read from the context (a relative name is the context's) and the client
+        # may be told any path: one that leaves the application is a file of this server read into
+        # the build. Of a context that is downloaded it is the download's.
+        if isinstance(dockerfile, str) and dockerfile and kind_of(context) == PATH:
+            yield "build.dockerfile", PATH, posixpath.join(context, dockerfile)
     extra = build.get("additional_contexts")
     contexts = (
         list(extra.values())
@@ -656,6 +726,9 @@ def _judge_runnable(
     who: str,
     service: Mapping[str, Any],
     context: GuardContext,
+    *,
+    section: str = "service",
+    walk: _Walk | None = None,
 ) -> None:
     """
     Judge one service or job of a compose document.
@@ -666,15 +739,21 @@ def _judge_runnable(
         who: ``service web`` or ``job migrate``.
         service: Its entry.
         context: What the guard knows of the application.
+        section: What the entry is in the table of keys: ``service``, or ``pre_start`` for a container
+            a service runs to completion before it starts.
+        walk: Where the guard is among the files the document brings in.
     """
-    judge_settings(findings, who, service)
+    walk = walk or _Walk()
+    judge_settings(findings, who, service, check_keys=context.closed_keys, section=section)
     for volume in _items(service.get("volumes")):
+        if context.closed_keys:
+            compose_keys.judge_mount(findings, who, volume)
         source, kind = _volume_source(volume)
         if source is not None and kind == "bind":
             _judge_source(findings, who, source, context)
-    for section, word in _FILE_SECTIONS:
-        defined = document.get(section)
-        for entry in _secret_references(service, section):
+    for file_section, word in _FILE_SECTIONS:
+        defined = document.get(file_section)
+        for entry in _secret_references(service, file_section):
             reference = entry.get("source") if isinstance(entry, Mapping) else entry
             definition = defined.get(str(reference)) if isinstance(defined, Mapping) else None
             file = definition.get("file") if isinstance(definition, Mapping) else None
@@ -685,10 +764,79 @@ def _judge_runnable(
             _judge_download(findings, who, value, context, include=False)
         elif kind != OTHER:
             _judge_door(findings, who, value, context, key=key)
+            if key in _FOLDED_DOORS and "$" in value and key not in findings.doors.get(who, ()):
+                findings.doors.setdefault(who, []).append(key)
+    _judge_cache(findings, who, service, context)
+    extends = service.get("extends")
+    if context.closed_keys and isinstance(extends, Mapping):
+        compose_keys.judge_keys(findings, who, "extends", extends, path="extends")
     extended = _extended_file(service)
     if extended is not None:
         _judge_extended(findings, who, extended, context)
+        if isinstance(extends, Mapping):
+            _judge_extended_service(findings, who, extends, context, walk)
     compose_owners.judge_service(findings, who, service, context)
+    if section == "service":
+        for number, container in enumerate(_items(service.get("pre_start")), start=1):
+            if isinstance(container, Mapping):
+                _judge_runnable(
+                    findings,
+                    document,
+                    f"{who} pre_start {number}",
+                    container,
+                    context,
+                    section="pre_start",
+                    walk=walk,
+                )
+
+
+def _cache_places(build: Mapping[str, Any]) -> Iterator[tuple[str, str]]:
+    """
+    List the directories of this server that a build's cache is read from and written to.
+
+    Args:
+        build: The ``build`` mapping of a service.
+
+    Yields:
+        ``(key, path)`` for each ``type=local`` entry of ``cache_from`` (its ``src``) and
+        ``cache_to`` (its ``dest``). The other kinds (an image, a registry, a service of the cloud)
+        are not a path of this server.
+    """
+    for key, option in (("cache_from", "src"), ("cache_to", "dest")):
+        for entry in _items(build.get(key)):
+            options = dict(
+                part.partition("=")[::2] for part in str(entry).split(",") if "=" in part
+            )
+            path = options.get(option, "")
+            if options.get("type") == "local" and path:
+                yield f"build.{key}", path
+
+
+def _judge_cache(
+    findings: ComposeFindings, who: str, service: Mapping[str, Any], context: GuardContext
+) -> None:
+    """
+    Judge the directories a build's cache lives in.
+
+    BuildKit reads and writes a local cache as root, so a path that leaves the application is a place of
+    this server read into a build or written by it. A relative one is the application's whichever
+    directory the command runs from: it is judged from both.
+
+    Args:
+        findings: Where the findings go.
+        who: ``service web`` or ``job migrate``.
+        service: Its entry.
+        context: What the guard knows of the application.
+    """
+    build = service.get("build")
+    if not isinstance(build, Mapping):
+        return
+    for key, path in _cache_places(build):
+        _judge_door(findings, who, path, context, key=key)
+        if not posixpath.isabs(path):
+            _judge_door(
+                findings, who, posixpath.join(str(context.app_path), path), context, key=key
+            )
 
 
 def _judge_extended(
@@ -717,14 +865,28 @@ def _judge_extended(
         )
 
 
+#: Docker's own drivers for a network the stack makes: the isolated bridge (and swarm's overlay). A
+#: network of another driver (``host``, ``macvlan`` and ``ipvlan`` reach the machine's network cards,
+#: a plugin is a program Noust has not heard of) is not isolated from this server.
+_OWN_NETWORK_DRIVERS = frozenset({"", "bridge", "overlay", "none"})
+
+#: The option that names the bridge of the machine a network is attached to instead of making one.
+_BRIDGE_NAME = "com.docker.network.bridge.name"
+
+#: The one driver of a volume Docker has: ``local``. Another is a plugin, and what its options name
+#: (``mountpoint``, ``path``, ``source``) is whatever that program reads.
+_OWN_VOLUME_DRIVERS = frozenset({"", "local"})
+
+
 def _judge_volumes(
     findings: ComposeFindings, document: Mapping[str, Any], context: GuardContext
 ) -> None:
     """
-    Judge the volumes of the file that are a host path by another name.
+    Judge the volumes of the file that are a host path by another name, and the ones a plugin makes.
 
     A volume of the ``local`` driver with ``driver_opts`` can be a bind mount of any directory
-    (``o: bind``, ``device: /``) or a mount of a block device, and no service says so.
+    (``o: bind``, ``device: /``) or a mount of a block device, and no service says so. A volume of
+    another driver is made by a program Noust does not know, whose options can name any place.
 
     Args:
         findings: Where the findings go.
@@ -735,10 +897,339 @@ def _judge_volumes(
     if not isinstance(volumes, Mapping):
         return
     for key, entry in volumes.items():
-        options = entry.get("driver_opts") if isinstance(entry, Mapping) else None
-        device = options.get("device") if isinstance(options, Mapping) else None
+        if not isinstance(entry, Mapping):
+            continue
+        who = f"volume {key}"
+        if context.closed_keys:
+            compose_keys.judge_keys(findings, who, "volume", entry)
+        driver = str(entry.get("driver") or "").strip().lower()
+        if driver not in _OWN_VOLUME_DRIVERS and not compose_owners.is_external(entry):
+            findings.add(
+                (who, "volume_driver", driver),
+                say("compose_guard.volume_driver", who=who, driver=driver),
+                refused=True,
+            )
+        options = entry.get("driver_opts")
+        device = None
+        for name, value in options.items() if isinstance(options, Mapping) else ():
+            if str(name).lower() == "device":
+                device = value
         if isinstance(device, str) and device.startswith(("/", "~", ".")):
-            _judge_source(findings, f"volume {key}", device, context)
+            _judge_source(findings, who, device, context)
+
+
+def _judge_networks(
+    findings: ComposeFindings, document: Mapping[str, Any], context: GuardContext
+) -> None:
+    """
+    Judge the networks of the file: which driver makes them and where they are attached.
+
+    Args:
+        findings: Where the findings go.
+        document: The compose file.
+        context: What the guard knows of the application.
+    """
+    networks = document.get("networks")
+    if not isinstance(networks, Mapping):
+        return
+    for key, entry in networks.items():
+        if not isinstance(entry, Mapping):
+            continue
+        who = f"network {key}"
+        if context.closed_keys:
+            compose_keys.judge_keys(findings, who, "network", entry)
+        if compose_owners.is_external(entry):
+            continue
+        driver = str(entry.get("driver") or "").strip().lower()
+        if driver not in _OWN_NETWORK_DRIVERS:
+            findings.add(
+                (who, "network_driver", driver),
+                say("compose_guard.network_driver", who=who, driver=driver),
+                refused=True,
+            )
+        options = entry.get("driver_opts")
+        for name, value in options.items() if isinstance(options, Mapping) else ():
+            if str(name).lower() == _BRIDGE_NAME and str(value or "").strip():
+                findings.add(
+                    (who, "network_bridge", str(value)),
+                    say("compose_guard.network_bridge", who=who, bridge=value),
+                    refused=True,
+                )
+
+
+def _judge_definitions(
+    findings: ComposeFindings, document: Mapping[str, Any], context: GuardContext
+) -> None:
+    """
+    Judge the other maps of the file: the keys of its secrets, configs and models.
+
+    The files a secret or a config names are judged where a service uses them. What a model runner
+    is given as flags is a program's options, on this server.
+
+    Args:
+        findings: Where the findings go.
+        document: The compose file.
+        context: What the guard knows of the application.
+    """
+    for section, word in (("secrets", "secret"), ("configs", "config"), ("models", "model")):
+        entries = document.get(section)
+        if not isinstance(entries, Mapping):
+            continue
+        for key, entry in entries.items():
+            if not isinstance(entry, Mapping):
+                continue
+            who = f"{word} {key}"
+            if context.closed_keys:
+                compose_keys.judge_keys(findings, who, word, entry)
+            if word == "model" and entry.get("runtime_flags"):
+                findings.add(
+                    (who, "model_flags", ""),
+                    say("compose_guard.model_flags", who=who),
+                    refused=True,
+                )
+
+
+#: How far a file may bring in others: how many in all, how deep, and how large each may be.
+#: Compose has no such limit, and a repository that nests files past any budget is one that
+#: cannot be judged, which is refused.
+MAX_COMPOSED_FILES = 32
+MAX_COMPOSED_DEPTH = 8
+MAX_COMPOSED_BYTES = 1024 * 1024
+
+#: The sentence that says why a file a document brings in was refused, by the reason.
+_NOT_READ = {
+    "not_a_file": "compose_guard.composition_not_a_file",
+    "unreadable": "compose_guard.composition_unreadable",
+    "too_large": "compose_guard.composition_too_large",
+    "too_deep": "compose_guard.composition_too_deep",
+}
+
+
+@dataclass
+class _Walk:
+    """
+    Where the guard is among the files a document brings in.
+
+    Attributes:
+        budget: How many more files may be read, shared by the whole walk.
+        depth: How many files it is inside of.
+        reading: The real paths of the files it is inside of, so that a file that includes itself
+            is read once.
+    """
+
+    budget: list[int] = field(default_factory=lambda: [MAX_COMPOSED_FILES])
+    depth: int = 0
+    reading: frozenset[str] = frozenset()
+
+    def into(self, real: Path) -> _Walk:
+        """The walk inside one more file."""
+        return _Walk(self.budget, self.depth + 1, self.reading | {str(real)})
+
+
+def _load_composed(real: Path) -> tuple[Mapping[str, Any] | None, str]:
+    """
+    Read a file a compose document brings in.
+
+    Args:
+        real: Where it is, with every link followed, inside the application.
+
+    Returns:
+        The document, or None and why not, as the end of the code of the sentence that says it
+        (``not_a_file``, ``too_large``, ``unreadable``). The reason is never what the file says: a
+        file that is not a compose file may be anything, a ``.env`` included, and it is shown.
+    """
+    try:
+        if not real.is_file():
+            return None, "not_a_file"
+        if real.stat().st_size > MAX_COMPOSED_BYTES:
+            return None, "too_large"
+        document = load_compose(real.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, yaml.YAMLError, RecursionError, ValueError):
+        return None, "unreadable"
+    if not isinstance(document, Mapping):
+        return None, "unreadable"
+    return document, ""
+
+
+def _composed(
+    findings: ComposeFindings, key: str, path: str, context: GuardContext, walk: _Walk
+) -> tuple[Mapping[str, Any], Path] | None:
+    """
+    Read the file an ``include`` or an ``extends`` brings in, so that what it says is judged too.
+
+    The model Compose prints has already folded some of what these files say into other keys (an
+    ``env_file`` into ``environment``, where no path is left to judge), so the files are read as they
+    are, with the directory they are in as the base of their relative paths. A file that leaves the
+    application is not read: the finding of the line that names it refuses it, and reading is how it
+    would leak. What cannot be read is refused.
+
+    Args:
+        findings: Where the findings go.
+        key: ``include`` or ``extends``, for the sentence.
+        path: The file as the document writes it.
+        context: What the guard knows of the application, with the base of this document.
+        walk: Where the guard is among the files.
+
+    Returns:
+        The file's document and where it really is; None when there is nothing to judge (a path made
+        of variables, a download, one outside the application, one already being read) or when it
+        was refused.
+    """
+    if kind_of(path) != PATH or "$" in path:
+        return None
+    reached = reach(path, context.base, context.app_path)
+    if reached is None or reached.unresolved or not reached.inside or reached.real is None:
+        return None
+    real = Path(str(reached.real))
+    if str(real) in walk.reading:
+        return None
+    problem = "too_deep"
+    if walk.depth < MAX_COMPOSED_DEPTH and walk.budget[0] > 0:
+        walk.budget[0] -= 1
+        document, problem = _load_composed(real)
+        if document is not None:
+            return document, real
+    findings.add(
+        ("compose", "unreadable", f"{key}:{path}"),
+        say(_NOT_READ[problem], path=path, key=key),
+        refused=True,
+    )
+    return None
+
+
+def _base_of(
+    context: GuardContext, real: Path, project_directory: str | None = None
+) -> GuardContext:
+    """
+    Args:
+        context: The guard's knowledge of the document that brings a file in.
+        real: The file it brings in, with every link followed.
+        project_directory: The ``project_directory`` of the ``include`` that brings it in.
+
+    Returns:
+        The same, with the directory the file's relative paths are read from: its own, or the
+        ``project_directory`` the include names when that stays in the application.
+    """
+    directory = real.parent
+    if project_directory:
+        reached = reach(project_directory, context.base, context.app_path)
+        if (
+            reached is not None
+            and reached.real is not None
+            and reached.inside
+            and not reached.unresolved
+        ):
+            directory = Path(str(reached.real))
+    return replace(context, project_dir=directory)
+
+
+def _judge_extended_service(
+    findings: ComposeFindings,
+    who: str,
+    extends: Mapping[str, Any],
+    context: GuardContext,
+    walk: _Walk,
+) -> None:
+    """
+    Judge the service a service takes its definition from in another file.
+
+    Only that service is judged, as the one the extending service is made of: what is in the same
+    file beside it is not part of the stack.
+
+    Args:
+        findings: Where the findings go.
+        who: The extending service, ``service web``.
+        extends: Its ``extends`` mapping.
+        context: What the guard knows of the application.
+        walk: Where the guard is among the files.
+    """
+    composed = _composed(findings, "extends", str(extends.get("file")), context, walk)
+    if composed is None:
+        return
+    document, real = composed
+    for section, _word in _RUNNABLE:
+        entries = document.get(section)
+        entry = entries.get(str(extends.get("service"))) if isinstance(entries, Mapping) else None
+        if isinstance(entry, Mapping):
+            _judge_runnable(
+                findings, document, who, entry, _base_of(context, real), walk=walk.into(real)
+            )
+            return
+
+
+def _inspect_into(
+    findings: ComposeFindings,
+    document: Mapping[str, Any],
+    context: GuardContext,
+    walk: _Walk,
+    *,
+    main: bool,
+) -> None:
+    """
+    Judge a document, and every file it brings in, into one set of findings.
+
+    Args:
+        findings: Where the findings go.
+        document: The file, parsed.
+        context: What the guard knows of the application, with this document's directory as the
+            base of its relative paths.
+        walk: Where the guard is among the files.
+        main: Whether it is the stack's own file: the project it names is the stack's, and a file it
+            includes has none of its own.
+    """
+    if context.closed_keys:
+        compose_keys.judge_keys(findings, "the compose file", "top", document)
+    for key, path in _included(document.get("include")):
+        if key != "include":
+            _judge_door(findings, "the compose file", path, context, key=key)
+        elif kind_of(path) == REMOTE:
+            _judge_download(findings, "the compose file", path, context, include=True)
+        else:
+            leaves, hard = _leaves(path, context)
+            if leaves:
+                findings.add(
+                    ("compose", "include", path),
+                    f"the compose file includes {path}, which is outside the application: "
+                    "Compose would read a file of this server that is not part of the repository",
+                    refused=True,
+                    hard=hard,
+                )
+    for entry in _items(document.get("include")):
+        directory = None
+        if isinstance(entry, Mapping):
+            if context.closed_keys:
+                compose_keys.judge_keys(
+                    findings, "the compose file", "include", entry, path="include"
+                )
+            paths = [str(path) for path in _items(entry.get("path"))]
+            named = entry.get("project_directory")
+            directory = named if isinstance(named, str) and named else None
+        else:
+            paths = [str(entry)]
+        for path in paths:
+            composed = _composed(findings, "include", path, context, walk)
+            if composed is not None:
+                included, real = composed
+                _inspect_into(
+                    findings,
+                    included,
+                    _base_of(context, real, directory),
+                    walk.into(real),
+                    main=False,
+                )
+    if main:
+        compose_owners.judge_project(findings, document, context)
+    compose_owners.judge_externals(findings, document, context)
+    _judge_volumes(findings, document, context)
+    _judge_networks(findings, document, context)
+    _judge_definitions(findings, document, context)
+    for section, word in _RUNNABLE:
+        entries = document.get(section)
+        if not isinstance(entries, Mapping):
+            continue
+        for name, service in entries.items():
+            if isinstance(service, Mapping):
+                _judge_runnable(findings, document, f"{word} {name}", service, context, walk=walk)
 
 
 def inspect_compose(
@@ -750,7 +1241,9 @@ def inspect_compose(
     The same judgement serves both: the file as the repository wrote it, and what
     ``docker compose config --format json`` prints for it (:func:`resolve_model`), where an
     ``include`` or an ``extends`` has been merged, every service of every profile is present and
-    a bind mount is a long entry with an absolute source.
+    a bind mount is a long entry with an absolute source. The files the document brings in are
+    read and judged as well (what Compose folds into the model leaves no path to judge), each from
+    its own directory.
 
     Args:
         document: The file, as ``yaml.safe_load`` returned it, or the resolved model.
@@ -765,31 +1258,7 @@ def inspect_compose(
     if not isinstance(document, Mapping):
         return findings
     judged = replace(context, app_path=app_path) if context else GuardContext(app_path)
-    for key, path in _included(document.get("include")):
-        if key != "include":
-            _judge_door(findings, "the compose file", path, judged, key=key)
-        elif kind_of(path) == REMOTE:
-            _judge_download(findings, "the compose file", path, judged, include=True)
-        else:
-            leaves, hard = _leaves(path, judged)
-            if leaves:
-                findings.add(
-                    ("compose", "include", path),
-                    f"the compose file includes {path}, which is outside the application: "
-                    "Compose would read a file of this server that is not part of the repository",
-                    refused=True,
-                    hard=hard,
-                )
-    compose_owners.judge_project(findings, document, judged)
-    compose_owners.judge_externals(findings, document, judged)
-    _judge_volumes(findings, document, judged)
-    for section, word in _RUNNABLE:
-        entries = document.get(section)
-        if not isinstance(entries, Mapping):
-            continue
-        for name, service in entries.items():
-            if isinstance(service, Mapping):
-                _judge_runnable(findings, document, f"{word} {name}", service, judged)
+    _inspect_into(findings, document, judged, _Walk(), main=True)
     return findings
 
 
@@ -813,7 +1282,10 @@ def merge_findings(file: ComposeFindings, resolved: ComposeFindings) -> ComposeF
         set(file.hard),
         dict(file.said),
         dict(file.links),
+        {who: list(keys) for who, keys in file.doors.items()},
     )
+    for who, keys in resolved.doors.items():
+        merged.doors.setdefault(who, []).extend(k for k in keys if k not in merged.doors[who])
     for sentences, refused in ((resolved.refused, True), (resolved.warned, False)):
         for sentence in sentences:
             key = resolved.keys.get(sentence)
@@ -914,7 +1386,23 @@ def with_resolved(
     """
     model, problem = resolve_model(runner, commands, app_path)
     if model is not None:
-        return merge_findings(findings, inspect_compose(model, app_path, context=context)), ""
+        # The model's own keys are Compose's: a key of it is a key of a file that was judged as written.
+        printed = (
+            replace(context, closed_keys=False)
+            if context
+            else GuardContext(app_path, closed_keys=False)
+        )
+        merged = merge_findings(findings, inspect_compose(model, app_path, context=printed))
+        # Compose reads the env_file of a service and puts its lines in ``environment``, leaving no path
+        # to judge; asked not to, a Compose that honours the flag keeps the files the stack names, as
+        # absolute paths. One that does not know it, or keeps nothing, is judged by the files it was read
+        # from, and a path made of a variable that no model shows is refused as unseen: that is what
+        # leaves no door whichever Compose is installed.
+        raw, _unasked = resolve_model(runner, _without_env_resolution(commands), app_path)
+        if raw is not None:
+            merged = merge_findings(merged, inspect_compose(raw, app_path, context=printed))
+        _judge_unseen_doors(merged, raw)
+        return merged, ""
     if uses_composition(document):
         findings.add(
             ("compose", "unresolved", ""),
@@ -934,6 +1422,65 @@ def with_resolved(
         f"the stack could not be resolved by 'docker compose config' ({problem}); it is judged "
         "as written"
     )
+
+
+def _door_kept(model: Mapping[str, Any] | None, who: str, key: str) -> bool:
+    """
+    Args:
+        model: What Compose printed when asked to keep the paths of the files it folds, or None.
+        who: ``service web`` or ``job migrate``.
+        key: ``env_file`` or ``label_file``.
+
+    Returns:
+        Whether the model has a path under that key for that service.
+    """
+    word, _, name = who.partition(" ")
+    section = {"service": "services", "job": "jobs"}.get(word, "")
+    entries = model.get(section) if model is not None else None
+    entry = entries.get(name) if isinstance(entries, Mapping) else None
+    return isinstance(entry, Mapping) and bool(entry.get(key))
+
+
+def _judge_unseen_doors(findings: ComposeFindings, model: Mapping[str, Any] | None) -> None:
+    """
+    Refuse the file a variable names that no model shows the path of.
+
+    Where a variable led is a fact of the stack's ``.env`` and not of the file, and an ``env_file`` that
+    Compose has read leaves nothing but its lines in the model. Asked to keep the paths
+    (``--no-env-resolution``), a Compose that honours the flag prints them and they are judged like
+    any other; one that does not know it (the 2.17 and 2.19 of Debian 12 and Synology), or knows it
+    and keeps none (2.40.3), leaves the path unseen, and what cannot be seen cannot be judged.
+
+    Args:
+        findings: What was found; where the refusal goes.
+        model: What Compose printed when asked to keep the paths of the files it folds, or None.
+    """
+    for who, keys in findings.doors.items():
+        for key in keys:
+            if not _door_kept(model, who, key):
+                findings.add(
+                    (who, "unseen_door", key),
+                    say("compose_guard.door_unseen", who=who, key=key),
+                    refused=True,
+                )
+
+
+def _without_env_resolution(commands: Sequence[Sequence[str]]) -> list[list[str]]:
+    """
+    Args:
+        commands: ``docker compose ... config --format json`` argvs.
+
+    Returns:
+        The same commands asked not to resolve the ``env_file`` of the services
+        (``config --no-env-resolution``), which keep their paths in the model that way.
+    """
+    asked: list[list[str]] = []
+    for argv in commands:
+        words = list(argv)
+        if "config" in words:
+            words.insert(words.index("config") + 1, "--no-env-resolution")
+            asked.append(words)
+    return asked
 
 
 def resolve_model(

@@ -797,6 +797,8 @@ PROVIDER_PROGRAM = "noust-w6a-provider-canary"
 PROVIDER_PATH = Path("/usr/local/bin") / PROVIDER_PROGRAM
 PROVIDER_MARKER = WORK / "privileges" / "provider" / "ran"
 
+SECRET_FILE = "/etc/noust/web-secret"
+
 GUARD_DOCUMENTS: dict[str, tuple[dict[str, str], bool, str]] = {
     "plain": (
         {"compose.yaml": f"services:\n  web:\n    image: {BUSYBOX}\n    command: sleep 3600\n"},
@@ -950,7 +952,173 @@ GUARD_DOCUMENTS: dict[str, tuple[dict[str, str], bool, str]] = {
         True,
         "the socket brought in by volumes_from",
     ),
+    # What the guard of the keys and of the files a document brings in must find, in the Compose of each engine.
+    # A key a Compose does not know makes ``docker compose config`` fail, and the guard then judges the file as
+    # written: what is refused here is refused whatever this Compose makes of it.
+    "includeenv": (
+        {
+            "compose.yaml": f"include:\n  - part.yaml\nservices:\n  web:\n    image: {BUSYBOX}\n    command: sleep 3600\n",
+            "part.yaml": f"services:\n  hidden:\n    image: {BUSYBOX}\n    env_file: {SECRET_FILE}\n    command: sleep 3600\n",
+        },
+        True,
+        "an env_file of Noust's own state inside an included file, which Compose folds into the environment",
+    ),
+    "extendsenv": (
+        {
+            "compose.yaml": "services:\n  web:\n    extends:\n      file: base.yaml\n      service: base\n    command: sleep 3600\n",
+            "base.yaml": f"services:\n  base:\n    image: {BUSYBOX}\n    env_file: {SECRET_FILE}\n",
+        },
+        True,
+        "an env_file of Noust's own state inside an extended service",
+    ),
+    "envfilevariable": (
+        {
+            "compose.yaml": f"services:\n  web:\n    image: {BUSYBOX}\n    env_file: ${{W6A4B_ENV_FILE:-{SECRET_FILE}}}\n    command: sleep 3600\n"
+        },
+        True,
+        "an env_file of Noust's own state named through a variable: seen where this Compose keeps the path, "
+        "refused as unseen where it does not",
+    ),
+    "apisocket": (
+        {
+            "compose.yaml": f"services:\n  web:\n    image: {BUSYBOX}\n    use_api_socket: true\n    command: sleep 3600\n"
+        },
+        True,
+        "use_api_socket: Docker's socket without a line of volumes",
+    ),
+    "poststart": (
+        {
+            "compose.yaml": f"services:\n  web:\n    image: {BUSYBOX}\n    command: sleep 3600\n    post_start:\n      - command: ['true']\n        privileged: true\n"
+        },
+        True,
+        "a post_start command that runs privileged",
+    ),
+    "prestop": (
+        {
+            "compose.yaml": f"services:\n  web:\n    image: {BUSYBOX}\n    command: sleep 3600\n    pre_stop:\n      - command: ['true']\n        privileged: true\n"
+        },
+        True,
+        "a pre_stop command that runs privileged",
+    ),
+    "prestart": (
+        {
+            "compose.yaml": f"services:\n  web:\n    image: {BUSYBOX}\n    command: sleep 3600\n    pre_start:\n      - image: {BUSYBOX}\n        privileged: true\n"
+        },
+        True,
+        "a pre_start container, which is a whole container of its own",
+    ),
+    "labelfile": (
+        {
+            "compose.yaml": f"services:\n  web:\n    image: {BUSYBOX}\n    label_file: {SECRET_FILE}\n    command: sleep 3600\n"
+        },
+        True,
+        "a label_file that is Noust's own state",
+    ),
+    "entitlements": (
+        {
+            "compose.yaml": "services:\n  web:\n    build:\n      context: .\n      entitlements: [security.insecure]\n"
+        },
+        True,
+        "a build entitlement that lets the build reach the machine",
+    ),
+    "dockerfileoutside": (
+        {
+            "compose.yaml": f"services:\n  web:\n    build:\n      context: .\n      dockerfile: {SECRET_FILE}\n"
+        },
+        True,
+        "a Dockerfile that is Noust's own state",
+    ),
+    "cachelocal": (
+        {
+            "compose.yaml": "services:\n  web:\n    build:\n      context: .\n      cache_to: ['type=local,dest=/etc/noust']\n"
+        },
+        True,
+        "a local build cache in Noust's own state",
+    ),
+    "macvlan": (
+        {
+            "compose.yaml": f"services:\n  web:\n    image: {BUSYBOX}\n    networks: [lan]\n    command: sleep 3600\nnetworks:\n  lan:\n    driver: macvlan\n    driver_opts:\n      parent: eth0\n"
+        },
+        True,
+        "a macvlan network on a card of the machine",
+    ),
+    "bridgename": (
+        {
+            "compose.yaml": f"services:\n  web:\n    image: {BUSYBOX}\n    networks: [lan]\n    command: sleep 3600\nnetworks:\n  lan:\n    driver: bridge\n    driver_opts:\n      com.docker.network.bridge.name: docker0\n"
+        },
+        True,
+        "a network attached to a bridge of the machine by name",
+    ),
+    "seccompfile": (
+        {
+            "compose.yaml": f"services:\n  web:\n    image: {BUSYBOX}\n    security_opt: ['seccomp=./allow-all.json']\n    command: sleep 3600\n"
+        },
+        True,
+        "a seccomp profile the repository carries",
+    ),
+    "systime": (
+        {
+            "compose.yaml": f"services:\n  web:\n    image: {BUSYBOX}\n    cap_add: [SYS_TIME]\n    command: sleep 3600\n"
+        },
+        True,
+        "SYS_TIME, the clock of the machine",
+    ),
+    "brandnewkey": (
+        {
+            "compose.yaml": f"services:\n  web:\n    image: {BUSYBOX}\n    brand_new_key: true\n    command: sleep 3600\n"
+        },
+        True,
+        "a key no Compose has, which the guard does not know",
+    ),
+    "gpus": (
+        {
+            "compose.yaml": f"services:\n  web:\n    image: {BUSYBOX}\n    gpus: all\n    command: sleep 3600\n"
+        },
+        False,
+        "graphics cards through their driver: only said",
+    ),
 }
+
+#: What a stack of the engine's disposable machine reads through ``env_file``: Noust's own state, which the guard
+#: refuses with no exception. It is created for the scenario and removed after.
+SECRET_FILE_PATH = Path(SECRET_FILE)
+
+#: The documents of :data:`GUARD_DOCUMENTS` that are only said, not refused.
+ONLY_SAID = frozenset({"capnet", "gpus"})
+
+#: A stack that uses most of what a person writes, to see which keys this Compose prints for it.
+RICH_STACK = f"""services:
+  web:
+    image: {BUSYBOX}
+    command: sleep 3600
+    ports: ['127.0.0.1:8080:80']
+    environment: {{A: b}}
+    labels: ['{LABEL}']
+    healthcheck: {{test: [CMD, 'true'], interval: 30s}}
+    depends_on: [db]
+    networks: [back]
+    volumes: ['data:/data', './rel:/rel']
+    deploy: {{resources: {{limits: {{memory: 64M}}}}}}
+    restart: unless-stopped
+    user: '1000'
+    tmpfs: [/run]
+    ulimits: {{nofile: 1024}}
+    configs: [c]
+    secrets: [s]
+  db:
+    image: {BUSYBOX}
+    command: sleep 3600
+    volumes: ['dbdata:/db']
+networks:
+  back: {{}}
+volumes:
+  data: {{}}
+  dbdata: {{driver: local}}
+secrets:
+  s: {{file: ./s.txt}}
+configs:
+  c: {{file: ./s.txt}}
+"""
 
 
 #: The Compose project of the stack that already runs; a run on a machine whose Docker is shared names it apart.
@@ -1036,6 +1204,142 @@ def what_the_containers_have(run: Run, real: Any) -> None:
         project_down(HAD_PROJECT, file)
 
 
+def findings_as_written(folder: Path) -> Any:
+    """
+    Args:
+        folder: The stack's directory.
+
+    Returns:
+        What the guard finds in the file of the stack as written.
+    """
+    from noust.core.compose_yaml import load_compose
+    from noust.deployers.helpers.compose_guard import inspect_compose
+
+    return inspect_compose(
+        load_compose((folder / "compose.yaml").read_text(encoding="utf-8")), folder
+    )
+
+
+def what_a_document_brings_in(run: Run, real: Any) -> None:
+    """
+    An ``env_file`` inside an included file is folded into ``environment`` by this Compose: the guard finds it
+    in the file as written, and in the model when it is asked not to resolve it.
+
+    Args:
+        run: What reports.
+        real: The runner Noust runs every command through.
+    """
+    from noust.core.compose_yaml import load_compose
+    from noust.deployers.helpers.compose_guard import with_resolved
+
+    folder = WORK / "privileges" / "includeenv"
+    file = folder / "compose.yaml"
+    asked = ["compose", "-p", "privincludeenv", "-f", str(file), "config"]
+    folded = docker(*asked, "--format", "json")
+    kept = docker(*asked, "--no-env-resolution", "--format", "json")
+    run.note(
+        "env_file inside an included file, in the model of this Compose",
+        {
+            "exit": folded.returncode,
+            "the path is in the model": SECRET_FILE in folded.stdout,
+            "the value is in the model": "a-secret-of-noust-w6a4b" in folded.stdout,
+        },
+    )
+    # What the flag does is not the same in every Compose, and for a file an include brought in it may do
+    # nothing: what it does not show is judged in the files as written, and a path made of a variable that
+    # no model shows is refused as unseen. The two are recorded here as each Compose does them.
+    direct = WORK / "privileges" / "envfilevariable" / "compose.yaml"
+    direct_kept = docker(
+        "compose",
+        "-p",
+        "privenvvariable",
+        "-f",
+        str(direct),
+        "config",
+        "--no-env-resolution",
+        "--format",
+        "json",
+    )
+    run.note(
+        "config --no-env-resolution",
+        {
+            "knows the flag": kept.returncode == 0 or "unknown" not in kept.stderr,
+            "keeps the path of an env_file of the main file": direct_kept.returncode == 0
+            and SECRET_FILE in direct_kept.stdout,
+            "keeps the path of an env_file of a file an include brought in": kept.returncode == 0
+            and SECRET_FILE in kept.stdout,
+            "stderr": (kept.stderr or direct_kept.stderr)[:160],
+        },
+    )
+    document = load_compose(file.read_text(encoding="utf-8"))
+    base = ["docker", "compose", "-p", "privincludeenv", "-f", str(file)]
+    judged, _log = with_resolved(
+        findings_as_written(folder),
+        document,
+        real,
+        [[*base, "config", "--format", "json"]],
+        folder,
+    )
+    run.check(
+        "the env_file of Noust's own state behind an include is refused whatever the model keeps",
+        any("env_file" in sentence for sentence in judged.refused),
+        judged.refused,
+    )
+
+
+def what_compose_prints(run: Run) -> None:
+    """
+    The model this Compose prints for a stack that uses most of what a person writes has no key that the guard
+    has not decided about, so what the guard refuses is never something Compose itself spelled.
+
+    Args:
+        run: What reports.
+    """
+    from noust.deployers.helpers import compose_keys
+
+    folder = WORK / "privileges" / "rich"
+    file = write_stack(folder, RICH_STACK)
+    (folder / "s.txt").write_text("x", encoding="utf-8")
+    printed = docker(
+        "compose", "-p", "privrich", "-f", str(file), "--profile", "*", "config", "--format", "json"
+    )
+    if printed.returncode != 0:
+        run.note(
+            "this Compose did not print the rich stack",
+            {"exit": printed.returncode, "stderr": printed.stderr[:300]},
+        )
+        return
+    model = json.loads(printed.stdout)
+    extra: dict[str, list[str]] = {}
+
+    def sweep(section: str, entry: Any, where: str) -> None:
+        if isinstance(entry, dict):
+            found = compose_keys.unknown_keys(section, entry)
+            if found:
+                extra[where] = found
+
+    sweep("top", model, "the document")
+    for name, service in (model.get("services") or {}).items():
+        sweep("service", service, f"service {name}")
+        sweep("build", service.get("build"), f"service {name} build")
+        sweep("deploy", service.get("deploy"), f"service {name} deploy")
+        for number, mount in enumerate(service.get("volumes") or []):
+            sweep("mount", mount, f"service {name} volume {number}")
+    for section, word in (
+        ("networks", "network"),
+        ("volumes", "volume"),
+        ("secrets", "secret"),
+        ("configs", "config"),
+    ):
+        for name, entry in (model.get(section) or {}).items():
+            sweep(word, entry, f"{word} {name}")
+    run.check(
+        "the model this Compose prints has no key the guard has not decided about",
+        not extra,
+        extra,
+    )
+
+
 @scenario("privileges")
 def privileges(run: Run) -> None:
     """The guard of privileges reads what Compose resolves a stack to, so nothing hides behind include or a variable."""
@@ -1045,6 +1349,8 @@ def privileges(run: Run) -> None:
     reset("privileges")
     real = runner()
     run.note("Compose", compose_version_short())
+    SECRET_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    SECRET_FILE_PATH.write_text("TOKEN=a-secret-of-noust-w6a4b\n", encoding="utf-8")
     try:
         for name, (documents, must_refuse, what) in GUARD_DOCUMENTS.items():
             folder = WORK / "privileges" / name
@@ -1065,8 +1371,9 @@ def privileges(run: Run) -> None:
             refused = bool(judged.refused)
             ignored = False
             if name == "include" and numbers(compose_version_short()) < (2, 20):
-                # Before 2.20 Compose does not read ``include``: the services it names are not part of what runs, and
-                # a guard that judges what Compose resolves rightly finds nothing in them.
+                # Before 2.20 Compose does not read ``include``: the services it names are not part of what runs.
+                # The guard reads the file itself, as written, and refuses what it says all the same: the same
+                # repository run by a newer Compose would start it.
                 model = docker(
                     "compose", "-p", "privinclude", "-f", str(file), "config", "--format", "json"
                 )
@@ -1077,11 +1384,11 @@ def privileges(run: Run) -> None:
                 )
             if ignored:
                 run.check(
-                    f"{what}: nothing runs from it in a Compose that does not read include",
-                    not refused,
+                    f"{what}: refused as written though this Compose does not read include, which a newer one would run",
+                    refused,
                     {"judged": judged.refused, "log": unresolved},
                 )
-            elif name == "capnet":
+            elif name in ONLY_SAID:
                 run.check(
                     f"{what}",
                     not refused and bool(judged.warned),
@@ -1219,7 +1526,10 @@ def privileges(run: Run) -> None:
                 canary not in through.stdout + through.stderr,
                 {"exit": through.exit_code, "stderr": through.stderr[:200]},
             )
+        what_a_document_brings_in(run, real)
+        what_compose_prints(run)
         what_the_containers_have(run, real)
     finally:
         PROVIDER_PATH.unlink(missing_ok=True)
+        SECRET_FILE_PATH.unlink(missing_ok=True)
         reset("privileges")

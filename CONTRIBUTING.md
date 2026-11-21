@@ -224,7 +224,10 @@ src/noust/
                     core/container_store.py, changed through helpers/container_settings.py
     helpers/        health_gate.py, release_build.py,
                     project_file.py (noust.yaml), hooks.py (which hooks run), site.py (the one
-                    writer and deleter of an app's site), compose_ports.py (the one port reader)
+                    writer and deleter of an app's site), compose_ports.py (the one port reader),
+                    compose_keys.py (every key of the Compose specification the guard has decided
+                    about: a key that is not in it is refused, and a test holds it to the
+                    specification, `tests/fixtures/compose_spec_keys.json`)
   fleet/            node enrollment: authorize.py installs the restricted key and prints the
                     join code; keys.py the per-node keypair; tunnels.py the SSH tunnels
                     (through CommandRunner); client.py a node's API over its own tunnel;
@@ -694,6 +697,7 @@ mypy                            # types (blocking in CI)
 python scripts/release.py --check         # version consistency
 python scripts/security_model.py --write  # regenerate docs/SECURITY-MODEL.md after changing a role, a header, a route or a guarantee
 python scripts/generate_command_summaries.py  # regenerate cli/command_summaries.py after changing a command's help or adding a command
+python scripts/compose_spec_keys.py --check  # the guard of Compose files has decided about every key of the specification (reads it from the network; run it before a release, and without --check after classifying a new key in compose_keys.py)
 python scripts/generate_secret_shapes.py  # regenerate panel/src/api/secretShapes.gen.ts after changing a shape of core/secret_detection.py (the console masks its report with the same shapes; a test fails until you have)
 python scripts/generate_packaged_docs.py  # regenerate src/noust/docs after editing a page of docs/ or docs/site.yaml (the package carries a copy for the assistant; a test fails until you have)
 ```

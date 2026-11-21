@@ -5760,6 +5760,54 @@ export const serverText: Catalog<typeof en> = {
     provider: {
       text: "{who}: ejecuta el programa {provider} de este servidor al arrancar la pila, fuera de cualquier contenedor",
     },
+    api_socket: {
+      text: "{who}: recibe el socket de la API de Docker (use_api_socket): puede arrancar un contenedor con el sistema de archivos raíz de este servidor",
+    },
+    hook_privileged: {
+      text: "{who}: ejecuta un comando de {hook} con privilegios ampliados (privileged): más de lo que tiene su contenedor, en este servidor",
+    },
+    build_entitlement: {
+      text: "{who}: construye con el permiso {entitlement}, que deja a la construcción llegar a este servidor",
+    },
+    confinement_replaced: {
+      text: "{who}: sustituye su confinamiento por un perfil propio ({option}): un perfil puede permitir todo lo que el predeterminado prohíbe",
+    },
+    gpus: {
+      text: "{who}: recibe las tarjetas gráficas u otros dispositivos de este servidor a través de su controlador (gpus, o dispositivos reservados en deploy)",
+    },
+    models: {
+      text: "{who}: usa modelos que sirve el ejecutor de modelos de este servidor ({models})",
+    },
+    model_flags: {
+      text: "{who}: pasa al ejecutor de modelos de este servidor opciones propias (runtime_flags): son opciones de un programa que se ejecuta en este servidor",
+    },
+    network_driver: {
+      text: "{who}: usa el controlador de red {driver}, que no está aislado de las tarjetas de red de este servidor (host, macvlan e ipvlan llegan a ellas) o es un complemento que Noust no conoce",
+    },
+    network_bridge: {
+      text: "{who}: conecta la pila al puente {bridge} de este servidor, que la pila no crea",
+    },
+    volume_driver: {
+      text: "{who}: usa el controlador de volúmenes {driver}, un complemento que Noust no conoce: no se puede juzgar qué nombran sus opciones en este servidor",
+    },
+    unknown_key: {
+      text: "{who}: usa {key}, y Noust no sabe qué le da esa clave al contenedor: puede que el archivo compose esté escrito para un Compose más nuevo que esta comprobación",
+    },
+    composition_not_a_file: {
+      text: "el archivo compose trae {path} ({key}), que no existe o no es un archivo: no se puede juzgar lo que trae",
+    },
+    composition_unreadable: {
+      text: "el archivo compose trae {path} ({key}), que Noust no pudo leer como documento compose (no es texto, no es YAML válido o no es un mapa de claves): no se puede juzgar lo que trae",
+    },
+    composition_too_large: {
+      text: "el archivo compose trae {path} ({key}), que pesa más de 1 MiB: no se puede juzgar lo que trae",
+    },
+    composition_too_deep: {
+      text: "el archivo compose trae {path} ({key}) desde archivos anidados demasiado hondo o entre demasiados archivos: no se puede juzgar lo que trae",
+    },
+    door_unseen: {
+      text: "{who}: nombra su {key} mediante una variable, y este Docker Compose no dice adónde lleva (no guarda ninguna ruta de él): no se puede juzgar adónde lleva",
+    },
     project_names: {
       text: "el archivo compose da a la pila su propio proyecto {name} (name: o COMPOSE_PROJECT_NAME) y el de esta aplicación es {project}: todo lo que crea la pila lleva el nombre de su proyecto",
     },

@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-18T02:31:51Z",
+  "generated": "2026-11-21T05:41:19Z",
   "engines": {
     "e20": {
       "server": "20.10.24",
@@ -387,7 +387,7 @@
         },
         "06 privileges": {
           "status": "pass",
-          "seconds": 6.4,
+          "seconds": 35.2,
           "reason": "",
           "passed": [
             "a stack that asks for nothing: let through",
@@ -412,8 +412,27 @@
             "an include that Compose fetches from a registry: refused",
             "a provider: a program the machine runs when the stack starts: refused",
             "the socket brought in by volumes_from: refused",
+            "an env_file of Noust's own state inside an included file, which Compose folds into the environment: refused",
+            "an env_file of Noust's own state inside an extended service: refused",
+            "an env_file of Noust's own state named through a variable: seen where this Compose keeps the path, refused as unseen where it does not: refused",
+            "use_api_socket: Docker's socket without a line of volumes: refused",
+            "a post_start command that runs privileged: refused",
+            "a pre_stop command that runs privileged: refused",
+            "a pre_start container, which is a whole container of its own: refused",
+            "a label_file that is Noust's own state: refused",
+            "a build entitlement that lets the build reach the machine: refused",
+            "a Dockerfile that is Noust's own state: refused",
+            "a local build cache in Noust's own state: refused",
+            "a macvlan network on a card of the machine: refused",
+            "a network attached to a bridge of the machine by name: refused",
+            "a seccomp profile the repository carries: refused",
+            "SYS_TIME, the clock of the machine: refused",
+            "a key no Compose has, which the guard does not know: refused",
+            "graphics cards through their driver: only said",
             "a plain process hands Compose its environment (so the check below can fail)",
             "Noust's own environment does not reach Compose: ${NOUST_...} and secrets: environment: get nothing",
+            "the env_file of Noust's own state behind an include is refused whatever the model keeps",
+            "the model this Compose prints has no key the guard has not decided about",
             "the containers of a stack are read from the engine by the label Compose writes",
             "what the engine says the container was given includes /srv/w3rd/privileges/had-data",
             "what the engine says the container was given includes SYS_ADMIN",
@@ -435,9 +454,10 @@
             ],
             "include, by a Compose that does not read it": "validating /srv/w3rd/privileges/include/compose.yaml: (root) Additional property include is not allowed\n",
             "include: refused as written": [
+              "service hidden is privileged: it has every capability and every device of this server",
               "the compose file includes or extends another file and Docker Compose could not resolve the stack (exit code 15: validating /srv/w3rd/privileges/include/compose.yaml: (root) Additional property include is not allowed), so what it brings in cannot be judged"
             ],
-            "extends: found only by resolving": [
+            "extends: refused as written": [
               "service web is privileged: it has every capability and every device of this server"
             ],
             "socket: refused as written": [
@@ -471,7 +491,8 @@
               "service web names /etc/noust/web-secret in env_file: that is Noust's own configuration and secrets, which no stack may read"
             ],
             "buildcontext: refused as written": [
-              "service web names /etc/noust in build.context: that is Noust's own configuration and secrets, which no stack may read"
+              "service web names /etc/noust in build.context: that is Noust's own configuration and secrets, which no stack may read",
+              "service web names /etc/noust/Dockerfile in build.dockerfile: that is Noust's own configuration and secrets, which no stack may read"
             ],
             "remoteinclude: refused as written": [
               "the compose file includes https://127.0.0.1:1/part.yaml, which Compose would download from the network: nothing on this server checks where that goes",
@@ -490,6 +511,55 @@
             ],
             "volumesfrom: refused as written": [
               "service a mounts the Docker socket (/var/run/docker.sock): it can start a container with this server's root filesystem"
+            ],
+            "includeenv: refused as written": [
+              "service hidden names /etc/noust/web-secret in env_file: that is Noust's own configuration and secrets, which no stack may read",
+              "the compose file includes or extends another file and Docker Compose could not resolve the stack (exit code 15: validating /srv/w3rd/privileges/includeenv/compose.yaml: (root) Additional property include is not allowed), so what it brings in cannot be judged"
+            ],
+            "extendsenv: refused as written": [
+              "service web names /etc/noust/web-secret in env_file: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "envfilevariable: found only by resolving": [
+              "service web names its env_file through a variable, and this Docker Compose does not say where that leads (it keeps no path of it): where it leads cannot be judged"
+            ],
+            "apisocket: refused as written": [
+              "service web is given Docker's API socket (use_api_socket): it can start a container with this server's root filesystem"
+            ],
+            "poststart: refused as written": [
+              "service web runs a command of post_start with extended privileges (privileged): more than its container has, on this server"
+            ],
+            "prestop: refused as written": [
+              "service web runs a command of pre_stop with extended privileges (privileged): more than its container has, on this server"
+            ],
+            "prestart: refused as written": [
+              "service web pre_start 1 is privileged: it has every capability and every device of this server"
+            ],
+            "labelfile: refused as written": [
+              "service web names /etc/noust/web-secret in label_file: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "entitlements: refused as written": [
+              "service web builds with the entitlement security.insecure, which lets the build reach this server"
+            ],
+            "dockerfileoutside: refused as written": [
+              "service web names /etc/noust/web-secret in build.dockerfile: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "cachelocal: refused as written": [
+              "service web names /etc/noust in build.cache_to: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "macvlan: refused as written": [
+              "network lan uses the network driver macvlan, which is not isolated from this server's network cards (host, macvlan and ipvlan reach them) or is a plugin Noust does not know"
+            ],
+            "bridgename: refused as written": [
+              "network lan attaches the stack to the bridge docker0 of this server, which the stack does not make"
+            ],
+            "seccompfile: refused as written": [
+              "service web replaces its confinement with a profile of its own (seccomp=./allow-all.json): a profile can allow everything the default one forbids"
+            ],
+            "systime: refused as written": [
+              "service web adds the capability SYS_TIME, which gives it this server"
+            ],
+            "brandnewkey: refused as written": [
+              "service web uses brand_new_key, and Noust does not know what that key gives the container: the compose file may be written for a newer Compose than this check"
             ],
             "--profile '*'": {
               "exit": 0,
@@ -516,12 +586,23 @@
               "exit": 15,
               "stderr": "validating /srv/w3rd/privileges/provider/compose.yaml: services.tool Additional property provider is not allowed\n",
               "the program ran": false
+            },
+            "env_file inside an included file, in the model of this Compose": {
+              "exit": 15,
+              "the path is in the model": false,
+              "the value is in the model": false
+            },
+            "config --no-env-resolution": {
+              "knows the flag": false,
+              "keeps the path of an env_file of the main file": false,
+              "keeps the path of an env_file of a file an include brought in": false,
+              "stderr": "unknown flag: --no-env-resolution\n"
             }
           }
         },
         "06 privileges [Compose v2.40.3]": {
           "status": "pass",
-          "seconds": 18.3,
+          "seconds": 20.6,
           "reason": "",
           "passed": [
             "a stack that asks for nothing: let through",
@@ -546,8 +627,27 @@
             "an include that Compose fetches from a registry: refused",
             "a provider: a program the machine runs when the stack starts: refused",
             "the socket brought in by volumes_from: refused",
+            "an env_file of Noust's own state inside an included file, which Compose folds into the environment: refused",
+            "an env_file of Noust's own state inside an extended service: refused",
+            "an env_file of Noust's own state named through a variable: seen where this Compose keeps the path, refused as unseen where it does not: refused",
+            "use_api_socket: Docker's socket without a line of volumes: refused",
+            "a post_start command that runs privileged: refused",
+            "a pre_stop command that runs privileged: refused",
+            "a pre_start container, which is a whole container of its own: refused",
+            "a label_file that is Noust's own state: refused",
+            "a build entitlement that lets the build reach the machine: refused",
+            "a Dockerfile that is Noust's own state: refused",
+            "a local build cache in Noust's own state: refused",
+            "a macvlan network on a card of the machine: refused",
+            "a network attached to a bridge of the machine by name: refused",
+            "a seccomp profile the repository carries: refused",
+            "SYS_TIME, the clock of the machine: refused",
+            "a key no Compose has, which the guard does not know: refused",
+            "graphics cards through their driver: only said",
             "a plain process hands Compose its environment (so the check below can fail)",
             "Noust's own environment does not reach Compose: ${NOUST_...} and secrets: environment: get nothing",
+            "the env_file of Noust's own state behind an include is refused whatever the model keeps",
+            "the model this Compose prints has no key the guard has not decided about",
             "the containers of a stack are read from the engine by the label Compose writes",
             "what the engine says the container was given includes /srv/w3rd/privileges/had-data",
             "what the engine says the container was given includes SYS_ADMIN",
@@ -567,10 +667,10 @@
             "variable: found only by resolving": [
               "service web is privileged: it has every capability and every device of this server"
             ],
-            "include: found only by resolving": [
+            "include: refused as written": [
               "service hidden is privileged: it has every capability and every device of this server"
             ],
-            "extends: found only by resolving": [
+            "extends: refused as written": [
               "service web is privileged: it has every capability and every device of this server"
             ],
             "socket: refused as written": [
@@ -604,7 +704,8 @@
               "service web names /etc/noust/web-secret in env_file: that is Noust's own configuration and secrets, which no stack may read"
             ],
             "buildcontext: refused as written": [
-              "service web names /etc/noust in build.context: that is Noust's own configuration and secrets, which no stack may read"
+              "service web names /etc/noust in build.context: that is Noust's own configuration and secrets, which no stack may read",
+              "service web names /etc/noust/Dockerfile in build.dockerfile: that is Noust's own configuration and secrets, which no stack may read"
             ],
             "remoteinclude: refused as written": [
               "the compose file includes https://127.0.0.1:1/part.yaml, which Compose would download from the network: nothing on this server checks where that goes",
@@ -616,13 +717,61 @@
             ],
             "remoteoci: refused as written": [
               "the compose file includes oci://127.0.0.1:1/part:1, which Compose would download from the network: nothing on this server checks where that goes",
-              "the compose file includes or extends another file and Docker Compose could not resolve the stack (exit code 1: time=\"2026-11-18T01:28:24Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.), so what it brings in cannot be judged"
+              "the compose file includes or extends another file and Docker Compose could not resolve the stack (exit code 1: time=\"2026-11-21T05:35:57Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.), so what it brings in cannot be judged"
             ],
             "provider: refused as written": [
               "service tool runs the program noust-w6a-provider-canary of this server when the stack starts, outside any container"
             ],
             "volumesfrom: refused as written": [
               "service a mounts the Docker socket (/var/run/docker.sock): it can start a container with this server's root filesystem"
+            ],
+            "includeenv: refused as written": [
+              "service hidden names /etc/noust/web-secret in env_file: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "extendsenv: refused as written": [
+              "service web names /etc/noust/web-secret in env_file: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "envfilevariable: found only by resolving": [
+              "service web names its env_file through a variable, and this Docker Compose does not say where that leads (it keeps no path of it): where it leads cannot be judged"
+            ],
+            "apisocket: refused as written": [
+              "service web is given Docker's API socket (use_api_socket): it can start a container with this server's root filesystem"
+            ],
+            "poststart: refused as written": [
+              "service web runs a command of post_start with extended privileges (privileged): more than its container has, on this server"
+            ],
+            "prestop: refused as written": [
+              "service web runs a command of pre_stop with extended privileges (privileged): more than its container has, on this server"
+            ],
+            "prestart: refused as written": [
+              "service web pre_start 1 is privileged: it has every capability and every device of this server"
+            ],
+            "labelfile: refused as written": [
+              "service web names /etc/noust/web-secret in label_file: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "entitlements: refused as written": [
+              "service web builds with the entitlement security.insecure, which lets the build reach this server"
+            ],
+            "dockerfileoutside: refused as written": [
+              "service web names /etc/noust/web-secret in build.dockerfile: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "cachelocal: refused as written": [
+              "service web names /etc/noust in build.cache_to: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "macvlan: refused as written": [
+              "network lan uses the network driver macvlan, which is not isolated from this server's network cards (host, macvlan and ipvlan reach them) or is a plugin Noust does not know"
+            ],
+            "bridgename: refused as written": [
+              "network lan attaches the stack to the bridge docker0 of this server, which the stack does not make"
+            ],
+            "seccompfile: refused as written": [
+              "service web replaces its confinement with a profile of its own (seccomp=./allow-all.json): a profile can allow everything the default one forbids"
+            ],
+            "systime: refused as written": [
+              "service web adds the capability SYS_TIME, which gives it this server"
+            ],
+            "brandnewkey: refused as written": [
+              "service web uses brand_new_key, and Noust does not know what that key gives the container: the compose file may be written for a newer Compose than this check"
             ],
             "--profile '*'": {
               "exit": 0,
@@ -643,18 +792,29 @@
             },
             "remoteoci, resolved by this Compose (does it go to the network when it reads the file?)": {
               "exit": 1,
-              "stderr": "time=\"2026-11-18T01:28:25Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.0.1:1\" spanID=7edec2465e7a134b traceID=864a9e3c37161ea05993d65c1f586226\nfailed to pull OCI resource "
+              "stderr": "time=\"2026-11-21T05:36:00Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.0.1:1\" spanID=94159f4b63b3f5d0 traceID=7e444d499187759a50f1d61382783885\nfailed to pull OCI resource "
             },
             "a provider, started by this Compose": {
               "exit": 0,
               "stderr": " Network privprovider_default  Creating\n Network privprovider_default  Created\n Container privprovider-web-1  Creating\n tool  Creating\n tool  Created\n Container privprovider-web-1  Created\n Container privprovider-web-1  Starting\n Container privprovider-web-1  Started\n",
               "the program ran": true
+            },
+            "env_file inside an included file, in the model of this Compose": {
+              "exit": 0,
+              "the path is in the model": false,
+              "the value is in the model": true
+            },
+            "config --no-env-resolution": {
+              "knows the flag": true,
+              "keeps the path of an env_file of the main file": false,
+              "keeps the path of an env_file of a file an include brought in": false,
+              "stderr": ""
             }
           }
         },
         "06 privileges [Compose v2.0.0]": {
           "status": "pass",
-          "seconds": 14.6,
+          "seconds": 18.6,
           "reason": "",
           "passed": [
             "a stack that asks for nothing: let through",
@@ -679,6 +839,25 @@
             "an include that Compose fetches from a registry: refused",
             "a provider: a program the machine runs when the stack starts: refused",
             "the socket brought in by volumes_from: refused",
+            "an env_file of Noust's own state inside an included file, which Compose folds into the environment: refused",
+            "an env_file of Noust's own state inside an extended service: refused",
+            "an env_file of Noust's own state named through a variable: seen where this Compose keeps the path, refused as unseen where it does not: refused",
+            "use_api_socket: Docker's socket without a line of volumes: refused",
+            "a post_start command that runs privileged: refused",
+            "a pre_stop command that runs privileged: refused",
+            "a pre_start container, which is a whole container of its own: refused",
+            "a label_file that is Noust's own state: refused",
+            "a build entitlement that lets the build reach the machine: refused",
+            "a Dockerfile that is Noust's own state: refused",
+            "a local build cache in Noust's own state: refused",
+            "a macvlan network on a card of the machine: refused",
+            "a network attached to a bridge of the machine by name: refused",
+            "a seccomp profile the repository carries: refused",
+            "SYS_TIME, the clock of the machine: refused",
+            "a key no Compose has, which the guard does not know: refused",
+            "graphics cards through their driver: only said",
+            "the env_file of Noust's own state behind an include is refused whatever the model keeps",
+            "the model this Compose prints has no key the guard has not decided about",
             "the containers of a stack are read from the engine by the label Compose writes",
             "what the engine says the container was given includes /srv/w3rd/privileges/had-data",
             "what the engine says the container was given includes SYS_ADMIN",
@@ -700,9 +879,10 @@
             ],
             "include, by a Compose that does not read it": "(root) Additional property include is not allowed\n",
             "include: refused as written": [
+              "service hidden is privileged: it has every capability and every device of this server",
               "the compose file includes or extends another file and Docker Compose could not resolve the stack (exit code 15: (root) Additional property include is not allowed), so what it brings in cannot be judged"
             ],
-            "extends: found only by resolving": [
+            "extends: refused as written": [
               "service web is privileged: it has every capability and every device of this server"
             ],
             "socket: refused as written": [
@@ -736,7 +916,8 @@
               "service web names /etc/noust/web-secret in env_file: that is Noust's own configuration and secrets, which no stack may read"
             ],
             "buildcontext: refused as written": [
-              "service web names /etc/noust in build.context: that is Noust's own configuration and secrets, which no stack may read"
+              "service web names /etc/noust in build.context: that is Noust's own configuration and secrets, which no stack may read",
+              "service web names /etc/noust/Dockerfile in build.dockerfile: that is Noust's own configuration and secrets, which no stack may read"
             ],
             "remoteinclude: refused as written": [
               "the compose file includes https://127.0.0.1:1/part.yaml, which Compose would download from the network: nothing on this server checks where that goes",
@@ -755,6 +936,56 @@
             ],
             "volumesfrom: refused as written": [
               "service a mounts the Docker socket (/var/run/docker.sock): it can start a container with this server's root filesystem"
+            ],
+            "includeenv: refused as written": [
+              "service hidden names /etc/noust/web-secret in env_file: that is Noust's own configuration and secrets, which no stack may read",
+              "the compose file includes or extends another file and Docker Compose could not resolve the stack (exit code 15: (root) Additional property include is not allowed), so what it brings in cannot be judged"
+            ],
+            "extendsenv: refused as written": [
+              "service web names /etc/noust/web-secret in env_file: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "envfilevariable: found only by resolving": [
+              "service web names /etc/noust/web-secret in env_file: that is Noust's own configuration and secrets, which no stack may read",
+              "service web names its env_file through a variable, and this Docker Compose does not say where that leads (it keeps no path of it): where it leads cannot be judged"
+            ],
+            "apisocket: refused as written": [
+              "service web is given Docker's API socket (use_api_socket): it can start a container with this server's root filesystem"
+            ],
+            "poststart: refused as written": [
+              "service web runs a command of post_start with extended privileges (privileged): more than its container has, on this server"
+            ],
+            "prestop: refused as written": [
+              "service web runs a command of pre_stop with extended privileges (privileged): more than its container has, on this server"
+            ],
+            "prestart: refused as written": [
+              "service web pre_start 1 is privileged: it has every capability and every device of this server"
+            ],
+            "labelfile: refused as written": [
+              "service web names /etc/noust/web-secret in label_file: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "entitlements: refused as written": [
+              "service web builds with the entitlement security.insecure, which lets the build reach this server"
+            ],
+            "dockerfileoutside: refused as written": [
+              "service web names /etc/noust/web-secret in build.dockerfile: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "cachelocal: refused as written": [
+              "service web names /etc/noust in build.cache_to: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "macvlan: refused as written": [
+              "network lan uses the network driver macvlan, which is not isolated from this server's network cards (host, macvlan and ipvlan reach them) or is a plugin Noust does not know"
+            ],
+            "bridgename: refused as written": [
+              "network lan attaches the stack to the bridge docker0 of this server, which the stack does not make"
+            ],
+            "seccompfile: refused as written": [
+              "service web replaces its confinement with a profile of its own (seccomp=./allow-all.json): a profile can allow everything the default one forbids"
+            ],
+            "systime: refused as written": [
+              "service web adds the capability SYS_TIME, which gives it this server"
+            ],
+            "brandnewkey: refused as written": [
+              "service web uses brand_new_key, and Noust does not know what that key gives the container: the compose file may be written for a newer Compose than this check"
             ],
             "--profile '*'": {
               "exit": 0,
@@ -785,6 +1016,17 @@
             "this Compose does not read secrets: environment:": {
               "exit": 15,
               "stderr": "secrets.leak Additional property environment is not allowed\n"
+            },
+            "env_file inside an included file, in the model of this Compose": {
+              "exit": 15,
+              "the path is in the model": false,
+              "the value is in the model": false
+            },
+            "config --no-env-resolution": {
+              "knows the flag": false,
+              "keeps the path of an env_file of the main file": false,
+              "keeps the path of an env_file of a file an include brought in": false,
+              "stderr": "unknown flag: --no-env-resolution\n"
             }
           }
         },
@@ -1617,7 +1859,7 @@
           }
         }
       },
-      "seconds": 1305
+      "seconds": 1340
     },
     "e29": {
       "server": "29.10.0",
@@ -1949,7 +2191,7 @@
         },
         "06 privileges": {
           "status": "pass",
-          "seconds": 15.3,
+          "seconds": 19.0,
           "reason": "",
           "passed": [
             "a stack that asks for nothing: let through",
@@ -1974,8 +2216,27 @@
             "an include that Compose fetches from a registry: refused",
             "a provider: a program the machine runs when the stack starts: refused",
             "the socket brought in by volumes_from: refused",
+            "an env_file of Noust's own state inside an included file, which Compose folds into the environment: refused",
+            "an env_file of Noust's own state inside an extended service: refused",
+            "an env_file of Noust's own state named through a variable: seen where this Compose keeps the path, refused as unseen where it does not: refused",
+            "use_api_socket: Docker's socket without a line of volumes: refused",
+            "a post_start command that runs privileged: refused",
+            "a pre_stop command that runs privileged: refused",
+            "a pre_start container, which is a whole container of its own: refused",
+            "a label_file that is Noust's own state: refused",
+            "a build entitlement that lets the build reach the machine: refused",
+            "a Dockerfile that is Noust's own state: refused",
+            "a local build cache in Noust's own state: refused",
+            "a macvlan network on a card of the machine: refused",
+            "a network attached to a bridge of the machine by name: refused",
+            "a seccomp profile the repository carries: refused",
+            "SYS_TIME, the clock of the machine: refused",
+            "a key no Compose has, which the guard does not know: refused",
+            "graphics cards through their driver: only said",
             "a plain process hands Compose its environment (so the check below can fail)",
             "Noust's own environment does not reach Compose: ${NOUST_...} and secrets: environment: get nothing",
+            "the env_file of Noust's own state behind an include is refused whatever the model keeps",
+            "the model this Compose prints has no key the guard has not decided about",
             "the containers of a stack are read from the engine by the label Compose writes",
             "what the engine says the container was given includes /srv/w3rd/privileges/had-data",
             "what the engine says the container was given includes SYS_ADMIN",
@@ -1995,10 +2256,10 @@
             "variable: found only by resolving": [
               "service web is privileged: it has every capability and every device of this server"
             ],
-            "include: found only by resolving": [
+            "include: refused as written": [
               "service hidden is privileged: it has every capability and every device of this server"
             ],
-            "extends: found only by resolving": [
+            "extends: refused as written": [
               "service web is privileged: it has every capability and every device of this server"
             ],
             "socket: refused as written": [
@@ -2032,7 +2293,8 @@
               "service web names /etc/noust/web-secret in env_file: that is Noust's own configuration and secrets, which no stack may read"
             ],
             "buildcontext: refused as written": [
-              "service web names /etc/noust in build.context: that is Noust's own configuration and secrets, which no stack may read"
+              "service web names /etc/noust in build.context: that is Noust's own configuration and secrets, which no stack may read",
+              "service web names /etc/noust/Dockerfile in build.dockerfile: that is Noust's own configuration and secrets, which no stack may read"
             ],
             "remoteinclude: refused as written": [
               "the compose file includes https://127.0.0.1:1/part.yaml, which Compose would download from the network: nothing on this server checks where that goes",
@@ -2044,13 +2306,61 @@
             ],
             "remoteoci: refused as written": [
               "the compose file includes oci://127.0.0.1:1/part:1, which Compose would download from the network: nothing on this server checks where that goes",
-              "the compose file includes or extends another file and Docker Compose could not resolve the stack (exit code 1: time=\"2026-11-18T02:12:26Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.), so what it brings in cannot be judged"
+              "the compose file includes or extends another file and Docker Compose could not resolve the stack (exit code 1: time=\"2026-11-21T05:27:02Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.), so what it brings in cannot be judged"
             ],
             "provider: refused as written": [
               "service tool runs the program noust-w6a-provider-canary of this server when the stack starts, outside any container"
             ],
             "volumesfrom: refused as written": [
               "service a mounts the Docker socket (/var/run/docker.sock): it can start a container with this server's root filesystem"
+            ],
+            "includeenv: refused as written": [
+              "service hidden names /etc/noust/web-secret in env_file: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "extendsenv: refused as written": [
+              "service web names /etc/noust/web-secret in env_file: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "envfilevariable: found only by resolving": [
+              "service web names /etc/noust/web-secret in env_file: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "apisocket: refused as written": [
+              "service web is given Docker's API socket (use_api_socket): it can start a container with this server's root filesystem"
+            ],
+            "poststart: refused as written": [
+              "service web runs a command of post_start with extended privileges (privileged): more than its container has, on this server"
+            ],
+            "prestop: refused as written": [
+              "service web runs a command of pre_stop with extended privileges (privileged): more than its container has, on this server"
+            ],
+            "prestart: refused as written": [
+              "service web pre_start 1 is privileged: it has every capability and every device of this server"
+            ],
+            "labelfile: refused as written": [
+              "service web names /etc/noust/web-secret in label_file: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "entitlements: refused as written": [
+              "service web builds with the entitlement security.insecure, which lets the build reach this server"
+            ],
+            "dockerfileoutside: refused as written": [
+              "service web names /etc/noust/web-secret in build.dockerfile: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "cachelocal: refused as written": [
+              "service web names /etc/noust in build.cache_to: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "macvlan: refused as written": [
+              "network lan uses the network driver macvlan, which is not isolated from this server's network cards (host, macvlan and ipvlan reach them) or is a plugin Noust does not know"
+            ],
+            "bridgename: refused as written": [
+              "network lan attaches the stack to the bridge docker0 of this server, which the stack does not make"
+            ],
+            "seccompfile: refused as written": [
+              "service web replaces its confinement with a profile of its own (seccomp=./allow-all.json): a profile can allow everything the default one forbids"
+            ],
+            "systime: refused as written": [
+              "service web adds the capability SYS_TIME, which gives it this server"
+            ],
+            "brandnewkey: refused as written": [
+              "service web uses brand_new_key, and Noust does not know what that key gives the container: the compose file may be written for a newer Compose than this check"
             ],
             "--profile '*'": {
               "exit": 0,
@@ -2071,18 +2381,29 @@
             },
             "remoteoci, resolved by this Compose (does it go to the network when it reads the file?)": {
               "exit": 1,
-              "stderr": "time=\"2026-11-18T02:12:26Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.0.1:1\" method=HEAD spanID=4334a4cb2db585f6 traceID=5fb35edec013da41caca7602c08cf15f url=\"https://127"
+              "stderr": "time=\"2026-11-21T05:27:05Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.0.1:1\" method=HEAD spanID=b9c51f0cf3e2247d traceID=23773d834d3c5b2b71992da3ffccf040 url=\"https://127"
             },
             "a provider, started by this Compose": {
               "exit": 0,
-              "stderr": " Network privprovider_default Creating \n tool Creating \n tool Created \n Network privprovider_default Created \n Container privprovider-web-1 Creating \n Container privprovider-web-1 Created \n Container privprovider-web-1 Starting \n Container privprovider-web-1 Started \n",
+              "stderr": " Image localhost:5000/w3rd/busybox:1.36 Pulling \n Image localhost:5000/w3rd/busybox:1.36 Pulled \n Network privprovider_default Creating \n tool Creating \n tool Created \n Network privprovider_default Created \n Container privprovider-web-1 Creating \n Container privprovider-web-1 Created \n Container pri",
               "the program ran": true
+            },
+            "env_file inside an included file, in the model of this Compose": {
+              "exit": 0,
+              "the path is in the model": false,
+              "the value is in the model": true
+            },
+            "config --no-env-resolution": {
+              "knows the flag": true,
+              "keeps the path of an env_file of the main file": true,
+              "keeps the path of an env_file of a file an include brought in": true,
+              "stderr": ""
             }
           }
         },
         "06 privileges [Compose v2.40.3]": {
           "status": "pass",
-          "seconds": 16.3,
+          "seconds": 19.8,
           "reason": "",
           "passed": [
             "a stack that asks for nothing: let through",
@@ -2107,8 +2428,27 @@
             "an include that Compose fetches from a registry: refused",
             "a provider: a program the machine runs when the stack starts: refused",
             "the socket brought in by volumes_from: refused",
+            "an env_file of Noust's own state inside an included file, which Compose folds into the environment: refused",
+            "an env_file of Noust's own state inside an extended service: refused",
+            "an env_file of Noust's own state named through a variable: seen where this Compose keeps the path, refused as unseen where it does not: refused",
+            "use_api_socket: Docker's socket without a line of volumes: refused",
+            "a post_start command that runs privileged: refused",
+            "a pre_stop command that runs privileged: refused",
+            "a pre_start container, which is a whole container of its own: refused",
+            "a label_file that is Noust's own state: refused",
+            "a build entitlement that lets the build reach the machine: refused",
+            "a Dockerfile that is Noust's own state: refused",
+            "a local build cache in Noust's own state: refused",
+            "a macvlan network on a card of the machine: refused",
+            "a network attached to a bridge of the machine by name: refused",
+            "a seccomp profile the repository carries: refused",
+            "SYS_TIME, the clock of the machine: refused",
+            "a key no Compose has, which the guard does not know: refused",
+            "graphics cards through their driver: only said",
             "a plain process hands Compose its environment (so the check below can fail)",
             "Noust's own environment does not reach Compose: ${NOUST_...} and secrets: environment: get nothing",
+            "the env_file of Noust's own state behind an include is refused whatever the model keeps",
+            "the model this Compose prints has no key the guard has not decided about",
             "the containers of a stack are read from the engine by the label Compose writes",
             "what the engine says the container was given includes /srv/w3rd/privileges/had-data",
             "what the engine says the container was given includes SYS_ADMIN",
@@ -2128,10 +2468,10 @@
             "variable: found only by resolving": [
               "service web is privileged: it has every capability and every device of this server"
             ],
-            "include: found only by resolving": [
+            "include: refused as written": [
               "service hidden is privileged: it has every capability and every device of this server"
             ],
-            "extends: found only by resolving": [
+            "extends: refused as written": [
               "service web is privileged: it has every capability and every device of this server"
             ],
             "socket: refused as written": [
@@ -2165,7 +2505,8 @@
               "service web names /etc/noust/web-secret in env_file: that is Noust's own configuration and secrets, which no stack may read"
             ],
             "buildcontext: refused as written": [
-              "service web names /etc/noust in build.context: that is Noust's own configuration and secrets, which no stack may read"
+              "service web names /etc/noust in build.context: that is Noust's own configuration and secrets, which no stack may read",
+              "service web names /etc/noust/Dockerfile in build.dockerfile: that is Noust's own configuration and secrets, which no stack may read"
             ],
             "remoteinclude: refused as written": [
               "the compose file includes https://127.0.0.1:1/part.yaml, which Compose would download from the network: nothing on this server checks where that goes",
@@ -2177,13 +2518,61 @@
             ],
             "remoteoci: refused as written": [
               "the compose file includes oci://127.0.0.1:1/part:1, which Compose would download from the network: nothing on this server checks where that goes",
-              "the compose file includes or extends another file and Docker Compose could not resolve the stack (exit code 1: time=\"2026-11-18T02:12:42Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.), so what it brings in cannot be judged"
+              "the compose file includes or extends another file and Docker Compose could not resolve the stack (exit code 1: time=\"2026-11-21T05:27:22Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.), so what it brings in cannot be judged"
             ],
             "provider: refused as written": [
               "service tool runs the program noust-w6a-provider-canary of this server when the stack starts, outside any container"
             ],
             "volumesfrom: refused as written": [
               "service a mounts the Docker socket (/var/run/docker.sock): it can start a container with this server's root filesystem"
+            ],
+            "includeenv: refused as written": [
+              "service hidden names /etc/noust/web-secret in env_file: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "extendsenv: refused as written": [
+              "service web names /etc/noust/web-secret in env_file: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "envfilevariable: found only by resolving": [
+              "service web names its env_file through a variable, and this Docker Compose does not say where that leads (it keeps no path of it): where it leads cannot be judged"
+            ],
+            "apisocket: refused as written": [
+              "service web is given Docker's API socket (use_api_socket): it can start a container with this server's root filesystem"
+            ],
+            "poststart: refused as written": [
+              "service web runs a command of post_start with extended privileges (privileged): more than its container has, on this server"
+            ],
+            "prestop: refused as written": [
+              "service web runs a command of pre_stop with extended privileges (privileged): more than its container has, on this server"
+            ],
+            "prestart: refused as written": [
+              "service web pre_start 1 is privileged: it has every capability and every device of this server"
+            ],
+            "labelfile: refused as written": [
+              "service web names /etc/noust/web-secret in label_file: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "entitlements: refused as written": [
+              "service web builds with the entitlement security.insecure, which lets the build reach this server"
+            ],
+            "dockerfileoutside: refused as written": [
+              "service web names /etc/noust/web-secret in build.dockerfile: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "cachelocal: refused as written": [
+              "service web names /etc/noust in build.cache_to: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "macvlan: refused as written": [
+              "network lan uses the network driver macvlan, which is not isolated from this server's network cards (host, macvlan and ipvlan reach them) or is a plugin Noust does not know"
+            ],
+            "bridgename: refused as written": [
+              "network lan attaches the stack to the bridge docker0 of this server, which the stack does not make"
+            ],
+            "seccompfile: refused as written": [
+              "service web replaces its confinement with a profile of its own (seccomp=./allow-all.json): a profile can allow everything the default one forbids"
+            ],
+            "systime: refused as written": [
+              "service web adds the capability SYS_TIME, which gives it this server"
+            ],
+            "brandnewkey: refused as written": [
+              "service web uses brand_new_key, and Noust does not know what that key gives the container: the compose file may be written for a newer Compose than this check"
             ],
             "--profile '*'": {
               "exit": 0,
@@ -2204,12 +2593,23 @@
             },
             "remoteoci, resolved by this Compose (does it go to the network when it reads the file?)": {
               "exit": 1,
-              "stderr": "time=\"2026-11-18T02:12:42Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.0.1:1\" spanID=9a757efd0e088fbc traceID=1414e495f5680b97cb74c0bd8907c3dc\nfailed to pull OCI resource "
+              "stderr": "time=\"2026-11-21T05:27:24Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.0.1:1\" spanID=5f03b08d6e19bf22 traceID=33213a331fad247e13e8c5ea6330f62b\nfailed to pull OCI resource "
             },
             "a provider, started by this Compose": {
               "exit": 0,
               "stderr": " Network privprovider_default  Creating\n Network privprovider_default  Created\n Container privprovider-web-1  Creating\n tool  Creating\n tool  Created\n Container privprovider-web-1  Created\n Container privprovider-web-1  Starting\n Container privprovider-web-1  Started\n",
               "the program ran": true
+            },
+            "env_file inside an included file, in the model of this Compose": {
+              "exit": 0,
+              "the path is in the model": false,
+              "the value is in the model": true
+            },
+            "config --no-env-resolution": {
+              "knows the flag": true,
+              "keeps the path of an env_file of the main file": false,
+              "keeps the path of an env_file of a file an include brought in": false,
+              "stderr": ""
             }
           }
         },
@@ -3075,7 +3475,7 @@
         },
         "06 privileges [Compose v2.0.0]": {
           "status": "pass",
-          "seconds": 13.8,
+          "seconds": 35.9,
           "reason": "",
           "passed": [
             "a stack that asks for nothing: let through",
@@ -3100,6 +3500,24 @@
             "an include that Compose fetches from a registry: refused",
             "a provider: a program the machine runs when the stack starts: refused",
             "the socket brought in by volumes_from: refused",
+            "an env_file of Noust's own state inside an included file, which Compose folds into the environment: refused",
+            "an env_file of Noust's own state inside an extended service: refused",
+            "an env_file of Noust's own state named through a variable: seen where this Compose keeps the path, refused as unseen where it does not: refused",
+            "use_api_socket: Docker's socket without a line of volumes: refused",
+            "a post_start command that runs privileged: refused",
+            "a pre_stop command that runs privileged: refused",
+            "a pre_start container, which is a whole container of its own: refused",
+            "a label_file that is Noust's own state: refused",
+            "a build entitlement that lets the build reach the machine: refused",
+            "a Dockerfile that is Noust's own state: refused",
+            "a local build cache in Noust's own state: refused",
+            "a macvlan network on a card of the machine: refused",
+            "a network attached to a bridge of the machine by name: refused",
+            "a seccomp profile the repository carries: refused",
+            "SYS_TIME, the clock of the machine: refused",
+            "a key no Compose has, which the guard does not know: refused",
+            "graphics cards through their driver: only said",
+            "the env_file of Noust's own state behind an include is refused whatever the model keeps",
             "the containers of a stack are read from the engine by the label Compose writes",
             "what the engine says the container was given includes /srv/w3rd/privileges/had-data",
             "what the engine says the container was given includes SYS_ADMIN",
@@ -3121,9 +3539,10 @@
             ],
             "include, by a Compose that does not read it": "(root) Additional property include is not allowed\n",
             "include: refused as written": [
+              "service hidden is privileged: it has every capability and every device of this server",
               "the compose file includes or extends another file and Docker Compose could not resolve the stack (exit code 15: (root) Additional property include is not allowed), so what it brings in cannot be judged"
             ],
-            "extends: found only by resolving": [
+            "extends: refused as written": [
               "service web is privileged: it has every capability and every device of this server"
             ],
             "socket: refused as written": [
@@ -3157,7 +3576,8 @@
               "service web names /etc/noust/web-secret in env_file: that is Noust's own configuration and secrets, which no stack may read"
             ],
             "buildcontext: refused as written": [
-              "service web names /etc/noust in build.context: that is Noust's own configuration and secrets, which no stack may read"
+              "service web names /etc/noust in build.context: that is Noust's own configuration and secrets, which no stack may read",
+              "service web names /etc/noust/Dockerfile in build.dockerfile: that is Noust's own configuration and secrets, which no stack may read"
             ],
             "remoteinclude: refused as written": [
               "the compose file includes https://127.0.0.1:1/part.yaml, which Compose would download from the network: nothing on this server checks where that goes",
@@ -3176,6 +3596,56 @@
             ],
             "volumesfrom: refused as written": [
               "service a mounts the Docker socket (/var/run/docker.sock): it can start a container with this server's root filesystem"
+            ],
+            "includeenv: refused as written": [
+              "service hidden names /etc/noust/web-secret in env_file: that is Noust's own configuration and secrets, which no stack may read",
+              "the compose file includes or extends another file and Docker Compose could not resolve the stack (exit code 15: (root) Additional property include is not allowed), so what it brings in cannot be judged"
+            ],
+            "extendsenv: refused as written": [
+              "service web names /etc/noust/web-secret in env_file: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "envfilevariable: found only by resolving": [
+              "service web names /etc/noust/web-secret in env_file: that is Noust's own configuration and secrets, which no stack may read",
+              "service web names its env_file through a variable, and this Docker Compose does not say where that leads (it keeps no path of it): where it leads cannot be judged"
+            ],
+            "apisocket: refused as written": [
+              "service web is given Docker's API socket (use_api_socket): it can start a container with this server's root filesystem"
+            ],
+            "poststart: refused as written": [
+              "service web runs a command of post_start with extended privileges (privileged): more than its container has, on this server"
+            ],
+            "prestop: refused as written": [
+              "service web runs a command of pre_stop with extended privileges (privileged): more than its container has, on this server"
+            ],
+            "prestart: refused as written": [
+              "service web pre_start 1 is privileged: it has every capability and every device of this server"
+            ],
+            "labelfile: refused as written": [
+              "service web names /etc/noust/web-secret in label_file: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "entitlements: refused as written": [
+              "service web builds with the entitlement security.insecure, which lets the build reach this server"
+            ],
+            "dockerfileoutside: refused as written": [
+              "service web names /etc/noust/web-secret in build.dockerfile: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "cachelocal: refused as written": [
+              "service web names /etc/noust in build.cache_to: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "macvlan: refused as written": [
+              "network lan uses the network driver macvlan, which is not isolated from this server's network cards (host, macvlan and ipvlan reach them) or is a plugin Noust does not know"
+            ],
+            "bridgename: refused as written": [
+              "network lan attaches the stack to the bridge docker0 of this server, which the stack does not make"
+            ],
+            "seccompfile: refused as written": [
+              "service web replaces its confinement with a profile of its own (seccomp=./allow-all.json): a profile can allow everything the default one forbids"
+            ],
+            "systime: refused as written": [
+              "service web adds the capability SYS_TIME, which gives it this server"
+            ],
+            "brandnewkey: refused as written": [
+              "service web uses brand_new_key, and Noust does not know what that key gives the container: the compose file may be written for a newer Compose than this check"
             ],
             "--profile '*'": {
               "exit": 0,
@@ -3206,6 +3676,21 @@
             "this Compose does not read secrets: environment:": {
               "exit": 15,
               "stderr": "secrets.leak Additional property environment is not allowed\n"
+            },
+            "env_file inside an included file, in the model of this Compose": {
+              "exit": 15,
+              "the path is in the model": false,
+              "the value is in the model": false
+            },
+            "config --no-env-resolution": {
+              "knows the flag": false,
+              "keeps the path of an env_file of the main file": false,
+              "keeps the path of an env_file of a file an include brought in": false,
+              "stderr": "unknown flag: --no-env-resolution\n"
+            },
+            "this Compose did not print the rich stack": {
+              "exit": 15,
+              "stderr": "configs.c Additional property content is not allowed\n"
             }
           }
         },
@@ -3237,7 +3722,7 @@
           }
         }
       },
-      "seconds": 1285
+      "seconds": 1314
     },
     "e24": {
       "server": "24.0.2",
@@ -3629,13 +4114,13 @@
         },
         "06 privileges": {
           "status": "pass",
-          "seconds": 4.4,
+          "seconds": 11.0,
           "reason": "",
           "passed": [
             "a stack that asks for nothing: let through",
             "privileged as written: refused",
             "privileged behind a variable: refused",
-            "privileged behind an include: nothing runs from it in a Compose that does not read include",
+            "privileged behind an include: refused as written though this Compose does not read include, which a newer one would run",
             "privileged behind an extends: refused",
             "Docker's socket mounted: refused",
             "Docker's socket behind a variable: refused",
@@ -3654,8 +4139,27 @@
             "an include that Compose fetches from a registry: refused",
             "a provider: a program the machine runs when the stack starts: refused",
             "the socket brought in by volumes_from: refused",
+            "an env_file of Noust's own state inside an included file, which Compose folds into the environment: refused",
+            "an env_file of Noust's own state inside an extended service: refused",
+            "an env_file of Noust's own state named through a variable: seen where this Compose keeps the path, refused as unseen where it does not: refused",
+            "use_api_socket: Docker's socket without a line of volumes: refused",
+            "a post_start command that runs privileged: refused",
+            "a pre_stop command that runs privileged: refused",
+            "a pre_start container, which is a whole container of its own: refused",
+            "a label_file that is Noust's own state: refused",
+            "a build entitlement that lets the build reach the machine: refused",
+            "a Dockerfile that is Noust's own state: refused",
+            "a local build cache in Noust's own state: refused",
+            "a macvlan network on a card of the machine: refused",
+            "a network attached to a bridge of the machine by name: refused",
+            "a seccomp profile the repository carries: refused",
+            "SYS_TIME, the clock of the machine: refused",
+            "a key no Compose has, which the guard does not know: refused",
+            "graphics cards through their driver: only said",
             "a plain process hands Compose its environment (so the check below can fail)",
             "Noust's own environment does not reach Compose: ${NOUST_...} and secrets: environment: get nothing",
+            "the env_file of Noust's own state behind an include is refused whatever the model keeps",
+            "the model this Compose prints has no key the guard has not decided about",
             "the containers of a stack are read from the engine by the label Compose writes",
             "what the engine says the container was given includes /srv/w3rd/privileges/had-data",
             "what the engine says the container was given includes SYS_ADMIN",
@@ -3676,8 +4180,10 @@
               "service web is privileged: it has every capability and every device of this server"
             ],
             "include, by a Compose that does not read it": "{\n  \"name\": \"privinclude\",\n  \"networks\": {\n    \"default\": {\n      \"name\": \"privinclude_default\",\n      \"ipam\": {},\n      \"external\": false\n    }\n  },\n  \"services\": {\n    \"web\": {\n      \"command\": [\n  ",
-            "include: found only by resolving": [],
-            "extends: found only by resolving": [
+            "include: refused as written": [
+              "service hidden is privileged: it has every capability and every device of this server"
+            ],
+            "extends: refused as written": [
               "service web is privileged: it has every capability and every device of this server"
             ],
             "socket: refused as written": [
@@ -3711,7 +4217,8 @@
               "service web names /etc/noust/web-secret in env_file: that is Noust's own configuration and secrets, which no stack may read"
             ],
             "buildcontext: refused as written": [
-              "service web names /etc/noust in build.context: that is Noust's own configuration and secrets, which no stack may read"
+              "service web names /etc/noust in build.context: that is Noust's own configuration and secrets, which no stack may read",
+              "service web names /etc/noust/Dockerfile in build.dockerfile: that is Noust's own configuration and secrets, which no stack may read"
             ],
             "remoteinclude: refused as written": [
               "the compose file includes https://127.0.0.1:1/part.yaml, which Compose would download from the network: nothing on this server checks where that goes"
@@ -3727,6 +4234,54 @@
             ],
             "volumesfrom: refused as written": [
               "service a mounts the Docker socket (/var/run/docker.sock): it can start a container with this server's root filesystem"
+            ],
+            "includeenv: refused as written": [
+              "service hidden names /etc/noust/web-secret in env_file: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "extendsenv: refused as written": [
+              "service web names /etc/noust/web-secret in env_file: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "envfilevariable: found only by resolving": [
+              "service web names its env_file through a variable, and this Docker Compose does not say where that leads (it keeps no path of it): where it leads cannot be judged"
+            ],
+            "apisocket: refused as written": [
+              "service web is given Docker's API socket (use_api_socket): it can start a container with this server's root filesystem"
+            ],
+            "poststart: refused as written": [
+              "service web runs a command of post_start with extended privileges (privileged): more than its container has, on this server"
+            ],
+            "prestop: refused as written": [
+              "service web runs a command of pre_stop with extended privileges (privileged): more than its container has, on this server"
+            ],
+            "prestart: refused as written": [
+              "service web pre_start 1 is privileged: it has every capability and every device of this server"
+            ],
+            "labelfile: refused as written": [
+              "service web names /etc/noust/web-secret in label_file: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "entitlements: refused as written": [
+              "service web builds with the entitlement security.insecure, which lets the build reach this server"
+            ],
+            "dockerfileoutside: refused as written": [
+              "service web names /etc/noust/web-secret in build.dockerfile: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "cachelocal: refused as written": [
+              "service web names /etc/noust in build.cache_to: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "macvlan: refused as written": [
+              "network lan uses the network driver macvlan, which is not isolated from this server's network cards (host, macvlan and ipvlan reach them) or is a plugin Noust does not know"
+            ],
+            "bridgename: refused as written": [
+              "network lan attaches the stack to the bridge docker0 of this server, which the stack does not make"
+            ],
+            "seccompfile: refused as written": [
+              "service web replaces its confinement with a profile of its own (seccomp=./allow-all.json): a profile can allow everything the default one forbids"
+            ],
+            "systime: refused as written": [
+              "service web adds the capability SYS_TIME, which gives it this server"
+            ],
+            "brandnewkey: refused as written": [
+              "service web uses brand_new_key, and Noust does not know what that key gives the container: the compose file may be written for a newer Compose than this check"
             ],
             "--profile '*'": {
               "exit": 0,
@@ -3753,12 +4308,23 @@
               "exit": 15,
               "stderr": "validating /srv/w3rd/privileges/provider/compose.yaml: services.tool Additional property provider is not allowed\n",
               "the program ran": false
+            },
+            "env_file inside an included file, in the model of this Compose": {
+              "exit": 0,
+              "the path is in the model": false,
+              "the value is in the model": false
+            },
+            "config --no-env-resolution": {
+              "knows the flag": false,
+              "keeps the path of an env_file of the main file": false,
+              "keeps the path of an env_file of a file an include brought in": false,
+              "stderr": "unknown flag: --no-env-resolution\n"
             }
           }
         },
         "06 privileges [Compose v2.40.3]": {
           "status": "pass",
-          "seconds": 15.2,
+          "seconds": 20.8,
           "reason": "",
           "passed": [
             "a stack that asks for nothing: let through",
@@ -3783,8 +4349,27 @@
             "an include that Compose fetches from a registry: refused",
             "a provider: a program the machine runs when the stack starts: refused",
             "the socket brought in by volumes_from: refused",
+            "an env_file of Noust's own state inside an included file, which Compose folds into the environment: refused",
+            "an env_file of Noust's own state inside an extended service: refused",
+            "an env_file of Noust's own state named through a variable: seen where this Compose keeps the path, refused as unseen where it does not: refused",
+            "use_api_socket: Docker's socket without a line of volumes: refused",
+            "a post_start command that runs privileged: refused",
+            "a pre_stop command that runs privileged: refused",
+            "a pre_start container, which is a whole container of its own: refused",
+            "a label_file that is Noust's own state: refused",
+            "a build entitlement that lets the build reach the machine: refused",
+            "a Dockerfile that is Noust's own state: refused",
+            "a local build cache in Noust's own state: refused",
+            "a macvlan network on a card of the machine: refused",
+            "a network attached to a bridge of the machine by name: refused",
+            "a seccomp profile the repository carries: refused",
+            "SYS_TIME, the clock of the machine: refused",
+            "a key no Compose has, which the guard does not know: refused",
+            "graphics cards through their driver: only said",
             "a plain process hands Compose its environment (so the check below can fail)",
             "Noust's own environment does not reach Compose: ${NOUST_...} and secrets: environment: get nothing",
+            "the env_file of Noust's own state behind an include is refused whatever the model keeps",
+            "the model this Compose prints has no key the guard has not decided about",
             "the containers of a stack are read from the engine by the label Compose writes",
             "what the engine says the container was given includes /srv/w3rd/privileges/had-data",
             "what the engine says the container was given includes SYS_ADMIN",
@@ -3804,10 +4389,10 @@
             "variable: found only by resolving": [
               "service web is privileged: it has every capability and every device of this server"
             ],
-            "include: found only by resolving": [
+            "include: refused as written": [
               "service hidden is privileged: it has every capability and every device of this server"
             ],
-            "extends: found only by resolving": [
+            "extends: refused as written": [
               "service web is privileged: it has every capability and every device of this server"
             ],
             "socket: refused as written": [
@@ -3841,7 +4426,8 @@
               "service web names /etc/noust/web-secret in env_file: that is Noust's own configuration and secrets, which no stack may read"
             ],
             "buildcontext: refused as written": [
-              "service web names /etc/noust in build.context: that is Noust's own configuration and secrets, which no stack may read"
+              "service web names /etc/noust in build.context: that is Noust's own configuration and secrets, which no stack may read",
+              "service web names /etc/noust/Dockerfile in build.dockerfile: that is Noust's own configuration and secrets, which no stack may read"
             ],
             "remoteinclude: refused as written": [
               "the compose file includes https://127.0.0.1:1/part.yaml, which Compose would download from the network: nothing on this server checks where that goes",
@@ -3853,13 +4439,61 @@
             ],
             "remoteoci: refused as written": [
               "the compose file includes oci://127.0.0.1:1/part:1, which Compose would download from the network: nothing on this server checks where that goes",
-              "the compose file includes or extends another file and Docker Compose could not resolve the stack (exit code 1: time=\"2026-11-18T01:50:32Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.), so what it brings in cannot be judged"
+              "the compose file includes or extends another file and Docker Compose could not resolve the stack (exit code 1: time=\"2026-11-21T05:33:47Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.), so what it brings in cannot be judged"
             ],
             "provider: refused as written": [
               "service tool runs the program noust-w6a-provider-canary of this server when the stack starts, outside any container"
             ],
             "volumesfrom: refused as written": [
               "service a mounts the Docker socket (/var/run/docker.sock): it can start a container with this server's root filesystem"
+            ],
+            "includeenv: refused as written": [
+              "service hidden names /etc/noust/web-secret in env_file: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "extendsenv: refused as written": [
+              "service web names /etc/noust/web-secret in env_file: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "envfilevariable: found only by resolving": [
+              "service web names its env_file through a variable, and this Docker Compose does not say where that leads (it keeps no path of it): where it leads cannot be judged"
+            ],
+            "apisocket: refused as written": [
+              "service web is given Docker's API socket (use_api_socket): it can start a container with this server's root filesystem"
+            ],
+            "poststart: refused as written": [
+              "service web runs a command of post_start with extended privileges (privileged): more than its container has, on this server"
+            ],
+            "prestop: refused as written": [
+              "service web runs a command of pre_stop with extended privileges (privileged): more than its container has, on this server"
+            ],
+            "prestart: refused as written": [
+              "service web pre_start 1 is privileged: it has every capability and every device of this server"
+            ],
+            "labelfile: refused as written": [
+              "service web names /etc/noust/web-secret in label_file: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "entitlements: refused as written": [
+              "service web builds with the entitlement security.insecure, which lets the build reach this server"
+            ],
+            "dockerfileoutside: refused as written": [
+              "service web names /etc/noust/web-secret in build.dockerfile: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "cachelocal: refused as written": [
+              "service web names /etc/noust in build.cache_to: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "macvlan: refused as written": [
+              "network lan uses the network driver macvlan, which is not isolated from this server's network cards (host, macvlan and ipvlan reach them) or is a plugin Noust does not know"
+            ],
+            "bridgename: refused as written": [
+              "network lan attaches the stack to the bridge docker0 of this server, which the stack does not make"
+            ],
+            "seccompfile: refused as written": [
+              "service web replaces its confinement with a profile of its own (seccomp=./allow-all.json): a profile can allow everything the default one forbids"
+            ],
+            "systime: refused as written": [
+              "service web adds the capability SYS_TIME, which gives it this server"
+            ],
+            "brandnewkey: refused as written": [
+              "service web uses brand_new_key, and Noust does not know what that key gives the container: the compose file may be written for a newer Compose than this check"
             ],
             "--profile '*'": {
               "exit": 0,
@@ -3880,18 +4514,29 @@
             },
             "remoteoci, resolved by this Compose (does it go to the network when it reads the file?)": {
               "exit": 1,
-              "stderr": "time=\"2026-11-18T01:50:32Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.0.1:1\" spanID=d68eedd299d8205c traceID=c64a45ea9e3c469b6e9a90ed2b4d1a2f\nfailed to pull OCI resource "
+              "stderr": "time=\"2026-11-21T05:33:51Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.0.1:1\" spanID=e4167d61f4708210 traceID=e823f01aab9c52b16c16caa69cb65e7b\nfailed to pull OCI resource "
             },
             "a provider, started by this Compose": {
               "exit": 0,
               "stderr": " Network privprovider_default  Creating\n Network privprovider_default  Created\n Container privprovider-web-1  Creating\n tool  Creating\n tool  Created\n Container privprovider-web-1  Created\n Container privprovider-web-1  Starting\n Container privprovider-web-1  Started\n",
               "the program ran": true
+            },
+            "env_file inside an included file, in the model of this Compose": {
+              "exit": 0,
+              "the path is in the model": false,
+              "the value is in the model": true
+            },
+            "config --no-env-resolution": {
+              "knows the flag": true,
+              "keeps the path of an env_file of the main file": false,
+              "keeps the path of an env_file of a file an include brought in": false,
+              "stderr": ""
             }
           }
         },
         "06 privileges [Compose v2.0.0]": {
           "status": "pass",
-          "seconds": 12.9,
+          "seconds": 39.3,
           "reason": "",
           "passed": [
             "a stack that asks for nothing: let through",
@@ -3916,6 +4561,25 @@
             "an include that Compose fetches from a registry: refused",
             "a provider: a program the machine runs when the stack starts: refused",
             "the socket brought in by volumes_from: refused",
+            "an env_file of Noust's own state inside an included file, which Compose folds into the environment: refused",
+            "an env_file of Noust's own state inside an extended service: refused",
+            "an env_file of Noust's own state named through a variable: seen where this Compose keeps the path, refused as unseen where it does not: refused",
+            "use_api_socket: Docker's socket without a line of volumes: refused",
+            "a post_start command that runs privileged: refused",
+            "a pre_stop command that runs privileged: refused",
+            "a pre_start container, which is a whole container of its own: refused",
+            "a label_file that is Noust's own state: refused",
+            "a build entitlement that lets the build reach the machine: refused",
+            "a Dockerfile that is Noust's own state: refused",
+            "a local build cache in Noust's own state: refused",
+            "a macvlan network on a card of the machine: refused",
+            "a network attached to a bridge of the machine by name: refused",
+            "a seccomp profile the repository carries: refused",
+            "SYS_TIME, the clock of the machine: refused",
+            "a key no Compose has, which the guard does not know: refused",
+            "graphics cards through their driver: only said",
+            "the env_file of Noust's own state behind an include is refused whatever the model keeps",
+            "the model this Compose prints has no key the guard has not decided about",
             "the containers of a stack are read from the engine by the label Compose writes",
             "what the engine says the container was given includes /srv/w3rd/privileges/had-data",
             "what the engine says the container was given includes SYS_ADMIN",
@@ -3937,9 +4601,10 @@
             ],
             "include, by a Compose that does not read it": "(root) Additional property include is not allowed\n",
             "include: refused as written": [
+              "service hidden is privileged: it has every capability and every device of this server",
               "the compose file includes or extends another file and Docker Compose could not resolve the stack (exit code 15: (root) Additional property include is not allowed), so what it brings in cannot be judged"
             ],
-            "extends: found only by resolving": [
+            "extends: refused as written": [
               "service web is privileged: it has every capability and every device of this server"
             ],
             "socket: refused as written": [
@@ -3973,7 +4638,8 @@
               "service web names /etc/noust/web-secret in env_file: that is Noust's own configuration and secrets, which no stack may read"
             ],
             "buildcontext: refused as written": [
-              "service web names /etc/noust in build.context: that is Noust's own configuration and secrets, which no stack may read"
+              "service web names /etc/noust in build.context: that is Noust's own configuration and secrets, which no stack may read",
+              "service web names /etc/noust/Dockerfile in build.dockerfile: that is Noust's own configuration and secrets, which no stack may read"
             ],
             "remoteinclude: refused as written": [
               "the compose file includes https://127.0.0.1:1/part.yaml, which Compose would download from the network: nothing on this server checks where that goes",
@@ -3992,6 +4658,56 @@
             ],
             "volumesfrom: refused as written": [
               "service a mounts the Docker socket (/var/run/docker.sock): it can start a container with this server's root filesystem"
+            ],
+            "includeenv: refused as written": [
+              "service hidden names /etc/noust/web-secret in env_file: that is Noust's own configuration and secrets, which no stack may read",
+              "the compose file includes or extends another file and Docker Compose could not resolve the stack (exit code 15: (root) Additional property include is not allowed), so what it brings in cannot be judged"
+            ],
+            "extendsenv: refused as written": [
+              "service web names /etc/noust/web-secret in env_file: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "envfilevariable: found only by resolving": [
+              "service web names /etc/noust/web-secret in env_file: that is Noust's own configuration and secrets, which no stack may read",
+              "service web names its env_file through a variable, and this Docker Compose does not say where that leads (it keeps no path of it): where it leads cannot be judged"
+            ],
+            "apisocket: refused as written": [
+              "service web is given Docker's API socket (use_api_socket): it can start a container with this server's root filesystem"
+            ],
+            "poststart: refused as written": [
+              "service web runs a command of post_start with extended privileges (privileged): more than its container has, on this server"
+            ],
+            "prestop: refused as written": [
+              "service web runs a command of pre_stop with extended privileges (privileged): more than its container has, on this server"
+            ],
+            "prestart: refused as written": [
+              "service web pre_start 1 is privileged: it has every capability and every device of this server"
+            ],
+            "labelfile: refused as written": [
+              "service web names /etc/noust/web-secret in label_file: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "entitlements: refused as written": [
+              "service web builds with the entitlement security.insecure, which lets the build reach this server"
+            ],
+            "dockerfileoutside: refused as written": [
+              "service web names /etc/noust/web-secret in build.dockerfile: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "cachelocal: refused as written": [
+              "service web names /etc/noust in build.cache_to: that is Noust's own configuration and secrets, which no stack may read"
+            ],
+            "macvlan: refused as written": [
+              "network lan uses the network driver macvlan, which is not isolated from this server's network cards (host, macvlan and ipvlan reach them) or is a plugin Noust does not know"
+            ],
+            "bridgename: refused as written": [
+              "network lan attaches the stack to the bridge docker0 of this server, which the stack does not make"
+            ],
+            "seccompfile: refused as written": [
+              "service web replaces its confinement with a profile of its own (seccomp=./allow-all.json): a profile can allow everything the default one forbids"
+            ],
+            "systime: refused as written": [
+              "service web adds the capability SYS_TIME, which gives it this server"
+            ],
+            "brandnewkey: refused as written": [
+              "service web uses brand_new_key, and Noust does not know what that key gives the container: the compose file may be written for a newer Compose than this check"
             ],
             "--profile '*'": {
               "exit": 0,
@@ -4022,6 +4738,17 @@
             "this Compose does not read secrets: environment:": {
               "exit": 15,
               "stderr": "secrets.leak Additional property environment is not allowed\n"
+            },
+            "env_file inside an included file, in the model of this Compose": {
+              "exit": 15,
+              "the path is in the model": false,
+              "the value is in the model": false
+            },
+            "config --no-env-resolution": {
+              "knows the flag": false,
+              "keeps the path of an env_file of the main file": false,
+              "keeps the path of an env_file of a file an include brought in": false,
+              "stderr": "unknown flag: --no-env-resolution\n"
             }
           }
         },
@@ -4854,8 +5581,8 @@
           }
         }
       },
-      "seconds": 1288
+      "seconds": 1326
     }
   },
-  "seconds": 3878
+  "seconds": 3980
 }

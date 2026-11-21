@@ -51,7 +51,11 @@ each is what a client written against 4.2 could notice.
   the socket of a container runtime, Noust's state and another application's files, which are let through only
   when the file that served says them plainly; when Docker does not answer, the update is refused with its own
   words. The exception is recorded at `PUT /api/apps/{domain}/sandbox/compose-exception` (`root_equivalent`,
-  sudo mode).
+  sudo mode). The check also refuses a key of the compose file that it does not know (the sentence
+  `compose_guard.unknown_key` names it), the Compose keys that give the server without a mount
+  (`use_api_socket`, a `post_start` or `pre_stop` command with `privileged`, a build entitlement, a host or
+  `macvlan` network), and a file that an `include` or an `extends` brings in and that cannot be read
+  (`compose_guard.composition_unreadable` and its siblings); nothing else of the API changes.
 - **Adopting, or bringing, a stack that runs with what gives the server to a container is a `409`.**
   `POST /api/apps/adopt`, `POST /api/docker/stacks/{name}/bring` and `.../bring/preview` answered with the plan or
   the registration, with a warning in the log; they now refuse with the error body of every refusal plus

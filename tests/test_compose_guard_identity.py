@@ -338,3 +338,79 @@ class TestTheDeployerHoldsTheIdentityInBothDirections:
         compose = self.deployer(tmp_path, store)
 
         compose._check_host_privileges(self.TAKEN, accepted=compose._refusals_in(self.TAKEN))
+
+
+class TestTheTreeOfAnotherApplication:
+    """What is another application's is what the store says it is, wherever its directory is."""
+
+    def test_the_tree_of_an_adopted_stack_is_another_application_s(self, store: NoustStore) -> None:
+        findings = judged(store, document(service={"volumes": ["/opt/shop:/m"]}))
+
+        assert any("another application's files" in s for s in findings.refused), findings.refused
+
+    def test_a_file_of_an_adopted_stack_through_a_door_is_refused_for_good(
+        self, store: NoustStore
+    ) -> None:
+        findings = judged(store, document(service={"env_file": ["/opt/shop/.env"]}))
+
+        hard = [s for s in findings.refused if s in findings.hard]
+        assert hard and "another application's files" in hard[0], findings.refused
+
+    def test_a_directory_that_holds_the_adopted_tree_holds_every_application(
+        self, store: NoustStore
+    ) -> None:
+        findings = judged(store, document(service={"env_file": ["/opt"]}))
+
+        assert any(
+            "contains every application's files" in s and s in findings.hard
+            for s in findings.refused
+        ), findings.refused
+
+    def test_a_directory_next_to_it_that_nobody_registered_is_only_outside(
+        self, store: NoustStore
+    ) -> None:
+        findings = judged(store, document(service={"volumes": ["/opt/unregistered:/m"]}))
+
+        assert findings.refused == [
+            "service web mounts /opt/unregistered from this server, outside the application"
+        ]
+
+    def test_the_applications_own_adopted_tree_is_its_own(self, store: NoustStore) -> None:
+        owners = Owners.of_store(store, "shop.example.com")
+        guard = GuardContext(
+            Path("/opt/shop"), domain="shop.example.com", project="proggest", owners=owners
+        )
+
+        findings = inspect_compose(
+            document(service={"volumes": ["/opt/shop/data:/m", "./data:/d"]}),
+            Path("/opt/shop"),
+            context=guard,
+        )
+
+        assert not findings
+
+    def test_without_the_store_the_applications_directory_still_decides(self) -> None:
+        findings = inspect_compose(
+            document(service={"volumes": ["/var/www/apps/other-example-com:/m"]}),
+            APP,
+            context=GuardContext(APP, domain="stack.example.com"),
+        )
+
+        assert any("another application's files" in s for s in findings.refused)
+
+    def test_a_link_to_the_adopted_tree_is_that_tree(
+        self, store: NoustStore, tmp_path: Path
+    ) -> None:
+        app = tmp_path / "apps" / "stack-example-com"
+        app.mkdir(parents=True)
+        (app / "shop").symlink_to("/opt/shop")
+        owners = Owners.of_store(store, "stack.example.com")
+        guard = GuardContext(app, domain="stack.example.com", project="stack", owners=owners)
+
+        findings = inspect_compose(
+            document(service={"env_file": ["./shop/.env"]}), app, context=guard
+        )
+
+        assert any(
+            "another application's files" in s and s in findings.hard for s in findings.refused
+        ), findings.refused

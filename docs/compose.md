@@ -431,16 +431,49 @@ never a team role nor a central whose node did not allow host access). It can be
 first deployment.
 
 - What gives the machine to a container: `privileged`; the Docker socket, or the socket of another
-  container runtime; `devices` and `device_cgroup_rules`; the capabilities `ALL`, `SYS_ADMIN`,
-  `SYS_PTRACE`, `SYS_MODULE`, `SYS_RAWIO`, `SYS_BOOT`, `DAC_READ_SEARCH`, `NET_ADMIN`, `BPF` and
-  `PERFMON`; `pid`, `ipc`, `uts`, `userns_mode`, `cgroup` and `network_mode` of the host;
-  `security_opt` that turns confinement off (`seccomp`, `apparmor`, `label`, `systempaths`);
-  `cgroup_parent`; a `runtime` other than Docker's own; `provider:` (a program the machine runs when
-  the stack starts); `build.privileged` and `build.network: host`.
+  container runtime; `use_api_socket` (Compose mounts the Docker socket without a line of `volumes`);
+  `devices` and `device_cgroup_rules`; the capabilities `ALL`, `SYS_ADMIN`, `SYS_PTRACE`,
+  `SYS_MODULE`, `SYS_RAWIO`, `SYS_BOOT`, `DAC_READ_SEARCH`, `NET_ADMIN`, `BPF`, `PERFMON`, `SYS_TIME`
+  (the clock of the machine), `AUDIT_CONTROL`, `MAC_ADMIN` and `MAC_OVERRIDE`; `pid`, `ipc`, `uts`,
+  `userns_mode`, `cgroup` and `network_mode` of the host; `security_opt` that turns confinement off
+  or swaps it for another (`seccomp=unconfined` and a seccomp profile of the repository, an AppArmor
+  profile other than Docker's, `label=disable` and an SELinux `type`, `role` or `user`,
+  `systempaths=unconfined`, `writable-cgroups`); `cgroup_parent`; a `runtime` other than Docker's own;
+  `provider:` (a program the machine runs when the stack starts); a `post_start` or `pre_stop` command
+  with `privileged`; `build.privileged`, `build.network: host` and any `build.entitlements`; a
+  `networks` driver that is not Docker's isolated bridge (`host`, `macvlan` and `ipvlan` reach the
+  machine's network cards, and a plugin is a program Noust has not heard of) and a bridge of the machine
+  named in `com.docker.network.bridge.name`; a `volumes` driver other than `local`; `runtime_flags` of a
+  model. A `pre_start` container is judged like a service of its own.
+- A key Noust does not know. The guard knows every key of the Compose specification, each decided
+  about (a limit or a name changes only what the container does inside itself; a path, a name, a
+  capability or an option is judged by its value; `privileged` and `use_api_socket` give the machine by
+  being on), and a key that is not in that list is refused like what gives the machine, saying "Noust
+  does not know what that key gives the container", with the exception as the way out. A stack that
+  already had it is only warned about, as with everything else here. A newer Compose than this check
+  is the usual reason: update Noust, or record the exception once a person has read what the key does.
+  Extension fields (`x-...`) are ignored by Compose and by the guard. The list is held to the
+  specification by a test (`scripts/compose_spec_keys.py` writes its keys), so a key Compose gains is
+  a test that fails and not a hole.
 - Any path of the server outside the application: a bind mount, the file of a secret or a config, an
-  `env_file`, a build context, an additional context, a build secret, an SSH key, an `include` (with its
-  own `env_file` and `project_directory`), an `extends` file, and a volume whose `driver_opts.device` is
-  a path. Not a list of bad paths: everything that is not the application's own tree.
+  `env_file`, a `label_file`, a build context, a Dockerfile, an additional context, a local build cache
+  (`cache_from` and `cache_to` of `type=local`), a build secret, an SSH key, an `include` (with its own
+  `env_file` and `project_directory`), an `extends` file, and a volume whose `driver_opts.device` is a
+  path. Not a list of bad paths: everything that is not the application's own tree.
+- What a file the document brings in says. `docker compose config` reads the `env_file` of every service
+  and puts its lines in `environment`, so the model has no path left to judge; the files that an
+  `include` or an `extends` bring in are therefore read as they are and judged from their own directory
+  (or the `project_directory` the include names), down to eight files deep, and the model is also asked
+  not to resolve them (`config --no-env-resolution`) where the Compose in use knows how. A file the
+  guard cannot read (it is not there, is not a compose file, is not text, is larger than 1 MiB) is
+  refused, saying why and never what it holds. A file outside the application is not read at all.
+  An `env_file` or a `label_file` whose path is made of a variable (`${ENV_FILE:-.env}`) leads where the
+  stack's `.env` says, which only a path that Compose keeps can show. Asked with
+  `config --no-env-resolution`, Compose 5.7.1 keeps it, in the main file and in a file an `include` brought
+  in, and it is judged like any other path; Compose 2.40.3 knows the flag and keeps none, and the 2.17 of
+  Debian 12, the 2.19 of Synology and the oldest 2.0.0 do not know it (measured, in the harness of the
+  three engines). Where Compose keeps no path the file is refused as unseen, with the exception as the way
+  out. Writing the path out is the way to need neither.
 - The volumes or the namespace of a container that is not the stack's (`volumes_from: container:x`,
   `network_mode: container:x`).
 - What Docker or Compose would download from the network: a build context or an include that is a URL,
@@ -456,8 +489,11 @@ first deployment.
 
 - Noust's own configuration, store and backups, and another application's files, reached through a door
   that has no reason to read them: an `env_file`, a build context, a build secret, an `include`.
-- What belongs to another application or to Noust: its project, an `external` volume or network, a
-  `container_name`, an `image` it built. The store decides whose each is.
+- What belongs to another application or to Noust: its project, a volume or a network (`external`, or
+  a fixed `name:` of one that exists), a `container_name`, an `image` it built (to run, to tag a build
+  with, or to mount the files of). The store decides whose each is, and the tree of an application
+  that was adopted where it already ran (`/opt/billing`) is as much another application's as one under
+  the applications directory.
 - In a pasted document, a download.
 
 A bind mount of Noust's state or of another application's files is refused like the rest of the paths,
@@ -466,12 +502,19 @@ and an exception can allow it.
 **Said, never stopped**: capabilities that do not give the machine, a port published on every address,
 an image that moves.
 
-**Noust's own environment never reaches Compose or a build.** Compose fills `${NAME}` and reads
-`secrets: {x: {environment: NAME}}` from the environment of the process that runs it, so `docker compose`
-and `docker build` are started without any `NOUST_*` variable of Noust's process (a token, the sealing key,
-the data directory): a `${NOUST_TOKEN}` in a compose file is an empty string now. What you have in the
-environment for yourself (`DOCKER_HOST`, `COMPOSE_*`, a variable of your own) and the stack's `.env` go on
-as before.
+**Compose and a build get a closed list of Noust's environment, not all of it.** Compose fills `${NAME}`
+and reads `secrets: {x: {environment: NAME}}` from the environment of the process that runs it, so
+`docker compose` and `docker build` are started with only what Docker and Compose read themselves: where
+the programs are and who runs them (`PATH`, `HOME`, `USER`, `TMPDIR`), the language and the time zone, the
+proxy and the certificates (`HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY` and their lower-case spellings,
+`SSL_CERT_FILE`, `SSL_CERT_DIR`), where the credential helpers keep what they open (`XDG_*`, `GNUPGHOME`,
+`PASSWORD_STORE_DIR`), and Docker's own settings (`DOCKER_HOST`, `DOCKER_CONFIG`, `DOCKER_CONTEXT` and the
+other documented `DOCKER_*` names, `COMPOSE_*`, `BUILDX_*`, `BUILDKIT_*`). Anything else of Noust's process
+(a token, the sealing key, the data directory, a cloud key exported in the shell that started the service)
+is an empty string in a compose file. A variable your stack needs goes in its `.env`, which Compose reads
+beside the file; nothing that read the process's environment on the stack's behalf keeps working, and the
+service unit of a stack never did. A private registry's logins (`~/.docker/config.json`) and a proxy go on
+working.
 
 A path is judged by what Docker will mount, not by how it is spelled. A repository can hold a link, and
 the daemon follows it: `./host` that points at `/` is `/`. Every link on the way is followed, and a link

@@ -123,17 +123,25 @@ class TestWhatTheFileBringsInFromElsewhere:
             {"path": ["ok.yaml", "../escape.yaml"], "project_directory": "."},
         ],
     )
-    def test_an_include_that_leaves_the_application_is_refused(self, entry: object) -> None:
-        findings = inspect_compose({**stack(), "include": [entry]}, APP)
+    def test_an_include_that_leaves_the_application_is_refused(
+        self, entry: object, tmp_path: Path
+    ) -> None:
+        (tmp_path / "ok.yaml").write_text("services: {}\n", encoding="utf-8")
+        findings = inspect_compose({**stack(), "include": [entry]}, tmp_path)
 
         assert len(findings.refused) == 1, findings
         assert "include" in findings.refused[0]
         assert "outside the application" in findings.refused[0]
 
-    def test_an_include_inside_the_application_is_left_to_the_resolved_model(self) -> None:
+    def test_an_include_inside_the_application_is_read_and_judged_as_a_file(
+        self, tmp_path: Path
+    ) -> None:
+        (tmp_path / "deploy").mkdir()
+        (tmp_path / "deploy" / "db.yaml").write_text("services: {db: {image: postgres}}\n")
+        (tmp_path / "a.yml").write_text("services: {}\n")
         document = {**stack(), "include": ["deploy/db.yaml", {"path": "a.yml"}]}
 
-        assert not inspect_compose(document, APP)
+        assert not inspect_compose(document, tmp_path)
 
     def test_a_link_inside_the_application_that_leads_out_is_an_include_that_leaves(
         self, tmp_path: Path
@@ -163,11 +171,15 @@ class TestWhatTheFileBringsInFromElsewhere:
         assert len(findings.refused) == 1, findings
         assert "service web extends a file outside the application" in findings.refused[0]
 
-    def test_extending_inside_the_file_or_the_application_is_left_to_the_resolved_model(
-        self,
+    def test_extending_inside_the_file_or_the_application_is_read_and_judged_as_a_file(
+        self, tmp_path: Path
     ) -> None:
-        assert not inspect_compose(stack(extends="base"), APP)
-        assert not inspect_compose(stack(extends={"file": "common.yml", "service": "web"}), APP)
+        (tmp_path / "common.yml").write_text("services: {web: {image: nginx}}\n")
+
+        assert not inspect_compose(stack(extends="base"), tmp_path)
+        assert not inspect_compose(
+            stack(extends={"file": "common.yml", "service": "web"}), tmp_path
+        )
 
     @pytest.mark.parametrize("kind", ["secrets", "configs"])
     def test_a_secret_or_a_config_that_is_a_file_of_noust_is_refused(self, kind: str) -> None:
@@ -214,7 +226,7 @@ class TestWhatTheFileBringsInFromElsewhere:
             "secrets": {
                 "mine": {"file": "./secrets/mine.txt"},
                 "unused": {"file": "/etc/noust/web-secret"},
-                "inline": {"content": "x"},
+                "inline": {"environment": "TOKEN"},
             },
         }
 
@@ -300,6 +312,8 @@ class TestTheDeployerJudgesWhatComposeResolves:
             runner, model(web={"image": "nginx"}, reporter={"image": "x", "volumes": [SOCKET]})
         )
         compose = stack_at(tmp_path, store, runner)
+        (tmp_path / "stack").mkdir()
+        (tmp_path / "stack" / "reporter.yaml").write_text("services: {reporter: {image: x}}\n")
 
         with pytest.raises(DeploymentError) as raised:
             compose._check_host_privileges({"include": ["reporter.yaml"], "services": {}})
@@ -319,8 +333,7 @@ class TestTheDeployerJudgesWhatComposeResolves:
 
         compose._check_host_privileges(stack())
 
-        (call,) = runner.calls
-        assert call == (
+        head = (
             "docker",
             "compose",
             "-p",
@@ -330,9 +343,12 @@ class TestTheDeployerJudgesWhatComposeResolves:
             "--profile",
             "*",
             "config",
-            "--format",
-            "json",
         )
+        # The model, and then the same asked to leave the env_file of each service as a path.
+        assert runner.calls == [
+            (*head, "--format", "json"),
+            (*head, "--no-env-resolution", "--format", "json"),
+        ]
 
     def test_a_profile_flag_the_compose_in_use_does_not_know_falls_back_to_the_active_ones(
         self, tmp_path: Path, store: NoustStore
@@ -350,8 +366,11 @@ class TestTheDeployerJudgesWhatComposeResolves:
         with pytest.raises(DeploymentError, match="asks for root"):
             compose._check_host_privileges(stack())
 
-        assert len(runner.calls) == 2
+        # The model is asked for with every profile and without, and then each is asked again with the
+        # env_file left as a path (``--no-env-resolution``).
+        assert len(runner.calls) == 4
         assert "--profile" not in runner.calls[1]
+        assert "--no-env-resolution" in runner.calls[3] and "--profile" not in runner.calls[3]
         # Looking changes nothing, so a dry run may look too (the runner's declared probes).
         assert all(is_read_only(call) for call in runner.calls)
 

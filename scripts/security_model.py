@@ -138,10 +138,14 @@ GUARANTEES: tuple[Guarantee, ...] = (
         "says as written, whether it comes from a variable, an `include`, an `extends` or is "
         "written as it is; `noust health` lists it. A container does not make `privileged`, a "
         "container runtime's socket, Noust's state or another application's files a stack's to "
-        "keep: those are taken only from a file that says them plainly, as before. Compose and "
-        "image builds are started "
-        "without Noust's own environment (`NOUST_*`), which a compose file could otherwise "
-        "interpolate.",
+        "keep: those are taken only from a file that says them plainly, as before. The check "
+        "knows every key of the Compose specification and refuses a key it does not know like "
+        "what gives the machine, so a key a newer Compose adds is not let through unseen; it "
+        "reads the files an `include` or an `extends` brings in, which Compose folds into the "
+        "environment before the model has a path left to judge. Compose and image builds are "
+        "started with a closed list of Noust's environment (what Docker and Compose read "
+        "themselves), so a compose file cannot interpolate any other variable of Noust's "
+        "process.",
         "`noust.core.runner.SandboxSpec` and `deployers/helpers/sandbox.py`; "
         "`deployers/helpers/compose_guard.py` for Compose; `docs/threat-model.md#builds`.",
         (
@@ -170,6 +174,11 @@ GUARANTEES: tuple[Guarantee, ...] = (
             "tests/test_compose_guard_running.py::TestWhatHealthLists::test_a_stack_whose_file_says_nothing_and_whose_container_mounts_the_server_is_listed",
             "tests/test_compose_exception_who.py::TestNoTeamRole::test_the_permission_is_not_one_a_team_can_own",
             "tests/test_compose_environment.py::TestTheRealRunner::test_compose_is_started_without_what_is_noust_s",
+            "tests/test_compose_environment.py::TestTheEnvironmentOfSuchACommand::test_only_what_docker_and_compose_read_goes_in",
+            "tests/test_compose_guard_keys.py::TestAKeyThatIsNotInTheListIsRefused::test_an_unknown_key_is_refused_by_name",
+            "tests/test_compose_guard_keys.py::TestTheListIsTheSpecification::test_a_key_of_compose_that_is_not_decided_about_fails_here",
+            "tests/test_compose_guard_composition.py::TestWhatAnIncludedFileSays::test_the_env_file_of_another_application_in_an_included_file_is_refused_for_good",
+            "tests/test_compose_guard_composition.py::TestWhatAnExtendedFileSays::test_the_env_file_of_another_application_in_an_extended_service_is_refused_for_good",
             "tests/test_monorepo_identity.py::TestANewMonorepo::test_it_is_given_an_account_of_its_own",
             "tests/test_repository_symlinks.py::test_the_seam_refuses_to_chmod_through_a_link",
         ),

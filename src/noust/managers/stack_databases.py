@@ -93,25 +93,31 @@ def _config_probes() -> tuple[tuple[object, ...], ...]:
     out because a probe only matches a trailing ``...``, and ``-p`` and the
     profiles sit in the middle of the command.
 
+    The compose guard asks the same, and also with ``--no-env-resolution``, which leaves the paths of
+    the ``env_file`` of each service in what it prints instead of reading them.
+
     Returns:
-        One shape per combination of an optional ``-p`` and up to three profiles.
+        One shape per combination of an optional ``-p``, up to three profiles and an optional
+        ``--no-env-resolution``.
     """
     shapes: list[tuple[object, ...]] = []
     for project in ((), ("-p", "*")):
         for profiles in range(4):
-            shapes.append(
-                (
-                    "docker",
-                    "compose",
-                    *project,
-                    "-f",
-                    "*",
-                    *(("--profile", "*") * profiles),
-                    "config",
-                    "--format",
-                    "json",
+            for options in ((), ("--no-env-resolution",)):
+                shapes.append(
+                    (
+                        "docker",
+                        "compose",
+                        *project,
+                        "-f",
+                        "*",
+                        *(("--profile", "*") * profiles),
+                        "config",
+                        *options,
+                        "--format",
+                        "json",
+                    )
                 )
-            )
     return tuple(shapes)
 
 

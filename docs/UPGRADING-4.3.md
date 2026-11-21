@@ -38,6 +38,12 @@ what an update adds and in an adoption. Run `noust health` after updating and re
   a variable or an `include`): that asks for the recorded exception at its next update
   ([how](#compose-stacks-that-carry-more-than-a-new-stack-may)). Where untrusted repositories were deployed
   before, review their Compose files and rotate the secrets of that server.
+- **Compose reads a closed list of Noust's environment.** A `${NAME}` in a compose file, or a secret read from the
+  environment, is an empty string for any variable of Noust's own process that Docker and Compose do not read
+  themselves (everything but `PATH`, `HOME`, the language, the proxy and certificates, the places of the credential
+  helpers, `DOCKER_*`, `COMPOSE_*`, `BUILDX_*` and `BUILDKIT_*`). The unit of a stack never had them, so a stack
+  that depended on one already failed on every restart; the variables of a stack are the ones of its `.env`. A
+  private registry's logins and a proxy keep working.
 - **Adopting, or bringing, a stack that runs with something of the server needs `--accept-host-access`**
   ([how](#adopting-or-bringing-a-stack-that-runs-with-access-to-the-server)).
 - **To have a central collect a server's copies, set that server's ceiling to `admin`**
@@ -152,6 +158,19 @@ given of the server, which Noust asks Docker for, plus what its file says as wri
   recorded exception at its next update. `noust health` lists it.
 - **Docker does not answer** when Noust has to know what the containers have: the update is refused saying
   why and what to do. Nothing is let through on a guess.
+- **A key Noust does not know** (the file is written for a newer Compose than the check, or the key is a
+  typo): the check knows every key of the Compose specification and refuses the one it does not, saying "Noust
+  does not know what that key gives the container" and naming it. A stack that already has such a key only gets
+  the warning, and `noust health` lists it; a new stack, or an update that adds one, asks for the exception
+  once a person has read what the key does. Updating Noust to a version that knows the key is the other way.
+  Keys with the prefix `x-` are Compose's own extensions and are never refused.
+- **A file that an `include` or an `extends` brings in** is read and judged as the file it is, from its own
+  directory (an `env_file` of another application's `.env` inside it is refused with no exception). One that is
+  not there, is not a compose file or is larger than 1 MiB is refused, saying why and never what it holds.
+  An `env_file` named through a variable (`${ENV_FILE:-.env}`) is judged where the Compose in use keeps its
+  path (`config --no-env-resolution`: Compose 5.7.1 does) and refused as unseen where it keeps none (Compose
+  2.40.3 and the older 2.17, 2.19 and 2.0.0): write the path out, or record the exception. A stack that
+  already runs is taken over with it as it is.
 
 Look before an update does:
 

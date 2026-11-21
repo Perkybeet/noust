@@ -127,6 +127,40 @@ CASES: tuple[ShapeCase, ...] = (
         '{"password": "hunter2222", "user": "bob"}',
         f'{{"password": "{MASK}", "user": "bob"}}',
     ),
+    # The names a database client reads its password from, and the ones a connection string spells
+    # it with: the word is a password whether it stands alone, ends a name (``MYSQL_PWD``) or is
+    # glued to a prefix (``PGPASSWORD``).
+    _hides("the password of psql", "PGPASSWORD=hunter2hunter2 psql", f"PGPASSWORD={MASK} psql"),
+    _hides(
+        "the password of psql in a traced command",
+        "+ PGPASSWORD=hunter2hunter2 pg_dump shop",
+        f"+ PGPASSWORD={MASK} pg_dump shop",
+    ),
+    _hides("the password of mysql", "MYSQL_PWD=hunter2hunter2", f"MYSQL_PWD={MASK}"),
+    _hides("a short word for password", "DB_PASS=hunter2hunter2", f"DB_PASS={MASK}"),
+    _hides("pwd", "pwd=hunter2hunter2", f"pwd={MASK}"),
+    _hides(
+        "the pwd of a connection string",
+        "Server=db.example.test;Uid=sa;Pwd=hunter2hunter2;Database=shop",
+        f"Server=db.example.test;Uid=sa;Pwd={MASK};Database=shop",
+    ),
+    _hides("pass alone", "pass: hunter2hunter2", f"pass: {MASK}"),
+    _hides("a password glued to a word", "rootpassword=hunter2hunter2", f"rootpassword={MASK}"),
+    _hides(
+        "the cookie of a request",
+        "Cookie: sid=abcdef0123456789abcdef0123456789; theme=dark",
+        f"Cookie: {MASK}",
+    ),
+    _hides(
+        "the cookie a response sets",
+        "Set-Cookie: sid=abcdef0123456789abcdef0123456789; HttpOnly; Secure",
+        f"Set-Cookie: {MASK}",
+    ),
+    _hides(
+        "a cookie in json",
+        '{"cookie": "sid=abcdef0123456789; theme=dark", "status": 200}',
+        f'{{"cookie": "{MASK}", "status": 200}}',
+    ),
     _hides("an api key header", "X-Api-Key: 0123456789abcdef", f"X-Api-Key: {MASK}"),
     _hides("a client secret", "client_secret=abcdefghijklmnop", f"client_secret={MASK}"),
     _hides(
@@ -281,6 +315,10 @@ CASES: tuple[ShapeCase, ...] = (
         "the tokenizer=spacy_model_big loaded; bypass=allowed-for-all",
     ),
     _keeps("a short value", "password: true"),
+    _keeps("a word that only ends like pass", "bypass=disabled-for-now"),
+    _keeps("a word that only starts like pass", "passed: all tests of the shop"),
+    _keeps("the word cookie in a sentence", "the cookie banner was shown"),
+    _keeps("a cookie name with nothing set", "cookie: none"),
     _keeps("a number", "token_expiration_hours=12"),
     _keeps("a request to the tokens endpoint", "GET /api/auth/tokens?limit=10 200"),
     _keeps("a public key", "-----BEGIN PUBLIC KEY-----"),
@@ -323,12 +361,14 @@ VARIABLE_CASES: tuple[VariableCase, ...] = (
     # By the name alone.
     _secret("DB_PASSWORD", "hunter2"),
     _secret("MAIL_PASS", "x"),
+    _secret("MYSQL_PWD", "hunter2"),
     _secret("GITHUB_TOKEN", "x"),
     _secret("authToken", "x"),
     _secret("apiKey", "x"),
     _secret("SLACK_WEBHOOK", "https://hooks.example.test/T000/B000"),
     _secret("TOKEN_EXPIRATION_HOURS", "12"),
     _plain("COMPASS", "x"),
+    _plain("PWD", "/var/www/apps/shop-example-com"),
     _plain("KEYBOARD_LAYOUT", "us"),
     _plain("MONKEY", "banana"),
     _plain("PORT", "3000"),

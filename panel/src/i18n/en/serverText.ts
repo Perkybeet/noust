@@ -5771,6 +5771,54 @@ export const serverText = {
     provider: {
       text: "{who} runs the program {provider} of this server when the stack starts, outside any container",
     },
+    api_socket: {
+      text: "{who} is given Docker's API socket (use_api_socket): it can start a container with this server's root filesystem",
+    },
+    hook_privileged: {
+      text: "{who} runs a command of {hook} with extended privileges (privileged): more than its container has, on this server",
+    },
+    build_entitlement: {
+      text: "{who} builds with the entitlement {entitlement}, which lets the build reach this server",
+    },
+    confinement_replaced: {
+      text: "{who} replaces its confinement with a profile of its own ({option}): a profile can allow everything the default one forbids",
+    },
+    gpus: {
+      text: "{who} is given the graphics cards or other devices of this server through their driver (gpus, or devices reserved in deploy)",
+    },
+    models: {
+      text: "{who} uses models that the model runner of this server serves ({models})",
+    },
+    model_flags: {
+      text: "{who} gives the model runner of this server flags of its own (runtime_flags): they are options of a program that runs on this server",
+    },
+    network_driver: {
+      text: "{who} uses the network driver {driver}, which is not isolated from this server's network cards (host, macvlan and ipvlan reach them) or is a plugin Noust does not know",
+    },
+    network_bridge: {
+      text: "{who} attaches the stack to the bridge {bridge} of this server, which the stack does not make",
+    },
+    volume_driver: {
+      text: "{who} uses the volume driver {driver}, a plugin Noust does not know: what its options name on this server cannot be judged",
+    },
+    unknown_key: {
+      text: "{who} uses {key}, and Noust does not know what that key gives the container: the compose file may be written for a newer Compose than this check",
+    },
+    composition_not_a_file: {
+      text: "the compose file brings in {path} ({key}), which is not there or is not a file: what it brings in cannot be judged",
+    },
+    composition_unreadable: {
+      text: "the compose file brings in {path} ({key}), which Noust could not read as a compose document (it is not text, not valid YAML or not a mapping of keys): what it brings in cannot be judged",
+    },
+    composition_too_large: {
+      text: "the compose file brings in {path} ({key}), which is larger than 1 MiB: what it brings in cannot be judged",
+    },
+    composition_too_deep: {
+      text: "the compose file brings in {path} ({key}) from files nested too deep, or among too many files: what it brings in cannot be judged",
+    },
+    door_unseen: {
+      text: "{who} names its {key} through a variable, and this Docker Compose does not say where that leads (it keeps no path of it): where it leads cannot be judged",
+    },
     project_names: {
       text: "the compose file names its own project {name} (name: or COMPOSE_PROJECT_NAME) and this application's is {project}: everything the stack makes is named after its project",
     },

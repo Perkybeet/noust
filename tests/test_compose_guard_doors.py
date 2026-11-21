@@ -202,8 +202,12 @@ class TestTheFilesASecretOrAConfigNames:
             ({"path": "ok.yaml", "project_directory": "/srv/other"}, "include.project_directory"),
         ],
     )
-    def test_what_an_include_reads_beside_its_file_is_a_door(self, entry: Any, key: str) -> None:
-        findings = inspect_compose({"include": [entry], "services": {}}, APP)
+    def test_what_an_include_reads_beside_its_file_is_a_door(
+        self, entry: Any, key: str, tmp_path: Path
+    ) -> None:
+        # The file it includes is there, so that what is left to find is the door and nothing else.
+        (tmp_path / "ok.yaml").write_text("services: {}\n", encoding="utf-8")
+        findings = inspect_compose({"include": [entry], "services": {}}, tmp_path)
 
         assert len(findings.refused) == 1, findings
         assert f"in {key}" in findings.refused[0]

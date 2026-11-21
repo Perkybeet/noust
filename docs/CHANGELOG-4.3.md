@@ -51,9 +51,13 @@ first.
   application is no longer deployed, and a recipe whose directory the operator points outside the application
   asks for an exception too
   ([UPGRADING-4.3.md](UPGRADING-4.3.md#adopting-or-bringing-a-stack-that-runs-with-access-to-the-server)).
-- **Compose and image builds are started without Noust's own environment.** A `${NOUST_...}` in a Compose file is
-  an empty string now. The stack's own `.env` and what you keep in the environment for yourself (`DOCKER_HOST`,
-  `COMPOSE_*`) are read as before.
+- **Compose and image builds are started with a closed list of Noust's environment.** They get what Docker and
+  Compose read themselves (`PATH`, `HOME`, the language and time zone, the proxy and the certificates, the places
+  of the credential helpers, `DOCKER_*`, `COMPOSE_*`, `BUILDX_*`, `BUILDKIT_*`) and nothing else: a `${NAME}` or a
+  secret read from the environment in a Compose file is an empty string for any other variable of Noust's
+  process, `NOUST_*` and whatever somebody exported in the shell that started the service included. The
+  variables of a stack are the ones of its `.env`, as they always were for the unit that starts it; a private
+  registry's logins and a proxy go on working.
 - **Under the ENS profile, what an API token changes in production now waits for a person.** The control
   `token_production_approval` (ENS MEDIA and ALTA ask for it) makes `propose` the least a token can have in
   production, so a pipeline that deployed there alone now answers `202 approval_required` until somebody
@@ -138,8 +142,23 @@ first.
 - **The check on a Compose file judges what Compose resolves it to.** A service brought in by an `include` or an
   `extends`, a `jobs` entry, a service under any profile, the file of a `secrets` or `configs` entry, and the
   volumes or namespace of a container that is not part of the stack are read as the file's own. An `include` or
-  an `extends` that leaves the application is refused before Compose reads it. What the check refuses in all is
-  under [Security](#security).
+  an `extends` that leaves the application is refused before Compose reads it. The files an `include` or an
+  `extends` bring in are read as they are and judged from their own directory, because Compose folds the
+  `env_file` of every service into `environment` and leaves no path to judge; a file that cannot be read is
+  refused. An `env_file` or `label_file` named through a variable is judged where the Compose in use keeps its
+  path (`config --no-env-resolution`, which Compose 5 honours) and refused as unseen where it keeps none (the
+  Compose 2.17, 2.19 and 2.40.3 of the harness): write the path out or record the exception. What the check
+  refuses in all is under [Security](#security).
+- **A key that Noust does not know is refused in a new stack.** The check on a Compose file knows every key of
+  the Compose specification, each decided about, and refuses one that is not in that list, saying "Noust does not
+  know what that key gives the container", with the exception as the way out; a stack that already had it only
+  gets a warning. Compose keys that give the server without a line of `volumes` or `privileged` are judged by
+  name now: `use_api_socket`, a `post_start` or `pre_stop` command with `privileged`, a `pre_start` container,
+  `label_file`, `build.entitlements`, a Dockerfile or a local build cache outside the application, `macvlan`,
+  `ipvlan` and host networks, the bridge of the machine, a volume plugin, a seccomp profile of the repository, and
+  the capabilities `SYS_TIME`, `AUDIT_CONTROL`, `MAC_ADMIN` and `MAC_OVERRIDE`. A repository written for a newer
+  Compose than this check may need the exception once a person has read what its keys do
+  ([compose.md](compose.md#what-a-stack-may-ask-of-the-server)).
 - **A cleanup is a plan.** What would go, whose it is and how much it holds is shown before anything is removed,
   and it is applied as it was shown: a plan that changed since is shown again and nothing is touched. The images
   an application keeps to go back to are never offered. A volume is never marked by itself: the zone's plan lists
@@ -495,13 +514,25 @@ first.
   Any of them lets a container read or write the server's files and read the secrets of Noust and of other
   applications, which is root on the server, against what is promised to team roles and to a central whose
   ceiling is `admin` without host access. It affected whoever could have a stack deployed from a repository or a
-  document they control. 4.3.0 judges a path by where it leads and refuses all of it in a new stack unless an
-  administrator records why ([compose.md](compose.md#what-a-stack-may-ask-of-the-server)); a stack that already
+  document they control. The check also let through every key it did not list, so what newer versions of Compose
+  added (`use_api_socket`, a hook that runs `privileged`, a build entitlement) gave the server without being
+  seen, and an `env_file` inside a file that an `include` or an `extends` brought in was folded into the
+  environment before the check looked. 4.3.0 judges a path by where it leads, reads the files a document brings
+  in, knows every key of the Compose specification and refuses the one it does not know, all of it in a new stack
+  unless an administrator records why ([compose.md](compose.md#what-a-stack-may-ask-of-the-server)); a stack that already
   runs with it keeps updating, with a warning, and `noust health` lists the ones that carry it, by their file and by
   what their containers were given ([UPGRADING-4.3.md](UPGRADING-4.3.md#compose-stacks-that-carry-more-than-a-new-stack-may)). **Update, review
   the Compose files of repositories you do not control, and rotate the secrets of any server where untrusted
   repositories were deployed.**
 - **Also fixed in releases up to 4.2.1**, each smaller than the one above:
+  - The line of output of a program that carried `PGPASSWORD=`, `MYSQL_PWD=`, `DB_PASS=`, the `Pwd=` of a
+    connection string or a `Cookie:` header went out as it was written wherever Noust masks text (a
+    notification, a log, a report of a problem). The word for password is read wherever it stands in a name, and
+    a cookie is hidden to the end of its line.
+  - Another application's tree counted as one only under the applications directory: a stack adopted where it
+    already ran (`/opt/billing`) could have its `.env` named by an `env_file` and an exception could allow it.
+    What the store registered as another application's is what the check judges by, with no exception for a door
+    that has no reason to read it.
   - A token placed as the user of a web address (`https://<token>@dev.azure.com/...`, how some hosts take one) was
     shown as it was wherever Noust hides what an address carries: only a password was hidden. The user of an
     `http(s)` address, with or without a password, is hidden in `noust env list` and `noust variables list`, in the

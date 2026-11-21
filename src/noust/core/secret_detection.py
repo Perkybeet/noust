@@ -138,6 +138,7 @@ def redact_url_credentials(value: str, placeholder: str = REDACTED) -> str:
 NAME_PATTERNS: tuple[str, ...] = (
     "PASSWORD",
     "_PASS",
+    "_PWD",
     "SECRET",
     "TOKEN",
     "API_KEY",
@@ -583,11 +584,24 @@ _BEARER = re.compile(r"(?i)\b(Bearer\s+)[A-Za-z0-9._~+/=\-]{16,}")
 #: ``***`` (what an earlier pass wrote) is too short to be masked twice. The
 #: scheme word is never the value: ``Authorization: Bearer ***`` masked again
 #: would otherwise find "Bearer" itself six characters to hide.
+#:
+#: The three spellings of "password" that the clients of the databases use are read wherever they
+#: stand, even glued to the name of a program (``PGPASSWORD``, ``MYSQL_PWD``, ``Pwd=`` of a connection
+#: string): a word that is a password at the end of a name is one, and what stands before it stays as
+#: it was, outside the match (which is also why no run of letters is ever read from each of its
+#: letters). ``pass`` is only read as a word of its own (``DB_PASS``), since ``bypass`` and
+#: ``compass`` are not credentials.
 _ASSIGNED_SECRET = re.compile(
-    r"(?i)((?<![A-Za-z])(?:password|passwd|secret|token|api[_-]?key|private[_-]?key|"
-    r"access[_-]?key|authorization)(?![A-Za-z])[A-Za-z0-9_.\-]*[\"']?\s*[=:]\s*"
+    r"(?i)((?:(?<![A-Za-z])(?:secret|token|api[_-]?key|private[_-]?key|access[_-]?key|"
+    r"authorization|pass)|password|passwd|pwd)(?![A-Za-z])[A-Za-z0-9_.\-]*[\"']?\s*[=:]\s*"
     r"(?:(?:bearer|basic|token)\s+)?[\"']?)(?!(?:bearer|basic|token)\b)([^\s\"'&;,<>]{6,})"
 )
+
+#: The cookies of a request and the ones a response sets: ``Cookie: a=1; b=2``. A cookie is a session,
+#: and carries it as several pairs with spaces between them, so the value goes to the end of the line (or
+#: of the quoted string) and not to the first space as the value of an assignment does. Shorter than six
+#: characters is left, which is also what stops ``Cookie: ***`` from being masked twice.
+_COOKIE = re.compile(r"(?i)((?<![A-Za-z])cookie[\"']?\s*[=:]\s*[\"']?)[^\r\n\"']{6,}")
 
 
 @dataclass(frozen=True)
@@ -648,6 +662,7 @@ TEXT_SHAPES: tuple[TextShape, ...] = (
     *(TextShape(kind, pattern) for kind, pattern in _VALUE_PATTERNS),
     TextShape("jwt", _JWT_TEXT),
     TextShape("assigned secret", _ASSIGNED_SECRET, keep_head=True, of_value=False),
+    TextShape("cookie", _COOKIE, keep_head=True, of_value=False),
     TextShape("bearer", _BEARER, keep_head=True, of_value=False),
     # The user of a web address before its password: with a password, both go.
     TextShape("web address user", HTTP_USER, keep_head=True, of_value=False),

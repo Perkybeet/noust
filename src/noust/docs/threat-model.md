@@ -161,7 +161,14 @@ applications run as.
   somewhere else, or anything an update adds, is new and is refused; `privileged`, the sockets of container
   runtimes, Noust's state and another application's files are taken only from a file that says them plainly,
   as they always were, and a container does not make them a stack's to keep. Docker that does not answer is a
-  refusal that says why, never a pass.
+  refusal that says why, never a pass. The guard knows every key of the Compose specification, each decided
+  about, and refuses one it does not know like what gives the machine (a newer Compose adds keys that do:
+  `use_api_socket`, a hook that runs `privileged`, a `pre_start` container, a build entitlement), so a list of
+  what to refuse is not what lets the next key through. The files a document brings in with `include` or
+  `extends` are read and judged from their own directory, because Compose folds their `env_file` into the
+  environment before the model it prints has a path left to look at. `docker compose` and image builds start
+  with a closed list of Noust's environment, so a `${NAME}` in a compose file reads no other variable of
+  Noust's process.
 
 ## Deploy hooks
 

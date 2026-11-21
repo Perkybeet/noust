@@ -32,7 +32,7 @@ from noust.core.docker import names
 from noust.core.docker.models import OwnerKind
 from noust.core.docker.owners import OwnerIndex, registry_from_store
 from noust.core.server_text import say
-from noust.deployers.helpers.compose_host import enabled
+from noust.deployers.helpers.compose_host import enabled, items
 
 if TYPE_CHECKING:
     from noust.core.store import NoustStore
@@ -178,6 +178,18 @@ def judge_project(
             )
 
 
+def is_external(entry: Mapping[str, Any]) -> bool:
+    """
+    Args:
+        entry: The definition of a volume or a network.
+
+    Returns:
+        Whether the stack does not make it (``external``, in either of its spellings).
+    """
+    external = entry.get("external")
+    return enabled(external) or isinstance(external, Mapping)
+
+
 def _external_name(key: str, entry: Mapping[str, Any]) -> str | None:
     """
     Args:
@@ -189,7 +201,7 @@ def _external_name(key: str, entry: Mapping[str, Any]) -> str | None:
         spellings); None when the stack makes it.
     """
     external = entry.get("external")
-    if not (enabled(external) or isinstance(external, Mapping)):
+    if not is_external(entry):
         return None
     legacy = external.get("name") if isinstance(external, Mapping) else None
     return str(entry.get("name") or legacy or key)
@@ -214,9 +226,26 @@ def judge_externals(
             if not isinstance(entry, Mapping):
                 continue
             name = _external_name(str(key), entry)
-            if name is None:
-                continue
             who = f"{kind} {key}"
+            if name is None:
+                # A volume or a network with a fixed ``name:`` that the stack makes is still the one
+                # Docker has under that name when it exists: Compose uses it (and only says that its
+                # labels are another project's), so a name of another application's is its data.
+                declared = entry.get("name")
+                fixed = declared if isinstance(declared, str) and "$" not in declared else ""
+                owner = (
+                    context.owners.other(kind, fixed)
+                    if context.owners is not None and fixed
+                    else None
+                )
+                if owner is not None:
+                    taken = (
+                        say("compose_guard.volume_taken", who=who, name=fixed, owner=owner)
+                        if kind == "volume"
+                        else say("compose_guard.network_taken", who=who, name=fixed, owner=owner)
+                    )
+                    findings.add((who, f"{kind}_taken", fixed), taken, refused=True, hard=True)
+                continue
             owner = context.owners.other(kind, name) if context.owners is not None else None
             if owner is not None:
                 taken = (
@@ -261,8 +290,7 @@ def judge_service(
                 refused=True,
                 hard=True,
             )
-    image = service.get("image")
-    if isinstance(image, str) and image and "$" not in image:
+    for image in _images_of(service):
         owner = context.owners.other("image", image)
         if owner is not None:
             findings.add(
@@ -271,3 +299,23 @@ def judge_service(
                 refused=True,
                 hard=True,
             )
+
+
+def _images_of(service: Mapping[str, Any]) -> list[str]:
+    """
+    Args:
+        service: A service or job entry.
+
+    Returns:
+        The images it names that are not made of variables: the one it runs, the names its build
+        tags the image with (which would replace another application's image under its own name), and
+        the images it mounts the files of.
+    """
+    named: list[Any] = [service.get("image")]
+    build = service.get("build")
+    if isinstance(build, Mapping):
+        named.extend(items(build.get("tags")))
+    for mount in items(service.get("volumes")):
+        if isinstance(mount, Mapping) and mount.get("type") == "image":
+            named.append(mount.get("source"))
+    return [name for name in named if isinstance(name, str) and name and "$" not in name]

@@ -389,6 +389,31 @@ class TestJudgingADocument:
         assert [p.code for p in found.problems] == ["privileges"]
         assert found.problems[0].service == "agent"
 
+    def test_a_key_only_the_resolved_model_has_is_composes_and_not_judged_by_the_list(
+        self, edit: StackEditor, box: DockerMachine
+    ) -> None:
+        # The list of keys is held to what a person wrote; what Compose prints is spelled by Compose.
+        box.resolved_for = NEWER
+        box.resolved = {"services": {"web": {"image": "nginx:1.28", "spelled_by_compose": 1}}}
+
+        found = edit.check(PROJECT, NEWER)
+
+        assert found.valid is True
+        assert [(c.name, c.ok) for c in found.checks if c.name == "privileges"] == [
+            ("privileges", True)
+        ]
+
+    def test_a_key_the_text_has_that_the_list_does_not_know_is_refused(
+        self, edit: StackEditor
+    ) -> None:
+        unknown = DOCUMENT.replace("nginx:1.27", "nginx:1.27\n    brand_new_key: true")
+
+        found = edit.check(PROJECT, unknown)
+
+        assert found.valid is False
+        assert found.problems[0].code == "privileges"
+        assert "brand_new_key" in found.problems[0].message
+
     def test_the_docker_socket_is_refused_the_same_way(self, edit: StackEditor) -> None:
         socket = DOCUMENT.replace(
             "    ports:",

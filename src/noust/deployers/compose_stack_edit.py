@@ -33,7 +33,7 @@ import os
 import re
 import stat
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -1029,7 +1029,8 @@ class StackEditor:
         context = self._context(target)
         findings: ComposeFindings = merge_findings(
             inspect_compose(document, where, context=context),
-            inspect_compose(model, where, context=context),
+            # The keys of the model are Compose's own: only the document as written is held to the list.
+            inspect_compose(model, where, context=replace(context, closed_keys=False)),
         )
         found.warnings.extend(findings.warned)
         if not findings.refused:
