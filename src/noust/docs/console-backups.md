@@ -4,8 +4,9 @@ Part of [The console, page by page](console.md).
 
 Five sections, in the column beside the page: **Backups** (storage used per application, every backup: verify, restore, delete;
 "New backup" with the same options as `noust backup create`; a copy that was made and has not reached a
-destination says **Pending to** that destination, here and in the lists of **Volumes**, databases and **Noust**,
-with what the destination said, how many times it was tried again and since when, and Noust sends it again by
+destination says **Pending to** that destination, ahead of "Up to date", here and in the lists of **Volumes**,
+databases and **Noust**, with the row opening to what the destination said, how many times it was tried again and
+since when, and Noust sends it again by
 itself: see [backups-destinations.md](backups-destinations.md)), **Schedules**, **Volumes**,
 **Noust** and **Destinations** (remote places, their test and their key). **Volumes** backs up an
 application's data on its own: its persistent folders and the Docker volumes of its stack, picked

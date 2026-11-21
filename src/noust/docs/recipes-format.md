@@ -52,8 +52,9 @@ A native recipe may leave `architectures` out, meaning any; a Compose recipe may
 `scripts/recipe_pins.py check` reads from each image's index, by the pinned digest, what it is
 published for and fails when the recipe says anything else.
 
-**Notes** may use `{{ url }}`, `{{ domain }}`, `{{ https }}`, `{{ app_name }}`, `{{ app_path }}`,
-`{{ port }}` and `{{ vars.NAME }}`, the value of a variable that is not a secret. A secret is
+**Notes** may use `{{ url }}` (where the application answers on this machine: its domain behind a site
+of Noust's, the machine and the port where no web server serves it), `{{ domain }}`, `{{ https }}`,
+`{{ app_name }}`, `{{ app_path }}`, `{{ port }}` and `{{ vars.NAME }}`, the value of a variable that is not a secret. A secret is
 never in a note: it would end up in the job's log.
 
 A recipe that cannot be deployed with this release is listed, not hidden:

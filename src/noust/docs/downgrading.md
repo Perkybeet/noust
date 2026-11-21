@@ -169,10 +169,11 @@ first. [UPGRADING-4.2.md](UPGRADING-4.2.md#rolling-back) says how.
 
 ## What 4.3 wrote that an earlier release ignores
 
-4.3 writes the store at schema 18: 22 tables and six columns of `approval_requests`. They hold the built-in
+4.3 writes the store at schema 18: 24 tables and six columns of `approval_requests`. They hold the built-in
 assistant (its settings, its sealed key, the conversations, the spending and the proposals), the approval
 policy and what each credential's client said it was, what a central took of its servers' copies, the copies a server made and could not send to a destination yet, the history of
-a stack's Compose and the last look at the images, the registrations of domains, the first deployments that
+a stack's Compose and the last look at the images, what each Compose stack was accepted with and what its start
+was held back for, the registrations of domains, the first deployments that
 failed, what a task that runs once left, and how a job failed as a sentence of the catalog. The copy that going
 back restores holds none of it: 4.2 has no assistant, no policy (a token does what its permissions let it, also
 under the ENS profile), no copies of servers to take and no list of copies still owed to a destination (it fails the run that cannot send, as before), a stack keeps running the document it has, and a failed

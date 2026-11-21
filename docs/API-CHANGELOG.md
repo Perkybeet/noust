@@ -32,30 +32,32 @@ each is what a client written against 4.2 could notice.
 
 - **A Compose stack that gives a container the server is refused where it was accepted.** Until 4.2.1 the check
   that every deployment of a Compose stack goes through refused `privileged`, the Docker socket and mounts of
-  Noust's own state or of another application's files. It now also refuses devices, the capabilities that give the
-  machine, the host's namespaces, switched-off confinement, another cgroup parent or runtime, `provider:`, every
-  path of the server outside the application however a link spells it (a mount, the file of a secret or a config,
-  an `env_file`, a build context or a build secret, an `include`, an `extends`, a volume's `driver_opts.device`),
-  a download, and a project, volume, network, container name or image that belongs to another application or to
-  Noust. It reaches `POST /api/apps` (a Compose source, `compose_document` or a recipe), updates and redeploys,
-  `PUT /api/apps/{domain}/compose/document` and `PUT /api/docker/stacks/{name}/compose`. A deployment that asked
-  for any of it as a new stack, or that an update adds, fails with the error `compose_guard.asks_for_root` (the
-  lines, and the command that records an exception, in its hint) or, for what no exception allows,
-  `compose_guard.asks_for_what_no_stack_may`; as a job it is a failed job whose `error_coded` is that sentence.
-  The routes that write nothing (`POST /api/compose/analyze`, `POST /api/apps/{domain}/compose/document/check`,
-  `POST /api/docker/stacks/{name}/compose/check`) report each line, and `PUT .../compose/document` is a `400` on
-  `document` that lists them. A document sent as text to `analyze` or to `compose/document` takes no exception;
-  the Docker zone's editor, which edits a stack's own document, does. What a stack already ran with is warned
-  about and not refused, whether its file says it or only a variable, an `include` or an `extends` does (what a
-  stack had is what its containers were given of the server, which Noust asks Docker for), except `privileged`,
-  the socket of a container runtime, Noust's state and another application's files, which are let through only
-  when the file that served says them plainly; when Docker does not answer, the update is refused with its own
-  words. The exception is recorded at `PUT /api/apps/{domain}/sandbox/compose-exception` (`root_equivalent`,
-  sudo mode). The check also refuses a key of the compose file that it does not know (the sentence
-  `compose_guard.unknown_key` names it), the Compose keys that give the server without a mount
-  (`use_api_socket`, a `post_start` or `pre_stop` command with `privileged`, a build entitlement, a host or
-  `macvlan` network), and a file that an `include` or an `extends` brings in and that cannot be read
-  (`compose_guard.composition_unreadable` and its siblings); nothing else of the API changes.
+  Noust's own state or of another application's files, and let every key it did not list pass. It now also
+  refuses devices, the capabilities that give the machine, the host's namespaces, switched-off confinement,
+  another cgroup parent or runtime, `provider:`, every path of the server outside the application however a link
+  spells it (a mount, the file of a secret or a config, an `env_file`, a build context or a build secret, an
+  `include`, an `extends`, a volume's `driver_opts.device`), a download, and a project, volume, network,
+  container name or image that belongs to another application or to Noust. It refuses a key of the compose file
+  that it does not know (the sentence `compose_guard.unknown_key` names it), among them the keys that give the
+  server without a mount (`use_api_socket`, a `post_start` or `pre_stop` command with `privileged`, a build
+  entitlement, a host or `macvlan` network), and a file that an `include` or an `extends` brings in and that
+  cannot be read (`compose_guard.composition_unreadable` and its siblings). It reaches `POST /api/apps` (a Compose
+  source, `compose_document` or a recipe), updates and redeploys, `PUT /api/apps/{domain}/compose/document` and
+  `PUT /api/docker/stacks/{name}/compose`. A deployment that asked for any of it as a new stack, or that an update
+  adds, fails with the error `compose_guard.asks_for_root` (the lines, and the command that records an exception,
+  in its hint) or, for what no exception allows, `compose_guard.asks_for_what_no_stack_may`; as a job it is a
+  failed job whose `error_coded` is that sentence. The routes that write nothing (`POST /api/compose/analyze`,
+  `POST /api/apps/{domain}/compose/document/check`, `POST /api/docker/stacks/{name}/compose/check`) report each
+  line, and `PUT .../compose/document` is a `400` on `document` that lists them. A document sent as text to
+  `analyze` or to `compose/document` takes no exception; the Docker zone's editor, which edits a stack's own
+  document, does. What a stack already had is warned about and not refused, whether its file says it or only a
+  variable, an `include` or an `extends` does: what a stack had is what it was accepted with (kept in Noust's
+  store) and what its containers were given of the server, which Noust asks Docker for, `privileged`, the sockets
+  of container runtimes, Noust's state and another application's files included for a stack that ran with them
+  when 4.3 took it over. When Docker does not answer, the update is refused with its own words
+  (`compose_guard.cannot_tell_what_it_has`). The exception is recorded at
+  `PUT /api/apps/{domain}/sandbox/compose-exception` (`root_equivalent`, sudo mode) and goes with the application
+  when `DELETE /api/apps/{domain}` removes it.
 - **Adopting, or bringing, a stack that runs with what gives the server to a container is a `409`.**
   `POST /api/apps/adopt`, `POST /api/docker/stacks/{name}/bring` and `.../bring/preview` answered with the plan or
   the registration, with a warning in the log; they now refuse with the error body of every refusal plus
@@ -67,7 +69,7 @@ each is what a client written against 4.2 could notice.
   and `/restart` (and what restarts a stack through them: a tag, the fleet, the Docker zone) answer `409`
   (`error: startheldbackerror`, `coded.code: compose_gate.refused` or `compose_gate.cannot_tell`, the lines in
   `hint`) when what Compose resolves for the stack now gives a container the server and the stack was not
-  accepted with it; the stack keeps running as it was. `PUT /api/apps/{domain}/env` (and every writer of the
+  accepted with it; the stack keeps running as it was. `PUT` and `PATCH /api/apps/{domain}/env` (and every writer of the
   `.env`: a shared variable, a rotated secret, a linked database) answers `400` (`coded.code:
   compose_gate.env_refused`) when the new variables would do that, and writes nothing. A client that restarted
   a stack after changing its variables to point a mount somewhere new now gets that answer, and deploys again

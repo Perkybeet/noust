@@ -6,9 +6,10 @@
 > and proposes what a person approves, and "See what it will do" shows an operation's plan before it is applied.
 > A central takes the copies of its servers through the tunnels it already has. 4.3.0 also fixes a vulnerability in
 > the check on Docker Compose files that affects 3.1.0 to 4.2.1 (see
-> [Security](docs/CHANGELOG-4.3.md#security)): update, then run `noust health`. No application, site or stack is
-> rewritten, and the store moves to schema 18: read [docs/UPGRADING-4.3.md](docs/UPGRADING-4.3.md) before updating, and see
-> [docs/CHANGELOG-4.3.md](docs/CHANGELOG-4.3.md).
+> [Security](docs/CHANGELOG-4.3.md#security)): update, then run `noust health`. The update restarts nothing and
+> rewrites no application, site or Compose file, though the unit of each Compose stack gains one line that checks
+> its start, and the store moves to schema 18: read [docs/UPGRADING-4.3.md](docs/UPGRADING-4.3.md) before updating,
+> and see [docs/CHANGELOG-4.3.md](docs/CHANGELOG-4.3.md).
 >
 > Every earlier release has its own changelog in [docs/](docs/) (`CHANGELOG-<version>.md`).
 

@@ -15,6 +15,11 @@ Fixes are released as a patch version of each supported line, published to PyPI,
 Build Service repositories (Debian, Ubuntu, Fedora, openSUSE) and the container image
 `ghcr.io/perkybeet/noust` at the same time.
 
+A fix that cannot be carried back to the previous line, because it changes how something is
+checked or started and not a line of code, is released in the newest line only. The advisory says
+so and names the release that carries it, and the update check of every installation behind it
+says that a security release is waiting.
+
 The two newest minor versions are supported. This table is kept by the release script
 (`scripts/release.py`): releasing a new minor version adds its line as supported, keeps the
 previous line until the minor version after the new one is released, and retires the line before

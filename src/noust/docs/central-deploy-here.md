@@ -37,6 +37,10 @@ fleet has them, they are one click away from this central's console. What the co
 the commands refuse in the same words: *"Domains: not available here, which deploys containers and
 nothing else"*.
 
+A central that is told to deploy here has a server, itself: with no other server the console opens on its own
+Home, and the fleet's page says it is your only server and leads to it. A hub that deploys nothing still opens on
+the fleet and says it has none.
+
 A central that was not told to deploy here is exactly what it was, with Docker or without it. That includes the
 Docker zone: with only the socket mounted, the central does not look at the machine's Docker and does not change it,
 so **Server > Docker** is not offered and `/api/docker` and `noust docker` answer with the line to add. The one look it

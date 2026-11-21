@@ -99,6 +99,10 @@ edited at all, and is handed on only by an owner, through every route.
   an `admin` may approve infrastructure changes, never a role grant. Never the requester, never
   another account of the same person, never a token, the master token or a central. Root at the
   terminal decides too (`noust approval approve`), on record with its operating-system identity.
+- If nobody else holds the role that decides, what waits has nobody to decide it, and giving the role to
+  someone is itself a change that waits. The console says so before approvals are turned on, on the
+  Approvals page and in the request that waits, with the way out: turn approvals off, give the role to
+  another account, turn them on again (or approve as root at the terminal).
 - A request waits `approval.request_hours` (24) for a decision. An approval lets its requester
   make that exact call once, within `approval.execute_minutes` (30), with
   `X-Noust-Approval: <id>`.
