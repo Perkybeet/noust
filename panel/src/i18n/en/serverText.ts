@@ -267,6 +267,14 @@ export const serverText = {
         text: "The name {host} did not resolve to any address",
         hint: "Check the spelling of the address and that this server's DNS can look it up.",
       },
+      never_a_provider: {
+        text: "The assistant may not call {host}: it resolves to {address}, an address that is never a provider",
+        hint: "Your consent does not reach link-local addresses, where a cloud's metadata service answers, nor the aliases of this machine. Use the address of the model's server on this machine or on your network.",
+      },
+      not_a_model: {
+        text: "The assistant may not call {host}:{port}: that is a port of a service of this machine, not of a model",
+        hint: "Your consent is for a model's server. Start the model on another port of this machine, or on another machine of your network, and use that address.",
+      },
     },
     refused: {
       not_offered: {
@@ -5864,6 +5872,10 @@ export const serverText = {
     asks_for_what_no_stack_may: {
       text: "{domain}'s compose file reaches what no stack may reach",
       hint: "{lines}\n\nWhat belongs to another application or to Noust (its files, its volumes, its images, its project) is not for a stack to use, and no exception allows it. Remove it from the compose file.",
+    },
+    host_access_changed: {
+      text: "What {domain} gives this server is no longer what you were shown, so nothing was accepted",
+      hint: "These are the lines now:\n{lines}\n\nEach line gives a container something of this server, and adopting the stack is equivalent to root. Read them again: what is accepted is what is in front of you. If you still want it adopted: {command}",
     },
   },
   compose_adopt: {

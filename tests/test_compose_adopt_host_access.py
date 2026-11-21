@@ -33,6 +33,7 @@ from tests.support.compose_adopt import (  # noqa: F401
     adopt_client,
     docker,
     root,
+    shown_digest,
     store,
     units,
     web,
@@ -288,9 +289,11 @@ class TestTheApi:
         from noust.deployers import compose_adopt
 
         monkeypatch.setattr(compose_adopt, "_default_web", lambda: web)
-        return adopt_client(elevated=True).post(
-            "/api/apps/adopt", json={"domain": DOMAIN, "path": str(root), **body}
-        )
+        client = adopt_client(elevated=True)
+        if body.get("accept_host_access"):
+            # What a person accepts is what they were shown: the digest of the lines the refusal listed.
+            body.setdefault("host_access_digest", shown_digest(client, root))
+        return client.post("/api/apps/adopt", json={"domain": DOMAIN, "path": str(root), **body})
 
     def test_without_accepting_it_is_a_409_with_the_lines_in_the_hint(
         self,

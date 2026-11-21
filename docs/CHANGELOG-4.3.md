@@ -575,6 +575,17 @@ first.
     registries are known secrets; everything a tool reads is taken as text from outside unless Noust ships it.
   - One account has at most two answers being written and one credential at most two plans being made, and the
     application a call names is kept on the audit trail only when it is a domain.
+  - An API token does not hear its owner's conversation on the event stream either: the frames of a turn go to the
+    streams of the person who asked, and the events that have an audience are listed in one place.
+  - What a program printed is text from outside wherever it comes back: the error of a call and the result of a
+    change carry it marked as data and mark the conversation, as a read does, so a text in them that asks for a
+    second change is proposed and not done.
+  - The consent to call a model of your own does not reach link-local addresses, the aliases of the machine or the
+    ports of the services it runs for itself, and a read of a name with an `@` in it (a database instance) reaches
+    the route that has it.
+  - What is accepted when a stack that gives the server to a container is adopted or brought is the lines that
+    were shown: the API asks for their digest (`host_access_digest`), the command prints the lines it records, and
+    the console lists the lines again, with the box empty, if the compose file changed in between.
 - **`Strict-Transport-Security` only on a name the console owns** (item 198): `web.hsts` is `auto` (the name
   `noust console expose` published), `always` or `never`, and the header never carries `includeSubDomains`.
 - **`Permissions-Policy` opens `display-capture` to the console's own origin and to nothing it could be made to

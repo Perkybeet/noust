@@ -89,3 +89,48 @@ describe("readReply", () => {
     expect(readReply("\n\n  \n")).toEqual([]);
   });
 });
+
+describe("an answer of a hundred thousand characters with nothing to close its marks", () => {
+  // The words of the model come from outside: an answer made of openers that never close must cost one pass over it,
+  // not one pass for each opener. The limit is far above what a pass takes and far below what the patterns that looked
+  // for the end of every mark from every opener took, which did not end.
+  const ONE_PASS_MS = 1000;
+  const SHAPES: [string, string][] = [
+    ["link labels that never close", "[a".repeat(50_000)],
+    ["images that never close", "![a".repeat(33_000)],
+    ["labels that close on nothing", `${"[a".repeat(49_000)}]`],
+    ["destinations that never close", "[a](a".repeat(20_000)],
+    ["destinations with parentheses", "[a](b(".repeat(16_000)],
+    ["code that never closes", "`a".repeat(50_000)],
+    ["bold that never closes", "**a".repeat(33_000)],
+    ["underlined that never closes", "__a".repeat(33_000)],
+    ["letters", "a".repeat(100_000)],
+    ["openers only", "[".repeat(100_000)],
+  ];
+
+  it.each(SHAPES)("takes one pass over %s", (_name, text) => {
+    const began = performance.now();
+    const read = readInline(text);
+
+    expect(performance.now() - began).toBeLessThan(ONE_PASS_MS);
+    expect(read.length).toBeGreaterThan(0);
+  });
+
+  it("still reads the marks that are closed", () => {
+    expect(readInline("**a** `b` [c](https://docs.example.org/) __d__")).toMatchObject([
+      { k: "strong", text: "a" },
+      { k: "text", text: " " },
+      { k: "code", text: "b" },
+      { k: "text", text: " " },
+      { k: "link", label: "c" },
+      { k: "text", text: " " },
+      { k: "strong", text: "d" },
+    ]);
+  });
+
+  it("reads a mark that is closed after a long run of openers that are not", () => {
+    const read = readInline(`${"[a".repeat(2_000)}**done**`);
+
+    expect(read.at(-1)).toEqual({ k: "strong", text: "done" });
+  });
+});

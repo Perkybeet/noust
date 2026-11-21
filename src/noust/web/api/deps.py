@@ -497,6 +497,8 @@ def error_response(exc: NoustError) -> JSONResponse:
     if host_access:
         # What adopting would accept, one line of the compose file each, for the console to list.
         content["host_access"] = list(host_access)
+        # Which lines they are, for the request that accepts them to say it.
+        content["host_access_digest"] = getattr(exc, "host_access_digest", "")
     # A full queue says when to ask again: builds take minutes, not seconds.
     headers = {"Retry-After": "30"} if isinstance(exc, QueueFullError) else None
     return JSONResponse(status_code=status_for(exc), content=content, headers=headers)

@@ -87,7 +87,8 @@ class Bringing:
         warnings: What adopting found worth saying, one sentence each; the plan holds each one's sentence of the
             catalog (``warnings_coded``), for a console to say in its own language.
         restart_loss: What a restart of the machine would not bring back.
-        plan: What :func:`noust.deployers.compose_adopt.plan_adoption` found.
+        plan: What :func:`noust.deployers.compose_adopt.plan_adoption` found; its ``host_access`` is what is
+            accepted when the stack gives this server to a container, and ``host_access_digest`` says which.
         adopted: Whether it was registered; false for a preview.
         deployment_id: The adoption's history row, when one was recorded.
     """
@@ -137,6 +138,8 @@ class Bringing:
                 {"container": item.container, "policy": item.policy, "why": item.why}
                 for item in self.restart_loss
             ],
+            "host_access": list(self.plan.host_access),
+            "host_access_digest": self.plan.host_access_digest,
             "adopted": self.adopted,
             "deployment_id": self.deployment_id,
         }
@@ -222,6 +225,7 @@ class StackBringer:
         name: str | None = None,
         accept_recreate: bool = False,
         accept_host_access: bool = False,
+        host_access_digest: str | None = None,
         accepted_by: str = "",
     ) -> Bringing:
         """
@@ -233,6 +237,8 @@ class StackBringer:
             accept_recreate: Go on although the rehearsed ``up`` would change something.
             accept_host_access: Show the plan although the stack runs with what gives this server to
                 a container, instead of refusing it with the lines.
+            host_access_digest: The digest of the lines the person was shown; see
+                :func:`noust.deployers.compose_adopt.plan_adoption`.
             accepted_by: Who would accept it.
 
         Returns:
@@ -248,7 +254,13 @@ class StackBringer:
         """
         project, path, relative, domain = self._prepare(stack, name)
         plan = self._planned(
-            domain, path, relative, accept_recreate, accept_host_access, accepted_by
+            domain,
+            path,
+            relative,
+            accept_recreate,
+            accept_host_access,
+            accepted_by,
+            host_access_digest,
         )
         return self._described(project, plan)
 
@@ -259,6 +271,7 @@ class StackBringer:
         name: str | None = None,
         accept_recreate: bool = False,
         accept_host_access: bool = False,
+        host_access_digest: str | None = None,
         accepted_by: str = "",
         trigger: str = DeploymentTrigger.PANEL.value,
         job_id: str | None = None,
@@ -272,6 +285,8 @@ class StackBringer:
             accept_recreate: Go on although the rehearsed ``up`` would change something.
             accept_host_access: Go on although the stack runs with what gives this server to a
                 container: recorded as the application's compose exception.
+            host_access_digest: The digest of the lines the person was shown: what is recorded is those lines,
+                and when the stack gives something else now the call is refused with the lines as they are.
             accepted_by: Who accepts it, for the record.
             trigger: Who asked, for the history row.
             job_id: The background job, when there is one.
@@ -288,7 +303,13 @@ class StackBringer:
         """
         project, path, relative, domain = self._prepare(stack, name)
         plan = self._planned(
-            domain, path, relative, accept_recreate, accept_host_access, accepted_by
+            domain,
+            path,
+            relative,
+            accept_recreate,
+            accept_host_access,
+            accepted_by,
+            host_access_digest,
         )
         done = compose_adopt.adopt(
             plan, trigger=trigger, job_id=job_id, runner=self.runner, store=self.store
@@ -306,6 +327,7 @@ class StackBringer:
         accept_recreate: bool,
         accept_host_access: bool = False,
         accepted_by: str = "",
+        host_access_digest: str | None = None,
     ) -> AdoptionPlan:
         """
         Ask the adoption what registering the stack would do, which changes nothing.
@@ -317,6 +339,7 @@ class StackBringer:
             accept_recreate: Go on although the rehearsal says something would change.
             accept_host_access: Go on although the stack runs with what gives this server to a container.
             accepted_by: Who accepts it.
+            host_access_digest: The digest of the lines the person was shown.
 
         Returns:
             The plan.
@@ -333,6 +356,7 @@ class StackBringer:
                 compose_file=relative,
                 accept_recreate=accept_recreate,
                 accept_host_access=accept_host_access,
+                host_access_digest=host_access_digest,
                 accepted_by=accepted_by,
                 runner=self.runner,
                 store=self.store,

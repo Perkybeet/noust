@@ -71,9 +71,13 @@ describe("the adoption's form", () => {
       preview: true,
       accept_recreate: false,
       accept_host_access: false,
+      host_access_digest: "",
     });
     // What gives the server to a container is a decision of its own, sent only when it was taken.
     expect(adoptBody({ domain: "proggest.es", path: "/srv/proggest", composeFile: "", site: "", source: "", branch: "" }, { preview: false, acceptRecreate: false, acceptHostAccess: true })).toMatchObject({ preview: false, accept_host_access: true });
+    // And with the digest of the lines that were shown, which is what accepting them says: left out until they are accepted.
+    expect(adoptBody({ domain: "proggest.es", path: "/srv/proggest", composeFile: "", site: "", source: "", branch: "" }, { preview: false, acceptRecreate: false, acceptHostAccess: true, hostAccessDigest: "d1d1" })).toMatchObject({ accept_host_access: true, host_access_digest: "d1d1" });
+    expect(adoptBody({ domain: "proggest.es", path: "/srv/proggest", composeFile: "", site: "", source: "", branch: "" }, { preview: true, acceptRecreate: false })).toMatchObject({ host_access_digest: "" });
   });
 });
 
@@ -201,6 +205,8 @@ describe("adopting a running stack from New application", { timeout: 20_000 }, (
 
   describe("a stack that runs with what gives this server to its containers", () => {
     const LINES = ["service backend mounts the Docker socket", "service backend is privileged"];
+    const DIGEST = "d1d1";
+    const NEWER = "e2e2";
     const refusal = () =>
       json(409, {
         error: "adoptionrefusederror",
@@ -209,11 +215,25 @@ describe("adopting a running stack from New application", { timeout: 20_000 }, (
         fields: null,
         output: null,
         host_access: LINES,
+        host_access_digest: DIGEST,
         coded: { code: "compose_guard.adopt_host_access", params: { domain: "proggest.es", lines: LINES.map((line) => `- ${line}`).join("\n"), command: "noust app adopt proggest.es --path /srv/proggest --accept-host-access" } },
       });
+    /** What the server answers when the file says other lines than the ones that were accepted: the lines of now, with their digest. */
+    const changed = () =>
+      json(409, {
+        error: "adoptionrefusederror",
+        detail: "What proggest.es gives this server is no longer what you were shown, so nothing was accepted",
+        hint: "These are the lines now",
+        fields: null,
+        output: null,
+        host_access: [...LINES, "service backend has the device /dev/dri"],
+        host_access_digest: NEWER,
+        coded: { code: "compose_guard.host_access_changed", params: { domain: "proggest.es", lines: "- a", command: "noust app adopt proggest.es --path /srv/proggest --accept-host-access" } },
+      });
     const answer = (call: { body: unknown }) => {
-      const body = call.body as { accept_host_access: boolean; preview: boolean };
+      const body = call.body as { accept_host_access: boolean; preview: boolean; host_access_digest?: string };
       if (!body.accept_host_access) return refusal();
+      if (body.host_access_digest !== DIGEST) return changed();
       return json(200, { ...PREVIEW, adopted: !body.preview, host_access: LINES, accepted_by: "admin", warnings: ["Recorded as accepted by admin: the containers of proggest.es keep what they have of this server (2)."] });
     };
 
@@ -245,12 +265,50 @@ describe("adopting a running stack from New application", { timeout: 20_000 }, (
       await user.click(screen.getByRole("checkbox", { name: /I accept that the containers keep/ }));
       await user.click(screen.getByRole("button", { name: "Preview" }));
       expect(await screen.findByRole("heading", { name: "What Noust found" })).toBeInTheDocument();
-      expect(backend.callsTo("POST /api/apps/adopt").at(-1)?.body).toMatchObject({ preview: true, accept_host_access: true });
+      expect(backend.callsTo("POST /api/apps/adopt").at(-1)?.body).toMatchObject({ preview: true, accept_host_access: true, host_access_digest: DIGEST });
       expect(screen.getByRole("list", { name: "What the containers of this stack have of this server" })).toBeInTheDocument();
       expect(screen.getByRole("checkbox", { name: /I accept that the containers keep/ })).toBeChecked();
       await user.click(screen.getByRole("button", { name: "Adopt" }));
       await waitFor(() => {
-        expect(backend.callsTo("POST /api/apps/adopt").at(-1)?.body).toMatchObject({ preview: false, accept_host_access: true });
+        expect(backend.callsTo("POST /api/apps/adopt").at(-1)?.body).toMatchObject({ preview: false, accept_host_access: true, host_access_digest: DIGEST });
+      });
+    });
+
+    it("shows the lines of now, with the box empty, when the file changed since they were listed", async () => {
+      // The server follows the digest it is given: the one that was listed is accepted, and then the file changes.
+      let now = DIGEST;
+      const { backend, harness } = wizard({
+        "GET /api/auth/session": () => json(200, ELEVATED),
+        "POST /api/apps/adopt": (call) => {
+          const body = call.body as { accept_host_access: boolean; preview: boolean; host_access_digest?: string };
+          if (!body.accept_host_access) return refusal();
+          if (body.host_access_digest !== now) return changed();
+          return json(200, { ...PREVIEW, adopted: !body.preview, host_access: LINES });
+        },
+      });
+      const { user } = harness;
+      await openAdopt(user);
+      await user.type(screen.getByRole("textbox", { name: "Domain" }), "proggest.es");
+      await user.type(screen.getByRole("textbox", { name: "Directory" }), "/srv/proggest");
+      await user.click(screen.getByRole("button", { name: "Preview" }));
+      await user.click(await screen.findByRole("checkbox", { name: /I accept that the containers keep/ }));
+      await user.click(screen.getByRole("button", { name: "Preview" }));
+      await screen.findByRole("heading", { name: "What Noust found" });
+      now = NEWER;
+      await user.click(screen.getByRole("button", { name: "Adopt" }));
+
+      const list = await screen.findByRole("list", { name: "What the containers of this stack have of this server" });
+      await waitFor(() => {
+        expect(within(list).getAllByRole("listitem")).toHaveLength(3);
+      });
+      expect(screen.getByRole("checkbox", { name: /I accept that the containers keep what these 3 lines give them of this server/ })).not.toBeChecked();
+      expect(screen.queryByRole("heading", { name: "What Noust found" })).not.toBeInTheDocument();
+      expect(backend.callsTo("POST /api/apps/adopt").filter((call) => !(call.body as { preview: boolean }).preview)).toHaveLength(1);
+      // Accepting what is listed now says so by the new digest.
+      await user.click(screen.getByRole("checkbox", { name: /I accept that the containers keep/ }));
+      await user.click(screen.getByRole("button", { name: "Preview" }));
+      await waitFor(() => {
+        expect(backend.callsTo("POST /api/apps/adopt").at(-1)?.body).toMatchObject({ preview: true, accept_host_access: true, host_access_digest: NEWER });
       });
     });
 

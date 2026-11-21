@@ -12,7 +12,10 @@ is edited by a person: a token that the policy forbids would otherwise lift its 
 
 from __future__ import annotations
 
+import ast
+import asyncio
 import inspect
+import json
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -23,8 +26,10 @@ from fastapi.routing import APIRoute
 from noust.core.accounts import passwords
 from noust.core.callers import PERSON, caller_of
 from noust.core.teams import Scope
+from noust.web import events
 from noust.web.api import assistant, assistant_chat
 from noust.web.api.deps import require_person
+from noust.web.auth import SESSION_COOKIE_NAME, verify_credential
 from tests.support.assistant_lab import KEY, SHOP, Lab, build_lab
 from tests.support.policy_people import issue
 from tests.support.scripted_model import Reply, ScriptedModel
@@ -162,6 +167,132 @@ class TestTheAssistantIsForPeople:
             "account_id": 1,
             "type": "session",
         }
+
+
+class _Listener:
+    """The part of a request the event stream asks about: whether the client is still there."""
+
+    async def is_disconnected(self) -> bool:
+        return False
+
+
+async def _heard(
+    session: dict[str, Any], name: str, account: int, *, wait: float = 1.0
+) -> list[dict[str, Any]]:
+    """
+    Open the event stream as a credential, publish one frame addressed to an account, and read what arrived.
+
+    Args:
+        session: The payload the stream is authenticated with.
+        name: The event the frame is published as.
+        account: The account the frame is for.
+        wait: How long to keep listening.
+
+    Returns:
+        The payloads of the frames of that event the stream carried.
+    """
+    stream = events._stream(_Listener(), session)  # type: ignore[arg-type]
+    carried: list[dict[str, Any]] = []
+    await asyncio.wait_for(stream.__anext__(), 2)  # ": connected"
+    events.hub.publish(name, {"for": account, "type": "text", "delta": "the shop is fine"})
+    deadline = asyncio.get_running_loop().time() + wait
+    while (left := deadline - asyncio.get_running_loop().time()) > 0:
+        try:
+            frame = await asyncio.wait_for(stream.__anext__(), left)
+        except (asyncio.TimeoutError, StopAsyncIteration):
+            break
+        head, _, rest = frame.partition("\n")
+        if head == f"event: {name}":
+            carried.append(json.loads(rest.removeprefix("data: ").strip()))
+    await stream.aclose()
+    return carried
+
+
+def _published_with_an_audience() -> dict[str, list[str]]:
+    """
+    Returns:
+        For each event the code publishes to one account (``hub.publish("<name>", {"for": ...})``), where.
+    """
+    found: dict[str, list[str]] = {}
+    root = Path(events.__file__).resolve().parents[1]
+    for path in sorted(root.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "publish"
+                and len(node.args) == 2
+                and isinstance(node.args[0], ast.Constant)
+                and isinstance(node.args[0].value, str)
+                and isinstance(node.args[1], ast.Dict)
+            ):
+                continue
+            keys = [k.value for k in node.args[1].keys if isinstance(k, ast.Constant)]
+            if "for" in keys:
+                found.setdefault(node.args[0].value, []).append(f"{path.name}:{node.lineno}")
+    return found
+
+
+class TestTheStreamIsForPeople:
+    @pytest.fixture(autouse=True)
+    def quiet_machine(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # What the stream says of the machine is not what is asked here, and reading it runs systemctl.
+        monkeypatch.setattr(events, "machine_frame", lambda: None)
+        monkeypatch.setattr(events, "metrics_frame", lambda: None)
+
+    def person_session(self, lab: Lab) -> dict[str, Any]:
+        session = verify_credential(
+            lab.marta.client.cookies[SESSION_COOKIE_NAME],
+            "testclient",
+            resource="/events",
+            source="cookie",
+        )
+        assert session is not None
+        assert caller_of(session) == PERSON
+        return session
+
+    def token_session(self, lab: Lab, *permissions: str) -> dict[str, Any]:
+        headers = issue(lab.marta.account, "listener", *permissions)
+        session = verify_credential(
+            headers["Authorization"].removeprefix("Bearer "),
+            "127.0.0.1",
+            resource="/events",
+            source="bearer",
+        )
+        assert session is not None
+        assert caller_of(session) != PERSON
+        return session
+
+    @pytest.mark.parametrize("name", sorted(events.PERSONAL_EVENTS))
+    def test_a_token_does_not_hear_what_its_owner_is_told(self, lab: Lab, name: str) -> None:
+        owner = int(lab.marta.account.id)
+        session = self.token_session(lab, "apps.read")
+        assert session["owner_account_id"] == owner
+
+        heard = asyncio.run(_heard(session, name, owner))
+
+        assert heard == []
+
+    @pytest.mark.parametrize("name", sorted(events.PERSONAL_EVENTS))
+    def test_the_person_does_hear_it(self, lab: Lab, name: str) -> None:
+        owner = int(lab.marta.account.id)
+
+        heard = asyncio.run(_heard(self.person_session(lab), name, owner))
+
+        assert [h["delta"] for h in heard] == ["the shop is fine"]
+
+    @pytest.mark.parametrize("name", sorted(events.PERSONAL_EVENTS))
+    def test_a_person_does_not_hear_what_another_is_told(self, lab: Lab, name: str) -> None:
+        other = int(lab.marta.account.id) + 1000
+
+        assert asyncio.run(_heard(self.person_session(lab), name, other)) == []
+
+    def test_every_event_that_has_an_audience_is_listed_as_personal(self) -> None:
+        # What a channel added tomorrow needs to be covered too: an event published to one account is
+        # delivered by the stream to a person and to no token, and it is the list that says which are.
+        published = _published_with_an_audience()
+        assert sorted(published) == sorted(events.PERSONAL_EVENTS), published
 
 
 def _asks_for_a_person(route: APIRoute) -> bool:

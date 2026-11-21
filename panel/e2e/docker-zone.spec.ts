@@ -115,6 +115,49 @@ const SCREENS: readonly Screen[] = [
     },
   },
   {
+    name: "bring-host-access-changed",
+    path: "/server/docker/stacks",
+    heading: "Stacks",
+    before: async (page) => {
+      // The lines are listed, the person accepts them, and the compose file says something more by the time the plan is asked for with
+      // them accepted: the server answers 409 again with the lines as they are now, and the dialog lists those with the box empty.
+      const before = ["service app mounts the Docker socket", "service app is privileged"];
+      const after = [...before, "service app has the device /dev/dri"];
+      await page.route("**/api/docker/stacks/nextcloud/bring/preview", async (route) => {
+        const sent = route.request().postDataJSON() as { accept_host_access?: boolean };
+        const accepted = sent.accept_host_access === true;
+        const lines = accepted ? after : before;
+        await route.fulfill({
+          status: 409,
+          json: {
+            error: "adoptionrefusederror",
+            detail: accepted
+              ? "What nextcloud gives this server is no longer what you were shown, so nothing was accepted"
+              : "Adopting nextcloud puts under Noust a stack whose containers have what is on this server",
+            hint: null,
+            fields: null,
+            output: null,
+            host_access: lines,
+            host_access_digest: accepted ? "bbbb" : "aaaa",
+            coded: accepted
+              ? { code: "compose_guard.host_access_changed", params: { domain: "nextcloud", lines: lines.map((line) => `- ${line}`).join("\n"), command: "noust docker stack bring nextcloud --accept-host-access" } }
+              : { code: "compose_guard.adopt_host_access", params: { domain: "nextcloud", lines: lines.map((line) => `- ${line}`).join("\n"), command: "noust docker stack bring nextcloud --accept-host-access" } },
+          },
+        });
+      });
+    },
+    ready: async (page, { expectError }) => {
+      expectError(/status of 409 .*bring\/preview/);
+      await page.getByRole("button", { name: "Bring to Noust…" }).first().click();
+      const dialog = page.getByRole("alertdialog", { name: "Bring nextcloud to Noust" });
+      await dialog.getByRole("checkbox", { name: /I accept that the containers keep/ }).click();
+      // The lines of now, one more than the ones that were accepted, with the box empty again and nothing to bring.
+      await expect(dialog.getByRole("list", { name: "What the containers of this stack have of this server" }).getByRole("listitem")).toHaveCount(3);
+      await expect(dialog.getByRole("checkbox", { name: /I accept that the containers keep what these 3 lines give them of this server/ })).not.toBeChecked();
+      await expect(dialog.getByRole("button", { name: "Bring to Noust" })).toBeDisabled();
+    },
+  },
+  {
     name: "bring-host-access-accepted",
     path: "/server/docker/stacks",
     heading: "Stacks",

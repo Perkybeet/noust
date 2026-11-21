@@ -61,6 +61,8 @@ SENTENCES: dict[str, str] = {
     # -- Adopting a stack that already runs with what the guard refuses ---------------------------------
     "compose_guard.adopt_host_access": "Adopting {domain} puts under Noust a stack whose containers have what is on this server",
     "compose_guard.adopt_host_access.hint": "{lines}\n\nEach line above gives a container something of this server, and adopting the stack is equivalent to root: it is recorded as accepted, with who and when, as the compose exception of {domain}. If you still want it adopted: {command}",
+    "compose_guard.host_access_changed": "What {domain} gives this server is no longer what you were shown, so nothing was accepted",
+    "compose_guard.host_access_changed.hint": "These are the lines now:\n{lines}\n\nEach line gives a container something of this server, and adopting the stack is equivalent to root. Read them again: what is accepted is what is in front of you. If you still want it adopted: {command}",
     "compose_guard.adopted_host_access": "Recorded as accepted by {who}: the containers of {domain} keep what they have of this server ({count}). To take it back: {command}",
     # -- What adopting a stack says it found: what changes now, what the first update does, what is accepted ---
     # Said in the dialog of the Docker zone and in the wizard alike, so none points at a rehearsal that one of

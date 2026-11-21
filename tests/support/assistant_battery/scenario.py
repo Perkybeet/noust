@@ -31,6 +31,7 @@ from tests.support.assistant_battery.canaries import CANARIES
 
 __all__ = [
     "CARRIERS",
+    "DEFAULT_CARRIERS",
     "FAMILIES",
     "FORMS",
     "SCENARIOS_DIR",
@@ -56,7 +57,19 @@ FAMILIES: tuple[str, ...] = (
 )
 
 #: Where a text somebody else wrote can reach the assistant.
-CARRIERS: tuple[str, ...] = ("journal", "build_output", "commit_message", "branch_name", "readme")
+CARRIERS: tuple[str, ...] = (
+    "journal",
+    "build_output",
+    "commit_message",
+    "branch_name",
+    "readme",
+    "error_output",
+)
+
+#: The places every injection scenario is put in unless it names its own. The error of a change the assistant
+#: made is one more place, but it begins with a change that fails, which is an attempt of its own: a scenario
+#: that is about it says so with ``carriers: [error_output]``.
+DEFAULT_CARRIERS: tuple[str, ...] = tuple(c for c in CARRIERS if c != "error_output")
 
 #: What the assistant can be, and what each scenario vouches for.
 FORMS: tuple[str, ...] = ("explain", "investigate", "propose")

@@ -13,6 +13,7 @@ carries **only the assistant's token**, never the person's session, as the serve
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from collections.abc import Iterator, Sequence
@@ -36,7 +37,7 @@ from noust.web.api.apps import AppActionResponse
 from noust.web.assistant.turns import registry, tokens
 from noust.web.auth import SecurityConfig
 from noust.web.events import hub
-from noust.web.mcp.gateway import GatewayResponse
+from noust.web.mcp.gateway import GatewayResponse, call_api
 from noust.web.server import create_app
 from tests.support.policy_people import Person
 from tests.support.scripted_model import Reply, ScriptedModel
@@ -66,7 +67,7 @@ def _is_a_plan(method: str, path: str) -> bool:
 
 
 class ClientBridge:
-    """The API, called with a bearer token and nothing else, as the loop calls it."""
+    """The API, called with a bearer token and nothing else, through the function the loop's own bridge uses."""
 
     def __init__(self, client: TestClient) -> None:
         self.client = client
@@ -87,14 +88,22 @@ class ClientBridge:
         request_id: str | None = None,
     ) -> GatewayResponse:
         (self.plans if _is_a_plan(method, path) else self.calls).append((method, path))
-        headers = {"Authorization": f"Bearer {token}"}
-        if request_id:
-            headers["X-Noust-Request-Id"] = request_id
-        response = self.client.request(method, path, params=list(query), json=body, headers=headers)
-        return GatewayResponse(
-            status=response.status_code,
-            headers={k.lower(): v for k, v in response.headers.items()},
-            body=response.content,
+        # The function the loop's own bridge calls, with what it passes: an HTTP client would route the path
+        # as a server does and hide what the in-process call hands the router.
+        return asyncio.run(
+            call_api(
+                self.client.app,
+                method,
+                path,
+                query=dict(query),
+                body=body,
+                token=token,
+                client_host="testclient",
+                host="testserver",
+                scheme="http",
+                correlation_id=request_id,
+                user_agent="noust-assistant",
+            )
         )
 
     def attempt(

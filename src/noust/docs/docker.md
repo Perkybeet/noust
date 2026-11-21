@@ -110,6 +110,9 @@ It needs the root-equivalent permission and records the lines, with who accepted
 application's exception ([what it covers](compose.md#what-a-stack-may-ask-of-the-server)). In the console the
 dialog of **Bring to Noust** lists the same lines, each with the server's reason, and offers a box that accepts
 them only to an account that holds that permission; anybody else reads the lines and who can accept them.
+What is accepted is what was listed: the request that brings the stack carries the digest of those lines
+(`host_access_digest`), and if its Compose file says something else by then the dialog lists the lines as they
+are now, with the box empty, and nothing is brought. The command prints the lines it records.
 Ticking the box asks for the plan again with the lines accepted, and applying asks sudo mode as it always does.
 
 Looking changes nothing, so it asks no sudo mode: `POST /api/docker/stacks/{name}/bring/preview` is read with the

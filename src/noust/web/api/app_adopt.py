@@ -72,6 +72,13 @@ class AdoptRequest(BaseModel):
         "application's compose exception, with who accepted it, and needs the root-equivalent "
         "permission",
     )
+    host_access_digest: str = Field(
+        default="",
+        max_length=128,
+        description="The digest of the lines that give this server to a container, as the refusal or the "
+        "preview that listed them said it (`host_access_digest`). Accepting them is accepting those "
+        "lines: without it, or with another, the answer is a 409 with the lines as they are now",
+    )
     preview: bool = Field(default=False, description="Answer what would be done; change nothing")
 
 
@@ -129,6 +136,10 @@ class AdoptResponse(BaseModel):
         description="The lines of the compose file that give this server to a container and that "
         "adopting recorded as accepted: the application's compose exception",
     )
+    host_access_digest: str = Field(
+        default="",
+        description="Their digest: what accepting them says (`host_access_digest` of the request)",
+    )
     accepted_by: str = Field(default="", description="Who accepted them")
 
 
@@ -140,6 +151,11 @@ class AdoptResponse(BaseModel):
 def adopt_app(body: AdoptRequest, session: Annotated[dict, Depends(require_elevated)]) -> Any:
     """
     Adopt a Docker Compose stack that already runs, or preview the adoption.
+
+    A stack that runs with what gives this server to a container is refused with the lines and their digest
+    (``host_access``, ``host_access_digest``). Accepting them is accepting those lines: ``accept_host_access``
+    goes with ``host_access_digest``, and when it is missing or the lines are not those any more the answer
+    is a 409 with the lines as they are now and nothing is registered.
 
     Args:
         body: The stack.
@@ -173,6 +189,7 @@ def adopt_app(body: AdoptRequest, session: Annotated[dict, Depends(require_eleva
             port=body.port,
             accept_recreate=body.accept_recreate,
             accept_host_access=body.accept_host_access,
+            host_access_digest=body.host_access_digest,
             accepted_by=actor_label(session) if body.accept_host_access else "",
             web=compose_adopt._default_web(),
         )

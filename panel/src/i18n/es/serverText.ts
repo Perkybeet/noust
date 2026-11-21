@@ -256,6 +256,14 @@ export const serverText: Catalog<typeof en> = {
         text: "El nombre {host} no se resuelve en ninguna dirección",
         hint: "Revisa que la dirección esté bien escrita y que el DNS de este servidor pueda resolverla.",
       },
+      never_a_provider: {
+        text: "El asistente no puede llamar a {host}: se resuelve en {address}, una dirección que nunca es la de un proveedor",
+        hint: "Tu consentimiento no alcanza a las direcciones de enlace local, donde responde el servicio de metadatos de una nube, ni a los alias de esta máquina. Usa la dirección del servidor del modelo en esta máquina o en tu red.",
+      },
+      not_a_model: {
+        text: "El asistente no puede llamar a {host}:{port}: es el puerto de un servicio de esta máquina, no de un modelo",
+        hint: "Tu consentimiento es para el servidor de un modelo. Arranca el modelo en otro puerto de esta máquina, o en otra máquina de tu red, y usa esa dirección.",
+      },
     },
     refused: {
       not_offered: {
@@ -5853,6 +5861,10 @@ export const serverText: Catalog<typeof en> = {
     asks_for_what_no_stack_may: {
       text: "El archivo compose de {domain} llega a lo que ninguna pila puede alcanzar",
       hint: "{lines}\n\nLo que es de otra aplicación o de Noust (sus archivos, sus volúmenes, sus imágenes, su proyecto) no es para que lo use una pila, y ninguna excepción lo permite. Quítalo del archivo compose.",
+    },
+    host_access_changed: {
+      text: "Lo que {domain} da a este servidor ya no es lo que se te enseñó, así que no se ha aceptado nada",
+      hint: "Estas son las líneas ahora:\n{lines}\n\nCada línea da a un contenedor algo de este servidor, y adoptar la pila equivale a ser root. Léelas otra vez: se acepta lo que tienes delante. Si aun así quieres adoptarla: {command}",
     },
   },
   compose_adopt: {

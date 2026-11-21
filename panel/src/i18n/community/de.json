@@ -20921,5 +20921,11 @@
   "auth.passkeyStillClosing": "Der Browser hat noch ein anderes Passkey-Fenster geschlossen. Versuche es noch einmal.",
   "auth.token.descriptionServer": "Fügen Sie den Zugriffstoken dieses Servers ein.",
   "dbServers.noSystem.line": "Die Programme, die die Datenbanken halten: die Instanzen, die Noust in Containern ausführt, in weiteren Versionen.",
-  "auth.noAccountYet": "Noch kein Konto? Bitten Sie die Person, die diesen Server betreibt, um eines. Wenn Sie ihn selbst betreiben und nicht hineinkommen, melden Sie sich mit seinem Zugriffstoken an: Dieser Befehl gibt auf dem Server ein neues aus."
+  "auth.noAccountYet": "Noch kein Konto? Bitten Sie die Person, die diesen Server betreibt, um eines. Wenn Sie ihn selbst betreiben und nicht hineinkommen, melden Sie sich mit seinem Zugriffstoken an: Dieser Befehl gibt auf dem Server ein neues aus.",
+  "serverText.assistant.provider.never_a_provider.text": "Der Assistent darf {host} nicht aufrufen: Der Name wird zu {address} aufgelöst, einer Adresse, die nie ein Anbieter ist",
+  "serverText.assistant.provider.never_a_provider.hint": "Ihre Zustimmung gilt nicht für Link-Local-Adressen, an denen der Metadatendienst einer Cloud antwortet, und auch nicht für die Aliase dieser Maschine. Verwenden Sie die Adresse des Modellservers auf dieser Maschine oder in Ihrem Netzwerk.",
+  "serverText.assistant.provider.not_a_model.text": "Der Assistent darf {host}:{port} nicht aufrufen: Das ist der Port eines Dienstes dieser Maschine, nicht eines Modells",
+  "serverText.assistant.provider.not_a_model.hint": "Ihre Zustimmung gilt für den Server eines Modells. Starten Sie das Modell auf einem anderen Port dieser Maschine oder auf einer anderen Maschine Ihres Netzwerks und verwenden Sie diese Adresse.",
+  "serverText.compose_guard.host_access_changed.text": "Was {domain} diesem Server gibt, ist nicht mehr das, was Ihnen gezeigt wurde; deshalb wurde nichts akzeptiert",
+  "serverText.compose_guard.host_access_changed.hint": "Das sind die Zeilen jetzt:\n{lines}\n\nJede Zeile gibt einem Container etwas von diesem Server, und die Übernahme des Stacks ist gleichbedeutend mit root. Lesen Sie sie noch einmal: Akzeptiert wird, was vor Ihnen steht. Wenn Sie ihn trotzdem übernehmen möchten: {command}"
 }

@@ -312,6 +312,158 @@ def require_public_host(
             )
 
 
+#: The ports of the services a machine runs for itself: the container engine and the orchestrators, the
+#: databases, the caches and queues, the stores of configuration, remote access, file sharing, directories and
+#: mail. None of them is a model's server, and a request that reached one of them from the machine itself would
+#: be a request to what is behind its firewall. The ports a model's server is found on (11434, 1234, 8000, 8080,
+#: 5000, 1337...) are not here: a web port can be a model, and what is not named is the operator's to consent to.
+SERVICE_PORTS: frozenset[int] = frozenset(
+    {
+        22,  # ssh
+        23,  # telnet
+        25,  # smtp
+        53,  # dns
+        110,  # pop3
+        111,  # rpcbind
+        135,  # rpc
+        139,  # netbios
+        143,  # imap
+        389,  # ldap
+        445,  # smb
+        465,  # smtps
+        587,  # submission
+        636,  # ldaps
+        873,  # rsync
+        993,  # imaps
+        995,  # pop3s
+        1433,  # sql server
+        1521,  # oracle
+        2049,  # nfs
+        2181,  # zookeeper
+        2375,  # docker, in clear
+        2376,  # docker, over tls
+        2379,  # etcd client
+        2380,  # etcd peer
+        3306,  # mysql, mariadb
+        3389,  # remote desktop
+        4369,  # erlang port mapper
+        5432,  # postgresql
+        5672,  # amqp
+        5900,  # vnc
+        5984,  # couchdb
+        6379,  # redis
+        6443,  # kubernetes api
+        8500,  # consul
+        9042,  # cassandra
+        9092,  # kafka
+        9200,  # elasticsearch
+        9300,  # elasticsearch, between nodes
+        10250,  # kubelet
+        11211,  # memcached
+        15672,  # rabbitmq's management
+        27017,  # mongodb
+    }
+)
+
+
+def own_addresses() -> frozenset[str]:
+    """
+    List the addresses of this machine's own interfaces.
+
+    A module-level function so a test replaces it instead of asking the machine it runs on.
+
+    Returns:
+        The addresses as literals, IPv4 and IPv6; empty when the machine will not say.
+    """
+    import psutil
+
+    found: set[str] = set()
+    try:
+        interfaces = psutil.net_if_addrs()
+    except OSError:
+        return frozenset()
+    for entries in interfaces.values():
+        for entry in entries:
+            if entry.family in (socket.AF_INET, socket.AF_INET6):
+                found.add(str(entry.address).split("%", 1)[0])
+    return frozenset(found)
+
+
+def _console_port() -> int | None:
+    """
+    Returns:
+        The port Noust's own console listens on, or None when the configuration does not say.
+    """
+    from noust.core.config import Config
+
+    port = Config().get("web.port")
+    return port if isinstance(port, int) and not isinstance(port, bool) else None
+
+
+def _is_this_machine(address: IPAddress, own: frozenset[IPAddress]) -> bool:
+    """
+    Args:
+        address: A resolved address.
+        own: The addresses of the machine's interfaces, parsed.
+
+    Returns:
+        Whether it is loopback or one of the machine's own, wherever it was wrapped (IPv4-mapped, NAT64, 6to4).
+    """
+    embedded = embedded_ipv4(address)
+    if embedded is not None:
+        return _is_this_machine(embedded, own)
+    if address.is_loopback:
+        return True
+    return address in own
+
+
+def require_consentable(host: str, port: int, addresses: Iterable[str]) -> None:
+    """
+    Refuse a destination that an operator's consent to call a provider of their own does not reach.
+
+    A consent given for one provider (the built-in assistant's, with the permission to change its settings and
+    not the one that writes ``security.allow_private_hosts``) is for a model's server on this machine or on the
+    operator's network. It never reaches an address that is never a provider (:data:`NEVER_A_DESTINATION`:
+    link-local, where a cloud's metadata service answers, and the aliases of this machine), nor a port of
+    a service this machine runs for itself (:data:`SERVICE_PORTS`, and the port of Noust's own console) at any
+    of this machine's addresses. A machine of the operator's network is theirs to answer for: the ports of
+    another machine are not this machine's.
+
+    Args:
+        host: The host the consent names, for the refusal.
+        port: The port the request would go to.
+        addresses: Every address the host resolves to.
+
+    Raises:
+        DestinationRefused: ``never`` for an address no consent reaches, ``service`` for a port of this
+            machine's own services.
+    """
+    parsed = [ipaddress.ip_address(raw) for raw in addresses]
+    for address in parsed:
+        if is_never_a_destination(address):
+            raise DestinationRefused(
+                f"{host!r} resolves to {address}, which is never a provider",
+                host=host,
+                reason="never",
+                address=str(address),
+            )
+    own: set[IPAddress] = set()
+    for text in own_addresses():
+        try:
+            own.add(ipaddress.ip_address(text))
+        except ValueError:
+            continue
+    held = port in SERVICE_PORTS or port == _console_port()
+    for address in parsed:
+        if held and _is_this_machine(address, frozenset(own)):
+            raise DestinationRefused(
+                f"{host!r}:{port} is a service of this machine, not a model",
+                host=host,
+                reason="service",
+                address=str(address),
+            )
+
+
 def api_path(path: str) -> str:
     """
     Check the path of a request to a platform's API host before it is sent.

@@ -209,7 +209,7 @@ test("adopting a running stack previews first, with Compose's dry run verbatim",
   await expect(page.locator("pre").filter({ hasText: "Container shop-web-1  Running" })).toHaveText(dryRun);
   await expect(page.getByRole("button", { name: "Adopt" })).toBeVisible();
   // Nothing of the server is given to a container unless the person says so: the field is sent, false, with every request.
-  expect(bodies).toEqual([{ domain: "stack.example.org", path: "/srv/stack", preview: true, accept_recreate: false, accept_host_access: false }]);
+  expect(bodies).toEqual([{ domain: "stack.example.org", path: "/srv/stack", preview: true, accept_recreate: false, accept_host_access: false, host_access_digest: "" }]);
   await settle(page);
   await expectNoA11yViolations(page, "the adoption's preview");
 });

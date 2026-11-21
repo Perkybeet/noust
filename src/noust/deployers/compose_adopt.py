@@ -41,6 +41,8 @@ API previews with ``preview: true``.
 from __future__ import annotations
 
 import dataclasses
+import hashlib
+import json
 import os
 import re
 import sqlite3
@@ -135,6 +137,26 @@ READ_ONLY_PROBES: tuple[tuple[object, ...], ...] = (
 ProjectFrom = Literal["containers", "compose", "stack"]
 
 
+def host_access_digest_of(lines: Iterable[str]) -> str:
+    """
+    Fingerprint the lines of a compose file that give this server to a container.
+
+    What a person accepts when they adopt such a stack is the lines in front of them, and the file is a file:
+    between the request that listed them and the one that accepts there is time. The digest says which lines
+    were in front of them, so that accepting is accepting those.
+
+    Args:
+        lines: The lines, as the refusal lists them.
+
+    Returns:
+        A hexadecimal digest of the lines whatever their order; ``""`` for no lines.
+    """
+    ordered = sorted(lines)
+    if not ordered:
+        return ""
+    return hashlib.sha256(json.dumps(ordered, ensure_ascii=False).encode("utf-8")).hexdigest()
+
+
 class AdoptionRefusedError(DeploymentError):
     """
     Docker Compose did not show that adopting would leave the stack as it is.
@@ -170,6 +192,11 @@ class AdoptionRefusedError(DeploymentError):
         self.output = output
         self.changes = changes
         self.host_access = host_access
+
+    @property
+    def host_access_digest(self) -> str:
+        """The digest of the lines it lists (:func:`host_access_digest_of`); empty when it lists none."""
+        return host_access_digest_of(self.host_access)
 
 
 @dataclass(frozen=True)
@@ -292,6 +319,11 @@ class AdoptionPlan:
         """The unit created for the stack; empty where Docker keeps it alive and there is none."""
         return self.app_name if self.kept_by == KEPT_BY_UNIT else ""
 
+    @property
+    def host_access_digest(self) -> str:
+        """The digest of the lines that give this server to a container (:func:`host_access_digest_of`)."""
+        return host_access_digest_of(self.host_access)
+
     def to_dict(self) -> dict[str, Any]:
         """
         Returns:
@@ -307,6 +339,7 @@ class AdoptionPlan:
         ]
         data["restart_loss"] = [dataclasses.asdict(item) for item in self.restart_loss]
         data["host_access"] = list(self.host_access)
+        data["host_access_digest"] = self.host_access_digest
         return data
 
 
@@ -811,6 +844,7 @@ def plan_adoption(
     port: int | None = None,
     accept_recreate: bool = False,
     accept_host_access: bool = False,
+    host_access_digest: str | None = None,
     accepted_by: str = "",
     runner: CommandRunner | None = None,
     store: NoustStore | None = None,
@@ -835,6 +869,11 @@ def plan_adoption(
             (the lines of its compose file that the guard refuses a new stack): the plan carries them
             and adopting records them as the application's compose exception, in the name of
             ``accepted_by``. Whoever says so is equivalent to root.
+        host_access_digest: The digest of the lines the person was shown (:func:`host_access_digest_of`), which is
+            what accepting them covers: the lines that are there now have to be those, and when they are not
+            the refusal lists the ones that are. ``""`` is a person who was shown none (a client that left it
+            out) and accepts nothing. None is for a caller that holds this very plan and shows it before it
+            records it (the command line), and accepts what the plan finds.
         accepted_by: Who accepts it, for the record.
         runner: The runner docker and git go through.
         store: The store checked for the domain.
@@ -850,7 +889,7 @@ def plan_adoption(
             taken, or the site is ambiguous.
         AdoptionRefusedError: The rehearsed ``up`` failed or would change
             something, or the stack runs with what gives this server to a container, and that was
-            not accepted.
+            not accepted, or not as it is now.
     """
     domain = validate_domain(domain)
     runner = runner if runner is not None else get_runner()
@@ -947,6 +986,11 @@ def plan_adoption(
     )
     if host_access and not accept_host_access:
         raise _refused_for_host_access(domain, path, host_access)
+    if host_access and host_access_digest is not None:
+        if host_access_digest == "":
+            raise _refused_for_host_access(domain, path, host_access)
+        if host_access_digest != host_access_digest_of(host_access):
+            raise _refused_for_changed_host_access(domain, path, host_access)
     if host_access:
         accepted_by = accepted_by or "adoption"
         warnings.add(
@@ -1042,6 +1086,31 @@ def _refused_for_host_access(domain: str, path: Path, lines: Sequence[str]) -> A
     """
     said = say(
         "compose_guard.adopt_host_access",
+        domain=domain,
+        lines="\n".join(f"- {line}" for line in lines),
+        command=f"noust app adopt {domain} --path {path} --accept-host-access",
+    )
+    return AdoptionRefusedError(
+        said.text, details=said.hint or "", host_access=tuple(lines), coded=said
+    )
+
+
+def _refused_for_changed_host_access(
+    domain: str, path: Path, lines: Sequence[str]
+) -> AdoptionRefusedError:
+    """
+    Make the refusal that says what a stack gives this server is not what the person was shown.
+
+    Args:
+        domain: The application.
+        path: The directory the stack runs from.
+        lines: What the compose file gives this server to a container with, as it is now.
+
+    Returns:
+        The refusal, with the lines of now for the person to read again.
+    """
+    said = say(
+        "compose_guard.host_access_changed",
         domain=domain,
         lines="\n".join(f"- {line}" for line in lines),
         command=f"noust app adopt {domain} --path {path} --accept-host-access",
@@ -1467,6 +1536,7 @@ def adopt_stack(
     port: int | None = None,
     accept_recreate: bool = False,
     accept_host_access: bool = False,
+    host_access_digest: str | None = None,
     accepted_by: str = "",
     trigger: str = DeploymentTrigger.CLI.value,
     job_id: str | None = None,
@@ -1487,6 +1557,7 @@ def adopt_stack(
         port: The port to register.
         accept_recreate: Adopt even when the rehearsed ``up`` would change something.
         accept_host_access: Adopt although the stack runs with what gives this server to a container.
+        host_access_digest: The digest of the lines that were shown; see :func:`plan_adoption`.
         accepted_by: Who accepts it, for the record.
         trigger: Who asked, for the history row.
         job_id: The background job adopting, when one is.
@@ -1510,6 +1581,7 @@ def adopt_stack(
         port=port,
         accept_recreate=accept_recreate,
         accept_host_access=accept_host_access,
+        host_access_digest=host_access_digest,
         accepted_by=accepted_by,
         runner=runner,
         store=store,
@@ -1530,6 +1602,7 @@ __all__ = [
     "find_site",
     "find_stack_project",
     "guard_running_stack",
+    "host_access_digest_of",
     "list_stack_containers",
     "parse_containers",
     "plan_adoption",

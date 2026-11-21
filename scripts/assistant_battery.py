@@ -42,7 +42,7 @@ from tests.support.assistant_battery.report import (  # noqa: E402
     merge,
     render_table,
 )
-from tests.support.assistant_battery.scenario import CARRIERS, all_scenarios  # noqa: E402
+from tests.support.assistant_battery.scenario import DEFAULT_CARRIERS, all_scenarios  # noqa: E402
 
 REPORT = ROOT / "tests" / "integration" / "results" / "assistant-battery.json"
 PAGE = ROOT / "docs" / "assistant-battery.md"
@@ -56,7 +56,7 @@ def expected_cases() -> list[str]:
     names: list[str] = []
     for scenario in all_scenarios():
         if scenario.family == "injection":
-            names += [case_id(scenario.id, c) for c in (scenario.carriers or CARRIERS)]
+            names += [case_id(scenario.id, c) for c in (scenario.carriers or DEFAULT_CARRIERS)]
         else:
             names.append(case_id(scenario.id, None))
     return sorted(names)

@@ -362,6 +362,13 @@ def _show_bringing(logger: Logger, found: Bringing) -> None:
     logger.key_value("Rehearsed up", "changes nothing" if not found.recreates else "would change:")
     for line in found.recreates:
         logger.substep(line)
+    if found.plan.host_access:
+        logger.key_value(
+            "Gives this server",
+            f"{len(found.plan.host_access)} (accepted: recorded as the compose exception of {found.name})",
+        )
+        for line in found.plan.host_access:
+            logger.substep(line)
     for item in found.restart_loss:
         logger.warning(
             f"{item.container} has the policy '{item.policy}': it would not come back after a restart"
@@ -413,6 +420,8 @@ def stack_bring(
     bringer = StackBringer(_gate())
     accepted_by = cli_actor().label if accept_host_access else ""
     try:
+        # The plan in hand is what is shown and, with its digest, what is registered: if the compose file
+        # gives this server something else by then, nothing is.
         shown = bringer.preview(
             name,
             name=app_name,
@@ -420,6 +429,7 @@ def stack_bring(
             accept_host_access=accept_host_access,
             accepted_by=accepted_by,
         )
+        digest = shown.plan.host_access_digest
     except AdoptionRefusedError as refused:
         ctx.logger.error(f"{refused.message}: {refused.details}")
         ctx.logger.info(refused.output or "")
@@ -433,14 +443,20 @@ def stack_bring(
         _show_bringing(ctx.logger, shown)
     if not (yes or ctx.json_output or ctx.dry_run):
         click.confirm(f"Bring {name} to Noust as shown?", default=False, abort=True)
-    done = bringer.bring(
-        name,
-        name=app_name,
-        accept_recreate=accept_recreate,
-        accept_host_access=accept_host_access,
-        accepted_by=accepted_by,
-        trigger=DeploymentTrigger.CLI.value,
-    )
+    try:
+        done = bringer.bring(
+            name,
+            name=app_name,
+            accept_recreate=accept_recreate,
+            accept_host_access=accept_host_access,
+            host_access_digest=digest,
+            accepted_by=accepted_by,
+            trigger=DeploymentTrigger.CLI.value,
+        )
+    except AdoptionRefusedError as refused:
+        # What the stack gives this server changed since it was shown: nothing was registered.
+        ctx.logger.error(f"{refused.message}: {refused.details}")
+        raise SystemExit(1) from refused
     if ctx.json_output:
         click.echo(json.dumps(done.to_dict()))
         return

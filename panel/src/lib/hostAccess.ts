@@ -10,6 +10,11 @@ import type { CodedText } from "./serverSentence";
 export interface HostAccess {
   /** The lines of the Compose file that give a container something of this server. Never empty. */
   lines: readonly string[];
+  /**
+   * Which lines these are, as the server fingerprints them. Accepting them is accepting exactly these: the request that accepts sends
+   * it back, and the server answers 409 with the lines as they are then if the file no longer says what was listed.
+   */
+  digest: string;
   /** The sentence the refusal says, with its code, for the console to say it in its language. */
   coded: CodedText | null;
   /** The same sentence in the server's English, which is what is shown for a code this console has no text for. */
@@ -27,5 +32,18 @@ export function hostAccessOf(error: unknown): HostAccess | null {
   if (!Array.isArray(listed)) return null;
   const lines = listed.filter((line): line is string => typeof line === "string" && line.trim() !== "");
   if (lines.length === 0) return null;
-  return { lines, coded: codedOf(error), detail: describeError(error).detail };
+  const digest: unknown = error.extra["host_access_digest"];
+  return { lines, digest: typeof digest === "string" ? digest : "", coded: codedOf(error), detail: describeError(error).detail };
+}
+
+/**
+ * What the request says of the lines it accepts: the digest of the lines the person was shown, once they have ticked the box. A request
+ * that accepts nothing says none: it asks to be shown the lines, which is how it learns the digest.
+ *
+ * @param access - The lines on screen, or null when none were listed.
+ * @param accepted - Whether the person ticked the box beside them.
+ * @returns The field of the request.
+ */
+export function acceptedLines(access: HostAccess | null, accepted: boolean): { host_access_digest: string } {
+  return { host_access_digest: access !== null && accepted ? access.digest : "" };
 }

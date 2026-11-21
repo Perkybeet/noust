@@ -222,6 +222,25 @@ PERSON_ROUTES: frozenset[tuple[str, str]] = frozenset(
 _TRUE_WORDS = frozenset({"1", "true", "t", "yes", "y", "on"})
 
 
+def _says_yes(value: Any) -> bool:
+    """
+    Read a boolean the way the routes' own models do, which is the reading that makes a flag a confirmation.
+
+    Args:
+        value: What a body or a query carries under a confirmation's name.
+
+    Returns:
+        Whether a model of the API takes it for true: ``true``, the number one (``1`` and ``1.0``) and the
+        words a query string says it with. Anything that is a yes to the route and not to this would be a way
+        to confirm without being seen, so the reading errs towards yes (a padded word counts).
+    """
+    if value is True:
+        return True
+    if isinstance(value, str):
+        return value.strip().lower() in _TRUE_WORDS
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and value == 1
+
+
 def confirmation_in(arguments: Mapping[str, Any] | None) -> str | None:
     """
     Say which confirmation of a person a call carries.
@@ -230,14 +249,13 @@ def confirmation_in(arguments: Mapping[str, Any] | None) -> str | None:
         arguments: The call's body and query together, or only one of them; None for none.
 
     Returns:
-        The name of the first field of :data:`PERSON_CONFIRMATIONS` that is on (``true``, or a word a
-        query string says it with), or None when the call carries none.
+        The name of the first field of :data:`PERSON_CONFIRMATIONS` that is on (``true``, the number one,
+        or a word a query string says it with), or None when the call carries none.
     """
     if not arguments:
         return None
     for name in sorted(PERSON_CONFIRMATIONS):
-        value = arguments.get(name)
-        if value is True or (isinstance(value, str) and value.strip().lower() in _TRUE_WORDS):
+        if _says_yes(arguments.get(name)):
             return name
     return None
 

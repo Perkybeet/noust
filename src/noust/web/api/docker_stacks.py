@@ -135,12 +135,14 @@ def preview_bring(name: str, body: DockerBringPreviewRequest, session: Session) 
     words of Compose and the address the checkout fetches from are shown with the credentials masked. What
     is already Noust's, what is not on this server and a stack started from several files are refused first
     with the reason as a code (409 ``docker_blocked``), and Compose's own words, when starting it the way
-    Noust would changes something, are in ``output`` of a 409.
+    Noust would changes something, are in ``output`` of a 409. A stack that runs with what gives this server to a
+    container is refused with the lines and their digest (``host_access``, ``host_access_digest``); to show the
+    plan with them accepted, the request says that digest back.
 
     Args:
         name: The Compose project's name.
-        body: The name the application would have, and whether to show the plan though the rehearsal changes
-            something.
+        body: The name the application would have, whether to show the plan though the rehearsal changes
+            something, and the digest of the lines that were listed.
         session: The authenticated session.
 
     Returns:
@@ -161,6 +163,7 @@ def preview_bring(name: str, body: DockerBringPreviewRequest, session: Session) 
                 name=body.name,
                 accept_recreate=body.accept_recreate,
                 accept_host_access=body.accept_host_access,
+                host_access_digest=body.host_access_digest,
                 accepted_by=audit_actor(session) if body.accept_host_access else "",
             )
         )
@@ -193,10 +196,15 @@ def bring_stack(name: str, body: DockerBringRequest, session: Elevated) -> Any:
     are refused first with the reason as a code (409 ``docker_blocked``). Needs the permission to change
     Docker, the one to manage applications, and sudo mode.
 
+    What a stack that runs with what gives this server to a container is accepted with is what the person was
+    shown: ``accept_host_access`` goes with ``host_access_digest``, the digest the preview or the refusal that
+    listed the lines gave. Without it, or when the lines are not those any more, the answer is a 409 with the
+    lines as they are now and nothing is registered.
+
     Args:
         name: The Compose project's name.
-        body: The name the application will have, whether to only preview, and whether to accept a
-            rehearsal that changes something.
+        body: The name the application will have, whether to only preview, whether to accept a
+            rehearsal that changes something, and the digest of the lines that were accepted.
         session: The authenticated session, in sudo mode.
 
     Returns:
@@ -224,6 +232,7 @@ def bring_stack(name: str, body: DockerBringRequest, session: Elevated) -> Any:
                     name=body.name,
                     accept_recreate=body.accept_recreate,
                     accept_host_access=body.accept_host_access,
+                    host_access_digest=body.host_access_digest,
                     accepted_by=accepted_by,
                 )
             )
@@ -232,6 +241,7 @@ def bring_stack(name: str, body: DockerBringRequest, session: Elevated) -> Any:
             name=body.name,
             accept_recreate=body.accept_recreate,
             accept_host_access=body.accept_host_access,
+            host_access_digest=body.host_access_digest,
             accepted_by=accepted_by,
             trigger=DeploymentTrigger.PANEL.value,
         )

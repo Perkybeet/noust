@@ -52,6 +52,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from starlette.concurrency import run_in_threadpool
 
+from noust.core.callers import PERSON, caller_of
 from noust.core.deploy_failures import coded as deploy_failure
 from noust.core.exceptions import NoustError
 from noust.core.fleet_job_titles import coded as fleet_job_title
@@ -643,8 +644,23 @@ def _frame_domain(frame: str) -> str | None:
     return domain if isinstance(domain, str) else None
 
 
-#: The event the built-in assistant speaks on: what a turn says, reads and proposes, to the person who asked.
-ASSISTANT_EVENT = "event: assistant"
+#: The events published to one account (``hub.publish(name, {"for": account, ...})``) and that only a person
+#: hears. What the assistant says in a conversation is its author's, and the routes of the conversation answer
+#: 403 to a token: a stream that gave a token its owner's frames would be a way round them. Every event that
+#: has an audience is listed here (a test fails on one that is not), and :func:`_stream` is where it is decided.
+PERSONAL_EVENTS: frozenset[str] = frozenset({"assistant"})
+
+
+def _is_personal(frame: str) -> bool:
+    """
+    Args:
+        frame: A rendered frame, ``event: <name>`` and ``data: <json>``.
+
+    Returns:
+        Whether it is of an event in :data:`PERSONAL_EVENTS`: one published to a single account.
+    """
+    name, _, _rest = frame.partition("\n")
+    return name.removeprefix("event: ") in PERSONAL_EVENTS
 
 
 def _frame_audience(frame: str) -> int | None:
@@ -707,7 +723,9 @@ async def _stream(request: Request, session: dict[str, Any] | None = None) -> As
     # the credential was admitted with, not whatever the client asks for.
     scoped = ScopedStore(scope_of(session)) if session is not None else None
     restricted = scoped is not None and scoped.scope.restricted
-    mine = _account_of(session)
+    # The audience of a personal event is a person's: a token acts for its owner but is not the owner, and the
+    # routes of the conversation refuse it, so the stream does not hand it what those routes would not.
+    mine = _account_of(session) if caller_of(session) == PERSON else None
 
     def deliver(frames: list[str]) -> None:
         """
@@ -753,7 +771,7 @@ async def _stream(request: Request, session: dict[str, Any] | None = None) -> As
         Args:
             frame: The rendered frame.
         """
-        if frame.startswith(ASSISTANT_EVENT):
+        if _is_personal(frame):
             # What the assistant says in a conversation is its author's: it is delivered to the
             # streams of that account and to no other, whatever the scope of the stream.
             if mine is None or _frame_audience(frame) != mine:

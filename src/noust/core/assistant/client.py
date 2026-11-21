@@ -432,17 +432,22 @@ def check_address(
         outbound.api_path(f"{base_path}/chat/completions")
     except outbound.UnsafePath as exc:
         raise _bad_address(address) from exc
-    allowed = frozenset(
+    listed = frozenset(
         str(entry).lower()
-        for entry in (
-            *(outbound.trusted_hosts() if allowed_hosts is None else allowed_hosts),
-            *consented,
-        )
+        for entry in (outbound.trusted_hosts() if allowed_hosts is None else allowed_hosts)
     )
+    consent = frozenset(str(entry).lower() for entry in consented)
+    allowed = listed | consent
     # Judged on the addresses resolved here, once, and returned: what is dialled is what was judged.
     lookup = resolver or outbound.resolve_host
     try:
         addresses = tuple(lookup(host))
+        if host.lower() in consent - listed:
+            # The consent of the assistant's settings is for a model's server, and the list of the security
+            # area, which another permission writes on purpose, is the operator's own decision.
+            outbound.require_consentable(
+                host, port or (443 if scheme == "https" else 80), addresses
+            )
         outbound.require_public_host(host, allowed=allowed, resolver=lambda _name: addresses)
     except OSError as exc:
         raise ProviderAddressError(say("assistant.provider.unresolved", host=host)) from exc
@@ -450,6 +455,18 @@ def check_address(
         if exc.reason == "internal":
             raise ProviderAddressError(
                 say("assistant.provider.destination_refused", host=host, address=exc.address or "")
+            ) from exc
+        if exc.reason == "never":
+            raise ProviderAddressError(
+                say("assistant.provider.never_a_provider", host=host, address=exc.address or "")
+            ) from exc
+        if exc.reason == "service":
+            raise ProviderAddressError(
+                say(
+                    "assistant.provider.not_a_model",
+                    host=host,
+                    port=port or (443 if scheme == "https" else 80),
+                )
             ) from exc
         raise ProviderAddressError(say("assistant.provider.unresolved", host=host)) from exc
     if not addresses:

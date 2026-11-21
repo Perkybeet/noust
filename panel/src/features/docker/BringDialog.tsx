@@ -6,7 +6,9 @@
  * stack will have among the applications. A stack that cannot be brought says why, with the server's own words and the command that opens it.
  *
  * A stack that runs with what gives this server to a container is shown line by line, and bringing it is a decision of its own: a box
- * beside the lines, offered to whoever holds the root-equivalent permission, and the plan is read again with it accepted.
+ * beside the lines, offered to whoever holds the root-equivalent permission, and the plan is read again with it accepted. What is
+ * accepted is the lines in front of the person: the request says which they are (their digest), and if the Compose file says something
+ * else by the time it is made, the server answers with the lines as they are, the dialog shows those and the box is empty again.
  */
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -28,7 +30,7 @@ import { ServerText } from "../../components/ui/ServerText";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { useT } from "../../i18n";
-import { hostAccessOf } from "../../lib/hostAccess";
+import { acceptedLines, hostAccessOf } from "../../lib/hostAccess";
 import type { HostAccess } from "../../lib/hostAccess";
 import { codedAt } from "../../lib/serverSentence";
 import { useNode } from "../../nodes/useNode";
@@ -114,7 +116,10 @@ export function BringDialog({ stack, onClose }: BringDialogProps) {
   const { node } = useNode();
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
-  const [accepted, setAccepted] = useState(false);
+  // The lines the person ticked the box for, by their digest: the box is ticked only while the lines on screen are those.
+  const [acceptedDigest, setAcceptedDigest] = useState<string | null>(null);
+  // The lines as the server last said them, when they are not the ones the first look listed: the file changed since.
+  const [relisted, setRelisted] = useState<HostAccess | null>(null);
   // What would be registered, asked once when the dialog opens: the preview is its own route, which only rehearses Compose's start and
   // takes no sudo mode, so looking asks nobody who they are. Who they are is asked when the stack is brought, below. A stack that runs
   // with what gives this server to a container is not a failure to look at: it is the lines, and the decision about them.
@@ -122,7 +127,7 @@ export function BringDialog({ stack, onClose }: BringDialogProps) {
     queryKey: ["docker", "stack", stack, "bring-preview"],
     queryFn: async (): Promise<Looked> => {
       try {
-        return { kind: "plan", plan: await request("post", "/api/docker/stacks/{name}/bring/preview", { params: { name: stack ?? "" }, body: { accept_recreate: false, accept_host_access: false } }) };
+        return { kind: "plan", plan: await request("post", "/api/docker/stacks/{name}/bring/preview", { params: { name: stack ?? "" }, body: { accept_recreate: false, accept_host_access: false, host_access_digest: "" } }) };
       } catch (error) {
         const access = hostAccessOf(error);
         if (access === null) throw error;
@@ -137,12 +142,24 @@ export function BringDialog({ stack, onClose }: BringDialogProps) {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
-  const access = looked.data?.kind === "host_access" ? looked.data.access : null;
+  const listed = looked.data?.kind === "host_access" ? looked.data.access : null;
+  const access = relisted ?? listed;
+  const accepted = access !== null && acceptedDigest === access.digest;
   // Once the lines are accepted the plan is read again with that said, which is what shows what would be registered; the first answer
   // keeps the lines, which stay on screen beside the plan because they are what is being accepted.
   const accepting = useQuery({
-    queryKey: ["docker", "stack", stack, "bring-preview", "host-access"],
-    queryFn: () => request("post", "/api/docker/stacks/{name}/bring/preview", { params: { name: stack ?? "" }, body: { accept_recreate: false, accept_host_access: true } }),
+    queryKey: ["docker", "stack", stack, "bring-preview", "host-access", access?.digest ?? ""],
+    queryFn: async () => {
+      try {
+        return await request("post", "/api/docker/stacks/{name}/bring/preview", { params: { name: stack ?? "" }, body: { accept_recreate: false, accept_host_access: true, host_access_digest: access?.digest ?? "" } });
+      } catch (error) {
+        // The file gives this server something else than it did when the lines were listed: they are listed again, as they are now.
+        const now = hostAccessOf(error);
+        if (now === null) throw error;
+        setRelisted(now);
+        return null;
+      }
+    },
     enabled: stack !== null && access !== null && accepted,
     staleTime: 0,
     gcTime: 0,
@@ -152,7 +169,7 @@ export function BringDialog({ stack, onClose }: BringDialogProps) {
   });
   if (stack === null) return null;
   const typed = name.trim();
-  const plan = looked.data?.kind === "plan" ? looked.data.plan : accepted ? accepting.data : undefined;
+  const plan = looked.data?.kind === "plan" ? looked.data.plan : accepted ? (accepting.data ?? undefined) : undefined;
   return (
     <ConfirmDialog
       friction="simple"
@@ -160,7 +177,8 @@ export function BringDialog({ stack, onClose }: BringDialogProps) {
       onOpenChange={(open) => {
         if (!open) {
           setName("");
-          setAccepted(false);
+          setAcceptedDigest(null);
+          setRelisted(null);
           onClose();
         }
       }}
@@ -172,7 +190,14 @@ export function BringDialog({ stack, onClose }: BringDialogProps) {
       ready={plan !== undefined && (access === null || accepted)}
       {...(node !== null ? { server: node } : {})}
       onConfirm={async () => {
-        await request("post", "/api/docker/stacks/{name}/bring", { params: { name: stack }, body: { preview: false, accept_recreate: false, accept_host_access: access !== null && accepted, ...(typed !== "" ? { name: typed } : {}) } });
+        try {
+          await request("post", "/api/docker/stacks/{name}/bring", { params: { name: stack }, body: { preview: false, accept_recreate: false, accept_host_access: accepted, ...acceptedLines(access, accepted), ...(typed !== "" ? { name: typed } : {}) } });
+        } catch (error) {
+          // The lines changed between the look and this: nothing was brought, and the lines of now are in front of the person.
+          const now = hostAccessOf(error);
+          if (now !== null) setRelisted(now);
+          throw error;
+        }
         await queryClient.invalidateQueries({ queryKey: dockerKeys.all });
       }}
     >
@@ -183,11 +208,11 @@ export function BringDialog({ stack, onClose }: BringDialogProps) {
       >
         {(found) => (
           <div className="flex min-w-0 flex-col gap-4">
-            {found.kind === "host_access" ? <HostAccessLines access={found.access} accepted={accepted} onAcceptedChange={setAccepted} /> : null}
+            {found.kind === "host_access" && access !== null ? <HostAccessLines access={access} accepted={accepted} onAcceptedChange={(ticked) => setAcceptedDigest(ticked ? access.digest : null)} /> : null}
             {found.kind === "plan" ? <PlanBody plan={found.plan} name={name} onName={setName} /> : null}
             {found.kind === "host_access" && accepted ? (
               <QueryState query={accepting} sentences={{ loading: t("docker.bring.loading"), failed: t("docker.bring.failed"), refreshFailed: t("docker.bring.failed") }} skeleton={<Skeleton className="h-32 w-full" />}>
-                {(wouldRegister) => <PlanBody plan={wouldRegister} name={name} onName={setName} />}
+                {(wouldRegister) => (wouldRegister === null ? null : <PlanBody plan={wouldRegister} name={name} onName={setName} />)}
               </QueryState>
             ) : null}
           </div>

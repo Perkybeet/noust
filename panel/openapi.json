@@ -21249,7 +21249,7 @@
         "type": "object"
       },
       "DockerBringOut": {
-        "description": "What bringing a stack to Noust registers, or did.\n\nAttributes:\n    stack: The Compose project.\n    name: What the application is called in Noust's list.\n    folder: The directory the stack runs from, where it stays.\n    compose_file: Its compose file, relative to the folder.\n    project: The Compose project every command passes with ``-p`` from then on.\n    containers: The containers of the stack.\n    running: Whether any of them runs.\n    headless: The stack publishes no port.\n    port: The port registered for it; null for a worker.\n    site: The operator's site file that serves it, never rewritten.\n    source: Where updates fetch from; empty for a stack that is not a checkout.\n    unit: The unit created for it, enabled and not started; empty where Docker keeps it alive.\n    kept_by: ``unit`` (a unit of systemd) or ``docker`` (the central deploys with the machine's Docker:\n        the restart policy of the containers keeps the stack alive, and no unit is written).\n    address: Where it is reached when no site serves it, ``http://<machine>:<port>``.\n    counts: ``containers``, ``jobs`` (of them, the ones that already ended), ``volumes`` and ``networks``.\n    rehearsal: What ``docker compose up --dry-run`` said, verbatim.\n    recreates: What starting it the way Noust would changes, in Compose's own words; empty when nothing.\n    warnings: What adopting found worth saying.\n    warnings_coded: ``warnings`` as sentences with a code, in the same order, for the console to say in\n        its own language; null where a line has no sentence of its own.\n    restart_loss: What a restart of the machine would not bring back.\n    adopted: It was registered; false for a preview.\n    deployment_id: The adoption's history row.",
+        "description": "What bringing a stack to Noust registers, or did.\n\nAttributes:\n    stack: The Compose project.\n    name: What the application is called in Noust's list.\n    folder: The directory the stack runs from, where it stays.\n    compose_file: Its compose file, relative to the folder.\n    project: The Compose project every command passes with ``-p`` from then on.\n    containers: The containers of the stack.\n    running: Whether any of them runs.\n    headless: The stack publishes no port.\n    port: The port registered for it; null for a worker.\n    site: The operator's site file that serves it, never rewritten.\n    source: Where updates fetch from; empty for a stack that is not a checkout.\n    unit: The unit created for it, enabled and not started; empty where Docker keeps it alive.\n    kept_by: ``unit`` (a unit of systemd) or ``docker`` (the central deploys with the machine's Docker:\n        the restart policy of the containers keeps the stack alive, and no unit is written).\n    address: Where it is reached when no site serves it, ``http://<machine>:<port>``.\n    counts: ``containers``, ``jobs`` (of them, the ones that already ended), ``volumes`` and ``networks``.\n    rehearsal: What ``docker compose up --dry-run`` said, verbatim.\n    recreates: What starting it the way Noust would changes, in Compose's own words; empty when nothing.\n    warnings: What adopting found worth saying.\n    warnings_coded: ``warnings`` as sentences with a code, in the same order, for the console to say in\n        its own language; null where a line has no sentence of its own.\n    restart_loss: What a restart of the machine would not bring back.\n    host_access: The lines of the compose file that give this server to a container and that bringing it\n        accepts (empty when there are none).\n    host_access_digest: Their digest, which accepting them says (``host_access_digest`` of the request).\n    adopted: It was registered; false for a preview.\n    deployment_id: The adoption's history row.",
         "properties": {
           "address": {
             "anyOf": [
@@ -21304,6 +21304,18 @@
             "default": false,
             "title": "Headless",
             "type": "boolean"
+          },
+          "host_access": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Host Access",
+            "type": "array"
+          },
+          "host_access_digest": {
+            "default": "",
+            "title": "Host Access Digest",
+            "type": "string"
           },
           "kept_by": {
             "default": "unit",
@@ -21417,7 +21429,7 @@
         "type": "object"
       },
       "DockerBringPreviewRequest": {
-        "description": "Look at what bringing a stack that already runs to Noust would do.\n\nAttributes:\n    name: What the application would be called in Noust's list; the stack's own name when absent.\n    accept_recreate: Show the plan although Compose says starting the stack the way Noust would changes what\n        runs, instead of refusing it with Compose's own words.\n    accept_host_access: Show the plan although the stack runs with what gives this server to a container,\n        instead of refusing it with the lines.",
+        "description": "Look at what bringing a stack that already runs to Noust would do.\n\nAttributes:\n    name: What the application would be called in Noust's list; the stack's own name when absent.\n    accept_recreate: Show the plan although Compose says starting the stack the way Noust would changes what\n        runs, instead of refusing it with Compose's own words.\n    accept_host_access: Show the plan although the stack runs with what gives this server to a container,\n        instead of refusing it with the lines.\n    host_access_digest: The digest of the lines that were listed (see :class:`DockerBringRequest`).",
         "properties": {
           "accept_host_access": {
             "default": false,
@@ -21428,6 +21440,12 @@
             "default": false,
             "title": "Accept Recreate",
             "type": "boolean"
+          },
+          "host_access_digest": {
+            "default": "",
+            "maxLength": 128,
+            "title": "Host Access Digest",
+            "type": "string"
           },
           "name": {
             "anyOf": [
@@ -21446,7 +21464,7 @@
         "type": "object"
       },
       "DockerBringRequest": {
-        "description": "Bring a stack that already runs to Noust.\n\nAttributes:\n    name: What the application will be called in Noust's list; the stack's own name when absent. It is the\n        only thing typed: the folder and the compose file are what the stack's containers say.\n    preview: Answer what would be registered and what is not changed, and register nothing.\n    accept_recreate: Go on although Compose says starting the stack the way Noust would changes what\n        runs. It is read first; the preview shows Compose's own words.\n    accept_host_access: Go on although the stack runs with what gives this server to a container (a\n        device, the Docker socket, a path of the server). It is recorded as the application's compose\n        exception, with who accepted it, and needs the root-equivalent permission.",
+        "description": "Bring a stack that already runs to Noust.\n\nAttributes:\n    name: What the application will be called in Noust's list; the stack's own name when absent. It is the\n        only thing typed: the folder and the compose file are what the stack's containers say.\n    preview: Answer what would be registered and what is not changed, and register nothing.\n    accept_recreate: Go on although Compose says starting the stack the way Noust would changes what\n        runs. It is read first; the preview shows Compose's own words.\n    accept_host_access: Go on although the stack runs with what gives this server to a container (a\n        device, the Docker socket, a path of the server). It is recorded as the application's compose\n        exception, with who accepted it, and needs the root-equivalent permission.\n    host_access_digest: The digest of the lines of the compose file that give this server to a container, as the\n        preview or the refusal that listed them said it (``host_access_digest``). Accepting is accepting those\n        lines: without it, or with another, the answer is a 409 with the lines as they are now.",
         "properties": {
           "accept_host_access": {
             "default": false,
@@ -21457,6 +21475,12 @@
             "default": false,
             "title": "Accept Recreate",
             "type": "boolean"
+          },
+          "host_access_digest": {
+            "default": "",
+            "maxLength": 128,
+            "title": "Host Access Digest",
+            "type": "string"
           },
           "name": {
             "anyOf": [
@@ -76236,6 +76260,13 @@
             "title": "Domain",
             "type": "string"
           },
+          "host_access_digest": {
+            "default": "",
+            "description": "The digest of the lines that give this server to a container, as the refusal or the preview that listed them said it (`host_access_digest`). Accepting them is accepting those lines: without it, or with another, the answer is a 409 with the lines as they are now",
+            "maxLength": 128,
+            "title": "Host Access Digest",
+            "type": "string"
+          },
           "path": {
             "description": "The absolute directory the stack runs from",
             "title": "Path",
@@ -76400,6 +76431,12 @@
             },
             "title": "Host Access",
             "type": "array"
+          },
+          "host_access_digest": {
+            "default": "",
+            "description": "Their digest: what accepting them says (`host_access_digest` of the request)",
+            "title": "Host Access Digest",
+            "type": "string"
           },
           "kept_by": {
             "default": "unit",
@@ -81595,7 +81632,7 @@
     },
     "/api/apps/adopt": {
       "post": {
-        "description": "Adopt a Docker Compose stack that already runs, or preview the adoption.\n\nArgs:\n    body: The stack.\n    session: The authenticated, elevated session.\n\nReturns:\n    What was found and done; 409 with Compose's output when starting the\n    stack as Noust would recreate something that was not accepted.\n\nRaises:\n    DeploymentError: The domain is deployed, the directory is not a\n        usable checkout, or the site is ambiguous.",
+        "description": "Adopt a Docker Compose stack that already runs, or preview the adoption.\n\nA stack that runs with what gives this server to a container is refused with the lines and their digest\n(``host_access``, ``host_access_digest``). Accepting them is accepting those lines: ``accept_host_access``\ngoes with ``host_access_digest``, and when it is missing or the lines are not those any more the answer\nis a 409 with the lines as they are now and nothing is registered.\n\nArgs:\n    body: The stack.\n    session: The authenticated, elevated session.\n\nReturns:\n    What was found and done; 409 with Compose's output when starting the\n    stack as Noust would recreate something that was not accepted.\n\nRaises:\n    DeploymentError: The domain is deployed, the directory is not a\n        usable checkout, or the site is ambiguous.",
         "operationId": "adopt_app_api_apps_adopt_post",
         "requestBody": {
           "content": {
@@ -115440,7 +115477,7 @@
     },
     "/api/docker/stacks/{name}/bring": {
       "post": {
-        "description": "Bring a stack that already runs to Noust, or say what that would do.\n\nTo only look, without sudo mode, use ``POST .../bring/preview``: it is the same preview, read with the\npermission to read the zone. ``preview`` here is kept for who already sends it, and asks sudo mode like\nthe rest of this route.\n\nThis is ``noust app adopt`` where the zone shows the stack: Noust registers it as it runs, and nothing\nthat runs is recreated, restarted or changed, nor is its compose file rewritten. The folder and the file\nare what the stack's containers say; the name the application will have is the only thing typed. With\n``preview`` nothing is registered and the answer is what would be: that the folder is on this server,\nwhat the rehearsed ``up`` says, the counts, what would not come back after a restart. Compose's own\nwords, when starting it the way Noust would changes something, are in ``output`` of a 409 and are not\nparaphrased. What is already Noust's, what is not on this server and a stack started from several files\nare refused first with the reason as a code (409 ``docker_blocked``). Needs the permission to change\nDocker, the one to manage applications, and sudo mode.\n\nArgs:\n    name: The Compose project's name.\n    body: The name the application will have, whether to only preview, and whether to accept a\n        rehearsal that changes something.\n    session: The authenticated session, in sudo mode.\n\nReturns:\n    What was, or would be, registered.\n\nRaises:\n    DockerNotFoundError: 404 when there is no such stack.\n    DockerOwnedError: 409 when an engine or Noust owns it.\n    DockerBlockedError: 409 ``docker_blocked`` with the reason.\n    DeploymentError: 409 when adopting is refused (Compose's rehearsal, a unit that exists).",
+        "description": "Bring a stack that already runs to Noust, or say what that would do.\n\nTo only look, without sudo mode, use ``POST .../bring/preview``: it is the same preview, read with the\npermission to read the zone. ``preview`` here is kept for who already sends it, and asks sudo mode like\nthe rest of this route.\n\nThis is ``noust app adopt`` where the zone shows the stack: Noust registers it as it runs, and nothing\nthat runs is recreated, restarted or changed, nor is its compose file rewritten. The folder and the file\nare what the stack's containers say; the name the application will have is the only thing typed. With\n``preview`` nothing is registered and the answer is what would be: that the folder is on this server,\nwhat the rehearsed ``up`` says, the counts, what would not come back after a restart. Compose's own\nwords, when starting it the way Noust would changes something, are in ``output`` of a 409 and are not\nparaphrased. What is already Noust's, what is not on this server and a stack started from several files\nare refused first with the reason as a code (409 ``docker_blocked``). Needs the permission to change\nDocker, the one to manage applications, and sudo mode.\n\nWhat a stack that runs with what gives this server to a container is accepted with is what the person was\nshown: ``accept_host_access`` goes with ``host_access_digest``, the digest the preview or the refusal that\nlisted the lines gave. Without it, or when the lines are not those any more, the answer is a 409 with the\nlines as they are now and nothing is registered.\n\nArgs:\n    name: The Compose project's name.\n    body: The name the application will have, whether to only preview, whether to accept a\n        rehearsal that changes something, and the digest of the lines that were accepted.\n    session: The authenticated session, in sudo mode.\n\nReturns:\n    What was, or would be, registered.\n\nRaises:\n    DockerNotFoundError: 404 when there is no such stack.\n    DockerOwnedError: 409 when an engine or Noust owns it.\n    DockerBlockedError: 409 ``docker_blocked`` with the reason.\n    DeploymentError: 409 when adopting is refused (Compose's rehearsal, a unit that exists).",
         "operationId": "bring_stack_api_docker_stacks__name__bring_post",
         "parameters": [
           {
@@ -115498,7 +115535,7 @@
     },
     "/api/docker/stacks/{name}/bring/preview": {
       "post": {
-        "description": "Say what bringing a stack that already runs to Noust would do, without doing it or asking to confirm.\n\nLooking changes nothing, so it is read with the permission to read the zone and asks no sudo mode:\nthe person sees what would be registered before being asked who they are, and the confirmation is asked\nwhen it is applied (``POST .../bring``). The one thing that runs is Compose's rehearsal of starting the\nstack (``up --dry-run``), which only looks, and nothing is registered, written, started or stopped. The\nwords of Compose and the address the checkout fetches from are shown with the credentials masked. What\nis already Noust's, what is not on this server and a stack started from several files are refused first\nwith the reason as a code (409 ``docker_blocked``), and Compose's own words, when starting it the way\nNoust would changes something, are in ``output`` of a 409.\n\nArgs:\n    name: The Compose project's name.\n    body: The name the application would have, and whether to show the plan though the rehearsal changes\n        something.\n    session: The authenticated session.\n\nReturns:\n    What would be registered and what is not changed.\n\nRaises:\n    DockerNotFoundError: 404 when there is no such stack.\n    DockerOwnedError: 409 when an engine or Noust owns it.\n    DockerBlockedError: 409 ``docker_blocked`` with the reason.\n    DeploymentError: 409 when adopting is refused (Compose's rehearsal, a unit that exists).",
+        "description": "Say what bringing a stack that already runs to Noust would do, without doing it or asking to confirm.\n\nLooking changes nothing, so it is read with the permission to read the zone and asks no sudo mode:\nthe person sees what would be registered before being asked who they are, and the confirmation is asked\nwhen it is applied (``POST .../bring``). The one thing that runs is Compose's rehearsal of starting the\nstack (``up --dry-run``), which only looks, and nothing is registered, written, started or stopped. The\nwords of Compose and the address the checkout fetches from are shown with the credentials masked. What\nis already Noust's, what is not on this server and a stack started from several files are refused first\nwith the reason as a code (409 ``docker_blocked``), and Compose's own words, when starting it the way\nNoust would changes something, are in ``output`` of a 409. A stack that runs with what gives this server to a\ncontainer is refused with the lines and their digest (``host_access``, ``host_access_digest``); to show the\nplan with them accepted, the request says that digest back.\n\nArgs:\n    name: The Compose project's name.\n    body: The name the application would have, whether to show the plan though the rehearsal changes\n        something, and the digest of the lines that were listed.\n    session: The authenticated session.\n\nReturns:\n    What would be registered and what is not changed.\n\nRaises:\n    DockerNotFoundError: 404 when there is no such stack.\n    DockerOwnedError: 409 when an engine or Noust owns it.\n    DockerBlockedError: 409 ``docker_blocked`` with the reason.\n    DeploymentError: 409 when adopting is refused (Compose's rehearsal, a unit that exists).",
         "operationId": "preview_bring_api_docker_stacks__name__bring_preview_post",
         "parameters": [
           {

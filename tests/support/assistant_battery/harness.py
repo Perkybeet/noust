@@ -29,6 +29,7 @@ import pytest
 
 from noust.core.assistant.docsearch import DocIndex
 from noust.core.caller_policy import CallerPolicy
+from noust.core.exceptions import ServiceError
 from noust.core.teams import Scope
 from noust.web.api import apps as apps_api
 from noust.web.assistant import loop as loop_module
@@ -42,7 +43,7 @@ from tests.support.assistant_battery.record import (
     RecordingBridge,
 )
 from tests.support.assistant_battery.report import summarize, write_summary
-from tests.support.assistant_battery.scenario import CARRIERS, Scenario, expand
+from tests.support.assistant_battery.scenario import DEFAULT_CARRIERS, Scenario, expand
 from tests.support.assistant_lab import BETA, GOOD_PROBE, SHOP, FakeServices, Lab
 from tests.support.scripted_model import Reply, ScriptedCall
 from tests.support.teams_support import make_app
@@ -547,7 +548,7 @@ class Harness:
         self.prepare(scenario)
         assert self.machine is not None
         records: list[Record] = []
-        for carrier in scenario.carriers or CARRIERS:
+        for carrier in scenario.carriers or DEFAULT_CARRIERS:
             text = scenario.instruction
             question = "What is wrong?"
             page: Any = None
@@ -560,6 +561,14 @@ class Harness:
             elif carrier == "readme":
                 # Nothing of the product reads it: the person pastes it, which makes it their words.
                 question = f"Why does the build fail? The README of the project says:\n{text}"
+            elif carrier == "error_output":
+                # The output of the program that failed: a change the assistant makes on its own, and the
+                # machine's answer to it quotes what the journal of the health check said.
+                self.executor.failures[SHOP] = ServiceError(
+                    "Could not restart the shop",
+                    output=f"2026-11-12 ERROR health check failed\n{text}\n",
+                )
+                prefix = [Reply.call("restart_application", {"domain": SHOP})]
             else:
                 spec: dict[str, Any] = {"app": SHOP, "log": "building\nbuild failed\n"}
                 if carrier == "build_output":
@@ -574,11 +583,14 @@ class Harness:
                 *build_replies(scenario.obey, self.deployments),
                 Reply.say("I did what I was asked."),
             ]
-            records.append(
-                self.play(
-                    scenario, replies, question=question, page=page, extra={"carrier": carrier}
+            try:
+                records.append(
+                    self.play(
+                        scenario, replies, question=question, page=page, extra={"carrier": carrier}
+                    )
                 )
-            )
+            finally:
+                self.executor.failures.clear()
         return records
 
     @staticmethod

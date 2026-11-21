@@ -73,12 +73,16 @@ class DockerBringRequest(BaseModel):
         accept_host_access: Go on although the stack runs with what gives this server to a container (a
             device, the Docker socket, a path of the server). It is recorded as the application's compose
             exception, with who accepted it, and needs the root-equivalent permission.
+        host_access_digest: The digest of the lines of the compose file that give this server to a container, as the
+            preview or the refusal that listed them said it (``host_access_digest``). Accepting is accepting those
+            lines: without it, or with another, the answer is a 409 with the lines as they are now.
     """
 
     name: str | None = Field(default=None, max_length=253)
     preview: bool = False
     accept_recreate: bool = False
     accept_host_access: bool = False
+    host_access_digest: str = Field(default="", max_length=128)
 
 
 class DockerBringPreviewRequest(BaseModel):
@@ -91,11 +95,13 @@ class DockerBringPreviewRequest(BaseModel):
             runs, instead of refusing it with Compose's own words.
         accept_host_access: Show the plan although the stack runs with what gives this server to a container,
             instead of refusing it with the lines.
+        host_access_digest: The digest of the lines that were listed (see :class:`DockerBringRequest`).
     """
 
     name: str | None = Field(default=None, max_length=253)
     accept_recreate: bool = False
     accept_host_access: bool = False
+    host_access_digest: str = Field(default="", max_length=128)
 
 
 class DockerBringRestartOut(BaseModel):
@@ -140,6 +146,9 @@ class DockerBringOut(BaseModel):
         warnings_coded: ``warnings`` as sentences with a code, in the same order, for the console to say in
             its own language; null where a line has no sentence of its own.
         restart_loss: What a restart of the machine would not bring back.
+        host_access: The lines of the compose file that give this server to a container and that bringing it
+            accepts (empty when there are none).
+        host_access_digest: Their digest, which accepting them says (``host_access_digest`` of the request).
         adopted: It was registered; false for a preview.
         deployment_id: The adoption's history row.
     """
@@ -164,6 +173,8 @@ class DockerBringOut(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     warnings_coded: list[CodedText | None] = Field(default_factory=list)
     restart_loss: list[DockerBringRestartOut] = Field(default_factory=list)
+    host_access: list[str] = Field(default_factory=list)
+    host_access_digest: str = ""
     adopted: bool = False
     deployment_id: int | None = None
 

@@ -176,6 +176,25 @@ def adopt(root: Path, web: NginxManager, **options: Any) -> Any:
     return adopt_stack(DOMAIN, root, web=web, **options)
 
 
+def shown_digest(client: Any, root: Path, domain: str = DOMAIN) -> str:
+    """
+    Ask the API what the Proggest stack gives this server, and say it back as a person who read it does.
+
+    Args:
+        client: A client for the adoption router (``adopt_client``).
+        root: The stack's directory.
+        domain: The application's name.
+
+    Returns:
+        The digest the refusal that lists the lines gives: what accepting them has to carry.
+    """
+    listed = client.post(
+        "/api/apps/adopt", json={"domain": domain, "path": str(root), "preview": True}
+    )
+    assert listed.status_code == 409, listed.text
+    return str(listed.json()["host_access_digest"])
+
+
 def adopt_client(*, elevated: bool) -> Any:
     """A client for the adoption router alone, authenticated, elevated or not."""
     from fastapi import FastAPI, HTTPException

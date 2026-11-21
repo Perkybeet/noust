@@ -52,7 +52,13 @@ go by default (it is how a request forgery reaches what is behind a firewall). N
 take once: `--allow-private-host` keeps the consent **with the assistant's settings**, as the host and port it is
 for (`private_host` in `GET /api/assistant/settings`). It opens that address to the assistant's requests and to
 nothing else: it does not write `security.allow_private_hosts`, the list of the security area that says so for every
-other feature (and which the assistant still honours, besides). It goes when you change the host or the port and
+other feature (and which the assistant still honours, besides). It is for a model's server, so it does not reach
+what is never one: **link-local addresses** (`169.254.0.0/16` and `fe80::/10`, where a cloud's metadata service
+answers) and the aliases of this machine (`0.0.0.0`, `::`) are refused whatever is consented to, and so are the
+**ports of the services this machine runs for itself** (the container engine, the databases, caches and queues, remote
+access, file sharing, mail, and the port of Noust's own console) at any of its addresses. A model on this machine
+on any other port, or on a machine of your network, is consented to as before. Only the list of the security
+area, which another permission writes on purpose, can name one of those. It goes when you change the host or the port and
 when you turn the assistant off, so turning it on again says it again. Plain `http://` is only for a host you
 listed or consented to; anything else needs `https://`. The address is judged when you choose it **and on every
 request**, and the connection is made to the address that was judged, so a name that starts to resolve somewhere
@@ -116,7 +122,8 @@ account, limited to the person's teams. The browser never talks to the provider:
   "any" aside) are also replaced by markers (`<email-1>`, `<ip-2>`) that are the same all through a
   conversation and that only your server can put back, in what the person reads and in the arguments of the
   calls the model makes. You can turn it off for a model of your own and for no other.
-- **Text somebody else wrote** (logs, a README, a commit message) is sent marked as data, which helps the
+- **Text somebody else wrote** (logs, a README, a commit message, and what a program printed that comes back in
+  the error of a call or in the result of a change it made) is sent marked as data, which helps the
   model and defends nothing by itself: the controls that matter are the server's.
 - **The key** is sealed under the key file beside the configuration, never returned by the API (only that
   there is one and since when), and never in an argument, a job, an audit event or an approval.
@@ -178,7 +185,9 @@ can be misled by them: nothing here says otherwise. What is done about it does n
   the person wrote nor Noust knows (a host, an address, a URL, an email, a command or the value of a variable): it is
   shown to the person, highlighted, with the text it was found in, and a call that carries a secret is not offered
   at all. And once the assistant has read text from outside in a conversation, whatever it is told to do afterwards
-  is proposed, not done.
+  is proposed, not done. A program's words count as text from outside wherever they arrive: the `output` of an
+  error or of a result, and any error that is not one of Noust's own sentences (it can quote a tool), mark the
+  conversation as a read of a journal does.
 - **What it can reach is bounded by its token** (never sudo mode, never the floor), by the policy (what is changed
   is limited per hour) and by the API (teams, approvals), not by what the model says.
 - A battery attacks it every time the code changes: instructions hidden in a journal, the output of a build, a
@@ -214,7 +223,8 @@ console, in their own session.
 
 Over the API a question is `POST /api/assistant/conversations/{id}/turns` (it answers `202` at once), and
 everything the turn does (the text, each step, each proposal, the usage, the end) arrives on the console's event
-stream as the `assistant` event, to the streams of the account that asked and no other. A person cancels a turn
+stream as the `assistant` event, to the streams the person who asked has open and no other: an API token of the same
+account is not given it, as the routes of the conversation are not given to it. A person cancels a turn
 (`POST .../turns/{turn}/cancel`) and it stops between two steps; turning the assistant off ends every turn. See
 [api.md](api.md).
 

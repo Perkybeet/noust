@@ -30,6 +30,7 @@ prompts tell the model to read them as such.
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from typing import Any
 
 from noust.core.scrubbing import MAX_DEPTH, REDACTED, hide_secrets, scrub_text
@@ -41,6 +42,7 @@ __all__ = [
     "REDACTED",
     "hide_secrets",
     "limit",
+    "program_words",
     "refusal_text",
     "render",
     "scrub_text",
@@ -127,6 +129,71 @@ def refusal_text(status: int, decoded: Any) -> str:
     if contract.get("output"):
         parts.append(f"Output:\n{contract['output']}")
     return limit(scrub_text("\n".join(str(p) for p in parts)))
+
+
+def _text(value: Any) -> bool:
+    """
+    Args:
+        value: A field of an answer.
+
+    Returns:
+        Whether it is text that says something.
+    """
+    return isinstance(value, str) and value.strip() != ""
+
+
+def _quotes_output(value: Any, depth: int = 0) -> bool:
+    """
+    Args:
+        value: An answer, or a part of one.
+        depth: How far down it is.
+
+    Returns:
+        Whether a field named ``output`` that holds text is anywhere in it, down to :data:`MAX_DEPTH`.
+    """
+    if depth > MAX_DEPTH:
+        return False
+    if isinstance(value, Mapping):
+        return any(
+            (key == "output" and _text(item)) or _quotes_output(item, depth + 1)
+            for key, item in value.items()
+        )
+    if isinstance(value, (list, tuple)):
+        return any(_quotes_output(item, depth + 1) for item in value)
+    return False
+
+
+def program_words(status: int, decoded: Any) -> bool:
+    """
+    Say whether an answer of the API quotes words that a program or a repository wrote.
+
+    The error contract keeps a failing tool's own output verbatim in ``output``; its ``detail`` and ``hint`` are
+    Noust's own words only when they are a sentence of the catalog (``coded``), and are otherwise whatever the
+    code that failed put in them, which can fold in what a tool printed. A body that is not the contract at all
+    (a proxy's page) is somebody else's text. In an answer that went well, ``output`` is the field a result keeps
+    a program's output in. Words like these are marked as data when the model is given them, and mark the
+    conversation as one that has read text from outside, as a read of a journal does.
+
+    Args:
+        status: The API's status.
+        decoded: What it answered, decoded.
+
+    Returns:
+        Whether the answer carries such words.
+    """
+    if status < 400:
+        return _quotes_output(decoded)
+    if isinstance(decoded, str):
+        return _text(decoded)
+    contract = decoded if isinstance(decoded, Mapping) else {}
+    inner = contract.get("detail")
+    if isinstance(inner, Mapping):
+        contract = inner
+    if _text(contract.get("output")):
+        return True
+    if contract.get("coded"):
+        return False
+    return _text(contract.get("detail")) or _text(contract.get("hint"))
 
 
 CONFIRM_NEEDED = (

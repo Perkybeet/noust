@@ -560,7 +560,9 @@ server. The preview lists each line ("gives a container something of this server
 saying so: `noust app adopt DOMAIN --path DIR --accept-host-access` (`accept_host_access` in the API and
 in the Docker zone; in the console, a box beside the lines that only an account with the root-equivalent
 permission is offered), which needs that permission and records the lines, with who and when, as the
-application's compose exception. Take it back with `noust app sandbox compose-exception DOMAIN
+application's compose exception. What is accepted is the lines that were shown: the API takes
+`accept_host_access` with the `host_access_digest` the refusal or the preview gave, and answers `409` with the
+lines as they are now if the file changed in between. Take it back with `noust app sandbox compose-exception DOMAIN
 --revoke`.
 
 ## Other things that changed for Compose

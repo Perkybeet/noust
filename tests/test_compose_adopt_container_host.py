@@ -41,6 +41,7 @@ from tests.support.compose_adopt import (  # noqa: F401
     adopt_client,
     docker,
     root,
+    shown_digest,
     store,
     units,
     web,
@@ -327,10 +328,17 @@ def test_the_api_adopts_on_a_container_host(
     a_container_host: None, root: Path, docker: Docker, store: NoustStore, units: Path
 ) -> None:
     client = adopt_client(elevated=True)
+    seen = shown_digest(client, root)
 
     preview = client.post(
         "/api/apps/adopt",
-        json={"domain": DOMAIN, "path": str(root), "preview": True, "accept_host_access": True},
+        json={
+            "domain": DOMAIN,
+            "path": str(root),
+            "preview": True,
+            "accept_host_access": True,
+            "host_access_digest": seen,
+        },
     )
     assert preview.status_code == 200, preview.text
     body = preview.json()
@@ -339,7 +347,13 @@ def test_the_api_adopts_on_a_container_host(
     assert store.get_app(DOMAIN) is None
 
     done = client.post(
-        "/api/apps/adopt", json={"domain": DOMAIN, "path": str(root), "accept_host_access": True}
+        "/api/apps/adopt",
+        json={
+            "domain": DOMAIN,
+            "path": str(root),
+            "accept_host_access": True,
+            "host_access_digest": seen,
+        },
     )
     assert done.status_code == 200, done.text
     assert done.json()["adopted"] is True

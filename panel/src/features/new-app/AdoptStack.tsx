@@ -68,7 +68,7 @@ export function adoptProblems(form: AdoptForm, t: (key: "newApp.adopt.domainRequ
 }
 
 /** The request, with what was left empty left out: found by looking. */
-export function adoptBody(form: AdoptForm, extra: { preview: boolean; acceptRecreate: boolean; acceptHostAccess?: boolean }) {
+export function adoptBody(form: AdoptForm, extra: { preview: boolean; acceptRecreate: boolean; acceptHostAccess?: boolean; hostAccessDigest?: string }) {
   const optional = (value: string): string | undefined => (value.trim() === "" ? undefined : value.trim());
   const composeFile = optional(form.composeFile);
   const site = optional(form.site);
@@ -82,6 +82,9 @@ export function adoptBody(form: AdoptForm, extra: { preview: boolean; acceptRecr
     // Accepting what gives the server to a container is a decision of its own, taken where the
     // refusal lists each line; until then the server refuses and says them.
     accept_host_access: extra.acceptHostAccess === true,
+    // Accepting is accepting the lines that were listed: the digest of those lines goes with the decision, and the server refuses
+    // with the lines as they are if the file no longer says them. Empty until they are accepted.
+    host_access_digest: extra.hostAccessDigest ?? "",
     ...(composeFile !== undefined ? { compose_file: composeFile } : {}),
     ...(site !== undefined ? { site } : {}),
     ...(source !== undefined ? { source } : {}),
@@ -106,6 +109,8 @@ interface AdoptRequest {
   form: AdoptForm;
   acceptRecreate: boolean;
   acceptHostAccess: boolean;
+  /** The digest of the lines the person was shown when they accepted them; absent while they have not. */
+  hostAccessDigest?: string;
 }
 
 function Found({ preview, t }: { preview: Adoption; t: T }) {
@@ -205,10 +210,15 @@ function useStackAdoption(): AdoptionState {
   const keepRefusal = (error: unknown, sent: AdoptRequest): void => {
     if (recreateRefusal(error) !== null) setRefused({ for: sent.form, error });
     const access = hostAccessOf(error);
-    if (access !== null) setListed({ for: sent.form, access });
+    if (access !== null) {
+      // These are the lines as the server has them now. If they are not the ones that were accepted the box is empty again: what is
+      // accepted is what is in front of the person, and they are shown these.
+      setListed({ for: sent.form, access });
+      setAcceptHostAccess(false);
+    }
   };
   const preview = useMutation({
-    mutationFn: (sent: AdoptRequest) => request("post", "/api/apps/adopt", { body: adoptBody(sent.form, { preview: true, acceptRecreate: sent.acceptRecreate, acceptHostAccess: sent.acceptHostAccess }) }),
+    mutationFn: (sent: AdoptRequest) => request("post", "/api/apps/adopt", { body: adoptBody(sent.form, { preview: true, acceptRecreate: sent.acceptRecreate, acceptHostAccess: sent.acceptHostAccess, ...(sent.hostAccessDigest !== undefined ? { hostAccessDigest: sent.hostAccessDigest } : {}) }) }),
     onSuccess: (answer, sent) => {
       setPreviewed({ for: sent, answer });
       announce(t("newApp.adopt.previewReady"));
@@ -216,7 +226,7 @@ function useStackAdoption(): AdoptionState {
     onError: keepRefusal,
   });
   const adopt = useMutation({
-    mutationFn: (sent: AdoptRequest) => request("post", "/api/apps/adopt", { body: adoptBody(sent.form, { preview: false, acceptRecreate: sent.acceptRecreate, acceptHostAccess: sent.acceptHostAccess }) }),
+    mutationFn: (sent: AdoptRequest) => request("post", "/api/apps/adopt", { body: adoptBody(sent.form, { preview: false, acceptRecreate: sent.acceptRecreate, acceptHostAccess: sent.acceptHostAccess, ...(sent.hostAccessDigest !== undefined ? { hostAccessDigest: sent.hostAccessDigest } : {}) }) }),
     onError: keepRefusal,
     onSuccess: (answer) => {
       void queryClient.invalidateQueries({ queryKey: appKeys.list, exact: true });
@@ -230,8 +240,14 @@ function useStackAdoption(): AdoptionState {
   const hostAccess = listed !== null && sameStack(listed.for, form) ? listed.access : null;
   // The two refusals have their own place with their own box; what is left is a failure to say as it came.
   const split = splitErrors(recreateRefusal(failure) === null && hostAccessOf(failure) === null ? failure : null, FIELDS);
+  // What was previewed answers for the lines it accepted: when they are listed again (the file changed) it is read again with these.
+  const acceptedDigest = acceptHostAccess && hostAccess !== null ? hostAccess.digest : undefined;
   const ready =
-    previewed !== null && previewed.for.acceptRecreate === acceptRecreate && previewed.for.acceptHostAccess === acceptHostAccess && JSON.stringify(previewed.for.form) === JSON.stringify(form);
+    previewed !== null &&
+    previewed.for.acceptRecreate === acceptRecreate &&
+    previewed.for.acceptHostAccess === acceptHostAccess &&
+    previewed.for.hostAccessDigest === acceptedDigest &&
+    JSON.stringify(previewed.for.form) === JSON.stringify(form);
 
   const edit = (patch: Partial<AdoptForm>): void => {
     const next = { ...form, ...patch };
@@ -254,8 +270,9 @@ function useStackAdoption(): AdoptionState {
       setErrors(found);
       return;
     }
-    if (ready) adopt.mutate({ form, acceptRecreate, acceptHostAccess });
-    else preview.mutate({ form, acceptRecreate, acceptHostAccess });
+    const sent: AdoptRequest = { form, acceptRecreate, acceptHostAccess, ...(acceptedDigest !== undefined ? { hostAccessDigest: acceptedDigest } : {}) };
+    if (ready) adopt.mutate(sent);
+    else preview.mutate(sent);
   };
 
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {

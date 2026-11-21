@@ -233,6 +233,11 @@ same lines, each with the server's reason; whoever holds the root-equivalent per
 them (the plan is asked for again, and sudo mode as ever), and whoever does not reads the lines and who can accept
 them. Nothing changes until somebody does.
 
+What is accepted is what was shown. A client that sends `accept_host_access: true` also sends `host_access_digest`,
+the digest that the `409` which lists the lines (and the preview) gives: without it, or if the compose file says
+other lines by then, the answer is a `409` with the lines as they are now and nothing is registered. The commands
+show the lines they record, so a script that uses them needs nothing more.
+
 Check: the **Containers that are root on the server** card of the application's Settings > Build shows the
 exception with its reason, who and when (`compose_exception` in `GET /api/apps/{domain}/sandbox`), and
 `noust app sandbox compose-exception shop.example.com --revoke` takes it back.

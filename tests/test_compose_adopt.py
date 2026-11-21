@@ -47,6 +47,7 @@ from tests.support.compose_adopt import (  # noqa: F401
     adopt_client,
     docker,
     root,
+    shown_digest,
     store,
     units,
     web,
@@ -827,10 +828,17 @@ def test_the_api_previews_then_adopts(
 
     monkeypatch.setattr(compose_adopt, "_default_web", lambda: web)
     client = adopt_client(elevated=True)
+    seen = shown_digest(client, root)
 
     preview = client.post(
         "/api/apps/adopt",
-        json={"domain": DOMAIN, "path": str(root), "preview": True, "accept_host_access": True},
+        json={
+            "domain": DOMAIN,
+            "path": str(root),
+            "preview": True,
+            "accept_host_access": True,
+            "host_access_digest": seen,
+        },
     )
     assert preview.status_code == 200, preview.text
     assert preview.json()["adopted"] is False
@@ -838,7 +846,13 @@ def test_the_api_previews_then_adopts(
     assert store.get_app(DOMAIN) is None
 
     done = client.post(
-        "/api/apps/adopt", json={"domain": DOMAIN, "path": str(root), "accept_host_access": True}
+        "/api/apps/adopt",
+        json={
+            "domain": DOMAIN,
+            "path": str(root),
+            "accept_host_access": True,
+            "host_access_digest": seen,
+        },
     )
     assert done.status_code == 200, done.text
     assert done.json()["adopted"] is True
@@ -859,14 +873,17 @@ def test_the_api_sends_each_warning_beside_its_sentence(
     monkeypatch.setattr(compose_adopt, "_default_web", lambda: web)
     shutil.rmtree(root / ".git")
 
-    body = (
-        adopt_client(elevated=True)
-        .post(
-            "/api/apps/adopt",
-            json={"domain": DOMAIN, "path": str(root), "preview": True, "accept_host_access": True},
-        )
-        .json()
-    )
+    client = adopt_client(elevated=True)
+    body = client.post(
+        "/api/apps/adopt",
+        json={
+            "domain": DOMAIN,
+            "path": str(root),
+            "preview": True,
+            "accept_host_access": True,
+            "host_access_digest": shown_digest(client, root),
+        },
+    ).json()
 
     assert len(body["warnings_coded"]) == len(body["warnings"])
     said = [item for item in body["warnings_coded"] if item is not None]

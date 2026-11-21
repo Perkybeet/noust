@@ -110,6 +110,7 @@ from noust.web.assistant.toolbox import (
     proxy_path,
 )
 from noust.web.mcp import guardrails
+from noust.web.mcp.guardrails import program_words
 from noust.web.mcp.tools import PathParameterRefused, fill_path
 
 __all__ = ["TokenCache", "TurnContext", "TurnRunner"]
@@ -1122,6 +1123,26 @@ class TurnRunner:
                 body = f"{source.id}\n{self.book.render(source.id)}"
         return (mark_as_data(body, label) if prepared.outside else body), hidden, size
 
+    def _as_outside(self, text: str, step: dict[str, Any], label: str) -> str:
+        """
+        Give the model words a program or a repository wrote, as data, and remember it has read them.
+
+        Args:
+            text: The words, already masked.
+            step: The step they came back in: it is kept as one that read from outside, so the next turn
+                of the conversation is marked too.
+            label: What they are, in a few words.
+
+        Returns:
+            The words between the markers of data, numbered so they can be quoted, and registered as where a
+            value of a later call may have come from.
+        """
+        self.tainted = True
+        step["outside"] = True
+        source = self.book.add("output", step["what"], text)
+        self.provenance.add_outside(source.id, sorted(source.lines.items()))
+        return mark_as_data(f"{source.id}\n{self.book.render(source.id)}", label)
+
     def _refusal_of(
         self, prepared: Prepared, step: dict[str, Any], status: int, decoded: Any
     ) -> _Result:
@@ -1140,13 +1161,18 @@ class TurnRunner:
         else:
             text = guardrails.refusal_text(status, decoded)
         masked = self.masker.mask(text, domain=prepared.domain)
+        told = (
+            self._as_outside(masked, step, f"what {prepared.name} answered")
+            if program_words(status, decoded)
+            else masked
+        )
         self._finish_step(step, "failed", error=masked[:600])
         self._audit(
             "assistant.tool",
             outcome="denied" if status in (401, 403, 404) else "failure",
             details={**_tool_details(prepared), "status": status},
         )
-        return _Result(masked, ok=False, outcome="failure")
+        return _Result(told, ok=False, outcome="failure")
 
     # -- a change ----------------------------------------------------------------------------------
 
@@ -1474,6 +1500,11 @@ class TurnRunner:
                 why={"code": WHY_CODES["policy_alone"], "params": {}},
                 **base,
             )
+            told = (
+                self._as_outside(output, step, f"what {prepared.name} answered")
+                if program_words(response.status, decoded)
+                else output
+            )
             self._finish_step(step, "failed", proposal=proposal.id, error=output[:600])
             self._emit("proposal", proposal=present_proposal(proposal))
             self._audit(
@@ -1481,9 +1512,13 @@ class TurnRunner:
                 outcome="denied" if response.status in (401, 403, 404) else "failure",
                 details={**_tool_details(prepared), "status": response.status},
             )
-            return _Result(f"It did not work. {output}", ok=False, outcome="failure")
+            return _Result(f"It did not work. {told}", ok=False, outcome="failure")
         safe = self.masker.mask_value(decoded, domain=prepared.domain)
         shown = json.dumps(safe, indent=1, ensure_ascii=False, default=str)
+        answered = guardrails.limit(shown, 4_000)
+        if program_words(response.status, decoded):
+            # What the change printed is somebody else's text: the next change is not made on its own.
+            answered = self._as_outside(answered, step, f"what {prepared.name} answered")
         self.meter.record_action(ctx.conversation_id, ctx.account.id, prepared.name)
         proposal = self.proposals.create(
             ctx.conversation_id,
@@ -1504,7 +1539,7 @@ class TurnRunner:
             "assistant.result", details={"tool": prepared.name, "ok": True, "size": len(shown)}
         )
         return _Result(
-            f"Done, as the person's policy lets you do. The server answered:\n{guardrails.limit(shown, 4_000)}"
+            f"Done, as the person's policy lets you do. The server answered:\n{answered}"
         )
 
     def _refused(self, prepared: Prepared, step: dict[str, Any], decision: Decision) -> _Result:

@@ -50,6 +50,9 @@ class Executor:
 
     restarts: list[str] | None = None
     receipts: list[Receipt] = field(default_factory=list)
+    #: Applications whose service actions fail, with the error the machine gives: nothing is done and no
+    #: receipt is written, since no order was carried out.
+    failures: dict[str, Exception] = field(default_factory=dict)
     phase: str = "turn"
     _runner: FakeRunner | None = None
     _seen_runner_calls: int = 0
@@ -66,6 +69,8 @@ class Executor:
         self._seen_runner_calls = 0 if runner is None else len(runner.calls)
 
         def service_action(domain: str, action: str, past_tense: str) -> AppActionResponse:
+            if domain in self.failures:
+                raise self.failures[domain]
             if self.restarts is not None:
                 self.restarts.append(f"{action} {domain}")
             self._note({"kind": "service", "verb": action, "domain": domain})

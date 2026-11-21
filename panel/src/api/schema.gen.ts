@@ -621,6 +621,11 @@ export interface paths {
          * Adopt App
          * @description Adopt a Docker Compose stack that already runs, or preview the adoption.
          *
+         *     A stack that runs with what gives this server to a container is refused with the lines and their digest
+         *     (``host_access``, ``host_access_digest``). Accepting them is accepting those lines: ``accept_host_access``
+         *     goes with ``host_access_digest``, and when it is missing or the lines are not those any more the answer
+         *     is a 409 with the lines as they are now and nothing is registered.
+         *
          *     Args:
          *         body: The stack.
          *         session: The authenticated, elevated session.
@@ -20587,10 +20592,15 @@ export interface paths {
          *     are refused first with the reason as a code (409 ``docker_blocked``). Needs the permission to change
          *     Docker, the one to manage applications, and sudo mode.
          *
+         *     What a stack that runs with what gives this server to a container is accepted with is what the person was
+         *     shown: ``accept_host_access`` goes with ``host_access_digest``, the digest the preview or the refusal that
+         *     listed the lines gave. Without it, or when the lines are not those any more, the answer is a 409 with the
+         *     lines as they are now and nothing is registered.
+         *
          *     Args:
          *         name: The Compose project's name.
-         *         body: The name the application will have, whether to only preview, and whether to accept a
-         *             rehearsal that changes something.
+         *         body: The name the application will have, whether to only preview, whether to accept a
+         *             rehearsal that changes something, and the digest of the lines that were accepted.
          *         session: The authenticated session, in sudo mode.
          *
          *     Returns:
@@ -20629,12 +20639,14 @@ export interface paths {
          *     words of Compose and the address the checkout fetches from are shown with the credentials masked. What
          *     is already Noust's, what is not on this server and a stack started from several files are refused first
          *     with the reason as a code (409 ``docker_blocked``), and Compose's own words, when starting it the way
-         *     Noust would changes something, are in ``output`` of a 409.
+         *     Noust would changes something, are in ``output`` of a 409. A stack that runs with what gives this server to a
+         *     container is refused with the lines and their digest (``host_access``, ``host_access_digest``); to show the
+         *     plan with them accepted, the request says that digest back.
          *
          *     Args:
          *         name: The Compose project's name.
-         *         body: The name the application would have, and whether to show the plan though the rehearsal changes
-         *             something.
+         *         body: The name the application would have, whether to show the plan though the rehearsal changes
+         *             something, and the digest of the lines that were listed.
          *         session: The authenticated session.
          *
          *     Returns:
@@ -46923,6 +46935,9 @@ export interface components {
          *         warnings_coded: ``warnings`` as sentences with a code, in the same order, for the console to say in
          *             its own language; null where a line has no sentence of its own.
          *         restart_loss: What a restart of the machine would not bring back.
+         *         host_access: The lines of the compose file that give this server to a container and that bringing it
+         *             accepts (empty when there are none).
+         *         host_access_digest: Their digest, which accepting them says (``host_access_digest`` of the request).
          *         adopted: It was registered; false for a preview.
          *         deployment_id: The adoption's history row.
          */
@@ -46951,6 +46966,13 @@ export interface components {
              * @default false
              */
             headless: boolean;
+            /** Host Access */
+            host_access?: string[];
+            /**
+             * Host Access Digest
+             * @default
+             */
+            host_access_digest: string;
             /**
              * Kept By
              * @default unit
@@ -47005,6 +47027,7 @@ export interface components {
          *             runs, instead of refusing it with Compose's own words.
          *         accept_host_access: Show the plan although the stack runs with what gives this server to a container,
          *             instead of refusing it with the lines.
+         *         host_access_digest: The digest of the lines that were listed (see :class:`DockerBringRequest`).
          */
         DockerBringPreviewRequest: {
             /**
@@ -47017,6 +47040,11 @@ export interface components {
              * @default false
              */
             accept_recreate: boolean;
+            /**
+             * Host Access Digest
+             * @default
+             */
+            host_access_digest: string;
             /** Name */
             name?: string | null;
         };
@@ -47033,6 +47061,9 @@ export interface components {
          *         accept_host_access: Go on although the stack runs with what gives this server to a container (a
          *             device, the Docker socket, a path of the server). It is recorded as the application's compose
          *             exception, with who accepted it, and needs the root-equivalent permission.
+         *         host_access_digest: The digest of the lines of the compose file that give this server to a container, as the
+         *             preview or the refusal that listed them said it (``host_access_digest``). Accepting is accepting those
+         *             lines: without it, or with another, the answer is a 409 with the lines as they are now.
          */
         DockerBringRequest: {
             /**
@@ -47045,6 +47076,11 @@ export interface components {
              * @default false
              */
             accept_recreate: boolean;
+            /**
+             * Host Access Digest
+             * @default
+             */
+            host_access_digest: string;
             /** Name */
             name?: string | null;
             /**
@@ -76841,6 +76877,12 @@ export interface components {
              */
             domain: string;
             /**
+             * Host Access Digest
+             * @description The digest of the lines that give this server to a container, as the refusal or the preview that listed them said it (`host_access_digest`). Accepting them is accepting those lines: without it, or with another, the answer is a 409 with the lines as they are now
+             * @default
+             */
+            host_access_digest: string;
+            /**
              * Path
              * @description The absolute directory the stack runs from
              */
@@ -76924,6 +76966,12 @@ export interface components {
              * @description The lines of the compose file that give this server to a container and that adopting recorded as accepted: the application's compose exception
              */
             host_access?: string[];
+            /**
+             * Host Access Digest
+             * @description Their digest: what accepting them says (`host_access_digest` of the request)
+             * @default
+             */
+            host_access_digest: string;
             /**
              * Kept By
              * @description unit: a unit of systemd is created; docker: the central deploys with the machine's Docker and the restart policy of the containers keeps the stack alive

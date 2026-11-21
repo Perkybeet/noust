@@ -74,3 +74,39 @@ describe("the block of the browser when domains are hidden", () => {
     expect(browserBlock(FACTS).text).toContain("/apps/shop.example.com/logs");
   });
 });
+
+describe("a very long text with nothing to split it", () => {
+  // What the browser attaches to a report is whatever a page printed: a hundred thousand characters in one run must
+  // cost one pass, not one pass for each character. The limit is far above what a pass takes and far below what the
+  // pattern that read host names with a restart at every label took, which did not end.
+  const ONE_PASS_MS = 1000;
+  const SHAPES: [string, string][] = [
+    ["letters", "a".repeat(100_000)],
+    ["labels joined by dashes", "a-".repeat(50_000)],
+    ["labels joined by dots", "a.".repeat(50_000)],
+    ["labels that never end in a name", `${"a.".repeat(50_000)}a`],
+    ["dots only", ".".repeat(100_000)],
+    ["a name after a long run", `${"a-".repeat(49_000)}a.example.com`],
+  ];
+
+  it.each(SHAPES)("takes one pass over %s", (_name, text) => {
+    const began = performance.now();
+    const hidden = hideDomains(text, { kind: "shape" });
+
+    expect(performance.now() - began).toBeLessThan(ONE_PASS_MS);
+    expect(hidden.length).toBeGreaterThan(0);
+  });
+
+  it("still takes the name that ends the run out", () => {
+    const hidden = hideDomains(`${"a-".repeat(1_000)}a.example.com`, { kind: "shape" });
+
+    expect(hidden).not.toContain("example.com");
+  });
+
+  it("finds the names a sentence has, as before", () => {
+    const hidden = hideDomains("GET https://shop.example.com/a failed (see api.example.net, and shop.example.com again).", { kind: "shape" });
+
+    expect(hidden).toMatch(/^GET https:\/\/(domain-\d+)\/a failed \(see (domain-\d+), and \1 again\)\.$/);
+    expect(hidden).not.toMatch(/example/);
+  });
+});

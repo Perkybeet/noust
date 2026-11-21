@@ -23,9 +23,23 @@ export type ReplyBlock = { k: "p"; inline: Inline[] } | { k: "list"; ordered: bo
 /** How much of a reply is drawn: the server bounds it already, and a page of ten thousand paragraphs is not a conversation. */
 export const MAX_BLOCKS = 200;
 
+// What a mark may hold, at most. The words of the model come from outside, and a pattern that looks for the end of a mark from every
+// opener reads to the end of the answer from each of them: a hundred thousand characters of openers that never close would cost the
+// square of that. With a bound each opener costs a few hundred characters and the whole answer one pass. A label, a stretch of code
+// or of bold longer than this is text, and a destination this long is no address anybody opens.
+const LABEL_MAX = String(500);
+const SPAN_MAX = String(1000);
+const DESTINATION_MAX = String(2000);
 // A destination may hold one level of parentheses (`javascript:alert(1)`, a page whose name has them): the pair is part of it.
-const DESTINATION = String.raw`((?:[^()\s]|\([^()\s]*\))*)`;
-const MARK = new RegExp(String.raw`!\[([^\]]*)\]\(${DESTINATION}\)|\[([^\]]+)\]\(${DESTINATION}\)|`+"`([^`]+)`"+String.raw`|\*\*([^*]+)\*\*|__([^_]+)__`, "g");
+const DESTINATION = String.raw`((?:[^()\s]|\([^()\s]{0,${DESTINATION_MAX}}\)){0,${DESTINATION_MAX}})`;
+const MARK = new RegExp(
+  String.raw`!\[([^\]]{0,${LABEL_MAX}})\]\(${DESTINATION}\)|\[([^\]]{1,${LABEL_MAX}})\]\(${DESTINATION}\)|` +
+    "`([^`]{1," +
+    SPAN_MAX +
+    "})`" +
+    String.raw`|\*\*([^*]{1,${SPAN_MAX}})\*\*|__([^_]{1,${SPAN_MAX}})__`,
+  "g",
+);
 
 /**
  * Judges a destination. Only `http:` and `https:` are ever links; one with credentials in it is the classic way to make an

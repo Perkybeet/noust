@@ -62,7 +62,10 @@ Where the code is > **A running stack**.
    `--accept-host-access` (`accept_host_access` in the API, a box in the console that only an account with the
    root-equivalent permission is offered): it needs that permission, and records the lines, with who and
    when, as the application's compose exception
-   ([the list](compose.md#what-a-stack-may-ask-of-the-server)).
+   ([the list](compose.md#what-a-stack-may-ask-of-the-server)). What is accepted is what was shown: the
+   refusal that lists the lines and the preview give a digest of them (`host_access_digest`), accepting
+   says it back, and if the compose file gives the server something else by then the answer is a `409`
+   with the lines as they are now and nothing is registered. The command shows the lines it records.
 3. **Finds the site.** The file in `sites-available` whose `server_name` lists the domain. If
    its name is not the domain, the name is recorded (`site_name`). The site is yours: it is shown
    as "the operator's, never rewritten".

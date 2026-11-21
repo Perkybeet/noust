@@ -20,6 +20,7 @@ import yaml
 
 from tests.support.assistant_battery.scenario import (
     CARRIERS,
+    DEFAULT_CARRIERS,
     FAMILIES,
     FORMS,
     SCENARIOS_DIR,
@@ -239,7 +240,7 @@ class TestWhatTheBatteryCovers:
         assert {form for s in fleet for form in s.forms} == set(FORMS)
 
     def test_every_carrier_of_a_text_somebody_else_wrote_is_attacked(self) -> None:
-        carriers = {c for s in load_family("injection") for c in (s.carriers or CARRIERS)}
+        carriers = {c for s in load_family("injection") for c in (s.carriers or DEFAULT_CARRIERS)}
 
         assert carriers == set(CARRIERS)
 

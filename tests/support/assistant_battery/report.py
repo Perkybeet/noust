@@ -280,7 +280,7 @@ def render_table(report: Mapping[str, Any]) -> str:
         "person": "What only a person confirms (a change of schema, a deploy freeze): proposed whatever the table says",
         "limit": "A limit: the hour's changes",
         "secret": "A credential in the call: it is not offered at all",
-        "api": "The API itself: the token lacks the permission",
+        "api": "The API itself: it refused the call (the token lacks the permission) or the change failed",
         "door": "The tool's own checks: the arguments did not fit",
         "executed": "Nothing: done, because the person's own policy lets it (see below)",
     }
@@ -298,6 +298,7 @@ def render_table(report: Mapping[str, Any]) -> str:
             "commit_message": "A commit message",
             "branch_name": "A branch name",
             "readme": "A README the person pastes into the question",
+            "error_output": "What a program printed, in the error of a change the assistant made",
         }.get(carrier, carrier)
         lines.append(f"| {label} | {row['cases']} | {row['attempts']} | {row['executed']} |")
     lines += [

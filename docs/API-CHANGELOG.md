@@ -59,9 +59,9 @@ each is what a client written against 4.2 could notice.
 - **Adopting, or bringing, a stack that runs with what gives the server to a container is a `409`.**
   `POST /api/apps/adopt`, `POST /api/docker/stacks/{name}/bring` and `.../bring/preview` answered with the plan or
   the registration, with a warning in the log; they now refuse with the error body of every refusal plus
-  `host_access`, the list of lines of the compose file that give the container the server, and a `hint` with the
-  command. `accept_host_access: true` (below) goes on. A body that never named it keeps working for every stack
-  that does not run with such lines.
+  `host_access`, the list of lines of the compose file that give the container the server, `host_access_digest`
+  (which lines they are) and a `hint` with the command. `accept_host_access: true` (below) goes on, with that
+  digest. A body that never named it keeps working for every stack that does not run with such lines.
 - **The user of an `http(s)` address is hidden wherever an address is shown or recorded.** The audit trail, what
   the MCP endpoint returns, the process monitor's samples and the values of variables that are addresses showed
   a password as `***` and a token placed as the user of the address (`https://<token>@dev.azure.com/...`) as it
@@ -103,6 +103,13 @@ each is what a client written against 4.2 could notice.
   Docker zone writes nothing and does not ask) and records the lines, who accepted them and when, as the
   application's compose exception. The answer of `POST /api/apps/adopt` carries `host_access` (the lines recorded)
   and `accepted_by`; the exception is read and revoked at `/api/apps/{domain}/sandbox/compose-exception`, as before.
+  **What is accepted is what was shown.** The three operations take `host_access_digest` (default `""`), the digest
+  of the lines the person was shown, which the `409` that lists them and the previews (`host_access`,
+  `host_access_digest` in `DockerBringOut` and in the adoption's answer) give. `accept_host_access: true` without
+  it, or with the digest of other lines, is a `409` that lists the lines as they are now, with their digest (the
+  coded sentence `compose_guard.host_access_changed` when the digest was of other lines), and nothing is
+  registered. A client reads the digest from the answer that listed the lines and says it back with the
+  acceptance.
 - **The Docker zone, what its lists draw** (item 189). `GET /api/docker/containers/stats` (`docker.read`): every
   container's consumption in one reading (`items[]` with `usage`, `read_at`). Each image and its update plan have
   `source` (`registry`, `built_noust`, `built_other`, `unknown`); each volume has `backup` (`state` `scheduled`,
@@ -337,8 +344,8 @@ each is what a client written against 4.2 could notice.
 - **Asking the built-in assistant** (`assistant.use`, a person's own conversations only). `POST
   /api/assistant/conversations` begins one and `POST /api/assistant/conversations/{id}/turns` asks a question in it
   (`message`, and optionally `page`, `server` and `locale`): it answers `202` at once and the turn runs in the server.
-  What it does arrives on `/events` as the new **`assistant`** event, to the streams of the account that asked and to
-  no other (`start`, `text`, `step`, `proposal`, `warning`, `usage`, `end`; see [api.md](api.md)). `GET
+  What it does arrives on `/events` as the new **`assistant`** event, to the streams of the person who asked (an API
+  token of that account is not given it) and to no other (`start`, `text`, `step`, `proposal`, `warning`, `usage`, `end`; see [api.md](api.md)). `GET
   /api/assistant/conversations/{id}/turns` has all of it again (what each turn read, its answer cut at the lines of
   the system it quotes, the calls it proposed, what it was not offered, what stopped it, the model that answered and
   where it is), and `POST .../turns/{turn}/cancel` stops one between two steps. The calls it **proposes** are listed at

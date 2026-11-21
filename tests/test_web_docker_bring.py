@@ -493,6 +493,43 @@ class TestWhatTheStackRunsWith:
         assert adoption.planned[0]["accept_host_access"] is True
         assert adoption.planned[0]["accepted_by"]
 
+    def test_what_was_shown_is_what_the_adoption_is_told_to_accept(
+        self, docker: DockerWorld, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        adoption = Adoption(monkeypatch)
+        lines = ("service app mounts the Docker socket",)
+        digest = compose_adopt.host_access_digest_of(lines)
+
+        for route, body in (
+            ("bring/preview", {"accept_host_access": True, "host_access_digest": digest}),
+            ("bring", {"accept_host_access": True, "host_access_digest": digest}),
+        ):
+            docker.send("admin", "POST", f"/stacks/nextcloud/{route}", json=body)
+
+        assert [asked["host_access_digest"] for asked in adoption.planned] == [digest, digest]
+
+    def test_a_request_that_gives_no_digest_asks_for_no_lines_to_be_accepted(
+        self, docker: DockerWorld, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        adoption = Adoption(monkeypatch)
+
+        docker.send("admin", "POST", "/stacks/nextcloud/bring", json={"accept_host_access": True})
+        docker.send("admin", "POST", "/stacks/nextcloud/bring/preview", json={})
+
+        assert [asked["host_access_digest"] for asked in adoption.planned] == ["", ""]
+
+    def test_the_plan_says_the_lines_it_accepts_and_their_digest(
+        self, docker: DockerWorld, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        lines = ("service app mounts the Docker socket",)
+        Adoption(monkeypatch, host_access=lines)
+
+        response = docker.send("admin", "POST", "/stacks/nextcloud/bring/preview", json={})
+
+        assert response.status_code == 200, response.text
+        assert response.json()["host_access"] == list(lines)
+        assert response.json()["host_access_digest"] == compose_adopt.host_access_digest_of(lines)
+
     def test_without_saying_so_nothing_is_accepted(
         self, docker: DockerWorld, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -521,6 +558,9 @@ class TestWhatTheStackRunsWith:
         assert response.status_code == 409
         assert "mounts the Docker socket" in response.json()["hint"]
         assert response.json()["host_access"] == ["service app mounts the Docker socket"]
+        assert response.json()["host_access_digest"] == compose_adopt.host_access_digest_of(
+            ["service app mounts the Docker socket"]
+        )
 
     def test_whoever_changes_docker_without_being_root_equivalent_cannot_accept_it(
         self, docker: DockerWorld, monkeypatch: pytest.MonkeyPatch

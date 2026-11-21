@@ -3590,6 +3590,8 @@ DockerBringOut = TypedDict("DockerBringOut", {
     "deployment_id": NotRequired[Union[int, None]],
     "folder": Required[str],
     "headless": NotRequired[bool],
+    "host_access": NotRequired[list[str]],
+    "host_access_digest": NotRequired[str],
     "kept_by": NotRequired[str],
     "name": Required[str],
     "port": NotRequired[Union[int, None]],
@@ -3609,12 +3611,14 @@ DockerBringOut = TypedDict("DockerBringOut", {
 DockerBringPreviewRequest = TypedDict("DockerBringPreviewRequest", {
     "accept_host_access": NotRequired[bool],
     "accept_recreate": NotRequired[bool],
+    "host_access_digest": NotRequired[str],
     "name": NotRequired[Union[str, None]],
 })
 
 DockerBringRequest = TypedDict("DockerBringRequest", {
     "accept_host_access": NotRequired[bool],
     "accept_recreate": NotRequired[bool],
+    "host_access_digest": NotRequired[str],
     "name": NotRequired[Union[str, None]],
     "preview": NotRequired[bool],
 })
@@ -13152,6 +13156,7 @@ NoustWebApiAppAdoptAdoptRequest = TypedDict("NoustWebApiAppAdoptAdoptRequest", {
     "branch": NotRequired[Union[str, None]],
     "compose_file": NotRequired[Union[str, None]],
     "domain": Required[str],
+    "host_access_digest": NotRequired[str],
     "path": Required[str],
     "port": NotRequired[Union[int, None]],
     "preview": NotRequired[bool],
@@ -13175,6 +13180,7 @@ NoustWebApiAppAdoptAdoptResponse = TypedDict("NoustWebApiAppAdoptAdoptResponse",
     "dry_run": Required[str],
     "headless": Required[bool],
     "host_access": NotRequired[list[str]],
+    "host_access_digest": NotRequired[str],
     "kept_by": NotRequired[str],
     "port": Required[Union[int, None]],
     "project": Required[Union[str, None]],

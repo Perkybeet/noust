@@ -2108,6 +2108,20 @@ CATALOG: dict[str, str] = {
         "If the model really runs there, list the host in security.allow_private_hosts: that says "
         "this server may call it."
     ),
+    "assistant.provider.never_a_provider": (
+        "The assistant may not call {host}: it resolves to {address}, an address that is never a provider"
+    ),
+    "assistant.provider.never_a_provider.hint": (
+        "Your consent does not reach link-local addresses, where a cloud's metadata service answers, nor the "
+        "aliases of this machine. Use the address of the model's server on this machine or on your network."
+    ),
+    "assistant.provider.not_a_model": (
+        "The assistant may not call {host}:{port}: that is a port of a service of this machine, not of a model"
+    ),
+    "assistant.provider.not_a_model.hint": (
+        "Your consent is for a model's server. Start the model on another port of this machine, or on another "
+        "machine of your network, and use that address."
+    ),
     "assistant.provider.unresolved": "The name {host} did not resolve to any address",
     "assistant.provider.unresolved.hint": (
         "Check the spelling of the address and that this server's DNS can look it up."

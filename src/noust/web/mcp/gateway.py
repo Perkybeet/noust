@@ -141,7 +141,11 @@ async def call_api(
         "http_version": "1.1",
         "method": method.upper(),
         "scheme": scheme,
-        "path": path,
+        # What a server hands its router: the path decoded, and the one that arrived as it was. The loop
+        # percent-encodes each value it puts in a path (``postgresql@pg16`` is ``postgresql%40pg16``) and the
+        # router matches the decoded one, so a name with a character that is encoded would otherwise be looked
+        # for as it was written.
+        "path": urllib.parse.unquote(path),
         "raw_path": path.encode(),
         "root_path": "",
         "query_string": urllib.parse.urlencode(pairs).encode(),

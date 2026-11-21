@@ -89,11 +89,24 @@ def policy(store: NoustStore) -> CallerPolicy:
 
 class TestWhatAPersonConfirms:
     @pytest.mark.parametrize("flag", sorted(PERSON_CONFIRMATIONS))
-    @pytest.mark.parametrize("value", [True, "true", "1", "yes", "on"])
+    @pytest.mark.parametrize("value", [True, "true", "TRUE", "1", "yes", "on", "t", "y", 1, 1.0])
     def test_a_flag_that_is_on_is_found(self, flag: str, value: object) -> None:
         assert confirmation_in({"domain": "shop.example.com", flag: value}) == flag
 
-    @pytest.mark.parametrize("value", [False, "false", "0", "", None, "no", 0])
+    @pytest.mark.parametrize("flag", sorted(PERSON_CONFIRMATIONS))
+    @pytest.mark.parametrize("value", [True, "true", "1", "yes", "on", 1, 1.0])
+    def test_what_the_route_takes_for_true_is_found(self, flag: str, value: object) -> None:
+        # The route's own reading of a boolean is the reference: what it takes for yes is a confirmation,
+        # and a form of it that this does not see is a way to confirm without being seen.
+        from pydantic import BaseModel
+
+        class Body(BaseModel):
+            confirmed: bool = False
+
+        assert Body(confirmed=value).confirmed is True  # type: ignore[arg-type]
+        assert confirmation_in({flag: value}) == flag
+
+    @pytest.mark.parametrize("value", [False, "false", "0", "", None, "no", 0, 0.0, 2, -1, "2", []])
     def test_a_flag_that_is_off_is_not(self, value: object) -> None:
         assert confirmation_in({"frozen_ok": value, "schema_changed_ok": value}) is None
 
