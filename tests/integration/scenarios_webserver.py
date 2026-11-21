@@ -30,6 +30,7 @@ with the reason.
 from __future__ import annotations
 
 import json
+import time
 from typing import Any
 
 import run
@@ -390,7 +391,14 @@ def _fails_on_purpose(sc: Scenario) -> None:
         timeout=60,
         label=f"(hand edit) {NODE}: a route only nginx answers",
     )
-    status_code, body, _ = answer(sc, NODE, NGINX_ONLY)
+    # A reload is asked of nginx, not waited for: the workers that hold the old site go on answering
+    # until the new ones take over, so the route is asked until the new site is the one that answers.
+    status_code, body = "", ""
+    for _ in range(40):
+        status_code, body, _ = answer(sc, NODE, NGINX_ONLY)
+        if status_code == "200":
+            break
+        time.sleep(0.25)
     sc.check(status_code == "200", f"nginx answers its own route: {status_code} {body!r}")
     sc.run(
         f"noust app health {NODE} --path {NGINX_ONLY} --expect 200 --timeout 10",
