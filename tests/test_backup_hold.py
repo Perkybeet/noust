@@ -100,12 +100,13 @@ class TestForHowLong:
         assert spared == {"young"}
 
     def test_a_time_with_no_zone_is_this_servers_and_a_bad_one_is_not_old(self) -> None:
-        speak("nas")
+        # This one reads the machine's clock (a time with no zone is the server's own), so what the
+        # central said is dated by the same clock: dated by NOW it stops counting days later.
+        now = datetime.now(timezone.utc)
+        speak("nas", at=now)
         recent = (datetime.now() - timedelta(hours=2)).isoformat()
 
-        spared = backup_hold.spared(
-            "app", [("naive", recent), ("garbled", "not a date")], now=datetime.now(timezone.utc)
-        )
+        spared = backup_hold.spared("app", [("naive", recent), ("garbled", "not a date")], now=now)
 
         assert spared == {"naive", "garbled"}
 

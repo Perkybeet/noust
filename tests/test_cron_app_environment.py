@@ -125,7 +125,9 @@ class TestTheTaskLoadsWhatTheApplicationLoads:
     def test_an_application_in_place_has_its_env_beside_its_code(
         self, runner: FakeRunner, systemd_dir: Path, store: NoustStore, unit: None, tmp_path: Path
     ) -> None:
-        CronManager().create_job(job(app_domain="old.example.com"))
+        # This application has no virtual environment, so its program is looked for on the PATH of
+        # the machine the test runs on: one every machine has, not `python`.
+        CronManager().create_job(job(app_domain="old.example.com", command="sh task.sh"))
 
         text = service_text(systemd_dir)
 

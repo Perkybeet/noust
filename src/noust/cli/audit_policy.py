@@ -173,6 +173,9 @@ SYSTEM_ENTRY_POINTS: frozenset[str] = DAEMON_COMMANDS | frozenset(
         "config upgrade",
         "monitor autoenable",
         "monitor install",
+        # The package brings the Compose stacks of before 4.3 under the check of their start, and
+        # takes the check out of their units when it is removed.
+        "setup compose-gate",
         "setup retire-links",
         "web refresh-unit",
         "web stop",
