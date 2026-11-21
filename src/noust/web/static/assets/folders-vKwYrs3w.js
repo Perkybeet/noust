@@ -1,1 +1,0 @@
-import{t as e}from"./GeneralSettings-CY8IoBpf.js";import{Ir as t}from"./routes-work-Dkdau9I_.js";var n=t();function r(){return(0,n.jsx)(e,{part:`folders`})}export{r as component};

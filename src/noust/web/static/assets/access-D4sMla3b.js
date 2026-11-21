@@ -1,1 +1,0 @@
-import{t as e}from"./ConfigPage-CwLG-4Sm.js";import{Ir as t,xt as n}from"./routes-work-Dkdau9I_.js";var r=t();function i(){let{domain:t}=n.useParams();return(0,r.jsx)(e,{page:`access`,domain:t})}export{i as component};

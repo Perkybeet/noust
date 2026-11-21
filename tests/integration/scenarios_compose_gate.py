@@ -23,6 +23,11 @@ installs this tree's wheel over it, as the packages do, and checks the promise t
 - a stack whose exception was taken back still starts, because it was accepted;
 - a stack deployed by this tree is recorded, runs under its own project, starts through the gate, and
   updates;
+- a stack whose unit has an addition that empties ``ExecStartPre=`` (what an operator wrote before 3.2.1 so
+  that starting it did not pull images) is brought under the gate in the unit's file, and Noust does not say
+  it is done: what systemd runs has no check, ``noust health`` names the addition by its path, and the
+  addition is not touched. When the operator takes the empty line out and reloads, the next pass finds the
+  check in place and a start that would be refused is refused;
 - Noust removed (its command gone from the path every unit names) leaves every stack starting through its
   unit, a command that is there and fails still holds the start, the package's removal step
   (``noust setup compose-gate --remove``) takes the line out of every unit without restarting anything, and
@@ -63,8 +68,12 @@ OUTSIDE = "outside.test"
 PRIVILEGED = "priv.test"
 STOPPED = "stopped.test"
 FRESH = "fresh.test"
+ADDITION = "addition.test"
 
-PORTS = {OUTSIDE: 18611, PRIVILEGED: 18612, STOPPED: 18613, FRESH: 18614}
+PORTS = {OUTSIDE: 18611, PRIVILEGED: 18612, STOPPED: 18613, FRESH: 18614, ADDITION: 18615}
+
+#: What an operator put in ``<unit>.service.d/`` before 3.2.1, so that starting the unit did not pull images.
+ADDITION_FILE = "10-no-pull.conf"
 
 #: A directory of the server outside every application's tree, which a variable points a mount at.
 SHARED = "/srv/gate-shared"
@@ -187,6 +196,21 @@ def seed(sc: Scenario) -> dict[str, str]:
         label=f"{old} systemctl stop {app_name(STOPPED)} (a stack with no containers)",
     )
     sc.check(not containers(sc, STOPPED), f"{STOPPED} still has containers after its unit stopped")
+    # A stack whose unit has an addition that empties ExecStartPre=, as production units of 4.2.1 do.
+    url = make_stack_repo(sc, ADDITION, privileged=False)
+    sc.run(
+        f"noust create -d {ADDITION} -s {url} -t docker-compose --port {PORTS[ADDITION]} --no-ssl",
+        timeout=DEPLOY_TIMEOUT,
+        label=f"{old} noust create -d {ADDITION}",
+    )
+    run.wait_served(sc, ADDITION, "web v1")
+    folder = f"/etc/systemd/system/{app_name(ADDITION)}.service.d"
+    sc.run(
+        f"mkdir -p {folder} && printf '[Service]\\nExecStartPre=\\n' > {folder}/{ADDITION_FILE} "
+        "&& systemctl daemon-reload",
+        timeout=60,
+        label=f"(an addition of the unit of {ADDITION} that empties ExecStartPre=)",
+    )
     # What an operator who wants their stacks back after a reboot has done: Noust leaves a unit
     # disabled (noust health says "application services do not start with the server").
     units = " ".join(f"{app_name(domain)}.service" for domain in (OUTSIDE, PRIVILEGED, STOPPED))
@@ -234,6 +258,116 @@ def rebooted(sc: Scenario) -> None:
             return
         time.sleep(2)
     raise HarnessError("the Docker inside the container did not come back after the reboot")
+
+
+def run_addition(sc: Scenario) -> None:
+    """
+    A stack whose unit has an addition that empties ``ExecStartPre=``: what Noust says is what systemd does.
+
+    Args:
+        sc: The scenario, after the console took the stacks over; the unit of ``ADDITION`` has the check in
+            its file and the addition beside it.
+    """
+    new = "[this tree]"
+    unit = f"{app_name(ADDITION)}.service"
+    path = f"/etc/systemd/system/{unit}.d/{ADDITION_FILE}"
+    tree = f"/var/www/apps/{app_name(ADDITION)}"
+    sc.check(gate_lines(sc, ADDITION) == 2, f"the unit of {ADDITION} has no check in its file")
+
+    # -- the file says the check runs; systemd does not run it, and Noust says so ---------------------------
+    before_start = sc.run(
+        f"systemctl show -p ExecStartPre {unit}",
+        timeout=60,
+        label=f"what systemd runs before the start of {unit} (the addition empties ExecStartPre=)",
+    ).stdout
+    sc.check(
+        "app compose gate" not in before_start,
+        f"systemd runs the check although an addition empties it:\n{before_start}",
+    )
+    read = sc.run(
+        f"systemctl show -p DropInPaths {unit}",
+        timeout=60,
+        label=f"the additions systemd read for {unit}",
+    ).stdout
+    sc.check(path in read, f"systemd does not read the addition at {path}:\n{read}")
+    health = sc.run(
+        "noust health", timeout=120, check=False, label=f"{new} noust health (an addition)"
+    )
+    sc.check(
+        f"{ADDITION}: this stack starts without the check of its start: an addition to its unit ({path})"
+        in health.stdout,
+        f"noust health does not name the addition:\n{health.stdout}",
+    )
+    sc.check(
+        sc.run(f"cat {path}", timeout=30, label="the addition, untouched").stdout
+        == "[Service]\nExecStartPre=\n",
+        "Noust changed the addition",
+    )
+    refused = sc.run(
+        f"noust env set {ADDITION} EXTRA=/",
+        timeout=120,
+        check=False,
+        label=f"{new} noust env set {ADDITION} EXTRA=/ (what Noust starts itself is still judged)",
+    )
+    sc.check(
+        refused.returncode != 0 and "was not changed" in (refused.stdout + refused.stderr),
+        "the writer of the .env accepted a mount of / for a stack whose unit has an addition",
+    )
+
+    # -- the operator takes the empty line out and reloads: the next pass finds the check in place ---------
+    sc.run(
+        f"printf '[Service]\\n' > {path}",
+        timeout=30,
+        label="(the operator takes the empty line out)",
+    )
+    sc.run("systemctl daemon-reload", timeout=60, label="systemctl daemon-reload")
+    mended = sc.run(
+        f"noust setup compose-gate --app {ADDITION}",
+        timeout=120,
+        label=f"{new} noust setup compose-gate --app {ADDITION}  (the next pass)",
+    )
+    sc.check(
+        "an addition of the unit" not in mended.stdout
+        and "already under the check" in mended.stdout,
+        f"the next pass does not find the check in place:\n{mended.stdout}",
+    )
+    shown = sc.run(
+        f"systemctl show -p ExecStartPre -p ExecReload {unit}",
+        timeout=60,
+        label=f"what systemd runs for {unit} (mended)",
+    ).stdout
+    sc.check(
+        shown.count("app compose gate") == 2,
+        f"systemd does not run the check before the start and before the rebuild:\n{shown}",
+    )
+    health = sc.run("noust health", timeout=120, check=False, label=f"{new} noust health (mended)")
+    sc.check(
+        f"{ADDITION}: this stack starts without" not in health.stdout,
+        "noust health still names the stack after the addition was mended",
+    )
+
+    # -- and a start that would be refused is refused ---------------------------------------------------------
+    sc.run(
+        f"printf 'EXTRA=/\\n' > {tree}/.env",
+        timeout=30,
+        label="write EXTRA=/ into the .env directly",
+    )
+    sc.run(
+        f"systemctl restart {app_name(ADDITION)}",
+        timeout=200,
+        check=False,
+        label=f"systemctl restart {app_name(ADDITION)} (the unit's own check holds it back)",
+    )
+    journal = sc.run(
+        f"journalctl -u {unit} --no-pager -n 40", timeout=30, label="the journal of the unit"
+    ).stdout
+    sc.check(
+        "was not started" in journal and "service web mounts /" in journal,
+        f"the check did not hold back a start after the addition was mended:\n{journal[-600:]}",
+    )
+    sc.run(f": > {tree}/.env", timeout=30, label="put the .env back")
+    sc.run(f"systemctl start {app_name(ADDITION)}", timeout=200, label="systemctl start again")
+    run.wait_served(sc, ADDITION, "web v1")
 
 
 def run_removal(sc: Scenario) -> None:
@@ -410,7 +544,7 @@ def run_rehearsal(sc: Scenario, wheel: Path) -> None:
     new = "[this tree]"
     seed(sc)
     stacks = [OUTSIDE, PRIVILEGED, STOPPED]
-    live = [OUTSIDE, PRIVILEGED]
+    live = [OUTSIDE, PRIVILEGED, ADDITION]
     before = {domain: containers(sc, domain) for domain in live}
     sc.check(all(before.values()), f"a stack that should run has no container: {before}")
 
@@ -435,8 +569,13 @@ def run_rehearsal(sc: Scenario, wheel: Path) -> None:
     sc.check(
         f"{STOPPED}: left as it was" in step.stdout, f"the step does not name it:\n{step.stdout}"
     )
-    for domain in (OUTSIDE, PRIVILEGED):
+    for domain in (OUTSIDE, PRIVILEGED, ADDITION):
         sc.check(gate_lines(sc, domain) == 2, f"the step did not bring {domain} under the gate")
+    sc.check(
+        f"{ADDITION}: unit written with the check, but an addition of the unit "
+        f"(/etc/systemd/system/{app_name(ADDITION)}.service.d/{ADDITION_FILE})" in step.stdout,
+        f"the step does not say that the addition takes the check away:\n{step.stdout}",
+    )
     sc.check(
         unit_text(sc, STOPPED, f"{new} the unit of {STOPPED}, after") == stopped_unit,
         "a stack that could not be resolved had its unit written",
@@ -460,7 +599,7 @@ def run_rehearsal(sc: Scenario, wheel: Path) -> None:
         label="(the file is back)",
     )
     sc.run("systemctl restart noust-web", timeout=120, label="systemctl restart noust-web")
-    wait_under_the_gate(sc, stacks)
+    wait_under_the_gate(sc, [*stacks, ADDITION])
 
     # -- nothing was started, stopped or recreated by it ---------------------------------------------
     after = {domain: containers(sc, domain) for domain in live}
@@ -481,8 +620,8 @@ def run_rehearsal(sc: Scenario, wheel: Path) -> None:
         label="the records the update wrote",
     ).stdout.split()
     sc.check(
-        sorted(rows) == sorted(f"{d}|upgrade|1" for d in (OUTSIDE, PRIVILEGED, STOPPED)),
-        f"the records are not the three taken over: {rows}",
+        sorted(rows) == sorted(f"{d}|upgrade|1" for d in (OUTSIDE, PRIVILEGED, STOPPED, ADDITION)),
+        f"the records are not the four taken over: {rows}",
     )
     health = sc.run("noust health", timeout=120, check=False, label=f"{new} noust health")
     sc.check(
@@ -491,6 +630,8 @@ def run_rehearsal(sc: Scenario, wheel: Path) -> None:
     )
     again = sc.run("noust setup compose-gate", timeout=120, label=f"{new} noust setup compose-gate")
     sc.check("already under the check" in again.stdout, "a second pass found something to do")
+
+    run_addition(sc)
 
     # -- the reboot: all three start through their unit and the gate -----------------------------------
     rebooted(sc)
@@ -648,7 +789,7 @@ def run_rehearsal(sc: Scenario, wheel: Path) -> None:
 
     run_removal(sc)
 
-    for domain in [*stacks, FRESH]:
+    for domain in [*stacks, ADDITION, FRESH]:
         sc.run(
             f"noust delete {domain} -f",
             timeout=300,

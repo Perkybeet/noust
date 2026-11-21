@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -48,6 +49,56 @@ WantedBy=multi-user.target
 """
 
 
+EXEC_KEYS = ("ExecStartPre", "ExecStart", "ExecStop", "ExecReload")
+
+
+def what_systemd_runs(directory: Path, unit: str, *, loaded: str | None = None) -> dict[str, Any]:
+    """
+    What systemd resolves for a unit: its file, then each addition of its ``.d`` directory by name.
+
+    An empty assignment in an addition forgets every command the file and the additions before it gave
+    for that directive, which is the rule this models.
+
+    Args:
+        directory: Where the units are.
+        unit: The unit's file name (``shop-example-com.service``).
+        loaded: The text systemd has loaded, when it is not the file's (it was not reloaded).
+
+    Returns:
+        The commands of each ``Exec*`` directive, and the paths of the additions.
+    """
+    drop_in_dir = directory / f"{unit}.d"
+    additions = sorted(drop_in_dir.glob("*.conf")) if drop_in_dir.is_dir() else []
+    texts = [loaded if loaded is not None else (directory / unit).read_text()]
+    texts += [path.read_text() for path in additions]
+    commands: dict[str, list[str]] = {key: [] for key in EXEC_KEYS}
+    for text in texts:
+        for line in text.splitlines():
+            key, separator, value = line.partition("=")
+            if separator and key in commands:
+                if value.strip() == "":
+                    commands[key] = []
+                else:
+                    commands[key].append(value.strip().lstrip("-@:+!"))
+    return {"commands": commands, "drop_ins": [str(path) for path in additions]}
+
+
+def render_show(view: dict[str, Any], properties: list[str]) -> str:
+    """Write what ``systemctl show -p ...`` prints for those properties, as systemd prints them."""
+    out: list[str] = []
+    for name in properties:
+        if name == "DropInPaths":
+            out.append("DropInPaths=" + " ".join(view["drop_ins"]))
+        elif name in view["commands"]:
+            for command in view["commands"][name]:
+                argv = shlex.split(command)
+                out.append(
+                    f"{name}={{ path={argv[0]} ; argv[]={' '.join(argv)} ; ignore_errors=no ; "
+                    "start_time=[n/a] ; stop_time=[n/a] ; pid=0 ; code=(null) ; status=0/0 }"
+                )
+    return "\n".join(out) + "\n"
+
+
 class Machine(FakeRunner):
     """Docker's Compose and ``ps`` over a few stacks: each resolves its file with its ``.env``."""
 
@@ -57,6 +108,14 @@ class Machine(FakeRunner):
         self.fail_config: set[str] = set()
         self.docker_down = False
         self.containers: list[dict[str, Any]] = []
+        #: systemd cannot be asked (no bus, or it does not answer).
+        self.systemd_fails = False
+        #: systemd answers with nothing, as for a unit it has not loaded.
+        self.systemd_silent = False
+        #: The text systemd has loaded for a unit, when it is not what the file says now.
+        self.loaded: dict[str, str] = {}
+        #: The keyword arguments of each ``systemctl show`` that asked what a unit runs.
+        self.show_calls: list[dict[str, Any]] = []
 
     def model_of(self, path: str) -> dict[str, Any] | None:
         for tree, stack in self.stacks.items():
@@ -93,6 +152,19 @@ class Machine(FakeRunner):
                     if line.startswith("DATA="):
                         model["services"]["web"]["volumes"][0]["source"] = line.partition("=")[2]
             return CommandResult(tuple(words), 0, json.dumps(model), "")
+        if words[:2] == ["systemctl", "show"] and "ExecStartPre" in words:
+            self.calls.append(tuple(words))
+            self.show_calls.append(dict(kwargs))
+            if self.systemd_fails:
+                return CommandResult(
+                    tuple(words), 1, "", "Failed to connect to bus: No such file or directory"
+                )
+            if self.systemd_silent:
+                return CommandResult(tuple(words), 0, "", "")
+            unit = words[2]
+            view = what_systemd_runs(ServiceManager.SYSTEMD_DIR, unit, loaded=self.loaded.get(unit))
+            wanted = [words[i + 1] for i, word in enumerate(words) if word == "-p"]
+            return CommandResult(tuple(words), 0, render_show(view, wanted), "")
         if words[:2] == ["docker", "ps"]:
             if self.docker_down:
                 return CommandResult(tuple(words), 1, "", "Cannot connect to the Docker daemon")
@@ -179,3 +251,12 @@ def unit_of(units: Path, domain: str) -> str:
 
 def lines(text: str, directive: str) -> list[str]:
     return [line for line in text.splitlines() if line.startswith(f"{directive}=")]
+
+
+def add_drop_in(units: Path, domain: str, name: str, text: str) -> Path:
+    """Write an addition to a stack's unit, as an operator does in ``<unit>.service.d/``."""
+    directory = units / f"{domain.replace('.', '-')}.service.d"
+    directory.mkdir(exist_ok=True)
+    path = directory / name
+    path.write_text(text)
+    return path

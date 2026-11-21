@@ -1,0 +1,1 @@
+import{t as e}from"./ConfigPage-8UOl3K2J.js";import{Ir as t,st as n}from"./routes-work-DSBDqSq7.js";var r=t();function i(){let{domain:t}=n.useParams();return(0,r.jsx)(e,{page:`resources`,domain:t})}export{i as component};

@@ -1,1 +1,0 @@
-import{t as e}from"./searchNavigation-DqleCHUE.js";import{n as t}from"./SitesPage-QeTS8fR5.js";import{Ir as n,et as r}from"./routes-work-Dkdau9I_.js";var i=n();function a(){let n=r.useSearch(),a=r.useNavigate();return(0,i.jsx)(t,{search:n,onSearchChange:(t,n)=>void a({search:t,...e(n)})})}export{a as component};

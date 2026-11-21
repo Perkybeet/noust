@@ -106,6 +106,13 @@ itself starts (`noust restart`, the API, the fleet, the writer of the `.env`) is
 was already there when you deleted the marker, it is Noust's line and `noust setup compose-gate --remove`
 takes it out of that unit too, leaving everything else you wrote.
 
+An addition to a unit (a file of `<unit>.service.d/`) counts the same way. One that empties `ExecStartPre=`
+forgets the line of the check, and systemd then starts the stack without it. Noust asks systemd what it
+runs, never reads only the file, and says so in `noust health`: "this stack starts without the check of
+its start: an addition to its unit (the path) replaces what the unit runs". It does not touch your
+addition. Take that line out of the file and run `systemctl daemon-reload`; Noust looks again by itself and
+the warning goes.
+
 ## Removing Noust
 
 When nothing you kept needs the command any more:

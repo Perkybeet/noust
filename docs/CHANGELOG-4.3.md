@@ -577,7 +577,10 @@ first.
     up`, and so do `noust restart`, the API, a tag and the fleet before they restart a stack, and the writer of the
     stack's `.env` before it writes; what would give a container more than the stack was accepted with does not
     start, what cannot be judged does not start either, and a refusal leaves a running stack running. Where Noust
-    is no longer installed the stack starts as before.
+    is no longer installed the stack starts as before. What Noust says of a stack is what systemd will do: it
+    asks systemd what the unit runs, so an addition of the unit (`<unit>.service.d/`) that empties
+    `ExecStartPre=` is named by `noust health` and `noust setup compose-gate` with its path, never changed, and
+    when systemd cannot be asked the message says Noust could not tell.
   - **Each stack runs under a project of its own.** A compose file in a subdirectory (`docker/compose.yml`) took
     the directory's name as its project, so two applications with one such name recreated each other's services,
     mounted each other's volumes and removed each other's containers. A new application runs as its own name,

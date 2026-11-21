@@ -1,0 +1,1 @@
+import{t as e}from"./icons-CDhaewKx.js";import{Ea as t,Oa as n}from"./routes-CDANjK_1.js";var r={...t,...n,remove:e.delete,add:e.add};export{r as t};

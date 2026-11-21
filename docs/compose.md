@@ -584,6 +584,23 @@ start, so the check is also at the start, not only at the deployment:
   setup compose-gate --app DOMAIN`. If the check was in the unit before you took the first line out, `noust
   setup compose-gate --remove` takes it out of that unit as well: the line is Noust's, and nothing else of
   your unit is touched.
+- **An addition to the unit can take the line away, and Noust says so.** The file of a unit is not all
+  systemd reads: every file of `<unit>.service.d/*.conf` is applied on top, and one that assigns
+  `ExecStartPre=` to nothing forgets every command the unit gave for it (the same goes for `ExecReload=`).
+  Some stacks have one, written before 3.2.1 so that starting the unit did not download images. So that
+  what Noust says of a stack is what systemd will do, Noust asks systemd (`systemctl show UNIT -p
+  ExecStartPre -p ExecReload -p ExecStart -p DropInPaths`) after the take-over writes a unit, at every
+  pass of the console (every ten minutes) and whenever `noust health` looks, and counts the check as in
+  place only when `app compose gate DOMAIN` is among what systemd runs before the start, and before the
+  rebuild of a reload. When it is
+  not, `noust health` and `noust setup compose-gate` say "this stack starts without the check of its
+  start: an addition to its unit (the path) replaces what the unit runs", and how to get it back: take
+  that line out of the file (the empty `ExecStartPre=`, or the one that assigns it again) and run
+  `systemctl daemon-reload`. Noust never changes an addition of yours; it looks again by itself at the
+  next pass and the warning goes when the file is mended. What Noust itself starts is judged all the
+  same. If systemd cannot be asked (or says it runs the unit without the check and no addition explains
+  it, as when the unit was not reloaded) the message says that Noust could not tell, never that the check
+  is in place. Where Docker keeps the stack alive and there is no systemd, nothing is asked.
 - **Noust asks before it restarts.** `noust restart`, `POST /api/apps/{domain}/restart`, the fleet and the
   Docker zone ask the same question before they pass a start or a restart on to systemd, so a refusal leaves
   a running stack running (the restart of a unit is a `down` and an `up`, and a refusal after the `down`

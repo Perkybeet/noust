@@ -1,0 +1,1 @@
+import{Ir as e,Jn as t,Tn as n,wn as r}from"./routes-work-DSBDqSq7.js";import{r as i}from"./StatusPill-WkXZmm7H.js";var a=e();function o({status:e,...n}){let o=t(),s=r(e,o.locale);return(0,a.jsx)(i,{state:s.state,label:s.label,...n})}function s({status:e,...r}){let o=t(),s=n(e,o.locale);return(0,a.jsx)(i,{state:s.state,label:s.label,...r})}export{s as n,o as t};

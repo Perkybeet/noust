@@ -39,17 +39,21 @@ from noust.core.docker.errors import DockerUnavailableError
 from noust.core.exceptions import DeploymentError, NoustError, ValidationError
 from noust.core.fs import is_rehearsal
 from noust.core.runner import CommandRunner
+from noust.core.server_text import say
 from noust.core.store import App, AppType, NoustStore, get_store
 from noust.core.teams.scope import Scope
 from noust.deployers.docker_compose import DockerComposeDeployer, stack_deployer
 from noust.deployers.helpers import compose_privileges, compose_running
 from noust.deployers.helpers.compose_guard import inspect_compose
+from noust.managers.unit_execution import UnitExecution, read_execution
 from noust.managers.unit_lines import drop_lines
 
 __all__ = [
+    "Effect",
     "Outcome",
     "bring_app",
     "bring_up_to_date",
+    "gate_effect",
     "remove_gates",
     "shared_projects",
     "with_gate",
@@ -79,6 +83,16 @@ _TOLERANT = re.compile(
 #: What a pass found of a stack's unit.
 WRITTEN, AS_IT_WAS, THEIRS = "written", "as it was", "theirs"
 
+#: What systemd makes of the check a unit's file has: it runs it, an addition of the unit takes it away, or
+#: systemd could not be asked.
+IN_PLACE, OVERRIDDEN, UNVERIFIED = "in place", "overridden", "unverified"
+
+#: Why systemd runs a unit without a check its file has when no addition explains it.
+NOT_LOADED = (
+    "systemd runs this unit without the check its file has and no addition of the unit explains it: "
+    "it has probably not loaded the unit as it is on disk (run: systemctl daemon-reload)"
+)
+
 #: What Compose says in the model it prints, for a stack that could not be resolved.
 _UNRESOLVED = {"unresolved", "unresolved_paths"}
 
@@ -94,10 +108,14 @@ class Outcome:
         domain: The application.
         state: ``done`` (something was written), ``unchanged`` (it was already under the gate),
             ``own`` (its unit is its operator's, which Noust never rewrites: it was recorded and the unit
-            is as it was, and what Noust itself starts is judged all the same), ``pending`` (it could not
-            be brought up to date, and ``detail`` says why; nothing of it was changed) or ``busy``
-            (another operation holds it; the next pass takes it).
-        detail: Why, for ``pending`` and ``busy``.
+            is as it was, and what Noust itself starts is judged all the same), ``overridden`` (its
+            unit has the check and an addition of the unit, which Noust never changes, takes it away:
+            ``detail`` names the additions; the stack starts without the check, and Noust looks again
+            at the next pass), ``unverified`` (systemd could not be asked, or does not run the check and
+            nothing explains it: ``detail`` says why; nothing is written for it and the next pass asks
+            again), ``pending`` (it could not be brought up to date, and ``detail`` says why; nothing of
+            it was changed) or ``busy`` (another operation holds it; the next pass takes it).
+        detail: Why, for ``pending``, ``busy`` and ``unverified``; the additions, for ``overridden``.
         recorded: A record of what the stack was accepted with was written.
         unit: The stack's unit was written again, with the gate.
     """
@@ -107,6 +125,87 @@ class Outcome:
     detail: str = ""
     recorded: bool = False
     unit: bool = False
+
+
+@dataclass(frozen=True)
+class Effect:
+    """
+    What systemd will do with the check a stack's unit has in its file.
+
+    Attributes:
+        state: ``IN_PLACE`` (it runs the check before it starts and before a reload rebuilds),
+            ``OVERRIDDEN`` (an addition of the unit takes it away) or ``UNVERIFIED`` (systemd could not
+            say, or says it runs the unit without the check and nothing explains it).
+        paths: The additions systemd read, for ``OVERRIDDEN``.
+        directives: Which of ``ExecStartPre=`` and ``ExecReload=`` do not run the check, for
+            ``OVERRIDDEN``.
+        reason: Why Noust could not tell, for ``UNVERIFIED``.
+    """
+
+    state: str
+    paths: tuple[str, ...] = ()
+    directives: tuple[str, ...] = ()
+    reason: str = ""
+
+
+def _runs_the_check(entry: str, domain: str) -> bool:
+    """Say whether one command systemd prints is the check of this application."""
+    return re.search(rf" app compose gate {re.escape(domain)}(?: |$)", entry) is not None
+
+
+def _directives_without_the_check(seen: UnitExecution, domain: str) -> tuple[str, ...]:
+    """
+    Name the directives of a unit that do not run the check where it has to run.
+
+    Args:
+        seen: What systemd runs.
+        domain: The application.
+
+    Returns:
+        ``ExecStartPre=`` when no command before the start is the check, and ``ExecReload=`` when none
+        of a reload is, or when the rebuild comes before it.
+    """
+    missing: list[str] = []
+    if not any(_runs_the_check(entry, domain) for entry in seen.pre):
+        missing.append("ExecStartPre=")
+    first = next((i for i, entry in enumerate(seen.reload) if _runs_the_check(entry, domain)), None)
+    if first is None or any("--build" in entry for entry in seen.reload[:first]):
+        missing.append("ExecReload=")
+    return tuple(missing)
+
+
+def gate_effect(deployer: DockerComposeDeployer, text: str | None = None) -> Effect | None:
+    """
+    Ask systemd whether the check a stack's unit has in its file is what it will run.
+
+    Rule 4: the answer is decided where the unit is written and told wherever it is read, so that
+    what Noust says of a stack is what systemd will do when it starts it. Noust never touches an
+    addition of the operator's: it says which one.
+
+    Args:
+        deployer: The deployer of the stack.
+        text: The unit's body, when the caller has read it.
+
+    Returns:
+        None when there is nothing to ask: no unit (Docker keeps the stack alive where there is no
+        systemd) or a file that has no check in it. Otherwise what systemd makes of it.
+
+    Raises:
+        ValidationError: The unit's name is not a safe one.
+    """
+    services = deployer._units()
+    body = services.get_service_config(deployer.app_name) if text is None else text
+    if body is None or without_gate(body) == body:
+        return None
+    seen = read_execution(services, deployer.app_name)
+    if seen.problem is not None:
+        return Effect(UNVERIFIED, reason=seen.problem)
+    missing = _directives_without_the_check(seen, deployer.domain)
+    if not missing:
+        return Effect(IN_PLACE)
+    if seen.drop_ins:
+        return Effect(OVERRIDDEN, paths=seen.drop_ins, directives=missing)
+    return Effect(UNVERIFIED, reason=NOT_LOADED)
 
 
 def with_gate(text: str, *, domain: str, executable: str, project: str | None) -> str:
@@ -381,6 +480,23 @@ def _bring(app: App, store: NoustStore, runner: CommandRunner | None) -> Outcome
     note = compose_acceptance.note_of(app.domain, store=store)
     if note is not None and note.state == "pending":
         compose_acceptance.clear_note(app.domain, store=store)
+    # What the file says is not yet what systemd runs: an addition of the unit may take the check away.
+    try:
+        effect = gate_effect(deployer)
+    except (NoustError, OSError) as exc:
+        return _pending(store, app.domain, exc.message if isinstance(exc, NoustError) else str(exc))
+    if effect is not None and effect.state == OVERRIDDEN:
+        return Outcome(
+            app.domain,
+            OVERRIDDEN,
+            ", ".join(effect.paths),
+            recorded=unrecorded,
+            unit=how == WRITTEN,
+        )
+    if effect is not None and effect.state == UNVERIFIED:
+        return Outcome(
+            app.domain, UNVERIFIED, effect.reason, recorded=unrecorded, unit=how == WRITTEN
+        )
     if how == THEIRS:
         return Outcome(app.domain, "own", recorded=unrecorded)
     if unrecorded or how == WRITTEN:
@@ -502,9 +618,18 @@ def shared_projects(*, store: NoustStore | None = None) -> dict[str, tuple[str, 
     return {project: tuple(domains) for project, domains in found.items() if len(domains) > 1}
 
 
-def _theirs_sentences(store: NoustStore, runner: CommandRunner | None) -> list[str]:
+def _said(code: str, **params: str) -> str:
+    """Say a coded sentence as a line of ``noust health``: what happens, then what to do about it."""
+    sentence = say(code, **params)
+    return f"{sentence.text}. {sentence.hint}" if sentence.hint else sentence.text
+
+
+def _start_sentences(store: NoustStore, runner: CommandRunner | None) -> list[str]:
     """
-    Name the stacks whose unit is their operator's and runs no check, one sentence each.
+    Name the stacks that start without the check, one sentence each, and why.
+
+    A stack whose unit is its operator's and has no check, one whose unit has it in its file but an
+    addition of the unit takes it away, and one whose systemd could not be asked.
 
     Args:
         store: The store.
@@ -518,17 +643,34 @@ def _theirs_sentences(store: NoustStore, runner: CommandRunner | None) -> list[s
         try:
             deployer = stack_deployer(app, runner=runner)
             text = deployer._units().get_service_config(deployer.app_name)
+            effect = gate_effect(deployer, text)
         except (NoustError, OSError):
             continue
-        if text is None or not is_theirs(text) or without_gate(text) != text:
-            continue
-        said.append(
-            f"{app.domain}: this stack starts without the check of its start: its unit is yours "
-            "(it does not carry the '# Generated by Noust' line) and Noust writes nothing into a unit "
-            "that is not its own. What Noust itself starts is judged all the same. To have the check "
-            f"when systemd starts it too, put the line back and run: noust setup compose-gate --app "
-            f"{app.domain}"
-        )
+        retry = f"noust setup compose-gate --app {app.domain}"
+        if effect is None:
+            if text is not None and is_theirs(text):
+                said.append(_said("compose_gate.own", domain=app.domain, command=retry))
+        elif effect.state == OVERRIDDEN:
+            said.append(
+                _said(
+                    "compose_gate.overridden",
+                    domain=app.domain,
+                    paths=", ".join(effect.paths),
+                    directives=", ".join(effect.directives),
+                    command="systemctl daemon-reload",
+                    retry_command=retry,
+                )
+            )
+        elif effect.state == UNVERIFIED:
+            said.append(
+                _said(
+                    "compose_gate.unverified",
+                    domain=app.domain,
+                    reason=effect.reason,
+                    command=f"systemctl show {deployer.app_name}.service -p ExecStartPre -p ExecReload",
+                    retry_command=retry,
+                )
+            )
     return said
 
 
@@ -581,7 +723,7 @@ def attention(*, store: NoustStore | None = None, runner: CommandRunner | None =
                 f"Look at it: remove what it does not need, or record why it does: noust app "
                 f"sandbox compose-exception {domain} --reason '...'"
             )
-    said.extend(_theirs_sentences(target, runner))
+    said.extend(_start_sentences(target, runner))
     for project, domains in shared_projects(store=target).items():
         said.append(
             f"{' and '.join(domains)} run as one Compose project, {project}: what one recreates "

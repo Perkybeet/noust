@@ -1,0 +1,1 @@
+import{r as e}from"./SummaryPage-BRfxRhzD.js";var t=e;export{t as component};

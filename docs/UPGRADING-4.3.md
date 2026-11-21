@@ -247,6 +247,29 @@ which is what going back to a release before 4.3 and removing the package ask fo
 Check: after the update, `grep -c "app compose gate" /etc/systemd/system/<app>.service` says 2 for each stack, and
 `noust health` names none as waiting.
 
+**If your unit has an addition that empties `ExecStartPre=`.** A unit can have files in
+`/etc/systemd/system/<app>.service.d/`, and one that says
+
+```
+[Service]
+ExecStartPre=
+```
+
+forgets every `ExecStartPre` of the unit's own file, including the check. An operator wrote it before 3.2.1
+so that starting the unit did not download images: until that release the template had
+`ExecStartPre=docker compose pull --ignore-pull-failures`, which the template does not have any more, but a
+unit written before that release keeps the line until the stack's next deployment writes it again. After
+the update Noust writes the check into the unit's file as for any stack, asks systemd what it will run and,
+when the addition takes the check away, does not say "done": `noust health` and `noust setup compose-gate`
+say "this stack starts without the check of its start: an addition to its unit (the path) replaces what the
+unit runs". Noust does not touch your file. Delete the empty `ExecStartPre=` from it (the pull it was
+written to avoid is not there if the unit was written by 3.2.1 or later; if it is still there, deploy the
+stack again and it goes) and run `systemctl daemon-reload`: Noust looks again by itself, and the warning
+goes. The same applies to an empty `ExecReload=`. A stack in this state starts as it always did, and what
+Noust starts itself (`noust restart`, the API, the fleet, the writer of the `.env`) is judged as for any
+other. If systemd cannot be asked, the message says Noust could not tell, and never that the check is in
+place.
+
 ## The variables of a stack
 
 A stack's variables are its `.env`, which Compose reads beside the compose file and its unit reads too. Two things

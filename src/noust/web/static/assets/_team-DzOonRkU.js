@@ -1,1 +1,0 @@
-import{t as e}from"./TeamLayout-DAU7uKYP.js";import{Ct as t,Ir as n}from"./routes-work-Dkdau9I_.js";var r=n();function i(){let{team:n}=t.useParams();return(0,r.jsx)(e,{team:n},n)}export{i as component};

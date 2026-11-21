@@ -1,0 +1,1 @@
+import{qo as e,yo as t}from"./routes-CDANjK_1.js";var n={server:[`deploy-keys`,`server`]},r=()=>e({queryKey:n.server,queryFn:({signal:e})=>t(`get`,`/api/deploy-keys/server`,{signal:e}),staleTime:3e4});function i(){return t(`post`,`/api/deploy-keys/server`)}export{n,r,i as t};

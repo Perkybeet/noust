@@ -80,6 +80,12 @@ class ComposeGateWorker:
                 )
             elif outcome.state == "pending":
                 _log.warning("%s was left as it was: %s", outcome.domain, outcome.detail)
+            elif outcome.state == "unverified":
+                _log.warning(
+                    "%s: could not tell whether systemd runs the check of its start: %s",
+                    outcome.domain,
+                    outcome.detail,
+                )
 
     def _run(self) -> None:
         """Wait, make a pass, and again, until stopped."""
