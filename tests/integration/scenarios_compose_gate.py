@@ -1,0 +1,708 @@
+# Copyright (c) 2024-2026 Yago López Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+"""
+The start of a Compose stack is held to what was judged: the upgrade from 4.2 and the reboot that follows.
+
+``python tests/integration/run.py --compose-gate-upgrade`` starts a container with systemd and its own
+Docker, installs the ``v4.2.1`` tag from a git checkout (the tag's own tree, not PyPI's), and seeds the
+three stacks a production server has: one whose mount comes from a variable and leads outside its tree,
+one that is ``privileged`` with its compose exception, and one that is stopped (no containers). It then
+installs this tree's wheel over it, as the packages do, and checks the promise the gate is made on:
+
+- the upgrade restarts and recreates nothing, and the step the package runs (``noust setup compose-gate``)
+  takes the stacks over: a record of what each runs with, then its unit with the gate, and a
+  ``daemon-reload``. A stack Compose cannot resolve at that moment (its file is moved away) is left exactly
+  as it was and ``noust health`` says why, and the console, restarted onto the new version, takes it over
+  by itself once it can be resolved;
+- the machine reboots (the container restarts, systemd and Docker boot again) and **all three start**,
+  through their unit and the gate;
+- the same stack with its ``.env`` changed afterwards to lead to ``/`` does not start, and says why in
+  the journal and in ``noust health``, and the stack that was running before goes on running when the
+  restart is asked of Noust;
+- a stack whose exception was taken back still starts, because it was accepted;
+- a stack deployed by this tree is recorded, runs under its own project, starts through the gate, and
+  updates;
+- Noust removed (its command gone from the path every unit names) leaves every stack starting through its
+  unit, a command that is there and fails still holds the start, the package's removal step
+  (``noust setup compose-gate --remove``) takes the line out of every unit without restarting anything, and
+  a unit whose first line its operator deleted is left byte for byte, named by ``noust health``, and
+  loses the line Noust had put in it only to ``--remove``.
+
+Docker runs in the harness container's own daemon; every name carries the prefix of the run and nothing is
+pruned. How to run it while sharing a machine's Docker::
+
+    NOUST_IT_PREFIX=noust-test-w6a4a NOUST_IT_IMAGE=noust-test-w6a4a-integration:latest \\
+    NOUST_IT_DOCKER_VOLUME=noust-test-w6a4a-docker NOUST_IT_MEMORY=6g \\
+    python tests/integration/run.py --compose-gate-upgrade
+"""
+
+from __future__ import annotations
+
+import re
+import sys
+import time
+import traceback
+from pathlib import Path
+
+import run
+import scenarios_upgrade
+from run import (
+    DEPLOY_TIMEOUT,
+    HarnessError,
+    Scenario,
+    commit_to,
+    start_container,
+    wait_for_systemd,
+)
+
+#: The release the server is seeded with.
+FROM_TAG = "v4.2.1"
+
+OUTSIDE = "outside.test"
+PRIVILEGED = "priv.test"
+STOPPED = "stopped.test"
+FRESH = "fresh.test"
+
+PORTS = {OUTSIDE: 18611, PRIVILEGED: 18612, STOPPED: 18613, FRESH: 18614}
+
+#: A directory of the server outside every application's tree, which a variable points a mount at.
+SHARED = "/srv/gate-shared"
+
+#: The web fixture's compose file, with a mount made of a variable (and ``privileged`` when asked).
+COMPOSE = """services:
+  web:
+    build: .
+    ports:
+      - "{port}:8080"
+    volumes:
+      - data:/data
+      - ${{EXTRA:-./extra}}:/extra
+{privileged}    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=2)"]
+      interval: 1s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  data: {{}}
+"""
+
+
+def app_name(domain: str) -> str:
+    """The name of an application: its domain with dashes, which names its unit and its directory."""
+    return domain.replace(".", "-")
+
+
+def unit_text(sc: Scenario, domain: str, label: str) -> str:
+    """The text of an application's unit, as systemd has it."""
+    return sc.run(
+        f"cat /etc/systemd/system/{app_name(domain)}.service", timeout=60, label=label
+    ).stdout
+
+
+def containers(sc: Scenario, domain: str) -> list[str]:
+    """The ids of the running containers of an application's project."""
+    return sorted(run.compose_ids(sc, domain, "web"))
+
+
+def make_stack_repo(sc: Scenario, domain: str, *, privileged: bool) -> str:
+    """
+    Make the repository of a stack: the web fixture, with the compose file of this scenario.
+
+    Args:
+        sc: The scenario.
+        domain: The stack's domain, which picks its port and its repository.
+        privileged: Whether its service is ``privileged``.
+
+    Returns:
+        The repository's git:// URL.
+    """
+    name = f"gate-{app_name(domain)}"
+    repo, url = run.make_compose_repo(sc, name, "web", port=PORTS[domain])
+    text = COMPOSE.format(
+        port=PORTS[domain], privileged="    privileged: true\n" if privileged else ""
+    )
+    sc.run(
+        f"cd {repo} && cat > docker-compose.yml <<'EOF'\n{text}EOF\n"
+        "git add -A && git commit -q -m 'the stack of the scenario'",
+        timeout=30,
+        label=f"(fixture repo) {repo}: docker-compose.yml with a mount made of a variable"
+        + (", privileged" if privileged else ""),
+    )
+    return url
+
+
+def seed(sc: Scenario) -> dict[str, str]:
+    """
+    Seed a 4.2 server with the three stacks, and say what each served.
+
+    Args:
+        sc: The scenario, in a container that runs Noust 4.2.1.
+
+    Returns:
+        Each repository's directory, by domain.
+    """
+    old = "[noust 4.2.1]"
+    run.require_docker(sc)
+    run.pull_images(sc, "python:3.12-alpine")
+    sc.run(f"mkdir -p {SHARED} && echo shared > {SHARED}/marker", timeout=60, label="mkdir shared")
+    # The console is what keeps taking stacks over after an update, as it is on a server that has one.
+    enable = run.docker_exec(sc.container, "noust web enable", timeout=90, check=False)
+    sc.evidence.append(f"$ {old} noust web enable\n(output withheld: it holds the access token)")
+    sc.check(enable.returncode == 0, f"noust web enable failed: {enable.stderr}")
+
+    url = make_stack_repo(sc, OUTSIDE, privileged=False)
+    sc.run(
+        f"noust create -d {OUTSIDE} -s {url} -t docker-compose --port {PORTS[OUTSIDE]} "
+        f"--no-ssl --env EXTRA={SHARED}",
+        timeout=DEPLOY_TIMEOUT,
+        label=f"{old} noust create -d {OUTSIDE} (a mount made of EXTRA={SHARED}, outside its tree)",
+    )
+    run.wait_served(sc, OUTSIDE, "web v1")
+
+    url = make_stack_repo(sc, PRIVILEGED, privileged=True)
+    sc.run(
+        f"noust app sandbox compose-exception {PRIVILEGED} --reason 'the scenario' --yes",
+        timeout=60,
+        label=f"{old} noust app sandbox compose-exception {PRIVILEGED}",
+    )
+    sc.run(
+        f"noust create -d {PRIVILEGED} -s {url} -t docker-compose --port {PORTS[PRIVILEGED]} --no-ssl",
+        timeout=DEPLOY_TIMEOUT,
+        label=f"{old} noust create -d {PRIVILEGED} (privileged, with its exception)",
+    )
+    run.wait_served(sc, PRIVILEGED, "web v1")
+
+    url = make_stack_repo(sc, STOPPED, privileged=False)
+    sc.run(
+        f"noust create -d {STOPPED} -s {url} -t docker-compose --port {PORTS[STOPPED]} --no-ssl",
+        timeout=DEPLOY_TIMEOUT,
+        label=f"{old} noust create -d {STOPPED}",
+    )
+    run.wait_served(sc, STOPPED, "web v1")
+    sc.run(
+        f"systemctl stop {app_name(STOPPED)}",
+        timeout=120,
+        label=f"{old} systemctl stop {app_name(STOPPED)} (a stack with no containers)",
+    )
+    sc.check(not containers(sc, STOPPED), f"{STOPPED} still has containers after its unit stopped")
+    # What an operator who wants their stacks back after a reboot has done: Noust leaves a unit
+    # disabled (noust health says "application services do not start with the server").
+    units = " ".join(f"{app_name(domain)}.service" for domain in (OUTSIDE, PRIVILEGED, STOPPED))
+    sc.run(f"systemctl enable {units}", timeout=60, label=f"{old} systemctl enable {units}")
+    return {domain: f"/root/fixtures/gate-{app_name(domain)}" for domain in PORTS}
+
+
+def gate_lines(sc: Scenario, domain: str) -> int:
+    """How many lines of its unit run the gate."""
+    return int(
+        sc.run(
+            f"grep -c 'app compose gate' /etc/systemd/system/{app_name(domain)}.service || true",
+            timeout=90,
+            check=False,
+            label=f"the gate lines of {app_name(domain)}.service",
+        ).stdout.strip()
+        or 0
+    )
+
+
+def wait_under_the_gate(sc: Scenario, domains: list[str], *, seconds: int = 180) -> None:
+    """Wait until the console has written every unit with the gate, or fail with what it said."""
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        if all(gate_lines(sc, domain) == 2 for domain in domains):
+            return
+        time.sleep(3)
+    run.journal_tail(sc, "-u noust-web", "the console's journal")
+    raise AssertionError(f"the console did not bring {domains} under the gate in {seconds}s")
+
+
+def rebooted(sc: Scenario) -> None:
+    """Reboot the machine: the container restarts, systemd and the Docker inside boot again."""
+    print("[reboot] restarting the container (systemd, Docker and every unit boot again)")
+    run.sh(["docker", "restart", "-t", "30", sc.container], timeout=180)
+    wait_for_systemd(sc.container)
+    deadline = time.monotonic() + run.INNER_DOCKER_READY_TIMEOUT
+    while time.monotonic() < deadline:
+        if (
+            run.docker_exec(
+                sc.container, "docker info >/dev/null 2>&1", timeout=30, check=False
+            ).returncode
+            == 0
+        ):
+            return
+        time.sleep(2)
+    raise HarnessError("the Docker inside the container did not come back after the reboot")
+
+
+def run_removal(sc: Scenario) -> None:
+    """
+    Remove Noust from under the units, and make a unit its operator's.
+
+    Args:
+        sc: The scenario, with the four stacks running through their units and the gate.
+    """
+    new = "[this tree]"
+    served = {OUTSIDE: "web v1", PRIVILEGED: "web v1", STOPPED: "web v1", FRESH: "web v2"}
+    everything = list(served)
+    for domain in everything:
+        sc.check(gate_lines(sc, domain) == 2, f"{domain} is not under the gate before the removal")
+    unit = unit_text(sc, OUTSIDE, f"{new} the unit of {OUTSIDE}, the line it runs")
+    named = re.search(
+        r"ExecStartPre=/bin/sh -c '\[ ! -x (\S+) \] \|\| exec \1 app compose gate ", unit
+    )
+    sc.check(named is not None, f"the unit does not run the gate only where it exists:\n{unit}")
+    assert named is not None
+    exe = named.group(1)
+    away = f"{exe}.away"
+    # The console takes the stacks over by itself every ten minutes: stopped, as the package's removal
+    # stops it, so that what this step measures is what its commands did.
+    sc.run("systemctl stop noust-web", timeout=120, label="systemctl stop noust-web")
+
+    # -- Noust is removed, however: every stack starts through its unit as it did before 4.3 ------------
+    sc.run(f"mv {exe} {away}", timeout=30, label=f"(the package is removed: {exe} is gone)")
+    try:
+        for domain in everything:
+            sc.run(
+                f"systemctl restart {app_name(domain)}",
+                timeout=300,
+                label=f"systemctl restart {app_name(domain)}, with no Noust on the server",
+            )
+            run.wait_served(sc, domain, served[domain])
+            shown = sc.run(
+                f"systemctl show -p ExecStartPre -p ActiveState {app_name(domain)}.service",
+                timeout=60,
+                label=f"how the line ended for {domain} with no Noust",
+            ).stdout
+            sc.check(
+                "status=0" in shown and "ActiveState=active" in shown,
+                f"{domain} did not start without Noust: {shown}",
+            )
+    finally:
+        sc.run(f"mv {away} {exe}", timeout=30, label="(the command is back)")
+
+    # -- a command that is there and fails is still a start that does not happen ------------------------------
+    sc.run(f"systemctl stop {app_name(STOPPED)}", timeout=200, label=f"systemctl stop {STOPPED}")
+    sc.run(f"mv {exe} {away}", timeout=30, label="(a Noust that fails replaces the command)")
+    try:
+        sc.run(
+            f"printf '#!/bin/sh\\nexit 3\\n' > {exe} && chmod 755 {exe}",
+            timeout=30,
+            label="(the stand-in that ends with 3)",
+        )
+        sc.run(
+            f"systemctl start {app_name(STOPPED)}",
+            timeout=200,
+            check=False,
+            label=f"systemctl start {app_name(STOPPED)} with a command that fails",
+        )
+        state = sc.run(
+            f"systemctl is-active {app_name(STOPPED)}.service",
+            timeout=60,
+            check=False,
+            label="the unit after a gate that fails",
+        ).stdout
+        sc.check("failed" in state, f"a gate that fails let the stack start: {state}")
+        sc.check(not containers(sc, STOPPED), "a gate that fails left containers of the stack")
+    finally:
+        sc.run(f"rm -f {exe} && mv {away} {exe}", timeout=30, label="(the command is back)")
+    sc.run(f"systemctl reset-failed {app_name(STOPPED)}", timeout=60, label="reset-failed")
+    sc.run(f"systemctl start {app_name(STOPPED)}", timeout=200, label=f"systemctl start {STOPPED}")
+    run.wait_served(sc, STOPPED, "web v1")
+
+    # -- the package's removal step takes the line out of every unit and restarts nothing --------------------
+    running = {domain: containers(sc, domain) for domain in everything}
+    sc.run(
+        'noust setup compose-gate --remove --reason "package removal"',
+        timeout=300,
+        label=f"{new} noust setup compose-gate --remove  (the package's removal step)",
+    )
+    for domain in everything:
+        sc.check(gate_lines(sc, domain) == 0, f"the removal left the line in {domain}'s unit")
+        sc.check(
+            "Generated by Noust" in unit_text(sc, domain, f"the unit of {domain} after removal"),
+            f"the removal took the marker out of {domain}'s unit",
+        )
+    sc.check(
+        {domain: containers(sc, domain) for domain in everything} == running,
+        "the removal step restarted a stack",
+    )
+    sc.run(
+        'noust setup compose-gate --reason "package upgrade"',
+        timeout=300,
+        label=f"{new} noust setup compose-gate  (installing Noust again)",
+    )
+    for domain in everything:
+        sc.check(gate_lines(sc, domain) == 2, f"{domain} is not under the gate again")
+
+    # -- a unit whose first line its operator deleted ----------------------------------------------------------
+    path = f"/etc/systemd/system/{app_name(FRESH)}.service"
+    sc.run(f"sed -i '/^# Generated by Noust$/d' {path}", timeout=30, label=f"(make {FRESH} yours)")
+    theirs_with_gate = unit_text(sc, FRESH, f"the unit of {FRESH}, made theirs, with the gate")
+    sc.check(
+        "Generated by Noust" not in theirs_with_gate and gate_lines(sc, FRESH) == 2,
+        "the unit was not made the operator's with the gate still in it",
+    )
+    sc.run(
+        f"noust setup compose-gate --remove --app {FRESH}",
+        timeout=120,
+        label=f"{new} noust setup compose-gate --remove --app {FRESH}  (a unit without the marker)",
+    )
+    after_remove = unit_text(sc, FRESH, f"the unit of {FRESH} after --remove")
+    expected = "\n".join(
+        line for line in theirs_with_gate.split("\n") if " app compose gate " not in line
+    )
+    sc.check(
+        after_remove == expected,
+        f"--remove changed more than the gate lines of a unit without the marker:\n{after_remove}",
+    )
+    own = sc.run(
+        f"noust setup compose-gate --app {FRESH}",
+        timeout=120,
+        label=f"{new} noust setup compose-gate --app {FRESH}  (it takes it over, and writes nothing)",
+    )
+    sc.check(
+        "its unit is yours" in own.stdout,
+        f"the step does not say the unit is theirs:\n{own.stdout}",
+    )
+    sc.check(
+        unit_text(sc, FRESH, f"the unit of {FRESH} after the step") == after_remove,
+        "Noust wrote into a unit that does not carry its marker",
+    )
+    health = sc.run("noust health", timeout=120, check=False, label=f"{new} noust health")
+    sc.check(
+        f"{FRESH}: this stack starts without the check of its start" in health.stdout,
+        "noust health does not say which stack starts without the check",
+    )
+    sc.check(
+        sum("starts without the check of its start" in line for line in health.stdout.split("\n"))
+        == 1,
+        "noust health names a stack whose unit is Noust's",
+    )
+    sc.run(
+        f"noust restart {FRESH}", timeout=300, label=f"{new} noust restart {FRESH} (still judged)"
+    )
+    run.wait_served(sc, FRESH, "web v2")
+    # Put the first line back, as the documentation says, and the check comes back with it.
+    sc.run(
+        f"sed -i '1a # Generated by Noust' {path}",
+        timeout=30,
+        label=f"(put the line of {FRESH} back)",
+    )
+    sc.run(
+        f"noust setup compose-gate --app {FRESH}",
+        timeout=120,
+        label=f"{new} noust setup compose-gate --app {FRESH}",
+    )
+    sc.check(gate_lines(sc, FRESH) == 2, "the check did not come back with the marker")
+    sc.run("systemctl start noust-web", timeout=120, label="systemctl start noust-web")
+
+
+def run_rehearsal(sc: Scenario, wheel: Path) -> None:
+    """
+    Upgrade a 4.2.1 server with three stacks to this tree, reboot it, and change an environment.
+
+    Args:
+        sc: The scenario, in a container that runs Noust 4.2.1.
+        wheel: This tree's wheel, on the host.
+    """
+    new = "[this tree]"
+    seed(sc)
+    stacks = [OUTSIDE, PRIVILEGED, STOPPED]
+    live = [OUTSIDE, PRIVILEGED]
+    before = {domain: containers(sc, domain) for domain in live}
+    sc.check(all(before.values()), f"a stack that should run has no container: {before}")
+
+    # -- the upgrade: the wheel over the venv, then what the package's script does ----------------------
+    run.upgrade_noust_venv(sc, wheel)
+    sc.run("noust list --json", timeout=60, label=f"{new} noust list --json (migrates the store)")
+    # One stack Compose cannot resolve while the package runs its step: its file is not there.
+    stopped_tree = f"/var/www/apps/{app_name(STOPPED)}"
+    stopped_unit = unit_text(sc, STOPPED, f"{new} the unit of {STOPPED}, before")
+    sc.run(
+        f"mv {stopped_tree}/docker-compose.yml {stopped_tree}/docker-compose.yml.away",
+        timeout=60,
+        label="(the file of a stack is being replaced)",
+    )
+    step = sc.run(
+        'noust setup compose-gate --reason "package upgrade"',
+        timeout=300,
+        check=False,
+        label=f"{new} noust setup compose-gate --reason 'package upgrade'  (the package's step)",
+    )
+    sc.check(step.returncode == 1, "the step does not say that a stack was left as it was")
+    sc.check(
+        f"{STOPPED}: left as it was" in step.stdout, f"the step does not name it:\n{step.stdout}"
+    )
+    for domain in (OUTSIDE, PRIVILEGED):
+        sc.check(gate_lines(sc, domain) == 2, f"the step did not bring {domain} under the gate")
+    sc.check(
+        unit_text(sc, STOPPED, f"{new} the unit of {STOPPED}, after") == stopped_unit,
+        "a stack that could not be resolved had its unit written",
+    )
+    sc.check(
+        containers(sc, OUTSIDE) == before[OUTSIDE]
+        and containers(sc, PRIVILEGED) == before[PRIVILEGED],
+        "the step recreated containers",
+    )
+    health = sc.run(
+        "noust health", timeout=120, check=False, label=f"{new} noust health (a stack is waiting)"
+    )
+    sc.check(
+        f"{STOPPED}: Noust has not brought this stack under the check" in health.stdout,
+        "noust health does not name the stack that was left as it was, and why",
+    )
+    # The console, restarted onto the new version as the package does, takes it over once it can.
+    sc.run(
+        f"mv {stopped_tree}/docker-compose.yml.away {stopped_tree}/docker-compose.yml",
+        timeout=60,
+        label="(the file is back)",
+    )
+    sc.run("systemctl restart noust-web", timeout=120, label="systemctl restart noust-web")
+    wait_under_the_gate(sc, stacks)
+
+    # -- nothing was started, stopped or recreated by it ---------------------------------------------
+    after = {domain: containers(sc, domain) for domain in live}
+    sc.check(after == before, f"the upgrade recreated containers: {before} -> {after}")
+    sc.check(not containers(sc, STOPPED), "the upgrade started the stack that was stopped")
+    for domain in live:
+        run.wait_served(sc, domain, "web v1")
+    for domain in stacks:
+        text = unit_text(sc, domain, f"{new} the unit of {domain}")
+        sc.check(
+            f"--project {app_name(domain)}" in text and f"compose -p {app_name(domain)} up" in text,
+            f"the unit of {domain} does not pass its project everywhere:\n{text}",
+        )
+        sc.check('Environment="COMPOSE_FILE' not in text or "ExecStartPre" in text, "no gate line")
+    rows = sc.run(
+        run.store_query("SELECT domain, source, inherited FROM compose_accepted ORDER BY domain"),
+        timeout=30,
+        label="the records the update wrote",
+    ).stdout.split()
+    sc.check(
+        sorted(rows) == sorted(f"{d}|upgrade|1" for d in (OUTSIDE, PRIVILEGED, STOPPED)),
+        f"the records are not the three taken over: {rows}",
+    )
+    health = sc.run("noust health", timeout=120, check=False, label=f"{new} noust health")
+    sc.check(
+        "taken over as accepted" in health.stdout,
+        "noust health does not list what was taken over from before",
+    )
+    again = sc.run("noust setup compose-gate", timeout=120, label=f"{new} noust setup compose-gate")
+    sc.check("already under the check" in again.stdout, "a second pass found something to do")
+
+    # -- the reboot: all three start through their unit and the gate -----------------------------------
+    rebooted(sc)
+    for domain in stacks:
+        run.wait_served(sc, domain, "web v1")
+        shown = sc.run(
+            f"systemctl show -p ExecStartPre {app_name(domain)}.service",
+            timeout=60,
+            label=f"how the gate ended at boot for {domain}",
+        ).stdout
+        sc.check(
+            "app compose gate" in shown and "status=0" in shown,
+            f"the gate did not run and pass at boot for {domain}: {shown}",
+        )
+    # What the gate adds to the start of a stack (Compose is asked up to four times: the file, the model
+    # it prints, the same without resolving the env_file, and the profiles): measured, and kept in the log.
+    for domain in stacks:
+        sc.run(
+            f"bash -c 'time noust app compose gate {domain} --project {app_name(domain)} "
+            f"--directory /var/www/apps/{app_name(domain)} --compose-file docker-compose.yml'",
+            timeout=180,
+            label=f"how long the gate takes for {domain} (the `real` line)",
+        )
+    sc.check(
+        sc.run(
+            "systemctl is-failed " + " ".join(f"{app_name(d)}.service" for d in stacks),
+            timeout=60,
+            check=False,
+            label="is any of the three failed after the boot",
+        ).stdout.count("failed")
+        == 0,
+        "a stack's unit is failed after the reboot",
+    )
+
+    # -- what the .env is told to lead to is not started --------------------------------------------------
+    tree = f"/var/www/apps/{app_name(OUTSIDE)}"
+    refused = sc.run(
+        f"noust env set {OUTSIDE} EXTRA=/",
+        timeout=120,
+        check=False,
+        label=f"{new} noust env set {OUTSIDE} EXTRA=/ (the writer of the .env judges it first)",
+    )
+    sc.check(
+        refused.returncode != 0 and "was not changed" in (refused.stdout + refused.stderr),
+        "the writer of the .env accepted a mount of /",
+    )
+    sc.run(
+        f"grep -c 'EXTRA={SHARED}' {tree}/.env",
+        timeout=60,
+        label="the .env still says what it said",
+    )
+    # What the stack's own code can write: the file, behind the writer's back.
+    sc.run(
+        f"printf 'EXTRA=/\\n' > {tree}/.env",
+        timeout=60,
+        label="write EXTRA=/ into the .env directly",
+    )
+    running = containers(sc, OUTSIDE)
+    held = sc.run(
+        f"noust restart {OUTSIDE}", timeout=120, check=False, label=f"{new} noust restart {OUTSIDE}"
+    )
+    sc.check(held.returncode != 0, "a restart that adds the root was done")
+    sc.check("was not started" in (held.stdout + held.stderr), "the refusal does not say it")
+    sc.check(
+        containers(sc, OUTSIDE) == running and bool(running),
+        "a refused restart changed what ran",
+    )
+    run.wait_served(sc, OUTSIDE, "web v1")
+    sc.run(
+        f"systemctl restart {app_name(OUTSIDE)}",
+        timeout=200,
+        check=False,
+        label=f"systemctl restart {app_name(OUTSIDE)} (past Noust: the unit's own gate holds it)",
+    )
+    journal = sc.run(
+        f"journalctl -u {app_name(OUTSIDE)}.service --no-pager -n 40",
+        timeout=30,
+        label="the journal of the unit",
+    ).stdout
+    sc.check(
+        "was not started" in journal and "service web mounts /" in journal,
+        f"the journal does not say why:\n{journal[-600:]}",
+    )
+    sc.check(
+        "failed"
+        in sc.run(
+            f"systemctl is-active {app_name(OUTSIDE)}.service",
+            timeout=60,
+            check=False,
+            label="the unit after the refusal",
+        ).stdout,
+        "the unit is not failed after the gate held it back",
+    )
+    health = sc.run("noust health", timeout=120, check=False, label=f"{new} noust health")
+    sc.check("last start was held back" in health.stdout, "noust health does not list the refusal")
+    # And it is mended by taking the change out.
+    sc.run(f"printf 'EXTRA={SHARED}\\n' > {tree}/.env", timeout=60, label="put the .env back")
+    sc.run(f"systemctl start {app_name(OUTSIDE)}", timeout=200, label="systemctl start again")
+    run.wait_served(sc, OUTSIDE, "web v1")
+
+    # -- an exception taken back does not stop what was accepted ---------------------------------------------
+    sc.run(
+        f"noust app sandbox compose-exception {PRIVILEGED} --revoke",
+        timeout=60,
+        label=f"{new} noust app sandbox compose-exception {PRIVILEGED} --revoke",
+    )
+    sc.run(f"noust restart {PRIVILEGED}", timeout=200, label=f"{new} noust restart {PRIVILEGED}")
+    run.wait_served(sc, PRIVILEGED, "web v1")
+
+    # -- a stack of this tree: recorded, under its own project, through the gate, and it updates ------------
+    # The fixtures' git daemon was one of the processes the reboot ended.
+    sc.run(
+        "git daemon --reuseaddr --export-all --base-path=/root/fixtures "
+        "--listen=127.0.0.1 --detach /root/fixtures",
+        timeout=30,
+        label="(fixtures) git daemon again, after the reboot",
+    )
+    url = make_stack_repo(sc, FRESH, privileged=False)
+    sc.run(
+        f"noust create -d {FRESH} -s {url} -t docker-compose --port {PORTS[FRESH]} --no-ssl",
+        timeout=DEPLOY_TIMEOUT,
+        label=f"{new} noust create -d {FRESH}",
+    )
+    run.wait_served(sc, FRESH, "web v1")
+    fresh_unit = unit_text(sc, FRESH, f"{new} the unit of {FRESH}")
+    sc.check(
+        "ExecStartPre=" in fresh_unit and f"-p {app_name(FRESH)} up" in fresh_unit,
+        f"the unit of a new stack has no gate or no project:\n{fresh_unit}",
+    )
+    recorded = run.store_rows(
+        sc,
+        "SELECT source, inherited FROM compose_accepted WHERE domain = @domain",
+        domain=FRESH,
+        label="the record of a stack of this tree",
+    )
+    sc.check(
+        [(row["source"], row["inherited"]) for row in recorded] == [("deploy", 0)],
+        f"a new stack is not recorded as decided: {recorded}",
+    )
+    pinned = run.store_rows(
+        sc,
+        "SELECT compose_project FROM apps WHERE domain = @domain",
+        domain=FRESH,
+        label="the project of a stack of this tree",
+    )
+    sc.check(
+        [row["compose_project"] for row in pinned] == [app_name(FRESH)],
+        f"a new stack's project is {pinned}",
+    )
+    commit_to(sc, f"/root/fixtures/gate-{app_name(FRESH)}", "printf 'v2\\n' > VERSION", "version 2")
+    sc.run(f"noust update {FRESH}", timeout=DEPLOY_TIMEOUT, label=f"{new} noust update {FRESH}")
+    run.wait_served(sc, FRESH, "web v2")
+    sc.run(f"systemctl restart {app_name(FRESH)}", timeout=200, label="restart through the gate")
+    run.wait_served(sc, FRESH, "web v2")
+
+    run_removal(sc)
+
+    for domain in [*stacks, FRESH]:
+        sc.run(
+            f"noust delete {domain} -f",
+            timeout=300,
+            check=False,
+            label=f"noust delete {domain}",
+        )
+
+
+def run_compose_gate_mode(wheel: Path, *, keep: bool) -> int:
+    """
+    Run the 4.2 -> this tree upgrade and reboot in a container of its own.
+
+    Args:
+        wheel: This tree's wheel, on the host.
+        keep: Do not remove the container when done.
+
+    Returns:
+        0 when every check held, 1 otherwise.
+    """
+    started_at = time.monotonic()
+    label = "compose_stacks_upgraded_from_4_2_start_after_a_reboot"
+    name = run.random_container_name()
+    sc = Scenario(container=name)
+    failures = 0
+    print(f"\n=== {label} ({name}) ===")
+    try:
+        try:
+            start_container(name)
+            wait_for_systemd(name)
+            run.prepare_inner_docker(name)
+            run.install_fixtures(name)
+            scenarios_upgrade.install_from_git(name, FROM_TAG)
+            run_rehearsal(sc, wheel)
+        except run.ScenarioSkipped as exc:
+            failures += 1
+            print(f"FAIL: {label}: it could not run here: {exc}")
+        except (AssertionError, HarnessError) as exc:
+            failures += 1
+            print(f"FAIL: {label}: {exc}")
+        except Exception:
+            failures += 1
+            print(f"FAIL: {label} (the rehearsal itself raised)")
+            traceback.print_exc(file=sys.stdout)
+        else:
+            print(f"PASS: {label}")
+    finally:
+        if sc.evidence:
+            print("--- evidence ---")
+            print("\n\n".join(sc.evidence))
+        if keep:
+            print(f"\n[teardown] --keep given, leaving container {name} running")
+        else:
+            print(f"\n[teardown] removing container {name}")
+            run.remove_container(name)
+    elapsed = time.monotonic() - started_at
+    print(f"\n[summary] 1 scenario(s) run, {failures} failure(s), {elapsed:.1f}s total")
+    return 1 if failures else 0

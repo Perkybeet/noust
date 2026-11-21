@@ -1429,6 +1429,14 @@ def adopt(
                     )
                 store.set_app_compose_project(plan.domain, plan.project)
                 store.set_app_site_name(plan.domain, plan.site_name)
+                # What the stack runs with is what its unit's start is held to from here on: the
+                # plan only said it; this writes it down, once the application exists.
+                deployer._check_host_privileges(
+                    deployer._load_compose_document(),
+                    accepted=list(plan.host_access),
+                    final=True,
+                    record="adopt",
+                )
                 if plan.kept_by == KEPT_BY_UNIT:
                     log.step(2, 2, "Creating its unit, enabled and not started")
                 else:

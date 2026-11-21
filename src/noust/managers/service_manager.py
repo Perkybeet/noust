@@ -104,6 +104,7 @@ from noust.core.templates import text_environment
 from noust.core.utils import domain_to_app_name
 from noust.managers import unit_check, unit_states
 from noust.managers.base_manager import BaseManager
+from noust.managers.restart_refusals import outdated_restart_refusal
 from noust.validators.environment import validate_environment, validate_unit_value
 from noust.validators.names import validate_service_name
 
@@ -132,62 +133,6 @@ VERIFY_TIMEOUT = 15
 
 #: A unit name as systemd and the restart probes print one.
 _UNIT_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9:_.@-]*\.service$")
-
-#: Units never restarted because an update replaced their libraries, each with
-#: why: restarting them ends sessions, drops the network, stops every container
-#: or virtual machine, or is systemd's own plumbing. The list needrestart keeps
-#: for itself (its ``override_rc``), and what a server with clients' containers
-#: adds. A reboot is how these take the new libraries.
-NEVER_RESTARTED: tuple[tuple[re.Pattern[str], str], ...] = tuple(
-    (re.compile(pattern), reason)
-    for pattern, reason in (
-        (r"^dbus(-broker)?\.service$", "restarting D-Bus breaks systemd and every session"),
-        (r"^systemd-logind\.service$", "restarting logind ends every login session"),
-        (
-            r"^(serial-|console-|container-)?getty@.*\.service$",
-            "restarting a getty ends a console login",
-        ),
-        (r"^user@\d+\.service$", "restarting it ends a user's session"),
-        (r"^user-runtime-dir@\d+\.service$", "restarting it ends a user's session"),
-        (r"^(emergency|rescue)\.service$", "it is a recovery shell"),
-        (
-            r"^(systemd-networkd|systemd-resolved|NetworkManager|networking|network"
-            r"|wpa_supplicant|wicked|systemd-udevd)\.service$",
-            "restarting it drops the network, and the connection to this page with it",
-        ),
-        (
-            r"^(docker|containerd|podman|crio|snapd)\.service$",
-            "restarting it stops every container on this server",
-        ),
-        (
-            r"^(libvirtd|virtqemud|qemu-kvm|xen.*|lxc|lxd)\.service$",
-            "restarting it stops every virtual machine on this server",
-        ),
-        (
-            r"^(gdm|gdm3|lightdm|sddm|xdm|kdm|lxdm|slim)\.service$",
-            "restarting it ends the graphical session",
-        ),
-        (r"^(open-)?iscsid\.service$", "restarting it can drop the disks it serves"),
-        (r"^multipathd\.service$", "restarting it can drop the disks it serves"),
-    )
-)
-
-
-def outdated_restart_refusal(unit: str) -> str | None:
-    """
-    Say why a unit running replaced libraries is not restarted from Noust.
-
-    Args:
-        unit: The unit, with its ``.service`` suffix.
-
-    Returns:
-        The reason, or None when it may be restarted.
-    """
-    for pattern, reason in NEVER_RESTARTED:
-        if pattern.match(unit):
-            return reason
-    return None
-
 
 #: The smallest memory limit accepted. Below it a Node or Python process is
 #: killed by the OOM killer while it is still loading, which looks like a
@@ -3031,9 +2976,13 @@ class ServiceManager(BaseManager):
 
     # Lifecycle ------------------------------------------------------------
 
-    def _reset_start_limit(self, info: UnitOwnership) -> None:
+    def _before_starting(self, info: UnitOwnership) -> None:
         """
-        Clear a unit's failed state and start-limit counter before a deliberate start.
+        Hold a deliberate start to what was judged, then clear the unit's start-limit counter.
+
+        A Compose stack's gate (:mod:`noust.deployers.compose_gate`) is asked first: the restart of its
+        unit is a ``down`` and an ``up``, so a refusal after systemd was asked would have stopped what
+        ran and then failed to start it. A refusal leaves the stack as it was.
 
         App units carry ``StartLimitBurst=``, so a crash loop ends in
         ``failed`` instead of restarting forever. systemd applies that limit to
@@ -3045,7 +2994,13 @@ class ServiceManager(BaseManager):
 
         Args:
             info: The unit, already checked to be Noust's.
+
+        Raises:
+            StartHeldBackError: A Compose stack that would not pass the gate.
         """
+        from noust.deployers import compose_gate
+
+        compose_gate.check_before(info.unit, store=self.store, runner=self.runner)
         self._exec(["systemctl", "reset-failed", info.unit_file])
 
     def start(self, name: str) -> None:
@@ -3061,7 +3016,7 @@ class ServiceManager(BaseManager):
             ValidationError: When the name is not a safe unit name.
         """
         info = self._require_managed(name, operation="start")
-        self._reset_start_limit(info)
+        self._before_starting(info)
         result = self._exec(["systemctl", "start", info.unit_file], timeout=_LIFECYCLE_TIMEOUT)
 
         if not result.success:
@@ -3110,7 +3065,7 @@ class ServiceManager(BaseManager):
             ValidationError: When the name is not a safe unit name.
         """
         info = self._require_managed(name, operation="restart")
-        self._reset_start_limit(info)
+        self._before_starting(info)
         result = self._exec(["systemctl", "restart", info.unit_file], timeout=_LIFECYCLE_TIMEOUT)
 
         if not result.success:
@@ -3155,7 +3110,7 @@ class ServiceManager(BaseManager):
         The one way a unit that is not Noust's is restarted from Noust, so its
         guard is here: the unit must be one the restart probe reported
         (``outdated``: needrestart, ``dnf needs-restarting -s``, ``zypper ps``),
-        and none of :data:`NEVER_RESTARTED`.
+        and none of :data:`~noust.managers.restart_refusals.NEVER_RESTARTED`.
 
         Args:
             name: The unit, with its ``.service`` suffix.

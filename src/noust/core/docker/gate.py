@@ -35,6 +35,7 @@ import shutil
 import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from noust.core.central_settings import closed_docker_zone, docker_zone_is_open
@@ -1137,7 +1138,9 @@ class DockerGate:
             items.append(stats.ContainerUsage(container, usage))
         return stats.UsageList(tuple(items), read_at)
 
-    def project_grants(self, project: str) -> tuple[grants.Grants, ...]:
+    def project_grants(
+        self, project: str, *, within: Path | None = None
+    ) -> tuple[grants.Grants, ...]:
         """
         Say what the server gave to every container of a Compose project.
 
@@ -1148,6 +1151,8 @@ class DockerGate:
 
         Args:
             project: The Compose project the application runs under.
+            within: The application's directory: only the containers made from inside it are read,
+                which is what keeps another application's containers of the same project out.
 
         Returns:
             What each container of the project, the stopped ones included, was given; none when the
@@ -1157,7 +1162,7 @@ class DockerGate:
             DockerZoneClosedError: A hub that was not told to deploy on its machine.
             DockerUnavailableError: Docker cannot be asked, or answered and could not be read.
         """
-        return grants.read_project_grants(self.runner, project)
+        return grants.read_project_grants(self.runner, project, within=within)
 
     def _masked(self, container: Container, seen: inspect.Inspected) -> inspect.Inspected:
         """

@@ -181,7 +181,9 @@ not cleaned; the copies a central took stay under `<backup directory>/.collected
 that runs once still runs, and 4.2 has no `noust cron settle` to retire it; and 4.2 sends the console's
 `Strict-Transport-Security` as it did, with `includeSubDomains` on every name. The check on Compose files is
 4.2.1's again, with the limits that 4.3 closes ([UPGRADING-4.3.md](UPGRADING-4.3.md#compose-stacks-that-carry-more-than-a-new-stack-may));
-the exceptions recorded stay. Turn the assistant off before
+the exceptions recorded stay. Run `noust setup compose-gate --remove` before installing the older release: the units of
+the Compose stacks run a command, `noust app compose gate`, that a release before 4.3 does not have (the
+records stay). Turn the assistant off before
 going back (`noust assistant disable`), which revokes the tokens it holds, since those are in the tokens'
 own database and are not rolled back. [UPGRADING-4.3.md](UPGRADING-4.3.md#rolling-back) says how.
 

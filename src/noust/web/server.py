@@ -967,6 +967,12 @@ async def lifespan(app: FastAPI):
     start_worker()
     # The copies of the servers the central collects, a minute behind each one a server finishes.
     start_collecting()
+    # The Compose stacks that were there before the update, brought under the check of their start
+    # (record first, then the unit): the console writes units, the monitor must not.
+    from noust.web.compose_gate_worker import start_worker as start_compose_gate
+    from noust.web.compose_gate_worker import stop_worker as stop_compose_gate
+
+    start_compose_gate()
     # What the server did while the console was not running: a reboot, or an
     # update that kept going in its own systemd unit.
     from noust.web.api.server.lifecycle import on_console_start
@@ -999,6 +1005,7 @@ async def lifespan(app: FastAPI):
         if warming.is_alive():
             warming.join(15)
         settings_watcher.stop()
+        stop_compose_gate()
         stop_collecting()
         stop_worker()
         fleet_probe.stop()

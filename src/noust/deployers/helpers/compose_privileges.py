@@ -19,15 +19,20 @@ brought in, one an ``extends`` took from another file, a service under a profile
 variables) is found by asking Compose for the model it resolves the file to, which is judged by the
 same rules, once before anything is built and once more when the stack's own ``.env`` is written.
 
-**What a stack already had** is the compose file that served, as written, and what its containers were
-given (:mod:`noust.deployers.helpers.compose_running`): a stack whose mount is ``${DATA_DIR}:/data``
-shows nothing in the file as written, and resolving the file with the ``.env`` of today would let anyone
-who can change a variable say the stack always had what it now names. Docker is asked only when a
-finding that the file alone does not cover could be vouched for by a container, and once.
+**What a stack already had** is what it was accepted with (every activation that passed this guard writes
+down in the store what the stack was given of the server, :mod:`noust.core.compose_acceptance`) and what its
+containers were given (:mod:`noust.deployers.helpers.compose_running`): a stack whose mount is
+``${DATA_DIR}:/data`` shows nothing in the file as written, and resolving the file with the ``.env`` of today
+would let anyone who can change a variable say the stack always had what it now names. The tree is not a
+record: a container that mounts it writes the compose file and the ``.git`` folder the file that served is
+read from, so that file only counts for a stack that has no record yet. Docker is asked only when a finding
+that the record does not cover could be vouched for by a container, and once. The same judgement holds a
+stack's start to what was judged (:mod:`noust.deployers.compose_gate`).
 """
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -36,6 +41,7 @@ from typing import TYPE_CHECKING, Any
 
 import yaml
 
+from noust.core import compose_acceptance
 from noust.core.compose_yaml import load_compose
 from noust.core.docker import names
 from noust.core.docker.errors import DockerUnavailableError
@@ -45,6 +51,7 @@ from noust.core.teams.scope import Scope
 from noust.deployers.helpers import compose_running, compose_verdict
 from noust.deployers.helpers.compose_guard import (
     ComposeFindings,
+    FindingKey,
     GuardContext,
     inspect_compose,
     merge_findings,
@@ -81,6 +88,26 @@ def stack_project(pinned: str | None, app_path: Path, compose_path: Path | None)
         or compose_project_name(app_path, compose_path)
         or (declared_project(compose_path) if compose_path is not None else None)
     )
+
+
+def own_project(deployer: DockerComposeDeployer, existing: App | None) -> None:
+    """
+    Give a new application's stack the Compose project of its own name.
+
+    What Compose derives from the directory of the compose file is the name of whatever directory
+    that is, and two applications whose file is in a subdirectory of the same name would run as one
+    project: the second recreates the first's services, mounts its volumes and, with
+    ``--remove-orphans``, removes the rest. The application's name is its own, and the store records it
+    (:meth:`~noust.deployers.helpers.registration.StoreRegistrar.register_app`), so that every command
+    and the unit pass it with ``-p`` and no variable of the stack's can change it. An application that
+    exists keeps what it has: renaming a project is renaming its volumes.
+
+    Args:
+        deployer: The deployer of the stack, about to deploy.
+        existing: The application's row, or None for a new one.
+    """
+    if existing is None:
+        deployer._stored_project = names.project_of_directory(deployer.app_name)
 
 
 def guard_context(deployer: DockerComposeDeployer) -> GuardContext:
@@ -136,7 +163,9 @@ def _reader(deployer: DockerComposeDeployer) -> Any:
         )
         project = project or names.project_of_directory(deployer.app_path.name) or "default"
         gate = DockerGate(deployer.runner, scope=Scope.everything())
-        return compose_running.read(lambda: gate.project_grants(project), guard_context(deployer))
+        return compose_running.read(
+            lambda: gate.project_grants(project, within=deployer.app_path), guard_context(deployer)
+        )
 
     return read
 
@@ -168,9 +197,33 @@ def heritage_of(
     return Heritage(sentences, changed, _reader(deployer))
 
 
+def _record_heritage(deployer: DockerComposeDeployer) -> Heritage | None:
+    """
+    Say what a stack had from what it was accepted with, which nothing in its tree can write.
+
+    The compose file that served is read from the checkout's own history or from the disk, and a
+    container that mounts the tree writes both: only the entry of the store and the containers
+    themselves are a record of what the stack was given.
+
+    Args:
+        deployer: The deployer of the stack.
+
+    Returns:
+        The heritage made of the entry and the containers; None for a stack with no entry (one no
+        deployment of this version has activated and no upgrade has taken over), which falls back to
+        the file that served.
+    """
+    accepted = compose_acceptance.get(deployer.domain, store=deployer.store)
+    if accepted is None:
+        return None
+    return Heritage(changed_links=None, running=_reader(deployer), keys=accepted.keys)
+
+
 def heritage_of_update(deployer: DockerComposeDeployer) -> Heritage:
     """
-    Say what a stack had before an update pulled: the file of the commit that served and its containers.
+    Say what a stack had before an update pulled: what it was accepted with and its containers.
+
+    A stack with no entry in the store falls back to the file of the commit that served.
 
     Args:
         deployer: The deployer of the stack, whose ``previous_commit`` is the commit that served.
@@ -179,6 +232,9 @@ def heritage_of_update(deployer: DockerComposeDeployer) -> Heritage:
         What the stack already had. The containers are known whatever the file that served says, or
         whether it can be read at all.
     """
+    recorded = _record_heritage(deployer)
+    if recorded is not None:
+        return recorded
     compose = deployer._compose_file_path()
     if deployer.previous_commit and compose.is_relative_to(deployer.app_path):
         served = deployer._source_manager().file_at_commit(
@@ -192,6 +248,36 @@ def heritage_of_update(deployer: DockerComposeDeployer) -> Heritage:
     else:
         deployer.logger.debug("No commit served before this update: nothing to compare with")
     return heritage_of(deployer)
+
+
+def heritage_of_redeploy(deployer: DockerComposeDeployer) -> Heritage:
+    """
+    Say what a stack had, before a redeploy replaces its compose file.
+
+    What served is what the stack was accepted with and what its containers were given: the file on
+    disk, as written, is only a record for a stack that has no entry (one no deployment of this
+    version has activated), and the file resolved with the ``.env`` of today is not proof of anything,
+    since whoever can change a variable would say the stack always had what the variable names. When
+    the file cannot be read, the containers are all that is left.
+
+    Args:
+        deployer: The deployer of the stack. Its ``compose_path`` is left unset: the redeploy
+            discovers the file again once the source is fetched.
+
+    Returns:
+        What the stack already had.
+    """
+    recorded = _record_heritage(deployer)
+    if recorded is not None:
+        return recorded
+    try:
+        deployer._discover_compose_file()
+    except DeploymentError as exc:
+        deployer.logger.debug(f"No compose file served before this deploy: {exc.message}")
+        return heritage_of(deployer)
+    served = heritage_before_a_redeploy(deployer, deployer._load_compose_document())
+    deployer.compose_path = None
+    return served
 
 
 def heritage_before_a_redeploy(deployer: DockerComposeDeployer, served: Any) -> Heritage:
@@ -231,12 +317,83 @@ def _heritage(deployer: DockerComposeDeployer, accepted: Any) -> Heritage:
     return Heritage(frozenset(chosen or ()))
 
 
+@dataclass(frozen=True)
+class Judgement:
+    """
+    What the guard made of a stack's compose file.
+
+    Attributes:
+        findings: What the file asks of the host, with what Compose resolves it to when that was asked.
+        verdict: What to do with it.
+        exception: The exception recorded for the application, if any.
+        unavailable: Docker could not say what the stack's containers have, which the verdict needed.
+        undecided: Then, the sentences only a container could have vouched for.
+    """
+
+    findings: ComposeFindings
+    verdict: compose_verdict.Verdict
+    exception: Any
+    unavailable: DockerUnavailableError | None = None
+    undecided: tuple[str, ...] = ()
+
+
+def _exception_command(domain: str) -> str:
+    """Name the command that records why a stack needs what gives it this server."""
+    return f"noust app sandbox compose-exception {domain} --reason '...'"
+
+
+def judge(
+    deployer: DockerComposeDeployer,
+    document: Any,
+    *,
+    heritage: Heritage,
+    final: bool = False,
+) -> Judgement:
+    """
+    Judge a stack's compose file and say what to do with it, without stopping or logging anything.
+
+    The one judgement a deployment, an update, a redeploy, an adoption and the start of a stack's
+    unit all make (rule 3): what differs is the heritage each brings.
+
+    Args:
+        deployer: The deployer of the stack.
+        document: The parsed compose file.
+        heritage: What the stack already had.
+        final: See :func:`check_host_privileges`.
+
+    Returns:
+        The judgement.
+    """
+    from noust.deployers.helpers import sandbox as build_sandbox
+
+    context = guard_context(deployer)
+    findings = inspect_compose(document, deployer.app_path, context=context)
+    exception = build_sandbox.get_compose_exception(deployer.domain, store=deployer.store)
+    try:
+        verdict = compose_verdict.decide(findings, already=heritage, exception=exception)
+        # A file that is already refused is not read any further: resolving it is how an include that
+        # leaves the application would be followed.
+        if final or not verdict.stop:
+            findings = with_what_compose_resolves(deployer, document, findings, final=final)
+            verdict = compose_verdict.decide(findings, already=heritage, exception=exception)
+    except DockerUnavailableError as exc:
+        return Judgement(
+            findings,
+            compose_verdict.Verdict(),
+            exception,
+            unavailable=exc,
+            undecided=tuple(heritage.undecided(findings)),
+        )
+    return Judgement(findings, verdict, exception)
+
+
 def check_host_privileges(
     deployer: DockerComposeDeployer,
     document: Any,
     *,
     accepted: Heritage | Sequence[str] | None = None,
     final: bool = False,
+    record: str | None = None,
 ) -> None:
     """
     Refuse, or warn about, what in a stack's compose file gives it this server.
@@ -259,32 +416,25 @@ def check_host_privileges(
         final: The stack's own ``.env`` is written, so the model Compose resolves is the one that
             will run: it is always asked for, and a path made of variables that it still cannot
             resolve is refused.
+        record: How the activation that follows comes to be (``deploy``, ``update``, ``release``,
+            ``adopt``...). Given, a stack that passes has what it was given of the server written down
+            in the store (:mod:`noust.core.compose_acceptance`), which is what its unit's start and
+            every restart are compared with. Nothing is written for a stack that is stopped.
 
     Raises:
         DeploymentError: The file asks for what the stack did not have, without an exception; or what it
             had could not be told because Docker did not say.
     """
-    from noust.deployers.helpers import sandbox as build_sandbox
-
-    context = guard_context(deployer)
-    findings = inspect_compose(document, deployer.app_path, context=context)
-    exception = build_sandbox.get_compose_exception(deployer.domain, store=deployer.store)
-    heritage = _heritage(deployer, accepted)
-    command = f"noust app sandbox compose-exception {deployer.domain} --reason '...'"
-    try:
-        verdict = compose_verdict.decide(findings, already=heritage, exception=exception)
-        # A file that is already refused is not read any further: resolving it is how an include that
-        # leaves the application would be followed.
-        if final or not verdict.stop:
-            findings = with_what_compose_resolves(deployer, document, findings, final=final)
-            verdict = compose_verdict.decide(findings, already=heritage, exception=exception)
-    except DockerUnavailableError as exc:
-        lines = "\n".join(f"- {problem}" for problem in heritage.undecided(findings))
+    judged = judge(deployer, document, heritage=_heritage(deployer, accepted), final=final)
+    findings, verdict, exception = judged.findings, judged.verdict, judged.exception
+    command = _exception_command(deployer.domain)
+    if judged.unavailable is not None:
+        exc = judged.unavailable
         raise DeploymentError.from_text(
             say(
                 "compose_guard.cannot_tell_what_it_has",
                 domain=deployer.domain,
-                lines=lines,
+                lines="\n".join(f"- {problem}" for problem in judged.undecided),
                 command=command,
             ),
             output=exc.output or exc.message,
@@ -304,6 +454,8 @@ def check_host_privileges(
         )
         deployer.logger.warning(f"Compose: {problem}. {said}")
     if not verdict.stop:
+        if record:
+            _remember(deployer, findings, record)
         return
     lines = "\n".join(f"- {problem}" for problem in verdict.hard or verdict.stop)
     if verdict.hard:
@@ -313,6 +465,178 @@ def check_host_privileges(
     raise DeploymentError.from_text(
         say("compose_guard.asks_for_root", domain=deployer.domain, lines=lines, command=command)
     )
+
+
+#: What may be written into the line of a unit that runs the gate: no quote, space, ``%`` or ``$`` (which
+#: systemd or the shell would read), nothing that ends the line.
+_UNIT_SAFE = re.compile(r"[A-Za-z0-9_./+:@,=-]+")
+
+#: Where Noust is when nothing says otherwise.
+DEFAULT_EXECUTABLE = "/usr/bin/noust"
+
+
+def gate_executable() -> str:
+    """
+    Say where Noust's command is, as the line of a unit that runs the gate names it.
+
+    Returns:
+        The absolute path ``noust`` has on this machine, or the place the packages put it.
+    """
+    from noust.core.utils import find_noust_executable
+
+    return find_noust_executable() or DEFAULT_EXECUTABLE
+
+
+def unit_gate(executable: str, domain: str, project: str | None) -> str:
+    """
+    Write the command a stack's unit runs before ``docker compose up``, as the line of the unit.
+
+    A unit outlives the package that wrote it: ``apt remove noust`` (or ``dnf``, ``zypper``, ``pip
+    uninstall``) touches nothing else, and a line that ran a command that is no longer there would stop
+    every stack from starting for ever. So the line runs Noust's command only where it exists
+    (``[ ! -x EXECUTABLE ]`` is true when it does not, and the line ends well: the stack starts as it did
+    before 4.3, since without Noust there is nothing to judge with) and replaces itself with the command
+    where it does (``exec``), so that what the command ends with is what the line ends with: a gate that
+    refuses, or a Noust too old to know the command, is a start that does not happen. Everything is
+    absolute paths and in the line itself, never in a file that could go with the package.
+
+    Args:
+        executable: Where Noust's command is.
+        domain: The application.
+        project: What the unit passes with ``-p``; None for a stack that leaves it to Compose.
+
+    Returns:
+        What follows ``ExecStartPre=`` (and ``ExecReload=``): ``/bin/sh -c '[ ! -x EXE ] || exec EXE app
+        compose gate DOMAIN --project P'``.
+
+    Raises:
+        ValueError: A value cannot be written into the line without a shell or systemd reading it as
+            something else. A path that cannot is never swapped for another: the gate would then look
+            for Noust where it is not and let every start through.
+    """
+    for value in (executable, domain, project or "x"):
+        if _UNIT_SAFE.fullmatch(value) is None:
+            raise ValueError(f"{value!r} cannot be written into the line of a unit")
+    command = f"{executable} app compose gate {domain}" + (
+        f" --project {project}" if project else ""
+    )
+    return f"/bin/sh -c '[ ! -x {executable} ] || exec {command}'"
+
+
+def gate_command(deployer: DockerComposeDeployer, project: str | None) -> str | None:
+    """
+    Write the command a stack's unit runs before ``docker compose up``.
+
+    Args:
+        deployer: The deployer of the stack. A container application's compose file is rendered by
+            Noust from its own settings and is not a repository's, so there is nothing to hold its
+            start to.
+        project: What the unit passes with ``-p``; None for a stack that leaves it to Compose.
+
+    Returns:
+        The line (:func:`unit_gate`), whose directory, compose file and profiles are the unit's own
+        working directory and environment; None for a deployer that is not a repository's stack.
+
+    Raises:
+        ValueError: As :func:`unit_gate`.
+    """
+    if deployer.APP_TYPE != "docker-compose":
+        return None
+    return unit_gate(gate_executable(), deployer.domain, project)
+
+
+def keys_of(findings: ComposeFindings) -> frozenset[FindingKey]:
+    """
+    Name what a stack was given of the server, as the guard names each finding.
+
+    Args:
+        findings: What the guard found.
+
+    Returns:
+        The identity of every refused finding (an exception or a heritage allowed it; the others
+        stopped the stack and never get here), with the real place each mount leads to beside the
+        spelled one.
+    """
+    keys = {key for sentence in findings.refused if (key := findings.keys.get(sentence))}
+    return compose_running.with_real_paths(keys)
+
+
+def _remember(deployer: DockerComposeDeployer, findings: ComposeFindings, source: str) -> None:
+    """
+    Write down what a stack that passed the guard is given of the server.
+
+    Added to what was accepted before, until the stack serves (:func:`settle`): an activation that
+    fails goes back to the stack it replaced, and that one must still be accepted.
+
+    Args:
+        deployer: The deployer of the stack.
+        findings: What the guard found, judged on the model that will run.
+        source: How the activation comes to be.
+    """
+    keys = keys_of(findings)
+    deployer._accepting = keys
+    compose_acceptance.record(
+        deployer.domain,
+        keys,
+        source=source,
+        actor=getattr(deployer, "trigger", "") or "",
+        store=deployer.store,
+    )
+
+
+def forget_rolled_back(deployer: DockerComposeDeployer) -> None:
+    """
+    Clean the store after a first deployment that failed.
+
+    An application that was registered goes, with everything kept for its name (its compose exception
+    included). One that never got as far had only what the guard wrote down, which goes too, and the
+    exception an operator recorded ahead of the first deployment stays for the next attempt.
+
+    Args:
+        deployer: The deployer of the stack.
+    """
+    if deployer.store.get_app(deployer.domain) is not None:
+        deployer.store.delete_app(deployer.domain)
+    else:
+        compose_acceptance.forget_record(deployer.domain, store=deployer.store)
+
+
+def settle(deployer: DockerComposeDeployer) -> None:
+    """
+    Keep as accepted only what the stack that now serves was given.
+
+    Args:
+        deployer: The deployer of a stack whose containers passed the health gate.
+    """
+    keys = getattr(deployer, "_accepting", None)
+    if keys is None:
+        return
+    entry = compose_acceptance.get(deployer.domain, store=deployer.store)
+    if entry is not None:
+        compose_acceptance.record(
+            deployer.domain,
+            keys,
+            source=entry.source,
+            actor=entry.actor,
+            replace=True,
+            store=deployer.store,
+        )
+
+
+def settled(deployer: DockerComposeDeployer, outcome: tuple[bool, str]) -> tuple[bool, str]:
+    """
+    Settle what a stack was accepted with when its activation passed.
+
+    Args:
+        deployer: The deployer of the stack.
+        outcome: Whether the activation passed, and the evidence when it did not.
+
+    Returns:
+        The outcome, as it came.
+    """
+    if outcome[0]:
+        settle(deployer)
+    return outcome
 
 
 def refusals_in(
@@ -390,9 +714,35 @@ def with_what_compose_resolves(
     Returns:
         The findings with what the model adds.
     """
+    merged, unresolved = resolve_findings(deployer, document, findings, final=final)
+    if unresolved:
+        deployer.logger.info(f"Compose: {unresolved}")
+    return merged
+
+
+def resolve_findings(
+    deployer: DockerComposeDeployer,
+    document: Any,
+    findings: ComposeFindings,
+    *,
+    final: bool = False,
+) -> tuple[ComposeFindings, str]:
+    """
+    Do what :func:`with_what_compose_resolves` does, and say whether Compose could not resolve it.
+
+    Args:
+        deployer: The deployer of the stack.
+        document: The parsed compose file.
+        findings: What the file as written asks of the host.
+        final: See :func:`check_host_privileges`.
+
+    Returns:
+        The findings with what the model adds, and a sentence when Compose could not resolve the stack
+        and what was judged is the file as written (empty when the model is what was judged).
+    """
     if not deployer.compose_path:
-        return findings
-    merged, unresolved = with_resolved(
+        return findings, "there is no compose file to resolve"
+    return with_resolved(
         findings,
         document,
         deployer.runner,
@@ -404,9 +754,6 @@ def with_what_compose_resolves(
         context=guard_context(deployer),
         final=final,
     )
-    if unresolved:
-        deployer.logger.info(f"Compose: {unresolved}")
-    return merged
 
 
 @dataclass(frozen=True)
@@ -465,7 +812,9 @@ def stack_findings(app: App) -> StackReport:
 
     gate = DockerGate(scope=Scope.everything())
     try:
-        running = compose_running.read(lambda: gate.project_grants(project or "default"), context)
+        running = compose_running.read(
+            lambda: gate.project_grants(project or "default", within=path), context
+        )
     except DockerUnavailableError as exc:
         return StackReport(findings, f"{exc.message}: {exc.output}" if exc.output else exc.message)
     return StackReport(merge_findings(findings, running.findings))

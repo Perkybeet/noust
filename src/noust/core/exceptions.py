@@ -424,6 +424,16 @@ class ServiceError(NoustError):
     pass
 
 
+class StartHeldBackError(ServiceError):
+    """
+    Raised when the gate of a Compose stack holds back a start or a restart.
+
+    Not a fault of the server: what Compose resolves for the stack now adds something that gives a
+    container this server and the stack was not accepted with it, or what it resolves to could not be
+    judged. The stack keeps running as it was. A state of the stack, which the operator changes.
+    """
+
+
 class DescriptorsExhaustedError(NoustError):
     """
     Raised when the process has no file descriptor left (``EMFILE`` or ``ENFILE``).

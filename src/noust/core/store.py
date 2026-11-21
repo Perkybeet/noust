@@ -37,6 +37,7 @@ from typing import Any, NoReturn, Optional, TypeVar
 from urllib.parse import quote
 
 from noust.core import (
+    compose_acceptance,
     domain_certificates,
     paths,
     schema_v12,
@@ -2657,9 +2658,8 @@ class NoustStore:
         with self._transaction() as cursor:
             cursor.execute("DELETE FROM apps WHERE domain = ?", (domain,))
             deleted = cursor.rowcount > 0
-            # Keyed by domain, not by row: a new application on the domain
-            # must not inherit the branch an operator chose for the old one.
-            cursor.execute("DELETE FROM app_branch_pins WHERE domain = ?", (domain,))
+            # Keyed by domain, not by row: the next application on the name inherits none of it.
+            compose_acceptance.forget(cursor, domain)
             return deleted
 
     def get_branch_pin(self, domain: str) -> str | None:

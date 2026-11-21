@@ -3,6 +3,14 @@ set -e
 
 case "$1" in
     remove)
+        # The units of the Compose stacks run Noust's check of their start. The line is made to let a
+        # start through where the command is gone, but the stacks' units are left as they were before
+        # 4.3 while the command still exists: removing Noust touches nothing of what keeps running.
+        # Never on "upgrade" below, where the check is meant to stay.
+        if [ -x /usr/bin/noust ]; then
+            /usr/bin/noust setup compose-gate --remove --reason "package removal" >/dev/null 2>&1 || true
+        fi
+
         # 'noust monitor install' and 'noust web enable' write and enable
         # these units at runtime; the package itself never ships them, so dpkg
         # has no unit of its own to stop here and the daemons kept running

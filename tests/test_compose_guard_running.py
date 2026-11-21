@@ -26,6 +26,7 @@ from noust.core.exceptions import DeploymentError
 from noust.core.runner import FakeRunner
 from noust.core.store import App, NoustStore
 from noust.deployers.docker_compose import DockerComposeDeployer
+from noust.deployers.helpers import compose_privileges
 from noust.deployers.helpers import sandbox as build_sandbox
 from tests.support.docker_grants_samples import container_id, grants_line, ps_row
 
@@ -243,7 +244,7 @@ class TestWhatOnlyResolvingShows:
             boxes=[{"service": "web", "binds": ("/srv/data",)}],
         )
 
-        compose._remember_serving_privileges()
+        compose._accepted_refusals = compose_privileges.heritage_of_redeploy(compose)
         compose._discover_compose_file()
 
         with pytest.raises(DeploymentError, match="asks for root"):
@@ -261,7 +262,7 @@ class TestWhatOnlyResolvingShows:
             said=said,
         )
 
-        compose._remember_serving_privileges()
+        compose._accepted_refusals = compose_privileges.heritage_of_redeploy(compose)
         compose._discover_compose_file()
         compose._check_host_privileges(load_compose(SERVED))
 

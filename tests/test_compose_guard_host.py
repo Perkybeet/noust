@@ -23,6 +23,7 @@ from noust.core.exceptions import DeploymentError
 from noust.core.runner import FakeRunner
 from noust.core.store import NoustStore
 from noust.deployers.docker_compose import DockerComposeDeployer
+from noust.deployers.helpers import compose_privileges
 from noust.deployers.helpers import sandbox as build_sandbox
 from noust.deployers.helpers.compose_guard import inspect_compose
 
@@ -278,7 +279,7 @@ class TestTheWayThroughTheRealFlows:
             "services:\n  web:\n    image: nginx\n    devices: ['/dev/kvm']\n"
         )
 
-        compose._remember_serving_privileges()
+        compose._accepted_refusals = compose_privileges.heritage_of_redeploy(compose)
 
         remembered = compose._accepted_refusals
         assert remembered is not None

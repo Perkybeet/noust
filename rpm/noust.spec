@@ -260,6 +260,13 @@ echo "Noust installed. Run 'noust setup' to configure it."
 # upgrade (where it is 1 or more, and the units are meant to survive the
 # version bump untouched).
 if [ $1 -eq 0 ]; then
+    # The units of the Compose stacks run Noust's check of their start. The line is made to let a
+    # start through where the command is gone, but the stacks' units are left as they were before
+    # 4.3 while the command still exists: removing Noust touches nothing of what keeps running.
+    if [ -x /usr/bin/noust ]; then
+        /usr/bin/noust setup compose-gate --remove --reason "package removal" >/dev/null 2>&1 || :
+    fi
+
     # 'noust monitor install' and 'noust web enable' write and enable these
     # units at runtime; this spec never packages them, so rpm has none of its
     # own to stop here and the daemons kept running under a binary that had
@@ -325,6 +332,16 @@ fi
 # makes that call in one place; it must not fail the transaction.
 if [ -d /run/systemd/system ]; then
     /usr/bin/noust monitor autoenable --reason "package upgrade" >/dev/null 2>&1 || :
+fi
+
+# The Compose stacks of a server that updates are taken over before anything is
+# restarted: a record of what each runs with, then its unit with the check of its
+# start, and a daemon-reload (nothing is started, stopped or recreated, so every
+# stack starts as before, at the next boot too). A stack it cannot resolve is left
+# as it was and said by 'noust health'; the console and 'noust setup
+# compose-gate' try again. It must not fail the transaction.
+if [ -d /run/systemd/system ]; then
+    /usr/bin/noust setup compose-gate --reason "package upgrade" >/dev/null 2>&1 || :
 fi
 
 # 'noust web enable' runs the console as a unit, and %%preun leaves it running

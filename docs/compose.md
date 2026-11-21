@@ -17,7 +17,7 @@ The rest of this guide is on pages of its own:
 
 A stack is deployed in place: the directory holds the checkout, the `.env`, and whatever the
 containers write next to the code. It runs under one systemd unit, `<app>.service`, which runs
-`docker compose up -d` and `down`, and an update rebuilds the images, recreates the
+`docker compose up -d` and `down` (after the check of [what starts a stack](#what-starts-a-stack-is-what-was-judged)), and an update rebuilds the images, recreates the
 containers, judges the result with the same health gate as any other application and puts back
 the images that served when it does not pass. That part is unchanged since 2.1 and is
 described in [releases.md](releases-compose.md#docker-compose-and-monorepo-applications). A stack that
@@ -523,30 +523,106 @@ loop of links, a directory that cannot be read) is refused rather than guessed. 
 link that its own commits added or changed look like something the stack already had.
 
 **What an application in production keeps.** A stack that already runs goes on updating. What it already
-had is what its containers were given of the server (Noust asks Docker for it: the directories of the
-server they mount, their devices, capabilities, namespaces, confinement, cgroup, runtime and borrowed
-volumes) and whatever the compose file of the commit that served spells out as written. That is warned
+had is what it was accepted with: when a stack is activated having passed this check (a deployment, an
+update, a redeploy, a rollback, an adoption, an edit in the Docker zone) Noust writes down in its own store
+what the stack was given of the server, and Docker is asked what its containers were given of it (the
+directories of the server they mount, their devices, capabilities, namespaces, confinement, cgroup, runtime
+and borrowed volumes, of the containers that were made from the application's own tree). That is warned
 about in the deploy log and never stops an update, a redeploy, a rollback or an edit in the Docker zone,
 whether it comes from a variable (`${DATA_DIR}:/data`), from an `include` or an `extends`, or is written
 as it is. Only what the update adds is refused, unless the application has an exception: a directory, a
-device or a capability that no container of that service has. A container is not changed without a
-deployment, which goes through this check, so it is the record that neither the repository nor the `.env`
-can write: the compose file resolved with the variables of today is not proof of what the stack had, and
-a variable changed to point somewhere else is a new mount, refused saying the new line.
+device or a capability that the record and no container of that service has. The tree is not a record: a
+container that mounts it writes the compose file and the `.git` folder too, so the compose file that served
+is read only for a stack that has no record yet. The compose file resolved with the variables of today is
+not proof of what the stack had either: a variable changed to point somewhere else is a new mount, refused
+saying the new line.
 
-Two things are not taken from a running container. `privileged`, the sockets of container runtimes, Noust's
-own state and another application's files have been refused without an exception since 3.1: a stack that
-has one is let through, with a warning, only when the file that served says it in plain words, and
-otherwise asks for the recorded exception like a new stack. And a path that reaches a place through a link
-of the repository is taken from a container only when git says that no commit since changed the link.
+Mounting the application's own directory (`./:/app`) is neither refused nor warned about: it is how most
+repositories run their code in a container, and what the container then writes there (the compose file, the
+`.env`, the `.git` folder) changes no verdict, because what a start and an update are held to is the store's
+record and not the tree. What it can write is judged again at the next start like any other change.
 
-When Docker does not answer, an update that needs to know what the containers have is refused saying why,
-with the fix: nothing is guessed and nothing passes. A stack with nothing in the way does not ask Docker
-anything for this.
+`privileged`, the sockets of container runtimes, Noust's own state and another application's files have been
+refused without an exception since 3.1, and a stack that carries one without a record or an exception is
+refused like a new stack. And a path that reaches a place through a link of the repository is taken from a
+container only when git says that no commit since changed the link.
 
 An exception is the application's, not one line's: once it is recorded, an update that adds something else
 of the same kind is allowed too, and the deploy log says who allowed it and why. What no exception allows
 (above) stays refused.
+
+### What starts a stack is what was judged
+
+The unit of a stack runs `docker compose up -d` again at every start, at every restart and when the machine
+boots, with the files and the variables that are there then. Whoever can write the stack's `.env` (the
+console, `noust env`) or a file of its tree can change what Compose resolves between a deployment and a
+start, so the check is also at the start, not only at the deployment:
+
+- **The unit runs the gate before `up`** (`ExecStartPre`, and before the rebuild of a reload): `noust app
+  compose gate`, which resolves the stack as it is now with the function that judges a deployment and
+  compares it with what the stack was accepted with and the exception recorded for it. If it adds nothing,
+  the stack starts. If it adds something that gives a container this server, the stack does **not** start,
+  the journal says which line is new, and there are two ways out: deploy it again, which judges it
+  (`noust update DOMAIN`), or record why it needs it (`noust app sandbox compose-exception`). If what Compose
+  resolves to cannot be judged, the stack does not start either. `noust health` lists the start that was held
+  back, with the same two ways out.
+- **The line tolerates Noust being removed.** A unit outlives the package, so the line does not run a command
+  that may no longer be there; it is written in the unit itself, with absolute paths, as
+  `ExecStartPre=/bin/sh -c '[ ! -x /usr/bin/noust ] || exec /usr/bin/noust app compose gate DOMAIN --project
+  PROJECT'` (the path is where `noust` is on that server, `/usr/local/bin/noust` after a `pip install` as
+  root). Where the command exists it is the whole line (`exec`), so a gate that refuses, or one that fails,
+  is a start that does not happen. Where it does not exist (after `apt remove noust`, `dnf remove`, `zypper
+  remove` or `pip uninstall`) the line ends well and the stack starts as it did before 4.3: without Noust there
+  is nothing to judge with, and whoever could remove it is root already. Removing the package through `apt`,
+  `dnf` or `zypper` also takes the line out of the units first (`noust setup compose-gate --remove`); after a
+  `pip uninstall`, which cannot run anything, the line stays and does nothing.
+- **A unit you made yours has no gate.** Noust never rewrites a unit that does not carry `# Generated by
+  Noust` as its first line, so it writes no gate into one: the stack is taken over (its record is written, so
+  that what Noust itself starts is judged), its unit is left byte for byte as it is, and systemd starts it
+  without the check. `noust health` says which stacks are like that ("this stack starts without the check of
+  its start: its unit is yours"). To have the check at systemd's start too, put the line back and run `noust
+  setup compose-gate --app DOMAIN`. If the check was in the unit before you took the first line out, `noust
+  setup compose-gate --remove` takes it out of that unit as well: the line is Noust's, and nothing else of
+  your unit is touched.
+- **Noust asks before it restarts.** `noust restart`, `POST /api/apps/{domain}/restart`, the fleet and the
+  Docker zone ask the same question before they pass a start or a restart on to systemd, so a refusal leaves
+  a running stack running (the restart of a unit is a `down` and an `up`, and a refusal after the `down`
+  would have stopped it). The answer is a 409 with the line and the two ways out. A restart made past
+  Noust, `systemctl restart`, is held by the unit's own gate.
+- **The writer of the `.env` asks before it writes.** `PUT /api/apps/{domain}/env`, `noust env`, a shared
+  variable, a rotated secret and a linked database resolve the stack with the file they are about to write
+  (`docker compose --env-file`) and refuse what adds something: the file stays as it was and the error says
+  the line. A stack with no record is written as before.
+
+A stack with no record starts as it always did, and says so in the journal. A new application gets its
+record at its first deployment; the stacks of a server that updates to 4.3 are taken over by the step
+below.
+
+**Updating to 4.3 starts every stack as before.** The package's own step at the update (`noust setup
+compose-gate`, which you can run by hand), and the console a little after it starts and then every ten
+minutes for the stacks that were left, take each Compose stack over, in this order: it writes down what Compose resolves for the stack today and what its containers have, which
+is what the version it ran under would have started, marked as *taken over* so that `noust health` lists it
+to be looked at; it records the project it runs under; and only then it writes its unit again with the gate
+and `-p` in it and runs `daemon-reload`. Nothing is started, stopped or recreated. A unit never has the gate
+before its stack has a record. A stack that cannot be resolved (Compose fails, Docker does not answer, the
+file is not there) is left exactly as it was, and `noust health` says why; the next pass tries again.
+
+**Whose a project is.** Compose names a project after the directory of the compose file, so two applications
+whose file is in a subdirectory of the same name (`docker/compose.yml`) ran as one project. A new
+application records its own name as its project and every command and its unit pass it with `-p`. An
+application that exists keeps the project it has (the volumes are named after it); two that share one are
+listed by `noust health` with both names, and neither is broken. A project derived or declared that belongs
+to another application is refused, and the containers a stack inherits from are the ones of its project that
+were made from its own tree.
+
+**The exception dies with the application.** Deleting an application forgets its compose exception and what
+it was accepted with, so the next application on the name starts with neither. An exception recorded before
+the first deployment is kept for it, and for a failed first deployment, until the application it was
+recorded for is deleted.
+
+**Going back.** A Noust before 4.3 does not have the command the unit runs. `noust store compat --to
+RELEASE` says it as its first step: `noust setup compose-gate --remove`, run with 4.3 still installed, takes
+the gate out of every unit; the records stay.
 
 After upgrading, `noust health` (the Build sandbox check) and `noust ens check` (ENS-BLD-01, in its
 evidence) list the stacks that carry something a new stack would be refused, by their compose file as

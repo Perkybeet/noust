@@ -94,6 +94,7 @@ from noust.core.exceptions import (
     SchemaChangedError,
     SecurityError,
     SourceError,
+    StartHeldBackError,
     ValidationError,
     WebserverInUseError,
     WebserverMoveError,
@@ -190,6 +191,8 @@ _STATUS_BY_ERROR: tuple[tuple[type[NoustError], int], ...] = (
     # Moving sites to the other web server, refused or put back: a state of the server.
     (WebserverMoveError, 409),
     (AppBusyError, 409),
+    # A Compose stack whose start would give a container what it was not accepted with: held back.
+    (StartHeldBackError, 409),
     # Nothing to cancel, or too late to: a state of the deployment, not a fault.
     (CancelRefused, 409),
     (DeploymentCancelled, 409),

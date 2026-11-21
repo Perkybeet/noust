@@ -39,7 +39,7 @@ from typing import Any
 
 import yaml
 
-from noust.core import audit
+from noust.core import audit, compose_acceptance
 from noust.core.appdir.layout import code_path_for
 from noust.core.compose_yaml import load_compose
 from noust.core.docker.compose_documents import rehearse_document, resolve_document
@@ -936,22 +936,32 @@ class StackEditor:
             current: What the stack has now.
 
         Returns:
-            The findings of its current document as written, and what its containers were given, which
+            What it was accepted with, or for a stack with no record the findings of its current
+            document as written, and what its containers were given, which
             Docker is asked for the first time a finding needs it. The tree is the one the stack runs
             from, and an edit changes no link of it.
         """
         context = self._context(target)
+        gate = self._gate
+        accepted = compose_acceptance.get(target.app.domain, store=self.store)
+
+        def running() -> compose_running.Running:
+            return compose_running.read(
+                lambda: gate.project_grants(target.project, within=Path(target.app.app_path)),
+                context,
+            )
+
+        if accepted is not None:
+            # What the stack was accepted with is in the store, which its document cannot write.
+            return compose_verdict.Heritage(
+                changed_links=frozenset(), running=running, keys=accepted.keys
+            )
         try:
             written = inspect_compose(load_compose(current), target.cwd, context=context)
         except yaml.YAMLError:
             written = ComposeFindings()
-        gate = self._gate
         return compose_verdict.Heritage(
-            frozenset(written.refused),
-            changed_links=frozenset(),
-            running=lambda: compose_running.read(
-                lambda: gate.project_grants(target.project), context
-            ),
+            frozenset(written.refused), changed_links=frozenset(), running=running
         )
 
     @staticmethod

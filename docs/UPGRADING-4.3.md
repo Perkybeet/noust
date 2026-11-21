@@ -5,8 +5,10 @@ first. The whole list of changes is in [CHANGELOG-4.3.md](CHANGELOG-4.3.md), and
 notice is in [API-CHANGELOG.md](API-CHANGELOG.md).
 
 The short version: 4.3 does not touch what serves your applications. No site, application or Compose stack is
-rewritten by the update, and the only units it writes again are Noust's own two, `noust-web` and `noust-monitor`,
-to raise their limit of open files. The command line keeps every command and option and the HTTP API only gains
+restarted or recreated by the update. The units it writes again are Noust's own two, `noust-web` and
+`noust-monitor`, to raise their limit of open files, and, at the update, the unit of
+each Compose stack, once, to hold its start to what was judged
+([below](#what-starts-a-compose-stack-is-what-was-judged)); that is a `daemon-reload` and nothing else. The command line keeps every command and option and the HTTP API only gains
 operations and fields (what the security fixes now refuse is in the Breaking changes of
 [API-CHANGELOG.md](API-CHANGELOG.md)).
 The store moves to schema 18 the first time Noust starts (a copy of the old one is kept beside it), and what an
@@ -38,6 +40,12 @@ what an update adds and in an adoption. Run `noust health` after updating and re
   a variable or an `include`): that asks for the recorded exception at its next update
   ([how](#compose-stacks-that-carry-more-than-a-new-stack-may)). Where untrusted repositories were deployed
   before, review their Compose files and rotate the secrets of that server.
+- **Nothing, for the start of your Compose stacks, but read `noust health` after the update.** The unit of each
+  stack gets a check that runs before `docker compose up`; the stacks that run today are taken over as they run,
+  so each goes on starting, at the next boot too. `noust health` lists the ones that could not be taken over yet
+  (and why), and the ones whose accepted state came from before 4.3 so you can look at it
+  ([how](#what-starts-a-compose-stack-is-what-was-judged)). If you go back to a release before 4.3, run
+  `noust setup compose-gate --remove` first.
 - **Compose reads a closed list of Noust's environment.** A `${NAME}` in a compose file, or a secret read from the
   environment, is an empty string for any variable of Noust's own process that Docker and Compose do not read
   themselves (everything but `PATH`, `HOME`, the language, the proxy and certificates, the places of the credential
@@ -141,8 +149,9 @@ devices, the host's namespaces and other paths of the server. It did not follow 
 not look at the files an `env_file`, a build context or a build secret names. 4.3 refuses all of that in a new
 stack, judges a path by where it leads and asks Compose what the file resolves to
 ([the list](compose.md#what-a-stack-may-ask-of-the-server)). Nothing that runs is stopped by it, and no
-application in production stops updating because of it: what a stack already had is what its containers were
-given of the server, which Noust asks Docker for, plus what its file says as written. At its next update:
+application in production stops updating because of it: what a stack already had is what it was accepted with
+(which Noust writes down when it takes the stack over and at every deployment) and what its containers were given
+of the server, which Noust asks Docker for. At its next update:
 
 - **What its containers already have, or its file says as written** (`privileged` written in the file, a device,
   a mount of `/srv/media`, `network_mode: host`; a mount made of a variable such as `${DATA_DIR}:/data`, whose
@@ -153,9 +162,9 @@ given of the server, which Noust asks Docker for, plus what its file says as wri
   variable that now points somewhere else): refused with "asks for root on this server", the lines and the
   command, as in a new stack. The stack keeps serving what it served.
 - **What 3.1 already refused without an exception** (`privileged`, the Docker socket, Noust's own state, another
-  application's files) is taken from the file that served only, as it always was: a container that has one
-  while the file does not say it in plain words (it came through a variable or an `include`) asks for the
-  recorded exception at its next update. `noust health` lists it.
+  application's files) that a stack ran with when 4.3 took it over is accepted as it ran, however it comes (a
+  variable, an `include`, written as it is), so no stack stops updating for it; `noust health` lists it, and what
+  an update adds of it is refused.
 - **Docker does not answer** when Noust has to know what the containers have: the update is refused saying
   why and what to do. Nothing is let through on a guess.
 - **A key Noust does not know** (the file is written for a newer Compose than the check, or the key is a
@@ -204,6 +213,50 @@ taken out of the compose file, and a stack that already had one is only warned a
 
 Check: run `noust health` again. The stack is no longer named in Build sandbox, and its next update says
 "allowed for shop.example.com by <who> (<reason>)" in the deploy log where it used to warn or refuse.
+
+## What starts a Compose stack is what was judged
+
+The unit of a stack runs `docker compose up -d` at every start, restart and boot, with the `.env` and the files
+that are there then. Until 4.2.1 nothing looked at them at that moment, so someone who could write the stack's
+`.env` or a file of its tree and could restart it changed what the containers got without a deployment. In 4.3 the
+unit runs a check first (`noust app compose gate`, `ExecStartPre`), the restart of Noust, the API and the fleet
+ask it before they pass the restart on, and the writer of the `.env` asks it before it writes
+([compose.md](compose.md#what-starts-a-stack-is-what-was-judged)). A start that adds something that gives a
+container the server is held back and says which line is new, with the two ways out: deploy again, or record why
+it is needed. A restart that Noust refuses leaves the stack running.
+
+How the update does not stop a stack from starting, in the order it is done:
+
+1. The package's step at the update (`noust setup compose-gate`, which you can also run by hand) writes
+   down, for each stack, what Compose resolves for it **today** and what its containers were given: what 4.2
+   would have started. It is marked as taken over, and `noust health` lists the ones that carry something of the
+   server so that you can look at them.
+2. It records the Compose project each stack runs under today (nothing is renamed: the volumes are named after the
+   project).
+3. Only then it writes the unit of the stack again with the check in it and `-p`, and runs `daemon-reload`.
+   Nothing is started, stopped or recreated, and a unit never has the check before its stack has the record.
+
+A stack that cannot be resolved when the step reaches it (Docker is not up yet, a file is missing, Compose
+fails) is left exactly as it was, so it starts as it always did, and `noust health` names it with the reason; the
+console tries again every ten minutes, and `noust setup compose-gate --app DOMAIN` at once. A stack whose unit you made yours (it does not start with `# Generated by Noust`) is recorded and its unit
+is left exactly as it is: Noust never rewrites a unit without that line, so it puts no check in one, and
+`noust health` says that stack starts without it ([leaving.md](leaving.md#making-the-files-yours)).
+
+What you may notice: a stack whose `.env` or tree somebody changed to lead somewhere that gives the server will
+not start (at boot, after a restart) and its journal says why (`journalctl -u shop-example-com`). Mend the change
+or record the exception; the other applications are not affected. `noust health` also says when two applications
+run as one Compose project (two stacks whose file is in a subdirectory of the same name did): neither is changed,
+and a new application always runs as its own name.
+
+The line the unit runs is written to not matter when Noust is removed: it runs the command only where the
+command exists (`ExecStartPre=/bin/sh -c '[ ! -x /usr/bin/noust ] || exec /usr/bin/noust app compose gate DOMAIN
+--project PROJECT'`), so `apt remove noust`, `dnf remove`, `zypper remove` and `pip uninstall` leave the stacks
+starting as they did before 4.3, and the package's removal script takes the line out first
+([leaving.md](leaving.md#the-check-of-a-compose-stacks-start)). A unit that an earlier build of 4.3 wrote with the
+command alone gets this form at the next pass.
+
+Check: after the update, `grep -c "app compose gate" /etc/systemd/system/<app>.service` says 2 for each stack, and
+`noust health` names none as waiting.
 
 ## Adopting or bringing a stack that runs with access to the server
 
@@ -405,6 +458,10 @@ the steps and the table of which release opens which store. What 4.3 left that 4
   `noust cron settle` to retire them afterwards: remove their units with `noust cron delete NAME`.
 - **Units**: the package of 4.2 writes `noust-web` and `noust-monitor` again without the limit of open files, which
   4.2.1 does not need because it closes a worker's connections itself.
+- **The units of the Compose stacks**: they run a command, `noust app compose gate`, that 4.2.1 does not have, so a
+  stack would not start after going back. `noust store compat --to 4.2.1` says it first: run `noust setup
+  compose-gate --remove` with 4.3 still installed, and the units are as 4.2 wrote them (the records stay, and
+  bringing the stacks up again changes nothing).
 - **The check on Compose files**: 4.2.1 has the check as it was before this release, with the limits described in
   [the first section above](#compose-stacks-that-carry-more-than-a-new-stack-may). The exceptions that were
   recorded stay in the store and 4.2 reads them as it always did, so going back reopens what 4.3 closed; update

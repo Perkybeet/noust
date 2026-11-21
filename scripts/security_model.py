@@ -133,12 +133,19 @@ GUARANTEES: tuple[Guarantee, ...] = (
         "of the server outside the application however a link spells it) unless an exception is "
         "recorded; it is refused, with no exception that can allow it, Noust's state, another "
         "application's files and anything that belongs to another application. What a stack "
-        "already had is warned about and never stopped: what its containers were given of the "
-        "server (Noust asks Docker, never the container's environment) and what its compose file "
-        "says as written, whether it comes from a variable, an `include`, an `extends` or is "
-        "written as it is; `noust health` lists it. A container does not make `privileged`, a "
-        "container runtime's socket, Noust's state or another application's files a stack's to "
-        "keep: those are taken only from a file that says them plainly, as before. The check "
+        "already had is warned about and never stopped: what it was accepted with (each "
+        "activation that passed the guard writes down in the store what the stack was given of "
+        "the server, which nothing in its tree can write) and what its containers were given "
+        "(Noust asks Docker, never the container's environment), whether it comes from a "
+        "variable, an `include`, an `extends` or is written as it is; `noust health` lists it. "
+        "What starts a stack is held to the same: its unit runs a gate before `docker compose "
+        "up`, and every path of Noust that starts or restarts a stack and the writer of its "
+        "`.env` ask the same question first, so a variable or a file changed after the "
+        "deployment cannot give a container what the deployment did not judge; what the gate "
+        "cannot judge does not start. A stack that ran with `privileged`, a container "
+        "runtime's socket, Noust's state or another application's files when 4.3 took it over "
+        "keeps them, listed by `noust health`, and what an update adds of them is refused. "
+        "The check "
         "knows every key of the Compose specification and refuses a key it does not know like "
         "what gives the machine, so a key a newer Compose adds is not let through unseen; it "
         "reads the files an `include` or an `extends` brings in, which Compose folds into the "
@@ -170,6 +177,14 @@ GUARANTEES: tuple[Guarantee, ...] = (
             "tests/test_compose_guard_running.py::TestWhatOnlyResolvingShows::test_a_redeploy_does_not_take_what_the_env_says_now_for_what_the_stack_had",
             "tests/test_compose_guard_running.py::TestWhatAnUpdateAdds::test_what_no_container_has_is_refused",
             "tests/test_compose_guard_running.py::TestWhatIsNotInheritedByRunning::test_a_container_that_has_it_does_not_make_it_the_stacks_to_keep",
+            "tests/test_compose_gate.py::TestWhatTheGateHoldsBack::test_a_variable_changed_to_lead_to_the_root_does_not_start",
+            "tests/test_compose_gate_unit.py::TestTheUnit::test_the_gate_runs_before_up_at_every_start",
+            "tests/test_compose_gate_unit.py::TestBeforeSystemd::test_a_refusal_never_reaches_systemctl",
+            "tests/test_compose_gate_env.py::TestTheWriterJudgesFirst::test_a_variable_that_points_the_mount_at_the_root_is_not_written",
+            "tests/test_compose_gate_record.py::TestAnUpdateInheritsTheRecord::test_a_forged_commit_is_not_read_when_there_is_a_record",
+            "tests/test_compose_gate_upgrade.py::TestTheThreeStacksOfTheUpgrade::test_all_three_start_with_the_gate_afterwards",
+            "tests/test_compose_gate_upgrade.py::TestTheOrderIsWhatKeepsAStackStarting::test_a_unit_without_a_record_never_has_the_gate",
+            "tests/test_compose_acceptance.py::TestItDiesWithTheApplication::test_deleting_the_application_forgets_all_of_it",
             "tests/test_compose_guard_running.py::TestWhenDockerDoesNotAnswer::test_it_is_a_refusal_that_says_why_and_how_to_mend_it_and_never_a_pass",
             "tests/test_compose_guard_running.py::TestWhatHealthLists::test_a_stack_whose_file_says_nothing_and_whose_container_mounts_the_server_is_listed",
             "tests/test_compose_exception_who.py::TestNoTeamRole::test_the_permission_is_not_one_a_team_can_own",

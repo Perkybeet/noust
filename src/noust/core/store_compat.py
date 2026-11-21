@@ -214,6 +214,7 @@ def plan(
     """
     release_key(target)
     understood = schema_of_release(target)
+    gate = _gate_step(target)
     if understood is not None and store_schema <= understood:
         return DowngradePlan(
             target,
@@ -221,6 +222,7 @@ def plan(
             understood,
             True,
             steps=(
+                *([gate] if gate else []),
                 f"Noust {target} understands this store (schema {store_schema}): install it "
                 "(for example apt install noust=<version>, dnf downgrade noust, pip install "
                 f"noust=={target}) and restart the console.",
@@ -250,7 +252,8 @@ def plan(
         steps=(
             f"Noust {target} cannot open this store (schema {store_schema}; it understands up to "
             f"{understood}). The copy kept before the upgrade can be opened: {usable.path.name}, "
-            f"schema {usable.schema}, taken {usable.taken_at:%Y-%m-%d %H:%M} UTC.",
+            f"schema {usable.schema}, taken {usable.taken_at:%Y-%m-%d %H:%M} UTC."
+            + (f" {gate}" if gate else ""),
             "Stop the console and the monitor: systemctl stop noust-web noust-monitor",
             "Keep the current store aside, with its write-ahead log (a missing -wal or -shm is "
             f"fine): {_keep_aside_command(db_path)}",
@@ -260,6 +263,33 @@ def plan(
             "Whatever changed in Noust since that copy was taken (applications, accounts, "
             "settings) is not in it.",
         ),
+    )
+
+
+#: The first release whose units start a Compose stack through the check of its start.
+_GATE_RELEASE = "4.3.0"
+
+
+def _gate_step(target: str) -> str | None:
+    """
+    Say what to do before going back to a release that does not know the check of a stack's start.
+
+    From 4.3 the unit of a Compose stack runs ``noust app compose gate`` before it starts the stack,
+    and a Noust that does not have the command cannot start the stack: this takes the line out of every
+    unit, with the version that wrote it still installed and before anything else is changed.
+
+    Args:
+        target: The release to go back to.
+
+    Returns:
+        The sentence, or None when ``target`` has the check.
+    """
+    if release_key(target) >= release_key(_GATE_RELEASE):
+        return None
+    return (
+        "Before anything else, with this version still installed, take the check of the start out "
+        "of the units of the Compose stacks (a unit that runs a command Noust "
+        f"{target} does not have does not start): noust setup compose-gate --remove"
     )
 
 

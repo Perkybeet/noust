@@ -79,4 +79,11 @@ SENTENCES: dict[str, str] = {
     "compose_guard.cannot_tell_what_it_has.hint": "{lines}\n\nThe compose file asks for what a new stack is refused, and whether this stack already ran with it is read from its containers, which could not be asked. Check that Docker runs (systemctl status docker) and deploy again; or record why this stack needs it: {command}",
     "compose_guard.asks_for_what_no_stack_may": "{domain}'s compose file reaches what no stack may reach",
     "compose_guard.asks_for_what_no_stack_may.hint": "{lines}\n\nWhat belongs to another application or to Noust (its files, its volumes, its images, its project) is not for a stack to use, and no exception allows it. Remove it from the compose file.",
+    # -- The start of a stack that was accepted with what it was given ----------------------------------
+    "compose_gate.refused": "{domain} was not started: what its compose file resolves to now gives a container what the stack was not accepted with",
+    "compose_gate.refused.hint": "{lines}\n\nSomething the stack reads changed since it was deployed: its .env, a file of its tree, an included file or a variable. Nothing was started or stopped. Deploy it again, which judges the change: {update_command}. Or record why it needs it: {command}",
+    "compose_gate.cannot_tell": "{domain} was not started: what its compose file resolves to could not be judged",
+    "compose_gate.cannot_tell.hint": "{problem}\n\nA start that cannot be judged does not happen. Fix what is said above and start it again, or deploy it again: {update_command}",
+    "compose_gate.env_refused": "The environment of {domain} was not changed: with it the stack would be given what it was not accepted with",
+    "compose_gate.env_refused.hint": "{lines}\n\nA variable can point a mount, a file or an option of the stack somewhere else, and the stack is started with the environment as it is written. Take the change out, or record why the stack needs it: {command}",
 }

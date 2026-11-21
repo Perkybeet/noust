@@ -182,6 +182,20 @@ class ComposeSupervisor:
             )
         return found
 
+    def _gate(self, name: str) -> None:
+        """
+        Hold a start to what was judged, as a unit's ``ExecStartPre`` does where there is a unit.
+
+        Args:
+            name: The application's name.
+
+        Raises:
+            StartHeldBackError: The stack would not pass the gate (:mod:`noust.deployers.compose_gate`).
+        """
+        from noust.deployers import compose_gate
+
+        compose_gate.check_before(name, runner=self.runner)
+
     # -- What a unit's manager does for a stack -------------------------------
 
     def start(self, name: str) -> None:
@@ -195,6 +209,7 @@ class ComposeSupervisor:
             ServiceError: There is no such application, or Compose refused, with its own words.
         """
         stack, _port = self._require(name, "start")
+        self._gate(name)
         result = self._compose(
             stack,
             "up",
@@ -263,6 +278,7 @@ class ComposeSupervisor:
             ServiceError: There is no such application, or Compose refused, with its own words.
         """
         stack, _port = self._require(name, "restart")
+        self._gate(name)
         result = self._compose(
             stack,
             "up",

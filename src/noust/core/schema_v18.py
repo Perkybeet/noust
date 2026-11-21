@@ -520,6 +520,34 @@ CREATE TABLE IF NOT EXISTS job_errors (
 """
 LANGUAGE_COLUMNS: list[Column] = []
 
+# Kept for the guard of Compose stacks: what the start of a stack is held to.
+# compose_accepted: what a stack was given of the server when it was last activated having passed the
+#   guard (``noust.core.compose_acceptance``, the only reader and writer). One row per domain, which
+#   is how the exception of a stack is keyed too and dies with the application. ``findings`` is the
+#   list of the findings' identities the guard names (service, kind, thing) as JSON; ``source`` says
+#   how it came to be (``deploy``, ``update``, ``redeploy``, ``adopt``, ``edit``, ``exception`` or
+#   ``upgrade``) and ``inherited`` that it was taken over from what 4.2 had started rather than
+#   decided, which ``noust health`` lists to be looked at. The unit of a stack asks it before it starts.
+# compose_gate_state: why a stack is not brought up to date (``pending``) or why its start was refused
+#   (``refused``), as the sentence it was told in, for ``noust health`` and the console to show.
+COMPOSE_SQL = """
+CREATE TABLE IF NOT EXISTS compose_accepted (
+    domain TEXT PRIMARY KEY,
+    findings TEXT NOT NULL DEFAULT '[]',
+    source TEXT NOT NULL,
+    accepted_by TEXT NOT NULL DEFAULT '',
+    accepted_at TEXT NOT NULL,
+    inherited INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS compose_gate_state (
+    domain TEXT PRIMARY KEY,
+    state TEXT NOT NULL CHECK (state IN ('pending', 'refused')),
+    detail TEXT NOT NULL DEFAULT '',
+    noted_at TEXT NOT NULL
+);
+"""
+COMPOSE_COLUMNS: list[Column] = []
+
 
 def _fragments() -> list[str]:
     return [
@@ -537,6 +565,7 @@ def _fragments() -> list[str]:
         ASSISTANT_SQL,
         DOCKER_SQL,
         LANGUAGE_SQL,
+        COMPOSE_SQL,
     ]
 
 
@@ -556,6 +585,7 @@ def _columns() -> list[Column]:
         *ASSISTANT_COLUMNS,
         *DOCKER_COLUMNS,
         *LANGUAGE_COLUMNS,
+        *COMPOSE_COLUMNS,
     ]
 
 

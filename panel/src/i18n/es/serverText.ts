@@ -5867,6 +5867,20 @@ export const serverText: Catalog<typeof en> = {
       hint: "Estas son las líneas ahora:\n{lines}\n\nCada línea da a un contenedor algo de este servidor, y adoptar la pila equivale a ser root. Léelas otra vez: se acepta lo que tienes delante. Si aun así quieres adoptarla: {command}",
     },
   },
+  compose_gate: {
+    refused: {
+      text: "{domain} no se ha iniciado: lo que resuelve ahora su archivo compose da a un contenedor lo que la pila no tenía aceptado",
+      hint: "{lines}\n\nAlgo que la pila lee ha cambiado desde que se desplegó: su .env, un archivo de su árbol, un archivo incluido o una variable. No se ha iniciado ni parado nada. Vuelve a desplegarla, que juzga el cambio: {update_command}. O registra por qué lo necesita: {command}",
+    },
+    cannot_tell: {
+      text: "{domain} no se ha iniciado: no se ha podido juzgar lo que resuelve su archivo compose",
+      hint: "{problem}\n\nUn arranque que no se puede juzgar no se hace. Corrige lo que se dice arriba y vuelve a arrancarla, o despliégala de nuevo: {update_command}",
+    },
+    env_refused: {
+      text: "No se ha cambiado el entorno de {domain}: con él la pila recibiría lo que no tenía aceptado",
+      hint: "{lines}\n\nUna variable puede apuntar un montaje, un archivo o una opción de la pila a otro sitio, y la pila arranca con el entorno tal como está escrito. Quita el cambio, o registra por qué lo necesita la pila: {command}",
+    },
+  },
   compose_adopt: {
     no_repository: {
       text: "{path} no tiene repositorio, así que Noust no descarga código para ella. Registrarla en Noust no cambia nada de lo que está en marcha. La primera actualización descarga las imágenes que nombra el archivo compose y recrea solo los contenedores cuya imagen o ajustes hayan cambiado. Si prefieres seguir un repositorio, clónalo en esa carpeta y vuelve a registrar la pila indicándolo como origen.",

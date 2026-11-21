@@ -15689,7 +15689,7 @@ noust setup [OPTIONS] COMMAND [ARGS]...
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |
 
-Subcommands: [`completions`](#noust-setup-completions), [`doctor`](#noust-setup-doctor), [`init`](#noust-setup-init), [`move-store`](#noust-setup-move-store), [`permissions`](#noust-setup-permissions), [`railpack`](#noust-setup-railpack), [`rename`](#noust-setup-rename), [`retire-links`](#noust-setup-retire-links), [`ssh`](#noust-setup-ssh)
+Subcommands: [`completions`](#noust-setup-completions), [`compose-gate`](#noust-setup-compose-gate), [`doctor`](#noust-setup-doctor), [`init`](#noust-setup-init), [`move-store`](#noust-setup-move-store), [`permissions`](#noust-setup-permissions), [`railpack`](#noust-setup-railpack), [`rename`](#noust-setup-rename), [`retire-links`](#noust-setup-retire-links), [`ssh`](#noust-setup-ssh)
 
 ### noust setup completions
 
@@ -15704,6 +15704,23 @@ noust setup completions [OPTIONS]
 | `-s`, `--shell` | Shell to generate for. Detected from $SHELL when omitted. |  |
 | `-u`, `--user-only` | Install for the current user instead of system-wide. Needs no root. |  |
 | `--stdout` | Print the script instead of installing it, to pipe or inspect. |  |
+| `-v`, `--verbose` | Show the detail of each step. |  |
+| `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
+| `--no-color` | Never emit colour. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust setup compose-gate
+
+Hold the start of every Compose stack to what was judged, without starting anything.
+
+```bash
+noust setup compose-gate [OPTIONS]
+```
+
+| Option | What it does | Default |
+|---|---|---|
+| `--app` | Only this application. |  |
+| `--remove` | Take the check out of the units (going back to a release before 4.3, and removing Noust, need it). |  |
 | `-v`, `--verbose` | Show the detail of each step. |  |
 | `--dry-run` | Rehearse without changing anything. Read-only checks still run. |  |
 | `--no-color` | Never emit colour. |  |

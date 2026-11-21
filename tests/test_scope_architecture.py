@@ -929,6 +929,11 @@ NOT_OWNED: dict[str, str] = {
     "restore needs: the central's own, reached only through /api/backup-collection, which is the "
     "instance's. It names the server and the owner as the server said them, and the server keeps "
     "the application and applies its own teams' scope to it",
+    "compose_accepted": "what a Compose stack was accepted with by the guard, and the gate's reason "
+    "when its start was held back or it is not brought up to date: the server's, read by the unit's "
+    "start and by noust health, which is the instance's. No route of the console reads or writes a "
+    "row; the stack's findings show through its own routes, which are classified",
+    "compose_gate_state": "see compose_accepted: the same record, the gate's last word on a stack",
 }
 
 #: Prefixes whose routes belong to what the tables above hold. None of them may be "open": a route

@@ -682,17 +682,20 @@ def _check_builds(warnings: list[str]) -> HealthCheck:
     Returns:
         The build sandbox check.
     """
+    from noust.deployers import compose_upgrade
     from noust.deployers.helpers import sandbox as build_sandbox
 
     try:
         found = build_sandbox.sandbox_warnings()
         stacks = build_sandbox.compose_warnings()
+        starts = compose_upgrade.attention(store=get_store())
     except (NoustError, OSError, sqlite3.Error) as exc:
         return HealthCheck("Build sandbox", f"Could not check: {exc}", "warning")
-    if not found and not stacks:
+    if not found and not stacks and not starts:
         return HealthCheck("Build sandbox", "Every build runs in the sandbox", "ok")
     warnings.extend(found.values())
     warnings.extend(stacks.values())
+    warnings.extend(starts)
     said = []
     if found:
         said.append(f"{len(found)} application(s) build as root")
@@ -700,6 +703,8 @@ def _check_builds(warnings: list[str]) -> HealthCheck:
         said.append(
             f"{len(stacks)} Compose stack(s) run with what gives this server to a container"
         )
+    if starts:
+        said.append(f"{len(starts)} thing(s) to look at about how Compose stacks start")
     return HealthCheck("Build sandbox", "; ".join(said), "warning")
 
 

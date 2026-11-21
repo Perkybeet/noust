@@ -42,6 +42,7 @@ AREAS = [
     "ASSISTANT",
     "DOCKER",
     "LANGUAGE",
+    "COMPOSE",
 ]
 
 

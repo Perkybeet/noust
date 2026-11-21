@@ -17,10 +17,14 @@ redeploy, an adoption, a document edited in the Docker zone and a document paste
   belongs to another application) is refused whatever the exception says, and only a stack that
   already had it is let through, with a warning.
 
-What a stack "already had" is a :class:`Heritage`, and it has two sources that neither the repository
-nor the stack's ``.env`` can write. The compose file that served, **as written** (a finding of it that
-the update did not change; one that goes through a link which the update changed is not one that was
-there before, :func:`unchanged`), is the proof for everything. And what the stack's **containers**
+What a stack "already had" is a :class:`Heritage`, and it has sources that neither the repository nor the
+stack's ``.env`` can write. What the stack was **accepted with** (the store's record of every activation that
+passed the guard, :mod:`noust.core.compose_acceptance`) is the proof for everything, of any kind, and for a
+stack that has one it replaces the compose file that served: a container that mounts the tree writes that
+file, and the ``.git`` folder it is read from. For a stack with no record yet the compose file that served,
+**as written** (a finding of it that the update did not change; one that goes through a link which the
+update changed is not one that was there before, :func:`unchanged`), is the proof for everything. And what
+the stack's **containers**
 were given (:mod:`noust.deployers.helpers.compose_running`, read from Docker the first time it matters
 and once) is the proof for what only the model Compose resolves shows: a mount made of a variable, a
 service an ``include`` brought in, a definition an ``extends`` took from another file. The stack
@@ -75,11 +79,16 @@ class Heritage:
             (a first deployment). It is asked at most once, and only when a finding that nothing else
             covers could be one of theirs; Docker that cannot be asked raises
             :class:`~noust.core.docker.errors.DockerUnavailableError`, which nothing here hides.
+        keys: What the stack was accepted with, from the store
+            (:mod:`noust.core.compose_acceptance`): the identity of each finding, of any kind. It is
+            what an activation that passed the guard wrote down, which nothing in the stack's tree can
+            write, so it replaces the file that served for a stack that has an entry.
     """
 
     sentences: frozenset[str] = frozenset()
     changed_links: frozenset[Path] | None = None
     running: Callable[[], compose_running.Running] | None = None
+    keys: frozenset[FindingKey] = frozenset()
     _read: compose_running.Running | None = field(default=None, init=False, repr=False)
 
     def _keys(self) -> frozenset[FindingKey]:
@@ -125,13 +134,16 @@ class Heritage:
             sentence: One of its refused sentences.
 
         Returns:
-            True when the file that served says it, or a container of the same service has the same
-            thing.
+            True when the record of what the stack was accepted with or the file that served says it, or a
+            container of the same service has the same thing.
 
         Raises:
             DockerUnavailableError: A container had to be asked about and Docker could not be.
         """
         if sentence in self.sentences:
+            return True
+        accepted = findings.keys.get(sentence)
+        if accepted is not None and accepted in self.keys:
             return True
         if not self._could_be_theirs(findings, sentence):
             return False

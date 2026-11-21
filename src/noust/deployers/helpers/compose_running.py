@@ -50,6 +50,7 @@ __all__ = [
     "facts_of",
     "has",
     "read",
+    "with_real_paths",
 ]
 
 #: The kinds of finding (the second element of a finding's key) that a stack may have inherited from its
@@ -183,7 +184,7 @@ def facts_of(grants: Sequence[Grants], context: GuardContext) -> ComposeFindings
     return found
 
 
-def _with_real_paths(keys: set[FindingKey]) -> frozenset[FindingKey]:
+def with_real_paths(keys: set[FindingKey]) -> frozenset[FindingKey]:
     """
     Add to the keys of the mounts the real path each is: two spellings of one directory are one fact.
 
@@ -221,7 +222,7 @@ def read(read_grants: Callable[[], Sequence[Grants]], context: GuardContext) -> 
         for sentence in findings.refused
         if (key := findings.keys.get(sentence)) is not None and key[1] in INHERITED_FROM_CONTAINERS
     }
-    return Running(findings, _with_real_paths(keys))
+    return Running(findings, with_real_paths(keys))
 
 
 def has(running: frozenset[FindingKey], key: FindingKey, *, linked: bool) -> bool:

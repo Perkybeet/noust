@@ -701,6 +701,9 @@ class DockerComposeDeployer(AppDeployer):
         # compose file that served and by its containers (an update, a redeploy,
         # an adoption): None until proven, and then nothing is accepted.
         self._accepted_refusals: Heritage | list[str] | None = None
+        # How the activation comes to be, as what the guard writes down says, and what it wrote.
+        self._acceptance_source = "deploy"
+        self._accepting: frozenset[tuple[str, str, str]] | None = None
         # The commit and branch of the attempt, kept when a failed update
         # puts the previous commit back, so its history row names what failed.
         self._attempted_git: tuple[str | None, str | None] | None = None
@@ -721,6 +724,8 @@ class DockerComposeDeployer(AppDeployer):
         # The project the store pins (an adopted stack's), read once: None
         # until read, then the value or "" for none.
         self._stored_project: str | None = None
+        # An ``.env`` that is not the stack's own, to resolve it with (the one about to be written).
+        self._env_file: Path | None = None
         self._cert_manager: CertManager | None = None
         # What this deployment's hooks ran, for its history row.
         self._recording: DeploymentRecorder | None = None
@@ -962,6 +967,8 @@ class DockerComposeDeployer(AppDeployer):
             if project is not None:
                 cmd.extend(["-p", project])
             cmd.extend(["-f", str(self.compose_path)])
+        if self._env_file is not None:
+            cmd.extend(["--env-file", str(self._env_file)])
         for profile in ["*"] if all_profiles else self.compose_profiles:
             cmd.extend(["--profile", profile])
         cmd.extend(args)
@@ -1207,6 +1214,8 @@ class DockerComposeDeployer(AppDeployer):
         with app_lock(self.domain, "deploy"):
             existing = self.store.get_app(self.domain)
             self._is_new_deployment = existing is None
+            self._acceptance_source = "deploy" if existing is None else "redeploy"
+            compose_privileges.own_project(self, existing)
             if self.deploy_target is None:
                 self.deploy_target = claim_deploy_target(
                     self.app_path,
@@ -1237,7 +1246,7 @@ class DockerComposeDeployer(AppDeployer):
 
         try:
             if not self._is_new_deployment:
-                self._remember_serving_privileges()
+                self._accepted_refusals = compose_privileges.heritage_of_redeploy(self)
             self.logger.step(1, total_steps, "Fetching source code")
             self._fetch_source()
 
@@ -1645,39 +1654,22 @@ class DockerComposeDeployer(AppDeployer):
         *,
         accepted: Heritage | Sequence[str] | None = None,
         final: bool = False,
+        record: str | None = None,
     ) -> None:
         """Refuse, or warn about, what the compose file gives this server (see the module it calls)."""
-        compose_privileges.check_host_privileges(self, document, accepted=accepted, final=final)
+        compose_privileges.check_host_privileges(
+            self, document, accepted=accepted, final=final, record=record
+        )
 
     def _check_final_privileges(self) -> None:
         """Judge the model Compose resolves once the stack's own ``.env`` is written: what will run."""
         document = self._load_compose_document()
         if document is not None and self.preview_parent is None:
-            self._check_host_privileges(document, final=True)
+            self._check_host_privileges(document, final=True, record=self._acceptance_source)
 
     def _refusals_in(self, document: Any, *, resolve: bool = False) -> list[str]:
         """List what the guard refuses in a compose document; ``resolve`` asks Compose as well."""
         return compose_privileges.refusals_in(self, document, resolve=resolve)
-
-    def _remember_serving_privileges(self) -> None:
-        """
-        Record what the stack already had, before a redeploy replaces its compose file.
-
-        What served is the file on disk, as written, and what the stack's containers were given: the
-        file resolved with the ``.env`` of now is not proof of anything, since whoever can change a
-        variable would say the stack always had what the variable names. When the file cannot be read,
-        the containers are all that is left.
-        """
-        try:
-            self._discover_compose_file()
-        except DeploymentError as exc:
-            self.logger.debug(f"No compose file served before this deploy: {exc.message}")
-            self._accepted_refusals = compose_privileges.heritage_of(self)
-            return
-        self._accepted_refusals = compose_privileges.heritage_before_a_redeploy(
-            self, self._load_compose_document()
-        )
-        self.compose_path = None
 
     def _require_variables(self, document: Any = None) -> None:
         """
@@ -2337,6 +2329,7 @@ class DockerComposeDeployer(AppDeployer):
             template="docker-compose",
             compose_file=compose_file_rel,
             compose_project=project or self._pinned_project(),
+            gate=compose_privileges.gate_command(self, project or self._pinned_project()),
         )
         said = "Docker keeps it running (restart policy)" if keeps_alive_with_docker() else None
         self.logger.substep(said or f"Created systemd service: {self.app_name}")
@@ -2345,6 +2338,7 @@ class DockerComposeDeployer(AppDeployer):
         """Start containers and verify they're healthy."""
         self._units().start(self.app_name)
         if self._health_check():
+            compose_privileges.settle(self)
             self.logger.substep("All services running and healthy")
         else:
             self.logger.warning("Some services may not be fully healthy yet")
@@ -2416,6 +2410,7 @@ class DockerComposeDeployer(AppDeployer):
                 },
                 preview_parent=self.preview_parent,
                 env_secret_marks=self._env_secret_marks,
+                compose_project=self._pinned_project(),
             )
             # What the variables given at creation are made of and for can be recorded now
             # that the application has a row.
@@ -2497,7 +2492,7 @@ class DockerComposeDeployer(AppDeployer):
 
         # Clean store
         try:
-            self.store.delete_app(self.domain)
+            compose_privileges.forget_rolled_back(self)
         except (NoustError, sqlite3.Error) as e:
             self.logger.warning(f"Store cleanup failed: {e}")
 
@@ -2677,6 +2672,7 @@ class DockerComposeDeployer(AppDeployer):
         """
         self._hooks = DeploymentHooks()
         self._serving_recorded = False
+        self._acceptance_source = "update"
         with recording(self._recorder(), git_branch=self.branch) as recorder:
             self._recording = recorder
             try:
@@ -3211,6 +3207,7 @@ class DockerComposeDeployer(AppDeployer):
         source = self._source_manager()
         self.previous_commit = source.get_repo_info(self.app_path).get("commit") or None
         self._hooks = DeploymentHooks()
+        self._acceptance_source = "release"
         serving = self._record_serving()
         self.logger.substep(
             f"Activating release {release_id}" + (f" (was {previous})" if previous else "")
@@ -3411,7 +3408,7 @@ class DockerComposeDeployer(AppDeployer):
                 restart()
             except NoustError as exc:
                 return False, str(exc)
-        return self._containers_settle()
+        return compose_privileges.settled(self, self._containers_settle())
 
     def _containers_settle(self) -> tuple[bool, str]:
         """

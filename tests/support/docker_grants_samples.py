@@ -149,6 +149,7 @@ def ps_row(
     service: str,
     oneoff: bool = False,
     state: str = "running",
+    working_dir: str = "",
 ) -> str:
     """
     One line of ``docker ps --all`` as the gate asks for it.
@@ -160,6 +161,7 @@ def ps_row(
         service: Its ``com.docker.compose.service`` label.
         oneoff: Compose made it for ``run``.
         state: Docker's word for its state.
+        working_dir: Its ``com.docker.compose.project.working_dir`` label: where Compose ran.
 
     Returns:
         The JSON object, as a line.
@@ -176,7 +178,7 @@ def ps_row(
         "networks": "default",
         "project": project,
         "service": service,
-        "working_dir": "",
+        "working_dir": working_dir,
         "config_files": "",
         "oneoff": "True" if oneoff else "False",
         "instance": "",

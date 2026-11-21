@@ -29,6 +29,7 @@ from noust.core.exceptions import DeploymentError
 from noust.core.runner import FakeRunner, set_runner
 from noust.core.store import App, NoustStore, get_store
 from noust.deployers.docker_compose import DockerComposeDeployer
+from noust.deployers.helpers import compose_privileges
 from noust.managers.nginx_manager import NginxManager
 from tests.support.compose_adopt import FIXTURES, RECREATES, Docker, web  # noqa: F401
 
@@ -192,7 +193,7 @@ def test_a_redeploy_that_adds_privileges_is_refused(tmp_path: Path, store: Noust
     """The tree before the fetch is what served."""
     root = _checkout(tmp_path / "stack", privileged=False)
     compose = _deployer(root, store)
-    compose._remember_serving_privileges()
+    compose._accepted_refusals = compose_privileges.heritage_of_redeploy(compose)
     shutil.rmtree(root)
     _checkout(root, privileged=True)
     compose._discover_compose_file()

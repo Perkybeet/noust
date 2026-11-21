@@ -9,6 +9,10 @@ profiles the operator chose in one place. What Noust runs for itself in a projec
 instance in a container, whose Compose file and project name Noust decides and nobody else edits) is
 addressed by the project and the file alone, and this is the one place the argument list for that is
 written (rule 1: an argument list, never a shell; and the door to Docker is this package).
+
+Such a project is not an application and its start carries no gate (:mod:`noust.deployers.compose_gate`):
+the gate holds a start to what was judged of a file a repository, an ``.env`` or a tree somebody else can
+write wrote, and nothing of that reaches the file Noust renders for itself.
 """
 
 from __future__ import annotations

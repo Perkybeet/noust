@@ -17,6 +17,9 @@ Compose document of a stack that was deployed from one
 from __future__ import annotations
 
 import json
+import sqlite3
+import time
+from pathlib import Path
 from typing import TextIO
 
 import click
@@ -72,6 +75,78 @@ def show_command(ctx: Context, domain: str) -> None:
     """Show what a Compose stack is run with."""
     validated = validate_domain(domain)
     _print(ctx, validated, describe_compose(validated))
+
+
+#: How many times the gate asks before it gives up on a store or a file it could not read, and how long it
+#: waits between two.
+GATE_ATTEMPTS = 3
+GATE_PAUSE_SECONDS = 2.0
+
+
+@compose.command("gate", hidden=True, read_only=True)
+@click.argument("domain")
+@click.option("--project", default=None, help="What the unit passes with -p.")
+@click.option(
+    "--directory",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help="The stack's tree; the working directory when not given.",
+)
+@click.option(
+    "--compose-file",
+    "compose_file",
+    envvar="COMPOSE_FILE",
+    default=None,
+    help="The compose file, relative to the tree; the unit's COMPOSE_FILE.",
+)
+@click.option(
+    "--profiles",
+    envvar="COMPOSE_PROFILES",
+    default="",
+    help="The profiles the stack runs with, separated by commas; the unit's COMPOSE_PROFILES.",
+)
+@pass_context
+def gate_command(
+    ctx: Context,
+    domain: str,
+    project: str | None,
+    directory: Path | None,
+    compose_file: str | None,
+    profiles: str,
+) -> None:
+    """
+    What a stack's unit runs before it starts the stack, and does not need anyone to read.
+
+    Resolves the stack as its unit is about to start it and compares it with what it was accepted
+    with: exits 1, saying which line is new and the two ways out, when it adds something that gives
+    a container this server. A stack that was never recorded starts as it always did.
+    """
+    from noust.deployers import compose_gate
+
+    validated = validate_domain(domain)
+    for attempt in range(GATE_ATTEMPTS):
+        try:
+            outcome = compose_gate.judge_from_unit(
+                validated,
+                directory=directory or Path.cwd(),
+                compose_file=compose_file,
+                profiles=profiles.split(","),
+                project=project,
+            )
+            break
+        except (sqlite3.Error, OSError):
+            # Every stack of a server asks at once when it boots, and the store may be busy for a
+            # moment: a start that cannot be judged does not happen, so it is asked again first.
+            if attempt == GATE_ATTEMPTS - 1:
+                raise
+            time.sleep(GATE_PAUSE_SECONDS)
+    if not outcome.allowed:
+        raise outcome.error()
+    if outcome.unrecorded:
+        ctx.logger.warning(
+            f"There is no record of what {validated} was accepted with: starting it as it always "
+            "did (noust health lists the stacks in this state)"
+        )
 
 
 _STATE_WORDS = {

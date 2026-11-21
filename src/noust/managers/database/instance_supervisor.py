@@ -15,6 +15,11 @@ the one seam it already has (``units()``), and not a second manager.
 
 It answers what that manager asks of a unit and nothing else: a call it does not know is an
 ``AttributeError`` at the first test, never a silent no-op.
+
+An instance is not an application, so what starts it carries no gate (:mod:`noust.deployers.compose_gate`): the
+gate holds a start to what was judged of a compose file that a repository, an ``.env`` or a tree somebody
+else can write wrote, and the file of an instance is rendered by Noust from its own catalog and read by
+nothing else.
 """
 
 from __future__ import annotations

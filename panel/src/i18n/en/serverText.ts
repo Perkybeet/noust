@@ -5878,6 +5878,20 @@ export const serverText = {
       hint: "These are the lines now:\n{lines}\n\nEach line gives a container something of this server, and adopting the stack is equivalent to root. Read them again: what is accepted is what is in front of you. If you still want it adopted: {command}",
     },
   },
+  compose_gate: {
+    refused: {
+      text: "{domain} was not started: what its compose file resolves to now gives a container what the stack was not accepted with",
+      hint: "{lines}\n\nSomething the stack reads changed since it was deployed: its .env, a file of its tree, an included file or a variable. Nothing was started or stopped. Deploy it again, which judges the change: {update_command}. Or record why it needs it: {command}",
+    },
+    cannot_tell: {
+      text: "{domain} was not started: what its compose file resolves to could not be judged",
+      hint: "{problem}\n\nA start that cannot be judged does not happen. Fix what is said above and start it again, or deploy it again: {update_command}",
+    },
+    env_refused: {
+      text: "The environment of {domain} was not changed: with it the stack would be given what it was not accepted with",
+      hint: "{lines}\n\nA variable can point a mount, a file or an option of the stack somewhere else, and the stack is started with the environment as it is written. Take the change out, or record why the stack needs it: {command}",
+    },
+  },
   compose_adopt: {
     no_repository: {
       text: "{path} has no repository, so Noust fetches no code for it. Adopting changes nothing that runs now. The first update downloads the images the compose file names and recreates only the containers whose image or settings changed. To follow a repository instead, clone it in that folder and adopt the stack again with that repository as its source.",

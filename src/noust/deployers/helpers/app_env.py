@@ -358,7 +358,8 @@ def write_app_env(
             disk; both are loaded into the unit inline and
             ``EnvironmentFile=`` would let this file silently override them;
             or a name Noust sets itself (``NOUST_URL``...).
-        ValidationError: A reference that is not well formed.
+        ValidationError: A reference that is not well formed, or a Compose stack that would be given,
+            with these variables, what it was not accepted with.
         UnresolvedReferenceError: A reference that cannot be resolved.
         SecretProviderError: A secret manager could not give a secret.
         SecurityError: If the destination is a symlink.
@@ -403,6 +404,9 @@ def commit_environment(
     Raises:
         EnvironmentValidationError: PORT or NODE_ENV added or changed, or a variable only the
             build is given on an application that builds nothing.
+        ValidationError: A Compose stack that would be given, with these variables, what it was
+            not accepted with (:func:`~noust.deployers.compose_gate.check_environment`); nothing
+            was written.
         SecurityError: If the destination is a symlink.
         OSError: If the file cannot be written.
     """
@@ -425,7 +429,16 @@ def commit_environment(
         }
     # What Noust wrote there for the containers of a stack is not the operator's to edit, and an
     # edit must not take it away.
-    writer.write_env_file(env_file, with_predefined(app.app_type, runtime, current), kept)
+    wanted_file = with_predefined(app.app_type, runtime, current)
+    if app.app_type == AppType.DOCKER_COMPOSE.value and wanted_file != current:
+        # A stack takes paths and options from its variables, and its unit starts it with them as
+        # they are written: the stack is judged with the new ones before they are (rule 4).
+        from noust.deployers import compose_gate
+
+        compose_gate.check_environment(
+            app, lambda path: writer.write_env_file(path, wanted_file, kept), fs=fs
+        )
+    writer.write_env_file(env_file, wanted_file, kept)
 
     if app.id is not None:
         VariableStore().set_app_variables(app.id, rows_for(environment))

@@ -8465,6 +8465,18 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--compose-gate-upgrade",
+        dest="compose_gate_upgrade",
+        action="store_true",
+        help=(
+            "Run only the Noust 4.2.1 -> working tree upgrade of a server with three Compose stacks "
+            "(a mount by variable outside its tree, privileged with its exception, one stopped), "
+            "then reboot it: all three must start through the gate of their units, and the same "
+            "stack with its .env changed to the root must not (see scenarios_compose_gate.py). "
+            "--scenario is ignored when this is given."
+        ),
+    )
+    parser.add_argument(
         "--downgrade-to-3.3",
         dest="downgrade_to_33",
         action="store_true",
@@ -9321,6 +9333,11 @@ def main() -> int:
         import scenarios_upgrade
 
         return scenarios_upgrade.run_upgrade_33_mode(wheel, keep=args.keep)
+
+    if args.compose_gate_upgrade:
+        import scenarios_compose_gate
+
+        return scenarios_compose_gate.run_compose_gate_mode(wheel, keep=args.keep)
 
     if args.downgrade_to_33:
         import scenarios_upgrade

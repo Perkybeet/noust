@@ -1028,6 +1028,26 @@ def _make_role_command(host: StackHost, database: StackDatabase, role: str) -> s
     )
 
 
+def _held_to_what_was_judged(host: StackHost) -> None:
+    """
+    Ask the gate of the stack before one of its services is started alone.
+
+    Compose resolves the whole file to start one service, with the ``.env`` of that moment, so a
+    start that does not go through the stack's unit is held to what was judged like the unit's.
+
+    Args:
+        host: The deployer of the stack.
+
+    Raises:
+        StartHeldBackError: The stack would not pass the gate; nothing was started.
+    """
+    from noust.deployers import compose_gate
+    from noust.deployers.docker_compose import DockerComposeDeployer
+
+    if isinstance(host, DockerComposeDeployer):
+        compose_gate.require(host)
+
+
 def restore_stack_database(
     host: StackHost,
     database: StackDatabase,
@@ -1056,6 +1076,7 @@ def restore_stack_database(
     """
     was_running = _is_running(host, database.service)
     if not was_running:
+        _held_to_what_was_judged(host)
         started = host.runner.run(
             host._compose("up", "-d", "--no-deps", database.service),
             cwd=host.app_path,

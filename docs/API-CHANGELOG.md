@@ -62,6 +62,16 @@ each is what a client written against 4.2 could notice.
   `host_access`, the list of lines of the compose file that give the container the server, `host_access_digest`
   (which lines they are) and a `hint` with the command. `accept_host_access: true` (below) goes on, with that
   digest. A body that never named it keeps working for every stack that does not run with such lines.
+- **Starting or restarting a Compose stack, or changing its environment, can be refused for what the stack would be
+  given.** The start of a stack is held to what was judged when it was deployed. `POST /api/apps/{domain}/start`
+  and `/restart` (and what restarts a stack through them: a tag, the fleet, the Docker zone) answer `409`
+  (`error: startheldbackerror`, `coded.code: compose_gate.refused` or `compose_gate.cannot_tell`, the lines in
+  `hint`) when what Compose resolves for the stack now gives a container the server and the stack was not
+  accepted with it; the stack keeps running as it was. `PUT /api/apps/{domain}/env` (and every writer of the
+  `.env`: a shared variable, a rotated secret, a linked database) answers `400` (`coded.code:
+  compose_gate.env_refused`) when the new variables would do that, and writes nothing. A client that restarted
+  a stack after changing its variables to point a mount somewhere new now gets that answer, and deploys again
+  (`POST /api/apps/{domain}/deploy`, which judges the change) or records why with the exception.
 - **The user of an `http(s)` address is hidden wherever an address is shown or recorded.** The audit trail, what
   the MCP endpoint returns, the process monitor's samples and the values of variables that are addresses showed
   a password as `***` and a token placed as the user of the address (`https://<token>@dev.azure.com/...`) as it

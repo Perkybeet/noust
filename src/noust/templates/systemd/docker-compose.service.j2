@@ -23,11 +23,20 @@ Environment="COMPOSE_FILE={{ esc.env_value(compose_file) }}"
 {% endif %}
 
 # Commands
-{# An adopted stack keeps the project it already ran under (-p); every
-    other one leaves Compose to derive it, as it always has. #}
+{# The project the store records (-p), whose name no variable can change; a stack
+    that predates it leaves Compose to derive it, as it always has. #}
 {% set compose = "/usr/bin/docker compose" ~ ((" -p " ~ esc.line(compose_project)) if compose_project else "") %}
+{# What starts the stack is what was judged: before Compose reads the .env and the files
+    that are there now, Noust resolves them as the deployment was and compares (an unrecorded
+    stack passes). A start it holds back never reaches `up`, and a reload never reaches --build. #}
+{% if gate %}
+ExecStartPre={{ esc.line(gate) }}
+{% endif %}
 ExecStart={{ compose }} up -d --remove-orphans
 ExecStop={{ compose }} down
+{% if gate %}
+ExecReload={{ esc.line(gate) }}
+{% endif %}
 ExecReload={{ compose }} up -d --remove-orphans --build
 
 # Timeouts

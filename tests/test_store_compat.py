@@ -159,8 +159,37 @@ def test_a_release_that_understands_the_store_is_just_installed(tmp_path: Path) 
 
     assert result.compatible
     assert result.copy is None
-    assert "understands this store (schema 13)" in result.steps[0]
-    assert len(result.steps) == 1
+    assert "understands this store (schema 13)" in result.steps[1]
+    assert len(result.steps) == 2
+
+
+def test_going_back_to_a_release_before_4_3_takes_the_check_of_the_start_out_first(
+    tmp_path: Path,
+) -> None:
+    # The units of the Compose stacks run a command that a Noust before 4.3 does not have.
+    for release, schema in (("3.3.1", 13), ("4.2.1", 17)):
+        kept = copy(tmp_path, schema, "20261201T101500Z")
+        found = plan(release, 18, [kept], db_path=tmp_path / "x")
+
+        # In the first step, so that the three commands that follow keep their places.
+        assert "noust setup compose-gate --remove" in found.steps[0], release
+        assert "still installed" in found.steps[0]
+        assert "systemctl stop" in found.steps[1]
+
+
+def test_a_release_that_understands_the_store_gets_the_check_taken_out_as_its_first_step(
+    tmp_path: Path,
+) -> None:
+    found = plan("3.3.1", 13, [], db_path=tmp_path / "noust.db")
+
+    assert "noust setup compose-gate --remove" in found.steps[0]
+
+
+def test_a_release_that_has_the_check_is_not_asked_to_take_it_out(tmp_path: Path) -> None:
+    found = plan("4.3.0", 18, [], db_path=tmp_path / "noust.db")
+
+    assert found.compatible
+    assert not any("compose-gate" in step for step in found.steps)
 
 
 def test_a_release_that_cannot_open_the_store_gets_the_newest_copy_it_can_open(

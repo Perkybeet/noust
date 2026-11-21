@@ -25,9 +25,12 @@ harness of real engines is what proves it on the three ages of Docker Noust meet
 from __future__ import annotations
 
 import json
+import os
+import posixpath
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from noust.core.docker import reading
@@ -316,16 +319,43 @@ def read_grants(runner: CommandRunner, ids: Sequence[str]) -> dict[str, Grants]:
     return found
 
 
-def read_project_grants(runner: CommandRunner, project: str) -> tuple[Grants, ...]:
+def _runs_within(directory: str, tree: Path) -> bool:
+    """
+    Tell whether a container was made from inside an application's tree.
+
+    Args:
+        directory: Its ``com.docker.compose.project.working_dir`` label: where Compose ran.
+        tree: The application's directory.
+
+    Returns:
+        True when it is the tree or below it, as written or after the links of either are followed
+        (the label is what Compose saw, and an application's directory can be a link). A container that
+        does not say where it ran is not proven to be another stack's, so it counts.
+    """
+    if not directory:
+        return True
+    place = PurePosixPath(posixpath.normpath(directory))
+    roots = {PurePosixPath(posixpath.normpath(str(tree))), PurePosixPath(os.path.realpath(tree))}
+    forms = {place, PurePosixPath(os.path.realpath(directory))}
+    return any(form == root or root in form.parents for form in forms for root in roots)
+
+
+def read_project_grants(
+    runner: CommandRunner, project: str, *, within: Path | None = None
+) -> tuple[Grants, ...]:
     """
     Read what every container of a Compose project was given, the stopped ones included.
 
     The project is the label Compose writes on what it makes, asked of Docker by name. A container made
-    for ``run`` (a hook that exits and is removed) is not what the stack runs and is left out.
+    for ``run`` (a hook that exits and is removed) is not what the stack runs and is left out. Two
+    applications can end up with one project name, and then the label alone says nothing of whose a
+    container is: ``within`` keeps the ones whose working directory is the application's tree.
 
     Args:
         runner: Runs the questions.
         project: The Compose project the application runs under.
+        within: The application's directory: only the containers that were made from inside it are
+            read. None reads every container of the project.
 
     Returns:
         What each container was given, by name; none when the project has no container yet (a first
@@ -341,6 +371,8 @@ def read_project_grants(runner: CommandRunner, project: str) -> tuple[Grants, ..
     ids = [
         container.id
         for container in listed
-        if container.project == project and not container.oneoff
+        if container.project == project
+        and not container.oneoff
+        and (within is None or _runs_within(container.working_dir, within))
     ]
     return tuple(sorted(read_grants(runner, ids).values(), key=lambda grants: grants.name))

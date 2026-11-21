@@ -139,6 +139,50 @@ class TestTheProductPackages:
         line = text[retire:].splitlines()[0]
         assert "|| true" in line or "|| :" in line, line
 
+    @pytest.mark.parametrize("script", ["obs/debian.postinst", "rpm/noust.spec"])
+    def test_the_upgrade_takes_the_compose_stacks_over_before_the_console_restarts(
+        self, script: str
+    ):
+        """
+        The units of the stacks get the check of their start in the package's own step, so a
+        server without the console is brought under it too; it never fails the package, and it
+        writes the record before the unit (that is what the command does, in that order).
+        """
+        text = read(script)
+        if script.endswith(".spec"):
+            text = spec_section(text, "%posttrans")
+        else:
+            text = text[text.index("configure)") :]
+
+        step = text.index('noust setup compose-gate --reason "package upgrade"')
+        assert step < text.index("restart noust-web.service")
+        line = text[step:].splitlines()[0]
+        assert "|| true" in line or "|| :" in line, line
+
+    @pytest.mark.parametrize("script", ["obs/debian.prerm", "rpm/noust.spec"])
+    def test_removing_noust_takes_the_check_of_the_start_out_of_the_stacks_units(self, script: str):
+        """
+        The units of the Compose stacks run Noust's command before they start; with Noust gone that
+        line would have nothing to run. It is taken out while the command still exists, before the
+        console is stopped, never fails the package and never happens on an upgrade.
+        """
+        text = read(script)
+        if script.endswith(".spec"):
+            removal = spec_section(text, "%preun")
+            leaving = removal[removal.index("if [ $1 -eq 0 ]") :]
+            upgrading = removal[: removal.index("if [ $1 -eq 0 ]")]
+        else:
+            removal = text[text.index("remove)") : text.index("upgrade|failed-upgrade")]
+            leaving = removal
+            upgrading = text[text.index("upgrade|failed-upgrade") :]
+
+        step = leaving.index("noust setup compose-gate --remove")
+        assert step < leaving.index("stop noust-web.service")
+        assert "-x /usr/bin/noust" in leaving[max(0, step - 200) : step]
+        line = leaving[step:].splitlines()[0]
+        assert "|| true" in line or "|| :" in line, line
+        assert "compose-gate" not in upgrading
+
     @pytest.mark.parametrize(
         "script", ["obs/debian.postinst", "obs/debian.prerm", "obs/debian.postrm"]
     )

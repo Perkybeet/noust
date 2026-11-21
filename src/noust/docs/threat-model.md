@@ -154,14 +154,21 @@ applications run as.
   exception. A path is judged by what Docker will mount: `..` is resolved and every link of the
   repository is followed (`./host` that points at `/` is `/`), the long and the short syntax alike. A stack that
   already runs with one is warned about and never stopped, so no application in production stops updating:
-  what a stack already had is what its containers were given of the server, which Noust reads from Docker (a
-  container is not changed without a deployment, which goes through this check, so neither the repository nor
-  the stack's `.env` can write it), and what its file says as written. That holds when it only shows once
-  Compose resolves the file (an `include`, an `extends`, a variable in a path). A variable changed to point
-  somewhere else, or anything an update adds, is new and is refused; `privileged`, the sockets of container
-  runtimes, Noust's state and another application's files are taken only from a file that says them plainly,
-  as they always were, and a container does not make them a stack's to keep. Docker that does not answer is a
-  refusal that says why, never a pass. The guard knows every key of the Compose specification, each decided
+  what a stack already had is what it was accepted with (every activation that passed this check writes down
+  in Noust's store what the stack was given of the server, and nothing in the stack's tree can write that:
+  a container that mounts the tree writes its compose file and its `.git` folder) and what its containers were
+  given, which Noust reads from Docker. That holds when it only shows once Compose resolves the file (an
+  `include`, an `extends`, a variable in a path). A variable changed to point somewhere else, or anything an
+  update adds, is new and is refused. Docker that does not answer is a refusal that says why, never a pass.
+  **What starts a stack is what was judged**: its unit runs a gate before `docker compose up` (at boot, at a
+  start, at a restart and before a reload's rebuild) that resolves the stack as it is then and compares it with
+  what it was accepted with, so a variable or a file changed after the deployment cannot give a container what
+  the deployment did not judge; what the gate cannot judge does not start (it fails closed, as the sandbox
+  does). Every path of Noust that starts or restarts a stack asks the same first, and so does the one writer of
+  the stack's `.env`, so a refusal leaves a running stack running. A stack that was never recorded starts as
+  it always did and `noust health` lists it. A restart made past Noust (`systemctl restart` as root) goes
+  through the unit's own gate; root can of course edit the unit.
+  The guard knows every key of the Compose specification, each decided
   about, and refuses one it does not know like what gives the machine (a newer Compose adds keys that do:
   `use_api_socket`, a hook that runs `privileged`, a `pre_start` container, a build entitlement), so a list of
   what to refuse is not what lets the next key through. The files a document brings in with `include` or
