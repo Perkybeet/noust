@@ -399,9 +399,11 @@ jobs:
       # The built-in assistant searches the documentation in files, and the spec lists the package's
       # directory whole: the pages are there with no line of their own. Leap 15.6 installs the python
       # 3.11 flavor while python3 is 3.6, so the check runs with the interpreter noust itself runs with.
+      # Fedora writes that line with a space after the two characters (`#! /usr/bin/python3 -sP`).
       - name: The documentation is in the package
         run: |
-          python="$(head -n 1 "$(command -v noust)" | sed -e 's/^#!//' -e 's/ .*//')"
+          python="$(head -n 1 "$(command -v noust)" | sed -e 's/^#! *//' -e 's/ .*//')"
+          test -x "$python" || { echo "No interpreter read from the first line of $(command -v noust)"; exit 1; }
           "$python" packaging/check_documentation.py
 
       # The same claim the deb job makes: the panel imports against the
