@@ -546,7 +546,9 @@ first.
   Compose added) is root on the server and the secrets of Noust and of every other application, against what is
   promised to team roles and to a central whose ceiling is `admin` without host access. It affected whoever could
   have a stack deployed from a repository or a document they control, and whoever could write a stack's variables
-  and restart it. 4.3.0 closes it where each part is decided ([compose.md](compose.md#what-a-stack-may-ask-of-the-server)):
+  and restart it. The advisory is
+  [GHSA-2h26-pjpg-8vgj](https://github.com/Perkybeet/noust/security/advisories/GHSA-2h26-pjpg-8vgj). 4.3.0 closes
+  it where each part is decided ([compose.md](compose.md#what-a-stack-may-ask-of-the-server)):
   - **A path is judged by where it leads.** A link in the repository is followed, `..` is resolved, and what lies
     outside the application is refused, saying where it leads; what cannot be followed is refused rather than
     guessed. Noust's own files and another application's (what the store says, a stack adopted outside the
