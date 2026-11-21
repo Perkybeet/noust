@@ -1,1 +1,0 @@
-import{n as e}from"./rolldown-runtime-WkwZ5CU-.js";import{Ir as t,Lr as n}from"./routes-work-DSBDqSq7.js";var r=e(n(),1),i=t(),a=(0,r.createContext)(!1);function o({active:e,children:t}){return(0,i.jsx)(a,{value:e,children:t})}function s({children:e}){return(0,i.jsx)(a,{value:!1,children:e})}function c(){return(0,r.useContext)(a)}export{s as n,c as r,o as t};

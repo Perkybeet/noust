@@ -1,0 +1,1 @@
+import{Jo as e}from"./routes-DfBPr1qi.js";import{a as t}from"./compliance-bf7u9ca7.js";function n(){let{data:n}=e({...t(),select:e=>e.controls.find(e=>e.id===`exception_reasons`)?.enabled??!0});return n??!0}export{n as t};

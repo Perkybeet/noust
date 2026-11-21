@@ -1,0 +1,1 @@
+import{t as e}from"./HomePage-CP1x0PKs.js";import{Er as t}from"./routes-DfBPr1qi.js";import{Ir as n}from"./routes-work-BoPXOwLm.js";var r=n();function i(){let{panel:n,customise:i}=t.useSearch();return(0,r.jsx)(e,{scope:`server`,panelId:n,customising:i===!0})}export{i as component};

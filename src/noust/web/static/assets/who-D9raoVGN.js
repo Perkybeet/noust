@@ -1,0 +1,1 @@
+import{o as e}from"./data-CemEfO1B.js";import{g as t}from"./words-BAaWOY5p.js";function n(n,r,i){return t(n,r)?i(`tasks.you`):n.actor===null?i(`activity.actor.notRecorded`):e(i,n.actor).label}export{n as t};

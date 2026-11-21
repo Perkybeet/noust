@@ -204,14 +204,16 @@ function OverviewLayout({ summary }: { summary: ServerSummary | undefined }) {
   const items = serverItems(attention.items);
   // The processes are the machine's own: where Noust sees only its container the card is not drawn, and what is not well has the row.
   const hasProcesses = useScopeOffers()("system_processes");
+  const loading = summary === undefined || attention.loading;
   return (
     <div className="flex min-w-0 flex-col gap-6">
       {summary !== undefined ? <Readings summary={summary} /> : <ReadingsSkeleton />}
       <div className={hasProcesses ? "grid min-w-0 items-start gap-6 lg:grid-cols-2" : "grid min-w-0 items-start gap-6"}>
         {hasProcesses ? <TopProcesses /> : null}
-        <NotWell items={items} total={attention.total} loading={summary === undefined || attention.loading} />
+        <NotWell items={items} total={attention.total} loading={loading} />
       </div>
-      <AddServerCard />
+      {/* The invitation is the last thing of the page and is drawn once what is above it has its height: drawn before, the list of what is not well pushed it down the page as it arrived. */}
+      {loading ? null : <AddServerCard />}
     </div>
   );
 }

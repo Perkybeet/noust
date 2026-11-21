@@ -1,0 +1,1 @@
+import{t as e}from"./InvitePage-DHafoD_p.js";var t=e;export{t as component};

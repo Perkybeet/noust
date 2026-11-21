@@ -1,1 +1,0 @@
-import{t as e}from"./SystemTab-DDvh2s97.js";import{Ir as t}from"./routes-work-DSBDqSq7.js";var n=t();function r(){return(0,n.jsx)(e,{view:`machine`})}export{r as component};

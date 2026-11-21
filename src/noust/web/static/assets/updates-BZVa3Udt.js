@@ -1,0 +1,1 @@
+import{t as e}from"./SystemTab-DpCFxZU9.js";import{Ir as t}from"./routes-work-BoPXOwLm.js";var n=t();function r(){return(0,n.jsx)(e,{view:`updates`})}export{r as component};

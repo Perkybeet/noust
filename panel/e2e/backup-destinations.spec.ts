@@ -126,7 +126,7 @@ test("adding an SFTP destination lists it; one that cannot be reached says so in
   // in the server's own words, with what rclone said verbatim.
   const refusal = dialog.getByRole("alert");
   await expect(refusal.getByText("The destination did not answer, so it was not created")).toBeVisible();
-  await expect(refusal.getByText(`Backup destination '${name}' was not saved: it could not be reached`)).toBeVisible();
+  await expect(refusal.getByText(`Backup destination ${name} did not answer`)).toBeVisible();
   await expect(refusal.getByText(/lookup backup\.old\.invalid: no such host/)).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the add destination dialog, refused for not answering");

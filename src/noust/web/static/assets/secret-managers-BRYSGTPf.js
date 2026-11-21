@@ -1,1 +1,0 @@
-import{i as e}from"./OwnSections-CRtziU1K.js";var t=e;export{t as component};

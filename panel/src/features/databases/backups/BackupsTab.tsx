@@ -454,6 +454,8 @@ export function BackupsTab({ engine, name }: { engine: string; name: string }) {
   const everything = useQuery({ ...policyQuery(engine, ALL_DATABASES), enabled: everyDatabase });
   const covering = effectivePolicy(policy.data, everything.data, name);
   const coveredByEveryDatabase = covering !== undefined && covering === everything.data ? covering : undefined;
+  // A query that is not asked (an engine with no policy for every database) waits for ever: it is not waited for.
+  const cardsSettled = !policy.isPending && (!everyDatabase || !everything.isPending);
   const slot = isSlotEngine({ capabilities: overview.data?.capabilities ?? [] });
   const formats = engine === "postgresql";
 
@@ -483,111 +485,116 @@ export function BackupsTab({ engine, name }: { engine: string; name: string }) {
       <PolicyCard engine={engine} name={name} coveredBy={coveredByEveryDatabase} onEdit={() => setEditing("database")} />
       {everyDatabase ? <PolicyCard engine={engine} name={ALL_DATABASES} scope="all" database={name} onEdit={() => setEditing("all")} /> : null}
 
-      <Section
-        title={t("databases.dumps.title")}
-        description={t("databases.dumps.description")}
-        actions={
-          slot ? undefined : (
-            <Button size="sm" icon={<Upload aria-hidden="true" />} onClick={() => setImporting(true)}>
-              {t("dumpImport.action")}
-            </Button>
-          )
-        }
-      >
-        {/* design-exception: hand-error-ternary the table draws its own skeleton rows and its own empty state */}
-        {dumps.isError && dumps.data === undefined ? (
-          <ErrorBlock error={dumps.error} title={t("databases.dumps.loadFailed")} onRetry={() => void dumps.refetch()} retrying={dumps.isRefetching} />
-        ) : (
-          <DataTable<DatabaseBackup>
-            caption={t("databases.dumps.caption", { name })}
-            rows={rows}
-            loading={dumps.isPending}
-            skeletonRows={4}
-            getRowId={(dump) => dump.name}
-            onRowActivate={setOpened}
-            empty={<EmptyState variant="inline" title={t("databases.dumps.empty")} description={t("databases.dumps.emptyHint")} />}
-            columns={[
-              {
-                id: "taken",
-                header: t("databases.dumps.taken"),
-                card: "title",
-                cell: (dump) => (
-                  <span className="flex min-w-0 flex-col">
-                    <RelativeTime value={dump.created} className="font-medium text-fg" />
-                    <Mono tone="faint" truncate>
-                      {dump.name}
-                    </Mono>
-                  </span>
-                ),
-              },
-              { id: "check", header: t("databases.dumps.check"), width: "w-36", card: "status", cell: (dump) => <VerifiedMark status={dump.verify_status} /> },
-              { id: "kind", header: t("databases.dumps.kindLabel"), width: "w-36", hideBelow: "md", cell: (dump) => t(KIND_WORDS[dump.kind] ?? "databases.dumps.kind.unknown") },
-              {
-                id: "where",
-                header: t("databases.dumps.where"),
-                hideBelow: "sm",
-                cell: (dump) =>
-                  (dump.destinations ?? []).length === 0 ? (
-                    <span className="text-fg-muted">{t("databases.backups.policy.onlyHere")}</span>
-                  ) : (
-                    <span className="text-fg-muted">
-                      {t.rich("databases.dumps.hereAnd", {
-                        destinations: (
-                          <span className="inline-flex flex-wrap gap-1">
-                            {(dump.destinations ?? []).map((copy) => (
-                              <Badge key={copy.destination} mono>
-                                {copy.destination}
-                              </Badge>
-                            ))}
-                          </span>
-                        ),
-                      })}
-                    </span>
-                  ),
-              },
-              // Only while some dump is owed to a destination, and not hidden on a phone: it is the state of the copy.
-              ...(anyPending(rows)
-                ? [{ id: "sending", header: t("backups.pending.column"), width: "w-48", card: "meta" as const, cell: (dump: DatabaseBackup) => <PendingSendsCell sends={pendingSendsOf(dump)} /> }]
-                : []),
-              {
-                id: "size",
-                header: t("databases.dumps.size"),
-                align: "end",
-                mono: true,
-                width: "w-28",
-                cell: (dump) => formatBytes(dump.size, t.locale),
-              },
-            ]}
-            rowActions={(dump) => (
-              <RowMenu name={dump.name}>
-                <MenuItem icon={<ArchiveRestore />} disabled={job.busy} onClick={() => setRestoring({ dump: dump.name })}>
-                  {t("databases.dumps.restoreEllipsis")}
-                </MenuItem>
-                <MenuItem icon={<ShieldQuestion />} disabled={job.busy} onClick={() => verify.mutate({ dump, restoreTest: false })}>
-                  {t("databases.dumps.verify")}
-                </MenuItem>
-                {!slot ? (
-                  <MenuItem icon={<VERB_ICONS.test />} disabled={job.busy} onClick={() => verify.mutate({ dump, restoreTest: true })}>
-                    {t("databases.dumps.testRestoreAction")}
-                  </MenuItem>
-                ) : null}
-                <MenuItem icon={<OBJECT_ICONS.destination />} disabled={job.busy} onClick={() => setPushing(dump)}>
-                  {t("databases.dumps.push")}
-                </MenuItem>
-                <MenuItem icon={<Download />} onClick={() => download.mutate(dump)}>
-                  {t("databases.dumps.download")}
-                </MenuItem>
-                <MenuSeparator />
-                <MenuItem icon={<ICONS.delete />} destructive onClick={() => setDeleting(dump)}>
-                  {t("common.words.delete")}
-                </MenuItem>
-              </RowMenu>
+      {/* The dumps are drawn once the policy cards above them have their height: a policy that is not set is a shorter card than the one that waits for it, and the dumps moved up the page as it arrived. */}
+      {cardsSettled ? (
+        <>
+          <Section
+            title={t("databases.dumps.title")}
+            description={t("databases.dumps.description")}
+            actions={
+              slot ? undefined : (
+                <Button size="sm" icon={<Upload aria-hidden="true" />} onClick={() => setImporting(true)}>
+                  {t("dumpImport.action")}
+                </Button>
+              )
+            }
+          >
+            {/* design-exception: hand-error-ternary the table draws its own skeleton rows and its own empty state */}
+            {dumps.isError && dumps.data === undefined ? (
+              <ErrorBlock error={dumps.error} title={t("databases.dumps.loadFailed")} onRetry={() => void dumps.refetch()} retrying={dumps.isRefetching} />
+            ) : (
+              <DataTable<DatabaseBackup>
+                caption={t("databases.dumps.caption", { name })}
+                rows={rows}
+                loading={dumps.isPending}
+                skeletonRows={4}
+                getRowId={(dump) => dump.name}
+                onRowActivate={setOpened}
+                empty={<EmptyState variant="inline" title={t("databases.dumps.empty")} description={t("databases.dumps.emptyHint")} />}
+                columns={[
+                  {
+                    id: "taken",
+                    header: t("databases.dumps.taken"),
+                    card: "title",
+                    cell: (dump) => (
+                      <span className="flex min-w-0 flex-col">
+                        <RelativeTime value={dump.created} className="font-medium text-fg" />
+                        <Mono tone="faint" truncate>
+                          {dump.name}
+                        </Mono>
+                      </span>
+                    ),
+                  },
+                  { id: "check", header: t("databases.dumps.check"), width: "w-36", card: "status", cell: (dump) => <VerifiedMark status={dump.verify_status} /> },
+                  { id: "kind", header: t("databases.dumps.kindLabel"), width: "w-36", hideBelow: "md", cell: (dump) => t(KIND_WORDS[dump.kind] ?? "databases.dumps.kind.unknown") },
+                  {
+                    id: "where",
+                    header: t("databases.dumps.where"),
+                    hideBelow: "sm",
+                    cell: (dump) =>
+                      (dump.destinations ?? []).length === 0 ? (
+                        <span className="text-fg-muted">{t("databases.backups.policy.onlyHere")}</span>
+                      ) : (
+                        <span className="text-fg-muted">
+                          {t.rich("databases.dumps.hereAnd", {
+                            destinations: (
+                              <span className="inline-flex flex-wrap gap-1">
+                                {(dump.destinations ?? []).map((copy) => (
+                                  <Badge key={copy.destination} mono>
+                                    {copy.destination}
+                                  </Badge>
+                                ))}
+                              </span>
+                            ),
+                          })}
+                        </span>
+                      ),
+                  },
+                  // Only while some dump is owed to a destination, and not hidden on a phone: it is the state of the copy.
+                  ...(anyPending(rows)
+                    ? [{ id: "sending", header: t("backups.pending.column"), width: "w-48", card: "meta" as const, cell: (dump: DatabaseBackup) => <PendingSendsCell sends={pendingSendsOf(dump)} /> }]
+                    : []),
+                  {
+                    id: "size",
+                    header: t("databases.dumps.size"),
+                    align: "end",
+                    mono: true,
+                    width: "w-28",
+                    cell: (dump) => formatBytes(dump.size, t.locale),
+                  },
+                ]}
+                rowActions={(dump) => (
+                  <RowMenu name={dump.name}>
+                    <MenuItem icon={<ArchiveRestore />} disabled={job.busy} onClick={() => setRestoring({ dump: dump.name })}>
+                      {t("databases.dumps.restoreEllipsis")}
+                    </MenuItem>
+                    <MenuItem icon={<ShieldQuestion />} disabled={job.busy} onClick={() => verify.mutate({ dump, restoreTest: false })}>
+                      {t("databases.dumps.verify")}
+                    </MenuItem>
+                    {!slot ? (
+                      <MenuItem icon={<VERB_ICONS.test />} disabled={job.busy} onClick={() => verify.mutate({ dump, restoreTest: true })}>
+                        {t("databases.dumps.testRestoreAction")}
+                      </MenuItem>
+                    ) : null}
+                    <MenuItem icon={<OBJECT_ICONS.destination />} disabled={job.busy} onClick={() => setPushing(dump)}>
+                      {t("databases.dumps.push")}
+                    </MenuItem>
+                    <MenuItem icon={<Download />} onClick={() => download.mutate(dump)}>
+                      {t("databases.dumps.download")}
+                    </MenuItem>
+                    <MenuSeparator />
+                    <MenuItem icon={<ICONS.delete />} destructive onClick={() => setDeleting(dump)}>
+                      {t("common.words.delete")}
+                    </MenuItem>
+                  </RowMenu>
+                )}
+              />
             )}
-          />
-        )}
-      </Section>
+          </Section>
 
-      <RemoteDumps engine={engine} name={name} onRestore={setRestoring} />
+          <RemoteDumps engine={engine} name={name} onRestore={setRestoring} />
+        </>
+      ) : null}
 
       {editing !== null ? (
         <PolicyDrawer

@@ -1,1 +1,0 @@
-import{t as e}from"./GeneralSettings-C8cNL8GE.js";var t=e;export{t as component};
