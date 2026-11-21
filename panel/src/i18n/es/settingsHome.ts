@@ -10,6 +10,8 @@ export const settingsHome: Catalog<typeof en> = {
     access: "Los roles que lo deciden y qué permite cada uno.",
     sso: "Entrar con el directorio de tu empresa.",
     approvals: "Quién debe aprobar los cambios más delicados.",
+    "approval-policy": "Lo que un token y el asistente pueden hacer solos, y lo que espera a una persona.",
+    assistant: "Un asistente opcional que explica lo que falla, con el modelo que tú elijas.",
     console: "La dirección que abren los enlaces de los avisos.",
     "sign-in-image": "Una imagen de tu empresa en la pantalla de entrada.",
     notifications: "A dónde llegan los mensajes y cómo silenciarlos un rato.",

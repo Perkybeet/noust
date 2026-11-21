@@ -12,6 +12,8 @@ export const settingsHome = {
     access: "The roles that decide it, and what each allows.",
     sso: "Let people sign in with your company's directory.",
     approvals: "Who must approve the riskiest changes.",
+    "approval-policy": "What a token and the assistant may do alone, and what waits for a person.",
+    assistant: "An optional assistant that explains what fails, with the model you choose.",
     console: "The address the links in the notices open.",
     "sign-in-image": "A picture of your company on the sign-in screen.",
     notifications: "Where messages go, and how to silence them for a while.",

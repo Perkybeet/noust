@@ -46,9 +46,10 @@ describe("telling the person", () => {
 
   it("is not silent about a failure on the page of the application it acts on: the failure is announced once, here", () => {
     // The page of an application whose first deploy failed has, by design, no application left to show it (item 141), and the
-    // card a page draws for its own job does not announce: a success on the page is seen, a failure is said.
-    expect(endingOf(task({ state: "failed" }), me, "/apps/shop.example.com")).toBe("toast");
-    expect(endingOf(task({ state: "failed" }), me, "/apps/shop.example.com/deployments")).toBe("toast");
+    // card a page draws for its own job does not announce: a success on the page is seen, a failure is said. It is said as what
+    // it is, a toast of a person who is still there: it does not tell them they left a page they are on.
+    expect(endingOf(task({ state: "failed" }), me, "/apps/shop.example.com")).toBe("toast-here");
+    expect(endingOf(task({ state: "failed" }), me, "/apps/shop.example.com/deployments")).toBe("toast-here");
     // Its own page says it with its log, which is what the person is reading.
     expect(endingOf(task({ state: "failed", id: "ab12" }), me, "/activity/tasks/ab12")).toBe("silent");
   });
@@ -63,7 +64,7 @@ describe("telling the person", () => {
       expect(endingOf(task({ state: "failed", type }), me, "/databases")).toBe("toast");
     }
     // A first deploy has no header to say it: the toast is still the channel (item 141).
-    expect(endingOf(task({ state: "failed", type: "deploy" }), me, "/apps/shop.example.com")).toBe("toast");
+    expect(endingOf(task({ state: "failed", type: "deploy" }), me, "/apps/shop.example.com")).toBe("toast-here");
   });
 
   it("is silent on the Software page for an install it started there, which the page already says it ended", () => {

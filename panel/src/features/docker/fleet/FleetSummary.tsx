@@ -50,7 +50,7 @@ export function FleetSummary() {
       const needs = row.attention?.length ?? 0;
       return {
         server,
-        summary: t("docker.fleet.serverLine", { running: containers["running"] ?? 0, total: containers["total"] ?? 0 }),
+        summary: t("docker.fleet.serverLine", { running: containers["running"] ?? 0, count: containers["total"] ?? 0 }),
         ...(row.engine?.info.server_version !== undefined && row.engine.info.server_version !== "" ? { note: t("docker.summary.version", { version: row.engine.info.server_version }) } : {}),
         state: needs === 0 ? { status: "running", label: t("docker.fleet.nothingNeeds") } : { status: "warning", label: t("docker.fleet.needs", { count: needs }) },
       };

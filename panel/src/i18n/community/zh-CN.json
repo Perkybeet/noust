@@ -1987,6 +1987,14 @@
   "approvals.held.waitingTitle": "等待审批",
   "approvals.held.waitingDescription": "另一个人批准后它会运行。你可以在“审批”中跟踪它。",
   "approvals.held.openApprovals": "打开审批",
+  "approvals.nobody.title": "没有人能批准正在等待的事项",
+  "approvals.nobody.none": "没有账户拥有负责决定的角色（{roles}）。审批开启期间，把该角色授予某人本身也要等待审批，所以出路分两步：在 {approvals} 中关闭审批，在 {accounts} 中授予角色，再重新开启。",
+  "approvals.nobody.onlyYou": "只有你拥有负责决定的角色（{roles}），而没有人批准自己的请求。请在 {accounts} 中把该角色授予另一个账户；这项更改也要等待审批，所以先在 {approvals} 中关闭审批，之后再开启。",
+  "approvals.nobody.turnOnTitle": "目前还没有其他人能批准",
+  "approvals.nobody.turnOnNone": "没有账户拥有负责决定的角色（{roles}），需要审批的事项无法获得批准，把该角色授予某人也会进入等待。请先在 {accounts} 中把角色授予另一个账户，再开启审批。",
+  "approvals.nobody.turnOnOnlyYou": "只有你拥有负责决定的角色（{roles}），而没有人批准自己的请求：你的操作会一直等待一个不存在的人。请先在 {accounts} 中把角色授予另一个账户，再开启审批。",
+  "approvals.nobody.turnOnAnyway": "仍然开启",
+  "approvals.nobody.turnOnLater": "暂不",
   "approvals.state.requested": "待处理",
   "approvals.state.approved": "已批准",
   "approvals.state.rejected": "已拒绝",
@@ -1997,7 +2005,7 @@
   "approvals.dialog.theCall": "将运行的内容：{call}",
   "approvals.dialog.reasonLabel": "原因",
   "approvals.dialog.reasonHint": "与请求一起保存，并记录在审计日志中。",
-  "approvals.dialog.whyAsked": "“审批”控制项要求这样做，对这台服务器上的所有人都生效，包括所有者。可以在 {where} 中关闭它。",
+  "approvals.dialog.whyAsked": "这台服务器已开启审批，对所有人都生效，包括所有者。可以在 {where} 中关闭。",
   "approvals.dialog.reasonMissing": "请说明你为什么需要它。",
   "approvals.dialog.ask": "请求审批",
   "approvals.dialog.waitingTitle": "等待审批",
@@ -3221,7 +3229,7 @@
   "backups.coverage.searchPlaceholder": "应用",
   "backups.coverage.showLabel": "显示",
   "backups.coverage.showAll": "所有应用",
-  "backups.coverage.showAttention": "需要备份的",
+  "backups.coverage.showAttention": "需要关注的",
   "backups.coverage.count": {
     "other": "{count} 个应用"
   },
@@ -7629,6 +7637,9 @@
   "fleet.page.addServer": "添加服务器",
   "fleet.page.runAction": "运行操作",
   "fleet.page.loadFailed": "无法加载服务器群",
+  "fleet.page.alone.title": "{name} 目前是你唯一的服务器",
+  "fleet.page.alone.description": "它的应用和其他一切都在它自己的页面上。再添加一台服务器，整个服务器群就会在这里一起显示。",
+  "fleet.page.alone.open": "打开 {name}",
   "fleet.page.empty.title": "服务器群里还没有服务器",
   "fleet.page.empty.description": "在这个控制台中管理多台服务器。每台服务器只需授权此控制台一次；控制台永远不会获得那里的 shell。",
   "fleet.column.server": "服务器",
@@ -9171,7 +9182,6 @@
   "nav.screens.accountSecurity.label": "登录安全",
   "nav.screens.accountSecurity.keywords": "双重身份验证 验证器 通行密钥 会话 登录安全 two-factor 2fa authenticator totp passkeys sessions sign in security",
   "nav.screens.accountSecurity.command": "登录安全",
-  "nav.screens.controls.label": "控制项",
   "nav.screens.recipes.label": "配方",
   "nav.screens.recipes.command": "配方",
   "nav.screens.installedRecipes.label": "已安装的配方",
@@ -17042,6 +17052,8 @@
   "settingsHome.summary.access": "决定这一点的角色，以及每个角色允许的操作。",
   "settingsHome.summary.sso": "让人员使用公司目录登录。",
   "settingsHome.summary.approvals": "谁必须批准风险最高的变更。",
+  "settingsHome.summary.approval-policy": "令牌和助手可以自行完成什么，以及什么要等人来决定。",
+  "settingsHome.summary.assistant": "一个可选的助手，用你选择的模型解释哪里出了问题。",
   "settingsHome.summary.console": "控制台通过 HTTPS 响应时使用的名称。",
   "settingsHome.summary.notifications": "消息发往哪里，以及如何暂时静音。",
   "settingsHome.summary.log-shipping": "把日志和指标发送到另一个服务。",
@@ -19498,7 +19510,9 @@
   "docker.fleet.count": "{shown} / {total}",
   "docker.fleet.openServer": "在该服务器上打开",
   "docker.fleet.noDocker": "没有 Docker",
-  "docker.fleet.serverLine": "{total} 个容器中有 {running} 个在运行",
+  "docker.fleet.serverLine": {
+    "other": "{count} 个容器中有 {running} 个在运行"
+  },
   "docker.fleet.nothingNeeds": "无需处理",
   "docker.fleet.needs": {
     "other": "有 {count} 项需要你处理"
@@ -19577,9 +19591,23 @@
   "docker.bring.folder": "文件夹",
   "docker.bring.file": "它的 Compose 文件",
   "docker.bring.has": "包含",
-  "docker.bring.counts": "{containers} 个容器、{jobs} 个已结束的任务、{volumes} 个卷、{networks} 个网络",
+  "docker.bring.counts": "{containers}、{jobs}、{volumes}、{networks}",
+  "docker.bring.countContainers": {
+    "other": "{count} 个容器"
+  },
+  "docker.bring.countJobs": {
+    "other": "{count} 个已结束的任务"
+  },
+  "docker.bring.countVolumes": {
+    "other": "{count} 个卷"
+  },
+  "docker.bring.countNetworks": {
+    "other": "{count} 个网络"
+  },
   "docker.bring.name": "在应用中的名称",
   "docker.bring.nameHelp": "保持原样或另选一个名称。这是唯一需要你填写的内容。",
+  "docker.bring.rehearsal": "Compose 的输出",
+  "docker.bring.rehearsalLabel": "Compose 对 {name} 的试运行",
   "docker.bring.lostTitle": "重启后不会自动恢复的内容",
   "docker.bring.lostBody": "这些容器没有能让它们恢复的重启策略:",
   "docker.compose.crumb": "Compose 文档",

@@ -236,6 +236,34 @@ describe("the Destinations tab", () => {
       });
     });
 
+    // The sentence and the fix came as the server's English in a Spanish console: they arrive with their code and are said in the console's
+    // language, and what rclone printed under them is rclone's own.
+    it("says the refusal and its fix in the console's language through the code, with rclone's words as they came", async () => {
+      fakeBackend(
+        baseRoutes([], {
+          "POST /api/backup-destinations": () =>
+            json(400, {
+              error: "destination_unreachable",
+              detail: "Backup destination offsite did not answer",
+              hint: "Check the destination's address, credentials and permissions; the output below is rclone's own.",
+              fields: null,
+              output: RCLONE,
+              coded: { code: "backup_destinations.unreachable", params: { name: "offsite" } },
+            }),
+        }),
+      );
+      const { user } = renderConsole("/backups/destinations");
+      const dialog = await addOffsite(user);
+      const alert = await within(dialog).findByRole("alert");
+      expect(within(alert).getByText("Backup destination offsite did not answer")).toBeInTheDocument();
+      await act(() => setLocale("es"));
+      expect(await within(alert).findByText("El destino de copias offsite no respondió")).toBeInTheDocument();
+      expect(within(alert).getByText(/Comprueba la dirección, las credenciales y los permisos del destino/)).toBeInTheDocument();
+      expect(within(alert).queryByText(/Check the destination's address/)).not.toBeInTheDocument();
+      expect(within(alert).getByText(/lookup backup\.old\.invalid: no such host/)).toBeInTheDocument();
+      await act(() => setLocale("en"));
+    });
+
     it("offers it again when the changes to an existing destination do not connect", async () => {
       const backend = fakeBackend(
         baseRoutes([destination({ name: "offsite" })], {

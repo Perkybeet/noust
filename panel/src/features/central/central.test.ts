@@ -41,6 +41,25 @@ describe("where a hub starts", () => {
   });
 });
 
+describe("where a hub that deploys on its own machine starts", () => {
+  // A NAS told to deploy on its own Docker has a server: itself. With no other, the fleet it opened on had nothing to say but "No
+  // servers in this fleet yet", to the person whose applications were one click away (round 2 of the console's users).
+  const deploying = withCentral({ role: "hub", sealed: false, locked: false, deploy_here: "containers", features: { applications: { available: true, reason: null } } as never });
+  const idle = withCentral({ role: "hub", sealed: false, locked: false, features: { applications: { available: false, reason: null } } as never });
+
+  it("starts on its own Home when it has no other server, and on the fleet when it has some or it is not known", () => {
+    expect(startsOnFleet(deploying, "/", null, false, 0)).toBe(false);
+    expect(startsOnFleet(deploying, "/", null, false, 1)).toBe(true);
+    // The list of servers not read: what it was, the fleet.
+    expect(startsOnFleet(deploying, "/", null, false, null)).toBe(true);
+    expect(startsOnFleet(deploying, "/", null, false)).toBe(true);
+  });
+
+  it("is still a hub that begins on its fleet when it deploys nothing: it has no server of its own to begin on", () => {
+    expect(startsOnFleet(idle, "/", null, false, 0)).toBe(true);
+  });
+});
+
 describe("the central's own refusals", () => {
   it("tells a wrong passphrase from sudo mode asked for or declined", () => {
     expect(isWrongPassphrase(new ApiError(403, "wrong_passphrase", "The passphrase does not open the sealed secrets"))).toBe(true);

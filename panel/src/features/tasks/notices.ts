@@ -40,8 +40,13 @@ export function endingWords(task: Task, locale = getLocale()): string {
  * Says that a task of the person's ended: a toast with a way to see it (and the failure's own words, verbatim) and,
  * when they turned it on and the tab is hidden, the browser's notification. A visible tab has the toast and a hidden
  * one the notification, never both.
+ *
+ * @param task The task that ended.
+ * @param go How the console moves to the task's place.
+ * @param away Whether the person left the page they launched it from: only then is the toast's second line "you started it
+ *     and left that page". A failure told to someone who is on the application's page says no such thing.
  */
-export function sayEnding(task: Task, go: Go): void {
+export function sayEnding(task: Task, go: Go, away: boolean): void {
   withTexts(() => {
     const locale = getLocale();
     const words = endingWords(task, locale);
@@ -49,7 +54,7 @@ export function sayEnding(task: Task, go: Go): void {
       go(placeOf(task));
     };
     if (notifyWhenHidden(words, translate(locale, "tasks.notice.leftIt"), see)) return;
-    const options = { description: translate(locale, "tasks.notice.leftIt"), action: { label: translate(locale, "tasks.notice.view"), onClick: see } };
+    const options = { ...(away ? { description: translate(locale, "tasks.notice.leftIt") } : {}), action: { label: translate(locale, "tasks.notice.view"), onClick: see } };
     if (task.state === "failed") toast.error(words, { ...options, ...(task.error !== null ? { detail: task.error } : {}) });
     // design-exception: toast-success a task that ended while the person was on another page is not on any screen they see
     else if (task.state === "succeeded") toast.success(words, { ...options, timeout: 8000 });

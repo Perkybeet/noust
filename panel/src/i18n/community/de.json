@@ -2029,6 +2029,14 @@
   "approvals.held.waitingTitle": "Wartet auf Genehmigung",
   "approvals.held.waitingDescription": "Es läuft, sobald eine andere Person es genehmigt. Sie können es unter Genehmigungen verfolgen.",
   "approvals.held.openApprovals": "Genehmigungen öffnen",
+  "approvals.nobody.title": "Niemand kann genehmigen, was wartet",
+  "approvals.nobody.none": "Kein Konto hat die Rolle, die entscheidet ({roles}). Solange Genehmigungen eingeschaltet sind, wartet auch das Vergeben der Rolle auf Genehmigung. Der Ausweg hat zwei Schritte: Genehmigungen unter {approvals} ausschalten, die Rolle unter {accounts} vergeben und sie wieder einschalten.",
+  "approvals.nobody.onlyYou": "Nur Sie haben die Rolle, die entscheidet ({roles}), und niemand genehmigt seine eigene Anfrage. Vergeben Sie die Rolle unter {accounts} an ein anderes Konto; auch diese Änderung wartet auf Genehmigung, schalten Sie die Genehmigungen daher zuerst unter {approvals} aus und danach wieder ein.",
+  "approvals.nobody.turnOnTitle": "Noch könnte niemand sonst genehmigen",
+  "approvals.nobody.turnOnNone": "Kein Konto hat die Rolle, die entscheidet ({roles}). Was eine Genehmigung braucht, könnte nicht genehmigt werden, und auch das Vergeben der Rolle würde warten. Vergeben Sie die Rolle zuerst unter {accounts} an ein anderes Konto und schalten Sie dann die Genehmigungen ein.",
+  "approvals.nobody.turnOnOnlyYou": "Nur Sie haben die Rolle, die entscheidet ({roles}), und niemand genehmigt seine eigene Anfrage: Was Sie tun, würde auf eine Person warten, die es nicht gibt. Vergeben Sie die Rolle zuerst unter {accounts} an ein anderes Konto und schalten Sie dann die Genehmigungen ein.",
+  "approvals.nobody.turnOnAnyway": "Trotzdem einschalten",
+  "approvals.nobody.turnOnLater": "Jetzt nicht",
   "approvals.state.requested": "Ausstehend",
   "approvals.state.approved": "Genehmigt",
   "approvals.state.rejected": "Abgelehnt",
@@ -2039,7 +2047,7 @@
   "approvals.dialog.theCall": "Was ausgeführt wird: {call}",
   "approvals.dialog.reasonLabel": "Grund",
   "approvals.dialog.reasonHint": "Wird mit der Anfrage und im Audit-Log aufbewahrt.",
-  "approvals.dialog.whyAsked": "Die Kontrolle „Genehmigungen“ verlangt es, für alle auf diesem Server, einschließlich der Eigentümer. Sie wird in {where} ausgeschaltet.",
+  "approvals.dialog.whyAsked": "Genehmigungen sind für diesen Server eingeschaltet und gelten für alle, auch für Eigentümer. Sie können sie unter {where} ausschalten.",
   "approvals.dialog.reasonMissing": "Nennen Sie den Grund, warum Sie es brauchen.",
   "approvals.dialog.ask": "Genehmigung anfordern",
   "approvals.dialog.waitingTitle": "Wartet auf Genehmigung",
@@ -3286,7 +3294,7 @@
   "backups.coverage.searchPlaceholder": "Anwendung",
   "backups.coverage.showLabel": "Anzeigen",
   "backups.coverage.showAll": "Alle Anwendungen",
-  "backups.coverage.showAttention": "Backup nötig",
+  "backups.coverage.showAttention": "Mit Handlungsbedarf",
   "backups.coverage.count": {
     "one": "{count} Anwendung",
     "other": "{count} Anwendungen"
@@ -7801,6 +7809,9 @@
   "fleet.page.addServer": "Einen Server hinzufügen",
   "fleet.page.runAction": "Eine Aktion ausführen",
   "fleet.page.loadFailed": "Die Flotte konnte nicht geladen werden",
+  "fleet.page.alone.title": "{name} ist vorerst Ihr einziger Server",
+  "fleet.page.alone.description": "Seine Anwendungen und alles andere sind auf seinen eigenen Seiten. Fügen Sie einen weiteren Server hinzu, und die ganze Flotte erscheint hier gemeinsam.",
+  "fleet.page.alone.open": "{name} öffnen",
   "fleet.page.empty.title": "Noch keine Server in dieser Flotte",
   "fleet.page.empty.description": "Verwalten Sie mehrere Server von dieser Konsole aus. Jeder autorisiert diese Konsole einmal; sie bekommt dort nie eine Shell.",
   "fleet.column.server": "Server",
@@ -9394,7 +9405,6 @@
   "nav.screens.accountSecurity.label": "Anmeldesicherheit",
   "nav.screens.accountSecurity.keywords": "Zwei-Faktor 2FA Authenticator TOTP Passkeys Sitzungen Anmeldung Sicherheit two-factor 2fa authenticator totp passkeys sessions sign in security",
   "nav.screens.accountSecurity.command": "Anmeldesicherheit",
-  "nav.screens.controls.label": "Kontrollen",
   "nav.screens.recipes.label": "Rezepte",
   "nav.screens.recipes.command": "Rezepte",
   "nav.screens.installedRecipes.label": "Installierte Rezepte",
@@ -17371,6 +17381,8 @@
   "settingsHome.summary.access": "Die Rollen, die das entscheiden, und was jede erlaubt.",
   "settingsHome.summary.sso": "Personen sich mit dem Verzeichnis Ihres Unternehmens anmelden lassen.",
   "settingsHome.summary.approvals": "Wer die riskantesten Änderungen genehmigen muss.",
+  "settingsHome.summary.approval-policy": "Was ein Token und der Assistent allein tun dürfen und was auf eine Person wartet.",
+  "settingsHome.summary.assistant": "Ein optionaler Assistent, der erklärt, was ausfällt, mit dem Modell Ihrer Wahl.",
   "settingsHome.summary.console": "Der Name, unter dem die Konsole über HTTPS antwortet.",
   "settingsHome.summary.notifications": "Wohin Nachrichten gehen, und wie man sie eine Weile stummschaltet.",
   "settingsHome.summary.log-shipping": "Logs und Metriken an einen anderen Dienst senden.",
@@ -19903,7 +19915,10 @@
   "docker.fleet.count": "{shown} von {total}",
   "docker.fleet.openServer": "Auf diesem Server öffnen",
   "docker.fleet.noDocker": "Kein Docker",
-  "docker.fleet.serverLine": "{running} von {total} Containern laufen",
+  "docker.fleet.serverLine": {
+    "one": "{running} von {count} Container läuft",
+    "other": "{running} von {count} Containern laufen"
+  },
   "docker.fleet.nothingNeeds": "Nichts braucht Sie",
   "docker.fleet.needs": {
     "one": "{count} Sache braucht Sie",
@@ -19983,9 +19998,27 @@
   "docker.bring.folder": "Ordner",
   "docker.bring.file": "Seine Compose-Datei",
   "docker.bring.has": "Er enthält",
-  "docker.bring.counts": "{containers} Container, {jobs} beendete Jobs, {volumes} Volumes, {networks} Netzwerke",
+  "docker.bring.counts": "{containers}, {jobs}, {volumes}, {networks}",
+  "docker.bring.countContainers": {
+    "one": "{count} Container",
+    "other": "{count} Container"
+  },
+  "docker.bring.countJobs": {
+    "one": "{count} beendeter Job",
+    "other": "{count} beendete Jobs"
+  },
+  "docker.bring.countVolumes": {
+    "one": "{count} Volume",
+    "other": "{count} Volumes"
+  },
+  "docker.bring.countNetworks": {
+    "one": "{count} Netzwerk",
+    "other": "{count} Netzwerke"
+  },
   "docker.bring.name": "Name unter den Anwendungen",
   "docker.bring.nameHelp": "Lassen Sie ihn so, wie er ist, oder wählen Sie einen anderen. Es ist das Einzige, was gefragt wird.",
+  "docker.bring.rehearsal": "Was Compose gesagt hat",
+  "docker.bring.rehearsalLabel": "Probelauf von Compose für {name}",
   "docker.bring.lostTitle": "Was nach einem Neustart nicht zurückkäme",
   "docker.bring.lostBody": "Diese haben keine Neustart-Richtlinie, die sie zurückbringt:",
   "docker.compose.crumb": "Compose-Dokument",

@@ -2029,6 +2029,14 @@
   "approvals.held.waitingTitle": "En attente d'approbation",
   "approvals.held.waitingDescription": "Elle s'exécute dès qu'une autre personne l'approuve. Vous pouvez la suivre dans Approbations.",
   "approvals.held.openApprovals": "Ouvrir les approbations",
+  "approvals.nobody.title": "Personne ne peut approuver ce qui attend",
+  "approvals.nobody.none": "Aucun compte n'a le rôle qui décide ({roles}). Tant que les approbations sont activées, donner le rôle à quelqu'un attend aussi une approbation : la sortie se fait en deux temps. Désactivez les approbations dans {approvals}, donnez le rôle dans {accounts}, puis réactivez-les.",
+  "approvals.nobody.onlyYou": "Vous seul avez le rôle qui décide ({roles}), et personne n'approuve sa propre demande. Donnez le rôle à un autre compte dans {accounts} ; ce changement attend aussi une approbation, donc désactivez d'abord les approbations dans {approvals}, puis réactivez-les.",
+  "approvals.nobody.turnOnTitle": "Personne d'autre ne pourrait encore approuver",
+  "approvals.nobody.turnOnNone": "Aucun compte n'a le rôle qui décide ({roles}) : ce qui demande une approbation ne pourrait pas être approuvé, et donner le rôle à quelqu'un attendrait aussi. Donnez d'abord le rôle à un autre compte dans {accounts}, puis activez les approbations.",
+  "approvals.nobody.turnOnOnlyYou": "Vous seul avez le rôle qui décide ({roles}), et personne n'approuve sa propre demande : ce que vous faites attendrait une personne qui n'existe pas. Donnez d'abord le rôle à un autre compte dans {accounts}, puis activez les approbations.",
+  "approvals.nobody.turnOnAnyway": "Activer quand même",
+  "approvals.nobody.turnOnLater": "Pas maintenant",
   "approvals.state.requested": "En attente",
   "approvals.state.approved": "Approuvée",
   "approvals.state.rejected": "Rejetée",
@@ -2039,7 +2047,7 @@
   "approvals.dialog.theCall": "Ce qui sera exécuté : {call}",
   "approvals.dialog.reasonLabel": "Motif",
   "approvals.dialog.reasonHint": "Conservé avec la demande et dans le journal d'audit.",
-  "approvals.dialog.whyAsked": "Le contrôle Approbations l'exige, pour tout le monde sur ce serveur, propriétaires compris. Il se désactive dans {where}.",
+  "approvals.dialog.whyAsked": "Les approbations sont activées sur ce serveur et valent pour tout le monde, propriétaires compris. Vous pouvez les désactiver dans {where}.",
   "approvals.dialog.reasonMissing": "Dites pourquoi vous en avez besoin.",
   "approvals.dialog.ask": "Demander l'approbation",
   "approvals.dialog.waitingTitle": "En attente d'approbation",
@@ -3286,7 +3294,7 @@
   "backups.coverage.searchPlaceholder": "Application",
   "backups.coverage.showLabel": "Afficher",
   "backups.coverage.showAll": "Toutes les applications",
-  "backups.coverage.showAttention": "Sans sauvegarde à jour",
+  "backups.coverage.showAttention": "À surveiller",
   "backups.coverage.count": {
     "one": "{count} application",
     "other": "{count} applications"
@@ -7801,6 +7809,9 @@
   "fleet.page.addServer": "Ajouter un serveur",
   "fleet.page.runAction": "Exécuter une action",
   "fleet.page.loadFailed": "Impossible de charger la flotte",
+  "fleet.page.alone.title": "{name} est votre seul serveur pour l'instant",
+  "fleet.page.alone.description": "Ses applications et tout le reste sont sur ses propres pages. Ajoutez un autre serveur et toute la flotte apparaîtra ici, réunie.",
+  "fleet.page.alone.open": "Ouvrir {name}",
   "fleet.page.empty.title": "Aucun serveur dans cette flotte pour l'instant",
   "fleet.page.empty.description": "Gérez plusieurs serveurs depuis cette console. Chacun autorise cette console une fois ; elle n'y obtient jamais de shell.",
   "fleet.column.server": "Serveur",
@@ -9394,7 +9405,6 @@
   "nav.screens.accountSecurity.label": "Sécurité de connexion",
   "nav.screens.accountSecurity.keywords": "deux facteurs 2fa authentificateur totp clés d'accès sessions sécurité de connexion two-factor authenticator passkeys sessions sign in security",
   "nav.screens.accountSecurity.command": "Sécurité de connexion",
-  "nav.screens.controls.label": "Contrôles",
   "nav.screens.recipes.label": "Recettes",
   "nav.screens.recipes.command": "Recettes",
   "nav.screens.installedRecipes.label": "Recettes installées",
@@ -17379,6 +17389,8 @@
   "settingsHome.summary.access": "Les rôles qui en décident, et ce que chacun autorise.",
   "settingsHome.summary.sso": "Laisser les gens se connecter avec l'annuaire de votre entreprise.",
   "settingsHome.summary.approvals": "Qui doit approuver les modifications les plus risquées.",
+  "settingsHome.summary.approval-policy": "Ce qu'un jeton et l'assistant peuvent faire seuls, et ce qui attend une personne.",
+  "settingsHome.summary.assistant": "Un assistant facultatif qui explique ce qui échoue, avec le modèle de votre choix.",
   "settingsHome.summary.console": "Le nom sous lequel la console répond, en HTTPS.",
   "settingsHome.summary.notifications": "Où vont les messages, et comment les mettre en sourdine un moment.",
   "settingsHome.summary.log-shipping": "Envoyer les journaux et les métriques à un autre service.",
@@ -19911,7 +19923,10 @@
   "docker.fleet.count": "{shown} sur {total}",
   "docker.fleet.openServer": "Ouvrir sur ce serveur",
   "docker.fleet.noDocker": "Pas de Docker",
-  "docker.fleet.serverLine": "{running} conteneurs sur {total} en cours d'exécution",
+  "docker.fleet.serverLine": {
+    "one": "{running} conteneur sur {count} en cours d'exécution",
+    "other": "{running} conteneurs sur {count} en cours d'exécution"
+  },
   "docker.fleet.nothingNeeds": "Rien ne demande votre attention",
   "docker.fleet.needs": {
     "one": "{count} élément demande votre attention",
@@ -19991,9 +20006,27 @@
   "docker.bring.folder": "Dossier",
   "docker.bring.file": "Son fichier Compose",
   "docker.bring.has": "Elle contient",
-  "docker.bring.counts": "{containers} conteneurs, {jobs} tâches terminées, {volumes} volumes, {networks} réseaux",
+  "docker.bring.counts": "{containers}, {jobs}, {volumes}, {networks}",
+  "docker.bring.countContainers": {
+    "one": "{count} conteneur",
+    "other": "{count} conteneurs"
+  },
+  "docker.bring.countJobs": {
+    "one": "{count} tâche terminée",
+    "other": "{count} tâches terminées"
+  },
+  "docker.bring.countVolumes": {
+    "one": "{count} volume",
+    "other": "{count} volumes"
+  },
+  "docker.bring.countNetworks": {
+    "one": "{count} réseau",
+    "other": "{count} réseaux"
+  },
   "docker.bring.name": "Nom parmi les applications",
   "docker.bring.nameHelp": "Laissez-le tel quel ou choisissez-en un autre. C'est la seule chose qui est demandée.",
+  "docker.bring.rehearsal": "Ce qu'a dit Compose",
+  "docker.bring.rehearsalLabel": "Répétition de Compose pour {name}",
   "docker.bring.lostTitle": "Ce qui ne reviendrait pas après un redémarrage",
   "docker.bring.lostBody": "Ceux-ci n'ont pas de politique de redémarrage qui les ramène :",
   "docker.compose.crumb": "Document Compose",

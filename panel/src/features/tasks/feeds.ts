@@ -146,7 +146,7 @@ function useFeeds(): void {
     if (ending === "none") return;
     // The server's own notice for it follows in the same frame: this is the channel that says it.
     markJobEndHandled(noticeStateOf(ended));
-    if (ending === "toast") sayEnding(ended, (place) => { goRef.current(place); });
+    if (ending === "toast" || ending === "toast-here") sayEnding(ended, (place) => { goRef.current(place); }, ending === "toast");
   });
 
   useServerEvent("operation", (data) => {

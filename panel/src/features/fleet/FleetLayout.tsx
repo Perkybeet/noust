@@ -11,7 +11,7 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { ICONS } from "../../components/ui/icons";
 import { Notice } from "../../components/ui/Notice";
 import { useT } from "../../i18n";
-import { useServerList } from "../../nodes/servers";
+import { useServerCount, useServerList } from "../../nodes/servers";
 import { useCentral } from "../central/central";
 import { useFeature } from "../central/features";
 import { CentralLockedNotice } from "../central/CentralLockedNotice";
@@ -95,7 +95,12 @@ export function FleetLayout({ adding: addingProp, onAddingChange }: FleetLayoutP
     onAddingChange?.(next);
   };
   const Add = ICONS.add;
-  const empty = servers.loaded && servers.nodes.length === 0;
+  // How many servers there are is one answer for the strip, the selector and this page (`useServerCount`). A central that deploys on its
+  // own machine has a server, itself, so "no servers in this fleet yet" is never said of one: with no other it says it is the only one.
+  const count = useServerCount();
+  const empty = count.loaded && count.total === 0;
+  const alone = count.loaded && count.nodes === 0 && count.central;
+  const nothingToCompare = empty || alone;
   // What the layout draws follows the page that is on screen, not the one being loaded: the router's location moves the
   // moment a link is pressed, and a header drawn from it appeared above the previous page's own (two titles) until the next
   // page had arrived.
@@ -110,9 +115,9 @@ export function FleetLayout({ adding: addingProp, onAddingChange }: FleetLayoutP
   // A section whose fleet page is not built yet is drawn by its own page, with its own title: the fleet's header is not over it.
   const ownHeader = OWN_HEADER.has(pathname) || !isFleetFace(pathname);
 
-  const add = (
+  const addServer = (variant: "primary" | "secondary") => (
     <Button
-      variant="primary"
+      variant={variant}
       icon={<Add aria-hidden="true" />}
       onClick={() => {
         setAdding(true);
@@ -121,6 +126,7 @@ export function FleetLayout({ adding: addingProp, onAddingChange }: FleetLayoutP
       {t("fleet.page.addServer")}
     </Button>
   );
+  const add = addServer("primary");
 
   // A server that does not exist yet: made at a provider, joined by this central itself.
   const create = (
@@ -155,7 +161,7 @@ export function FleetLayout({ adding: addingProp, onAddingChange }: FleetLayoutP
 
   // A page with a header of its own (Home, the applications, an area's face): this layout keeps only what is the
   // fleet's to say above it.
-  if ((ownsPage || ownHeader) && !empty) {
+  if ((ownsPage || ownHeader) && !nothingToCompare) {
     return (
       <FleetActionsProvider>
         <div className="flex min-w-0 flex-col gap-6">
@@ -179,7 +185,7 @@ export function FleetLayout({ adding: addingProp, onAddingChange }: FleetLayoutP
           // The applications' second view is the same area as their list: the same title.
           title: onAppsViews ? t("apps.page.title") : onServersViews ? t("fleet.page.serversTitle") : t("fleet.page.title"),
           ...(onAppsViews ? {} : { description: onServersViews ? t("fleet.page.serversDescription") : t("fleet.page.description") }),
-          ...(empty
+          ...(nothingToCompare
             ? {}
             : {
                 ...(onServersList ? { secondaryActions: <>{onServers ? create : null}<UpdateAll /></> } : {}),
@@ -188,7 +194,25 @@ export function FleetLayout({ adding: addingProp, onAddingChange }: FleetLayoutP
         }}
         {...(notices !== null ? { banner: notices } : {})}
       >
-        {empty ? (
+        {alone ? (
+          // The central is its own only server: the fleet has nothing to put side by side yet, and the way to what it has is one press away.
+          <EmptyState
+            variant="firstUse"
+            icon={<OBJECT_ICONS.server />}
+            title={t("fleet.page.alone.title", { name: servers.hostname ?? t("fleet.selector.thisServer") })}
+            description={t("fleet.page.alone.description")}
+            action={
+              <>
+                {/* One primary: what this page is for now is to go to the one server there is. */}
+                <Link to="/" className={buttonClassName("primary", "md")}>
+                  {t("fleet.page.alone.open", { name: servers.hostname ?? t("fleet.selector.thisServer") })}
+                </Link>
+                {addServer("secondary")}
+                {create}
+              </>
+            }
+          />
+        ) : empty ? (
           <EmptyState
             variant="firstUse"
             icon={<OBJECT_ICONS.node />}

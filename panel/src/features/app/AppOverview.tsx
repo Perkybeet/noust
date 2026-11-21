@@ -2,12 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
-import { appAddressQuery, appLogsQuery, appQuery, webhookDeliveriesQuery } from "../../api/queries/apps";
+import { appLogsQuery, appQuery, webhookDeliveriesQuery } from "../../api/queries/apps";
 import type { App } from "../../api/queries/apps";
 import { certsQuery } from "../../api/queries/certs";
 import type { Cert } from "../../api/queries/certs";
 import { deploymentsQuery } from "../../api/queries/deployments";
-import { appDomainsQuery } from "../../api/queries/domains";
 import { previewsQuery } from "../../api/queries/previews";
 import type { Preview } from "../../api/queries/previews";
 
@@ -63,7 +62,7 @@ import { RECENT_APP_DEPLOYS } from "./AppBanner";
 import { deploymentStatusWord, shortCommit } from "./deployments/words";
 import { keptServing, servingDeployment } from "./rollback";
 import { findCertificate } from "./lookups";
-import { displayAddress } from "./displayAddress";
+import { useAppAnswer } from "./useAppAnswer";
 import { OBJECT_ICONS } from "../../components/ui/objectIcons";
 
 /** How many of the last lines the application printed the overview shows. */
@@ -526,34 +525,26 @@ function Previews({ domain, t }: { domain: string; t: T }) {
 /** The names the app answers on, and whether a push deploys it: what reaches it and what starts it, in two lines. */
 function Reach({ app, t }: { app: App; t: T }) {
   const domain = app.domain;
-  // A central that deploys on its machine's Docker has no names and no certificates of Noust's: it is reached at a port of the
-  // machine, which the server says (`/address`), and what is asked of the names is never asked.
+  // Where it answers is one reading for this page and for the card a deploy ends on (`useAppAnswer`): a central that deploys on
+  // its machine's Docker has no names and no certificates of Noust's and is reached at a port of the machine, and what is asked
+  // of the names is never asked there.
   const containerHost = useContainerHost();
-  const hasNames = useFeature("domains");
-  const hasCertificates = useFeature("certificates");
-  const names = useQuery({ ...appDomainsQuery(domain), enabled: hasNames });
-  const certs = useQuery({ ...certsQuery(), enabled: hasCertificates });
-  const machineAddress = useQuery({ ...appAddressQuery(domain), enabled: containerHost });
+  const { answer, names } = useAppAnswer(domain);
   const deliveries = useQuery({
     ...webhookDeliveriesQuery(domain),
     enabled: app.webhook_enabled,
   });
   const latest = deliveries.data?.items[0];
   const entries = names.data?.domains ?? [];
-  const address = displayAddress(domain, names.data?.domains, certs.data);
   const more = Math.max(0, entries.length - 1);
 
   let answers: ReactNode;
-  if (containerHost) {
-    const url = machineAddress.data?.url ?? null;
-    answers =
-      machineAddress.data === undefined ? (
-        <Skeleton className="h-4 w-64" />
-      ) : url !== null ? (
-        t.rich("containerHost.publish.reach", { address: <Mono key="address">{url}</Mono> })
-      ) : (
-        t("containerHost.publish.noWeb")
-      );
+  if (answer.kind === "loading") {
+    answers = <Skeleton className="h-4 w-64" />;
+  } else if (answer.kind === "machine") {
+    answers = t.rich("containerHost.publish.reach", { address: <Mono key="address">{answer.url}</Mono> });
+  } else if (answer.kind === "nothing") {
+    answers = t("containerHost.publish.noWeb");
   } else if (names.isError && names.data === undefined) {
     answers = (
       <ErrorBlock
@@ -565,8 +556,8 @@ function Reach({ app, t }: { app: App; t: T }) {
   } else if (names.data === undefined) {
     answers = <Skeleton className="h-4 w-64" />;
   } else {
-    const named = <Mono>{address.name}</Mono>;
-    if (address.secure)
+    const named = <Mono>{answer.address.name}</Mono>;
+    if (answer.address.secure)
       answers =
         more > 0
           ? t.rich("appPages.overview.answersSecureMore", {

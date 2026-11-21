@@ -260,6 +260,9 @@ describe("a call that needs a second person", () => {
     });
     const ask = await screen.findByRole("dialog", { name: "This needs a second person's approval" });
     expect(within(ask).getByText(/POST \/api\/cron/)).toBeInTheDocument();
+    // It says where the switch is by the name that place has in the console (the page is Approvals, in Settings), not by a name nobody can find.
+    expect(within(ask).getByText(/turn them off in Settings > Approvals\./)).toBeInTheDocument();
+    expect(within(ask).queryByText(/Controls/)).not.toBeInTheDocument();
     await user.click(within(ask).getByRole("button", { name: "Ask for approval" }));
     expect(await within(ask).findByText("Say why you need it.")).toBeInTheDocument();
     await user.type(within(ask).getByLabelText(/^Reason/), "Nightly report for finance");
@@ -273,6 +276,152 @@ describe("a call that needs a second person", () => {
     });
     expect(decodeURIComponent(backend.callsTo("POST /api/cron")[1]?.headers.get("X-Noust-Reason") ?? "")).toBe("Nightly report for finance");
     expect(backend.callsTo("POST /api/cron")).toHaveLength(2);
+  });
+});
+
+// With approvals on and nobody holding the role that decides, the first day is a dead end: an invitation waits for a person who does
+// not exist, and so does giving the role to someone. The console says it before that happens and where it is happening, from what the
+// server already gives (who decides, and how many accounts hold each role).
+describe("when nobody could decide", () => {
+  const ADMIN = { ...SESSION, grant: null, role: "admin", roles: ["admin"], permissions: [...(SESSION.permissions ?? []), "accounts.read", "settings.read", "settings.manage"] };
+  const roleView = (name: string, holders: number) => ({
+    name,
+    kind: "seeded",
+    label: name,
+    description: "",
+    permissions: ["self"],
+    shipped_permissions: ["self"],
+    edited: false,
+    follows_noust: true,
+    protected: false,
+    offers: [],
+    holders: [],
+    holder_count: holders,
+    bindings: 0,
+    joins_duties: false,
+    governing: [],
+    running: [],
+    can_edit: true,
+    can_delete: false,
+    can_reset: false,
+    can_duplicate: true,
+    created_at: 1_790_000_000,
+    updated_at: 1_790_000_000,
+  });
+  const rolesWith = (security: number, admin = 1) => ({ roles: [roleView("viewer", 2), roleView("admin", admin), roleView("security", security)], permissions: {}, owners: 1, duties_apart: false });
+  const policy = (enabled: boolean) => ({ enabled, approvers: ["security"], request_hours: 24, execute_minutes: 30, reason_required: false, rules: [] });
+
+  it("says on the page, with approvals on, that nobody holds the role that decides, and where to give it", { timeout: 20_000 }, async () => {
+    fakeBackend({
+      ...signedInRoutes(ADMIN),
+      "GET /api/approvals/policy": () => json(200, policy(true)),
+      "GET /api/approvals": () => json(200, { approvals: [], pending: 0 }),
+      "GET /api/roles": () => json(200, rolesWith(0)),
+    });
+    renderConsole("/settings/approvals");
+    const notice = await screen.findByText("Nobody can approve what waits");
+    const block = notice.closest('[data-tone="warning"]');
+    if (!(block instanceof HTMLElement)) throw new Error("the warning is not a notice");
+    expect(within(block).getByText(/No account holds the role that decides \(Security officer\)/)).toBeInTheDocument();
+    // The way out is a link to the place, not the name of it.
+    expect(within(block).getByRole("link", { name: "Settings > Accounts" })).toHaveAttribute("href", "/settings/accounts");
+  });
+
+  it("is not said while somebody else holds it, nor to a person who may not read the accounts", { timeout: 20_000 }, async () => {
+    const backend = fakeBackend({
+      ...signedInRoutes(ADMIN),
+      "GET /api/approvals/policy": () => json(200, policy(true)),
+      "GET /api/approvals": () => json(200, { approvals: [], pending: 0 }),
+      "GET /api/roles": () => json(200, rolesWith(1)),
+    });
+    renderConsole("/settings/approvals");
+    await findLoadedRegion("Approval requests");
+    await waitFor(() => {
+      expect(backend.callsTo("GET /api/roles").length).toBeGreaterThan(0);
+    });
+    expect(screen.queryByText("Nobody can approve what waits")).not.toBeInTheDocument();
+  });
+
+  it("says, when the one who holds it is the one asking, that nobody decides their own request", { timeout: 20_000 }, async () => {
+    fakeBackend({
+      ...signedInRoutes({ ...ADMIN, role: "security", roles: ["security"] }),
+      "GET /api/approvals/policy": () => json(200, policy(true)),
+      "GET /api/approvals": () => json(200, { approvals: [], pending: 0 }),
+      "GET /api/roles": () => json(200, rolesWith(1)),
+    });
+    renderConsole("/settings/approvals");
+    expect(await screen.findByText(/Only you hold the role that decides \(Security officer\)/)).toBeInTheDocument();
+  });
+
+  it("asks before turning approvals on when nobody else could decide, with the way to give the role first", { timeout: 20_000 }, async () => {
+    const backend = fakeBackend({
+      ...signedInRoutes(ADMIN),
+      "GET /api/approvals/policy": () => json(200, policy(false)),
+      "GET /api/approvals": () => json(200, { approvals: [], pending: 0 }),
+      "GET /api/roles": () => json(200, rolesWith(0)),
+      "PATCH /api/config": () => json(200, { message: "ok", path: "approval.enabled", value: true }),
+    });
+    const { user } = renderConsole("/settings/approvals");
+    const toggle = await screen.findByRole("switch", { name: "Ask a second person to approve" });
+    await waitFor(() => {
+      expect(backend.callsTo("GET /api/roles").length).toBeGreaterThan(0);
+    });
+    await user.click(toggle);
+    const question = await screen.findByRole("alertdialog", { name: "Nobody else could approve yet" });
+    expect(backend.callsTo("PATCH /api/config")).toHaveLength(0);
+    expect(within(question).getByRole("link", { name: "Settings > Accounts" })).toHaveAttribute("href", "/settings/accounts");
+    // Leaving it is one press; going on is a decision, said as one.
+    await user.click(within(question).getByRole("button", { name: "Turn on anyway" }));
+    await waitFor(() => {
+      expect(backend.callsTo("PATCH /api/config").at(-1)?.body).toEqual({ path: "approval.enabled", value: true });
+    });
+  });
+
+  it("turns approvals on without a question when somebody else holds the role", { timeout: 20_000 }, async () => {
+    const backend = fakeBackend({
+      ...signedInRoutes(ADMIN),
+      "GET /api/approvals/policy": () => json(200, policy(false)),
+      "GET /api/approvals": () => json(200, { approvals: [], pending: 0 }),
+      "GET /api/roles": () => json(200, rolesWith(1)),
+      "PATCH /api/config": () => json(200, { message: "ok", path: "approval.enabled", value: true }),
+    });
+    const { user } = renderConsole("/settings/approvals");
+    const toggle = await screen.findByRole("switch", { name: "Ask a second person to approve" });
+    await waitFor(() => {
+      expect(backend.callsTo("GET /api/roles").length).toBeGreaterThan(0);
+    });
+    await user.click(toggle);
+    await waitFor(() => {
+      expect(backend.callsTo("PATCH /api/config")).toHaveLength(1);
+    });
+    expect(screen.queryByRole("alertdialog", { name: "Nobody else could approve yet" })).not.toBeInTheDocument();
+  });
+
+  it("says in the dialog of a request that waits that nobody holds the role, and what can be done", { timeout: 20_000 }, async () => {
+    fakeBackend({
+      ...signedInRoutes(ADMIN),
+      "GET /api/approvals/policy": () => json(200, policy(true)),
+      "GET /api/roles": () => json(200, rolesWith(0)),
+      "GET /api/approvals/12": () => json(200, request(12, { mine: true, can_decide: false })),
+      "POST /api/cron": (call: RecordedCall) =>
+        call.headers.has("X-Noust-Reason")
+          ? json(202, { error: "approval_required", detail: "Request 12 is waiting.", hint: null, fields: { approval: "12", state: "requested" }, output: null }, { "X-Noust-Approval-Request": "12" })
+          : problem(400, "approval_reason_required", "Say why: this call needs a second person's approval, and a reason"),
+    });
+    const { user } = renderConsole("/apps");
+    await screen.findByRole("heading", { level: 1, name: "Applications" });
+    await act(async () => {
+      void api("POST", "/api/cron", { name: "nightly" }).catch(() => undefined);
+      await Promise.resolve();
+    });
+    const ask = await screen.findByRole("dialog", { name: "This needs a second person's approval" });
+    await user.type(within(ask).getByLabelText(/^Reason/), "Nightly report for finance");
+    await user.click(within(ask).getByRole("button", { name: "Ask for approval" }));
+    const waiting = await screen.findByRole("dialog", { name: "Waiting for approval" });
+    expect(await within(waiting).findByText("Nobody can approve what waits")).toBeInTheDocument();
+    // This dialog is above the router, which a link needs: the places are named in words, as the dialog before it names where to turn approvals off.
+    expect(within(waiting).getByText(/Settings > Accounts/)).toBeInTheDocument();
+    expect(within(waiting).queryByRole("link", { name: "Settings > Accounts" })).not.toBeInTheDocument();
   });
 });
 

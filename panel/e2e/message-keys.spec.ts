@@ -37,14 +37,27 @@ function messageKeys(): string[] {
 
 const KEYS = messageKeys();
 
+/**
+ * The first words of every key there is. A text that is `<namespace>.<a>.<b>` and is not in the catalog is a key that was asked
+ * for and does not exist: the page drew it because the lookup failed, which is the one case the list above cannot see (a key that
+ * is missing is not in it). Two dots keep out what is only a file name or an address (`docker.yaml`, `example.com`).
+ */
+const NAMESPACES = Object.keys(english);
+
 /** The message keys drawn on the page as text or as an accessible name. */
 async function drawnKeys(page: Page): Promise<string[]> {
-  return page.evaluate((keys) => {
+  return page.evaluate(({ keys, namespaces }) => {
     const known = new Set(keys);
+    const spaces = new Set(namespaces);
     const found = new Set<string>();
+    const missing = /^([a-z][A-Za-z0-9]*)(?:\.[A-Za-z0-9_-]+){2,}$/;
+    // A host name starts like a key when its first label is a namespace (`server.example.com`): the top-level names are not the last word of a key.
+    const host = /\.(?:com|net|org|io|dev|local|lan|internal|invalid|example)$/i;
     const check = (text: string | null | undefined): void => {
       const value = text?.trim();
-      if (value !== undefined && known.has(value)) found.add(value);
+      if (value === undefined) return;
+      if (known.has(value)) found.add(value);
+      else if (!host.test(value) && spaces.has(missing.exec(value)?.[1] ?? "")) found.add(value);
     };
     check(document.title);
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
@@ -53,7 +66,7 @@ async function drawnKeys(page: Page): Promise<string[]> {
       for (const name of ["aria-label", "title", "placeholder", "alt"]) check(element.getAttribute(name));
     }
     return [...found].sort();
-  }, KEYS);
+  }, { keys: KEYS, namespaces: NAMESPACES });
 }
 
 for (const language of ["en", "es"] as const) {
@@ -79,4 +92,12 @@ for (const language of ["en", "es"] as const) {
 test("the sweep finds a key where one is drawn", async ({ page }) => {
   await page.setContent(`<main><p>${KEYS[0] ?? ""}</p><button aria-label="${KEYS[1] ?? ""}">x</button><p>Applications</p></main>`);
   expect(await drawnKeys(page)).toEqual([KEYS[0], KEYS[1]].sort());
+});
+
+test("the sweep finds a key the catalog does not have, which is how a text that was never written is drawn", async ({ page }) => {
+  // Settings drew `settingsHome.summary.approval-policy` for two sections whose lines nobody wrote; it was in no list.
+  await page.setContent(
+    `<main><p>settingsHome.summary.nowhere</p><button aria-label="nav.screens.nothing.label">x</button><p>docker.yaml</p><p>example.com</p><p>noust.example.org</p><p>server.example.com</p><p>docker.shop.example.net</p></main>`,
+  );
+  expect(await drawnKeys(page)).toEqual(["nav.screens.nothing.label", "settingsHome.summary.nowhere"]);
 });

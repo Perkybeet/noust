@@ -60,7 +60,7 @@ const PAGES: [path: string, heading: string, content: string][] = [
   ["/settings/integrations", "Integrations", "GitHub"],
   ["/settings/registries", "Image registries", "Accounts"],
   ["/settings/cloud", "Cloud providers", "Provider accounts"],
-  ["/fleet", "Fleet", "No servers in this fleet yet"],
+  ["/fleet", "Fleet", "web-01 is your only server so far"],
 ];
 
 /** A server with no GitHub App yet: Settings > Integrations and the wizard read it. */

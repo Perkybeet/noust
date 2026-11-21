@@ -195,6 +195,25 @@ describe("Settings > Accounts", () => {
     expect(backend.callsTo("POST /api/auth/invitations").at(-1)?.body).toEqual({ username: "lucia.ferrer", expires_hours: 24, role: "operator", email: "Lucia.Ferrer@example.com" });
   });
 
+  it("offers the role that only looks until somebody chooses another: the least a person can be given is what is there by default", { timeout: 20_000 }, async () => {
+    const backend = accountsBackend({
+      "POST /api/auth/invitations": (call) =>
+        json(201, { account: account((call.body as { username: string }).username, "viewer", { status: "invited" }), code: "noust_inv_abc123", expires_in: 86_400 }),
+    });
+    const { user } = renderConsole("/settings/accounts");
+    await screen.findByText("ana");
+    await user.click(screen.getByRole("button", { name: "Invite a person" }));
+    const dialog = await screen.findByRole("dialog", { name: "Invite a person" });
+    // Nothing is chosen by the person and one role is already on: it is the one that changes nothing.
+    expect(await within(dialog).findByRole("radio", { name: /^Viewer/ })).toBeChecked();
+    expect(within(dialog).getByRole("radio", { name: /^Operator/ })).not.toBeChecked();
+    await user.type(within(dialog).getByLabelText(/^Email/), "maya@example.com");
+    await user.click(within(dialog).getByRole("button", { name: "Send invitation" }));
+    await confirmItsYou(user);
+    await screen.findByRole("dialog", { name: "Send this invitation to maya" });
+    expect(backend.callsTo("POST /api/auth/invitations").at(-1)?.body).toMatchObject({ role: "viewer" });
+  });
+
   it("builds the link from the console's own address when the server has one, and says nothing of the tunnel (item 149)", { timeout: 20_000 }, async () => {
     accountsBackend({
       "POST /api/auth/invitations": (call) =>

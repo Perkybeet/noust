@@ -16,7 +16,7 @@ import { useCentral } from "../features/central/central";
 import { useFeature } from "../features/central/features";
 import { useT } from "../i18n";
 import { cx } from "../lib/cx";
-import { NODE_STATE, nodeStatus, useHasFleet, useServerList } from "./servers";
+import { NODE_STATE, nodeStatus, useHasFleet, useServerCount, useServerList } from "./servers";
 import type { NodeRecord } from "./servers";
 import { allServersTarget, useConsoleContext, useSelection, useSwitchNode } from "./useNode";
 import { OBJECT_ICONS } from "../components/ui/objectIcons";
@@ -115,6 +115,8 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const servers = useServerList();
+  // How many servers there are is said once, for the selector, the strip and the page of the fleet (`useServerCount`).
+  const { total } = useServerCount();
   const selection = useSelection();
   const { data: permissions } = useQuery({ ...sessionQuery(), select: (session) => session.permissions });
 
@@ -137,7 +139,6 @@ export function ScopeSelector({ placement, className }: { placement: ScopePlacem
   // The central is one more server of the count, and marked as the central, where it can run applications of its own (a hub cannot; its table says).
   const centralMark = hasFleet && deploysHere;
   const mayAdd = permissions?.includes("fleet.manage") ?? false;
-  const total = servers.nodes.length + (deploysHere ? 1 : 0);
   const needing = servers.nodes.filter((candidate) => NODE_STATE[nodeStatus(candidate)].state !== "running" && NODE_STATE[nodeStatus(candidate)].state !== "unknown").length;
 
   // A hub that deploys on its own machine (item 188) is also `centralMark`, and its badge says "Hub": the label says the same word.

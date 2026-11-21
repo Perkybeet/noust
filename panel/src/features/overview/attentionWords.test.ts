@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { bindT, loadCatalog } from "../../i18n";
-import { reasonText } from "./attentionWords";
+import { reasonDetail, reasonText } from "./attentionWords";
 
 const en = bindT("en");
 
@@ -35,6 +35,29 @@ describe("reasonText", () => {
     expect(reasonText(en, outside)).toBe("Its containers run while its unit is stopped: Noust is not supervising it");
     await loadCatalog("es");
     expect(reasonText(bindT("es"), outside)).toBe("Sus contenedores están en marcha con la unidad parada: Noust no la supervisa");
+  });
+
+  // The container of an application that keeps falling asks for attention where the operator looks first (Home, the bell): the failure of
+  // the application, and under it what the container did, as a sentence of Noust's in the console's language, not a program's words.
+  it("says the cause of a container that keeps falling as a sentence of Noust's, in both languages", async () => {
+    const loop = {
+      kind: "state",
+      severity: "fail",
+      code: "service_failed",
+      params: {},
+      detail: "Out of memory (limit 256 MB): its container acme-web-1 was restarted 6 times in the last 10 minutes",
+      detail_coded: { code: "attention.container_loop_oom_limit", params: { container: "acme-web-1", restarts: 6, minutes: 10, limit_mb: 256 } },
+      when: null,
+      deployment_id: null,
+      actions: ["view_log", "diagnose"],
+    };
+    expect(reasonText(en, loop)).toBe("The service has failed");
+    expect(reasonDetail(en, loop)).toEqual({ text: "Out of memory (limit 256 MB): its container acme-web-1 was restarted 6 times in the last 10 minutes", sentence: true });
+    await loadCatalog("es");
+    expect(reasonDetail(bindT("es"), loop)).toEqual({
+      text: "Se queda sin memoria (límite de 256 MB): su contenedor acme-web-1 se ha reiniciado 6 veces en los últimos 10 minutos",
+      sentence: true,
+    });
   });
 
   it("says it in Spanish", async () => {

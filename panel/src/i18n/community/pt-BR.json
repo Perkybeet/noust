@@ -2029,6 +2029,14 @@
   "approvals.held.waitingTitle": "Aguardando aprovação",
   "approvals.held.waitingDescription": "Executa quando outra pessoa aprovar. Você pode acompanhá-la em Aprovações.",
   "approvals.held.openApprovals": "Abrir aprovações",
+  "approvals.nobody.title": "Ninguém pode aprovar o que está esperando",
+  "approvals.nobody.none": "Nenhuma conta tem o papel que decide ({roles}). Enquanto as aprovações estiverem ativadas, dar o papel a alguém também espera aprovação, então a saída tem dois passos: desative as aprovações em {approvals}, dê o papel em {accounts} e ative-as de novo.",
+  "approvals.nobody.onlyYou": "Só você tem o papel que decide ({roles}), e ninguém aprova o próprio pedido. Dê o papel a outra conta em {accounts}; essa mudança também espera aprovação, então desative antes as aprovações em {approvals} e ative-as depois.",
+  "approvals.nobody.turnOnTitle": "Ainda ninguém mais poderia aprovar",
+  "approvals.nobody.turnOnNone": "Nenhuma conta tem o papel que decide ({roles}), então o que pede aprovação não poderia ser aprovado, e dar o papel a alguém também esperaria. Dê antes o papel a outra conta em {accounts} e depois ative as aprovações.",
+  "approvals.nobody.turnOnOnlyYou": "Só você tem o papel que decide ({roles}), e ninguém aprova o próprio pedido: o que você fizer esperaria por uma pessoa que não existe. Dê antes o papel a outra conta em {accounts} e depois ative as aprovações.",
+  "approvals.nobody.turnOnAnyway": "Ativar mesmo assim",
+  "approvals.nobody.turnOnLater": "Agora não",
   "approvals.state.requested": "Pendente",
   "approvals.state.approved": "Aprovada",
   "approvals.state.rejected": "Rejeitada",
@@ -2039,7 +2047,7 @@
   "approvals.dialog.theCall": "O que vai executar: {call}",
   "approvals.dialog.reasonLabel": "Motivo",
   "approvals.dialog.reasonHint": "Guardado com a solicitação e no log de auditoria.",
-  "approvals.dialog.whyAsked": "O controle Aprovações exige isso, de todos neste servidor, inclusive os proprietários. Ele é desativado em {where}.",
+  "approvals.dialog.whyAsked": "As aprovações estão ativadas neste servidor e valem para todos, inclusive os proprietários. Você pode desativá-las em {where}.",
   "approvals.dialog.reasonMissing": "Diga por que você precisa.",
   "approvals.dialog.ask": "Pedir aprovação",
   "approvals.dialog.waitingTitle": "Aguardando aprovação",
@@ -3286,7 +3294,7 @@
   "backups.coverage.searchPlaceholder": "Aplicação",
   "backups.coverage.showLabel": "Mostrar",
   "backups.coverage.showAll": "Todas as aplicações",
-  "backups.coverage.showAttention": "Precisam de backup",
+  "backups.coverage.showAttention": "Pedem atenção",
   "backups.coverage.count": {
     "one": "{count} aplicação",
     "other": "{count} aplicações"
@@ -7801,6 +7809,9 @@
   "fleet.page.addServer": "Adicionar um servidor",
   "fleet.page.runAction": "Executar uma ação",
   "fleet.page.loadFailed": "Não foi possível carregar a frota",
+  "fleet.page.alone.title": "{name} é o seu único servidor por enquanto",
+  "fleet.page.alone.description": "Os aplicativos dele e tudo mais estão nas páginas dele. Adicione outro servidor e a frota inteira aparece aqui, junta.",
+  "fleet.page.alone.open": "Abrir {name}",
   "fleet.page.empty.title": "Ainda não há servidores nesta frota",
   "fleet.page.empty.description": "Gerencie vários servidores a partir deste console. Cada um autoriza este console uma vez; ele nunca recebe um shell lá.",
   "fleet.column.server": "Servidor",
@@ -9394,7 +9405,6 @@
   "nav.screens.accountSecurity.label": "Segurança de acesso",
   "nav.screens.accountSecurity.keywords": "dois fatores 2fa autenticador totp chaves de acesso sessões segurança de acesso two-factor 2fa authenticator totp passkeys sessions sign in security",
   "nav.screens.accountSecurity.command": "Segurança de acesso",
-  "nav.screens.controls.label": "Controles",
   "nav.screens.recipes.label": "Receitas",
   "nav.screens.recipes.command": "Receitas",
   "nav.screens.installedRecipes.label": "Receitas instaladas",
@@ -17379,6 +17389,8 @@
   "settingsHome.summary.access": "As funções que decidem isso e o que cada uma permite.",
   "settingsHome.summary.sso": "Deixe as pessoas entrarem com o diretório da sua empresa.",
   "settingsHome.summary.approvals": "Quem precisa aprovar as alterações mais arriscadas.",
+  "settingsHome.summary.approval-policy": "O que um token e o assistente podem fazer sozinhos, e o que espera por uma pessoa.",
+  "settingsHome.summary.assistant": "Um assistente opcional que explica o que falha, com o modelo que você escolher.",
   "settingsHome.summary.console": "O nome em que o console responde, por HTTPS.",
   "settingsHome.summary.notifications": "Para onde vão as mensagens e como silenciá-las por um tempo.",
   "settingsHome.summary.log-shipping": "Enviar logs e métricas para outro serviço.",
@@ -19911,7 +19923,10 @@
   "docker.fleet.count": "{shown} de {total}",
   "docker.fleet.openServer": "Abrir nesse servidor",
   "docker.fleet.noDocker": "Sem Docker",
-  "docker.fleet.serverLine": "{running} de {total} contêineres em execução",
+  "docker.fleet.serverLine": {
+    "one": "{running} de {count} contêiner em execução",
+    "other": "{running} de {count} contêineres em execução"
+  },
   "docker.fleet.nothingNeeds": "Nada precisa de você",
   "docker.fleet.needs": {
     "one": "{count} item precisa de você",
@@ -19991,9 +20006,27 @@
   "docker.bring.folder": "Pasta",
   "docker.bring.file": "O seu arquivo Compose",
   "docker.bring.has": "Ela tem",
-  "docker.bring.counts": "{containers} contêineres, {jobs} tarefas concluídas, {volumes} volumes, {networks} redes",
+  "docker.bring.counts": "{containers}, {jobs}, {volumes}, {networks}",
+  "docker.bring.countContainers": {
+    "one": "{count} contêiner",
+    "other": "{count} contêineres"
+  },
+  "docker.bring.countJobs": {
+    "one": "{count} tarefa concluída",
+    "other": "{count} tarefas concluídas"
+  },
+  "docker.bring.countVolumes": {
+    "one": "{count} volume",
+    "other": "{count} volumes"
+  },
+  "docker.bring.countNetworks": {
+    "one": "{count} rede",
+    "other": "{count} redes"
+  },
   "docker.bring.name": "Nome entre as aplicações",
   "docker.bring.nameHelp": "Deixe como está ou escolha outro. É a única coisa que se pergunta.",
+  "docker.bring.rehearsal": "O que o Compose disse",
+  "docker.bring.rehearsalLabel": "Ensaio do Compose para {name}",
   "docker.bring.lostTitle": "O que não voltaria após uma reinicialização",
   "docker.bring.lostBody": "Estes não têm política de reinício que os traga de volta:",
   "docker.compose.crumb": "Documento Compose",

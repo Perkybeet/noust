@@ -24,6 +24,7 @@ import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
+import { useServerSentence } from "../../../components/ui/ServerText";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
@@ -161,6 +162,7 @@ export function FixDialog({ check, onClose }: FixDialogProps) {
 /** The guided steps of a finding that has no automatic fix (or whose fix cannot run now). */
 export function GuidedDrawer({ check, onClose }: { check: SecurityCheck; onClose: () => void }) {
   const t = useT();
+  const say = useServerSentence();
   const fix = check.fix;
   return (
     <Drawer
@@ -169,7 +171,7 @@ export function GuidedDrawer({ check, onClose }: { check: SecurityCheck; onClose
         if (!open) onClose();
       }}
       title={t("server.fix.guidedTitle", { check: checkTitle(t, check) })}
-      description={check.reason}
+      description={say(check.reason_coded, check.reason)}
     >
       <div className="flex flex-col gap-4">
         {fix?.blocked ? <Notice tone="warning">{fix.blocked}</Notice> : null}

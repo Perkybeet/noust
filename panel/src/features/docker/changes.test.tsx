@@ -5,9 +5,10 @@
  * applied, and applied with a reason).
  */
 
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { setLocale } from "../../app/locale";
 import { renderConsole } from "../../test/console";
 import { SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
@@ -185,12 +186,73 @@ describe("bringing a stack to Noust", () => {
   it("shows what Noust found before it registers anything, and what would not come back after a restart", async () => {
     const { dialog, backend } = await openDialog();
     expect(await within(dialog).findByText("/srv/nextcloud/compose.yaml")).toBeInTheDocument();
-    expect(within(dialog).getByText("4 containers, 1 jobs that ended, 2 volumes, 1 networks")).toBeInTheDocument();
+    expect(within(dialog).getByText("4 containers, 1 job that ended, 2 volumes, 1 network")).toBeInTheDocument();
     expect(within(dialog).getByText("What would not come back after a restart")).toBeInTheDocument();
     expect(within(dialog).getByText("nextcloud-setup-1")).toBeInTheDocument();
     // Looking changes nothing and asks for nothing: it is the route of the preview, which takes no sudo mode, and nothing is registered.
     expect(backend.callsTo("POST /api/docker/stacks/nextcloud/bring/preview")[0]?.body).toEqual({ accept_recreate: false, accept_host_access: false });
     expect(backend.callsTo("POST /api/docker/stacks/nextcloud/bring")).toHaveLength(0);
+  });
+
+  // "1 tareas terminadas" was what the Spanish console read: the four counts were one sentence with a plural for none of them.
+  it("counts each thing in its own number, in English and in Spanish: one is a singular", async () => {
+    const harness = open("/server/docker/stacks", {
+      stacks: [stack("nextcloud", NOBODY, { total: 1, running: 1 })],
+      "POST /api/docker/stacks/nextcloud/bring/preview": () => json(200, { ...PREVIEW, counts: { containers: 1, jobs: 1, volumes: 1, networks: 1 } }),
+    });
+    await harness.user.click(await screen.findByRole("button", { name: "Bring to Noust…" }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Bring nextcloud to Noust" });
+    expect(await within(dialog).findByText("1 container, 1 job that ended, 1 volume, 1 network")).toBeInTheDocument();
+    await act(() => setLocale("es"));
+    expect(await within(dialog).findByText("1 contenedor, 1 tarea terminada, 1 volumen, 1 red")).toBeInTheDocument();
+    await act(() => setLocale("en"));
+  });
+
+  // The two sentences that followed the first, in English and with no code, were what a person had to accept in a Spanish console; one
+  // of them sent them to "the rehearsal below", which the dialog did not have. A sentence with a code is said in the console's language,
+  // and what Compose rehearsed is shown, verbatim, when the server gives it.
+  describe("the sentences the server adds, and Compose's rehearsal", () => {
+    const WITH = {
+      ...PREVIEW,
+      warnings: ["service app is given the host device /dev/dri", "A sentence that has no code yet."],
+      warnings_coded: [{ code: "compose_guard.devices", params: { who: "service app", device: "/dev/dri" } }, null],
+    };
+    const REHEARSAL = "Container nextcloud-app-1  Running\nContainer nextcloud-db-1  Running";
+
+    async function dialogWith(preview: Record<string, unknown>) {
+      const harness = open("/server/docker/stacks", {
+        stacks: [stack("nextcloud", NOBODY, { total: 4, running: 3 })],
+        "POST /api/docker/stacks/nextcloud/bring/preview": () => json(200, preview),
+      });
+      await harness.user.click(await screen.findByRole("button", { name: "Bring to Noust…" }));
+      return { dialog: await screen.findByRole("alertdialog", { name: "Bring nextcloud to Noust" }), user: harness.user };
+    }
+
+    it("says a sentence that has a code in the console's language, and one that has none as the server said it", async () => {
+      const { dialog } = await dialogWith(WITH);
+      expect(await within(dialog).findByText("service app is given the host device /dev/dri")).toBeInTheDocument();
+      await act(() => setLocale("es"));
+      expect(await within(dialog).findByText("service app: recibe el dispositivo /dev/dri del servidor")).toBeInTheDocument();
+      expect(within(dialog).queryByText("service app is given the host device /dev/dri")).not.toBeInTheDocument();
+      expect(within(dialog).getByText("A sentence that has no code yet.")).toBeInTheDocument();
+      await act(() => setLocale("en"));
+    });
+
+    it("shows what Compose said when it rehearsed the start, verbatim, when the server brings it", async () => {
+      const { dialog, user } = await dialogWith({ ...WITH, rehearsal: REHEARSAL });
+      await user.click(await within(dialog).findByRole("button", { name: "What Compose said" }));
+      // Verbatim: the lines as Compose printed them, in the box that holds a program's own words.
+      const said = await within(dialog).findByText(/Container nextcloud-app-1\s+Running/);
+      expect(said.tagName).toBe("PRE");
+      expect(said.textContent).toBe(REHEARSAL);
+    });
+
+    it("draws nothing for a rehearsal the server did not bring: there is no empty box that a sentence could point to", async () => {
+      const { dialog } = await dialogWith({ ...WITH, rehearsal: "" });
+      await within(dialog).findByText("A sentence that has no code yet.");
+      expect(within(dialog).queryByText("What Compose said")).not.toBeInTheDocument();
+      expect(within(dialog).queryByRole("button", { name: "What Compose said" })).not.toBeInTheDocument();
+    });
   });
 
   it("does not ask who you are to look: the preview opens without sudo mode, and the identity is asked when it is registered", async () => {

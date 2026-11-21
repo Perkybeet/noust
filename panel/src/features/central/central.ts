@@ -11,6 +11,8 @@ import type { QueryClient } from "@tanstack/react-query";
 import { isApiError, request } from "../../api/client";
 import { authKeys, sessionQuery } from "../../api/queries/auth";
 import type { SessionInfo } from "../../api/queries/auth";
+import { nodesQuery } from "../fleet/nodesList";
+import { offers } from "./offers";
 
 /** `server` deploys here and may manage a fleet too; `hub` only manages the fleet. */
 export type CentralRole = "server" | "hub";
@@ -76,18 +78,48 @@ export function isCentralLockedError(error: unknown): boolean {
 }
 
 /**
- * Where a hub opens when the address is the console's start (`/`): the fleet. A hub has no server of its own to begin on, so
- * with nothing chosen yet in this tab it starts on All servers; once the operator has chosen anything (the hub itself
- * included) `/` is that server's home and nothing is redirected. It is the only thing the console decides by the role: what
- * a hub can do is `session.central.features`, asked by `offers` (features.ts), never by the role.
+ * Whether the address is the console's start of a hub that has chosen nothing yet in this tab: the question `startsOnFleet` is
+ * about, before it is known how many servers there are. The route reads the list of servers only when this is true.
  *
  * @param session The signed-in session.
  * @param pathname The address being opened, without `/n/...`.
  * @param node The server the address names, or null.
  * @param chosen Whether this tab has already chosen a server or All servers in the selector.
  */
-export function startsOnFleet(session: SessionInfo, pathname: string, node: string | null, chosen: boolean): boolean {
+export function hubStartsHere(session: SessionInfo, pathname: string, node: string | null, chosen: boolean): boolean {
   return pathname === "/" && node === null && !chosen && centralOf(session).role === "hub";
+}
+
+/**
+ * Where a hub opens when the address is the console's start (`/`): the fleet. A hub that deploys nothing has no server of its own to
+ * begin on, so with nothing chosen yet in this tab it starts on All servers; once the operator has chosen anything (the hub itself
+ * included) `/` is that server's home and nothing is redirected. A hub told to deploy on its own machine has a server, itself: with no
+ * other, its Home is where its applications are and the fleet would have nothing to show, so it starts there; with others, on the
+ * fleet as before. It is the only thing the console decides by the role: what a hub can do is `session.central.features`, asked by
+ * `offers` (features.ts), never by the role.
+ *
+ * @param session The signed-in session.
+ * @param pathname The address being opened, without `/n/...`.
+ * @param node The server the address names, or null.
+ * @param chosen Whether this tab has already chosen a server or All servers in the selector.
+ * @param servers How many servers the central manages; null when the list has not been read, which is the fleet, as it was.
+ */
+export function startsOnFleet(session: SessionInfo, pathname: string, node: string | null, chosen: boolean, servers: number | null = null): boolean {
+  if (!hubStartsHere(session, pathname, node, chosen)) return false;
+  return !(servers === 0 && offers(session, "applications"));
+}
+
+/**
+ * How many servers the central manages, for the route that decides where a hub starts. Null when the list cannot be read (a sealed
+ * central, a failed request): the start is then what it was, the fleet, which says why.
+ */
+export async function readServerCount(queryClient: QueryClient): Promise<number | null> {
+  try {
+    const list = await queryClient.query({ ...nodesQuery(), staleTime: 10_000 });
+    return list.items.length;
+  } catch {
+    return null;
+  }
 }
 
 /** Where a tab that chose "continue locked" remembers it, until the tab is closed. */

@@ -113,6 +113,11 @@ export const fleet: Catalog<typeof en> = {
       title: "Esta flota aún no tiene servidores",
       description: "Gestiona varios servidores desde esta consola. Cada uno la autoriza una vez; nunca obtiene una shell allí.",
     },
+    alone: {
+      title: "{name} es tu único servidor por ahora",
+      description: "Sus aplicaciones y todo lo demás están en sus propias páginas. Añade otro servidor y toda la flota aparecerá aquí, junta.",
+      open: "Abrir {name}",
+    },
   },
   column: {
     server: "Servidor",

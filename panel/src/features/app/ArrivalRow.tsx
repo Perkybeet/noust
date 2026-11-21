@@ -1,19 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
-import { certsQuery } from "../../api/queries/certs";
 import { deploymentQuery } from "../../api/queries/deployments";
-import { appDomainsQuery } from "../../api/queries/domains";
 import { Card } from "../../components/ui/Card";
 import { CopyButton } from "../../components/ui/CopyButton";
 import { Disclosure } from "../../components/ui/Disclosure";
 import { ExternalLink } from "../../components/ui/ExternalLink";
 import { Mono } from "../../components/ui/Mono";
+import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
-import { displayAddress, isTemporaryName } from "./displayAddress";
+import { isTemporaryName } from "./displayAddress";
+import { useAppAnswer } from "./useAppAnswer";
 
 export interface ArrivalRowProps {
   /** The application's own name. */
@@ -38,28 +38,37 @@ export interface ArrivalRowProps {
  * a banner, and the green is the state of the application, not a decoration. A certificate the
  * authority refused does not fail the deploy (a temporary name on a shared domain is refused more
  * often than not): the application serves over HTTP, and the authority's own words are one press away.
+ *
+ * Where it answers is the one reading the application's own page makes (`useAppAnswer`): its names and a certificate on a
+ * server with Noust's web server, a port of the machine on a central that deploys on its own Docker. On the second there is no
+ * certificate to cover and no domain to add, so the row asks and says neither.
  */
 export function ArrivalRow({ domain, deploymentId = null, title, actions, next = false }: ArrivalRowProps) {
   const t = useT();
-  const names = useQuery(appDomainsQuery(domain));
-  const certs = useQuery(certsQuery());
+  const { answer, offersNames } = useAppAnswer(domain);
   const deployment = useQuery({ ...deploymentQuery(deploymentId ?? 0), enabled: deploymentId !== null });
   const refused = deployment.data?.certificate_state === "failed";
   const issued = deployment.data?.certificate_state === "issued";
-  const address = displayAddress(domain, names.data?.domains, certs.data);
-  const secure = !refused && (issued || address.secure);
-  const url = `${secure ? "https" : "http"}://${address.name}`;
+  const named = answer.kind === "names" ? answer.address : null;
+  const secure = named !== null && !refused && (issued || named.secure);
+  const url = answer.kind === "machine" ? answer.url : named !== null ? `${secure ? "https" : "http"}://${named.name}` : null;
   const output = deployment.data?.certificate_output?.trim() ?? "";
   const live = <StatusPill state="running" label={t("apps.arrival.live")} />;
-  const site = (
-    <>
-      {/* The link draws the whole address, scheme included, so its name starts with the whole address (WCAG 2.5.3): the text takes the address as its `{domain}`, which the community languages' copies of it expect. */}
-      <ExternalLink href={url} label={t("apps.arrival.liveSite", { domain: url })}>
-        <Mono>{url}</Mono>
-      </ExternalLink>
-      <CopyButton value={url} label={t("apps.arrival.copy")} />
-    </>
-  );
+  const site =
+    url !== null ? (
+      <>
+        {/* The link draws the whole address, scheme included, so its name starts with the whole address (WCAG 2.5.3): the text takes the address as its `{domain}`, which the community languages' copies of it expect. */}
+        <ExternalLink href={url} label={t("apps.arrival.liveSite", { domain: url })}>
+          <Mono>{url}</Mono>
+        </ExternalLink>
+        <CopyButton value={url} label={t("apps.arrival.copy")} />
+      </>
+    ) : answer.kind === "loading" ? (
+      // An address that may be another is not drawn while the server has not said: a name that does not exist was what this showed.
+      <Skeleton className="h-5 w-56" />
+    ) : (
+      <span className="text-13 text-fg-muted">{t("containerHost.publish.noWeb")}</span>
+    );
   return (
     <Card padding="sm">
       <div className="flex min-w-0 flex-col gap-2">
@@ -81,30 +90,39 @@ export function ArrivalRow({ domain, deploymentId = null, title, actions, next =
             {actions}
           </div>
         )}
-        <p className="text-13 text-pretty text-fg-muted">
-          {secure ? (
-            t("apps.arrival.httpsReady")
-          ) : (
-            <>
-              {t(refused ? "apps.arrival.httpOnly" : "apps.arrival.httpOnlyNone")}{" "}
-              {isTemporaryName(address.name) ? t("apps.arrival.temporaryHelp") : null}{" "}
-              <TextLink to="/apps/$domain/domains" params={{ domain }} size="ui">
-                {t("apps.arrival.openDomains")}
-              </TextLink>
-            </>
-          )}
-        </p>
-        {refused && output !== "" ? (
+        {answer.kind === "machine" ? (
+          // The sentence the application's own page says of the same address.
+          <p className="text-13 text-pretty text-fg-muted">{t.rich("containerHost.publish.reach", { address: <Mono key="address">{answer.url}</Mono> })}</p>
+        ) : named !== null ? (
+          <p className="text-13 text-pretty text-fg-muted">
+            {secure ? (
+              t("apps.arrival.httpsReady")
+            ) : (
+              <>
+                {t(refused ? "apps.arrival.httpOnly" : "apps.arrival.httpOnlyNone")}{" "}
+                {isTemporaryName(named.name) ? t("apps.arrival.temporaryHelp") : null}{" "}
+                {offersNames ? (
+                  <TextLink to="/apps/$domain/domains" params={{ domain }} size="ui">
+                    {t("apps.arrival.openDomains")}
+                  </TextLink>
+                ) : null}
+              </>
+            )}
+          </p>
+        ) : null}
+        {refused && output !== "" && named !== null ? (
           <Disclosure label={t("apps.arrival.certbotSaid")}>
-            <SystemOutput label={t("apps.arrival.certbotOutput", { domain: address.name })}>{output}</SystemOutput>
+            <SystemOutput label={t("apps.arrival.certbotOutput", { domain: named.name })}>{output}</SystemOutput>
           </Disclosure>
         ) : null}
         {next ? (
           <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-13 text-fg-muted">
             <span>{t("common.words.next")}</span>
-            <TextLink to="/apps/$domain/domains" params={{ domain }} size="ui">
-              {t("apps.arrival.nextDomain")}
-            </TextLink>
+            {offersNames ? (
+              <TextLink to="/apps/$domain/domains" params={{ domain }} size="ui">
+                {t("apps.arrival.nextDomain")}
+              </TextLink>
+            ) : null}
             <TextLink to="/apps/$domain/database" params={{ domain }} size="ui">
               {t("apps.arrival.nextDatabase")}
             </TextLink>

@@ -7,12 +7,15 @@ import { Dialog } from "../../components/ui/Dialog";
 import { Field } from "../../components/ui/Field";
 import { KeyValueList } from "../../components/page/KeyValueList";
 import { Mono } from "../../components/ui/Mono";
+import { Notice } from "../../components/ui/Notice";
 import { Textarea } from "../../components/ui/Textarea";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { roleLabel } from "../settings/accounts/roles";
 import { approvalPolicyQuery, approvalQuery } from "./api";
 import { ApprovalStateLabel } from "./ApprovalStateLabel";
+import { useDeciders } from "./deciders";
+import { NobodyDecides } from "./NobodyDecides";
 import { dismiss, giveReason, openApprovals, runNow, useApprovalPrompt } from "./store";
 import type { ApprovalPrompt } from "./store";
 
@@ -33,15 +36,15 @@ function approversOf(t: T, approvers: readonly string[] | undefined): string {
 }
 
 /**
- * Which control asks for a second person and where it is turned off: the owner, who holds every permission,
- * reads a request for approval as a problem with their permissions, and it is not: a control that applies to
- * everyone asks (item 96 of the 4.1 review).
+ * Why a second person is asked for and where it is turned off: the owner, who holds every permission,
+ * reads a request for approval as a problem with their permissions, and it is not: an approval applies to
+ * everyone (item 96 of the 4.1 review). The place is named as it is in the console: the page Approvals, in Settings.
  */
 function WhyAsked() {
   const t = useT();
   return (
     // Words and not a link: this dialog is mounted above the router, which a link needs.
-    <p className="text-12 text-pretty text-fg-muted">{t("approvals.dialog.whyAsked", { where: `${t("nav.settings.label")} > ${t("nav.screens.controls.label")}` })}</p>
+    <p className="text-12 text-pretty text-fg-muted">{t("approvals.dialog.whyAsked", { where: `${t("nav.settings.label")} > ${t("approvals.nav.label")}` })}</p>
   );
 }
 
@@ -108,6 +111,7 @@ function RequestedStep({ prompt }: { prompt: Extract<ApprovalPrompt, { kind: "re
   const t = useT();
   const { requested } = prompt;
   const { data: policy } = useQuery(approvalPolicyQuery());
+  const deciders = useDeciders();
   const query = useQuery({
     ...approvalQuery(requested.id),
     refetchInterval: (current) => (current.state.data === undefined || current.state.data.state === "requested" ? POLL_MS : false),
@@ -163,6 +167,12 @@ function RequestedStep({ prompt }: { prompt: Extract<ApprovalPrompt, { kind: "re
       }
     >
       <div className="flex flex-col gap-4">
+        {/* Waiting for a person who does not exist, said where it is felt. This dialog is above the router: the places are words, not links. */}
+        {state === "requested" && deciders.others === 0 ? (
+          <Notice tone="warning" title={t("approvals.nobody.title")}>
+            <NobodyDecides deciders={deciders} moment="waiting" links={false} />
+          </Notice>
+        ) : null}
         <KeyValueList
           items={[
             { label: t("approvals.fields.request"), value: `#${requested.id}` },

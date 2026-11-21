@@ -247,7 +247,6 @@ export const nav = {
       keywords: "two-factor 2fa authenticator totp passkeys sessions sign in security",
       command: "Sign-in security",
     },
-    controls: { label: "Controls" },
     recipes: { label: "Recipes", command: "Recipes" },
     installedRecipes: { label: "Installed recipes", keywords: "recipes installed update available", command: "Installed recipes" },
     teams: { keywords: "people members roles organise group workspace" },

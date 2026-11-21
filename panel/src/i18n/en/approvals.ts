@@ -46,6 +46,18 @@ export const approvals = {
     waitingDescription: "It runs once another person approves it. You can follow it in Approvals.",
     openApprovals: "Open approvals",
   },
+  // With approvals on and nobody else holding the role that decides, what waits waits for a person who does not exist, and giving
+  // the role to someone is itself a change that waits: the way out is said before it happens and where it is happening.
+  nobody: {
+    title: "Nobody can approve what waits",
+    none: "No account holds the role that decides ({roles}). While approvals are on, giving the role to someone waits for approval too, so the way out has two steps: turn approvals off in {approvals}, give the role in {accounts}, and turn them on again.",
+    onlyYou: "Only you hold the role that decides ({roles}), and nobody approves their own request. Give the role to another account in {accounts}; that change waits for approval too, so turn approvals off in {approvals} first, and on again after.",
+    turnOnTitle: "Nobody else could approve yet",
+    turnOnNone: "No account holds the role that decides ({roles}), so what needs approval could not be approved, and giving the role to someone would wait for approval too. Give the role to another account in {accounts} first, then turn approvals on.",
+    turnOnOnlyYou: "Only you hold the role that decides ({roles}), and nobody approves their own request, so what you do would wait for a person who does not exist. Give the role to another account in {accounts} first, then turn approvals on.",
+    turnOnAnyway: "Turn on anyway",
+    turnOnLater: "Not now",
+  },
   state: {
     requested: "Pending",
     approved: "Approved",
@@ -59,7 +71,7 @@ export const approvals = {
     theCall: "What will run: {call}",
     reasonLabel: "Reason",
     reasonHint: "Kept with the request and in the audit log.",
-    whyAsked: "The Approvals control asks for it, for everyone on this server, owners included. It is turned off in {where}.",
+    whyAsked: "Approvals are on for this server and apply to everyone, owners included. You can turn them off in {where}.",
     reasonMissing: "Say why you need it.",
     ask: "Ask for approval",
     waitingTitle: "Waiting for approval",

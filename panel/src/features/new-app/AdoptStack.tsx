@@ -29,12 +29,14 @@ import { Disclosure } from "../../components/ui/Disclosure";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Notice } from "../../components/ui/Notice";
+import { ServerText } from "../../components/ui/ServerText";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import type { WizardActionsProps } from "../../components/page/Wizard";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { hostAccessOf } from "../../lib/hostAccess";
 import type { HostAccess } from "../../lib/hostAccess";
+import { codedAt } from "../../lib/serverSentence";
 import { useContainerHost } from "../central/features";
 import { HostAccessLines } from "../docker/HostAccessLines";
 import { splitErrors } from "../settings/formErrors";
@@ -147,8 +149,11 @@ function Found({ preview, t }: { preview: Adoption; t: T }) {
         {preview.warnings.length > 0 ? (
           <Notice tone="warning" title={t("newApp.adopt.warningsTitle")}>
             <ul className="flex list-disc flex-col gap-1 pl-5">
-              {preview.warnings.map((warning) => (
-                <li key={warning}>{warning}</li>
+              {preview.warnings.map((warning, index) => (
+                // The server's sentence, in the console's language through its code; its English only for one that has none yet.
+                <li key={warning}>
+                  <ServerText coded={codedAt(preview.warnings_coded, index)} text={warning} />
+                </li>
               ))}
             </ul>
           </Notice>

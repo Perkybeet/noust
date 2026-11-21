@@ -124,6 +124,12 @@ export const fleet = {
       title: "No servers in this fleet yet",
       description: "Manage several servers from this console. Each one authorizes this console once; it never gets a shell there.",
     },
+    /** The central deploys on its own machine and manages no other server: it is the fleet's one server. */
+    alone: {
+      title: "{name} is your only server so far",
+      description: "Its applications and everything else are on its own pages. Add another server and the whole fleet appears here, together.",
+      open: "Open {name}",
+    },
   },
   column: {
     server: "Server",

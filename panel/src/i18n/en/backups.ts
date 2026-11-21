@@ -53,7 +53,8 @@ export const backups = {
     searchPlaceholder: "Application",
     showLabel: "Show",
     showAll: "All applications",
-    showAttention: "Needing a backup",
+    // Not "needing a backup": a copy that has not reached its destination is here too, and it is not a missing copy.
+    showAttention: "Needing attention",
     count: { one: "{count} application", other: "{count} applications" },
     // Always plural, whatever "shown" and "total" are: filtering never flips "1 application"
     // into "1 of 1 applications".

@@ -9,7 +9,7 @@ import { sessionQuery } from "../api/queries/auth";
 import type { FleetServer } from "../components/page/fleetServers";
 import type { Status } from "../components/ui/StatusPill";
 import { centralOf } from "../features/central/central";
-import { useOffers } from "../features/central/features";
+import { useFeature, useOffers } from "../features/central/features";
 import type { FeatureNeed } from "../features/central/features";
 import { nodeStatus, nodesQuery } from "../features/fleet/nodes";
 import type { NodeRecord, NodeStatus } from "../features/fleet/nodes";
@@ -78,6 +78,29 @@ export function compareVersions(node: string | null | undefined, local: string |
     if (difference !== 0) return difference;
   }
   return 0;
+}
+
+export interface ServerCount {
+  /** Every server the console speaks of: the servers the central manages, and the central itself when it deploys on its own machine. */
+  total: number;
+  /** The servers the central manages. */
+  nodes: number;
+  /** This central is one of the servers: it deploys on its own machine (a server, or a hub told to deploy on its Docker). */
+  central: boolean;
+  /** The list of servers has been read: before that nothing says how many there are, and nothing says there are none. */
+  loaded: boolean;
+}
+
+/**
+ * How many servers there are, said once for everything that says it: the selector ("The fleet at once: 1 server"), the strip under it,
+ * and the page of the fleet. A central that deploys on its own machine has a server, itself, so on a NAS with no other the answer is one
+ * and never "no servers"; a hub that deploys nothing has none of its own, so its count is its servers' (item 187, and round 2 of the
+ * console's users, which found the three saying three different things).
+ */
+export function useServerCount(): ServerCount {
+  const list = useServerList();
+  const central = useFeature("applications");
+  return { total: list.nodes.length + (central ? 1 : 0), nodes: list.nodes.length, central, loaded: list.loaded };
 }
 
 /**

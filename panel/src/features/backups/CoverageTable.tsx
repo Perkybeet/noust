@@ -1,4 +1,4 @@
-import { Play, RotateCcw } from "lucide-react";
+import { ChevronRight, Play, RotateCcw } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { RelativeTime } from "../../components/page/RelativeTime";
@@ -17,14 +17,22 @@ import { calendarWords } from "../cron/data";
 import { COVERAGE_RANK } from "./coverage";
 import type { Coverage, CoverageRow } from "./coverage";
 import type { BackupRow } from "./BackupsTable";
+import { PendingSends } from "./PendingSends";
 import { OBJECT_ICONS, VERB_ICONS } from "../../components/ui/objectIcons";
 
-const STATE: Readonly<Record<Coverage, Status>> = { current: "running", stale: "warning", never: "warning" };
+// A copy that waits to be sent has the shape and the colour of work in progress, as everywhere else it is said (PendingSends): it is
+// safe on this server and is tried again by itself, so it is neither a success nor a failure.
+const STATE: Readonly<Record<Coverage, Status>> = { current: "running", pending: "deploying", stale: "warning", never: "warning" };
 
 function coverageLabel(coverage: Coverage, t: T): string {
   if (coverage === "current") return t("backups.coverage.state.current");
   if (coverage === "stale") return t("backups.coverage.state.stale");
   return t("backups.coverage.state.never");
+}
+
+/** What the name of a row ends with: the mark of a control that leads somewhere, so a row is not something to find by pressing it. */
+function Opens() {
+  return <ChevronRight data-slot="opens" aria-hidden="true" className="ml-1 inline size-icon-xs shrink-0 align-text-bottom text-fg-faint" />;
 }
 
 export interface CoverageActions {
@@ -91,10 +99,16 @@ export function CoverageTable({ rows, caption, loading = false, skeletonRows, em
       header: t("backups.coverage.columns.application"),
       cell: (row) =>
         row.deployed ? (
-          row.domain
+          <>
+            {row.domain}
+            <Opens />
+          </>
         ) : (
           <span className="flex min-w-0 flex-col">
-            <span>{row.domain}</span>
+            <span>
+              {row.domain}
+              <Opens />
+            </span>
             <span className="text-12 font-normal text-fg-muted">{t("backups.coverage.removed")}</span>
           </span>
         ),
@@ -103,9 +117,11 @@ export function CoverageTable({ rows, caption, loading = false, skeletonRows, em
     {
       id: "state",
       header: t("backups.coverage.columns.state"),
-      width: "w-36",
+      width: "w-44",
       card: "status",
-      cell: (row) => <StatusPill state={STATE[row.coverage]} label={coverageLabel(row.coverage, t)} appearance="inline" size="sm" />,
+      // The same words and the same "?" as the copies' own list: to which destination, when it is tried again, what it said.
+      cell: (row) =>
+        row.coverage === "pending" ? <PendingSends sends={row.pending} /> : <StatusPill state={STATE[row.coverage]} label={coverageLabel(row.coverage, t)} appearance="inline" size="sm" />,
       sortValue: (row) => COVERAGE_RANK[row.coverage],
     },
     {

@@ -55,7 +55,7 @@ export const backups: Catalog<typeof en> = {
     searchPlaceholder: "Aplicación",
     showLabel: "Mostrar",
     showAll: "Todas las aplicaciones",
-    showAttention: "Las que necesitan una copia",
+    showAttention: "Las que piden atención",
     count: { one: "{count} aplicación", other: "{count} aplicaciones" },
     countFiltered: "{shown} de {total} aplicaciones",
     noMatch: "Ninguna aplicación coincide con estos filtros.",

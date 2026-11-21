@@ -108,6 +108,31 @@ describe("adopting a running stack from New application", { timeout: 20_000 }, (
     expect(await screen.findByRole("heading", { level: 1, name: "proggest.es" })).toBeInTheDocument();
   });
 
+  // What the person is asked to accept was the server's English in a Spanish console: each sentence comes with its code, and is said in the
+  // console's language; one that has none yet is said as the server sent it.
+  it("says the sentences of the preview in the console's language when they have a code, and as the server said them when they have none", async () => {
+    const { harness } = wizard({
+      "POST /api/apps/adopt": () =>
+        json(200, {
+          ...PREVIEW,
+          warnings: ["service app is given the host device /dev/dri", "A sentence that has no code yet."],
+          warnings_coded: [{ code: "compose_guard.devices", params: { who: "service app", device: "/dev/dri" } }, null],
+        }),
+    });
+    const { user } = harness;
+    await openAdopt(user);
+    await user.type(screen.getByRole("textbox", { name: "Domain" }), "proggest.es");
+    await user.type(screen.getByRole("textbox", { name: "Directory" }), "/srv/proggest");
+    await user.click(screen.getByRole("button", { name: "Preview" }));
+    const found = await screen.findByRole("heading", { name: "What Noust found" });
+    const card = found.closest("section") ?? document.body;
+    expect(await within(card).findByText("service app is given the host device /dev/dri")).toBeInTheDocument();
+    await act(() => setLocale("es"));
+    expect(await within(card).findByText("service app: recibe el dispositivo /dev/dri del servidor")).toBeInTheDocument();
+    expect(within(card).getByText("A sentence that has no code yet.")).toBeInTheDocument();
+    await act(() => setLocale("en"));
+  });
+
   it("shows Compose's output when adopting would recreate, and adopts only once accepted", async () => {
     const output = " Container proggest-backend-1  Recreate\n Container proggest-backend-1  Recreated";
     const { backend, harness } = wizard({

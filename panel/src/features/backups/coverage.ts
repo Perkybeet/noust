@@ -7,16 +7,22 @@
  * schedule's period (a daily schedule tolerates one missed night), or than a week when nothing
  * schedules it. Domains with backups but no application (one deleted since) keep their row:
  * their backups are still on disk and still restorable.
+ *
+ * A backup that has not reached a destination it was made for (item 201) is a state of the row, ahead of "up to date": the age of
+ * the newest copy is not the whole of whether it protects, and a row that said "up to date" beside a copy that waits to be sent
+ * told the opposite of what the row's own panel said.
  */
 
 import type { AppList } from "../../api/queries/apps";
 import type { BackupList, BackupSchedule } from "../../api/queries/backups";
 import { parseTimestamp } from "../../lib/format";
+import { pendingAcross } from "../../lib/pendingSends";
+import type { PendingSend } from "../../lib/pendingSends";
 
 export type BackupRow = BackupList["backups"][number];
 type AppRow = AppList["apps"][number];
 
-export type Coverage = "current" | "stale" | "never";
+export type Coverage = "current" | "pending" | "stale" | "never";
 
 export interface CoverageRow {
   domain: string;
@@ -26,6 +32,8 @@ export interface CoverageRow {
   backups: BackupRow[];
   latest: BackupRow | null;
   schedule: BackupSchedule | null;
+  /** The destinations a copy of it is still owed to, one entry for each; empty when every copy is where it was meant to be. */
+  pending: PendingSend[];
   /** Bytes, summed over its backups. */
   size: number;
   coverage: Coverage;
@@ -50,10 +58,19 @@ function time(backup: BackupRow): number {
   return parseTimestamp(backup.timestamp)?.getTime() ?? Number.NEGATIVE_INFINITY;
 }
 
-/** Whether the newest backup is recent enough, given what schedules the application. */
-export function coverageOf(latest: BackupRow | null, schedule: BackupSchedule | null, now: number): Coverage {
+/**
+ * Whether the newest backup is recent enough, given what schedules the application, and whether it is where it was meant to be.
+ * What is worse is said first: a backup that does not exist or is old is that, whatever else is owed.
+ *
+ * @param latest Its newest backup.
+ * @param schedule What schedules it, if anything.
+ * @param now The time to measure the age against.
+ * @param owed The destinations a copy of it is still owed to.
+ */
+export function coverageOf(latest: BackupRow | null, schedule: BackupSchedule | null, now: number, owed: readonly PendingSend[] = []): Coverage {
   if (latest === null) return "never";
-  return now - time(latest) > staleAfter(schedule) ? "stale" : "current";
+  if (now - time(latest) > staleAfter(schedule)) return "stale";
+  return owed.length > 0 ? "pending" : "current";
 }
 
 export interface CoverageInput {
@@ -74,14 +91,16 @@ export function coverageRows({ apps, backups, schedules, now = Date.now() }: Cov
     const own = [...(byDomain.get(domain) ?? [])].sort((a, b) => time(b) - time(a));
     const latest = own[0] ?? null;
     const schedule = scheduleOf.get(domain) ?? null;
+    const pending = pendingAcross(own);
     return {
       domain,
       deployed: deployed.has(domain),
       backups: own,
       latest,
       schedule,
+      pending,
       size: own.reduce((sum, backup) => sum + backup.size, 0),
-      coverage: coverageOf(latest, schedule, now),
+      coverage: coverageOf(latest, schedule, now, pending),
     };
   });
 }
@@ -132,5 +151,5 @@ export function filterCoverage(rows: readonly CoverageRow[], search: CoverageSea
   );
 }
 
-/** Worst first, for sorting by the state column: never backed up, then out of date. */
-export const COVERAGE_RANK: Readonly<Record<Coverage, number>> = { never: 0, stale: 1, current: 2 };
+/** Worst first, for sorting by the state column: never backed up, then out of date, then not yet where it was meant to be. */
+export const COVERAGE_RANK: Readonly<Record<Coverage, number>> = { never: 0, stale: 1, pending: 2, current: 3 };

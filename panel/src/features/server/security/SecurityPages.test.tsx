@@ -1,6 +1,7 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { setLocale } from "../../../app/locale";
 import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
 import { SESSION, fakeBackend, json, problem, signedInRoutes } from "../../../test/fakes";
@@ -40,6 +41,24 @@ describe("Security > Checks", () => {
     await user.click(within(row).getByRole("button", { name: "Why: SSH accepts passwords" }));
     expect(await screen.findByText("passwordauthentication is yes.")).toBeInTheDocument();
     expect(screen.getByText("passwordauthentication yes")).toBeInTheDocument();
+  });
+
+  // The reason of a finding was the server's English in a Spanish console: it comes with a code when Noust wrote it, and is said in the
+  // console's language; the words of the system under it are never translated.
+  it("says the reason of a finding in the console's language through its code, and as the server said it when it has none", async () => {
+    const coded = { code: "compose_guard.devices", params: { who: "sshd", device: "/dev/dri" } };
+    const checks = { ...CHECKS, checks: CHECKS.checks.map((check) => (check.id === "ssh.password_auth" ? { ...check, reason: "sshd is given the host device /dev/dri", reason_coded: coded } : check)) };
+    const { user } = page("/security", { "GET /api/server/security/checks": () => json(200, checks) });
+    const findings = await screen.findByRole("list", { name: "Open findings" });
+    const row = within(findings).getByText("SSH accepts passwords").closest("li");
+    if (row === null) throw new Error("no row");
+    await user.click(within(row).getByRole("button", { name: "Why: SSH accepts passwords" }));
+    expect(await screen.findByText("sshd is given the host device /dev/dri")).toBeInTheDocument();
+    await act(() => setLocale("es"));
+    expect(await screen.findByText("sshd: recibe el dispositivo /dev/dri del servidor")).toBeInTheDocument();
+    // What the system said is its own.
+    expect(screen.getByText("passwordauthentication yes")).toBeInTheDocument();
+    await act(() => setLocale("en"));
   });
 
   it("gives each finding the one action that deals with it, the way to its page where the fix is a page", async () => {

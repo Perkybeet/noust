@@ -152,6 +152,37 @@ describe("the Backups tab", () => {
     await expectNoAxeViolations(container);
   });
 
+  // The list said "Up to date", in green, of an application whose newest copy had not reached the destination it was made for; the person
+  // found out by pressing a row, which nothing said could be pressed.
+  it("says in the state of the row that a backup is owed to a destination, ahead of up to date, and that the row opens", { timeout: 20_000 }, async () => {
+    const owed = { destination: "office-nas", reason: "connection timed out", attempts: 1, since: ago(HOUR), next_attempt_at: new Date(Date.now() + HOUR).toISOString(), permanent: false };
+    fakeBackend(
+      backupsRoutes(
+        [
+          backup({ backup_id: "shop-1", domain: "shop.example.com", timestamp: ago(3 * HOUR), pending_sends: [owed] }),
+          backup({ backup_id: "blog-1", domain: "blog.example.com", timestamp: ago(3 * HOUR), pending_sends: [] }),
+        ],
+        {},
+        [schedule("shop.example.com"), schedule("blog.example.com")],
+      ),
+    );
+    renderConsole("/backups");
+    await screen.findByRole("heading", { level: 1, name: "Backups" });
+
+    const shop = await appRow("shop.example.com");
+    expect(within(shop).getByText("Pending to office-nas")).toBeInTheDocument();
+    expect(within(shop).queryByText("Up to date")).not.toBeInTheDocument();
+    // It says when it is tried again, as the drawer does, and what the destination said is one press away.
+    expect(within(shop).getByText(/Tries again/)).toBeInTheDocument();
+    expect(within(shop).getByRole("button", { name: "Why it has not been sent yet" })).toBeInTheDocument();
+    // What reached everywhere is what it was.
+    const blog = await appRow("blog.example.com");
+    expect(within(blog).getByText("Up to date")).toBeInTheDocument();
+    expect(within(blog).queryByText(/Pending to/)).not.toBeInTheDocument();
+    // Each row says it opens: the name is a control with the mark of one that leads somewhere.
+    for (const row of [shop, blog]) expect(row.querySelector('[data-slot="opens"]')).not.toBeNull();
+  });
+
   it("says in the header what the backups take and how much room the disk they are on has left", async () => {
     fakeBackend(backupsRoutes([backup()]));
     const { user } = renderConsole("/backups");
@@ -421,7 +452,7 @@ describe("the Backups tab", () => {
     await appRow("shop.example.com");
 
     await user.click(screen.getByRole("combobox", { name: "Show" }));
-    await user.click(await screen.findByRole("option", { name: "Needing a backup" }));
+    await user.click(await screen.findByRole("option", { name: "Needing attention" }));
     await waitFor(() => {
       expect(location().search).toEqual({ show: "attention" });
     });

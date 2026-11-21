@@ -33,6 +33,8 @@ import { attentionKeys } from "../../api/queries/attention";
 import { approvalKeys, approvalPolicyQuery, approvalsQuery, approve, reject } from "./api";
 import type { Approval } from "./api";
 import { ApprovalStateLabel } from "./ApprovalStateLabel";
+import { useDeciders } from "./deciders";
+import { NobodyDecides } from "./NobodyDecides";
 import { RequireApproval } from "./RequireApproval";
 import { approvalDescription, callFromSnapshot, inView } from "./data";
 import type { ApprovalsSearch, ApprovalsView } from "./data";
@@ -247,6 +249,7 @@ export function ApprovalsPage({ search, onSearchChange }: ApprovalsPageProps) {
   useDocumentTitle(t("approvals.page.documentTitle"), 1);
   const { data: session } = useQuery(sessionQuery());
   const policy = useQuery(approvalPolicyQuery());
+  const nobodyElse = useDeciders();
   const view: ApprovalsView = search.view ?? "waiting";
   const mine = search.mine === true;
   const query = useQuery({ ...approvalsQuery(null, mine, search.caller ?? null), refetchInterval: 15_000 });
@@ -292,6 +295,12 @@ export function ApprovalsPage({ search, onSearchChange }: ApprovalsPageProps) {
       >
         <div className="flex min-w-0 flex-col gap-4">
           {policy.data !== undefined ? <RequireApproval enabled={policy.data.enabled} /> : null}
+          {/* Approvals on and nobody to decide: what waits waits for a person who does not exist, and the way out is said where it is felt. */}
+          {policy.data?.enabled === true && nobodyElse.others === 0 ? (
+            <Notice tone="warning" title={t("approvals.nobody.title")}>
+              <NobodyDecides deciders={nobodyElse} moment="waiting" links />
+            </Notice>
+          ) : null}
           <FilterBar
             label={t("approvals.page.filterLabel")}
             filters={

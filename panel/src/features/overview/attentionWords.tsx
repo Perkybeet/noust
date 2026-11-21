@@ -9,7 +9,7 @@ import { Mono } from "../../components/ui/Mono";
 import { StatusGlyph } from "../../components/ui/StatusPill";
 import type { T } from "../../i18n";
 import { formatBytes, formatDate, formatPercent, parseTimestamp } from "../../lib/format";
-import { leadingSentence } from "../../lib/serverSentence";
+import { leadingSentence, sentenceKey } from "../../lib/serverSentence";
 import { namedActor } from "../activity/data";
 import { checkTitle } from "../server/security/data";
 import type { Severity } from "./attention";
@@ -199,7 +199,10 @@ export function reasonDetail(t: T, reason: OverviewAttentionReason): ReasonDetai
   if (detail === null) return null;
   const coded = reason.detail_coded ?? null;
   const said = leadingSentence(t.locale, coded, detail);
-  return { text: said, sentence: coded !== null && said !== detail };
+  // A sentence of Noust's is one this console has a text for, in English too, where saying it changes nothing: it is not what a program
+  // printed, so it does not take the face of system output (the cause of a container that keeps falling is one line of Noust's own).
+  const own = coded !== null && (said !== detail || (sentenceKey(coded, "text") !== null && !detail.includes("\n")));
+  return { text: said, sentence: own };
 }
 
 /** A reason's detail line: a sentence of Noust's in the text's own face, the system's words in mono, wrapped and never cut. */

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { BackupSchedule } from "../../api/queries/backups";
-import { UNSCHEDULED_STALE_AFTER, coverageOf, coverageRows, filterCoverage, isCoverageFiltered, staleAfter, validateCoverageSearch } from "./coverage";
+import { COVERAGE_RANK, UNSCHEDULED_STALE_AFTER, coverageOf, coverageRows, filterCoverage, isCoverageFiltered, staleAfter, validateCoverageSearch } from "./coverage";
 import type { BackupRow } from "./coverage";
 
 const NOW = Date.parse("2026-09-29T12:00:00Z");
@@ -64,6 +64,49 @@ describe("coverageOf", () => {
     expect(coverageOf(backup("a", 8 * DAY), null, NOW)).toBe("stale");
     expect(coverageOf(backup("a", 30 * HOUR), schedule("a", "daily"), NOW)).toBe("current");
     expect(coverageOf(backup("a", 3 * DAY), schedule("a", "daily"), NOW)).toBe("stale");
+  });
+});
+
+describe("a backup that has not reached a destination", () => {
+  const owed = (destination: string, extra: Record<string, unknown> = {}) => ({ destination, reason: "connection timed out", attempts: 1, since: new Date(NOW - HOUR).toISOString(), next_attempt_at: new Date(NOW + HOUR).toISOString(), permanent: false, ...extra });
+  const waiting = (domain: string, ageMs: number, destination = "office-nas"): BackupRow => ({ ...backup(domain, ageMs), pending_sends: [owed(destination)] });
+
+  // "Up to date" was said, in green, of an application whose newest copy had not reached the place it was made for: the age of the
+  // copy is not the whole of whether it protects, and a copy that is owed is a state of the row of its own, before "up to date".
+  it("is a state of the row of its own, ahead of up to date, and never of a copy that is missing or old", () => {
+    const pending = [{ destination: "office-nas", reason: "", attempts: 0, since: null, nextAttemptAt: null, permanent: false }];
+    expect(coverageOf(backup("a", HOUR), schedule("a", "daily"), NOW, pending)).toBe("pending");
+    expect(coverageOf(backup("a", HOUR), schedule("a", "daily"), NOW, [])).toBe("current");
+    // What is worse is still said: a backup that is not there, or that is old, is that, whatever else is owed.
+    expect(coverageOf(null, null, NOW, pending)).toBe("never");
+    expect(coverageOf(backup("a", 30 * DAY), null, NOW, pending)).toBe("stale");
+  });
+
+  it("is read from the copies of the application: its row says to which destinations, soonest first", () => {
+    const rows = coverageRows({
+      apps: [{ domain: "shop.example.com" }, { domain: "blog.example.com" }],
+      backups: [waiting("shop.example.com", HOUR), { ...backup("shop.example.com", 2 * HOUR), pending_sends: [owed("cloud-bucket")] }, backup("blog.example.com", HOUR)],
+      schedules: [schedule("shop.example.com", "daily"), schedule("blog.example.com", "daily")],
+      now: NOW,
+    });
+    const [blog, shop] = rows;
+    expect(blog?.coverage).toBe("current");
+    expect(blog?.pending).toEqual([]);
+    expect(shop?.coverage).toBe("pending");
+    expect(shop?.pending.map((send) => send.destination).sort()).toEqual(["cloud-bucket", "office-nas"]);
+  });
+
+  it("counts as needing attention, and sorts after what is missing or old and before what is up to date", () => {
+    const rows = coverageRows({
+      apps: [{ domain: "shop.example.com" }, { domain: "blog.example.com" }],
+      backups: [waiting("shop.example.com", HOUR), backup("blog.example.com", HOUR)],
+      schedules: [],
+      now: NOW,
+    });
+    expect(filterCoverage(rows, { show: "attention" }).map((row) => row.domain)).toEqual(["shop.example.com"]);
+    expect(COVERAGE_RANK.never).toBeLessThan(COVERAGE_RANK.stale);
+    expect(COVERAGE_RANK.stale).toBeLessThan(COVERAGE_RANK.pending);
+    expect(COVERAGE_RANK.pending).toBeLessThan(COVERAGE_RANK.current);
   });
 });
 

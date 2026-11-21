@@ -6,7 +6,7 @@ import { FramedRoutePending } from "../app/RoutePending";
 import { Shell } from "../app/Shell";
 import { SessionGate } from "../features/auth/SessionGate";
 import { requireSession } from "../features/auth/requireSession";
-import { startsOnFleet } from "../features/central/central";
+import { hubStartsHere, readServerCount, startsOnFleet } from "../features/central/central";
 import { CentralGate } from "../features/central/CentralGate";
 import { lastServer } from "../nodes/lastServer";
 import { NodeScope } from "../nodes/useNode";
@@ -15,9 +15,13 @@ import { NodeScope } from "../nodes/useNode";
 export const Route = createFileRoute("/_console")({
   beforeLoad: async ({ context, location }) => {
     const session = await requireSession(context.queryClient, location.href);
-    // A hub has no server of its own to begin on: with nothing chosen yet it starts on All servers.
+    // A hub that deploys nothing has no server of its own to begin on: with nothing chosen yet it starts on All servers. One that
+    // deploys on its own machine has a server, itself, and starts there while it has no other: the list is read only for that question.
+    const node = nodeFromSearch(location.search);
+    const chosen = lastServer() !== null;
+    const servers = hubStartsHere(session, location.pathname, node, chosen) ? await readServerCount(context.queryClient) : null;
     // eslint-disable-next-line @typescript-eslint/only-throw-error -- the router's redirect protocol
-    if (startsOnFleet(session, location.pathname, nodeFromSearch(location.search), lastServer() !== null)) throw redirect({ to: "/fleet", replace: true });
+    if (startsOnFleet(session, location.pathname, node, chosen, servers)) throw redirect({ to: "/fleet", replace: true });
     return session;
   },
   component: ConsoleLayout,

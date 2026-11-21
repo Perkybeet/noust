@@ -14,7 +14,7 @@ import { useT } from "../i18n";
 import type { T } from "../i18n";
 import { cx } from "../lib/cx";
 import { formatDuration, formatLoad } from "../lib/format";
-import { useHasFleet } from "../nodes/servers";
+import { useHasFleet, useServerCount } from "../nodes/servers";
 import { useConsoleContext, useNode, useScopeOffers } from "../nodes/useNode";
 import { useStreamStatus } from "../realtime/events";
 import type { StreamStatus } from "../realtime/events";
@@ -257,10 +257,10 @@ function ServerStrip({ className, showName }: { className?: string | undefined; 
 function FleetStrip({ className }: { className?: string | undefined }) {
   const t = useT();
   const { data: view, isError } = useQuery(fleetViewQuery("summary"));
-  const total = view?.nodes.length ?? 0;
-  // A central that runs applications of its own is a row of the summary, but when it is all there is, the fleet has no server
-  // yet: the page under the strip says so, and the strip does not count the central as one (item 145).
-  const none = view !== undefined && !view.nodes.some((outcome) => !outcome.local);
+  // How many servers there are is said once for the strip, the selector and the page (`useServerCount`): a central that deploys on its
+  // own machine is one of them, so a NAS with no other says "1 server" and never "no servers added yet" under a selector that says one.
+  const { total, loaded } = useServerCount();
+  const none = view !== undefined && loaded && total === 0;
   const down = view?.nodes.filter((outcome) => {
     const kind = outcomeKind(outcome);
     return kind === "unreachable" || kind === "stale" || kind === "error";

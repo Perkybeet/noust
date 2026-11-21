@@ -17,7 +17,9 @@ export type PolicyChange = BodyOf<"/api/config/approval-policy", "put">;
 export type PolicyPreview = ResponseOf<"/api/config/approval-policy/preview", "post">;
 
 export const callerPolicyKeys = {
-  table: ["approvals", "policy"] as const,
+  // Its own key, not `["approvals", "policy"]`: that one is the Approvals page's `GET /api/approvals/policy` (whether approvals
+  // apply and who decides), a document with no rows. Two questions under one key made each page read the other's answer.
+  table: ["approvals", "caller-policy"] as const,
 };
 
 export const callerPolicyQuery = () =>

@@ -12,8 +12,11 @@ import type { Me, Task } from "./model";
 import { LONG_TASK_MS } from "./browserNotice";
 import type { NoticeState } from "../../realtime/jobEnds";
 
-/** What to do about the end of a task. */
-export type Ending = "toast" | "silent" | "none";
+/**
+ * What to do about the end of a task. `toast` is for a person who left the page they launched it from, and says so;
+ * `toast-here` is for a failure that is told to someone who is on the application's own page, which says nothing of leaving.
+ */
+export type Ending = "toast" | "toast-here" | "silent" | "none";
 
 /** The task that has just ended, when this change is the end of one the console knew was running or waiting, or of one that began a moment ago. */
 export function endedTask(before: Task | undefined, after: Task | undefined, now: number = Date.now()): Task | null {
@@ -65,7 +68,7 @@ function isDrawnByThePage(task: Task): boolean {
 export function endingOf(task: Task, me: Me, pathname: string): Ending {
   if (task.kind !== "job" || !isMine(task, me)) return "none";
   if (isOnTaskPage(task, pathname)) return "silent";
-  if (task.state === "failed" && isOnApplicationPage(task, pathname) && !isDrawnByThePage(task)) return "toast";
+  if (task.state === "failed" && isOnApplicationPage(task, pathname) && !isDrawnByThePage(task)) return "toast-here";
   return isStaying(task, pathname) ? "silent" : "toast";
 }
 

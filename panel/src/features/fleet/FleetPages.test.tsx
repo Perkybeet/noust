@@ -1,10 +1,11 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem } from "../../test/fakes";
+import { hubSession, nasSession } from "../../test/nas";
 import { screenWidth } from "../app/testRoutes";
 import { APPS_VIEW, APPS_VIEWS, JOB, PLAN, SSH_TIMEOUT, SUMMARY_VIEW, centralSession, fleetRoutes } from "./testFixtures";
 
@@ -92,26 +93,29 @@ describe("the fleet's Home", () => {
     expect(screen.queryByText(/^Server /)).not.toBeInTheDocument();
   });
 
-  it("does not count the central as a server of the fleet when it is all there is: the strip and the page say the same", { timeout: 20_000 }, async () => {
-    // A central that runs applications of its own is a row of the summary (`local`), but a fleet of nothing else is not a
-    // fleet of one server: the page under the strip says "No servers in this fleet yet" (item 145).
+  // A central that deploys on its own machine has a server, itself. It used to say it had none ("No servers in this fleet yet", under a
+  // selector that said "1 server"), to the person whose applications were one click away (round 2 of the console's users).
+  it("counts the central as a server when it deploys on its own machine: the strip, the selector and the page say the same, one", { timeout: 20_000 }, async () => {
     const centralOnly = { ...SUMMARY_VIEW, nodes: SUMMARY_VIEW.nodes.filter((node) => node.local), items: SUMMARY_VIEW.items.filter((row) => row.local) };
     fakeBackend({ ...fleetRoutes(centralSession(), []), "GET /api/fleet/summary": () => json(200, centralOnly) });
     renderConsole("/fleet");
 
-    expect(await screen.findByRole("heading", { level: 2, name: "No servers in this fleet yet" })).toBeInTheDocument();
-    await screen.findByRole("heading", { level: 2, name: "No servers in this fleet yet" });
-    expect(await screen.findByRole("link", { name: /^In the fleet: no servers added yet/ })).toHaveAttribute("href", "/fleet");
-    expect(screen.queryByText("1 server")).not.toBeInTheDocument();
-    expect(screen.queryByText(/1 answering/)).not.toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "web-01 is your only server so far" })).toBeInTheDocument();
+    expect(screen.queryByText("No servers in this fleet yet")).not.toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /^In the fleet: 1 server, 1 answering/ })).toHaveAttribute("href", "/fleet");
+    expect(screen.queryByText(/no servers added yet/)).not.toBeInTheDocument();
+    // The way to what it has is the first thing the page offers, and it leads to the machine's own Home.
+    expect(screen.getByRole("link", { name: "Open web-01" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("button", { name: "Add a server" })).toBeInTheDocument();
   });
 
-  it("explains what a fleet is when there is no server yet", { timeout: 20_000 }, async () => {
-    fakeBackend(fleetRoutes(centralSession(), []));
+  it("explains what a fleet is when a hub that deploys nothing has no server yet", { timeout: 20_000 }, async () => {
+    fakeBackend(fleetRoutes(hubSession(), []));
     renderConsole("/fleet");
     expect(await screen.findByRole("heading", { level: 2, name: "No servers in this fleet yet" })).toBeInTheDocument();
     expect(screen.getByText(/Each one authorizes this console once; it never gets a shell there/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add a server" })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /^In the fleet: no servers added yet/ })).toHaveAttribute("href", "/fleet");
   });
 });
 
@@ -470,5 +474,43 @@ describe("in Spanish", () => {
     expect(within(attention).getByRole("link", { name: "Diagnosticar api.example.com" })).toHaveAttribute("href", "/n/web-2/apps/api.example.com/diagnose");
     expect(within(await widget("Servidores de la flota")).getByText("No responde")).toBeInTheDocument();
     await expectNoAxeViolations(container, { page: true });
+  });
+});
+
+// The central of the owner's NAS: a hub, told in its compose file to deploy on its own Docker. It has a server (itself), so the console
+// opens where its applications are while it has no other, and on the fleet, as before, once it has some.
+describe("a hub that deploys on its own machine", () => {
+  const nobody = { ...SUMMARY_VIEW, nodes: [], items: [] };
+
+  // What the operator chose in the selector is kept for the tab: a test that chose something must not decide where the next one starts.
+  beforeEach(() => {
+    window.sessionStorage.clear();
+  });
+
+  it("opens on its own Home while it has no other server, and says one server everywhere it counts", { timeout: 30_000 }, async () => {
+    fakeBackend({ ...fleetRoutes(nasSession(), []), "GET /api/fleet/summary": () => json(200, nobody) });
+    const { location, user } = renderConsole("/");
+    await screen.findByRole("heading", { level: 1 });
+    expect(location().pathname).toBe("/");
+    // The selector tells the one server, marked as the hub, and counts it.
+    await user.click(await screen.findByRole("button", { name: /^Server: nas-casa/ }));
+    expect(await screen.findByText("The fleet at once: 1 server")).toBeInTheDocument();
+  });
+
+  it("opens on the fleet when it has others, as it always did", { timeout: 30_000 }, async () => {
+    fakeBackend(fleetRoutes(nasSession()));
+    const { location } = renderConsole("/");
+    await waitFor(() => {
+      expect(location().pathname).toBe("/fleet");
+    });
+  });
+
+  it("never says it has no server: the page of the fleet says it is the only one and leads to it", { timeout: 30_000 }, async () => {
+    fakeBackend({ ...fleetRoutes(nasSession(), []), "GET /api/fleet/summary": () => json(200, nobody) });
+    renderConsole("/fleet");
+    expect(await screen.findByRole("heading", { level: 2, name: "nas-casa is your only server so far" })).toBeInTheDocument();
+    expect(screen.queryByText("No servers in this fleet yet")).not.toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /^In the fleet: 1 server, 1 answering/ })).toBeInTheDocument();
+    expect(screen.queryByText(/no servers added yet/)).not.toBeInTheDocument();
   });
 });

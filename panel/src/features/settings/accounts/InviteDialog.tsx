@@ -178,7 +178,9 @@ export function InviteDialog({ open, onClose, accounts, recover = null, team = n
   const [custom, setCustom] = useState<string | null>(null);
   const [editingName, setEditingName] = useState(false);
   const [displayName, setDisplayName] = useState("");
-  const [role, setRole] = useState("operator");
+  // The least a person can be given: what only looks. Whoever invites chooses more on purpose; the other way round, a person who
+  // invites quickly gives somebody the power to restart and deploy without having decided it (round 2 of the console's users).
+  const [role, setRole] = useState("viewer");
   const [teamRole, setTeamRole] = useState<TeamRole>("viewer");
   const [expiry, setExpiry] = useState<(typeof EXPIRY_HOURS)[number]>("24");
   const [issued, setIssued] = useState<{ answer: InvitationIssued; expiresAt: number } | null>(null);

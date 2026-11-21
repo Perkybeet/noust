@@ -20,6 +20,7 @@ import { HelpPopover } from "../../../components/ui/HelpPopover";
 import { ICONS } from "../../../components/ui/icons";
 import { MenuItem } from "../../../components/ui/Menu";
 import { OBJECT_ICONS } from "../../../components/ui/objectIcons";
+import { ServerText } from "../../../components/ui/ServerText";
 import { SkeletonCard } from "../../../components/ui/Skeleton";
 import { StatusGlyph, StatusPill, stateTextClass } from "../../../components/ui/StatusPill";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
@@ -47,7 +48,12 @@ function Why({ check }: { check: SecurityCheck }) {
   return (
     <HelpPopover label={t("server.checks.whyLabel", { check: title })} title={title}>
       <div className="flex flex-col gap-2">
-        {check.reason !== "" ? <p className="text-13 text-pretty text-fg">{check.reason}</p> : null}
+        {/* In the console's language through the code the server gives it (a finding Noust wrote); the system's own words below are never translated. */}
+        {check.reason !== "" ? (
+          <p className="text-13 text-pretty text-fg">
+            <ServerText coded={check.reason_coded} text={check.reason} />
+          </p>
+        ) : null}
         {check.evidence.length > 0 ? (
           <SystemOutput label={t("server.checks.evidenceLabel", { check: title })} maxHeight="max-h-40" className="rounded-control bg-bg-sunken p-2.5">
             {check.evidence.join("\n")}

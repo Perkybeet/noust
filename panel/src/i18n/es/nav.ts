@@ -248,7 +248,6 @@ export const nav: Catalog<typeof en> = {
       keywords: "verificación en dos pasos 2fa autenticador totp llaves de acceso sesiones seguridad two-factor passkeys sessions security",
       command: "Seguridad de inicio de sesión",
     },
-    controls: { label: "Controles" },
     recipes: { label: "Recetas", command: "Recetas" },
     installedRecipes: { label: "Recetas instaladas", keywords: "recetas instaladas actualización disponible recipes installed update", command: "Recetas instaladas" },
     teams: { keywords: "personas miembros roles organizar agrupar espacio de trabajo people members group workspace" },

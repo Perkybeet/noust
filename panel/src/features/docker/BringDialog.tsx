@@ -19,14 +19,18 @@ import { KeyValueList } from "../../components/page/KeyValueList";
 import type { KeyValueItem } from "../../components/page/KeyValueList";
 import { QueryState } from "../../components/page/QueryState";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
+import { Disclosure } from "../../components/ui/Disclosure";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
+import { ServerText } from "../../components/ui/ServerText";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { SystemOutput } from "../../components/ui/SystemOutput";
 import { useT } from "../../i18n";
 import { hostAccessOf } from "../../lib/hostAccess";
 import type { HostAccess } from "../../lib/hostAccess";
+import { codedAt } from "../../lib/serverSentence";
 import { useNode } from "../../nodes/useNode";
 import { HostAccessLines } from "./HostAccessLines";
 
@@ -45,12 +49,18 @@ export interface BringDialogProps {
 function PlanBody({ plan, name, onName }: { plan: Plan; name: string; onName: (name: string) => void }) {
   const t = useT();
   const counts = plan.counts ?? {};
+  const rehearsal = rehearsalOf(plan);
   const facts: KeyValueItem[] = [
     { label: t("docker.bring.folder"), value: plan.folder, mono: true },
     { label: t("docker.bring.file"), value: plan.compose_file, mono: true },
     {
       label: t("docker.bring.has"),
-      value: t("docker.bring.counts", { containers: counts["containers"] ?? 0, jobs: counts["jobs"] ?? 0, volumes: counts["volumes"] ?? 0, networks: counts["networks"] ?? 0 }),
+      value: t("docker.bring.counts", {
+        containers: t("docker.bring.countContainers", { count: counts["containers"] ?? 0 }),
+        jobs: t("docker.bring.countJobs", { count: counts["jobs"] ?? 0 }),
+        volumes: t("docker.bring.countVolumes", { count: counts["volumes"] ?? 0 }),
+        networks: t("docker.bring.countNetworks", { count: counts["networks"] ?? 0 }),
+      }),
       mono: false,
       copy: false,
     },
@@ -74,13 +84,29 @@ function PlanBody({ plan, name, onName }: { plan: Plan; name: string; onName: (n
       ) : null}
       {(plan.warnings ?? []).length > 0 ? (
         <ul className="flex flex-col gap-1 text-13 text-fg-muted">
-          {(plan.warnings ?? []).map((warning) => (
-            <li key={warning}>{warning}</li>
+          {(plan.warnings ?? []).map((warning, index) => (
+            // What the person is asked to accept is said in the console's language: the server sends each sentence with its code, and the
+            // English only for one it has not given a code yet.
+            <li key={warning}>
+              <ServerText coded={codedAt(plan.warnings_coded, index)} text={warning} />
+            </li>
           ))}
         </ul>
       ) : null}
+      {/* Compose's own words, as it rehearsed the start the way Noust would: shown when the server brings them, and nothing is drawn for words it did not. */}
+      {rehearsal.trim() !== "" ? (
+        <Disclosure label={t("docker.bring.rehearsal")}>
+          <SystemOutput label={t("docker.bring.rehearsalLabel", { name: plan.name })}>{rehearsal}</SystemOutput>
+        </Disclosure>
+      ) : null}
     </>
   );
+}
+
+/** What Compose said when the plan was made, as it came; empty when the server did not bring it (an older one sends no such field). */
+function rehearsalOf(plan: Plan): string {
+  const sent = (plan as { rehearsal?: unknown }).rehearsal;
+  return typeof sent === "string" ? sent : "";
 }
 
 export function BringDialog({ stack, onClose }: BringDialogProps) {
