@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-21T05:41:19Z",
+  "generated": "2026-11-21T13:13:55Z",
   "engines": {
     "e20": {
       "server": "20.10.24",
@@ -68,7 +68,7 @@
         },
         "01 doctor [Compose v2.40.3]": {
           "status": "pass",
-          "seconds": 1.0,
+          "seconds": 1.4,
           "reason": "",
           "passed": [
             "Docker is found and answers",
@@ -122,7 +122,7 @@
         },
         "01 doctor [Compose v2.0.0]": {
           "status": "pass",
-          "seconds": 0.9,
+          "seconds": 0.7,
           "reason": "",
           "passed": [
             "Docker is found and answers",
@@ -179,7 +179,7 @@
         },
         "02 reading": {
           "status": "pass",
-          "seconds": 6.1,
+          "seconds": 5.3,
           "reason": "",
           "passed": [
             "the containers of the stack are listed with their service",
@@ -216,19 +216,19 @@
           "failed": [],
           "skipped": [],
           "notes": {
-            "a line of docker ps": "{\"id\":\"fbe8f05d33063dc3a8598f649a163d009025c9eb59dbae41352037c072cee4c5\",\"name\":\"w3rd-reading-oneoff\",\"image\":\"localhost:5000/w3rd/busybox:1.36\",\"state\":\"running\",\"status\":\"Up Less than a second\",\"created\":\"2026-11-18 01:26:10 +0000 UTC\",\"ports\":\"\",\"mounts\":\"\",\"networks\":\"plain_default,plain_inner\",\"project\":\"plain\",\"service\":\"worker\",\"working_dir\":\"/srv/w3rd/reading/plain\",\"config_files\":\"/srv/w3rd/reading/plain/compose.yaml\",\"oneoff\":\"True\",\"instance\":\"\",\"helper\":\"\"}",
+            "a line of docker ps": "{\"id\":\"082f641ee603446b357d180c7ddb98db6dbc8a98ef2c7d80e5656180583d193a\",\"name\":\"w3rd-reading-oneoff\",\"image\":\"localhost:5000/w3rd/busybox:1.36\",\"state\":\"running\",\"status\":\"Up Less than a second\",\"created\":\"2026-11-21 12:09:19 +0000 UTC\",\"ports\":\"\",\"mounts\":\"\",\"networks\":\"plain_default,plain_inner\",\"project\":\"plain\",\"service\":\"worker\",\"working_dir\":\"/srv/w3rd/reading/plain\",\"config_files\":\"/srv/w3rd/reading/plain/compose.yaml\",\"oneoff\":\"True\",\"instance\":\"\",\"helper\":\"\"}",
             "the mounts column of a container that binds a folder": [
               "/srv/w3rd/reading/plain/conf",
               "plain_data"
             ],
-            "a line of docker image ls": "{\"Containers\":\"N/A\",\"CreatedAt\":\"2026-11-18 01:25:21 +0000 UTC\",\"CreatedSince\":\"50 seconds ago\",\"Digest\":\"\\u003cnone\\u003e\",\"ID\":\"sha256:376b5e85d723d993788ab93fc41a24129b573f3aa58ed533bbd5faf1781aed9e\",\"Repository\":\"noust-test-cierre-central\",\"SharedSize\":\"N/A\",\"Size\":\"518MB\",\"Tag\":\"latest\",\"UniqueSize\":\"N/A\",\"VirtualSize\":\"517.8MB\"}",
-            "docker system df (json)": "{\"Active\":\"2\",\"Reclaimable\":\"517.8MB (94%)\",\"Size\":\"547.7MB\",\"TotalCount\":\"3\",\"Type\":\"Images\"}\n{\"Active\":\"5\",\"Reclaimable\":\"0B (0%)\",\"Size\":\"3B\",\"TotalCount\":\"5\",\"Type\":\"Containers\"}\n{\"Active\":\"2\",\"Reclaimable\":\"0B (0%)\",\"Size\":\"17.34MB\",\"TotalCount\":\"2\",\"Type\":\"Local Volumes\"}\n{\"Active\":\"0\",\"Reclaimable\":\"0B\",\"Size\":\"0B\",\"TotalCount\":\"0\",\"Type\":\"Build Cache\"}\n",
-            "docker system df -v (json)": "{\"Images\":[{\"Containers\":\"0\",\"CreatedAt\":\"2026-11-18 01:25:21 +0000 UTC\",\"CreatedSince\":\"50 seconds ago\",\"Digest\":\"\",\"ID\":\"sha256:376b5e85d723d993788ab93fc41a24129b573f3aa58ed533bbd5faf1781aed9e\",\"Repository\":\"noust-test-cierre-central\",\"SharedSize\":\"0B\",\"Size\":\"518MB\",\"Tag\":\"latest\",\"UniqueSize\":\"517.8MB\",\"VirtualSize\":\"517.8MB\"},{\"Containers\":\"1\",\"CreatedAt\":\"2023-10-02 18:42:41 +0000 UTC\",\"CreatedSince\":\"3 years ago\",\"Digest\":\"\",\"ID\":\"sha256:26b2eb03618e749084668eaff68cff8f81dda12d06ac641be7a6398b82a6f25b\",\"Repository\":\"registry\",\"SharedSize\":\"0B\",\"Size\":\"25.4MB\",\"Tag\":\"2\",\"UniqueSize\":\"25.44MB\",\"VirtualSize\":\"25.44MB\"},{\"Containers\":\"4\",\"CreatedAt\":\"2023-05-18 22:34:17 +0000 UTC\",\"Create"
+            "a line of docker image ls": "{\"Containers\":\"N/A\",\"CreatedAt\":\"2026-11-21 12:08:29 +0000 UTC\",\"CreatedSince\":\"50 seconds ago\",\"Digest\":\"\\u003cnone\\u003e\",\"ID\":\"sha256:c992cfeeb7a6870a8e7d29f89cdb484739a833b8023bb6f3e835fd756099b8c7\",\"Repository\":\"noust-test-cierre-central\",\"SharedSize\":\"N/A\",\"Size\":\"550MB\",\"Tag\":\"latest\",\"UniqueSize\":\"N/A\",\"VirtualSize\":\"550.3MB\"}",
+            "docker system df (json)": "{\"Active\":\"2\",\"Reclaimable\":\"550.3MB (94%)\",\"Size\":\"580.1MB\",\"TotalCount\":\"3\",\"Type\":\"Images\"}\n{\"Active\":\"5\",\"Reclaimable\":\"0B (0%)\",\"Size\":\"3B\",\"TotalCount\":\"5\",\"Type\":\"Containers\"}\n{\"Active\":\"2\",\"Reclaimable\":\"0B (0%)\",\"Size\":\"17.34MB\",\"TotalCount\":\"2\",\"Type\":\"Local Volumes\"}\n{\"Active\":\"0\",\"Reclaimable\":\"0B\",\"Size\":\"0B\",\"TotalCount\":\"0\",\"Type\":\"Build Cache\"}\n",
+            "docker system df -v (json)": "{\"Images\":[{\"Containers\":\"0\",\"CreatedAt\":\"2026-11-21 12:08:29 +0000 UTC\",\"CreatedSince\":\"50 seconds ago\",\"Digest\":\"\",\"ID\":\"sha256:c992cfeeb7a6870a8e7d29f89cdb484739a833b8023bb6f3e835fd756099b8c7\",\"Repository\":\"noust-test-cierre-central\",\"SharedSize\":\"0B\",\"Size\":\"550MB\",\"Tag\":\"latest\",\"UniqueSize\":\"550.3MB\",\"VirtualSize\":\"550.3MB\"},{\"Containers\":\"1\",\"CreatedAt\":\"2023-10-02 18:42:41 +0000 UTC\",\"CreatedSince\":\"3 years ago\",\"Digest\":\"\",\"ID\":\"sha256:26b2eb03618e749084668eaff68cff8f81dda12d06ac641be7a6398b82a6f25b\",\"Repository\":\"registry\",\"SharedSize\":\"0B\",\"Size\":\"25.4MB\",\"Tag\":\"2\",\"UniqueSize\":\"25.44MB\",\"VirtualSize\":\"25.44MB\"},{\"Containers\":\"4\",\"CreatedAt\":\"2023-05-18 22:34:17 +0000 UTC\",\"Create"
           }
         },
         "03 owners": {
           "status": "pass",
-          "seconds": 10.1,
+          "seconds": 8.4,
           "reason": "",
           "passed": [
             "the container of a container application is that application's",
@@ -255,7 +255,7 @@
         },
         "04 container_inside": {
           "status": "pass",
-          "seconds": 31.4,
+          "seconds": 30.7,
           "reason": "",
           "passed": [
             "a container that failed is an error with its exit code",
@@ -295,20 +295,20 @@
           "notes": {
             "docker events of a container its restart policy keeps starting": {
               "create": 1,
-              "die": 4,
-              "start": 4
+              "die": 5,
+              "start": 5
             },
             "the first events of a policy restart, as Noust asks for them": [
-              "{\"status\":\"start\",\"id\":\"cfcb4c864d85d4f2b7975c648f82b24b7a59c8f9ce4d906d3a904ba32cc7437b\",\"from\":\"localhost:5000/w3rd/busybox:1.36\",\"Type\":\"container\",\"Action\":\"start\",\"Actor\":{\"ID\":\"cfcb4c864d85d4f2b7975c648f82b24b7a59c8f9ce4d906d3a904ba32cc7437b\",\"Attributes\":{\"image\":\"localhost:5000/w3rd/busybox:1.36\",\"name\":\"w3rd-ci-loop\",\"noust.test\":\"1\",\"w3rd.scenario\":\"container_inside\"}},\"scope\":\"local\",\"time\":1794965187,\"timeNano\":1794965187993795673}",
-              "{\"status\":\"die\",\"id\":\"cfcb4c864d85d4f2b7975c648f82b24b7a59c8f9ce4d906d3a904ba32cc7437b\",\"from\":\"localhost:5000/w3rd/busybox:1.36\",\"Type\":\"container\",\"Action\":\"die\",\"Actor\":{\"ID\":\"cfcb4c864d85d4f2b7975c648f82b24b7a59c8f9ce4d906d3a904ba32cc7437b\",\"Attributes\":{\"exitCode\":\"1\",\"image\":\"localhost:5000/w3rd/busybox:1.36\",\"name\":\"w3rd-ci-loop\",\"noust.test\":\"1\",\"w3rd.scenario\":\"container_inside\"}},\"scope\":\"local\",\"time\":1794965188,\"timeNano\":1794965188015401006}",
-              "{\"status\":\"start\",\"id\":\"cfcb4c864d85d4f2b7975c648f82b24b7a59c8f9ce4d906d3a904ba32cc7437b\",\"from\":\"localhost:5000/w3rd/busybox:1.36\",\"Type\":\"container\",\"Action\":\"start\",\"Actor\":{\"ID\":\"cfcb4c864d85d4f2b7975c648f82b24b7a59c8f9ce4d906d3a904ba32cc7437b\",\"Attributes\":{\"image\":\"localhost:5000/w3rd/busybox:1.36\",\"name\":\"w3rd-ci-loop\",\"noust.test\":\"1\",\"w3rd.scenario\":\"container_inside\"}},\"scope\":\"local\",\"time\":1794965188,\"timeNano\":1794965188638796249}"
+              "{\"status\":\"start\",\"id\":\"567a21a3347ec2b973d4bb344b3af863edaba7284fc8130b6b5afbac2e3da00c\",\"from\":\"localhost:5000/w3rd/busybox:1.36\",\"Type\":\"container\",\"Action\":\"start\",\"Actor\":{\"ID\":\"567a21a3347ec2b973d4bb344b3af863edaba7284fc8130b6b5afbac2e3da00c\",\"Attributes\":{\"image\":\"localhost:5000/w3rd/busybox:1.36\",\"name\":\"w3rd-ci-loop\",\"noust.test\":\"1\",\"w3rd.scenario\":\"container_inside\"}},\"scope\":\"local\",\"time\":1795262973,\"timeNano\":1795262973944036386}",
+              "{\"status\":\"die\",\"id\":\"567a21a3347ec2b973d4bb344b3af863edaba7284fc8130b6b5afbac2e3da00c\",\"from\":\"localhost:5000/w3rd/busybox:1.36\",\"Type\":\"container\",\"Action\":\"die\",\"Actor\":{\"ID\":\"567a21a3347ec2b973d4bb344b3af863edaba7284fc8130b6b5afbac2e3da00c\",\"Attributes\":{\"exitCode\":\"1\",\"image\":\"localhost:5000/w3rd/busybox:1.36\",\"name\":\"w3rd-ci-loop\",\"noust.test\":\"1\",\"w3rd.scenario\":\"container_inside\"}},\"scope\":\"local\",\"time\":1795262973,\"timeNano\":1795262973957450494}",
+              "{\"status\":\"start\",\"id\":\"567a21a3347ec2b973d4bb344b3af863edaba7284fc8130b6b5afbac2e3da00c\",\"from\":\"localhost:5000/w3rd/busybox:1.36\",\"Type\":\"container\",\"Action\":\"start\",\"Actor\":{\"ID\":\"567a21a3347ec2b973d4bb344b3af863edaba7284fc8130b6b5afbac2e3da00c\",\"Attributes\":{\"image\":\"localhost:5000/w3rd/busybox:1.36\",\"name\":\"w3rd-ci-loop\",\"noust.test\":\"1\",\"w3rd.scenario\":\"container_inside\"}},\"scope\":\"local\",\"time\":1795262974,\"timeNano\":1795262974532557355}"
             ],
-            "docker stats of a container": "{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"0.01%\",\"Container\":\"w3rd-ci-run\",\"ID\":\"9868cef6c487\",\"MemPerc\":\"0.68%\",\"MemUsage\":\"448KiB / 64MiB\",\"Name\":\"w3rd-ci-run\",\"NetIO\":\"656B / 0B\",\"PIDs\":\"1\"}"
+            "docker stats of a container": "{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"0.01%\",\"Container\":\"w3rd-ci-run\",\"ID\":\"d25f9ca1c919\",\"MemPerc\":\"0.67%\",\"MemUsage\":\"440KiB / 64MiB\",\"Name\":\"w3rd-ci-run\",\"NetIO\":\"656B / 0B\",\"PIDs\":\"1\"}"
           }
         },
         "05 cleanup": {
           "status": "pass",
-          "seconds": 79.1,
+          "seconds": 70.6,
           "reason": "",
           "passed": [
             "a stopped container nobody of Noust made is offered",
@@ -355,7 +355,7 @@
               ],
               [
                 "image",
-                "<none> f0284f9dc3d9"
+                "<none> a51f3b9fc779"
               ],
               [
                 "image",
@@ -375,7 +375,7 @@
               ],
               [
                 "volume",
-                "9e2608b191f0a7440c05c87659d41c2299294af02fca15e323f8afd5cf341cfc"
+                "32464be33ee6998e709028c745a03769f0d5ede259e6feaccf66957a2098f236"
               ],
               [
                 "volume",
@@ -387,7 +387,7 @@
         },
         "06 privileges": {
           "status": "pass",
-          "seconds": 35.2,
+          "seconds": 8.5,
           "reason": "",
           "passed": [
             "a stack that asks for nothing: let through",
@@ -602,7 +602,7 @@
         },
         "06 privileges [Compose v2.40.3]": {
           "status": "pass",
-          "seconds": 20.6,
+          "seconds": 18.2,
           "reason": "",
           "passed": [
             "a stack that asks for nothing: let through",
@@ -717,7 +717,7 @@
             ],
             "remoteoci: refused as written": [
               "the compose file includes oci://127.0.0.1:1/part:1, which Compose would download from the network: nothing on this server checks where that goes",
-              "the compose file includes or extends another file and Docker Compose could not resolve the stack (exit code 1: time=\"2026-11-21T05:35:57Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.), so what it brings in cannot be judged"
+              "the compose file includes or extends another file and Docker Compose could not resolve the stack (exit code 1: time=\"2026-11-21T12:11:22Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.), so what it brings in cannot be judged"
             ],
             "provider: refused as written": [
               "service tool runs the program noust-w6a-provider-canary of this server when the stack starts, outside any container"
@@ -792,7 +792,7 @@
             },
             "remoteoci, resolved by this Compose (does it go to the network when it reads the file?)": {
               "exit": 1,
-              "stderr": "time=\"2026-11-21T05:36:00Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.0.1:1\" spanID=94159f4b63b3f5d0 traceID=7e444d499187759a50f1d61382783885\nfailed to pull OCI resource "
+              "stderr": "time=\"2026-11-21T12:11:25Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.0.1:1\" spanID=ab985c7265663e2a traceID=789793c2ab4cbdacf4584c9ad7cf0f21\nfailed to pull OCI resource "
             },
             "a provider, started by this Compose": {
               "exit": 0,
@@ -814,7 +814,7 @@
         },
         "06 privileges [Compose v2.0.0]": {
           "status": "pass",
-          "seconds": 18.6,
+          "seconds": 15.6,
           "reason": "",
           "passed": [
             "a stack that asks for nothing: let through",
@@ -1032,7 +1032,7 @@
         },
         "07 versions": {
           "status": "pass",
-          "seconds": 9.7,
+          "seconds": 8.4,
           "reason": "",
           "passed": [
             "a reference to the local registry is read",
@@ -1056,14 +1056,14 @@
           "skipped": [],
           "notes": {
             "docker buildx version": "github.com/docker/buildx v0.10.4 c513d34049e499c53468deac6c4267ee72948f02",
-            "imagetools inspect, one platform": "Name:      localhost:5000/w3rd/small:1\nMediaType: application/vnd.docker.distribution.manifest.list.v2+json\nDigest:    sha256:c8ab183b22e63675c378fbd92f5df8ecf65c9865a4957aaa244ca5f9437d33d6\n           \nManifests: \n  Name:      localhost:5000/w3rd/small:1@sha256:8f7313d1515e0fb3c6a7e59e727de251ed5fe6a5eb04cc086ae869e4f2167905\n  MediaType: application/vnd.docker.distribution.manifest.v2+json\n  Platform:  linux/amd64\n",
-            "imagetools inspect --format '{{json .Image}}', one platform": "{\n  \"created\": \"2026-11-18T01:25:46.535101929Z\",\n  \"architecture\": \"amd64\",\n  \"os\": \"linux\",\n  \"config\": {\n    \"Env\": [\n      \"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\",\n      \"SMALL_VERSION=1.0.0\"\n    ],\n    \"Cmd\": [\n      \"sh\",\n      \"-c\",\n      \"echo small $SMALL_VERSION; exec sleep 3600\"\n    ],\n    \"Labels\": {\n      \"noust.test\": \"1\",\n      \"org.opencontainers.image.ve",
+            "imagetools inspect, one platform": "Name:      localhost:5000/w3rd/small:1\nMediaType: application/vnd.docker.distribution.manifest.list.v2+json\nDigest:    sha256:3cf9dd1cbc8816c8a220ba87d59238891fb3a381c487f5667ec88b98b8858c69\n           \nManifests: \n  Name:      localhost:5000/w3rd/small:1@sha256:47dc9ad9d7cc03b7a9299e538d3926dc88a1d5ca5a27ff8191a05f79ea133964\n  MediaType: application/vnd.docker.distribution.manifest.v2+json\n  Platform:  linux/amd64\n",
+            "imagetools inspect --format '{{json .Image}}', one platform": "{\n  \"created\": \"2026-11-21T12:08:55.410699353Z\",\n  \"architecture\": \"amd64\",\n  \"os\": \"linux\",\n  \"config\": {\n    \"Env\": [\n      \"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\",\n      \"SMALL_VERSION=1.0.0\"\n    ],\n    \"Cmd\": [\n      \"sh\",\n      \"-c\",\n      \"echo small $SMALL_VERSION; exec sleep 3600\"\n    ],\n    \"Labels\": {\n      \"noust.test\": \"1\",\n      \"org.opencontainers.image.ve",
             "imagetools inspect, several platforms": "Name:      localhost:5000/w3rd/small:multi\nMediaType: application/vnd.docker.distribution.manifest.list.v2+json\nDigest:    sha256:cb7fb8b53e2534d2b7347e598fe98dc97650291d87deb9c0a1900d61d3302784\n           \nManifests: \n  Name:      localhost:5000/w3rd/small:multi@sha256:b7f3d86d6e84fc17718c48bcde1450807faa2d56704205c697b4bd5df7b9e29f\n  MediaType: application/vnd.oci.image.manifest.v1+json\n  Platform:  linux/amd64\n             \n  Name:      localhost:5000/w3rd/small:multi@sha256:bd44eb136a95dcc8dc58995e43abc40a413f2e8e3d4a2aae6bccbe94686acb05\n  MediaType: application/vnd.oci.image.manifest.v1+json\n  Platform:  linux/arm64\n",
             "imagetools inspect --format '{{json .Image}}', several platforms": "{\n  \"linux/amd64\": {\n    \"created\": \"2023-05-18T22:34:17Z\",\n    \"architecture\": \"amd64\",\n    \"os\": \"linux\",\n    \"config\": {\n      \"Env\": [\n        \"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"\n      ],\n      \"Cmd\": [\n        \"sh\"\n      ]\n    },\n    \"rootfs\": {\n      \"type\": \"layers\",\n      \"diff_ids\": [\n        \"sha256:97e4ece8f8a4d01b66df2c55c1f1e8a2860597b54dffbbc0df2f9942062cb34d\"\n      ]\n    },\n    \"history\": [\n      {\n        \"created\": \"2023-05-18T22:34:17Z\",\n        ",
             "a registry that does not answer": "ERROR: failed to do request: Head \"http://localhost:5999/v2/w3rd/small/manifests/1\": dial tcp [::1]:5999: connect: connection refused",
             "without buildx": "This Docker cannot ask a registry without downloading the image (it has no buildx). Look with --pull to download what moved and compare.",
             "the look": {
-              "checked_at": "2026-11-18T01:28:57.438332+00:00",
+              "checked_at": "2026-11-21T12:11:56.095913+00:00",
               "records": [
                 {
                   "reference": "localhost:5000/w3rd/small:1",
@@ -1072,7 +1072,7 @@
                   "floating": false,
                   "current_version": "1.0.0",
                   "latest_version": "1.0.0",
-                  "latest_created": "2026-11-18T01:25:46.535101929Z",
+                  "latest_created": "2026-11-21T12:08:55.410699353Z",
                   "method": "imagetools",
                   "detail": ""
                 },
@@ -1083,7 +1083,7 @@
                   "floating": true,
                   "current_version": "1.0.0",
                   "latest_version": "1.0.1",
-                  "latest_created": "2026-11-18T01:25:47.517066878Z",
+                  "latest_created": "2026-11-21T12:08:56.500755156Z",
                   "method": "imagetools",
                   "detail": ""
                 },
@@ -1101,12 +1101,12 @@
               ],
               "skipped": []
             },
-            "what docker ps says the image of that container is, after its tag moved here": "aa672ee26b4e"
+            "what docker ps says the image of that container is, after its tag moved here": "47259818c169"
           }
         },
         "08 update_gate": {
           "status": "pass",
-          "seconds": 108.3,
+          "seconds": 94.2,
           "reason": "",
           "passed": [
             "the central starts",
@@ -1134,18 +1134,18 @@
           "failed": [],
           "skipped": [],
           "notes": {
-            "the image's buildx asking the local registry": "5000/w3rd/web:live\nMediaType: application/vnd.docker.distribution.manifest.list.v2+json\nDigest:    sha256:ac8a334d4c2993074c24a3339a4635b99ffdae35cff19cf50f25137af2d7bea1\n           \nManifests: \n  Name:      localhost:5000/w3rd/web:live@sha256:bf98a28c3542ce1adf3ca27560d9889871a50b5b61088c2cf4226a4249c7438f\n  MediaType: application/vnd.docker.distribution.manifest.v2+json\n  Platform:  linux/amd64\n",
+            "the image's buildx asking the local registry": "5000/w3rd/web:live\nMediaType: application/vnd.docker.distribution.manifest.list.v2+json\nDigest:    sha256:d4dc5107834d96b05c1b42b43943462ac9e8671edb9770337a41df3de57c1e0a\n           \nManifests: \n  Name:      localhost:5000/w3rd/web:live@sha256:f190be243d511efe5c52e0f704e5b12c7bbd7d9ec3dd9829055dbb14592764e6\n  MediaType: application/vnd.docker.distribution.manifest.v2+json\n  Platform:  linux/amd64\n",
             "noust docker images check --pull": "  localhost:5000/w3rd/web:live: new version (major)\n  registry:2: current\n✓ 1 of 2 images have a new version.\n",
-            "noust docker images plan, of the image the application runs": "  Image: noust-gate-nas-test:20261118-012919-nogit\n  Registry: a new version (major)\n  Version: 1 -> 2\n  Owner: app gate.nas.test\n  Updates: gate.nas.test (through its update, behind its health gate)\n  Moves: localhost:5000/w3rd/web:live\n  Steps: pull -> recreate_behind_health -> keep_previous -> roll_back_on_failure\n⚠ A major version is a decision: update with --accept-major.\n",
-            "noust docker images update": "  Image: noust-gate-nas-test:20261118-012919-nogit\n  Registry: a new version (major)\n  Version: 1 -> 2\n  Owner: app gate.nas.test\n  Updates: gate.nas.test (through its update, behind its health gate)\n  Moves: localhost:5000/w3rd/web:live\n  Steps: pull -> recreate_behind_health -> keep_previous -> roll_back_on_failure\n⚠ A major version is a decision: update with --accept-major.\n[1/5] Creating pre-update backup...\n[2/5] Pulling the image again...\n[3/5] Detecting application type...\n[4/5] Rebuilding...\n[5/5] Restarting...\n✓ gate.nas.test runs the new version.\n",
-            "an update whose container does not answer": " Image: noust-gate-nas-test:20261118-012934-nogit\n  Registry: a new version (major)\n  Version: 2 -> 3\n  Owner: app gate.nas.test\n  Updates: gate.nas.test (through its update, behind its health gate)\n  Moves: localhost:5000/w3rd/web:live\n  Steps: pull -> recreate_behind_health -> keep_previous -> roll_back_on_failure\n⚠ A major version is a decision: update with --accept-major.\n[1/5] Creating pre-update backup...\n[2/5] Pulling the image again...\n[3/5] Detecting application type...\n[4/5] Rebuilding...\n⚠ The update of gate.nas.test did not pass its health check\n✗ The update of gate.nas.test did not pass its health check; the containers that were serving are running again\ni The application did not answer the health check. Asked at http://10.214.14.2:8080/.\n\nHealth check attempts 1-15 failed: <urlopen error [Errno 111] Connection refused>\n\nLast lines of the containers' output (docker compose logs --tail 40):\n(the containers printed nothing)\n\nThe tree is not a git checkout at a known commit, so the compose file was not put back: the previous images run with the compose file of this update.\n",
+            "noust docker images plan, of the image the application runs": "  Image: noust-gate-nas-test:20261121-121213-nogit\n  Registry: a new version (major)\n  Version: 1 -> 2\n  Owner: app gate.nas.test\n  Updates: gate.nas.test (through its update, behind its health gate)\n  Moves: localhost:5000/w3rd/web:live\n  Steps: pull -> recreate_behind_health -> keep_previous -> roll_back_on_failure\n⚠ A major version is a decision: update with --accept-major.\n",
+            "noust docker images update": "  Image: noust-gate-nas-test:20261121-121213-nogit\n  Registry: a new version (major)\n  Version: 1 -> 2\n  Owner: app gate.nas.test\n  Updates: gate.nas.test (through its update, behind its health gate)\n  Moves: localhost:5000/w3rd/web:live\n  Steps: pull -> recreate_behind_health -> keep_previous -> roll_back_on_failure\n⚠ A major version is a decision: update with --accept-major.\n[1/5] Creating pre-update backup...\n[2/5] Pulling the image again...\n[3/5] Detecting application type...\n[4/5] Rebuilding...\n[5/5] Restarting...\n✓ gate.nas.test runs the new version.\n",
+            "an update whose container does not answer": " Image: noust-gate-nas-test:20261121-121222-nogit\n  Registry: a new version (major)\n  Version: 2 -> 3\n  Owner: app gate.nas.test\n  Updates: gate.nas.test (through its update, behind its health gate)\n  Moves: localhost:5000/w3rd/web:live\n  Steps: pull -> recreate_behind_health -> keep_previous -> roll_back_on_failure\n⚠ A major version is a decision: update with --accept-major.\n[1/5] Creating pre-update backup...\n[2/5] Pulling the image again...\n[3/5] Detecting application type...\n[4/5] Rebuilding...\n⚠ The update of gate.nas.test did not pass its health check\n✗ The update of gate.nas.test did not pass its health check; the containers that were serving are running again\ni The application did not answer the health check. Asked at http://10.214.14.2:8080/.\n\nHealth check attempts 1-15 failed: <urlopen error [Errno 111] Connection refused>\n\nLast lines of the containers' output (docker compose logs --tail 40):\n(the containers printed nothing)\n\nThe tree is not a git checkout at a known commit, so the compose file was not put back: the previous images run with the compose file of this update.\n",
             "an image that exits at once, set": "✓ gate.nas.test: changed image. It takes effect with: noust update gate.nas.test\n",
             "an update to an image that exits at once": "\nUpdating: gate.nas.test ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n\n\n[1/5] Creating pre-update backup...\n[2/5] Pulling the image again...\n[3/5] Detecting application type...\n[4/5] Rebuilding...\n⚠ The build failed; putting the tree and the image names back\n✗ localhost:5000/w3rd/small:bad was pulled but Docker cannot describe it\ni template parsing error: template: :1:44: executing \"\" at <.Config.ExposedPorts>: map has no entry for key \"ExposedPorts\"\n"
           }
         },
         "09 compose_check": {
           "status": "pass",
-          "seconds": 4.7,
+          "seconds": 3.2,
           "reason": "",
           "passed": [
             "a document is resolved on the standard input",
@@ -1172,7 +1172,7 @@
         },
         "09 compose_check [Compose v2.40.3]": {
           "status": "pass",
-          "seconds": 4.6,
+          "seconds": 3.3,
           "reason": "",
           "passed": [
             "a document is resolved on the standard input",
@@ -1198,7 +1198,7 @@
             "Compose": "2.40.3",
             "up --dry-run of a stack that is not running": "DRY-RUN MODE -  Network w3rdcheck_default  Creating\n DRY-RUN MODE -  Network w3rdcheck_default  Created\n DRY-RUN MODE -  Volume w3rdcheck_data  Creating\n DRY-RUN MODE -  Volume w3rdcheck_data  Created\n DRY-RUN MODE -  Container w3rdcheck-web-1  Creating\n DRY-RUN MODE -  Container w3rdcheck-web-1  Created\n DRY-RUN MODE -  Container w3rdcheck-web-1  Starting\n DRY-RUN MODE -  Container w3rdcheck-web-1  Started",
             "up --dry-run of a stack as it runs": "DRY-RUN MODE -  Container w3rdcheck-web-1  Running",
-            "up --dry-run of a changed command": "DRY-RUN MODE -  Container w3rdcheck-web-1  Recreate\n DRY-RUN MODE -  Container w3rdcheck-web-1  Recreated\n DRY-RUN MODE -  Container 910563cc8e9c_w3rdcheck-web-1  Starting\n DRY-RUN MODE -  Container 910563cc8e9c_w3rdcheck-web-1  Started",
+            "up --dry-run of a changed command": "DRY-RUN MODE -  Container w3rdcheck-web-1  Recreate\n DRY-RUN MODE -  Container w3rdcheck-web-1  Recreated\n DRY-RUN MODE -  Container 62ec85ebc79a_w3rdcheck-web-1  Starting\n DRY-RUN MODE -  Container 62ec85ebc79a_w3rdcheck-web-1  Started",
             "a document that is not YAML": "failed to parse -: yaml: line 4: mapping values are not allowed in this context",
             "a key Compose does not know": "validating -: services.web additional properties 'nope' not allowed",
             "a variable that is required": "error while interpolating services.web.image: required variable W3RD_MISSING is missing a value: needs W3RD_MISSING",
@@ -1207,7 +1207,7 @@
         },
         "09 compose_check [Compose v2.0.0]": {
           "status": "pass",
-          "seconds": 12.7,
+          "seconds": 11.9,
           "reason": "",
           "passed": [
             "a document is resolved on the standard input",
@@ -1234,7 +1234,7 @@
         },
         "10 compose_edit": {
           "status": "pass",
-          "seconds": 135.3,
+          "seconds": 130.8,
           "reason": "",
           "passed": [
             "the central starts",
@@ -1259,14 +1259,14 @@
           "notes": {
             "noust docker stack compose check": "✓ compose: docker compose config\n✓ privileges: ok\n✓ images: ok\n✓ variables: ok\n--- current\n+++ new\n@@ -2,6 +2,8 @@\n   web:\n     image: localhost:5000/w3rd/web:1\n     restart: unless-stopped\n+    environment:\n+      GREETING: hello\n     ports:\n       - \"18601:8080\"\n     volumes:\ni recreate container web\ni recreate container web\ni start container web\ni start container web\n",
             "noust docker stack compose apply": "✓ compose: docker compose config\n✓ privileges: ok\n✓ images: ok\n✓ variables: ok\n--- current\n+++ new\n@@ -2,6 +2,8 @@\n   web:\n     image: localhost:5000/w3rd/web:1\n     restart: unless-stopped\n+    environment:\n+      GREETING: hello\n     ports:\n       - \"18601:8080\"\n     volumes:\ni recreate container web\ni recreate container web\ni start container web\ni start container web\n[1/5] Creating pre-update backup...\n[2/5] No repository to fetch; the images are pulled again...\n[3/5] Detecting application type...\n[4/5] Rebuilding...\n[5/5] Restarting...\n✓ editapp runs version 2.\n",
-            "noust docker stack compose history": "  2: 2026-11-18T01:31:33.349080+00:00  edit     cli        harness\n  1: 2026-11-18T01:31:33.346316+00:00  found    noust      The document as Noust found it\n",
+            "noust docker stack compose history": "  2: 2026-11-21T12:14:11.895935+00:00  edit     cli        harness\n  1: 2026-11-21T12:14:11.893533+00:00  found    noust      The document as Noust found it\n",
             "noust docker stack compose apply, a document that does not answer": "ating pre-update backup...\n[2/5] No repository to fetch; the images are pulled again...\n[3/5] Detecting application type...\n[4/5] Rebuilding...\n⚠ The update of editapp did not pass its health check\n⚠ The new version failed; putting the previous one back\n⚠ The previous version is running again and answering.\n✗ The update of editapp did not pass its health check; the previous containers are back but are not answering either\ni The application did not answer the health check.\n\nHealth check attempts 1-15 failed: [Errno 104] Connection reset by peer\n\nLast lines of the containers' output (docker compose logs --tail 40):\n(the containers printed nothing)\n\nThe tree is not a git checkout at a known commit, so the compose file was not put back: the previous images run with the compose file of this update.\n\nAfter going back:\nThe application did not answer the health check.\n\nHealth check attempts 1-15 failed: [Errno 104] Connection reset by peer\n\nThe previous version is running again and answering.\n",
             "noust docker stack compose check, an image that does not exist": "✓ compose: docker compose config\n✓ privileges: ok\n✗ images: failed\n✓ variables: ok\n✗ The registry has no localhost:5000/w3rd/web:nowhere, which service web would run\ni The registry has no such tag: ERROR: localhost:5000/w3rd/web:nowhere: not found\n--- current\n+++ new\n@@ -1,6 +1,6 @@\n services:\n   web:\n-    image: localhost:5000/w3rd/web:1\n+    image: localhost:5000/w3rd/web:nowhere\n     restart: unless-stopped\n     environment:\n       GREETING: hello\n"
           }
         },
         "11 bring": {
           "status": "pass",
-          "seconds": 41.3,
+          "seconds": 34.8,
           "reason": "",
           "passed": [
             "the central starts",
@@ -1348,16 +1348,16 @@
                 }
               }
             ],
-            "noust docker stack bring --preview": "  Stack: old\n  Application: old (Docker keeps it running)\n  Folder: /volume1/docker/stacks/old (stays where it is)\n  Compose file: compose.yaml\n  Has: 2 containers (0 jobs that ended), 1 volumes, 1 networks\n  Rehearsed up: changes nothing\n⚠ old-worker-1 has the policy 'no': it would not come back after a restart\n⚠ /volume1/docker/stacks/old has no repository: an update pulls the images the compose file names and recreates the containers, and fetches no code. To follow a repository, clone it there and adopt with --source.\n⚠ old-worker-1 has the restart policy 'no': after the NAS restarts nothing starts it again, and without a unit of Noust's nothing else does. Noust does not change your compose file; add restart: unless-stopped to the service.\ni Nothing is recreated, restarted or changed, and its compose file is not rewritten.\n",
-            "noust docker stack bring": "a restart\n⚠ /volume1/docker/stacks/old has no repository: an update pulls the images the compose file names and recreates the containers, and fetches no code. To follow a repository, clone it there and adopt with --source.\n⚠ old-worker-1 has the restart policy 'no': after the NAS restarts nothing starts it again, and without a unit of Noust's nothing else does. Noust does not change your compose file; add restart: unless-stopped to the service.\ni Nothing is recreated, restarted or changed, and its compose file is not rewritten.\n[1/2] Registering the stack as it runs...\n[2/2] Recording its file and project: Docker keeps it running...\n✓ Adopted oldapp: /volume1/docker/stacks/old, project old, site (none), commit unknown\n⚠ /volume1/docker/stacks/old has no repository: an update pulls the images the compose file names and recreates the containers, and fetches no code. To follow a repository, clone it there and adopt with --source.\n⚠ old-worker-1 has the restart policy 'no': after the NAS restarts nothing starts it again, and without a unit of Noust's nothing else does. Noust does not change your compose file; add restart: unless-stopped to the service.\n✓ old is the application oldapp.\n",
-            "a stack started by the machine's own Compose, brought by the central's": "e1/docker/stacks/older has no repository: an update pulls the images the compose file names and recreates the containers, and fetches no code. To follow a repository, clone it there and adopt with --source.\n⚠ older-worker-1 has the restart policy 'no': after the NAS restarts nothing starts it again, and without a unit of Noust's nothing else does. Noust does not change your compose file; add restart: unless-stopped to the service.\ni Nothing is recreated, restarted or changed, and its compose file is not rewritten.\n[1/2] Registering the stack as it runs...\n[2/2] Recording its file and project: Docker keeps it running...\n✓ Adopted olderapp: /volume1/docker/stacks/older, project older, site (none), commit unknown\n⚠ /volume1/docker/stacks/older has no repository: an update pulls the images the compose file names and recreates the containers, and fetches no code. To follow a repository, clone it there and adopt with --source.\n⚠ older-worker-1 has the restart policy 'no': after the NAS restarts nothing starts it again, and without a unit of Noust's nothing else does. Noust does not change your compose file; add restart: unless-stopped to the service.\n✓ older is the application olderapp.\n",
+            "noust docker stack bring --preview": "  Stack: old\n  Application: old (Docker keeps it running)\n  Folder: /volume1/docker/stacks/old (stays where it is)\n  Compose file: compose.yaml\n  Has: 2 containers (0 jobs that ended), 1 volumes, 1 networks\n  Rehearsed up: changes nothing\n⚠ old-worker-1 has the policy 'no': it would not come back after a restart\n⚠ /volume1/docker/stacks/old has no repository, so Noust fetches no code for it. Adopting changes nothing that runs now. The first update downloads the images the compose file names and recreates only the containers whose image or settings changed. To follow a repository instead, clone it in that folder and adopt the stack again with that repository as its source.\n⚠ old-worker-1 has the restart policy 'no': after the NAS restarts nothing starts it again, and without a unit of Noust's nothing else does. Noust does not change your compose file; add restart: unless-stopped to the service.\ni Nothing is recreated, restarted or changed, and its compose file is not rewritten.\n",
+            "noust docker stack bring": "folder and adopt the stack again with that repository as its source.\n⚠ old-worker-1 has the restart policy 'no': after the NAS restarts nothing starts it again, and without a unit of Noust's nothing else does. Noust does not change your compose file; add restart: unless-stopped to the service.\ni Nothing is recreated, restarted or changed, and its compose file is not rewritten.\n[1/2] Registering the stack as it runs...\n[2/2] Recording its file and project: Docker keeps it running...\n✓ Adopted oldapp: /volume1/docker/stacks/old, project old, site (none), commit unknown\n⚠ /volume1/docker/stacks/old has no repository, so Noust fetches no code for it. Adopting changes nothing that runs now. The first update downloads the images the compose file names and recreates only the containers whose image or settings changed. To follow a repository instead, clone it in that folder and adopt the stack again with that repository as its source.\n⚠ old-worker-1 has the restart policy 'no': after the NAS restarts nothing starts it again, and without a unit of Noust's nothing else does. Noust does not change your compose file; add restart: unless-stopped to the service.\n✓ old is the application oldapp.\n",
+            "a stack started by the machine's own Compose, brought by the central's": " the stack again with that repository as its source.\n⚠ older-worker-1 has the restart policy 'no': after the NAS restarts nothing starts it again, and without a unit of Noust's nothing else does. Noust does not change your compose file; add restart: unless-stopped to the service.\ni Nothing is recreated, restarted or changed, and its compose file is not rewritten.\n[1/2] Registering the stack as it runs...\n[2/2] Recording its file and project: Docker keeps it running...\n✓ Adopted olderapp: /volume1/docker/stacks/older, project older, site (none), commit unknown\n⚠ /volume1/docker/stacks/older has no repository, so Noust fetches no code for it. Adopting changes nothing that runs now. The first update downloads the images the compose file names and recreates only the containers whose image or settings changed. To follow a repository instead, clone it in that folder and adopt the stack again with that repository as its source.\n⚠ older-worker-1 has the restart policy 'no': after the NAS restarts nothing starts it again, and without a unit of Noust's nothing else does. Noust does not change your compose file; add restart: unless-stopped to the service.\n✓ older is the application olderapp.\n",
             "a stack in a folder the central does not see": "✗ The folder of outside is not on this server: /srv/outside\ni Noust registers a stack where it already runs, and this one runs from a folder this server does not have (a tool that keeps its stacks in its own volume, or Noust in a container that does not see the host's folders). Bring it up from a folder on this server, then bring it here.\n",
             "a compose file the central cannot read": "✗ The central cannot read /volume1/docker/stacks/locked: it runs as user 10001\ni Give the central's user (10001:10001) read access to /volume1/docker/stacks/locked: a group it is in, an ACL for it, or the owner. The central only reads it, so that Compose can read the project; it never writes to a stack it adopts.\n"
           }
         },
         "12 client_negotiates": {
           "status": "pass",
-          "seconds": 24.2,
+          "seconds": 22.9,
           "reason": "",
           "passed": [
             "the central starts and answers",
@@ -1386,7 +1386,7 @@
         },
         "13 precheck": {
           "status": "pass",
-          "seconds": 19.2,
+          "seconds": 13.9,
           "reason": "",
           "passed": [
             "the check answers JSON",
@@ -1613,7 +1613,7 @@
         },
         "14 recipe": {
           "status": "pass",
-          "seconds": 48.6,
+          "seconds": 40.7,
           "reason": "",
           "passed": [
             "the central starts",
@@ -1636,14 +1636,14 @@
           "failed": [],
           "skipped": [],
           "notes": {
-            "noust recipe install whoami": "─────────────────────────────────────────────────────────────────────────────────────────\n\n  Domain: whoami.nas.test\n  Recipe: whoami\n  Type: docker-compose\n  SSL: No\n\n  Source: /volume1/docker/noust/state/recipe-sources/whoami-nas-test\n[1/9] Fetching source code...\n[2/9] Discovering compose file...\n[3/9] Parsing compose services...\n[4/9] Configuring environment...\n[5/9] Building Docker images...\n[6/9] Skipping Nginx (no web server on this machine)...\n[7/9] Skipping SSL (no web server on this machine)...\n[8/9] Creating the service...\n[9/9] Starting and verifying...\n✓ Docker Compose application deployed: whoami.nas.test\n\n  Domain: whoami.nas.test\n  Path: /volume1/docker/noust/apps/whoami-nas-test\n  Compose File: docker-compose.yml\n  Services: 1\n  SSL: No\n\ni Next steps:\ni   Open http://whoami.nas.test. It shows the request it got: the headers a proxy adds, the client address and the host.\n",
-            "noust update with the registry unreachable": "ing the recorded source again...\n[3/5] Detecting application type...\n[4/5] Rebuilding...\n⚠ Could not download the images ahead of the start: Error response from daemon: Get \"https://registry-1.docker.io/v2/\": dial tcp 127.0.0.1:443: connect: connection refused. Compose will try again when the stack starts.\n⚠ The update of whoami.nas.test did not pass its health check\n✗ The update of whoami.nas.test did not pass its health check; nothing was running before it, so nothing was put back\ni whoami-nas-test publishes no port, so there is nothing to ask over HTTP\n\nLast lines of the journal of whoami-nas-test:\nwhoami-1  | 2026/11/18 01:35:11 Starting up on port 80\nwhoami-1  | 2026/11/18 01:35:22 Starting up on port 80\n\nLast lines of the containers' output (docker compose logs --tail 40):\nwhoami-1  | 2026/11/18 01:35:11 Starting up on port 80\nwhoami-1  | 2026/11/18 01:35:22 Starting up on port 80\n",
-            "noust rollback": "whoami-nas-test_20261118_013525\ni   Created: just now\ni   Description: Pre-update automatic backup\n[1/2] Restoring from backup...\ni Creating a safety backup of the current state\ni Rolling back to: whoami-nas-test_20261118_013525\ni   Created: just now\ni whoami.nas.test is a Docker Compose app: ownership was kept as extracted, not handed to the service account, so its volumes and bind mounts keep the uids their containers expect\ni Rebuilding application...\n✗ Rollback failed: The docker-compose deployer cannot rebuild in place\n  Details: The files are restored but not rebuilt; nothing restarted.\n"
+            "noust recipe install whoami": "──────────────────────────────────────────────────────────────────────────────────────\n\n  Domain: whoami.nas.test\n  Recipe: whoami\n  Type: docker-compose\n  SSL: No\n\n  Source: /volume1/docker/noust/state/recipe-sources/whoami-nas-test\n[1/9] Fetching source code...\n[2/9] Discovering compose file...\n[3/9] Parsing compose services...\n[4/9] Configuring environment...\n[5/9] Building Docker images...\n[6/9] Skipping Nginx (no web server on this machine)...\n[7/9] Skipping SSL (no web server on this machine)...\n[8/9] Creating the service...\n[9/9] Starting and verifying...\n✓ Docker Compose application deployed: whoami.nas.test\n\n  Domain: whoami.nas.test\n  Path: /volume1/docker/noust/apps/whoami-nas-test\n  Compose File: docker-compose.yml\n  Services: 1\n  SSL: No\n\ni Next steps:\ni   Open http://e516b72cbc7d:18701. It shows the request it got: the headers a proxy adds, the client address and the host.\n",
+            "noust update with the registry unreachable": "ing the recorded source again...\n[3/5] Detecting application type...\n[4/5] Rebuilding...\n⚠ Could not download the images ahead of the start: Error response from daemon: Get \"https://registry-1.docker.io/v2/\": dial tcp 127.0.0.1:443: connect: connection refused. Compose will try again when the stack starts.\n⚠ The update of whoami.nas.test did not pass its health check\n✗ The update of whoami.nas.test did not pass its health check; nothing was running before it, so nothing was put back\ni whoami-nas-test publishes no port, so there is nothing to ask over HTTP\n\nLast lines of the journal of whoami-nas-test:\nwhoami-1  | 2026/11/21 12:17:31 Starting up on port 80\nwhoami-1  | 2026/11/21 12:17:42 Starting up on port 80\n\nLast lines of the containers' output (docker compose logs --tail 40):\nwhoami-1  | 2026/11/21 12:17:31 Starting up on port 80\nwhoami-1  | 2026/11/21 12:17:42 Starting up on port 80\n",
+            "noust rollback": "whoami-nas-test_20261121_121743\ni   Created: just now\ni   Description: Pre-update automatic backup\n[1/2] Restoring from backup...\ni Creating a safety backup of the current state\ni Rolling back to: whoami-nas-test_20261121_121743\ni   Created: just now\ni whoami.nas.test is a Docker Compose app: ownership was kept as extracted, not handed to the service account, so its volumes and bind mounts keep the uids their containers expect\ni Rebuilding application...\n✗ Rollback failed: The docker-compose deployer cannot rebuild in place\n  Details: The files are restored but not rebuilt; nothing restarted.\n"
           }
         },
         "15 reach": {
           "status": "pass",
-          "seconds": 57.3,
+          "seconds": 41.6,
           "reason": "",
           "passed": [
             "the central starts",
@@ -1702,46 +1702,46 @@
             "own id by default": {
               "cgroupns": "private",
               "ids": {
-                "reach": "f007315814f17d1b5bb5eb1bdee2e9f968bb24492c0fdb4bb90230eeda0e8a9a",
+                "reach": "cdf8b9a097f43c207e45cdebcce95916819146594d3c8b4d8dd26c076c3f96bc",
                 "owners": [
-                  "f007315814f1",
-                  "f007315814f17d1b5bb5eb1bdee2e9f968bb24492c0fdb4bb90230eeda0e8a9a"
+                  "cdf8b9a097f4",
+                  "cdf8b9a097f43c207e45cdebcce95916819146594d3c8b4d8dd26c076c3f96bc"
                 ]
               }
             },
-            "mountinfo lines of the container's own files by default": "1900 1890 8:64 /data/docker/volumes/noust-test-cierre-e20-lib/_data/containers/f007315814f17d1b5bb5eb1bdee2e9f968bb24492c0fdb4bb90230eeda0e8a9a/resolv.conf /etc/resolv.conf ro,relatime - ext4 /dev/sde rw\n1901 1890 8:64 /data/docker/volumes/noust-test-cierre-e20-lib/_data/containers/f007315814f17d1b5bb5eb1bdee2e9f968bb24492c0fdb4bb90230eeda0e8a9a/hostname /etc/hostname ro,relatime - ext4 /dev/sde rw\n1902 1890 8:64 /data/docker/volumes/noust-test-cierre-e20-lib/_data/containers/f007315814f17d1b5bb5eb1bdee2e9f968bb24492c0fdb4bb90230eeda0e8a9a/hosts /etc/hosts ro,relatime - ext4 /dev/sde rw\n",
+            "mountinfo lines of the container's own files by default": "1562 1552 8:64 /data/docker/volumes/noust-test-cierre-e20-lib/_data/containers/cdf8b9a097f43c207e45cdebcce95916819146594d3c8b4d8dd26c076c3f96bc/resolv.conf /etc/resolv.conf ro,relatime - ext4 /dev/sde rw\n1563 1552 8:64 /data/docker/volumes/noust-test-cierre-e20-lib/_data/containers/cdf8b9a097f43c207e45cdebcce95916819146594d3c8b4d8dd26c076c3f96bc/hostname /etc/hostname ro,relatime - ext4 /dev/sde rw\n1564 1552 8:64 /data/docker/volumes/noust-test-cierre-e20-lib/_data/containers/cdf8b9a097f43c207e45cdebcce95916819146594d3c8b4d8dd26c076c3f96bc/hosts /etc/hosts ro,relatime - ext4 /dev/sde rw\n",
             "own id with a private cgroup namespace": {
               "cgroupns": "private",
               "ids": {
-                "reach": "b609529e7d2c16424a0b81aac0f7213d83625f6adc8472cb696fb55e76ec2c82",
+                "reach": "a954514c1d293475872ff3af209810156a526f8011ccac126b667082b4420ee3",
                 "owners": [
-                  "b609529e7d2c",
-                  "b609529e7d2c16424a0b81aac0f7213d83625f6adc8472cb696fb55e76ec2c82"
+                  "a954514c1d29",
+                  "a954514c1d293475872ff3af209810156a526f8011ccac126b667082b4420ee3"
                 ]
               }
             },
-            "mountinfo lines of the container's own files with a private cgroup namespace": "1900 1890 8:64 /data/docker/volumes/noust-test-cierre-e20-lib/_data/containers/b609529e7d2c16424a0b81aac0f7213d83625f6adc8472cb696fb55e76ec2c82/resolv.conf /etc/resolv.conf ro,relatime - ext4 /dev/sde rw\n1901 1890 8:64 /data/docker/volumes/noust-test-cierre-e20-lib/_data/containers/b609529e7d2c16424a0b81aac0f7213d83625f6adc8472cb696fb55e76ec2c82/hostname /etc/hostname ro,relatime - ext4 /dev/sde rw\n1902 1890 8:64 /data/docker/volumes/noust-test-cierre-e20-lib/_data/containers/b609529e7d2c16424a0b81aac0f7213d83625f6adc8472cb696fb55e76ec2c82/hosts /etc/hosts ro,relatime - ext4 /dev/sde rw\n",
+            "mountinfo lines of the container's own files with a private cgroup namespace": "1562 1552 8:64 /data/docker/volumes/noust-test-cierre-e20-lib/_data/containers/a954514c1d293475872ff3af209810156a526f8011ccac126b667082b4420ee3/resolv.conf /etc/resolv.conf ro,relatime - ext4 /dev/sde rw\n1563 1552 8:64 /data/docker/volumes/noust-test-cierre-e20-lib/_data/containers/a954514c1d293475872ff3af209810156a526f8011ccac126b667082b4420ee3/hostname /etc/hostname ro,relatime - ext4 /dev/sde rw\n1564 1552 8:64 /data/docker/volumes/noust-test-cierre-e20-lib/_data/containers/a954514c1d293475872ff3af209810156a526f8011ccac126b667082b4420ee3/hosts /etc/hosts ro,relatime - ext4 /dev/sde rw\n",
             "own id with the host's cgroup namespace": {
               "cgroupns": "host",
               "ids": {
-                "reach": "fa21465ba0c653062d2c986de02083bbeec3a3a34c6002bc8f6fa3c5be9e8a62",
+                "reach": "89bd0ce4ddacc2551e42a8a08e2a02733b0c06647ea37c9270ced97dfba6ecb1",
                 "owners": [
-                  "fa21465ba0c6",
-                  "fa21465ba0c653062d2c986de02083bbeec3a3a34c6002bc8f6fa3c5be9e8a62"
+                  "89bd0ce4ddac",
+                  "89bd0ce4ddacc2551e42a8a08e2a02733b0c06647ea37c9270ced97dfba6ecb1"
                 ]
               }
             },
-            "mountinfo lines of the container's own files with the host's cgroup namespace": "1900 1890 8:64 /data/docker/volumes/noust-test-cierre-e20-lib/_data/containers/fa21465ba0c653062d2c986de02083bbeec3a3a34c6002bc8f6fa3c5be9e8a62/resolv.conf /etc/resolv.conf ro,relatime - ext4 /dev/sde rw\n1901 1890 8:64 /data/docker/volumes/noust-test-cierre-e20-lib/_data/containers/fa21465ba0c653062d2c986de02083bbeec3a3a34c6002bc8f6fa3c5be9e8a62/hostname /etc/hostname ro,relatime - ext4 /dev/sde rw\n1902 1890 8:64 /data/docker/volumes/noust-test-cierre-e20-lib/_data/containers/fa21465ba0c653062d2c986de02083bbeec3a3a34c6002bc8f6fa3c5be9e8a62/hosts /etc/hosts ro,relatime - ext4 /dev/sde rw\n",
+            "mountinfo lines of the container's own files with the host's cgroup namespace": "1562 1552 8:64 /data/docker/volumes/noust-test-cierre-e20-lib/_data/containers/89bd0ce4ddacc2551e42a8a08e2a02733b0c06647ea37c9270ced97dfba6ecb1/resolv.conf /etc/resolv.conf ro,relatime - ext4 /dev/sde rw\n1563 1552 8:64 /data/docker/volumes/noust-test-cierre-e20-lib/_data/containers/89bd0ce4ddacc2551e42a8a08e2a02733b0c06647ea37c9270ced97dfba6ecb1/hostname /etc/hostname ro,relatime - ext4 /dev/sde rw\n1564 1552 8:64 /data/docker/volumes/noust-test-cierre-e20-lib/_data/containers/89bd0ce4ddacc2551e42a8a08e2a02733b0c06647ea37c9270ced97dfba6ecb1/hosts /etc/hosts ro,relatime - ext4 /dev/sde rw\n",
             "own id with a host name of its own": {
               "cgroupns": "private",
               "ids": {
-                "reach": "7e6a0c73bf2cec4d49171b222679b08b3c50168fce481d00b2700bcda035c058",
+                "reach": "c498748d4876a933c2b290563f92d2fbaf575d54f5cf6c1eb525efa0557cfe0d",
                 "owners": [
-                  "7e6a0c73bf2cec4d49171b222679b08b3c50168fce481d00b2700bcda035c058"
+                  "c498748d4876a933c2b290563f92d2fbaf575d54f5cf6c1eb525efa0557cfe0d"
                 ]
               }
             },
-            "mountinfo lines of the container's own files with a host name of its own": "1900 1890 8:64 /data/docker/volumes/noust-test-cierre-e20-lib/_data/containers/7e6a0c73bf2cec4d49171b222679b08b3c50168fce481d00b2700bcda035c058/resolv.conf /etc/resolv.conf ro,relatime - ext4 /dev/sde rw\n1901 1890 8:64 /data/docker/volumes/noust-test-cierre-e20-lib/_data/containers/7e6a0c73bf2cec4d49171b222679b08b3c50168fce481d00b2700bcda035c058/hostname /etc/hostname ro,relatime - ext4 /dev/sde rw\n1902 1890 8:64 /data/docker/volumes/noust-test-cierre-e20-lib/_data/containers/7e6a0c73bf2cec4d49171b222679b08b3c50168fce481d00b2700bcda035c058/hosts /etc/hosts ro,relatime - ext4 /dev/sde rw\n",
+            "mountinfo lines of the container's own files with a host name of its own": "1562 1552 8:64 /data/docker/volumes/noust-test-cierre-e20-lib/_data/containers/c498748d4876a933c2b290563f92d2fbaf575d54f5cf6c1eb525efa0557cfe0d/resolv.conf /etc/resolv.conf ro,relatime - ext4 /dev/sde rw\n1563 1552 8:64 /data/docker/volumes/noust-test-cierre-e20-lib/_data/containers/c498748d4876a933c2b290563f92d2fbaf575d54f5cf6c1eb525efa0557cfe0d/hostname /etc/hostname ro,relatime - ext4 /dev/sde rw\n1564 1552 8:64 /data/docker/volumes/noust-test-cierre-e20-lib/_data/containers/c498748d4876a933c2b290563f92d2fbaf575d54f5cf6c1eb525efa0557cfe0d/hosts /etc/hosts ro,relatime - ext4 /dev/sde rw\n",
             "noust create from a central on the host's network": "vering compose file...\n[3/9] Parsing compose services...\n[4/9] Configuring environment...\n[5/9] Building Docker images...\n[6/9] Skipping Nginx (no web server on this machine)...\n[7/9] Skipping SSL (no web server on this machine)...\n[8/9] Creating the service...\n[9/9] Starting and verifying...\n✓ Docker Compose application deployed: reachhost.nas.test\n\n  Domain: reachhost.nas.test\n  Path: /volume1/docker/noust-host/apps/reachhost-nas-test\n  Compose File: compose.noust.yaml\n  Services: 1\n  SSL: No\n",
             "a service on the host's network, from a central that is not": {
               "exit": 0,
@@ -1751,7 +1751,7 @@
         },
         "16 busy_port": {
           "status": "pass",
-          "seconds": 32.7,
+          "seconds": 21.4,
           "reason": "",
           "passed": [
             "the central starts",
@@ -1766,14 +1766,14 @@
           "failed": [],
           "skipped": [],
           "notes": {
-            "Docker's own words for a port held by a process of the machine": "docker: Error response from daemon: driver failed programming external connectivity on endpoint intelligent_satoshi (d97b50509aede81b5bb14ec187166d44c4e6c5f4708e11716529aca81ffcd9cd): Error starting userland proxy: listen tcp4 0.0.0.0:18301: bind: address already in use.",
-            "Docker's own words for a port held by another container": "docker: Error response from daemon: driver failed programming external connectivity on endpoint elastic_kapitsa (dfbc762481bc2028ebaeb98514d9ae7ae5462177d3f792ef4004c468bdcc6585): Bind for 0.0.0.0:18302 failed: port is already allocated.",
+            "Docker's own words for a port held by a process of the machine": "docker: Error response from daemon: driver failed programming external connectivity on endpoint nervous_albattani (0e0a12e7f8d857da62d05abc667e4d6f51d8df680b493d4ba3c1ebc8c25685b8): Error starting userland proxy: listen tcp4 0.0.0.0:18301: bind: address already in use.",
+            "Docker's own words for a port held by another container": "docker: Error response from daemon: driver failed programming external connectivity on endpoint reverent_mirzakhani (12fb8e6400a1e143329772b63dc47e1873d32fa5f5300695e00092e9d66dd279): Bind for 0.0.0.0:18302 failed: port is already allocated.",
             "a port left to Noust": "/9] Skipping SSL (no web server on this machine)...\n[8/9] Creating the service...\n[9/9] Starting and verifying...\n✓ Docker Compose application deployed: free.nas.test\n\n  Domain: free.nas.test\n  Path: /volume1/docker/noust/apps/free-nas-test\n  Compose File: compose.noust.yaml\n  Services: 1\n  SSL: No\n"
           }
         },
         "18 how_it_runs": {
           "status": "pass",
-          "seconds": 23.7,
+          "seconds": 17.6,
           "reason": "",
           "passed": [
             "the central starts",
@@ -1793,7 +1793,7 @@
         },
         "17 volume_copy": {
           "status": "pass",
-          "seconds": 612.8,
+          "seconds": 620.7,
           "reason": "",
           "passed": [
             "the central starts",
@@ -1812,14 +1812,14 @@
           "skipped": [],
           "notes": {
             "noust backup volumes targets": "[\n  {\n    \"declared_by\": \"Compose volume\",\n    \"exists\": true,\n    \"key\": \"volume:copy_data\",\n    \"kind\": \"docker\",\n    \"path\": null,\n    \"slug\": \"vol-copy_data\",\n    \"source\": \"copy_data\"\n  }\n]\n",
-            "noust backup volumes schedule set": "live\",\n  \"created_at\": \"2026-11-18T01:37:32+00:00\",\n  \"destinations\": [],\n  \"domain\": \"copyapp\",\n  \"enabled\": true,\n  \"extra_paths\": [],\n  \"last_backup\": null,\n  \"last_error\": null,\n  \"last_run_at\": null,\n  \"last_status\": null,\n  \"last_success_at\": null,\n  \"remote_only\": false,\n  \"retention_count\": 5,\n  \"retention_days\": 30,\n  \"retention_gb\": null,\n  \"schedule\": \"*-*-* *:*:00\",\n  \"targets\": [],\n  \"timer\": {\n    \"installed\": true,\n    \"last_run\": null,\n    \"max_runtime_seconds\": null,\n    \"next_run\": \"2026-11-18 01:38:00\",\n    \"timezone\": null\n  },\n  \"updated_at\": \"2026-11-18T01:37:32+00:00\"\n}\n",
+            "noust backup volumes schedule set": "live\",\n  \"created_at\": \"2026-11-21T12:19:15+00:00\",\n  \"destinations\": [],\n  \"domain\": \"copyapp\",\n  \"enabled\": true,\n  \"extra_paths\": [],\n  \"last_backup\": null,\n  \"last_error\": null,\n  \"last_run_at\": null,\n  \"last_status\": null,\n  \"last_success_at\": null,\n  \"remote_only\": false,\n  \"retention_count\": 5,\n  \"retention_days\": 30,\n  \"retention_gb\": null,\n  \"schedule\": \"*-*-* *:*:00\",\n  \"targets\": [],\n  \"timer\": {\n    \"installed\": true,\n    \"last_run\": null,\n    \"max_runtime_seconds\": null,\n    \"next_run\": \"2026-11-21 12:20:00\",\n    \"timezone\": null\n  },\n  \"updated_at\": \"2026-11-21T12:19:15+00:00\"\n}\n",
             "noust central schedule status": [
               {
                 "key": "volume_backup:copyapp",
                 "kind": "volume_backup",
                 "subject": "copyapp",
                 "calendar": "*-*-* *:*:00",
-                "next_run": "2026-11-18 01:38:00",
+                "next_run": "2026-11-21 12:20:00",
                 "last_run": null,
                 "last_status": null,
                 "last_detail": "",
@@ -1827,15 +1827,15 @@
                 "problem": null
               }
             ],
-            "noust backup volumes list": "\": \"docker\",\n    \"last_verified_at\": \"2026-11-18T01:38:27+00:00\",\n    \"mac\": \"842cf68ac5258497d4e1a7e3e9b3c8e38bdc473df6b88cb439ad517be71f593c\",\n    \"mac_key_id\": \"6df9fe056db7cf7e\",\n    \"origin\": \"d7fa29e4d3b9c4ca\",\n    \"owner\": null,\n    \"remote_copies\": [],\n    \"size_bytes\": 139,\n    \"skipped\": [],\n    \"slug\": \"vol-copy_data\",\n    \"source\": \"copy_data\",\n    \"sqlite_files\": [],\n    \"tags\": [\n      \"scheduled\",\n      \"auto\"\n    ],\n    \"target\": \"volume:copy_data\",\n    \"verified_ok\": true\n  }\n]\n",
+            "noust backup volumes list": "\": \"docker\",\n    \"last_verified_at\": \"2026-11-21T12:20:11+00:00\",\n    \"mac\": \"f36e98b48c23e8d59cb9a23f202e311924c4a639a739200a1a2ff5b7d0a40bbe\",\n    \"mac_key_id\": \"83e6185fefd17e01\",\n    \"origin\": \"949ad58aa7181427\",\n    \"owner\": null,\n    \"remote_copies\": [],\n    \"size_bytes\": 136,\n    \"skipped\": [],\n    \"slug\": \"vol-copy_data\",\n    \"source\": \"copy_data\",\n    \"sqlite_files\": [],\n    \"tags\": [\n      \"scheduled\",\n      \"auto\"\n    ],\n    \"target\": \"volume:copy_data\",\n    \"verified_ok\": true\n  }\n]\n",
             "what the central says after it was off": [
-              "i The volume backup schedule of copyapp missed 2 runs while the central was not running, the last at 2026-11-18 01:41: it runs now, once"
+              "i The volume backup schedule of copyapp missed 2 runs while the central was not running, the last at 2026-11-21 12:23: it runs now, once"
             ]
           }
         },
         "01 doctor [no Compose]": {
           "status": "pass",
-          "seconds": 1.2,
+          "seconds": 1.0,
           "reason": "",
           "passed": [
             "Docker is found and answers",
@@ -1859,7 +1859,7 @@
           }
         }
       },
-      "seconds": 1340
+      "seconds": 1227
     },
     "e29": {
       "server": "29.10.0",
@@ -1871,7 +1871,7 @@
       "scenarios": {
         "01 doctor": {
           "status": "pass",
-          "seconds": 0.9,
+          "seconds": 1.1,
           "reason": "",
           "passed": [
             "Docker is found and answers",
@@ -1979,7 +1979,7 @@
         },
         "02 reading": {
           "status": "pass",
-          "seconds": 5.8,
+          "seconds": 5.7,
           "reason": "",
           "passed": [
             "the containers of the stack are listed with their service",
@@ -2016,19 +2016,19 @@
           "failed": [],
           "skipped": [],
           "notes": {
-            "a line of docker ps": "{\"id\":\"0d4d5b4aa24a80d0c96735257c54f89d59beb8f401b93773686d5ecd939e5628\",\"name\":\"w3rd-reading-oneoff\",\"image\":\"localhost:5000/w3rd/busybox:1.36\",\"state\":\"running\",\"status\":\"Up Less than a second\",\"created\":\"2026-11-18 02:10:26 +0000 UTC\",\"ports\":\"\",\"mounts\":\"\",\"networks\":\"plain_default,plain_inner\",\"project\":\"plain\",\"service\":\"worker\",\"working_dir\":\"/srv/w3rd/reading/plain\",\"config_files\":\"/srv/w3rd/reading/plain/compose.yaml\",\"oneoff\":\"True\",\"instance\":\"\",\"helper\":\"\"}",
+            "a line of docker ps": "{\"id\":\"147c1912ae2aae300bb4be5e91447dcae453b92496a878bdbaeeafef252483a7\",\"name\":\"w3rd-reading-oneoff\",\"image\":\"localhost:5000/w3rd/busybox:1.36\",\"state\":\"running\",\"status\":\"Up Less than a second\",\"created\":\"2026-11-21 12:52:17 +0000 UTC\",\"ports\":\"\",\"mounts\":\"\",\"networks\":\"plain_inner,plain_default\",\"project\":\"plain\",\"service\":\"worker\",\"working_dir\":\"/srv/w3rd/reading/plain\",\"config_files\":\"/srv/w3rd/reading/plain/compose.yaml\",\"oneoff\":\"True\",\"instance\":\"\",\"helper\":\"\"}",
             "the mounts column of a container that binds a folder": [
               "/srv/w3rd/reading/plain/conf",
               "plain_data"
             ],
-            "a line of docker image ls": "{\"Containers\":\"0\",\"CreatedAt\":\"2026-11-18 01:25:21 +0000 UTC\",\"CreatedSince\":\"45 minutes ago\",\"Digest\":\"\\u003cnone\\u003e\",\"ID\":\"sha256:d409a6c16af3150c940d16abcd54ec66ac6761b4c2ca58e64fb3152245342a26\",\"Repository\":\"noust-test-cierre-central\",\"SharedSize\":\"N/A\",\"Size\":\"756MB\",\"Tag\":\"latest\",\"UniqueSize\":\"N/A\"}",
-            "docker system df (json)": "{\"Active\":\"2\",\"Reclaimable\":\"756.2MB (94%)\",\"Size\":\"800.4MB\",\"TotalCount\":\"3\",\"Type\":\"Images\"}\n{\"Active\":\"5\",\"Reclaimable\":\"0B (0%)\",\"Size\":\"53.25kB\",\"TotalCount\":\"5\",\"Type\":\"Containers\"}\n{\"Active\":\"2\",\"Reclaimable\":\"0B (0%)\",\"Size\":\"17.35MB\",\"TotalCount\":\"2\",\"Type\":\"Local Volumes\"}\n{\"Active\":\"0\",\"Reclaimable\":\"288kB\",\"Size\":\"7.045MB\",\"TotalCount\":\"27\",\"Type\":\"Build Cache\"}\n",
-            "docker system df -v (json)": "{\"Images\":[{\"Containers\":\"0\",\"CreatedAt\":\"2026-11-18 01:25:21 +0000 UTC\",\"CreatedSince\":\"45 minutes ago\",\"Digest\":\"\",\"ID\":\"sha256:d409a6c16af3150c940d16abcd54ec66ac6761b4c2ca58e64fb3152245342a26\",\"Repository\":\"noust-test-cierre-central\",\"SharedSize\":\"0B\",\"Size\":\"756MB\",\"Tag\":\"latest\",\"UniqueSize\":\"756.2MB\"},{\"Containers\":\"1\",\"CreatedAt\":\"2023-10-02 18:42:41 +0000 UTC\",\"CreatedSince\":\"3 years ago\",\"Digest\":\"\",\"ID\":\"sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373\",\"Repository\":\"registry\",\"SharedSize\":\"0B\",\"Size\":\"37.4MB\",\"Tag\":\"2\",\"UniqueSize\":\"37.41MB\"},{\"Containers\":\"4\",\"CreatedAt\":\"2023-05-18 22:34:17 +0000 UTC\",\"CreatedSince\":\"3 years ago\",\"Digest\":\"\",\"ID\":\"sha256:7"
+            "a line of docker image ls": "{\"Containers\":\"0\",\"CreatedAt\":\"2026-11-21 12:08:29 +0000 UTC\",\"CreatedSince\":\"43 minutes ago\",\"Digest\":\"\\u003cnone\\u003e\",\"ID\":\"sha256:1217cb17a2ea6cf1a3e32c797e8de342a87593c67c157759b11e549737ac2b21\",\"Repository\":\"noust-test-cierre-central\",\"SharedSize\":\"N/A\",\"Size\":\"804MB\",\"Tag\":\"latest\",\"UniqueSize\":\"N/A\"}",
+            "docker system df (json)": "{\"Active\":\"2\",\"Reclaimable\":\"804.3MB (94%)\",\"Size\":\"848.5MB\",\"TotalCount\":\"3\",\"Type\":\"Images\"}\n{\"Active\":\"5\",\"Reclaimable\":\"0B (0%)\",\"Size\":\"53.25kB\",\"TotalCount\":\"5\",\"Type\":\"Containers\"}\n{\"Active\":\"2\",\"Reclaimable\":\"0B (0%)\",\"Size\":\"17.35MB\",\"TotalCount\":\"2\",\"Type\":\"Local Volumes\"}\n{\"Active\":\"0\",\"Reclaimable\":\"288kB\",\"Size\":\"7.045MB\",\"TotalCount\":\"27\",\"Type\":\"Build Cache\"}\n",
+            "docker system df -v (json)": "{\"Images\":[{\"Containers\":\"0\",\"CreatedAt\":\"2026-11-21 12:08:29 +0000 UTC\",\"CreatedSince\":\"43 minutes ago\",\"Digest\":\"\",\"ID\":\"sha256:1217cb17a2ea6cf1a3e32c797e8de342a87593c67c157759b11e549737ac2b21\",\"Repository\":\"noust-test-cierre-central\",\"SharedSize\":\"0B\",\"Size\":\"804MB\",\"Tag\":\"latest\",\"UniqueSize\":\"804.3MB\"},{\"Containers\":\"1\",\"CreatedAt\":\"2023-10-02 18:42:41 +0000 UTC\",\"CreatedSince\":\"3 years ago\",\"Digest\":\"\",\"ID\":\"sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373\",\"Repository\":\"registry\",\"SharedSize\":\"0B\",\"Size\":\"37.4MB\",\"Tag\":\"2\",\"UniqueSize\":\"37.41MB\"},{\"Containers\":\"4\",\"CreatedAt\":\"2023-05-18 22:34:17 +0000 UTC\",\"CreatedSince\":\"3 years ago\",\"Digest\":\"\",\"ID\":\"sha256:7"
           }
         },
         "03 owners": {
           "status": "pass",
-          "seconds": 9.6,
+          "seconds": 9.7,
           "reason": "",
           "passed": [
             "the container of a container application is that application's",
@@ -2055,7 +2055,7 @@
         },
         "04 container_inside": {
           "status": "pass",
-          "seconds": 30.1,
+          "seconds": 30.2,
           "reason": "",
           "passed": [
             "a container that failed is an error with its exit code",
@@ -2099,16 +2099,16 @@
               "start": 4
             },
             "the first events of a policy restart, as Noust asks for them": [
-              "{\"Type\":\"container\",\"Action\":\"start\",\"Actor\":{\"ID\":\"e2e143a5683bd43ec15585523483df7321f5af4c1c99a65e5b4fee9d0b50e494\",\"Attributes\":{\"image\":\"localhost:5000/w3rd/busybox:1.36\",\"name\":\"w3rd-ci-loop\",\"noust.test\":\"1\",\"w3rd.scenario\":\"container_inside\"}},\"scope\":\"local\",\"time\":1794967842,\"timeNano\":1794967842889073009}",
-              "{\"Type\":\"container\",\"Action\":\"die\",\"Actor\":{\"ID\":\"e2e143a5683bd43ec15585523483df7321f5af4c1c99a65e5b4fee9d0b50e494\",\"Attributes\":{\"execDuration\":\"0\",\"exitCode\":\"1\",\"image\":\"localhost:5000/w3rd/busybox:1.36\",\"name\":\"w3rd-ci-loop\",\"noust.test\":\"1\",\"restarting\":\"true\",\"w3rd.scenario\":\"container_inside\"}},\"scope\":\"local\",\"time\":1794967843,\"timeNano\":1794967843107474285}",
-              "{\"Type\":\"container\",\"Action\":\"start\",\"Actor\":{\"ID\":\"e2e143a5683bd43ec15585523483df7321f5af4c1c99a65e5b4fee9d0b50e494\",\"Attributes\":{\"image\":\"localhost:5000/w3rd/busybox:1.36\",\"name\":\"w3rd-ci-loop\",\"noust.test\":\"1\",\"w3rd.scenario\":\"container_inside\"}},\"scope\":\"local\",\"time\":1794967843,\"timeNano\":1794967843333352023}"
+              "{\"Type\":\"container\",\"Action\":\"start\",\"Actor\":{\"ID\":\"e670cb1691e4ef85c6f987cdf0eaee8113e7cc0baf2bcae8e288893ef7590320\",\"Attributes\":{\"image\":\"localhost:5000/w3rd/busybox:1.36\",\"name\":\"w3rd-ci-loop\",\"noust.test\":\"1\",\"w3rd.scenario\":\"container_inside\"}},\"scope\":\"local\",\"time\":1795265553,\"timeNano\":1795265553977940279}",
+              "{\"Type\":\"container\",\"Action\":\"die\",\"Actor\":{\"ID\":\"e670cb1691e4ef85c6f987cdf0eaee8113e7cc0baf2bcae8e288893ef7590320\",\"Attributes\":{\"execDuration\":\"0\",\"exitCode\":\"1\",\"image\":\"localhost:5000/w3rd/busybox:1.36\",\"name\":\"w3rd-ci-loop\",\"noust.test\":\"1\",\"restarting\":\"true\",\"w3rd.scenario\":\"container_inside\"}},\"scope\":\"local\",\"time\":1795265554,\"timeNano\":1795265554261156800}",
+              "{\"Type\":\"container\",\"Action\":\"start\",\"Actor\":{\"ID\":\"e670cb1691e4ef85c6f987cdf0eaee8113e7cc0baf2bcae8e288893ef7590320\",\"Attributes\":{\"image\":\"localhost:5000/w3rd/busybox:1.36\",\"name\":\"w3rd-ci-loop\",\"noust.test\":\"1\",\"w3rd.scenario\":\"container_inside\"}},\"scope\":\"local\",\"time\":1795265554,\"timeNano\":1795265554478587189}"
             ],
-            "docker stats of a container": "{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"0.01%\",\"Container\":\"w3rd-ci-run\",\"ID\":\"c7aab16f10e9\",\"MemPerc\":\"0.69%\",\"MemUsage\":\"452KiB / 64MiB\",\"Name\":\"w3rd-ci-run\",\"NetIO\":\"1.37kB / 126B\",\"PIDs\":\"1\"}"
+            "docker stats of a container": "{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"0.01%\",\"Container\":\"w3rd-ci-run\",\"ID\":\"179785dee76e\",\"MemPerc\":\"0.70%\",\"MemUsage\":\"456KiB / 64MiB\",\"Name\":\"w3rd-ci-run\",\"NetIO\":\"1.37kB / 126B\",\"PIDs\":\"1\"}"
           }
         },
         "05 cleanup": {
           "status": "pass",
-          "seconds": 74.9,
+          "seconds": 76.1,
           "reason": "",
           "passed": [
             "a stopped container nobody of Noust made is offered",
@@ -2179,7 +2179,7 @@
               ],
               [
                 "volume",
-                "5035b20591cbf40a71bce95791e3fac701e4ab7f2bbb8a2b1325f64aae06d4be"
+                "8731894b1c962f8ecf92c6294dd861809f9984980afd6b064a1594fb74ad6817"
               ],
               [
                 "volume",
@@ -2191,7 +2191,7 @@
         },
         "06 privileges": {
           "status": "pass",
-          "seconds": 19.0,
+          "seconds": 19.4,
           "reason": "",
           "passed": [
             "a stack that asks for nothing: let through",
@@ -2306,7 +2306,7 @@
             ],
             "remoteoci: refused as written": [
               "the compose file includes oci://127.0.0.1:1/part:1, which Compose would download from the network: nothing on this server checks where that goes",
-              "the compose file includes or extends another file and Docker Compose could not resolve the stack (exit code 1: time=\"2026-11-21T05:27:02Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.), so what it brings in cannot be judged"
+              "the compose file includes or extends another file and Docker Compose could not resolve the stack (exit code 1: time=\"2026-11-21T12:54:20Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.), so what it brings in cannot be judged"
             ],
             "provider: refused as written": [
               "service tool runs the program noust-w6a-provider-canary of this server when the stack starts, outside any container"
@@ -2381,11 +2381,11 @@
             },
             "remoteoci, resolved by this Compose (does it go to the network when it reads the file?)": {
               "exit": 1,
-              "stderr": "time=\"2026-11-21T05:27:05Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.0.1:1\" method=HEAD spanID=b9c51f0cf3e2247d traceID=23773d834d3c5b2b71992da3ffccf040 url=\"https://127"
+              "stderr": "time=\"2026-11-21T12:54:22Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.0.1:1\" method=HEAD spanID=fa1f1d6c199293ab traceID=c25f5647110c66d81ed99bea3c13f085 url=\"https://127"
             },
             "a provider, started by this Compose": {
               "exit": 0,
-              "stderr": " Image localhost:5000/w3rd/busybox:1.36 Pulling \n Image localhost:5000/w3rd/busybox:1.36 Pulled \n Network privprovider_default Creating \n tool Creating \n tool Created \n Network privprovider_default Created \n Container privprovider-web-1 Creating \n Container privprovider-web-1 Created \n Container pri",
+              "stderr": " Network privprovider_default Creating \n tool Creating \n tool Created \n Network privprovider_default Created \n Container privprovider-web-1 Creating \n Container privprovider-web-1 Created \n Container privprovider-web-1 Starting \n Container privprovider-web-1 Started \n",
               "the program ran": true
             },
             "env_file inside an included file, in the model of this Compose": {
@@ -2518,7 +2518,7 @@
             ],
             "remoteoci: refused as written": [
               "the compose file includes oci://127.0.0.1:1/part:1, which Compose would download from the network: nothing on this server checks where that goes",
-              "the compose file includes or extends another file and Docker Compose could not resolve the stack (exit code 1: time=\"2026-11-21T05:27:22Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.), so what it brings in cannot be judged"
+              "the compose file includes or extends another file and Docker Compose could not resolve the stack (exit code 1: time=\"2026-11-21T12:54:39Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.), so what it brings in cannot be judged"
             ],
             "provider: refused as written": [
               "service tool runs the program noust-w6a-provider-canary of this server when the stack starts, outside any container"
@@ -2593,7 +2593,7 @@
             },
             "remoteoci, resolved by this Compose (does it go to the network when it reads the file?)": {
               "exit": 1,
-              "stderr": "time=\"2026-11-21T05:27:24Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.0.1:1\" spanID=5f03b08d6e19bf22 traceID=33213a331fad247e13e8c5ea6330f62b\nfailed to pull OCI resource "
+              "stderr": "time=\"2026-11-21T12:54:42Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.0.1:1\" spanID=b8038b472ed4f666 traceID=463605ac52b5de1468932f8ad160ae05\nfailed to pull OCI resource "
             },
             "a provider, started by this Compose": {
               "exit": 0,
@@ -2615,7 +2615,7 @@
         },
         "07 versions": {
           "status": "pass",
-          "seconds": 4.0,
+          "seconds": 3.8,
           "reason": "",
           "passed": [
             "a reference to the local registry is read",
@@ -2639,14 +2639,14 @@
           "skipped": [],
           "notes": {
             "docker buildx version": "github.com/docker/buildx v0.39.0 360040a78d6113dc84e5d4dcdf0f438e1be7a41f",
-            "imagetools inspect, one platform": "Name:      localhost:5000/w3rd/small:1\nMediaType: application/vnd.oci.image.index.v1+json\nDigest:    sha256:6b375456b9d240df6bdfda6a93128ba6b0e5928c9a0c6e16b193eb0610d98509\n           \nManifests: \n  Name:        localhost:5000/w3rd/small:1@sha256:e97ca32c77858018880e0a96e282290d95c6ebac2126c128c84880a497551bb9\n  MediaType:   application/vnd.oci.image.manifest.v1+json\n  Platform:    linux/amd64\n               \n  Name:        localhost:5000/w3rd/small:1@sha256:cc0761cc1513888698cc3730044019f8aac0a5bacdeeb30f991ee5fd4d2e41df\n  MediaType:   application/vnd.oci.image.manifest.v1+json\n  Platform:    unknown/unknown\n  Annotations: \n    vnd.docker.reference.digest: sha256:e97ca32c77858018880e0a96e28",
-            "imagetools inspect --format '{{json .Image}}', one platform": "{\n  \"created\": \"2026-11-18T02:10:05.032689904Z\",\n  \"architecture\": \"amd64\",\n  \"os\": \"linux\",\n  \"config\": {\n    \"Env\": [\n      \"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\",\n      \"SMALL_VERSION=1.0.0\"\n    ],\n    \"Cmd\": [\n      \"sh\",\n      \"-c\",\n      \"echo small $SMALL_VERSION; exec sleep 3600\"\n    ],\n    \"Labels\": {\n      \"noust.test\": \"1\",\n      \"org.opencontainers.image.ve",
+            "imagetools inspect, one platform": "Name:      localhost:5000/w3rd/small:1\nMediaType: application/vnd.oci.image.index.v1+json\nDigest:    sha256:32f6a5b697a6439b242d1bf3010887b223da6764f1cdb02f1596ada18f2598e6\n           \nManifests: \n  Name:        localhost:5000/w3rd/small:1@sha256:e1d99d86bde52c132b0833bc8b5e9af49ae06807a748de8afba1536ef4fbd11a\n  MediaType:   application/vnd.oci.image.manifest.v1+json\n  Platform:    linux/amd64\n               \n  Name:        localhost:5000/w3rd/small:1@sha256:c797271f228d3d5276c6d19ca65ba65dc85ab988267f6aaaae6f7f536ab78b3a\n  MediaType:   application/vnd.oci.image.manifest.v1+json\n  Platform:    unknown/unknown\n  Annotations: \n    vnd.docker.reference.digest: sha256:e1d99d86bde52c132b0833bc8b5",
+            "imagetools inspect --format '{{json .Image}}', one platform": "{\n  \"created\": \"2026-11-21T12:51:55.920412284Z\",\n  \"architecture\": \"amd64\",\n  \"os\": \"linux\",\n  \"config\": {\n    \"Env\": [\n      \"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\",\n      \"SMALL_VERSION=1.0.0\"\n    ],\n    \"Cmd\": [\n      \"sh\",\n      \"-c\",\n      \"echo small $SMALL_VERSION; exec sleep 3600\"\n    ],\n    \"Labels\": {\n      \"noust.test\": \"1\",\n      \"org.opencontainers.image.ve",
             "imagetools inspect, several platforms": "Name:      localhost:5000/w3rd/small:multi\nMediaType: application/vnd.oci.image.index.v1+json\nDigest:    sha256:10b8bde9d6f8f815ee07a096ff0654a0147187d54c4006e57f3302e2967fa812\n           \nManifests: \n  Name:      localhost:5000/w3rd/small:multi@sha256:b7f3d86d6e84fc17718c48bcde1450807faa2d56704205c697b4bd5df7b9e29f\n  MediaType: application/vnd.oci.image.manifest.v1+json\n  Platform:  linux/amd64\n             \n  Name:      localhost:5000/w3rd/small:multi@sha256:bd44eb136a95dcc8dc58995e43abc40a413f2e8e3d4a2aae6bccbe94686acb05\n  MediaType: application/vnd.oci.image.manifest.v1+json\n  Platform:  linux/arm64\n",
             "imagetools inspect --format '{{json .Image}}', several platforms": "{\n  \"linux/amd64\": {\n    \"created\": \"2023-05-18T22:34:17Z\",\n    \"architecture\": \"amd64\",\n    \"os\": \"linux\",\n    \"config\": {\n      \"Env\": [\n        \"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"\n      ],\n      \"Cmd\": [\n        \"sh\"\n      ]\n    },\n    \"rootfs\": {\n      \"type\": \"layers\",\n      \"diff_ids\": [\n        \"sha256:97e4ece8f8a4d01b66df2c55c1f1e8a2860597b54dffbbc0df2f9942062cb34d\"\n      ]\n    },\n    \"history\": [\n      {\n        \"created\": \"2023-05-18T22:34:17Z\",\n        ",
             "a registry that does not answer": "ERROR: failed to do request: Head \"http://localhost:5999/v2/w3rd/small/manifests/1\": dial tcp [::1]:5999: connect: connection refused",
             "without buildx": "This Docker cannot ask a registry without downloading the image (it has no buildx). Look with --pull to download what moved and compare.",
             "the look": {
-              "checked_at": "2026-11-18T02:13:12.945681+00:00",
+              "checked_at": "2026-11-21T12:55:15.979646+00:00",
               "records": [
                 {
                   "reference": "localhost:5000/w3rd/small:1",
@@ -2655,7 +2655,7 @@
                   "floating": false,
                   "current_version": "1.0.0",
                   "latest_version": "1.0.0",
-                  "latest_created": "2026-11-18T02:10:05.032689904Z",
+                  "latest_created": "2026-11-21T12:51:55.920412284Z",
                   "method": "imagetools",
                   "detail": ""
                 },
@@ -2666,7 +2666,7 @@
                   "floating": true,
                   "current_version": "1.0.0",
                   "latest_version": "1.0.1",
-                  "latest_created": "2026-11-18T02:10:05.805177796Z",
+                  "latest_created": "2026-11-21T12:51:56.799019587Z",
                   "method": "imagetools",
                   "detail": ""
                 }
@@ -2678,12 +2678,12 @@
                 }
               ]
             },
-            "what docker ps says the image of that container is, after its tag moved here": "6b375456b9d2"
+            "what docker ps says the image of that container is, after its tag moved here": "32f6a5b697a6"
           }
         },
         "08 update_gate": {
           "status": "pass",
-          "seconds": 97.8,
+          "seconds": 94.0,
           "reason": "",
           "passed": [
             "the central starts",
@@ -2711,18 +2711,18 @@
           "failed": [],
           "skipped": [],
           "notes": {
-            "the image's buildx asking the local registry": "d64\n               \n  Name:        localhost:5000/w3rd/web:live@sha256:f74c36ff70da0e76795d55a075389607f52b3a27f1e5e8959b9a1a23caeba66a\n  MediaType:   application/vnd.oci.image.manifest.v1+json\n  Platform:    unknown/unknown\n  Annotations: \n    vnd.docker.reference.type:   attestation-manifest\n    vnd.docker.reference.digest: sha256:9a21f708a8e6a45cb8ddc6968bce51672b34e676dbb4446174d40f40bbf24bb4\n",
+            "the image's buildx asking the local registry": "d64\n               \n  Name:        localhost:5000/w3rd/web:live@sha256:9adef1a0cd6e1a6478d86371b452cf89d771aee9e49c54487c464ee21ff0b676\n  MediaType:   application/vnd.oci.image.manifest.v1+json\n  Platform:    unknown/unknown\n  Annotations: \n    vnd.docker.reference.digest: sha256:67193a62aae9bc3806a05e1198b4ae8c8af6ca044516c42dd39babe9fdd77ad4\n    vnd.docker.reference.type:   attestation-manifest\n",
             "noust docker images check --pull": "  localhost:5000/w3rd/web:live: new version (major)\n  registry:2: built here, no registry to ask\n✓ 1 of 1 images have a new version.\n",
-            "noust docker images plan, of the image the application runs": "  Image: noust-gate-nas-test:20261118-021326-nogit\n  Registry: a new version (major)\n  Version: 1 -> 2\n  Owner: app gate.nas.test\n  Updates: gate.nas.test (through its update, behind its health gate)\n  Moves: localhost:5000/w3rd/web:live\n  Steps: pull -> recreate_behind_health -> keep_previous -> roll_back_on_failure\n⚠ A major version is a decision: update with --accept-major.\n",
-            "noust docker images update": "  Image: noust-gate-nas-test:20261118-021326-nogit\n  Registry: a new version (major)\n  Version: 1 -> 2\n  Owner: app gate.nas.test\n  Updates: gate.nas.test (through its update, behind its health gate)\n  Moves: localhost:5000/w3rd/web:live\n  Steps: pull -> recreate_behind_health -> keep_previous -> roll_back_on_failure\n⚠ A major version is a decision: update with --accept-major.\n[1/5] Creating pre-update backup...\n[2/5] Pulling the image again...\n[3/5] Detecting application type...\n[4/5] Rebuilding...\n[5/5] Restarting...\n✓ gate.nas.test runs the new version.\n",
-            "an update whose container does not answer": "  Image: noust-gate-nas-test:20261118-021336-nogit\n  Registry: a new version (major)\n  Version: 2 -> 3\n  Owner: app gate.nas.test\n  Updates: gate.nas.test (through its update, behind its health gate)\n  Moves: localhost:5000/w3rd/web:live\n  Steps: pull -> recreate_behind_health -> keep_previous -> roll_back_on_failure\n⚠ A major version is a decision: update with --accept-major.\n[1/5] Creating pre-update backup...\n[2/5] Pulling the image again...\n[3/5] Detecting application type...\n[4/5] Rebuilding...\n⚠ The update of gate.nas.test did not pass its health check\n✗ The update of gate.nas.test did not pass its health check; the containers that were serving are running again\ni The application did not answer the health check. Asked at http://10.214.0.2:8080/.\n\nHealth check attempts 1-15 failed: <urlopen error [Errno 111] Connection refused>\n\nLast lines of the containers' output (docker compose logs --tail 40):\n(the containers printed nothing)\n\nThe tree is not a git checkout at a known commit, so the compose file was not put back: the previous images run with the compose file of this update.\n",
+            "noust docker images plan, of the image the application runs": "  Image: noust-gate-nas-test:20261121-125528-nogit\n  Registry: a new version (major)\n  Version: 1 -> 2\n  Owner: app gate.nas.test\n  Updates: gate.nas.test (through its update, behind its health gate)\n  Moves: localhost:5000/w3rd/web:live\n  Steps: pull -> recreate_behind_health -> keep_previous -> roll_back_on_failure\n⚠ A major version is a decision: update with --accept-major.\n",
+            "noust docker images update": "  Image: noust-gate-nas-test:20261121-125528-nogit\n  Registry: a new version (major)\n  Version: 1 -> 2\n  Owner: app gate.nas.test\n  Updates: gate.nas.test (through its update, behind its health gate)\n  Moves: localhost:5000/w3rd/web:live\n  Steps: pull -> recreate_behind_health -> keep_previous -> roll_back_on_failure\n⚠ A major version is a decision: update with --accept-major.\n[1/5] Creating pre-update backup...\n[2/5] Pulling the image again...\n[3/5] Detecting application type...\n[4/5] Rebuilding...\n[5/5] Restarting...\n✓ gate.nas.test runs the new version.\n",
+            "an update whose container does not answer": "  Image: noust-gate-nas-test:20261121-125537-nogit\n  Registry: a new version (major)\n  Version: 2 -> 3\n  Owner: app gate.nas.test\n  Updates: gate.nas.test (through its update, behind its health gate)\n  Moves: localhost:5000/w3rd/web:live\n  Steps: pull -> recreate_behind_health -> keep_previous -> roll_back_on_failure\n⚠ A major version is a decision: update with --accept-major.\n[1/5] Creating pre-update backup...\n[2/5] Pulling the image again...\n[3/5] Detecting application type...\n[4/5] Rebuilding...\n⚠ The update of gate.nas.test did not pass its health check\n✗ The update of gate.nas.test did not pass its health check; the containers that were serving are running again\ni The application did not answer the health check. Asked at http://10.214.0.2:8080/.\n\nHealth check attempts 1-15 failed: <urlopen error [Errno 111] Connection refused>\n\nLast lines of the containers' output (docker compose logs --tail 40):\n(the containers printed nothing)\n\nThe tree is not a git checkout at a known commit, so the compose file was not put back: the previous images run with the compose file of this update.\n",
             "an image that exits at once, set": "✓ gate.nas.test: changed image. It takes effect with: noust update gate.nas.test\n",
             "an update to an image that exits at once": "\nUpdating: gate.nas.test ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n\n\n[1/5] Creating pre-update backup...\n[2/5] Pulling the image again...\n[3/5] Detecting application type...\n[4/5] Rebuilding...\n⚠ The build failed; putting the tree and the image names back\n✗ localhost:5000/w3rd/small:bad was pulled but Docker cannot describe it\ni template parsing error: template: :1:44: executing \"\" at <.Config.ExposedPorts>: map has no entry for key \"ExposedPorts\"\n"
           }
         },
         "09 compose_check": {
           "status": "pass",
-          "seconds": 4.5,
+          "seconds": 4.0,
           "reason": "",
           "passed": [
             "a document is resolved on the standard input",
@@ -2757,7 +2757,7 @@
         },
         "09 compose_check [Compose v2.40.3]": {
           "status": "pass",
-          "seconds": 4.6,
+          "seconds": 3.7,
           "reason": "",
           "passed": [
             "a document is resolved on the standard input",
@@ -2783,7 +2783,7 @@
             "Compose": "2.40.3",
             "up --dry-run of a stack that is not running": "DRY-RUN MODE -  Network w3rdcheck_default  Creating\n DRY-RUN MODE -  Network w3rdcheck_default  Created\n DRY-RUN MODE -  Volume w3rdcheck_data  Creating\n DRY-RUN MODE -  Volume w3rdcheck_data  Created\n DRY-RUN MODE -  Container w3rdcheck-web-1  Creating\n DRY-RUN MODE -  Container w3rdcheck-web-1  Created\n DRY-RUN MODE -  Container w3rdcheck-web-1  Starting\n DRY-RUN MODE -  Container w3rdcheck-web-1  Started",
             "up --dry-run of a stack as it runs": "DRY-RUN MODE -  Container w3rdcheck-web-1  Running",
-            "up --dry-run of a changed command": "DRY-RUN MODE -  Container w3rdcheck-web-1  Recreate\n DRY-RUN MODE -  Container w3rdcheck-web-1  Recreated\n DRY-RUN MODE -  Container 69f010c390d9_w3rdcheck-web-1  Starting\n DRY-RUN MODE -  Container 69f010c390d9_w3rdcheck-web-1  Started",
+            "up --dry-run of a changed command": "DRY-RUN MODE -  Container w3rdcheck-web-1  Recreate\n DRY-RUN MODE -  Container w3rdcheck-web-1  Recreated\n DRY-RUN MODE -  Container c5f517b7ec2f_w3rdcheck-web-1  Starting\n DRY-RUN MODE -  Container c5f517b7ec2f_w3rdcheck-web-1  Started",
             "a document that is not YAML": "failed to parse -: yaml: line 4: mapping values are not allowed in this context",
             "a key Compose does not know": "validating -: services.web additional properties 'nope' not allowed",
             "a variable that is required": "error while interpolating services.web.image: required variable W3RD_MISSING is missing a value: needs W3RD_MISSING",
@@ -2792,7 +2792,7 @@
         },
         "10 compose_edit": {
           "status": "pass",
-          "seconds": 137.2,
+          "seconds": 134.3,
           "reason": "",
           "passed": [
             "the central starts",
@@ -2817,14 +2817,14 @@
           "notes": {
             "noust docker stack compose check": "✓ compose: docker compose config\n✓ privileges: ok\n✓ images: ok\n✓ variables: ok\n--- current\n+++ new\n@@ -2,6 +2,8 @@\n   web:\n     image: localhost:5000/w3rd/web:1\n     restart: unless-stopped\n+    environment:\n+      GREETING: hello\n     ports:\n       - \"18601:8080\"\n     volumes:\ni recreate container web\ni recreate container web\ni start container web\ni start container web\n",
             "noust docker stack compose apply": "✓ compose: docker compose config\n✓ privileges: ok\n✓ images: ok\n✓ variables: ok\n--- current\n+++ new\n@@ -2,6 +2,8 @@\n   web:\n     image: localhost:5000/w3rd/web:1\n     restart: unless-stopped\n+    environment:\n+      GREETING: hello\n     ports:\n       - \"18601:8080\"\n     volumes:\ni recreate container web\ni recreate container web\ni start container web\ni start container web\n[1/5] Creating pre-update backup...\n[2/5] No repository to fetch; the images are pulled again...\n[3/5] Detecting application type...\n[4/5] Rebuilding...\n[5/5] Restarting...\n✓ editapp runs version 2.\n",
-            "noust docker stack compose history": "  2: 2026-11-18T02:15:33.197904+00:00  edit     cli        harness\n  1: 2026-11-18T02:15:33.194557+00:00  found    noust      The document as Noust found it\n",
+            "noust docker stack compose history": "  2: 2026-11-21T12:57:29.243091+00:00  edit     cli        harness\n  1: 2026-11-21T12:57:29.240220+00:00  found    noust      The document as Noust found it\n",
             "noust docker stack compose apply, a document that does not answer": "ating pre-update backup...\n[2/5] No repository to fetch; the images are pulled again...\n[3/5] Detecting application type...\n[4/5] Rebuilding...\n⚠ The update of editapp did not pass its health check\n⚠ The new version failed; putting the previous one back\n⚠ The previous version is running again and answering.\n✗ The update of editapp did not pass its health check; the previous containers are back but are not answering either\ni The application did not answer the health check.\n\nHealth check attempts 1-15 failed: [Errno 104] Connection reset by peer\n\nLast lines of the containers' output (docker compose logs --tail 40):\n(the containers printed nothing)\n\nThe tree is not a git checkout at a known commit, so the compose file was not put back: the previous images run with the compose file of this update.\n\nAfter going back:\nThe application did not answer the health check.\n\nHealth check attempts 1-15 failed: [Errno 104] Connection reset by peer\n\nThe previous version is running again and answering.\n",
             "noust docker stack compose check, an image that does not exist": "✓ compose: docker compose config\n✓ privileges: ok\n✗ images: failed\n✓ variables: ok\n✗ The registry has no localhost:5000/w3rd/web:nowhere, which service web would run\ni The registry has no such tag: ERROR: localhost:5000/w3rd/web:nowhere: not found\n--- current\n+++ new\n@@ -1,6 +1,6 @@\n services:\n   web:\n-    image: localhost:5000/w3rd/web:1\n+    image: localhost:5000/w3rd/web:nowhere\n     restart: unless-stopped\n     environment:\n       GREETING: hello\n"
           }
         },
         "11 bring": {
           "status": "pass",
-          "seconds": 39.8,
+          "seconds": 37.4,
           "reason": "",
           "passed": [
             "the central starts",
@@ -2906,16 +2906,16 @@
                 }
               }
             ],
-            "noust docker stack bring --preview": "  Stack: old\n  Application: old (Docker keeps it running)\n  Folder: /volume1/docker/stacks/old (stays where it is)\n  Compose file: compose.yaml\n  Has: 2 containers (0 jobs that ended), 1 volumes, 1 networks\n  Rehearsed up: changes nothing\n⚠ old-worker-1 has the policy 'no': it would not come back after a restart\n⚠ /volume1/docker/stacks/old has no repository: an update pulls the images the compose file names and recreates the containers, and fetches no code. To follow a repository, clone it there and adopt with --source.\n⚠ old-worker-1 has the restart policy 'no': after the NAS restarts nothing starts it again, and without a unit of Noust's nothing else does. Noust does not change your compose file; add restart: unless-stopped to the service.\ni Nothing is recreated, restarted or changed, and its compose file is not rewritten.\n",
-            "noust docker stack bring": "a restart\n⚠ /volume1/docker/stacks/old has no repository: an update pulls the images the compose file names and recreates the containers, and fetches no code. To follow a repository, clone it there and adopt with --source.\n⚠ old-worker-1 has the restart policy 'no': after the NAS restarts nothing starts it again, and without a unit of Noust's nothing else does. Noust does not change your compose file; add restart: unless-stopped to the service.\ni Nothing is recreated, restarted or changed, and its compose file is not rewritten.\n[1/2] Registering the stack as it runs...\n[2/2] Recording its file and project: Docker keeps it running...\n✓ Adopted oldapp: /volume1/docker/stacks/old, project old, site (none), commit unknown\n⚠ /volume1/docker/stacks/old has no repository: an update pulls the images the compose file names and recreates the containers, and fetches no code. To follow a repository, clone it there and adopt with --source.\n⚠ old-worker-1 has the restart policy 'no': after the NAS restarts nothing starts it again, and without a unit of Noust's nothing else does. Noust does not change your compose file; add restart: unless-stopped to the service.\n✓ old is the application oldapp.\n",
-            "a stack started by the machine's own Compose, brought by the central's": "e1/docker/stacks/older has no repository: an update pulls the images the compose file names and recreates the containers, and fetches no code. To follow a repository, clone it there and adopt with --source.\n⚠ older-worker-1 has the restart policy 'no': after the NAS restarts nothing starts it again, and without a unit of Noust's nothing else does. Noust does not change your compose file; add restart: unless-stopped to the service.\ni Nothing is recreated, restarted or changed, and its compose file is not rewritten.\n[1/2] Registering the stack as it runs...\n[2/2] Recording its file and project: Docker keeps it running...\n✓ Adopted olderapp: /volume1/docker/stacks/older, project older, site (none), commit unknown\n⚠ /volume1/docker/stacks/older has no repository: an update pulls the images the compose file names and recreates the containers, and fetches no code. To follow a repository, clone it there and adopt with --source.\n⚠ older-worker-1 has the restart policy 'no': after the NAS restarts nothing starts it again, and without a unit of Noust's nothing else does. Noust does not change your compose file; add restart: unless-stopped to the service.\n✓ older is the application olderapp.\n",
+            "noust docker stack bring --preview": "  Stack: old\n  Application: old (Docker keeps it running)\n  Folder: /volume1/docker/stacks/old (stays where it is)\n  Compose file: compose.yaml\n  Has: 2 containers (0 jobs that ended), 1 volumes, 1 networks\n  Rehearsed up: changes nothing\n⚠ old-worker-1 has the policy 'no': it would not come back after a restart\n⚠ /volume1/docker/stacks/old has no repository, so Noust fetches no code for it. Adopting changes nothing that runs now. The first update downloads the images the compose file names and recreates only the containers whose image or settings changed. To follow a repository instead, clone it in that folder and adopt the stack again with that repository as its source.\n⚠ old-worker-1 has the restart policy 'no': after the NAS restarts nothing starts it again, and without a unit of Noust's nothing else does. Noust does not change your compose file; add restart: unless-stopped to the service.\ni Nothing is recreated, restarted or changed, and its compose file is not rewritten.\n",
+            "noust docker stack bring": "folder and adopt the stack again with that repository as its source.\n⚠ old-worker-1 has the restart policy 'no': after the NAS restarts nothing starts it again, and without a unit of Noust's nothing else does. Noust does not change your compose file; add restart: unless-stopped to the service.\ni Nothing is recreated, restarted or changed, and its compose file is not rewritten.\n[1/2] Registering the stack as it runs...\n[2/2] Recording its file and project: Docker keeps it running...\n✓ Adopted oldapp: /volume1/docker/stacks/old, project old, site (none), commit unknown\n⚠ /volume1/docker/stacks/old has no repository, so Noust fetches no code for it. Adopting changes nothing that runs now. The first update downloads the images the compose file names and recreates only the containers whose image or settings changed. To follow a repository instead, clone it in that folder and adopt the stack again with that repository as its source.\n⚠ old-worker-1 has the restart policy 'no': after the NAS restarts nothing starts it again, and without a unit of Noust's nothing else does. Noust does not change your compose file; add restart: unless-stopped to the service.\n✓ old is the application oldapp.\n",
+            "a stack started by the machine's own Compose, brought by the central's": " the stack again with that repository as its source.\n⚠ older-worker-1 has the restart policy 'no': after the NAS restarts nothing starts it again, and without a unit of Noust's nothing else does. Noust does not change your compose file; add restart: unless-stopped to the service.\ni Nothing is recreated, restarted or changed, and its compose file is not rewritten.\n[1/2] Registering the stack as it runs...\n[2/2] Recording its file and project: Docker keeps it running...\n✓ Adopted olderapp: /volume1/docker/stacks/older, project older, site (none), commit unknown\n⚠ /volume1/docker/stacks/older has no repository, so Noust fetches no code for it. Adopting changes nothing that runs now. The first update downloads the images the compose file names and recreates only the containers whose image or settings changed. To follow a repository instead, clone it in that folder and adopt the stack again with that repository as its source.\n⚠ older-worker-1 has the restart policy 'no': after the NAS restarts nothing starts it again, and without a unit of Noust's nothing else does. Noust does not change your compose file; add restart: unless-stopped to the service.\n✓ older is the application olderapp.\n",
             "a stack in a folder the central does not see": "✗ The folder of outside is not on this server: /srv/outside\ni Noust registers a stack where it already runs, and this one runs from a folder this server does not have (a tool that keeps its stacks in its own volume, or Noust in a container that does not see the host's folders). Bring it up from a folder on this server, then bring it here.\n",
             "a compose file the central cannot read": "✗ The central cannot read /volume1/docker/stacks/locked: it runs as user 10001\ni Give the central's user (10001:10001) read access to /volume1/docker/stacks/locked: a group it is in, an ACL for it, or the owner. The central only reads it, so that Compose can read the project; it never writes to a stack it adopts.\n"
           }
         },
         "12 client_negotiates": {
           "status": "pass",
-          "seconds": 26.8,
+          "seconds": 23.5,
           "reason": "",
           "passed": [
             "the central starts and answers",
@@ -2944,7 +2944,7 @@
         },
         "13 precheck": {
           "status": "pass",
-          "seconds": 18.4,
+          "seconds": 19.4,
           "reason": "",
           "passed": [
             "the check answers JSON",
@@ -3171,7 +3171,7 @@
         },
         "14 recipe": {
           "status": "pass",
-          "seconds": 55.8,
+          "seconds": 49.7,
           "reason": "",
           "passed": [
             "the central starts",
@@ -3194,14 +3194,14 @@
           "failed": [],
           "skipped": [],
           "notes": {
-            "noust recipe install whoami": "─────────────────────────────────────────────────────────────────────────────────────────\n\n  Domain: whoami.nas.test\n  Recipe: whoami\n  Type: docker-compose\n  SSL: No\n\n  Source: /volume1/docker/noust/state/recipe-sources/whoami-nas-test\n[1/9] Fetching source code...\n[2/9] Discovering compose file...\n[3/9] Parsing compose services...\n[4/9] Configuring environment...\n[5/9] Building Docker images...\n[6/9] Skipping Nginx (no web server on this machine)...\n[7/9] Skipping SSL (no web server on this machine)...\n[8/9] Creating the service...\n[9/9] Starting and verifying...\n✓ Docker Compose application deployed: whoami.nas.test\n\n  Domain: whoami.nas.test\n  Path: /volume1/docker/noust/apps/whoami-nas-test\n  Compose File: docker-compose.yml\n  Services: 1\n  SSL: No\n\ni Next steps:\ni   Open http://whoami.nas.test. It shows the request it got: the headers a proxy adds, the client address and the host.\n",
-            "noust update with the registry unreachable": "44e24f881160e033991f23027c6c5a9a3f8fd22e70d1d44\": failed to do request: Head \"https://registry-1.docker.io/v2/traefik/whoami/manifests/sha256:c4717a8d1f0134a7444e24f881160e033991f23027c6c5a9a3f8fd22e70d1d44\": dial tcp 127.0.0.1:443: connect: connection refused. Compose will try again when the stack starts.\n⚠ The update of whoami.nas.test did not pass its health check\n✗ The update of whoami.nas.test did not pass its health check; nothing was running before it, so nothing was put back\ni whoami-nas-test publishes no port, so there is nothing to ask over HTTP\n\nLast lines of the journal of whoami-nas-test:\nwhoami-1  | 2026/11/18 02:19:14 Starting up on port 80\nwhoami-1  | 2026/11/18 02:19:28 Starting up on port 80\n\nLast lines of the containers' output (docker compose logs --tail 40):\nwhoami-1  | 2026/11/18 02:19:14 Starting up on port 80\nwhoami-1  | 2026/11/18 02:19:28 Starting up on port 80\n",
-            "noust rollback": "whoami-nas-test_20261118_021931\ni   Created: just now\ni   Description: Pre-update automatic backup\n[1/2] Restoring from backup...\ni Creating a safety backup of the current state\ni Rolling back to: whoami-nas-test_20261118_021931\ni   Created: just now\ni whoami.nas.test is a Docker Compose app: ownership was kept as extracted, not handed to the service account, so its volumes and bind mounts keep the uids their containers expect\ni Rebuilding application...\n✗ Rollback failed: The docker-compose deployer cannot rebuild in place\n  Details: The files are restored but not rebuilt; nothing restarted.\n"
+            "noust recipe install whoami": "──────────────────────────────────────────────────────────────────────────────────────\n\n  Domain: whoami.nas.test\n  Recipe: whoami\n  Type: docker-compose\n  SSL: No\n\n  Source: /volume1/docker/noust/state/recipe-sources/whoami-nas-test\n[1/9] Fetching source code...\n[2/9] Discovering compose file...\n[3/9] Parsing compose services...\n[4/9] Configuring environment...\n[5/9] Building Docker images...\n[6/9] Skipping Nginx (no web server on this machine)...\n[7/9] Skipping SSL (no web server on this machine)...\n[8/9] Creating the service...\n[9/9] Starting and verifying...\n✓ Docker Compose application deployed: whoami.nas.test\n\n  Domain: whoami.nas.test\n  Path: /volume1/docker/noust/apps/whoami-nas-test\n  Compose File: docker-compose.yml\n  Services: 1\n  SSL: No\n\ni Next steps:\ni   Open http://712db198ed05:18701. It shows the request it got: the headers a proxy adds, the client address and the host.\n",
+            "noust update with the registry unreachable": "44e24f881160e033991f23027c6c5a9a3f8fd22e70d1d44\": failed to do request: Head \"https://registry-1.docker.io/v2/traefik/whoami/manifests/sha256:c4717a8d1f0134a7444e24f881160e033991f23027c6c5a9a3f8fd22e70d1d44\": dial tcp 127.0.0.1:443: connect: connection refused. Compose will try again when the stack starts.\n⚠ The update of whoami.nas.test did not pass its health check\n✗ The update of whoami.nas.test did not pass its health check; nothing was running before it, so nothing was put back\ni whoami-nas-test publishes no port, so there is nothing to ask over HTTP\n\nLast lines of the journal of whoami-nas-test:\nwhoami-1  | 2026/11/21 13:01:03 Starting up on port 80\nwhoami-1  | 2026/11/21 13:01:14 Starting up on port 80\n\nLast lines of the containers' output (docker compose logs --tail 40):\nwhoami-1  | 2026/11/21 13:01:03 Starting up on port 80\nwhoami-1  | 2026/11/21 13:01:14 Starting up on port 80\n",
+            "noust rollback": "whoami-nas-test_20261121_130117\ni   Created: just now\ni   Description: Pre-update automatic backup\n[1/2] Restoring from backup...\ni Creating a safety backup of the current state\ni Rolling back to: whoami-nas-test_20261121_130117\ni   Created: just now\ni whoami.nas.test is a Docker Compose app: ownership was kept as extracted, not handed to the service account, so its volumes and bind mounts keep the uids their containers expect\ni Rebuilding application...\n✗ Rollback failed: The docker-compose deployer cannot rebuild in place\n  Details: The files are restored but not rebuilt; nothing restarted.\n"
           }
         },
         "15 reach": {
           "status": "pass",
-          "seconds": 53.2,
+          "seconds": 52.7,
           "reason": "",
           "passed": [
             "the central starts",
@@ -3260,46 +3260,46 @@
             "own id by default": {
               "cgroupns": "private",
               "ids": {
-                "reach": "b993797a273042cb27de8544f57de37137f030e22d049fe40c8e2c4fc14b3507",
+                "reach": "ca2f64d83b73d10fc552e2faad0f549b5c143a1c90c4da77f800e0a62d62abf2",
                 "owners": [
-                  "b993797a2730",
-                  "b993797a273042cb27de8544f57de37137f030e22d049fe40c8e2c4fc14b3507"
+                  "ca2f64d83b73",
+                  "ca2f64d83b73d10fc552e2faad0f549b5c143a1c90c4da77f800e0a62d62abf2"
                 ]
               }
             },
-            "mountinfo lines of the container's own files by default": "2650 2639 8:64 /data/docker/volumes/noust-test-cierre-e29-lib/_data/containers/b993797a273042cb27de8544f57de37137f030e22d049fe40c8e2c4fc14b3507/hostname /etc/hostname ro,relatime - ext4 /dev/sde rw\n2651 2639 8:64 /data/docker/volumes/noust-test-cierre-e29-lib/_data/containers/b993797a273042cb27de8544f57de37137f030e22d049fe40c8e2c4fc14b3507/hosts /etc/hosts ro,relatime - ext4 /dev/sde rw\n2652 2639 8:64 /data/docker/volumes/noust-test-cierre-e29-lib/_data/containers/b993797a273042cb27de8544f57de37137f030e22d049fe40c8e2c4fc14b3507/resolv.conf /etc/resolv.conf ro,relatime - ext4 /dev/sde rw\n",
+            "mountinfo lines of the container's own files by default": "2349 2338 8:64 /data/docker/volumes/noust-test-cierre-e29-lib/_data/containers/ca2f64d83b73d10fc552e2faad0f549b5c143a1c90c4da77f800e0a62d62abf2/hostname /etc/hostname ro,relatime - ext4 /dev/sde rw\n2350 2338 8:64 /data/docker/volumes/noust-test-cierre-e29-lib/_data/containers/ca2f64d83b73d10fc552e2faad0f549b5c143a1c90c4da77f800e0a62d62abf2/hosts /etc/hosts ro,relatime - ext4 /dev/sde rw\n2351 2338 8:64 /data/docker/volumes/noust-test-cierre-e29-lib/_data/containers/ca2f64d83b73d10fc552e2faad0f549b5c143a1c90c4da77f800e0a62d62abf2/resolv.conf /etc/resolv.conf ro,relatime - ext4 /dev/sde rw\n",
             "own id with a private cgroup namespace": {
               "cgroupns": "private",
               "ids": {
-                "reach": "9986042004af6933570e7f58f40b4a3b7a190fde349b3a8fb5a316841e90ba06",
+                "reach": "004a2b1fc31d1a693e67713f102cb04a89d9154188ce3377c1ef4534dc539757",
                 "owners": [
-                  "9986042004af",
-                  "9986042004af6933570e7f58f40b4a3b7a190fde349b3a8fb5a316841e90ba06"
+                  "004a2b1fc31d",
+                  "004a2b1fc31d1a693e67713f102cb04a89d9154188ce3377c1ef4534dc539757"
                 ]
               }
             },
-            "mountinfo lines of the container's own files with a private cgroup namespace": "2650 2639 8:64 /data/docker/volumes/noust-test-cierre-e29-lib/_data/containers/9986042004af6933570e7f58f40b4a3b7a190fde349b3a8fb5a316841e90ba06/hostname /etc/hostname ro,relatime - ext4 /dev/sde rw\n2651 2639 8:64 /data/docker/volumes/noust-test-cierre-e29-lib/_data/containers/9986042004af6933570e7f58f40b4a3b7a190fde349b3a8fb5a316841e90ba06/hosts /etc/hosts ro,relatime - ext4 /dev/sde rw\n2652 2639 8:64 /data/docker/volumes/noust-test-cierre-e29-lib/_data/containers/9986042004af6933570e7f58f40b4a3b7a190fde349b3a8fb5a316841e90ba06/resolv.conf /etc/resolv.conf ro,relatime - ext4 /dev/sde rw\n",
+            "mountinfo lines of the container's own files with a private cgroup namespace": "2349 2338 8:64 /data/docker/volumes/noust-test-cierre-e29-lib/_data/containers/004a2b1fc31d1a693e67713f102cb04a89d9154188ce3377c1ef4534dc539757/hostname /etc/hostname ro,relatime - ext4 /dev/sde rw\n2350 2338 8:64 /data/docker/volumes/noust-test-cierre-e29-lib/_data/containers/004a2b1fc31d1a693e67713f102cb04a89d9154188ce3377c1ef4534dc539757/hosts /etc/hosts ro,relatime - ext4 /dev/sde rw\n2351 2338 8:64 /data/docker/volumes/noust-test-cierre-e29-lib/_data/containers/004a2b1fc31d1a693e67713f102cb04a89d9154188ce3377c1ef4534dc539757/resolv.conf /etc/resolv.conf ro,relatime - ext4 /dev/sde rw\n",
             "own id with the host's cgroup namespace": {
               "cgroupns": "host",
               "ids": {
-                "reach": "def3736746205d6b1e286d19b843f215860c2375df053e278c893d1400bca6a7",
+                "reach": "3b27202e948b80b0cc18131b15e21c467618277691c0dbfb0bf19e16cfdb81a2",
                 "owners": [
-                  "def373674620",
-                  "def3736746205d6b1e286d19b843f215860c2375df053e278c893d1400bca6a7"
+                  "3b27202e948b",
+                  "3b27202e948b80b0cc18131b15e21c467618277691c0dbfb0bf19e16cfdb81a2"
                 ]
               }
             },
-            "mountinfo lines of the container's own files with the host's cgroup namespace": "2650 2639 8:64 /data/docker/volumes/noust-test-cierre-e29-lib/_data/containers/def3736746205d6b1e286d19b843f215860c2375df053e278c893d1400bca6a7/hostname /etc/hostname ro,relatime - ext4 /dev/sde rw\n2651 2639 8:64 /data/docker/volumes/noust-test-cierre-e29-lib/_data/containers/def3736746205d6b1e286d19b843f215860c2375df053e278c893d1400bca6a7/hosts /etc/hosts ro,relatime - ext4 /dev/sde rw\n2652 2639 8:64 /data/docker/volumes/noust-test-cierre-e29-lib/_data/containers/def3736746205d6b1e286d19b843f215860c2375df053e278c893d1400bca6a7/resolv.conf /etc/resolv.conf ro,relatime - ext4 /dev/sde rw\n",
+            "mountinfo lines of the container's own files with the host's cgroup namespace": "2349 2338 8:64 /data/docker/volumes/noust-test-cierre-e29-lib/_data/containers/3b27202e948b80b0cc18131b15e21c467618277691c0dbfb0bf19e16cfdb81a2/hostname /etc/hostname ro,relatime - ext4 /dev/sde rw\n2350 2338 8:64 /data/docker/volumes/noust-test-cierre-e29-lib/_data/containers/3b27202e948b80b0cc18131b15e21c467618277691c0dbfb0bf19e16cfdb81a2/hosts /etc/hosts ro,relatime - ext4 /dev/sde rw\n2351 2338 8:64 /data/docker/volumes/noust-test-cierre-e29-lib/_data/containers/3b27202e948b80b0cc18131b15e21c467618277691c0dbfb0bf19e16cfdb81a2/resolv.conf /etc/resolv.conf ro,relatime - ext4 /dev/sde rw\n",
             "own id with a host name of its own": {
               "cgroupns": "private",
               "ids": {
-                "reach": "957b83cee005718ef0fb59a952382bf8a2ce0358af20670607409a7dda4d95b5",
+                "reach": "397d5fb21395bf079b7e23d03dd275d3fa51b9f521ab3e86ff9bfc973d45d9ab",
                 "owners": [
-                  "957b83cee005718ef0fb59a952382bf8a2ce0358af20670607409a7dda4d95b5"
+                  "397d5fb21395bf079b7e23d03dd275d3fa51b9f521ab3e86ff9bfc973d45d9ab"
                 ]
               }
             },
-            "mountinfo lines of the container's own files with a host name of its own": "2650 2639 8:64 /data/docker/volumes/noust-test-cierre-e29-lib/_data/containers/957b83cee005718ef0fb59a952382bf8a2ce0358af20670607409a7dda4d95b5/hostname /etc/hostname ro,relatime - ext4 /dev/sde rw\n2651 2639 8:64 /data/docker/volumes/noust-test-cierre-e29-lib/_data/containers/957b83cee005718ef0fb59a952382bf8a2ce0358af20670607409a7dda4d95b5/hosts /etc/hosts ro,relatime - ext4 /dev/sde rw\n2652 2639 8:64 /data/docker/volumes/noust-test-cierre-e29-lib/_data/containers/957b83cee005718ef0fb59a952382bf8a2ce0358af20670607409a7dda4d95b5/resolv.conf /etc/resolv.conf ro,relatime - ext4 /dev/sde rw\n",
+            "mountinfo lines of the container's own files with a host name of its own": "2349 2338 8:64 /data/docker/volumes/noust-test-cierre-e29-lib/_data/containers/397d5fb21395bf079b7e23d03dd275d3fa51b9f521ab3e86ff9bfc973d45d9ab/hostname /etc/hostname ro,relatime - ext4 /dev/sde rw\n2350 2338 8:64 /data/docker/volumes/noust-test-cierre-e29-lib/_data/containers/397d5fb21395bf079b7e23d03dd275d3fa51b9f521ab3e86ff9bfc973d45d9ab/hosts /etc/hosts ro,relatime - ext4 /dev/sde rw\n2351 2338 8:64 /data/docker/volumes/noust-test-cierre-e29-lib/_data/containers/397d5fb21395bf079b7e23d03dd275d3fa51b9f521ab3e86ff9bfc973d45d9ab/resolv.conf /etc/resolv.conf ro,relatime - ext4 /dev/sde rw\n",
             "noust create from a central on the host's network": "vering compose file...\n[3/9] Parsing compose services...\n[4/9] Configuring environment...\n[5/9] Building Docker images...\n[6/9] Skipping Nginx (no web server on this machine)...\n[7/9] Skipping SSL (no web server on this machine)...\n[8/9] Creating the service...\n[9/9] Starting and verifying...\n✓ Docker Compose application deployed: reachhost.nas.test\n\n  Domain: reachhost.nas.test\n  Path: /volume1/docker/noust-host/apps/reachhost-nas-test\n  Compose File: compose.noust.yaml\n  Services: 1\n  SSL: No\n",
             "a service on the host's network, from a central that is not": {
               "exit": 0,
@@ -3309,7 +3309,7 @@
         },
         "16 busy_port": {
           "status": "pass",
-          "seconds": 32.4,
+          "seconds": 30.1,
           "reason": "",
           "passed": [
             "the central starts",
@@ -3324,14 +3324,14 @@
           "failed": [],
           "skipped": [],
           "notes": {
-            "Docker's own words for a port held by a process of the machine": "docker: Error response from daemon: failed to set up container networking: driver failed programming external connectivity on endpoint sad_euler (078e82e7d591952a78b64e8dc8b5b1772d3229b5ce56d42167496d96a7f113b3): failed to bind host port 0.0.0.0:18301/tcp: address already in use\n\nRun 'docker run --help' for more information",
-            "Docker's own words for a port held by another container": "docker: Error response from daemon: failed to set up container networking: driver failed programming external connectivity on endpoint hopeful_rubin (b4779ed17f0a60b39b8f4712ea477f3314067a3aaafdcbb6be37d94bdf8609eb): Bind for 0.0.0.0:18302 failed: port is already allocated\n\nRun 'docker run --help' for more information",
+            "Docker's own words for a port held by a process of the machine": "docker: Error response from daemon: failed to set up container networking: driver failed programming external connectivity on endpoint hardcore_mendeleev (73fc5f79096cfe6d99782f40af80cce9e1c2e01e2f92bdfdc81e31ae3e947c49): failed to bind host port 0.0.0.0:18301/tcp: address already in use\n\nRun 'docker run --help' for more information",
+            "Docker's own words for a port held by another container": "docker: Error response from daemon: failed to set up container networking: driver failed programming external connectivity on endpoint festive_chatelet (c7180a4422bd12214d0fc6b476c1b17a75da844a36681ff3042f12b7072bee0e): Bind for 0.0.0.0:18302 failed: port is already allocated\n\nRun 'docker run --help' for more information",
             "a port left to Noust": "/9] Skipping SSL (no web server on this machine)...\n[8/9] Creating the service...\n[9/9] Starting and verifying...\n✓ Docker Compose application deployed: free.nas.test\n\n  Domain: free.nas.test\n  Path: /volume1/docker/noust/apps/free-nas-test\n  Compose File: compose.noust.yaml\n  Services: 1\n  SSL: No\n"
           }
         },
         "17 volume_copy": {
           "status": "pass",
-          "seconds": 606.8,
+          "seconds": 626.8,
           "reason": "",
           "passed": [
             "the central starts",
@@ -3350,14 +3350,14 @@
           "skipped": [],
           "notes": {
             "noust backup volumes targets": "[\n  {\n    \"declared_by\": \"Compose volume\",\n    \"exists\": true,\n    \"key\": \"volume:copy_data\",\n    \"kind\": \"docker\",\n    \"path\": null,\n    \"slug\": \"vol-copy_data\",\n    \"source\": \"copy_data\"\n  }\n]\n",
-            "noust backup volumes schedule set": "live\",\n  \"created_at\": \"2026-11-18T02:21:33+00:00\",\n  \"destinations\": [],\n  \"domain\": \"copyapp\",\n  \"enabled\": true,\n  \"extra_paths\": [],\n  \"last_backup\": null,\n  \"last_error\": null,\n  \"last_run_at\": null,\n  \"last_status\": null,\n  \"last_success_at\": null,\n  \"remote_only\": false,\n  \"retention_count\": 5,\n  \"retention_days\": 30,\n  \"retention_gb\": null,\n  \"schedule\": \"*-*-* *:*:00\",\n  \"targets\": [],\n  \"timer\": {\n    \"installed\": true,\n    \"last_run\": null,\n    \"max_runtime_seconds\": null,\n    \"next_run\": \"2026-11-18 02:22:00\",\n    \"timezone\": null\n  },\n  \"updated_at\": \"2026-11-18T02:21:33+00:00\"\n}\n",
+            "noust backup volumes schedule set": "live\",\n  \"created_at\": \"2026-11-21T13:03:14+00:00\",\n  \"destinations\": [],\n  \"domain\": \"copyapp\",\n  \"enabled\": true,\n  \"extra_paths\": [],\n  \"last_backup\": null,\n  \"last_error\": null,\n  \"last_run_at\": null,\n  \"last_status\": null,\n  \"last_success_at\": null,\n  \"remote_only\": false,\n  \"retention_count\": 5,\n  \"retention_days\": 30,\n  \"retention_gb\": null,\n  \"schedule\": \"*-*-* *:*:00\",\n  \"targets\": [],\n  \"timer\": {\n    \"installed\": true,\n    \"last_run\": null,\n    \"max_runtime_seconds\": null,\n    \"next_run\": \"2026-11-21 13:04:00\",\n    \"timezone\": null\n  },\n  \"updated_at\": \"2026-11-21T13:03:14+00:00\"\n}\n",
             "noust central schedule status": [
               {
                 "key": "volume_backup:copyapp",
                 "kind": "volume_backup",
                 "subject": "copyapp",
                 "calendar": "*-*-* *:*:00",
-                "next_run": "2026-11-18 02:22:00",
+                "next_run": "2026-11-21 13:04:00",
                 "last_run": null,
                 "last_status": null,
                 "last_detail": "",
@@ -3365,15 +3365,15 @@
                 "problem": null
               }
             ],
-            "noust backup volumes list": "\": \"docker\",\n    \"last_verified_at\": \"2026-11-18T02:22:29+00:00\",\n    \"mac\": \"f2ae94c1af4fefbd2ff4d3050925b72209347a0e4231e3c5414f3446bec03d5d\",\n    \"mac_key_id\": \"21692a76430f6a9b\",\n    \"origin\": \"ea3cc98b1cd93397\",\n    \"owner\": null,\n    \"remote_copies\": [],\n    \"size_bytes\": 135,\n    \"skipped\": [],\n    \"slug\": \"vol-copy_data\",\n    \"source\": \"copy_data\",\n    \"sqlite_files\": [],\n    \"tags\": [\n      \"scheduled\",\n      \"auto\"\n    ],\n    \"target\": \"volume:copy_data\",\n    \"verified_ok\": true\n  }\n]\n",
+            "noust backup volumes list": "\": \"docker\",\n    \"last_verified_at\": \"2026-11-21T13:04:10+00:00\",\n    \"mac\": \"069f9bbfbbc188e8e0a49dabfb64a66a129a98b999fbadcc789f4facfabe2d4f\",\n    \"mac_key_id\": \"2dc60b0497da34a6\",\n    \"origin\": \"25cafd41a60d895e\",\n    \"owner\": null,\n    \"remote_copies\": [],\n    \"size_bytes\": 137,\n    \"skipped\": [],\n    \"slug\": \"vol-copy_data\",\n    \"source\": \"copy_data\",\n    \"sqlite_files\": [],\n    \"tags\": [\n      \"scheduled\",\n      \"auto\"\n    ],\n    \"target\": \"volume:copy_data\",\n    \"verified_ok\": true\n  }\n]\n",
             "what the central says after it was off": [
-              "i The volume backup schedule of copyapp missed 2 runs while the central was not running, the last at 2026-11-18 02:25: it runs now, once"
+              "i The volume backup schedule of copyapp missed 2 runs while the central was not running, the last at 2026-11-21 13:07: it runs now, once"
             ]
           }
         },
         "18 how_it_runs": {
           "status": "pass",
-          "seconds": 21.2,
+          "seconds": 23.0,
           "reason": "",
           "passed": [
             "the central starts",
@@ -3393,7 +3393,7 @@
         },
         "01 doctor [Compose v2.0.0]": {
           "status": "pass",
-          "seconds": 1.0,
+          "seconds": 0.8,
           "reason": "",
           "passed": [
             "Docker is found and answers",
@@ -3475,7 +3475,7 @@
         },
         "06 privileges [Compose v2.0.0]": {
           "status": "pass",
-          "seconds": 35.9,
+          "seconds": 17.2,
           "reason": "",
           "passed": [
             "a stack that asks for nothing: let through",
@@ -3518,6 +3518,7 @@
             "a key no Compose has, which the guard does not know: refused",
             "graphics cards through their driver: only said",
             "the env_file of Noust's own state behind an include is refused whatever the model keeps",
+            "the model this Compose prints has no key the guard has not decided about",
             "the containers of a stack are read from the engine by the label Compose writes",
             "what the engine says the container was given includes /srv/w3rd/privileges/had-data",
             "what the engine says the container was given includes SYS_ADMIN",
@@ -3687,16 +3688,12 @@
               "keeps the path of an env_file of the main file": false,
               "keeps the path of an env_file of a file an include brought in": false,
               "stderr": "unknown flag: --no-env-resolution\n"
-            },
-            "this Compose did not print the rich stack": {
-              "exit": 15,
-              "stderr": "configs.c Additional property content is not allowed\n"
             }
           }
         },
         "09 compose_check [Compose v2.0.0]": {
           "status": "pass",
-          "seconds": 12.9,
+          "seconds": 12.6,
           "reason": "",
           "passed": [
             "a document is resolved on the standard input",
@@ -3722,7 +3719,7 @@
           }
         }
       },
-      "seconds": 1314
+      "seconds": 1297
     },
     "e24": {
       "server": "24.0.2",
@@ -3734,7 +3731,7 @@
       "scenarios": {
         "01 doctor": {
           "status": "pass",
-          "seconds": 0.9,
+          "seconds": 0.7,
           "reason": "",
           "passed": [
             "Docker is found and answers",
@@ -3791,7 +3788,7 @@
         },
         "01 doctor [Compose v2.40.3]": {
           "status": "pass",
-          "seconds": 0.8,
+          "seconds": 0.7,
           "reason": "",
           "passed": [
             "Docker is found and answers",
@@ -3902,7 +3899,7 @@
         },
         "02 reading": {
           "status": "pass",
-          "seconds": 6.4,
+          "seconds": 5.7,
           "reason": "",
           "passed": [
             "the containers of the stack are listed with their service",
@@ -3939,19 +3936,19 @@
           "failed": [],
           "skipped": [],
           "notes": {
-            "a line of docker ps": "{\"id\":\"dc59ff7460e1ca322823c8e016114b3586f7047b735db872fd2abad80ba9dd60\",\"name\":\"w3rd-reading-oneoff\",\"image\":\"localhost:5000/w3rd/busybox:1.36\",\"state\":\"running\",\"status\":\"Up Less than a second\",\"created\":\"2026-11-18 01:48:31 +0000 UTC\",\"ports\":\"\",\"mounts\":\"\",\"networks\":\"plain_default,plain_inner\",\"project\":\"plain\",\"service\":\"worker\",\"working_dir\":\"/srv/w3rd/reading/plain\",\"config_files\":\"/srv/w3rd/reading/plain/compose.yaml\",\"oneoff\":\"True\",\"instance\":\"\",\"helper\":\"\"}",
+            "a line of docker ps": "{\"id\":\"c9d726e91c8df17d42c8a8a391087aee1b8003f9b84d410fad4324a484d9a037\",\"name\":\"w3rd-reading-oneoff\",\"image\":\"localhost:5000/w3rd/busybox:1.36\",\"state\":\"running\",\"status\":\"Up Less than a second\",\"created\":\"2026-11-21 12:30:14 +0000 UTC\",\"ports\":\"\",\"mounts\":\"\",\"networks\":\"plain_default,plain_inner\",\"project\":\"plain\",\"service\":\"worker\",\"working_dir\":\"/srv/w3rd/reading/plain\",\"config_files\":\"/srv/w3rd/reading/plain/compose.yaml\",\"oneoff\":\"True\",\"instance\":\"\",\"helper\":\"\"}",
             "the mounts column of a container that binds a folder": [
               "/srv/w3rd/reading/plain/conf",
               "plain_data"
             ],
-            "a line of docker image ls": "{\"Containers\":\"N/A\",\"CreatedAt\":\"2026-11-18 01:25:21 +0000 UTC\",\"CreatedSince\":\"23 minutes ago\",\"Digest\":\"\\u003cnone\\u003e\",\"ID\":\"sha256:376b5e85d723d993788ab93fc41a24129b573f3aa58ed533bbd5faf1781aed9e\",\"Repository\":\"noust-test-cierre-central\",\"SharedSize\":\"N/A\",\"Size\":\"518MB\",\"Tag\":\"latest\",\"UniqueSize\":\"N/A\",\"VirtualSize\":\"517.8MB\"}",
-            "docker system df (json)": "{\"Active\":\"2\",\"Reclaimable\":\"517.8MB (94%)\",\"Size\":\"547.7MB\",\"TotalCount\":\"3\",\"Type\":\"Images\"}\n{\"Active\":\"5\",\"Reclaimable\":\"0B (0%)\",\"Size\":\"3B\",\"TotalCount\":\"5\",\"Type\":\"Containers\"}\n{\"Active\":\"2\",\"Reclaimable\":\"0B (0%)\",\"Size\":\"17.32MB\",\"TotalCount\":\"2\",\"Type\":\"Local Volumes\"}\n{\"Active\":\"0\",\"Reclaimable\":\"1.795kB\",\"Size\":\"1.795kB\",\"TotalCount\":\"27\",\"Type\":\"Build Cache\"}\n",
-            "docker system df -v (json)": "{\"Images\":[{\"Containers\":\"0\",\"CreatedAt\":\"2026-11-18 01:25:21 +0000 UTC\",\"CreatedSince\":\"23 minutes ago\",\"Digest\":\"\",\"ID\":\"sha256:376b5e85d723d993788ab93fc41a24129b573f3aa58ed533bbd5faf1781aed9e\",\"Repository\":\"noust-test-cierre-central\",\"SharedSize\":\"0B\",\"Size\":\"518MB\",\"Tag\":\"latest\",\"UniqueSize\":\"517.8MB\",\"VirtualSize\":\"517.8MB\"},{\"Containers\":\"1\",\"CreatedAt\":\"2023-10-02 18:42:41 +0000 UTC\",\"CreatedSince\":\"3 years ago\",\"Digest\":\"\",\"ID\":\"sha256:26b2eb03618e749084668eaff68cff8f81dda12d06ac641be7a6398b82a6f25b\",\"Repository\":\"registry\",\"SharedSize\":\"0B\",\"Size\":\"25.4MB\",\"Tag\":\"2\",\"UniqueSize\":\"25.44MB\",\"VirtualSize\":\"25.44MB\"},{\"Containers\":\"4\",\"CreatedAt\":\"2023-05-18 22:34:17 +0000 UTC\",\"Create"
+            "a line of docker image ls": "{\"Containers\":\"N/A\",\"CreatedAt\":\"2026-11-21 12:08:29 +0000 UTC\",\"CreatedSince\":\"21 minutes ago\",\"Digest\":\"\\u003cnone\\u003e\",\"ID\":\"sha256:c992cfeeb7a6870a8e7d29f89cdb484739a833b8023bb6f3e835fd756099b8c7\",\"Repository\":\"noust-test-cierre-central\",\"SharedSize\":\"N/A\",\"Size\":\"550MB\",\"Tag\":\"latest\",\"UniqueSize\":\"N/A\",\"VirtualSize\":\"550.3MB\"}",
+            "docker system df (json)": "{\"Active\":\"2\",\"Reclaimable\":\"550.3MB (94%)\",\"Size\":\"580.1MB\",\"TotalCount\":\"3\",\"Type\":\"Images\"}\n{\"Active\":\"5\",\"Reclaimable\":\"0B (0%)\",\"Size\":\"3B\",\"TotalCount\":\"5\",\"Type\":\"Containers\"}\n{\"Active\":\"2\",\"Reclaimable\":\"0B (0%)\",\"Size\":\"17.32MB\",\"TotalCount\":\"2\",\"Type\":\"Local Volumes\"}\n{\"Active\":\"0\",\"Reclaimable\":\"1.795kB\",\"Size\":\"1.795kB\",\"TotalCount\":\"27\",\"Type\":\"Build Cache\"}\n",
+            "docker system df -v (json)": "{\"Images\":[{\"Containers\":\"0\",\"CreatedAt\":\"2026-11-21 12:08:29 +0000 UTC\",\"CreatedSince\":\"21 minutes ago\",\"Digest\":\"\",\"ID\":\"sha256:c992cfeeb7a6870a8e7d29f89cdb484739a833b8023bb6f3e835fd756099b8c7\",\"Repository\":\"noust-test-cierre-central\",\"SharedSize\":\"0B\",\"Size\":\"550MB\",\"Tag\":\"latest\",\"UniqueSize\":\"550.3MB\",\"VirtualSize\":\"550.3MB\"},{\"Containers\":\"1\",\"CreatedAt\":\"2023-10-02 18:42:41 +0000 UTC\",\"CreatedSince\":\"3 years ago\",\"Digest\":\"\",\"ID\":\"sha256:26b2eb03618e749084668eaff68cff8f81dda12d06ac641be7a6398b82a6f25b\",\"Repository\":\"registry\",\"SharedSize\":\"0B\",\"Size\":\"25.4MB\",\"Tag\":\"2\",\"UniqueSize\":\"25.44MB\",\"VirtualSize\":\"25.44MB\"},{\"Containers\":\"4\",\"CreatedAt\":\"2023-05-18 22:34:17 +0000 UTC\",\"Create"
           }
         },
         "03 owners": {
           "status": "pass",
-          "seconds": 9.8,
+          "seconds": 8.3,
           "reason": "",
           "passed": [
             "the container of a container application is that application's",
@@ -3978,7 +3975,7 @@
         },
         "04 container_inside": {
           "status": "pass",
-          "seconds": 31.3,
+          "seconds": 30.4,
           "reason": "",
           "passed": [
             "a container that failed is an error with its exit code",
@@ -4018,20 +4015,20 @@
           "notes": {
             "docker events of a container its restart policy keeps starting": {
               "create": 1,
-              "die": 4,
-              "start": 4
+              "die": 5,
+              "start": 5
             },
             "the first events of a policy restart, as Noust asks for them": [
-              "{\"status\":\"start\",\"id\":\"31e7248b8c5420d04e71114a8f5ddbca9aeb411bfa431da1fe4716cd3ca9f306\",\"from\":\"localhost:5000/w3rd/busybox:1.36\",\"Type\":\"container\",\"Action\":\"start\",\"Actor\":{\"ID\":\"31e7248b8c5420d04e71114a8f5ddbca9aeb411bfa431da1fe4716cd3ca9f306\",\"Attributes\":{\"image\":\"localhost:5000/w3rd/busybox:1.36\",\"name\":\"w3rd-ci-loop\",\"noust.test\":\"1\",\"w3rd.scenario\":\"container_inside\"}},\"scope\":\"local\",\"time\":1794966528,\"timeNano\":1794966528028702753}",
-              "{\"status\":\"die\",\"id\":\"31e7248b8c5420d04e71114a8f5ddbca9aeb411bfa431da1fe4716cd3ca9f306\",\"from\":\"localhost:5000/w3rd/busybox:1.36\",\"Type\":\"container\",\"Action\":\"die\",\"Actor\":{\"ID\":\"31e7248b8c5420d04e71114a8f5ddbca9aeb411bfa431da1fe4716cd3ca9f306\",\"Attributes\":{\"execDuration\":\"0\",\"exitCode\":\"1\",\"image\":\"localhost:5000/w3rd/busybox:1.36\",\"name\":\"w3rd-ci-loop\",\"noust.test\":\"1\",\"w3rd.scenario\":\"container_inside\"}},\"scope\":\"local\",\"time\":1794966528,\"timeNano\":1794966528235963044}",
-              "{\"status\":\"start\",\"id\":\"31e7248b8c5420d04e71114a8f5ddbca9aeb411bfa431da1fe4716cd3ca9f306\",\"from\":\"localhost:5000/w3rd/busybox:1.36\",\"Type\":\"container\",\"Action\":\"start\",\"Actor\":{\"ID\":\"31e7248b8c5420d04e71114a8f5ddbca9aeb411bfa431da1fe4716cd3ca9f306\",\"Attributes\":{\"image\":\"localhost:5000/w3rd/busybox:1.36\",\"name\":\"w3rd-ci-loop\",\"noust.test\":\"1\",\"w3rd.scenario\":\"container_inside\"}},\"scope\":\"local\",\"time\":1794966528,\"timeNano\":1794966528679370921}"
+              "{\"status\":\"start\",\"id\":\"babfa03c2f8044d37e8b7861e6dc1123da0bc72868bc51c42ee712d1807ad143\",\"from\":\"localhost:5000/w3rd/busybox:1.36\",\"Type\":\"container\",\"Action\":\"start\",\"Actor\":{\"ID\":\"babfa03c2f8044d37e8b7861e6dc1123da0bc72868bc51c42ee712d1807ad143\",\"Attributes\":{\"image\":\"localhost:5000/w3rd/busybox:1.36\",\"name\":\"w3rd-ci-loop\",\"noust.test\":\"1\",\"w3rd.scenario\":\"container_inside\"}},\"scope\":\"local\",\"time\":1795264228,\"timeNano\":1795264228866102206}",
+              "{\"status\":\"die\",\"id\":\"babfa03c2f8044d37e8b7861e6dc1123da0bc72868bc51c42ee712d1807ad143\",\"from\":\"localhost:5000/w3rd/busybox:1.36\",\"Type\":\"container\",\"Action\":\"die\",\"Actor\":{\"ID\":\"babfa03c2f8044d37e8b7861e6dc1123da0bc72868bc51c42ee712d1807ad143\",\"Attributes\":{\"execDuration\":\"0\",\"exitCode\":\"1\",\"image\":\"localhost:5000/w3rd/busybox:1.36\",\"name\":\"w3rd-ci-loop\",\"noust.test\":\"1\",\"w3rd.scenario\":\"container_inside\"}},\"scope\":\"local\",\"time\":1795264229,\"timeNano\":1795264229084424276}",
+              "{\"status\":\"start\",\"id\":\"babfa03c2f8044d37e8b7861e6dc1123da0bc72868bc51c42ee712d1807ad143\",\"from\":\"localhost:5000/w3rd/busybox:1.36\",\"Type\":\"container\",\"Action\":\"start\",\"Actor\":{\"ID\":\"babfa03c2f8044d37e8b7861e6dc1123da0bc72868bc51c42ee712d1807ad143\",\"Attributes\":{\"image\":\"localhost:5000/w3rd/busybox:1.36\",\"name\":\"w3rd-ci-loop\",\"noust.test\":\"1\",\"w3rd.scenario\":\"container_inside\"}},\"scope\":\"local\",\"time\":1795264229,\"timeNano\":1795264229492571806}"
             ],
-            "docker stats of a container": "{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"0.01%\",\"Container\":\"w3rd-ci-run\",\"ID\":\"d61006783c24\",\"MemPerc\":\"0.69%\",\"MemUsage\":\"452KiB / 64MiB\",\"Name\":\"w3rd-ci-run\",\"NetIO\":\"656B / 0B\",\"PIDs\":\"1\"}"
+            "docker stats of a container": "{\"BlockIO\":\"0B / 0B\",\"CPUPerc\":\"0.01%\",\"Container\":\"w3rd-ci-run\",\"ID\":\"3a739c44038f\",\"MemPerc\":\"0.68%\",\"MemUsage\":\"448KiB / 64MiB\",\"Name\":\"w3rd-ci-run\",\"NetIO\":\"656B / 0B\",\"PIDs\":\"1\"}"
           }
         },
         "05 cleanup": {
           "status": "pass",
-          "seconds": 70.7,
+          "seconds": 69.2,
           "reason": "",
           "passed": [
             "a stopped container nobody of Noust made is offered",
@@ -4082,7 +4079,7 @@
               ],
               [
                 "image",
-                "<none> 80411922c32b"
+                "<none> 32a5b3f7daee"
               ],
               [
                 "image",
@@ -4102,7 +4099,7 @@
               ],
               [
                 "volume",
-                "88ee337334d8fcf7a9066aa86230a756fe9ea8194ab701361ee51910c156f82d"
+                "9f49391893504a90c7c2f21299ee7c3a5bdccb414a738af24673ae33dc7d64db"
               ],
               [
                 "volume",
@@ -4114,7 +4111,7 @@
         },
         "06 privileges": {
           "status": "pass",
-          "seconds": 11.0,
+          "seconds": 8.1,
           "reason": "",
           "passed": [
             "a stack that asks for nothing: let through",
@@ -4324,7 +4321,7 @@
         },
         "06 privileges [Compose v2.40.3]": {
           "status": "pass",
-          "seconds": 20.8,
+          "seconds": 17.8,
           "reason": "",
           "passed": [
             "a stack that asks for nothing: let through",
@@ -4439,7 +4436,7 @@
             ],
             "remoteoci: refused as written": [
               "the compose file includes oci://127.0.0.1:1/part:1, which Compose would download from the network: nothing on this server checks where that goes",
-              "the compose file includes or extends another file and Docker Compose could not resolve the stack (exit code 1: time=\"2026-11-21T05:33:47Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.), so what it brings in cannot be judged"
+              "the compose file includes or extends another file and Docker Compose could not resolve the stack (exit code 1: time=\"2026-11-21T12:32:15Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.), so what it brings in cannot be judged"
             ],
             "provider: refused as written": [
               "service tool runs the program noust-w6a-provider-canary of this server when the stack starts, outside any container"
@@ -4514,7 +4511,7 @@
             },
             "remoteoci, resolved by this Compose (does it go to the network when it reads the file?)": {
               "exit": 1,
-              "stderr": "time=\"2026-11-21T05:33:51Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.0.1:1\" spanID=e4167d61f4708210 traceID=e823f01aab9c52b16c16caa69cb65e7b\nfailed to pull OCI resource "
+              "stderr": "time=\"2026-11-21T12:32:18Z\" level=info msg=\"fetch failed\" error=\"failed to do request: Head \\\"https://127.0.0.1:1/v2/part/manifests/1\\\": dial tcp 127.0.0.1:1: connect: connection refused\" host=\"127.0.0.1:1\" spanID=f7b5e5690368a5d1 traceID=dda7fe20db3e477956a6e7658bf1634d\nfailed to pull OCI resource "
             },
             "a provider, started by this Compose": {
               "exit": 0,
@@ -4536,7 +4533,7 @@
         },
         "06 privileges [Compose v2.0.0]": {
           "status": "pass",
-          "seconds": 39.3,
+          "seconds": 15.1,
           "reason": "",
           "passed": [
             "a stack that asks for nothing: let through",
@@ -4754,7 +4751,7 @@
         },
         "07 versions": {
           "status": "pass",
-          "seconds": 8.6,
+          "seconds": 8.3,
           "reason": "",
           "passed": [
             "a reference to the local registry is read",
@@ -4778,14 +4775,14 @@
           "skipped": [],
           "notes": {
             "docker buildx version": "github.com/docker/buildx v0.11.0 687feca9e8dcd1534ac4c026bc4db5a49de0dd6e",
-            "imagetools inspect, one platform": "Name:      localhost:5000/w3rd/small:1\nMediaType: application/vnd.docker.distribution.manifest.list.v2+json\nDigest:    sha256:c7ecbfbc8eab817485db27075fb87638fc757345b49f4471e1eccae5b70f79d5\n           \nManifests: \n  Name:      localhost:5000/w3rd/small:1@sha256:5da5ac4834d556ab435c12831b92767a8f78d67bc313a5dc17462eaa94da244d\n  MediaType: application/vnd.docker.distribution.manifest.v2+json\n  Platform:  linux/amd64\n",
-            "imagetools inspect --format '{{json .Image}}', one platform": "{\n  \"created\": \"2026-11-18T01:48:05.953715082Z\",\n  \"architecture\": \"amd64\",\n  \"os\": \"linux\",\n  \"config\": {\n    \"Env\": [\n      \"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\",\n      \"SMALL_VERSION=1.0.0\"\n    ],\n    \"Cmd\": [\n      \"sh\",\n      \"-c\",\n      \"echo small $SMALL_VERSION; exec sleep 3600\"\n    ],\n    \"Labels\": {\n      \"noust.test\": \"1\",\n      \"org.opencontainers.image.ve",
+            "imagetools inspect, one platform": "Name:      localhost:5000/w3rd/small:1\nMediaType: application/vnd.docker.distribution.manifest.list.v2+json\nDigest:    sha256:46c07fc678bb59bed1f254bb402fa9b0812f4827107c28a72e786867214d71f9\n           \nManifests: \n  Name:      localhost:5000/w3rd/small:1@sha256:574f4597686e0b29b9511852baad64fa51b942a286ce89048298093f65dd4ba0\n  MediaType: application/vnd.docker.distribution.manifest.v2+json\n  Platform:  linux/amd64\n",
+            "imagetools inspect --format '{{json .Image}}', one platform": "{\n  \"created\": \"2026-11-21T12:29:54.653902384Z\",\n  \"architecture\": \"amd64\",\n  \"os\": \"linux\",\n  \"config\": {\n    \"Env\": [\n      \"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\",\n      \"SMALL_VERSION=1.0.0\"\n    ],\n    \"Cmd\": [\n      \"sh\",\n      \"-c\",\n      \"echo small $SMALL_VERSION; exec sleep 3600\"\n    ],\n    \"Labels\": {\n      \"noust.test\": \"1\",\n      \"org.opencontainers.image.ve",
             "imagetools inspect, several platforms": "Name:      localhost:5000/w3rd/small:multi\nMediaType: application/vnd.oci.image.index.v1+json\nDigest:    sha256:10b8bde9d6f8f815ee07a096ff0654a0147187d54c4006e57f3302e2967fa812\n           \nManifests: \n  Name:      localhost:5000/w3rd/small:multi@sha256:b7f3d86d6e84fc17718c48bcde1450807faa2d56704205c697b4bd5df7b9e29f\n  MediaType: application/vnd.oci.image.manifest.v1+json\n  Platform:  linux/amd64\n             \n  Name:      localhost:5000/w3rd/small:multi@sha256:bd44eb136a95dcc8dc58995e43abc40a413f2e8e3d4a2aae6bccbe94686acb05\n  MediaType: application/vnd.oci.image.manifest.v1+json\n  Platform:  linux/arm64\n",
             "imagetools inspect --format '{{json .Image}}', several platforms": "{\n  \"linux/amd64\": {\n    \"created\": \"2023-05-18T22:34:17Z\",\n    \"architecture\": \"amd64\",\n    \"os\": \"linux\",\n    \"config\": {\n      \"Env\": [\n        \"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"\n      ],\n      \"Cmd\": [\n        \"sh\"\n      ]\n    },\n    \"rootfs\": {\n      \"type\": \"layers\",\n      \"diff_ids\": [\n        \"sha256:97e4ece8f8a4d01b66df2c55c1f1e8a2860597b54dffbbc0df2f9942062cb34d\"\n      ]\n    },\n    \"history\": [\n      {\n        \"created\": \"2023-05-18T22:34:17Z\",\n        ",
             "a registry that does not answer": "ERROR: failed to do request: Head \"http://localhost:5999/v2/w3rd/small/manifests/1\": dial tcp [::1]:5999: connect: connection refused",
             "without buildx": "This Docker cannot ask a registry without downloading the image (it has no buildx). Look with --pull to download what moved and compare.",
             "the look": {
-              "checked_at": "2026-11-18T01:51:00.739115+00:00",
+              "checked_at": "2026-11-21T12:32:48.223829+00:00",
               "records": [
                 {
                   "reference": "localhost:5000/w3rd/small:1",
@@ -4794,7 +4791,7 @@
                   "floating": false,
                   "current_version": "1.0.0",
                   "latest_version": "1.0.0",
-                  "latest_created": "2026-11-18T01:48:05.953715082Z",
+                  "latest_created": "2026-11-21T12:29:54.653902384Z",
                   "method": "imagetools",
                   "detail": ""
                 },
@@ -4805,7 +4802,7 @@
                   "floating": true,
                   "current_version": "1.0.0",
                   "latest_version": "1.0.1",
-                  "latest_created": "2026-11-18T01:48:06.652466376Z",
+                  "latest_created": "2026-11-21T12:29:55.232310279Z",
                   "method": "imagetools",
                   "detail": ""
                 },
@@ -4823,12 +4820,12 @@
               ],
               "skipped": []
             },
-            "what docker ps says the image of that container is, after its tag moved here": "796a4c15c85c"
+            "what docker ps says the image of that container is, after its tag moved here": "76e89800a767"
           }
         },
         "08 update_gate": {
           "status": "pass",
-          "seconds": 98.4,
+          "seconds": 96.6,
           "reason": "",
           "passed": [
             "the central starts",
@@ -4856,18 +4853,18 @@
           "failed": [],
           "skipped": [],
           "notes": {
-            "the image's buildx asking the local registry": "5000/w3rd/web:live\nMediaType: application/vnd.docker.distribution.manifest.list.v2+json\nDigest:    sha256:40865df00eaa392081f307cdb966aa8c377c0b7e51591abee11ac17f897b8c6e\n           \nManifests: \n  Name:      localhost:5000/w3rd/web:live@sha256:023136b2a1358f102083b756bb8e382481ab75136dbf6db36cb3985ca1d655a3\n  MediaType: application/vnd.docker.distribution.manifest.v2+json\n  Platform:  linux/amd64\n",
+            "the image's buildx asking the local registry": "5000/w3rd/web:live\nMediaType: application/vnd.docker.distribution.manifest.list.v2+json\nDigest:    sha256:65f2b17517b5bbbbb7c013264e01ba275fdd399cd2157bf478f337134931f28c\n           \nManifests: \n  Name:      localhost:5000/w3rd/web:live@sha256:4d1edf33a2e6e732183ce56af6801aa06e93f469f48e7262a42b7f3382497cf5\n  MediaType: application/vnd.docker.distribution.manifest.v2+json\n  Platform:  linux/amd64\n",
             "noust docker images check --pull": "  localhost:5000/w3rd/web:live: new version (major)\n  registry:2: current\n✓ 1 of 2 images have a new version.\n",
-            "noust docker images plan, of the image the application runs": "  Image: noust-gate-nas-test:20261118-015118-nogit\n  Registry: a new version (major)\n  Version: 1 -> 2\n  Owner: app gate.nas.test\n  Updates: gate.nas.test (through its update, behind its health gate)\n  Moves: localhost:5000/w3rd/web:live\n  Steps: pull -> recreate_behind_health -> keep_previous -> roll_back_on_failure\n⚠ A major version is a decision: update with --accept-major.\n",
-            "noust docker images update": "  Image: noust-gate-nas-test:20261118-015118-nogit\n  Registry: a new version (major)\n  Version: 1 -> 2\n  Owner: app gate.nas.test\n  Updates: gate.nas.test (through its update, behind its health gate)\n  Moves: localhost:5000/w3rd/web:live\n  Steps: pull -> recreate_behind_health -> keep_previous -> roll_back_on_failure\n⚠ A major version is a decision: update with --accept-major.\n[1/5] Creating pre-update backup...\n[2/5] Pulling the image again...\n[3/5] Detecting application type...\n[4/5] Rebuilding...\n[5/5] Restarting...\n✓ gate.nas.test runs the new version.\n",
-            "an update whose container does not answer": " Image: noust-gate-nas-test:20261118-015128-nogit\n  Registry: a new version (major)\n  Version: 2 -> 3\n  Owner: app gate.nas.test\n  Updates: gate.nas.test (through its update, behind its health gate)\n  Moves: localhost:5000/w3rd/web:live\n  Steps: pull -> recreate_behind_health -> keep_previous -> roll_back_on_failure\n⚠ A major version is a decision: update with --accept-major.\n[1/5] Creating pre-update backup...\n[2/5] Pulling the image again...\n[3/5] Detecting application type...\n[4/5] Rebuilding...\n⚠ The update of gate.nas.test did not pass its health check\n✗ The update of gate.nas.test did not pass its health check; the containers that were serving are running again\ni The application did not answer the health check. Asked at http://10.214.14.2:8080/.\n\nHealth check attempts 1-15 failed: <urlopen error [Errno 111] Connection refused>\n\nLast lines of the containers' output (docker compose logs --tail 40):\n(the containers printed nothing)\n\nThe tree is not a git checkout at a known commit, so the compose file was not put back: the previous images run with the compose file of this update.\n",
+            "noust docker images plan, of the image the application runs": "  Image: noust-gate-nas-test:20261121-123305-nogit\n  Registry: a new version (major)\n  Version: 1 -> 2\n  Owner: app gate.nas.test\n  Updates: gate.nas.test (through its update, behind its health gate)\n  Moves: localhost:5000/w3rd/web:live\n  Steps: pull -> recreate_behind_health -> keep_previous -> roll_back_on_failure\n⚠ A major version is a decision: update with --accept-major.\n",
+            "noust docker images update": "  Image: noust-gate-nas-test:20261121-123305-nogit\n  Registry: a new version (major)\n  Version: 1 -> 2\n  Owner: app gate.nas.test\n  Updates: gate.nas.test (through its update, behind its health gate)\n  Moves: localhost:5000/w3rd/web:live\n  Steps: pull -> recreate_behind_health -> keep_previous -> roll_back_on_failure\n⚠ A major version is a decision: update with --accept-major.\n[1/5] Creating pre-update backup...\n[2/5] Pulling the image again...\n[3/5] Detecting application type...\n[4/5] Rebuilding...\n[5/5] Restarting...\n✓ gate.nas.test runs the new version.\n",
+            "an update whose container does not answer": " Image: noust-gate-nas-test:20261121-123315-nogit\n  Registry: a new version (major)\n  Version: 2 -> 3\n  Owner: app gate.nas.test\n  Updates: gate.nas.test (through its update, behind its health gate)\n  Moves: localhost:5000/w3rd/web:live\n  Steps: pull -> recreate_behind_health -> keep_previous -> roll_back_on_failure\n⚠ A major version is a decision: update with --accept-major.\n[1/5] Creating pre-update backup...\n[2/5] Pulling the image again...\n[3/5] Detecting application type...\n[4/5] Rebuilding...\n⚠ The update of gate.nas.test did not pass its health check\n✗ The update of gate.nas.test did not pass its health check; the containers that were serving are running again\ni The application did not answer the health check. Asked at http://10.214.14.2:8080/.\n\nHealth check attempts 1-15 failed: <urlopen error [Errno 111] Connection refused>\n\nLast lines of the containers' output (docker compose logs --tail 40):\n(the containers printed nothing)\n\nThe tree is not a git checkout at a known commit, so the compose file was not put back: the previous images run with the compose file of this update.\n",
             "an image that exits at once, set": "✓ gate.nas.test: changed image. It takes effect with: noust update gate.nas.test\n",
             "an update to an image that exits at once": "\nUpdating: gate.nas.test ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n\n\n[1/5] Creating pre-update backup...\n[2/5] Pulling the image again...\n[3/5] Detecting application type...\n[4/5] Rebuilding...\n⚠ The build failed; putting the tree and the image names back\n✗ localhost:5000/w3rd/small:bad was pulled but Docker cannot describe it\ni template parsing error: template: :1:44: executing \"\" at <.Config.ExposedPorts>: map has no entry for key \"ExposedPorts\"\n"
           }
         },
         "09 compose_check": {
           "status": "pass",
-          "seconds": 3.8,
+          "seconds": 3.5,
           "reason": "",
           "passed": [
             "a document is resolved on the standard input",
@@ -4894,7 +4891,7 @@
         },
         "09 compose_check [Compose v2.40.3]": {
           "status": "pass",
-          "seconds": 3.9,
+          "seconds": 3.8,
           "reason": "",
           "passed": [
             "a document is resolved on the standard input",
@@ -4920,7 +4917,7 @@
             "Compose": "2.40.3",
             "up --dry-run of a stack that is not running": "DRY-RUN MODE -  Network w3rdcheck_default  Creating\n DRY-RUN MODE -  Network w3rdcheck_default  Created\n DRY-RUN MODE -  Volume w3rdcheck_data  Creating\n DRY-RUN MODE -  Volume w3rdcheck_data  Created\n DRY-RUN MODE -  Container w3rdcheck-web-1  Creating\n DRY-RUN MODE -  Container w3rdcheck-web-1  Created\n DRY-RUN MODE -  Container w3rdcheck-web-1  Starting\n DRY-RUN MODE -  Container w3rdcheck-web-1  Started",
             "up --dry-run of a stack as it runs": "DRY-RUN MODE -  Container w3rdcheck-web-1  Running",
-            "up --dry-run of a changed command": "DRY-RUN MODE -  Container w3rdcheck-web-1  Recreate\n DRY-RUN MODE -  Container w3rdcheck-web-1  Recreated\n DRY-RUN MODE -  Container f2ce540615ef_w3rdcheck-web-1  Starting\n DRY-RUN MODE -  Container f2ce540615ef_w3rdcheck-web-1  Started",
+            "up --dry-run of a changed command": "DRY-RUN MODE -  Container w3rdcheck-web-1  Recreate\n DRY-RUN MODE -  Container w3rdcheck-web-1  Recreated\n DRY-RUN MODE -  Container 7bb46333ec6a_w3rdcheck-web-1  Starting\n DRY-RUN MODE -  Container 7bb46333ec6a_w3rdcheck-web-1  Started",
             "a document that is not YAML": "failed to parse -: yaml: line 4: mapping values are not allowed in this context",
             "a key Compose does not know": "validating -: services.web additional properties 'nope' not allowed",
             "a variable that is required": "error while interpolating services.web.image: required variable W3RD_MISSING is missing a value: needs W3RD_MISSING",
@@ -4929,7 +4926,7 @@
         },
         "09 compose_check [Compose v2.0.0]": {
           "status": "pass",
-          "seconds": 12.9,
+          "seconds": 12.3,
           "reason": "",
           "passed": [
             "a document is resolved on the standard input",
@@ -4956,7 +4953,7 @@
         },
         "10 compose_edit": {
           "status": "pass",
-          "seconds": 141.6,
+          "seconds": 135.2,
           "reason": "",
           "passed": [
             "the central starts",
@@ -4981,14 +4978,14 @@
           "notes": {
             "noust docker stack compose check": "✓ compose: docker compose config\n✓ privileges: ok\n✓ images: ok\n✓ variables: ok\n--- current\n+++ new\n@@ -2,6 +2,8 @@\n   web:\n     image: localhost:5000/w3rd/web:1\n     restart: unless-stopped\n+    environment:\n+      GREETING: hello\n     ports:\n       - \"18601:8080\"\n     volumes:\ni recreate container web\ni recreate container web\ni start container web\ni start container web\n",
             "noust docker stack compose apply": "✓ compose: docker compose config\n✓ privileges: ok\n✓ images: ok\n✓ variables: ok\n--- current\n+++ new\n@@ -2,6 +2,8 @@\n   web:\n     image: localhost:5000/w3rd/web:1\n     restart: unless-stopped\n+    environment:\n+      GREETING: hello\n     ports:\n       - \"18601:8080\"\n     volumes:\ni recreate container web\ni recreate container web\ni start container web\ni start container web\n[1/5] Creating pre-update backup...\n[2/5] No repository to fetch; the images are pulled again...\n[3/5] Detecting application type...\n[4/5] Rebuilding...\n[5/5] Restarting...\n✓ editapp runs version 2.\n",
-            "noust docker stack compose history": "  2: 2026-11-18T01:53:28.520129+00:00  edit     cli        harness\n  1: 2026-11-18T01:53:28.516296+00:00  found    noust      The document as Noust found it\n",
+            "noust docker stack compose history": "  2: 2026-11-21T12:35:09.904861+00:00  edit     cli        harness\n  1: 2026-11-21T12:35:09.903186+00:00  found    noust      The document as Noust found it\n",
             "noust docker stack compose apply, a document that does not answer": "ating pre-update backup...\n[2/5] No repository to fetch; the images are pulled again...\n[3/5] Detecting application type...\n[4/5] Rebuilding...\n⚠ The update of editapp did not pass its health check\n⚠ The new version failed; putting the previous one back\n⚠ The previous version is running again and answering.\n✗ The update of editapp did not pass its health check; the previous containers are back but are not answering either\ni The application did not answer the health check.\n\nHealth check attempts 1-15 failed: [Errno 104] Connection reset by peer\n\nLast lines of the containers' output (docker compose logs --tail 40):\n(the containers printed nothing)\n\nThe tree is not a git checkout at a known commit, so the compose file was not put back: the previous images run with the compose file of this update.\n\nAfter going back:\nThe application did not answer the health check.\n\nHealth check attempts 1-15 failed: [Errno 104] Connection reset by peer\n\nThe previous version is running again and answering.\n",
             "noust docker stack compose check, an image that does not exist": "✓ compose: docker compose config\n✓ privileges: ok\n✗ images: failed\n✓ variables: ok\n✗ The registry has no localhost:5000/w3rd/web:nowhere, which service web would run\ni The registry has no such tag: ERROR: localhost:5000/w3rd/web:nowhere: not found\n--- current\n+++ new\n@@ -1,6 +1,6 @@\n services:\n   web:\n-    image: localhost:5000/w3rd/web:1\n+    image: localhost:5000/w3rd/web:nowhere\n     restart: unless-stopped\n     environment:\n       GREETING: hello\n"
           }
         },
         "11 bring": {
           "status": "pass",
-          "seconds": 43.2,
+          "seconds": 43.3,
           "reason": "",
           "passed": [
             "the central starts",
@@ -5070,16 +5067,16 @@
                 }
               }
             ],
-            "noust docker stack bring --preview": "  Stack: old\n  Application: old (Docker keeps it running)\n  Folder: /volume1/docker/stacks/old (stays where it is)\n  Compose file: compose.yaml\n  Has: 2 containers (0 jobs that ended), 1 volumes, 1 networks\n  Rehearsed up: changes nothing\n⚠ old-worker-1 has the policy 'no': it would not come back after a restart\n⚠ /volume1/docker/stacks/old has no repository: an update pulls the images the compose file names and recreates the containers, and fetches no code. To follow a repository, clone it there and adopt with --source.\n⚠ old-worker-1 has the restart policy 'no': after the NAS restarts nothing starts it again, and without a unit of Noust's nothing else does. Noust does not change your compose file; add restart: unless-stopped to the service.\ni Nothing is recreated, restarted or changed, and its compose file is not rewritten.\n",
-            "noust docker stack bring": "a restart\n⚠ /volume1/docker/stacks/old has no repository: an update pulls the images the compose file names and recreates the containers, and fetches no code. To follow a repository, clone it there and adopt with --source.\n⚠ old-worker-1 has the restart policy 'no': after the NAS restarts nothing starts it again, and without a unit of Noust's nothing else does. Noust does not change your compose file; add restart: unless-stopped to the service.\ni Nothing is recreated, restarted or changed, and its compose file is not rewritten.\n[1/2] Registering the stack as it runs...\n[2/2] Recording its file and project: Docker keeps it running...\n✓ Adopted oldapp: /volume1/docker/stacks/old, project old, site (none), commit unknown\n⚠ /volume1/docker/stacks/old has no repository: an update pulls the images the compose file names and recreates the containers, and fetches no code. To follow a repository, clone it there and adopt with --source.\n⚠ old-worker-1 has the restart policy 'no': after the NAS restarts nothing starts it again, and without a unit of Noust's nothing else does. Noust does not change your compose file; add restart: unless-stopped to the service.\n✓ old is the application oldapp.\n",
-            "a stack started by the machine's own Compose, brought by the central's": "✗ Starting olderapp's stack as Noust would changes what runs: Compose would create, recreate or remove: Container older-web-1 Recreate; Container older-worker-1 Recreate; Container older-worker-1 Recreated; Container older-web-1 Recreated. These containers were made by Docker Compose 2.19.1 and this is Compose 5.7.1: another version does not read a service to the same configuration hash, so it takes containers for changed that are not. The running containers differ from the compose file (another project, file, profile or environment). Bring the stack up the way it is meant to run, or adopt with --accept-recreate (accept_recreate in the API) to accept it.\ni Container older-web-1 Recreate \n Container older-worker-1 Recreate \n Container older-worker-1 Recreated \n Container older-web-1 Recreated \n Container older-worker-1 Starting \n Container older-worker-1 Started \n Container older-web-1 Starting \n Container older-web-1 Started\n",
+            "noust docker stack bring --preview": "  Stack: old\n  Application: old (Docker keeps it running)\n  Folder: /volume1/docker/stacks/old (stays where it is)\n  Compose file: compose.yaml\n  Has: 2 containers (0 jobs that ended), 1 volumes, 1 networks\n  Rehearsed up: changes nothing\n⚠ old-worker-1 has the policy 'no': it would not come back after a restart\n⚠ /volume1/docker/stacks/old has no repository, so Noust fetches no code for it. Adopting changes nothing that runs now. The first update downloads the images the compose file names and recreates only the containers whose image or settings changed. To follow a repository instead, clone it in that folder and adopt the stack again with that repository as its source.\n⚠ old-worker-1 has the restart policy 'no': after the NAS restarts nothing starts it again, and without a unit of Noust's nothing else does. Noust does not change your compose file; add restart: unless-stopped to the service.\ni Nothing is recreated, restarted or changed, and its compose file is not rewritten.\n",
+            "noust docker stack bring": "folder and adopt the stack again with that repository as its source.\n⚠ old-worker-1 has the restart policy 'no': after the NAS restarts nothing starts it again, and without a unit of Noust's nothing else does. Noust does not change your compose file; add restart: unless-stopped to the service.\ni Nothing is recreated, restarted or changed, and its compose file is not rewritten.\n[1/2] Registering the stack as it runs...\n[2/2] Recording its file and project: Docker keeps it running...\n✓ Adopted oldapp: /volume1/docker/stacks/old, project old, site (none), commit unknown\n⚠ /volume1/docker/stacks/old has no repository, so Noust fetches no code for it. Adopting changes nothing that runs now. The first update downloads the images the compose file names and recreates only the containers whose image or settings changed. To follow a repository instead, clone it in that folder and adopt the stack again with that repository as its source.\n⚠ old-worker-1 has the restart policy 'no': after the NAS restarts nothing starts it again, and without a unit of Noust's nothing else does. Noust does not change your compose file; add restart: unless-stopped to the service.\n✓ old is the application oldapp.\n",
+            "a stack started by the machine's own Compose, brought by the central's": "✗ Starting olderapp's stack as Noust would changes what runs: Compose would create, recreate or remove: Container older-worker-1 Recreate; Container older-web-1 Recreate; Container older-worker-1 Recreated; Container older-web-1 Recreated. These containers were made by Docker Compose 2.19.1 and this is Compose 5.7.1: another version does not read a service to the same configuration hash, so it takes containers for changed that are not. The running containers differ from the compose file (another project, file, profile or environment). Bring the stack up the way it is meant to run, or adopt with --accept-recreate (accept_recreate in the API) to accept it.\ni Container older-worker-1 Recreate \n Container older-web-1 Recreate \n Container older-worker-1 Recreated \n Container older-web-1 Recreated \n Container older-worker-1 Starting \n Container older-worker-1 Started \n Container older-web-1 Starting \n Container older-web-1 Started\n",
             "a stack in a folder the central does not see": "✗ The folder of outside is not on this server: /srv/outside\ni Noust registers a stack where it already runs, and this one runs from a folder this server does not have (a tool that keeps its stacks in its own volume, or Noust in a container that does not see the host's folders). Bring it up from a folder on this server, then bring it here.\n",
             "a compose file the central cannot read": "✗ The central cannot read /volume1/docker/stacks/locked: it runs as user 10001\ni Give the central's user (10001:10001) read access to /volume1/docker/stacks/locked: a group it is in, an ACL for it, or the owner. The central only reads it, so that Compose can read the project; it never writes to a stack it adopts.\n"
           }
         },
         "12 client_negotiates": {
           "status": "pass",
-          "seconds": 27.9,
+          "seconds": 27.0,
           "reason": "",
           "passed": [
             "the central starts and answers",
@@ -5108,7 +5105,7 @@
         },
         "13 precheck": {
           "status": "pass",
-          "seconds": 17.3,
+          "seconds": 23.8,
           "reason": "",
           "passed": [
             "the check answers JSON",
@@ -5335,7 +5332,7 @@
         },
         "14 recipe": {
           "status": "pass",
-          "seconds": 47.8,
+          "seconds": 50.3,
           "reason": "",
           "passed": [
             "the central starts",
@@ -5358,14 +5355,14 @@
           "failed": [],
           "skipped": [],
           "notes": {
-            "noust recipe install whoami": "─────────────────────────────────────────────────────────────────────────────────────────\n\n  Domain: whoami.nas.test\n  Recipe: whoami\n  Type: docker-compose\n  SSL: No\n\n  Source: /volume1/docker/noust/state/recipe-sources/whoami-nas-test\n[1/9] Fetching source code...\n[2/9] Discovering compose file...\n[3/9] Parsing compose services...\n[4/9] Configuring environment...\n[5/9] Building Docker images...\n[6/9] Skipping Nginx (no web server on this machine)...\n[7/9] Skipping SSL (no web server on this machine)...\n[8/9] Creating the service...\n[9/9] Starting and verifying...\n✓ Docker Compose application deployed: whoami.nas.test\n\n  Domain: whoami.nas.test\n  Path: /volume1/docker/noust/apps/whoami-nas-test\n  Compose File: docker-compose.yml\n  Services: 1\n  SSL: No\n\ni Next steps:\ni   Open http://whoami.nas.test. It shows the request it got: the headers a proxy adds, the client address and the host.\n",
-            "noust update with the registry unreachable": "ing the recorded source again...\n[3/5] Detecting application type...\n[4/5] Rebuilding...\n⚠ Could not download the images ahead of the start: Error response from daemon: Get \"https://registry-1.docker.io/v2/\": dial tcp 127.0.0.1:443: connect: connection refused. Compose will try again when the stack starts.\n⚠ The update of whoami.nas.test did not pass its health check\n✗ The update of whoami.nas.test did not pass its health check; nothing was running before it, so nothing was put back\ni whoami-nas-test publishes no port, so there is nothing to ask over HTTP\n\nLast lines of the journal of whoami-nas-test:\nwhoami-1  | 2026/11/18 01:57:11 Starting up on port 80\nwhoami-1  | 2026/11/18 01:57:23 Starting up on port 80\n\nLast lines of the containers' output (docker compose logs --tail 40):\nwhoami-1  | 2026/11/18 01:57:11 Starting up on port 80\nwhoami-1  | 2026/11/18 01:57:23 Starting up on port 80\n",
-            "noust rollback": "whoami-nas-test_20261118_015726\ni   Created: just now\ni   Description: Pre-update automatic backup\n[1/2] Restoring from backup...\ni Creating a safety backup of the current state\ni Rolling back to: whoami-nas-test_20261118_015726\ni   Created: just now\ni whoami.nas.test is a Docker Compose app: ownership was kept as extracted, not handed to the service account, so its volumes and bind mounts keep the uids their containers expect\ni Rebuilding application...\n✗ Rollback failed: The docker-compose deployer cannot rebuild in place\n  Details: The files are restored but not rebuilt; nothing restarted.\n"
+            "noust recipe install whoami": "──────────────────────────────────────────────────────────────────────────────────────\n\n  Domain: whoami.nas.test\n  Recipe: whoami\n  Type: docker-compose\n  SSL: No\n\n  Source: /volume1/docker/noust/state/recipe-sources/whoami-nas-test\n[1/9] Fetching source code...\n[2/9] Discovering compose file...\n[3/9] Parsing compose services...\n[4/9] Configuring environment...\n[5/9] Building Docker images...\n[6/9] Skipping Nginx (no web server on this machine)...\n[7/9] Skipping SSL (no web server on this machine)...\n[8/9] Creating the service...\n[9/9] Starting and verifying...\n✓ Docker Compose application deployed: whoami.nas.test\n\n  Domain: whoami.nas.test\n  Path: /volume1/docker/noust/apps/whoami-nas-test\n  Compose File: docker-compose.yml\n  Services: 1\n  SSL: No\n\ni Next steps:\ni   Open http://d0711e1b4f7e:18701. It shows the request it got: the headers a proxy adds, the client address and the host.\n",
+            "noust update with the registry unreachable": "ing the recorded source again...\n[3/5] Detecting application type...\n[4/5] Rebuilding...\n⚠ Could not download the images ahead of the start: Error response from daemon: Get \"https://registry-1.docker.io/v2/\": dial tcp 127.0.0.1:443: connect: connection refused. Compose will try again when the stack starts.\n⚠ The update of whoami.nas.test did not pass its health check\n✗ The update of whoami.nas.test did not pass its health check; nothing was running before it, so nothing was put back\ni whoami-nas-test publishes no port, so there is nothing to ask over HTTP\n\nLast lines of the journal of whoami-nas-test:\nwhoami-1  | 2026/11/21 12:38:58 Starting up on port 80\nwhoami-1  | 2026/11/21 12:39:10 Starting up on port 80\n\nLast lines of the containers' output (docker compose logs --tail 40):\nwhoami-1  | 2026/11/21 12:38:58 Starting up on port 80\nwhoami-1  | 2026/11/21 12:39:10 Starting up on port 80\n",
+            "noust rollback": "whoami-nas-test_20261121_123913\ni   Created: just now\ni   Description: Pre-update automatic backup\n[1/2] Restoring from backup...\ni Creating a safety backup of the current state\ni Rolling back to: whoami-nas-test_20261121_123913\ni   Created: just now\ni whoami.nas.test is a Docker Compose app: ownership was kept as extracted, not handed to the service account, so its volumes and bind mounts keep the uids their containers expect\ni Rebuilding application...\n✗ Rollback failed: The docker-compose deployer cannot rebuild in place\n  Details: The files are restored but not rebuilt; nothing restarted.\n"
           }
         },
         "15 reach": {
           "status": "pass",
-          "seconds": 46.3,
+          "seconds": 50.6,
           "reason": "",
           "passed": [
             "the central starts",
@@ -5424,46 +5421,46 @@
             "own id by default": {
               "cgroupns": "private",
               "ids": {
-                "reach": "f220ba937639719a882f48fbc856ad7927bc6b3daaa6657cd6fd6fd008eec8af",
+                "reach": "4fadc9eec5395bab475a8e42f74846e527f7e6cebfcb91f5bb3287088e3ec138",
                 "owners": [
-                  "f220ba937639",
-                  "f220ba937639719a882f48fbc856ad7927bc6b3daaa6657cd6fd6fd008eec8af"
+                  "4fadc9eec539",
+                  "4fadc9eec5395bab475a8e42f74846e527f7e6cebfcb91f5bb3287088e3ec138"
                 ]
               }
             },
-            "mountinfo lines of the container's own files by default": "2155 2145 8:64 /data/docker/volumes/noust-test-cierre-e24-lib/_data/containers/f220ba937639719a882f48fbc856ad7927bc6b3daaa6657cd6fd6fd008eec8af/resolv.conf /etc/resolv.conf ro,relatime - ext4 /dev/sde rw\n2156 2145 8:64 /data/docker/volumes/noust-test-cierre-e24-lib/_data/containers/f220ba937639719a882f48fbc856ad7927bc6b3daaa6657cd6fd6fd008eec8af/hostname /etc/hostname ro,relatime - ext4 /dev/sde rw\n2157 2145 8:64 /data/docker/volumes/noust-test-cierre-e24-lib/_data/containers/f220ba937639719a882f48fbc856ad7927bc6b3daaa6657cd6fd6fd008eec8af/hosts /etc/hosts ro,relatime - ext4 /dev/sde rw\n",
+            "mountinfo lines of the container's own files by default": "1944 1934 8:64 /data/docker/volumes/noust-test-cierre-e24-lib/_data/containers/4fadc9eec5395bab475a8e42f74846e527f7e6cebfcb91f5bb3287088e3ec138/resolv.conf /etc/resolv.conf ro,relatime - ext4 /dev/sde rw\n1945 1934 8:64 /data/docker/volumes/noust-test-cierre-e24-lib/_data/containers/4fadc9eec5395bab475a8e42f74846e527f7e6cebfcb91f5bb3287088e3ec138/hostname /etc/hostname ro,relatime - ext4 /dev/sde rw\n1946 1934 8:64 /data/docker/volumes/noust-test-cierre-e24-lib/_data/containers/4fadc9eec5395bab475a8e42f74846e527f7e6cebfcb91f5bb3287088e3ec138/hosts /etc/hosts ro,relatime - ext4 /dev/sde rw\n",
             "own id with a private cgroup namespace": {
               "cgroupns": "private",
               "ids": {
-                "reach": "d13d3b0daf94534f6249bb2e91ebda07c43bf89073af50fa38844a2fe9cc9837",
+                "reach": "452e22b6b4fbeacef13eabe55d6d88941b83abcc33a48a60854daeed8d1e6f5a",
                 "owners": [
-                  "d13d3b0daf94",
-                  "d13d3b0daf94534f6249bb2e91ebda07c43bf89073af50fa38844a2fe9cc9837"
+                  "452e22b6b4fb",
+                  "452e22b6b4fbeacef13eabe55d6d88941b83abcc33a48a60854daeed8d1e6f5a"
                 ]
               }
             },
-            "mountinfo lines of the container's own files with a private cgroup namespace": "2155 2145 8:64 /data/docker/volumes/noust-test-cierre-e24-lib/_data/containers/d13d3b0daf94534f6249bb2e91ebda07c43bf89073af50fa38844a2fe9cc9837/resolv.conf /etc/resolv.conf ro,relatime - ext4 /dev/sde rw\n2156 2145 8:64 /data/docker/volumes/noust-test-cierre-e24-lib/_data/containers/d13d3b0daf94534f6249bb2e91ebda07c43bf89073af50fa38844a2fe9cc9837/hostname /etc/hostname ro,relatime - ext4 /dev/sde rw\n2157 2145 8:64 /data/docker/volumes/noust-test-cierre-e24-lib/_data/containers/d13d3b0daf94534f6249bb2e91ebda07c43bf89073af50fa38844a2fe9cc9837/hosts /etc/hosts ro,relatime - ext4 /dev/sde rw\n",
+            "mountinfo lines of the container's own files with a private cgroup namespace": "1944 1934 8:64 /data/docker/volumes/noust-test-cierre-e24-lib/_data/containers/452e22b6b4fbeacef13eabe55d6d88941b83abcc33a48a60854daeed8d1e6f5a/resolv.conf /etc/resolv.conf ro,relatime - ext4 /dev/sde rw\n1945 1934 8:64 /data/docker/volumes/noust-test-cierre-e24-lib/_data/containers/452e22b6b4fbeacef13eabe55d6d88941b83abcc33a48a60854daeed8d1e6f5a/hostname /etc/hostname ro,relatime - ext4 /dev/sde rw\n1946 1934 8:64 /data/docker/volumes/noust-test-cierre-e24-lib/_data/containers/452e22b6b4fbeacef13eabe55d6d88941b83abcc33a48a60854daeed8d1e6f5a/hosts /etc/hosts ro,relatime - ext4 /dev/sde rw\n",
             "own id with the host's cgroup namespace": {
               "cgroupns": "host",
               "ids": {
-                "reach": "bda284924c004ca5b349d4a61d2d48c360641c745720f3e74859b3172af56883",
+                "reach": "50f2b6661ae546a1804d3734d819ab65620832020939de9cfdcb4fab346c745a",
                 "owners": [
-                  "bda284924c00",
-                  "bda284924c004ca5b349d4a61d2d48c360641c745720f3e74859b3172af56883"
+                  "50f2b6661ae5",
+                  "50f2b6661ae546a1804d3734d819ab65620832020939de9cfdcb4fab346c745a"
                 ]
               }
             },
-            "mountinfo lines of the container's own files with the host's cgroup namespace": "2155 2145 8:64 /data/docker/volumes/noust-test-cierre-e24-lib/_data/containers/bda284924c004ca5b349d4a61d2d48c360641c745720f3e74859b3172af56883/resolv.conf /etc/resolv.conf ro,relatime - ext4 /dev/sde rw\n2156 2145 8:64 /data/docker/volumes/noust-test-cierre-e24-lib/_data/containers/bda284924c004ca5b349d4a61d2d48c360641c745720f3e74859b3172af56883/hostname /etc/hostname ro,relatime - ext4 /dev/sde rw\n2157 2145 8:64 /data/docker/volumes/noust-test-cierre-e24-lib/_data/containers/bda284924c004ca5b349d4a61d2d48c360641c745720f3e74859b3172af56883/hosts /etc/hosts ro,relatime - ext4 /dev/sde rw\n",
+            "mountinfo lines of the container's own files with the host's cgroup namespace": "1944 1934 8:64 /data/docker/volumes/noust-test-cierre-e24-lib/_data/containers/50f2b6661ae546a1804d3734d819ab65620832020939de9cfdcb4fab346c745a/resolv.conf /etc/resolv.conf ro,relatime - ext4 /dev/sde rw\n1945 1934 8:64 /data/docker/volumes/noust-test-cierre-e24-lib/_data/containers/50f2b6661ae546a1804d3734d819ab65620832020939de9cfdcb4fab346c745a/hostname /etc/hostname ro,relatime - ext4 /dev/sde rw\n1946 1934 8:64 /data/docker/volumes/noust-test-cierre-e24-lib/_data/containers/50f2b6661ae546a1804d3734d819ab65620832020939de9cfdcb4fab346c745a/hosts /etc/hosts ro,relatime - ext4 /dev/sde rw\n",
             "own id with a host name of its own": {
               "cgroupns": "private",
               "ids": {
-                "reach": "9c00c048716ac9b907c391a3a64f61343405110cd2fa59034f65e1534b74849b",
+                "reach": "bd57b60f808227c39081bf53b6b434c38f69ea269ed61b18e337470ec0ed5614",
                 "owners": [
-                  "9c00c048716ac9b907c391a3a64f61343405110cd2fa59034f65e1534b74849b"
+                  "bd57b60f808227c39081bf53b6b434c38f69ea269ed61b18e337470ec0ed5614"
                 ]
               }
             },
-            "mountinfo lines of the container's own files with a host name of its own": "2155 2145 8:64 /data/docker/volumes/noust-test-cierre-e24-lib/_data/containers/9c00c048716ac9b907c391a3a64f61343405110cd2fa59034f65e1534b74849b/resolv.conf /etc/resolv.conf ro,relatime - ext4 /dev/sde rw\n2156 2145 8:64 /data/docker/volumes/noust-test-cierre-e24-lib/_data/containers/9c00c048716ac9b907c391a3a64f61343405110cd2fa59034f65e1534b74849b/hostname /etc/hostname ro,relatime - ext4 /dev/sde rw\n2157 2145 8:64 /data/docker/volumes/noust-test-cierre-e24-lib/_data/containers/9c00c048716ac9b907c391a3a64f61343405110cd2fa59034f65e1534b74849b/hosts /etc/hosts ro,relatime - ext4 /dev/sde rw\n",
+            "mountinfo lines of the container's own files with a host name of its own": "1944 1934 8:64 /data/docker/volumes/noust-test-cierre-e24-lib/_data/containers/bd57b60f808227c39081bf53b6b434c38f69ea269ed61b18e337470ec0ed5614/resolv.conf /etc/resolv.conf ro,relatime - ext4 /dev/sde rw\n1945 1934 8:64 /data/docker/volumes/noust-test-cierre-e24-lib/_data/containers/bd57b60f808227c39081bf53b6b434c38f69ea269ed61b18e337470ec0ed5614/hostname /etc/hostname ro,relatime - ext4 /dev/sde rw\n1946 1934 8:64 /data/docker/volumes/noust-test-cierre-e24-lib/_data/containers/bd57b60f808227c39081bf53b6b434c38f69ea269ed61b18e337470ec0ed5614/hosts /etc/hosts ro,relatime - ext4 /dev/sde rw\n",
             "noust create from a central on the host's network": "vering compose file...\n[3/9] Parsing compose services...\n[4/9] Configuring environment...\n[5/9] Building Docker images...\n[6/9] Skipping Nginx (no web server on this machine)...\n[7/9] Skipping SSL (no web server on this machine)...\n[8/9] Creating the service...\n[9/9] Starting and verifying...\n✓ Docker Compose application deployed: reachhost.nas.test\n\n  Domain: reachhost.nas.test\n  Path: /volume1/docker/noust-host/apps/reachhost-nas-test\n  Compose File: compose.noust.yaml\n  Services: 1\n  SSL: No\n",
             "a service on the host's network, from a central that is not": {
               "exit": 0,
@@ -5473,7 +5470,7 @@
         },
         "16 busy_port": {
           "status": "pass",
-          "seconds": 24.4,
+          "seconds": 28.7,
           "reason": "",
           "passed": [
             "the central starts",
@@ -5488,14 +5485,14 @@
           "failed": [],
           "skipped": [],
           "notes": {
-            "Docker's own words for a port held by a process of the machine": "docker: Error response from daemon: driver failed programming external connectivity on endpoint inspiring_poitras (fc51178c736afd1af08d7125df64c38859a2da78ba0094d528db8a4f9cbea9bb): Error starting userland proxy: listen tcp4 0.0.0.0:18301: bind: address already in use.",
-            "Docker's own words for a port held by another container": "docker: Error response from daemon: driver failed programming external connectivity on endpoint intelligent_brattain (06d9450dd262345969dd4773db33e8bbc77cfdb9b308019314beade98690110b): Bind for 0.0.0.0:18302 failed: port is already allocated.",
+            "Docker's own words for a port held by a process of the machine": "docker: Error response from daemon: driver failed programming external connectivity on endpoint kind_rubin (9e921b6d2c6ebc5baffc75c658d2deba74d432634eb02ba048073971e31966de): Error starting userland proxy: listen tcp4 0.0.0.0:18301: bind: address already in use.",
+            "Docker's own words for a port held by another container": "docker: Error response from daemon: driver failed programming external connectivity on endpoint agitated_shamir (94d5f37729dfafe4ade7b7beddf2ddabf2e17b00b0919be556c0d6b9beef699e): Bind for 0.0.0.0:18302 failed: port is already allocated.",
             "a port left to Noust": "/9] Skipping SSL (no web server on this machine)...\n[8/9] Creating the service...\n[9/9] Starting and verifying...\n✓ Docker Compose application deployed: free.nas.test\n\n  Domain: free.nas.test\n  Path: /volume1/docker/noust/apps/free-nas-test\n  Compose File: compose.noust.yaml\n  Services: 1\n  SSL: No\n"
           }
         },
         "17 volume_copy": {
           "status": "pass",
-          "seconds": 633.5,
+          "seconds": 632.9,
           "reason": "",
           "passed": [
             "the central starts",
@@ -5514,14 +5511,14 @@
           "skipped": [],
           "notes": {
             "noust backup volumes targets": "[\n  {\n    \"declared_by\": \"Compose volume\",\n    \"exists\": true,\n    \"key\": \"volume:copy_data\",\n    \"kind\": \"docker\",\n    \"path\": null,\n    \"slug\": \"vol-copy_data\",\n    \"source\": \"copy_data\"\n  }\n]\n",
-            "noust backup volumes schedule set": "live\",\n  \"created_at\": \"2026-11-18T01:59:10+00:00\",\n  \"destinations\": [],\n  \"domain\": \"copyapp\",\n  \"enabled\": true,\n  \"extra_paths\": [],\n  \"last_backup\": null,\n  \"last_error\": null,\n  \"last_run_at\": null,\n  \"last_status\": null,\n  \"last_success_at\": null,\n  \"remote_only\": false,\n  \"retention_count\": 5,\n  \"retention_days\": 30,\n  \"retention_gb\": null,\n  \"schedule\": \"*-*-* *:*:00\",\n  \"targets\": [],\n  \"timer\": {\n    \"installed\": true,\n    \"last_run\": null,\n    \"max_runtime_seconds\": null,\n    \"next_run\": \"2026-11-18 02:00:00\",\n    \"timezone\": null\n  },\n  \"updated_at\": \"2026-11-18T01:59:10+00:00\"\n}\n",
+            "noust backup volumes schedule set": "live\",\n  \"created_at\": \"2026-11-21T12:41:05+00:00\",\n  \"destinations\": [],\n  \"domain\": \"copyapp\",\n  \"enabled\": true,\n  \"extra_paths\": [],\n  \"last_backup\": null,\n  \"last_error\": null,\n  \"last_run_at\": null,\n  \"last_status\": null,\n  \"last_success_at\": null,\n  \"remote_only\": false,\n  \"retention_count\": 5,\n  \"retention_days\": 30,\n  \"retention_gb\": null,\n  \"schedule\": \"*-*-* *:*:00\",\n  \"targets\": [],\n  \"timer\": {\n    \"installed\": true,\n    \"last_run\": null,\n    \"max_runtime_seconds\": null,\n    \"next_run\": \"2026-11-21 12:42:00\",\n    \"timezone\": null\n  },\n  \"updated_at\": \"2026-11-21T12:41:05+00:00\"\n}\n",
             "noust central schedule status": [
               {
                 "key": "volume_backup:copyapp",
                 "kind": "volume_backup",
                 "subject": "copyapp",
                 "calendar": "*-*-* *:*:00",
-                "next_run": "2026-11-18 02:00:00",
+                "next_run": "2026-11-21 12:42:00",
                 "last_run": null,
                 "last_status": null,
                 "last_detail": "",
@@ -5529,15 +5526,15 @@
                 "problem": null
               }
             ],
-            "noust backup volumes list": "\": \"docker\",\n    \"last_verified_at\": \"2026-11-18T02:00:08+00:00\",\n    \"mac\": \"22bc5a6700ba32e49d4c5a8653835bb893e204b0a480ca8cd91bb8e6e2bdbbe4\",\n    \"mac_key_id\": \"0ef9cc51fbc269e4\",\n    \"origin\": \"638ef91b8c5d3a61\",\n    \"owner\": null,\n    \"remote_copies\": [],\n    \"size_bytes\": 136,\n    \"skipped\": [],\n    \"slug\": \"vol-copy_data\",\n    \"source\": \"copy_data\",\n    \"sqlite_files\": [],\n    \"tags\": [\n      \"scheduled\",\n      \"auto\"\n    ],\n    \"target\": \"volume:copy_data\",\n    \"verified_ok\": true\n  }\n]\n",
+            "noust backup volumes list": "\": \"docker\",\n    \"last_verified_at\": \"2026-11-21T12:42:31+00:00\",\n    \"mac\": \"8add5f3956fcd7431d2bbb8843e06ae7c6a5bcca32b4789b524fb441f704b9c5\",\n    \"mac_key_id\": \"7f5532f92e1b5178\",\n    \"origin\": \"f141cc3616e38403\",\n    \"owner\": null,\n    \"remote_copies\": [],\n    \"size_bytes\": 135,\n    \"skipped\": [],\n    \"slug\": \"vol-copy_data\",\n    \"source\": \"copy_data\",\n    \"sqlite_files\": [],\n    \"tags\": [\n      \"scheduled\",\n      \"auto\"\n    ],\n    \"target\": \"volume:copy_data\",\n    \"verified_ok\": true\n  }\n]\n",
             "what the central says after it was off": [
-              "i The volume backup schedule of copyapp missed 2 runs while the central was not running, the last at 2026-11-18 02:03: it runs now, once"
+              "i The volume backup schedule of copyapp missed 2 runs while the central was not running, the last at 2026-11-21 12:45: it runs now, once"
             ]
           }
         },
         "18 how_it_runs": {
           "status": "pass",
-          "seconds": 24.1,
+          "seconds": 20.9,
           "reason": "",
           "passed": [
             "the central starts",
@@ -5557,7 +5554,7 @@
         },
         "01 doctor [no Compose]": {
           "status": "pass",
-          "seconds": 0.9,
+          "seconds": 0.8,
           "reason": "",
           "passed": [
             "Docker is found and answers",
@@ -5581,8 +5578,8 @@
           }
         }
       },
-      "seconds": 1326
+      "seconds": 1295
     }
   },
-  "seconds": 3980
+  "seconds": 3819
 }
