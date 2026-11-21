@@ -2,7 +2,7 @@ services:
   noust:
     # Must match the tag of the tars packaging/ugreen/build.sh puts in rootfs_{amd64,arm64}/images
     # and the version in project.yaml (scripts/release.py keeps all three); the store refuses `latest`.
-    image: ghcr.io/perkybeet/noust:4.2.1
+    image: ghcr.io/perkybeet/noust:4.3.0
     container_name: noust
     restart: unless-stopped
     network_mode: bridge

@@ -1,6 +1,25 @@
 {
  "entries": [
   {
+   "version": "4.3.0",
+   "date": "2026-11-21",
+   "action_required": true,
+   "items": [
+    {
+     "text": "SECURITY: the check on Docker Compose files let a stack reach the whole server through links, mounts, devices, capabilities and keys it did not examine, and a stack started with whatever its variables and files said at that moment (Noust 3.1.0 to 4.2.1, GHSA-2h26-pjpg-8vgj); 4.3.0 judges a path by where it leads, refuses what it does not know, reads every file a compose file brings in and holds every start to what was judged, a stack that already runs keeps updating with a warning, and noust health lists the stacks to review",
+     "action_required": false
+    },
+    {
+     "text": "Noust looks after all of Docker: Server > Docker lists what a machine's Docker has and whose each thing is, images are updated behind the health gate, a stack that already runs is brought to Noust and its Compose edited with a way back; a central that is a container on a NAS deploys with the machine's Docker and installs from the app store of a UGREEN NAS; an optional built-in assistant explains, investigates and proposes what a person approves, with the model you choose; and a central collects the copies of its servers through the tunnels it already has",
+     "action_required": false
+    },
+    {
+     "text": "update, then run noust health and review the Compose stacks it lists; a compose file or a build that read a variable of Noust's own environment needs it in the stack's .env; the store moves to schema 18, which 4.2 cannot open",
+     "action_required": true
+    }
+   ]
+  },
+  {
    "version": "4.2.1",
    "date": "2026-11-09",
    "action_required": false,
@@ -737,17 +756,6 @@
    "items": [
     {
      "text": "Visual redesign: Geist typography, indigo accent, refined components and a common page skeleton across the panel",
-     "action_required": false
-    }
-   ]
-  },
-  {
-   "version": "1.5.1",
-   "date": "2026-08-14",
-   "action_required": false,
-   "items": [
-    {
-     "text": "Fix: panel failed to start on distro pydantic v1 (Ubuntu 24.04); pydantic v1/v2 bridge with architecture guards and distro-import CI gates",
      "action_required": false
     }
    ]

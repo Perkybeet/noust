@@ -5,7 +5,7 @@
 #
 
 Name:           noust
-Version:        4.2.1
+Version:        4.3.0
 Release:        1%{?dist}
 Summary:        Deploy and manage web applications on Linux servers
 License:        AGPL-3.0-or-later
@@ -357,6 +357,10 @@ if [ -f /etc/systemd/system/noust-web.service ]; then
 fi
 
 %changelog
+* Sat Nov 21 2026 Yago López Prado <yago.lopez.adeje@gmail.com> - 4.3.0-1
+- SECURITY: the check on Docker Compose files let a stack reach the whole server through links, mounts, devices, capabilities and keys it did not examine, and a stack started with whatever its variables and files said at that moment (Noust 3.1.0 to 4.2.1, GHSA-2h26-pjpg-8vgj); 4.3.0 judges a path by where it leads, refuses what it does not know, reads every file a compose file brings in and holds every start to what was judged, a stack that already runs keeps updating with a warning, and noust health lists the stacks to review
+- Noust looks after all of Docker: Server > Docker lists what a machine's Docker has and whose each thing is, images are updated behind the health gate, a stack that already runs is brought to Noust and its Compose edited with a way back; a central that is a container on a NAS deploys with the machine's Docker and installs from the app store of a UGREEN NAS; an optional built-in assistant explains, investigates and proposes what a person approves, with the model you choose; and a central collects the copies of its servers through the tunnels it already has
+- Action required: update, then run noust health and review the Compose stacks it lists; a compose file or a build that read a variable of Noust's own environment needs it in the stack's .env; the store moves to schema 18, which 4.2 cannot open
 * Mon Nov 09 2026 Yago López Prado <yago.lopez.adeje@gmail.com> - 4.2.1-1
 - The console no longer runs out of open files: the connections of a worker thread that has ended are closed at once instead of at a garbage collection, which on a busy central left every request answered with Too many open files after a few days
 - Every change: https://github.com/Perkybeet/noust/blob/main/docs/CHANGELOG-4.2.md#421

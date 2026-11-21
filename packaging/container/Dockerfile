@@ -32,7 +32,7 @@ RUN python3 /tmp/install_docker_client.py /out
 FROM python:3.12-slim-bookworm
 
 # scripts/release.py keeps this in step with pyproject.toml.
-ARG NOUST_VERSION=4.2.1
+ARG NOUST_VERSION=4.3.0
 
 LABEL org.opencontainers.image.title="Noust central" \
       org.opencontainers.image.description="Noust's console and fleet tunnels, for a NAS or any Docker host" \
