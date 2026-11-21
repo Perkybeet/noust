@@ -1,0 +1,1 @@
+import{t as e}from"./GatePage-Dko1qu2-.js";import{Nr as t,Or as n}from"./routes-CEcR_IpP.js";import{Ir as r}from"./routes-work-Dkdau9I_.js";var i=r();function a(){let{next:r}=n.useSearch();return(0,i.jsx)(e,{next:t(r)})}export{a as component};

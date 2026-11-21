@@ -1,1 +1,0 @@
-import{t as e}from"./SystemTab-BTBF0rLI.js";import{Nr as t}from"./routes-work-8asmFgM_.js";var n=t();function r(){return(0,n.jsx)(e,{view:`machine`})}export{r as component};

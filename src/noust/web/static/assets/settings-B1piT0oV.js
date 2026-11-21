@@ -1,0 +1,1 @@
+import{Wo as e}from"./routes-CEcR_IpP.js";import{t}from"./SettingsShell-Bwkz8mGM.js";import{Ir as n}from"./routes-work-Dkdau9I_.js";var r=n();function i(){return(0,r.jsx)(t,{children:(0,r.jsx)(e,{})})}export{i as component};

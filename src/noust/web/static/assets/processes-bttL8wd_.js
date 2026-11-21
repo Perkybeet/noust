@@ -1,0 +1,1 @@
+import{t as e}from"./SystemTab-Bt_sU4yr.js";import{Ir as t}from"./routes-work-Dkdau9I_.js";var n=t();function r(){return(0,n.jsx)(e,{view:`processes`})}export{r as component};

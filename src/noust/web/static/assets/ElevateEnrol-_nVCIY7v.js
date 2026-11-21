@@ -1,0 +1,1 @@
+import{n as e}from"./GatePage-Dko1qu2-.js";import{Ir as t}from"./routes-work-Dkdau9I_.js";var n=t();function r({session:t,onDone:r}){return(0,n.jsx)(e,{session:t,onDone:r})}export{r as default};

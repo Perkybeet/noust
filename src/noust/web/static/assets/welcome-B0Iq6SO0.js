@@ -1,1 +1,0 @@
-import{t as e}from"./GatePage-Cj8RHtap.js";import{Ar as t,Fr as n}from"./routes-CuXP_NEd.js";import{Nr as r}from"./routes-work-8asmFgM_.js";var i=r();function a(){let{next:r}=t.useSearch();return(0,i.jsx)(e,{next:n(r)})}export{a as component};

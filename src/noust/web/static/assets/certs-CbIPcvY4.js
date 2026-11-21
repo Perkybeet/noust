@@ -1,1 +1,0 @@
-import{Go as e,vo as t}from"./routes-CuXP_NEd.js";var n={all:[`certs`],details:[`cert`],detail:e=>[`cert`,e]},r=()=>e({queryKey:n.all,queryFn:({signal:e})=>t(`get`,`/api/certs`,{signal:e})});export{r as n,n as t};

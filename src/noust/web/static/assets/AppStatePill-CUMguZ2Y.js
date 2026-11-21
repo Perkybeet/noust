@@ -1,1 +1,0 @@
-import{Gn as e,Nr as t,Sn as n,xn as r}from"./routes-work-8asmFgM_.js";import{r as i}from"./StatusPill-BUXwM5VB.js";var a=t();function o({status:t,...n}){let o=e(),s=r(t,o.locale);return(0,a.jsx)(i,{state:s.state,label:s.label,...n})}function s({status:t,...r}){let o=e(),s=n(t,o.locale);return(0,a.jsx)(i,{state:s.state,label:s.label,...r})}export{s as n,o as t};

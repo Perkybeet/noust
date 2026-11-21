@@ -1,1 +1,0 @@
-import{n as e}from"./ErrorBoundary-Ds875a0e.js";import{Nr as t}from"./routes-work-8asmFgM_.js";var n=t(),r=({error:t})=>(0,n.jsx)(`main`,{className:`min-h-dvh bg-bg`,children:(0,n.jsx)(`div`,{className:`mx-auto max-w-3xl px-6 py-16`,children:(0,n.jsx)(e,{error:t})})});export{r as errorComponent};

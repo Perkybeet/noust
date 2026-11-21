@@ -1,1 +1,0 @@
-import{Go as e,vo as t}from"./routes-CuXP_NEd.js";var n={all:[`overview`]},r=15e3,i=()=>e({queryKey:n.all,queryFn:({signal:e})=>t(`get`,`/api/overview`,{signal:e}),refetchInterval:r});export{i as n,n as t};

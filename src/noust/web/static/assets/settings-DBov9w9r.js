@@ -1,1 +1,0 @@
-import{Ho as e}from"./routes-CuXP_NEd.js";import{t}from"./SettingsShell-CXbHgm3I.js";import{Nr as n}from"./routes-work-8asmFgM_.js";var r=n();function i(){return(0,r.jsx)(t,{children:(0,r.jsx)(e,{})})}export{i as component};

@@ -1,0 +1,1 @@
+import{r as e}from"./SummaryPage-CZK6sXmE.js";var t=e;export{t as component};

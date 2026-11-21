@@ -1,1 +1,0 @@
-import{t as e}from"./TeamLayout-DIWpVFIF.js";import{Ct as t,Nr as n}from"./routes-work-8asmFgM_.js";var r=n();function i(){let{team:n}=t.useParams();return(0,r.jsx)(e,{team:n},n)}export{i as component};
