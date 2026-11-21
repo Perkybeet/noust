@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from hypothesis import HealthCheck, given, settings
+from hypothesis import HealthCheck, example, given, settings
 from hypothesis import strategies as st
 
 from noust.core import domain_certificates, outbound
@@ -1974,6 +1974,8 @@ class TestThePictureOnTheSignInScreen:
         replacement=st.binary(min_size=0, max_size=12),
         cut=st.integers(min_value=0, max_value=60),
     )
+    # A comment's marker turned into one the format reserves: a segment nobody knows is not kept.
+    @example(index=1, position=91, replacement=b"\x02", cut=0)
     def test_a_picture_damaged_anywhere_is_refused_or_kept_as_a_clean_one(
         self, index: int, position: int, replacement: bytes, cut: int
     ) -> None:

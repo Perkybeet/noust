@@ -87,6 +87,10 @@ _PNG_DEPTHS = {0: (1, 2, 4, 8, 16), 2: (8, 16), 3: (1, 2, 4, 8), 4: (8, 16), 6: 
 #: The JPEG frames a browser draws: baseline, extended sequential and progressive, Huffman coded.
 _JPEG_FRAMES = frozenset({0xC0, 0xC1, 0xC2})
 
+#: The segments a picture needs to be drawn besides its frame and its scans: the quantisation and
+#: Huffman tables and the restart interval. Nothing else is written back.
+_JPEG_KEPT = frozenset({0xDB, 0xC4, 0xDD})
+
 #: Every marker that starts a frame, so that one this does not draw is told apart from damage.
 _JPEG_ANY_FRAME = frozenset(set(range(0xC0, 0xD0)) - {0xC4, 0xC8, 0xCC}) | {0xDE}
 
@@ -318,10 +322,11 @@ def _clean_jpeg(data: bytes) -> tuple[bytes, int, int]:
             # whatever the first was before it was cropped, so it is left out.
             if body[:5] == b"JFIF\x00" and len(body) >= 14:
                 out.append(b"\xff\xe0" + struct.pack(">H", 16) + body[:12] + b"\x00\x00")
-        elif 0xE1 <= marker <= 0xEF or marker == 0xFE:
-            continue  # EXIF, XMP, profiles, editors' notes, comments
-        else:
-            out.append(whole)  # tables and the restart interval
+        elif marker in _JPEG_KEPT:
+            out.append(whole)
+        # Everything else is left out, whatever it is: EXIF, XMP, profiles, editors' notes and
+        # comments, and any marker the format reserves or this does not know. What is kept is a
+        # closed list, so a segment nobody decided about never travels with the picture.
     if frame is None or scans == 0:
         raise _damaged("JPEG")
     out.append(b"\xff\xd9")
