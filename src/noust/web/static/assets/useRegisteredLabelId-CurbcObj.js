@@ -1,1 +1,0 @@
-import{k as e}from"./useRenderElement-DWift-gV.js";import{a as t}from"./Tooltip-NKTiPC5L.js";function n(n,r){let i=t(n);return e(()=>(r(i),()=>{r(e=>e===i?void 0:e)}),[i,r]),i}export{n as t};

@@ -1,0 +1,1 @@
+import{n as e}from"./TextLink-Caw_wAbx.js";var t=e(`inline`);export{t};

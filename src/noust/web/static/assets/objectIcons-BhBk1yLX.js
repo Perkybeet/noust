@@ -1,1 +1,0 @@
-import{t as e}from"./icons-B0_AG58_.js";import{Ea as t,Oa as n}from"./routes-DfBPr1qi.js";var r={...t,...n,remove:e.delete,add:e.add};export{r as t};

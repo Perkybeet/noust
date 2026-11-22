@@ -1,0 +1,1 @@
+import{n as e,t}from"./usePanels-D5VB8d8w.js";import{Dr as n}from"./routes-XCjvxOSo.js";import{Ir as r}from"./routes-work-CNQz8Trz.js";var i=r();function a(){let r=n(),{panels:a}=t(),o=r.panel??e[r.scope],s=a.find(e=>e.id===o);return(0,i.jsx)(`span`,{translate:s===void 0||s.builtin?void 0:`no`,children:s?.name??``})}export{a as default};
