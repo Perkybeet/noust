@@ -93,6 +93,9 @@ class HealthReport:
         hardening: The count of hardening findings, or None when they were
             not asked for.
         builds: Whether every application builds in the sandbox (backlog 44).
+        compose: What is to be looked at about how the Compose stacks start (4.4): the check of their
+            start, the units that do not run it, a stack Noust has not been able to bring under it.
+            None when this server has no Compose stack.
         audit: Whether the audit trail records (ENS G05).
         updates: How many applications update without a cut, and which could
             and do not yet. Always informational: a suggestion, not a problem.
@@ -123,6 +126,7 @@ class HealthReport:
     warnings: list[str] = field(default_factory=list)
     hardening: HealthCheck | None = None
     builds: HealthCheck | None = None
+    compose: HealthCheck | None = None
     audit: HealthCheck | None = None
     updates: HealthCheck | None = None
     security: HealthCheck | None = None
@@ -147,6 +151,7 @@ class HealthReport:
                 self.memory,
                 self.descriptors,
                 self.builds,
+                self.compose,
                 self.accounts,
                 self.names,
                 self.updates,
@@ -682,20 +687,17 @@ def _check_builds(warnings: list[str]) -> HealthCheck:
     Returns:
         The build sandbox check.
     """
-    from noust.deployers import compose_upgrade
     from noust.deployers.helpers import sandbox as build_sandbox
 
     try:
         found = build_sandbox.sandbox_warnings()
         stacks = build_sandbox.compose_warnings()
-        starts = compose_upgrade.attention(store=get_store())
     except (NoustError, OSError, sqlite3.Error) as exc:
         return HealthCheck("Build sandbox", f"Could not check: {exc}", "warning")
-    if not found and not stacks and not starts:
+    if not found and not stacks:
         return HealthCheck("Build sandbox", "Every build runs in the sandbox", "ok")
     warnings.extend(found.values())
     warnings.extend(stacks.values())
-    warnings.extend(starts)
     said = []
     if found:
         said.append(f"{len(found)} application(s) build as root")
@@ -703,9 +705,46 @@ def _check_builds(warnings: list[str]) -> HealthCheck:
         said.append(
             f"{len(stacks)} Compose stack(s) run with what gives this server to a container"
         )
-    if starts:
-        said.append(f"{len(starts)} thing(s) to look at about how Compose stacks start")
     return HealthCheck("Build sandbox", "; ".join(said), "warning")
+
+
+def _check_compose_stacks(warnings: list[str]) -> HealthCheck | None:
+    """
+    Report what is to be looked at about how the Compose stacks of this server start.
+
+    A stack Noust has not brought under the check of its start (and for how long), a start that check
+    held back, a stack taken over from what 4.2 had started, a unit that does not run the check or does
+    not start what Noust wrote, and applications that run as one project. It was a part of the build
+    sandbox's line until 4.4, which is not what it is about.
+
+    Args:
+        warnings: Warning list to append each sentence to.
+
+    Returns:
+        The check; None when this server has no Compose stack.
+    """
+    from noust.deployers import compose_upgrade
+
+    store = get_store()
+    try:
+        stacks = compose_upgrade.stack_domains(store=store)
+        if not stacks:
+            return None
+        starts = compose_upgrade.attention(store=store)
+    except (NoustError, OSError, sqlite3.Error) as exc:
+        return HealthCheck("Compose stacks", f"Could not check: {exc}", "warning")
+    if not starts:
+        return HealthCheck(
+            "Compose stacks",
+            f"{len(stacks)} stack(s), nothing to look at about how they start",
+            "ok",
+        )
+    warnings.extend(starts)
+    return HealthCheck(
+        "Compose stacks",
+        f"{len(starts)} thing(s) to look at about how Compose stacks start",
+        "warning",
+    )
 
 
 def _check_accounts(warnings: list[str]) -> HealthCheck | None:
@@ -974,6 +1013,7 @@ def collect_health_report(
     descriptors_check = _check_descriptors(issues, warnings)
     domains_check = _check_domain_registrations(issues, warnings)
     builds = _check_builds(warnings)
+    compose_stacks = _check_compose_stacks(warnings)
     accounts = _check_accounts(warnings)
     names = _check_names(warnings)
     updates = _check_updates()
@@ -993,6 +1033,7 @@ def collect_health_report(
         warnings=warnings,
         hardening=hardening_check,
         builds=builds,
+        compose=compose_stacks,
         accounts=accounts,
         names=names,
         updates=updates,

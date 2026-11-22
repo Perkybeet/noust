@@ -26,6 +26,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime, timezone
 from typing import Any
 
+from noust.core.compose_acceptance import PENDING_ATTENTION_DAYS, GateNote
 from noust.core.docker.events import LOOP_MINUTES
 from noust.core.docker.summary import LOOP_AT
 from noust.core.server_text import ServerText, say
@@ -622,3 +623,47 @@ def recipe_items(statuses: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
         for status in statuses
         if status.get("update_available")
     ]
+
+
+def waiting_stack_items(
+    notes: Iterable[GateNote], *, now: datetime | None = None
+) -> list[dict[str, Any]]:
+    """
+    Make the rows of the Compose stacks Noust has not been able to bring under the check of their start.
+
+    A stack that cannot be resolved when the upgrade reaches it is left as it was and tried again every ten
+    minutes; ``noust health`` says so. A week of that is not a thing that will mend by itself, and it is a
+    stack whose start nothing holds to what was judged, so it joins what needs an operator.
+
+    Args:
+        notes: What the gate said of each stack it said something of
+            (:func:`noust.core.compose_acceptance.notes`).
+        now: The moment to count the days to; the clock by default.
+
+    Returns:
+        A warning row for each stack that has been ``pending`` for :data:`PENDING_ATTENTION_DAYS` days or more,
+        on the row of its application. A stack whose start was held back is not here: it has its own words,
+        and a note whose date cannot be read says nothing.
+    """
+    items = []
+    for note in notes:
+        days = note.days(now)
+        if note.state != "pending" or days < PENDING_ATTENTION_DAYS:
+            continue
+        items.append(
+            _row(
+                f"app:{note.domain}",
+                {"kind": "app", "domain": note.domain},
+                note.domain,
+                reason(
+                    "state",
+                    "warn",
+                    "compose_check_waiting",
+                    params={"days": days},
+                    # What Compose or Docker said, as it said it.
+                    detail=note.detail,
+                    when=_moment(note.noted_at),
+                ),
+            )
+        )
+    return items

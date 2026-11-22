@@ -50,6 +50,7 @@ export const inbox: Catalog<typeof en> = {
     noustUpdate: "Noust {version} está disponible. Este servidor usa la {current}.",
     noustSecurityUpdate: "Noust {version} corrige un problema de seguridad. Este servidor usa la {current}.",
     recipeUpdate: "{recipe} tiene una versión más reciente, la {version}. Ahora usa la {current}.",
+    composeCheckWaiting: { one: "Esta pila lleva {count} día esperando la comprobación de su arranque", other: "Esta pila lleva {count} días esperando la comprobación de su arranque" },
     securityUpdates: { one: "Hay {count} actualización de seguridad pendiente", other: "Hay {count} actualizaciones de seguridad pendientes" },
     packagesBroken: "La base de datos de paquetes está a medio configurar: se interrumpió una actualización",
     rebootRequired: "Hace falta reiniciar para terminar las actualizaciones",

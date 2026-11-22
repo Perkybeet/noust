@@ -30,15 +30,17 @@ import json
 import sqlite3
 from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-from noust.core.timeutil import utc_now_iso
+from noust.core.timeutil import utc_now, utc_now_iso
 
 if TYPE_CHECKING:
     from noust.core.store import NoustStore
 
 __all__ = [
     "GATE_STATES",
+    "PENDING_ATTENTION_DAYS",
     "SOURCES",
     "Accepted",
     "GateNote",
@@ -64,6 +66,10 @@ SOURCES = frozenset(
 
 #: What the gate can say of a stack it did not let through, or could not bring up to date.
 GATE_STATES = frozenset({"pending", "refused"})
+
+#: A stack that has waited this many days to be brought under the check of its start is more than a line of
+#: ``noust health``: it is listed with what needs an operator.
+PENDING_ATTENTION_DAYS = 7
 
 #: What deleting an application forgets of its domain, which is keyed by the name and not by the row: the
 #: pin of a branch an operator chose, the compose exception, what the stack was accepted with and what
@@ -109,13 +115,33 @@ class GateNote:
         state: ``pending`` (not brought up to date, and why) or ``refused`` (its last start was held
             back, with the line that is new).
         detail: The sentence, as the operator read it.
-        noted_at: When, ISO 8601, UTC.
+        noted_at: When the stack came to be in this state, ISO 8601, UTC. Saying the same state again
+            changes the sentence and not this date, so it is also how long it has been so.
     """
 
     domain: str
     state: str
     detail: str
     noted_at: str
+
+    def days(self, now: datetime | None = None) -> int:
+        """
+        Say how many whole days the stack has been in this state.
+
+        Args:
+            now: The moment to count to; the clock by default.
+
+        Returns:
+            Whole days, rounded down; 0 for a date that cannot be read or one in the future (a clock
+            that went back): a note is never an error for what it says about time.
+        """
+        try:
+            since = datetime.fromisoformat(self.noted_at)
+        except ValueError:
+            return 0
+        if since.tzinfo is None:
+            since = since.replace(tzinfo=timezone.utc)
+        return max(((now or utc_now()) - since).days, 0)
 
 
 def _store(store: NoustStore | None) -> NoustStore:
@@ -265,6 +291,11 @@ def note(domain: str, state: str, detail: str, *, store: NoustStore | None = Non
     """
     Say why a stack is not brought up to date, or why its start was held back.
 
+    The date of the note is when the stack came to be in this state: a state that is said again (the
+    pass every ten minutes says ``pending`` for as long as a stack waits) changes the sentence and keeps
+    the date, which is how :meth:`GateNote.days` tells how long it has waited. Another state, or a note
+    that was cleared in between, begins a new date.
+
     Args:
         domain: The application.
         state: One of :data:`GATE_STATES`.
@@ -283,11 +314,16 @@ def note(domain: str, state: str, detail: str, *, store: NoustStore | None = Non
     with _store(store)._transaction() as cursor:
         cursor.execute(
             "INSERT INTO compose_gate_state (domain, state, detail, noted_at) VALUES (?, ?, ?, ?) "
-            "ON CONFLICT(domain) DO UPDATE SET state = excluded.state, detail = excluded.detail, "
-            "noted_at = excluded.noted_at",
+            "ON CONFLICT(domain) DO UPDATE SET detail = excluded.detail, "
+            "noted_at = CASE WHEN compose_gate_state.state = excluded.state "
+            "THEN compose_gate_state.noted_at ELSE excluded.noted_at END, "
+            "state = excluded.state",
             (domain, state, detail, now),
         )
-    return GateNote(domain, state, detail, now)
+        since = cursor.execute(
+            "SELECT noted_at FROM compose_gate_state WHERE domain = ?", (domain,)
+        ).fetchone()
+    return GateNote(domain, state, detail, since[0] if since else now)
 
 
 def note_of(domain: str, *, store: NoustStore | None = None) -> GateNote | None:

@@ -46,6 +46,7 @@ __all__ = [
     "parse_grants",
     "read_grants",
     "read_project_grants",
+    "read_tree_projects",
 ]
 
 #: Seconds the inspection of a project's containers gets.
@@ -338,6 +339,45 @@ def _runs_within(directory: str, tree: Path) -> bool:
     roots = {PurePosixPath(posixpath.normpath(str(tree))), PurePosixPath(os.path.realpath(tree))}
     forms = {place, PurePosixPath(os.path.realpath(directory))}
     return any(form == root or root in form.parents for form in forms for root in roots)
+
+
+def read_tree_projects(runner: CommandRunner, tree: Path) -> tuple[str, ...]:
+    """
+    Say which Compose projects the containers made from an application's tree belong to.
+
+    What a stack runs as is the label Compose wrote on its containers, which no file of the tree can
+    change after the fact. It is the answer when the compose file cannot be resolved and the project
+    cannot be told from it. A container that does not say where it ran is no proof that it was made
+    from this tree, so unlike :func:`read_project_grants` (which asks for a project it already knows
+    and lets such a container count) it is left out here: it would name the same project for every
+    application on the machine.
+
+    Args:
+        runner: Runs the question.
+        tree: The application's directory.
+
+    Returns:
+        The projects, sorted: none when nothing runs from the tree (or Docker lists nothing), one for
+        a stack that runs as one name, several when it was run as more than one (a renamed project
+        whose old containers stayed), which the caller does not guess between. A label that cannot be a
+        project's name is never returned: it would not be put in a command.
+
+    Raises:
+        DockerUnavailableError: Docker is not installed or does not answer.
+    """
+    return tuple(
+        sorted(
+            {
+                container.project
+                for container in reading.list_containers(runner)
+                if container.project
+                and not container.oneoff
+                and container.working_dir
+                and _PROJECT.fullmatch(container.project)
+                and _runs_within(container.working_dir, tree)
+            }
+        )
+    )
 
 
 def read_project_grants(

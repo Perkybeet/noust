@@ -97,6 +97,7 @@ def _print_report(logger: Logger, report: HealthReport) -> None:
 
     if (
         report.builds is not None
+        or report.compose is not None
         or report.audit is not None
         or report.updates is not None
         or report.recipes is not None
@@ -106,6 +107,7 @@ def _print_report(logger: Logger, report: HealthReport) -> None:
         logger.blank()
         logger.info("Checking builds, accounts, updates and the audit trail...")
         _print_check(logger, report.builds)
+        _print_check(logger, report.compose)
         _print_check(logger, report.accounts)
         _print_check(logger, report.names)
         _print_check(logger, report.updates)

@@ -26,6 +26,7 @@ from noust.deployers.docker_compose import DockerComposeDeployer
 from noust.deployers.helpers import compose_privileges
 from noust.deployers.helpers import sandbox as build_sandbox
 from noust.deployers.helpers.compose_guard import inspect_compose
+from tests.support.docker_grants_samples import container_id, grants_line, ps_row
 
 APP = Path("/var/www/apps/stack-example-com")
 
@@ -268,9 +269,29 @@ class TestAnApplicationInProductionKeepsUpdating:
 
 
 class TestTheWayThroughTheRealFlows:
-    """The flows that decide what a stack "already had" use the one verdict."""
+    """
+    The flows that decide what a stack "already had" use the one verdict, from a record and the containers.
 
-    def test_a_redeploy_remembers_what_the_file_on_disk_asked_for(
+    What the tree says (the file on disk, the file at the commit that served) is written by whatever mounts
+    the tree: it is not a witness.
+    """
+
+    def running_with_a_device(self, compose: DockerComposeDeployer, device: str) -> None:
+        compose.runner.script(  # type: ignore[attr-defined]
+            ["docker", "ps"],
+            stdout=ps_row(
+                container_id("web"),
+                "stack-web-1",
+                project="stack",
+                service="web",
+                working_dir=str(compose.app_path),
+            ),
+        )
+        compose.runner.script(  # type: ignore[attr-defined]
+            ["docker", "inspect"], stdout=grants_line("web", devices=(device,))
+        )
+
+    def test_a_redeploy_does_not_remember_what_the_file_on_disk_asked_for(
         self, tmp_path: Path, store: NoustStore
     ) -> None:
         compose = deployer(tmp_path, store)
@@ -282,11 +303,24 @@ class TestTheWayThroughTheRealFlows:
         compose._accepted_refusals = compose_privileges.heritage_of_redeploy(compose)
 
         remembered = compose._accepted_refusals
-        assert remembered is not None
-        assert any("the host device" in sentence for sentence in remembered.sentences)
+        assert remembered is not None and remembered.sentences == frozenset()
+        with pytest.raises(DeploymentError, match="asks for root"):
+            compose._check_host_privileges(stack(devices=["/dev/kvm"]))
+
+    def test_a_redeploy_remembers_what_the_containers_have(
+        self, tmp_path: Path, store: NoustStore
+    ) -> None:
+        said: list[str] = []
+        compose = deployer(tmp_path, store, said)
+        compose.app_path.mkdir()
+        self.running_with_a_device(compose, "/dev/kvm")
+
+        compose._accepted_refusals = compose_privileges.heritage_of_redeploy(compose)
         compose._check_host_privileges(stack(devices=["/dev/kvm"]))
 
-    def test_an_update_compares_with_the_compose_file_of_the_commit_that_served(
+        assert any("A new stack is refused this" in line for line in said)
+
+    def test_an_update_compares_with_what_the_containers_have_and_not_with_the_commit_that_served(
         self, tmp_path: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         compose = deployer(tmp_path, store)
@@ -294,16 +328,13 @@ class TestTheWayThroughTheRealFlows:
         compose.compose_path = compose.app_path / "docker-compose.yml"
         compose.compose_path.write_text("services:\n  web:\n    image: nginx\n")
         compose.previous_commit = "a" * 40
-        served = "services:\n  web:\n    image: nginx\n    devices: ['/dev/kvm']\n"
+        self.running_with_a_device(compose, "/dev/kvm")
 
         class Source:
             def file_at_commit(self, *_args: Any) -> str:
-                return served
+                raise AssertionError("the tree's history is not a witness of what the stack had")
 
         monkeypatch.setattr(compose, "_source_manager", lambda: Source())
-        monkeypatch.setattr(
-            "noust.deployers.helpers.compose_privileges.changed_links", lambda *_a: frozenset()
-        )
 
         compose._check_update_privileges(stack(devices=["/dev/kvm"]))
         with pytest.raises(DeploymentError, match="asks for root"):

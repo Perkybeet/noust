@@ -26,6 +26,7 @@ from noust.deployers.docker_compose import DockerComposeDeployer
 from noust.deployers.helpers import compose_privileges, compose_verdict, sandbox
 from noust.deployers.helpers.compose_guard import inspect_compose
 from noust.deployers.helpers.compose_verdict import Heritage
+from tests.support.docker_grants_samples import container_id, grants_line, ps_row
 
 DOMAIN = "stack.example.com"
 BENIGN = {"services": {"web": {"image": "nginx", "volumes": ["./:/app"]}}}
@@ -206,18 +207,119 @@ class TestAnUpdateInheritsTheRecord:
 
         assert any("privileged" in line for line in said)
 
-    def test_a_stack_with_no_record_is_judged_as_it_always_was(
+    def test_a_forged_commit_is_not_read_for_a_stack_with_no_record_either(
+        self, app: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # What the commit that served says is written by whatever mounts the tree: with no record
+        # nothing of the tree is what the stack had, and a stack with no container is a new stack.
+        with pytest.raises(DeploymentError, match="asks for root"):
+            self.update(deployer(app, store), PRIVILEGED, monkeypatch)
+
+
+def running_with(compose: DockerComposeDeployer, *, devices: tuple[str, ...]) -> None:
+    """Make the stack's one container have these devices, as Docker would say of it."""
+    compose.runner.script(  # type: ignore[attr-defined]
+        ["docker", "ps"],
+        stdout=ps_row(
+            container_id("web"),
+            "stack-web-1",
+            project="stack",
+            service="web",
+            working_dir=str(compose.app_path),
+        ),
+    )
+    compose.runner.script(  # type: ignore[attr-defined]
+        ["docker", "inspect"], stdout=grants_line("web", devices=devices)
+    )
+
+
+class TestAStackWithNoRecordHasItsContainersAndNothingElse:
+    """
+    Before a stack is taken over there is no record of what it was accepted with. What it had is then
+    what its containers were given: neither the file at the commit that served (written by whatever
+    mounts the checkout) nor the file on disk is a witness.
+    """
+
+    def test_an_update_has_no_sentence_of_the_commit_that_served(
         self, app: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         class Source:
             def file_at_commit(self, *_args: Any) -> str:
-                return FORGED
+                raise AssertionError("the tree's history is not a witness of what the stack had")
 
         compose = deployer(app, store)
         monkeypatch.setattr(compose, "_source_manager", lambda: Source())
-        monkeypatch.setattr(
-            "noust.deployers.helpers.compose_privileges.changed_links",
-            lambda *_a: frozenset(),
-        )
 
-        compose._check_update_privileges(PRIVILEGED)
+        heritage = compose_privileges.heritage_of_update(compose)
+
+        assert heritage.sentences == frozenset() and heritage.keys == frozenset()
+
+    def test_a_redeploy_has_no_sentence_of_the_file_on_disk(
+        self, app: Path, store: NoustStore
+    ) -> None:
+        compose = deployer(app, store)
+        compose.compose_path.write_text(FORGED)  # type: ignore[union-attr]
+
+        heritage = compose_privileges.heritage_of_redeploy(compose)
+
+        assert heritage.sentences == frozenset() and heritage.keys == frozenset()
+
+    def test_a_redeploy_that_adds_to_the_file_on_disk_is_refused_with_no_record(
+        self, app: Path, store: NoustStore
+    ) -> None:
+        compose = deployer(app, store)
+        compose.compose_path.write_text(  # type: ignore[union-attr]
+            "services:\n  web:\n    image: nginx\n    devices: ['/dev/kvm']\n"
+        )
+        compose._accepted_refusals = compose_privileges.heritage_of_redeploy(compose)
+
+        with pytest.raises(DeploymentError, match="asks for root"):
+            compose._check_host_privileges(
+                {"services": {"web": {"image": "nginx", "devices": ["/dev/kvm"]}}}
+            )
+
+    def test_what_its_containers_have_goes_on_with_a_warning(
+        self, app: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        class Source:
+            def file_at_commit(self, *_args: Any) -> str:
+                raise AssertionError("the tree's history is not a witness of what the stack had")
+
+        said: list[str] = []
+        compose = deployer(app, store)
+        compose.logger.attach_sink(said.append)
+        running_with(compose, devices=("/dev/kvm",))
+        monkeypatch.setattr(compose, "_source_manager", lambda: Source())
+        document = {"services": {"web": {"image": "nginx", "devices": ["/dev/kvm"]}}}
+
+        compose._check_update_privileges(document)
+
+        assert any("/dev/kvm" in line for line in said)
+
+    def test_what_no_container_has_is_still_refused(
+        self, app: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        class Source:
+            def file_at_commit(self, *_args: Any) -> str:
+                raise AssertionError("the tree's history is not a witness of what the stack had")
+
+        compose = deployer(app, store)
+        running_with(compose, devices=("/dev/kvm",))
+        monkeypatch.setattr(compose, "_source_manager", lambda: Source())
+        more = {"services": {"web": {"image": "nginx", "devices": ["/dev/kvm", "/dev/sda"]}}}
+
+        with pytest.raises(DeploymentError, match="asks for root"):
+            compose._check_update_privileges(more)
+
+    def test_a_stack_that_has_a_record_still_inherits_the_record(
+        self, app: Path, store: NoustStore
+    ) -> None:
+        findings = inspect_compose(PRIVILEGED, app)
+        compose_acceptance.record(
+            DOMAIN, [findings.keys[s] for s in findings.refused], source="upgrade", store=store
+        )
+        compose = deployer(app, store)
+
+        heritage = compose_privileges.heritage_of_update(compose)
+
+        assert heritage.keys == frozenset(findings.keys[s] for s in findings.refused)

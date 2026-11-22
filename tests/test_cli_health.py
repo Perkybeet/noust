@@ -448,6 +448,61 @@ def test_a_healthy_server_says_so(server: Any, logged: io.StringIO) -> None:
     assert "All systems healthy" in logged.getvalue()
 
 
+def _report_with_compose_stacks() -> health_module.HealthReport:
+    ok = health_module.HealthCheck
+    return health_module.HealthReport(
+        disk=None,
+        nginx=ok("Nginx", "Running", "ok"),
+        apache=ok("Apache", "Not installed", "info"),
+        applications=ok("Applications", "1 total, 1 running", "ok"),
+        certificates=ok("SSL Certificates", "None configured", "info"),
+        memory=ok("Memory", "12.0GB free / 16.0GB total (25% used)", "ok"),
+        warnings=["shop.example.com: its unit is yours"],
+        builds=ok("Build sandbox", "Every build runs in the sandbox", "ok"),
+        compose=ok(
+            "Compose stacks", "1 thing(s) to look at about how Compose stacks start", "warning"
+        ),
+    )
+
+
+def test_the_compose_stacks_have_a_line_of_their_own_after_the_build_sandbox(
+    monkeypatch: pytest.MonkeyPatch, logged: io.StringIO
+) -> None:
+    monkeypatch.setattr(
+        cli_health, "collect_health_report", lambda **_k: _report_with_compose_stacks()
+    )
+
+    result = invoke(standalone_mode=False)
+
+    assert result.return_value == 0, result.output
+    text = logged.getvalue()
+    assert (
+        "Compose stacks" in text and "1 thing(s) to look at about how Compose stacks start" in text
+    )
+    assert text.index("Build sandbox") < text.index("Compose stacks")
+
+
+def test_the_json_has_it_as_one_more_check_and_the_shape_is_the_same(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        cli_health, "collect_health_report", lambda **_k: _report_with_compose_stacks()
+    )
+
+    result = invoke("--json", standalone_mode=False)
+
+    payload = json.loads(result.output)
+    assert set(payload) == {"verdict", "checks", "issues", "warnings"}
+    names = [check["name"] for check in payload["checks"]]
+    assert names.index("Build sandbox") + 1 == names.index("Compose stacks")
+    assert {
+        "name": "Compose stacks",
+        "value": "1 thing(s) to look at about how Compose stacks start",
+        "status": "warning",
+    } in payload["checks"]
+    assert all(set(check) == {"name", "value", "status"} for check in payload["checks"])
+
+
 # ---------------------------------------------------------------------------
 # The two entry points
 # ---------------------------------------------------------------------------

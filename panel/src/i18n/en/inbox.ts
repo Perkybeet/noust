@@ -56,6 +56,7 @@ export const inbox = {
     noustUpdate: "Noust {version} is available. This server runs {current}.",
     noustSecurityUpdate: "Noust {version} fixes a security problem. This server runs {current}.",
     recipeUpdate: "{recipe} has a newer version, {version}. It runs {current}.",
+    composeCheckWaiting: { one: "This stack has waited {count} day to be brought under the check of its start", other: "This stack has waited {count} days to be brought under the check of its start" },
     securityUpdates: { one: "{count} security update is pending", other: "{count} security updates are pending" },
     packagesBroken: "The package database is half configured: an update was interrupted",
     rebootRequired: "A reboot is needed to finish updates",

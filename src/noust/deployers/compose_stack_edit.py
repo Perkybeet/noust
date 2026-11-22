@@ -829,7 +829,7 @@ class StackEditor:
         # What the text itself asks of the host is judged before Compose is asked to read it: Compose
         # reads an include and an env_file of the server before it judges anything, and its errors come
         # back word for word.
-        heritage = self._heritage(target, current)
+        heritage = self._heritage(target)
         if self._stopped_by_the_text(target, text, heritage, found):
             found.valid = False
             return found
@@ -927,19 +927,18 @@ class StackEditor:
         found.checks.append(CheckLine("privileges", False, f"{len(verdict.stop)} found"))
         return True
 
-    def _heritage(self, target: _Target, current: str) -> compose_verdict.Heritage:
+    def _heritage(self, target: _Target) -> compose_verdict.Heritage:
         """
         Say what the stack already had, which is what its editor never takes from the variables of today.
 
         Args:
             target: Where the stack's document is.
-            current: What the stack has now.
 
         Returns:
-            What it was accepted with, or for a stack with no record the findings of its current
-            document as written, and what its containers were given, which
-            Docker is asked for the first time a finding needs it. The tree is the one the stack runs
-            from, and an edit changes no link of it.
+            What it was accepted with and what its containers were given, which Docker is asked for the
+            first time a finding needs it; of a stack with no record, its containers and nothing else:
+            the document on disk is written by whatever mounts the tree, so it does not vouch for
+            itself. The tree is the one the stack runs from, and an edit changes no link of it.
         """
         context = self._context(target)
         gate = self._gate
@@ -951,17 +950,11 @@ class StackEditor:
                 context,
             )
 
-        if accepted is not None:
-            # What the stack was accepted with is in the store, which its document cannot write.
-            return compose_verdict.Heritage(
-                changed_links=frozenset(), running=running, keys=accepted.keys
-            )
-        try:
-            written = inspect_compose(load_compose(current), target.cwd, context=context)
-        except yaml.YAMLError:
-            written = ComposeFindings()
+        # What the stack was accepted with is in the store, which its document cannot write.
         return compose_verdict.Heritage(
-            frozenset(written.refused), changed_links=frozenset(), running=running
+            changed_links=frozenset(),
+            running=running,
+            keys=accepted.keys if accepted is not None else frozenset(),
         )
 
     @staticmethod

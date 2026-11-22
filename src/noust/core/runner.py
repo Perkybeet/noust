@@ -3448,7 +3448,7 @@ def _git_probes() -> tuple[tuple[object, ...], ...]:
         ("config", "--get", "*"),
         # The tags a commit contains, which is what an update by tag compares.
         ("tag", "--merged", "*"),
-        # One file as a commit has it (the compose file that served, for its guard).
+        # One file as a commit has it (SourceManager.file_at_commit).
         ("cat-file", "blob", "*"),
         ("log", "-1", "--format=%s"),
         ("log", "-1", "--format=%s", "*"),

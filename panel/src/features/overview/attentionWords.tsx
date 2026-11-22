@@ -145,6 +145,9 @@ export function reasonText(t: T, reason: OverviewAttentionReason): string {
       return t("inbox.reasons.noustSecurityUpdate", { version: text(params["version"]) ?? "", current: text(params["current"]) ?? "" });
     case "recipe_update":
       return t("inbox.reasons.recipeUpdate", { recipe: text(params["recipe"]) ?? "", version: text(params["version"]) ?? "", current: text(params["current"]) ?? "" });
+    // A Compose stack Noust could not bring under the check of its start for a week (managers/attention.py `waiting_stack_items`).
+    case "compose_check_waiting":
+      return t("inbox.reasons.composeCheckWaiting", { count: numberOf(params["days"]) ?? 0 });
     // What is wrong with the machine (managers/attention.py `machine_items`).
     case "security_updates":
       return t("inbox.reasons.securityUpdates", { count: numberOf(params["count"]) ?? 0 });

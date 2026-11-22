@@ -24,10 +24,12 @@ down in the store what the stack was given of the server, :mod:`noust.core.compo
 containers were given (:mod:`noust.deployers.helpers.compose_running`): a stack whose mount is
 ``${DATA_DIR}:/data`` shows nothing in the file as written, and resolving the file with the ``.env`` of today
 would let anyone who can change a variable say the stack always had what it now names. The tree is not a
-record: a container that mounts it writes the compose file and the ``.git`` folder the file that served is
-read from, so that file only counts for a stack that has no record yet. Docker is asked only when a finding
-that the record does not cover could be vouched for by a container, and once. The same judgement holds a
-stack's start to what was judged (:mod:`noust.deployers.compose_gate`).
+record, and is never read as one: a container that mounts it writes the compose file and the ``.git`` folder
+the file that served would be read from. A stack with no record has its containers and nothing else, and a
+stack with neither is a new stack; the upgrade writes the record of every stack that runs
+(:mod:`noust.deployers.compose_upgrade`), from its containers when Compose cannot resolve its file. Docker is
+asked only when a finding that the record does not cover could be vouched for by a container, and once. The
+same judgement holds a stack's start to what was judged (:mod:`noust.deployers.compose_gate`).
 """
 
 from __future__ import annotations
@@ -59,7 +61,6 @@ from noust.deployers.helpers.compose_guard import (
 )
 from noust.deployers.helpers.compose_owners import Owners, declared_project
 from noust.deployers.helpers.compose_verdict import Heritage
-from noust.managers.source_links import links_changed as changed_links
 
 if TYPE_CHECKING:
     from noust.core.store import App
@@ -170,52 +171,41 @@ def _reader(deployer: DockerComposeDeployer) -> Any:
     return read
 
 
-def heritage_of(
-    deployer: DockerComposeDeployer,
-    served: Any = None,
-    *,
-    changed: frozenset[Path] | None = None,
-) -> Heritage:
+def heritage_of(deployer: DockerComposeDeployer) -> Heritage:
     """
-    Say what a stack that already runs is known to have had.
-
-    Args:
-        deployer: The deployer of the stack.
-        served: The compose file that served, parsed, judged as written; None when there is none to
-            judge (the stack's containers are all that is left to say).
-        changed: The links of the tree the commits since changed; None when it cannot be said, which
-            is every link.
-
-    Returns:
-        The heritage: the findings of the file that served that the commits did not change, and what
-        the stack's containers have, asked of Docker the first time it matters.
-    """
-    sentences: frozenset[str] = frozenset()
-    if served is not None:
-        findings = inspect_compose(served, deployer.app_path, context=guard_context(deployer))
-        sentences = frozenset(compose_verdict.unchanged(findings, changed))
-    return Heritage(sentences, changed, _reader(deployer))
-
-
-def _record_heritage(deployer: DockerComposeDeployer) -> Heritage | None:
-    """
-    Say what a stack had from what it was accepted with, which nothing in its tree can write.
-
-    The compose file that served is read from the checkout's own history or from the disk, and a
-    container that mounts the tree writes both: only the entry of the store and the containers
-    themselves are a record of what the stack was given.
+    Say what a stack that already runs is known to have had, from its containers and nothing else.
 
     Args:
         deployer: The deployer of the stack.
 
     Returns:
-        The heritage made of the entry and the containers; None for a stack with no entry (one no
-        deployment of this version has activated and no upgrade has taken over), which falls back to
-        the file that served.
+        The heritage: what the stack's containers have, asked of Docker the first time it matters. A
+        stack with no container has nothing: it is a new stack. Every link counts as changed, since
+        nothing says which ones are new.
+    """
+    return Heritage(frozenset(), None, _reader(deployer))
+
+
+def _heritage_of_what_it_was_given(deployer: DockerComposeDeployer) -> Heritage:
+    """
+    Say what a stack had: what it was accepted with, else what its containers were given.
+
+    A stack has an entry in the store once an activation of this version passed the guard or the
+    upgrade took it over (:mod:`noust.deployers.compose_upgrade`, which takes a stack from its
+    containers when Compose cannot resolve its file). The entry and the containers are the only
+    witnesses nothing in the stack's tree can write: the compose file that served and the one on disk
+    are written by whatever mounts the tree, ``.git`` included, and a stack with neither an entry nor
+    a container is a new stack.
+
+    Args:
+        deployer: The deployer of the stack.
+
+    Returns:
+        The heritage made of the entry (when there is one) and the containers.
     """
     accepted = compose_acceptance.get(deployer.domain, store=deployer.store)
     if accepted is None:
-        return None
+        return heritage_of(deployer)
     return Heritage(changed_links=None, running=_reader(deployer), keys=accepted.keys)
 
 
@@ -223,82 +213,31 @@ def heritage_of_update(deployer: DockerComposeDeployer) -> Heritage:
     """
     Say what a stack had before an update pulled: what it was accepted with and its containers.
 
-    A stack with no entry in the store falls back to the file of the commit that served.
-
     Args:
-        deployer: The deployer of the stack, whose ``previous_commit`` is the commit that served.
+        deployer: The deployer of the stack.
 
     Returns:
-        What the stack already had. The containers are known whatever the file that served says, or
-        whether it can be read at all.
+        What the stack already had; of a stack with no entry in the store, what its containers were
+        given and nothing else.
     """
-    recorded = _record_heritage(deployer)
-    if recorded is not None:
-        return recorded
-    compose = deployer._compose_file_path()
-    if deployer.previous_commit and compose.is_relative_to(deployer.app_path):
-        served = deployer._source_manager().file_at_commit(
-            deployer.app_path, deployer.previous_commit, str(compose.relative_to(deployer.app_path))
-        )
-        if served is not None:
-            try:
-                return accepted_since(deployer, load_compose(served), deployer.previous_commit)
-            except yaml.YAMLError as exc:
-                deployer.logger.debug(f"The compose file that served is not valid YAML: {exc}")
-    else:
-        deployer.logger.debug("No commit served before this update: nothing to compare with")
-    return heritage_of(deployer)
+    return _heritage_of_what_it_was_given(deployer)
 
 
 def heritage_of_redeploy(deployer: DockerComposeDeployer) -> Heritage:
     """
     Say what a stack had, before a redeploy replaces its compose file.
 
-    What served is what the stack was accepted with and what its containers were given: the file on
-    disk, as written, is only a record for a stack that has no entry (one no deployment of this
-    version has activated), and the file resolved with the ``.env`` of today is not proof of anything,
-    since whoever can change a variable would say the stack always had what the variable names. When
-    the file cannot be read, the containers are all that is left.
-
-    Args:
-        deployer: The deployer of the stack. Its ``compose_path`` is left unset: the redeploy
-            discovers the file again once the source is fetched.
-
-    Returns:
-        What the stack already had.
-    """
-    recorded = _record_heritage(deployer)
-    if recorded is not None:
-        return recorded
-    try:
-        deployer._discover_compose_file()
-    except DeploymentError as exc:
-        deployer.logger.debug(f"No compose file served before this deploy: {exc.message}")
-        return heritage_of(deployer)
-    served = heritage_before_a_redeploy(deployer, deployer._load_compose_document())
-    deployer.compose_path = None
-    return served
-
-
-def heritage_before_a_redeploy(deployer: DockerComposeDeployer, served: Any) -> Heritage:
-    """
-    Say what a stack had, before a redeploy replaces the file that served.
-
-    The file on disk is judged before anything is fetched, so what it reaches through a link is what it
-    reached when the stack was made and no commit has changed it yet; the containers are compared with
-    the tree after the fetch, so a finding of theirs that goes through a link is not inherited (nothing
-    says whether the new tree changed the link).
+    The file on disk is not a witness (the stack's own code can write it), and neither is the file
+    resolved with the ``.env`` of today, since whoever can change a variable would say the stack always
+    had what the variable names.
 
     Args:
         deployer: The deployer of the stack.
-        served: The compose file on disk, parsed.
 
     Returns:
         What the stack already had.
     """
-    return Heritage(
-        frozenset(refusals_in(deployer, served)), changed_links=None, running=_reader(deployer)
-    )
+    return _heritage_of_what_it_was_given(deployer)
 
 
 def _heritage(deployer: DockerComposeDeployer, accepted: Any) -> Heritage:
@@ -399,8 +338,8 @@ def check_host_privileges(
     Refuse, or warn about, what in a stack's compose file gives it this server.
 
     What gives the machine is refused unless an operator recorded an exception for the domain, or
-    the stack is proven to run with that very finding already: the compose file that served had it,
-    or its containers have it. Only then is it warned about, so the stack is never stopped; whatever a
+    the stack is proven to run with that very finding already: what it was accepted with has it, or its
+    containers do. Only then is it warned about, so the stack is never stopped; whatever a
     push, a redeploy or an adopted directory adds is refused. What belongs to another application or to
     Noust is refused whatever the exception says, and is only warned about for a stack that already had
     it.
@@ -660,33 +599,6 @@ def refusals_in(
     if resolve:
         findings = with_what_compose_resolves(deployer, document, findings)
     return findings.refused
-
-
-def accepted_since(
-    deployer: DockerComposeDeployer, served: Any, previous_commit: str | None
-) -> Heritage:
-    """
-    Say what the stack had that an update has not changed.
-
-    The file that served is judged on the tree as it is now, so a link the update added or changed would
-    make a line that reached a directory before look as if it always reached what the link leads to: git
-    says which links the commits changed, and a finding through one of them is carried over from neither
-    the file nor the containers.
-
-    Args:
-        deployer: The deployer of the stack.
-        served: The compose file of the commit that served, parsed.
-        previous_commit: That commit.
-
-    Returns:
-        What the stack already had.
-    """
-    changed = (
-        changed_links(deployer._source_manager(), deployer.app_path, previous_commit)
-        if previous_commit
-        else None
-    )
-    return heritage_of(deployer, served, changed=changed)
 
 
 def with_what_compose_resolves(

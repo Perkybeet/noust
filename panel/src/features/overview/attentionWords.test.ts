@@ -37,6 +37,15 @@ describe("reasonText", () => {
     expect(reasonText(bindT("es"), outside)).toBe("Sus contenedores están en marcha con la unidad parada: Noust no la supervisa");
   });
 
+  it("says a stack that has waited a week for the check of its start in days, in both languages", async () => {
+    const waiting = { ...monitor("", ""), kind: "state", code: "compose_check_waiting", params: { days: 9 }, detail: "Docker Compose could not resolve the stack" };
+    expect(reasonText(en, waiting)).toBe("This stack has waited 9 days to be brought under the check of its start");
+    expect(reasonText(en, { ...waiting, params: { days: 1 } })).toBe("This stack has waited 1 day to be brought under the check of its start");
+    expect(reasonDetail(en, waiting)).toEqual({ text: "Docker Compose could not resolve the stack", sentence: false });
+    await loadCatalog("es");
+    expect(reasonText(bindT("es"), waiting)).toBe("Esta pila lleva 9 días esperando la comprobación de su arranque");
+  });
+
   // The container of an application that keeps falling asks for attention where the operator looks first (Home, the bell): the failure of
   // the application, and under it what the container did, as a sentence of Noust's in the console's language, not a program's words.
   it("says the cause of a container that keeps falling as a sentence of Noust's, in both languages", async () => {

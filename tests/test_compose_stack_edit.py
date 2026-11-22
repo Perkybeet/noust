@@ -23,6 +23,7 @@ from typing import Any
 
 import pytest
 
+from noust.core.compose_yaml import load_compose
 from noust.core.docker.errors import DockerBlockedError, DockerNotFoundError, DockerOwnedError
 from noust.core.docker.gate import DockerGate
 from noust.core.docker.owners import AppRecord, Registry
@@ -425,14 +426,20 @@ class TestJudgingADocument:
         assert found.valid is False
         assert "docker" in found.problems[0].message.lower()
 
-    def test_what_the_stack_already_runs_with_is_not_new(
+    def test_what_the_stack_was_accepted_with_is_not_new(
         self, store: NoustStore, tmp_path: Path
     ) -> None:
-        # The stack ran privileged before this change, and an edit that does not add to it is not the
-        # edit that turns it on.
+        # The stack ran privileged before this change (the upgrade took it over so, or a deployment
+        # that passed the guard wrote it down), and an edit that does not add to it is not the edit
+        # that turns it on.
+        from noust.core import compose_acceptance
+
         old = DOCUMENT.replace("nginx:1.27", "nginx:1.27\n    privileged: true")
         stack = make_stack(store, tmp_path)
         (recipe_source_dir(APP_NAME, store) / COMPOSE_FILE).write_text(old)
+        compose_acceptance.record(
+            DOMAIN, [("service web", "privileged", "")], source="upgrade", store=store
+        )
         box = machine(stack.app_path)
         found = editor(box, store, stack.app_path).check(
             PROJECT, old.replace("nginx:1.27", "nginx:1.28")
@@ -440,6 +447,24 @@ class TestJudgingADocument:
 
         assert found.valid is True
         assert any("privileged" in warning for warning in found.warnings)
+
+    def test_what_the_document_on_disk_says_is_not_what_a_stack_with_no_record_was_accepted_with(
+        self, store: NoustStore, tmp_path: Path
+    ) -> None:
+        # Whatever mounts the tree writes the document that is there: with no record, only the
+        # containers say what the stack had, and these are not privileged.
+        old = DOCUMENT.replace("nginx:1.27", "nginx:1.27\n    privileged: true")
+        stack = make_stack(store, tmp_path)
+        (recipe_source_dir(APP_NAME, store) / COMPOSE_FILE).write_text(old)
+        box = machine(stack.app_path)
+
+        found = editor(box, store, stack.app_path).check(
+            PROJECT, old.replace("nginx:1.27", "nginx:1.28")
+        )
+
+        assert found.valid is False
+        assert [p.code for p in found.problems] == ["privileges"]
+        assert "privileged" in found.problems[0].message
 
     def test_an_exception_recorded_for_the_stack_lets_it_through_with_a_warning(
         self, store: NoustStore, stack: App, box: DockerMachine
@@ -638,9 +663,19 @@ class TestTheTextIsJudgedBeforeComposeReadsIt:
     def test_what_the_stack_already_had_is_not_stopped_there(
         self, store: NoustStore, tmp_path: Path
     ) -> None:
+        from noust.core import compose_acceptance
+        from noust.deployers.helpers.compose_guard import inspect_compose
+
         stack = make_stack(store, tmp_path)
         old = self.ENV_OF_ANOTHER
         (recipe_source_dir(APP_NAME, store) / COMPOSE_FILE).write_text(old)
+        findings = inspect_compose(load_compose(old), Path(stack.app_path))
+        compose_acceptance.record(
+            DOMAIN,
+            [findings.keys[sentence] for sentence in findings.refused],
+            source="upgrade",
+            store=store,
+        )
         box = machine(stack.app_path)
 
         found = editor(box, store, stack.app_path).check(

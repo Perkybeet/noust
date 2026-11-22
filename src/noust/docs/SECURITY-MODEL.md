@@ -76,7 +76,9 @@ central that has been compromised, an application that has been compromised.
   - `tests/test_compose_guard_host.py::TestAnApplicationInProductionKeepsUpdating::test_a_stack_that_had_it_is_updated_with_a_warning`
   - `tests/test_compose_guard_doors.py::TestADoorThatReachesNoustOrAnotherApplication::test_is_refused_and_no_exception_allows_it`
   - `tests/test_compose_guard_identity.py::TestTheProject::test_the_project_of_another_application_cannot_be_taken`
-  - `tests/test_compose_guard_update.py::TestTheUpdate::test_the_same_line_is_refused_when_the_update_is_what_put_the_link_there`
+  - `tests/test_compose_guard_update.py::TestTheUpdate::test_the_same_line_is_refused_when_nothing_records_it`
+  - `tests/test_compose_gate_record.py::TestAStackWithNoRecordHasItsContainersAndNothingElse::test_an_update_has_no_sentence_of_the_commit_that_served`
+  - `tests/test_compose_gate_upgrade.py::TestAStackThatComposeCannotResolveIsTakenFromItsContainers::test_it_is_taken_with_what_its_containers_have`
   - `tests/test_compose_guard_running.py::TestWhatOnlyResolvingShows::test_a_mount_made_of_a_variable_that_a_container_already_has_updates_with_a_warning`
   - `tests/test_compose_guard_running.py::TestWhatOnlyResolvingShows::test_a_mount_brought_by_an_include_is_what_the_container_has`
   - `tests/test_compose_guard_running.py::TestWhatOnlyResolvingShows::test_a_redeploy_does_not_take_what_the_env_says_now_for_what_the_stack_had`
@@ -553,7 +555,7 @@ restrict,port-forwarding,permitopen="127.0.0.1:8443",permitlisten="127.0.0.1:1",
 ### The audit trail
 
 <!-- generated:audit -->
-The catalogue holds **571** events.
+The catalogue holds **572** events.
 
 | Category | Events |
 |---|---|
@@ -563,7 +565,7 @@ The catalogue holds **571** events.
 | change | 370 |
 | read | 22 |
 | denial | 18 |
-| system | 29 |
+| system | 30 |
 | host | 3 |
 <!-- /generated:audit -->
 

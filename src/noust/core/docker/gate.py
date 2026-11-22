@@ -1164,6 +1164,26 @@ class DockerGate:
         """
         return grants.read_project_grants(self.runner, project, within=within)
 
+    def tree_projects(self, tree: Path) -> tuple[str, ...]:
+        """
+        Say which Compose projects the containers made from an application's directory belong to.
+
+        The label Compose wrote on a container is what a stack runs as; it is asked for when the file
+        that would say it cannot be resolved (:func:`noust.core.docker.grants.read_tree_projects`).
+        Like :meth:`project_grants` it is a look for whoever takes a stack over, not a page of the
+        console, so it is not filtered by what a principal sees.
+
+        Args:
+            tree: The application's directory.
+
+        Returns:
+            The projects, sorted; none when nothing runs from the directory.
+
+        Raises:
+            DockerUnavailableError: Docker cannot be asked.
+        """
+        return grants.read_tree_projects(self.runner, tree)
+
     def _masked(self, container: Container, seen: inspect.Inspected) -> inspect.Inspected:
         """
         Mask the credentials in the words an inspection carries that a program wrote.

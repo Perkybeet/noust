@@ -19,12 +19,10 @@ redeploy, an adoption, a document edited in the Docker zone and a document paste
 
 What a stack "already had" is a :class:`Heritage`, and it has sources that neither the repository nor the
 stack's ``.env`` can write. What the stack was **accepted with** (the store's record of every activation that
-passed the guard, :mod:`noust.core.compose_acceptance`) is the proof for everything, of any kind, and for a
-stack that has one it replaces the compose file that served: a container that mounts the tree writes that
-file, and the ``.git`` folder it is read from. For a stack with no record yet the compose file that served,
-**as written** (a finding of it that the update did not change; one that goes through a link which the
-update changed is not one that was there before, :func:`unchanged`), is the proof for everything. And what
-the stack's **containers**
+passed the guard, and of the upgrade that took the stack over, :mod:`noust.core.compose_acceptance`) is the
+proof for everything, of any kind. No compose file is a proof: a container that mounts the tree writes the file
+on disk and the ``.git`` folder the file that served would be read from, so a stack with no record has its
+containers and nothing else, and one with no containers either is a new stack. What the stack's **containers**
 were given (:mod:`noust.deployers.helpers.compose_running`, read from Docker the first time it matters
 and once) is the proof for what only the model Compose resolves shows: a mount made of a variable, a
 service an ``include`` brought in, a definition an ``extends`` took from another file. The stack
@@ -70,11 +68,11 @@ class Heritage:
     What a stack that already runs is known to have had.
 
     Attributes:
-        sentences: The refused sentences of the compose file that served, as written, which the update
-            did not change.
-        changed_links: The links of the application's tree that the commits since changed
-            (:func:`noust.managers.source_links.links_changed`); None when git could not say, which
-            is every link. A finding of a container that goes through one of them is not inherited.
+        sentences: Refused sentences a caller vouches for by name (the sentences of a file it has
+            judged); nothing in the deployment of a stack builds them from the tree.
+        changed_links: The links of the application's tree that are new; None when nothing says which
+            are, which is every link. A finding of a container that goes through one of them is not
+            inherited: only the record, which names the finding whatever the link leads to, carries it.
         running: Reads what the stack's containers have, or None for a stack that has none to read
             (a first deployment). It is asked at most once, and only when a finding that nothing else
             covers could be one of theirs; Docker that cannot be asked raises
@@ -197,28 +195,3 @@ def decide(
             stop.append(sentence)
     hard = tuple(sentence for sentence in stop if sentence in findings.hard)
     return Verdict(tuple(stop), tuple(excused), tuple(had), hard)
-
-
-def unchanged(findings: ComposeFindings, changed_links: Collection[Path] | None) -> list[str]:
-    """
-    List the refused sentences of a file that were there before an update, as far as a link says.
-
-    A finding that goes through a link is the link's: when the update added or changed that link,
-    the same line of the compose file reaches somewhere else now, and the stack did not run with
-    it. The links an operator made by hand are not in any commit and are not in ``changed_links``.
-
-    Args:
-        findings: What the guard found in the compose file that served, judged on the tree now.
-        changed_links: The links the update changed (:func:`noust.managers.source_links.links_changed`);
-            None when git could not say, which is every link.
-
-    Returns:
-        The refused sentences that can count as already had.
-    """
-    kept = []
-    for sentence in findings.refused:
-        links = findings.links.get(sentence, ())
-        if links and (changed_links is None or any(Path(link) in changed_links for link in links)):
-            continue
-        kept.append(sentence)
-    return kept

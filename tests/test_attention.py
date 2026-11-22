@@ -12,11 +12,12 @@ says where each row comes from (an alert, a state, a security finding) and count
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pytest
 
+from noust.core.compose_acceptance import GateNote
 from noust.managers import attention
 from noust.managers.attention import (
     AttentionList,
@@ -28,6 +29,7 @@ from noust.managers.attention import (
     recipe_items,
     request_items,
     security_items,
+    waiting_stack_items,
 )
 
 NOW = datetime(2026, 11, 12, 12, 0, tzinfo=timezone.utc)
@@ -539,6 +541,67 @@ class TestWhatIsForOnePerson:
             "version": "1.1",
             "current": "1.0",
         }
+
+
+class TestStacksWaitingForTheCheckOfTheirStart:
+    """A Compose stack Noust could not bring under the check of its start for a week is more than a line."""
+
+    def waiting(self, domain: str, days: int, *, state: str = "pending") -> GateNote:
+        since = NOW - timedelta(days=days)
+        return GateNote(
+            domain, state, "Docker Compose could not resolve the stack", since.isoformat()
+        )
+
+    def test_a_stack_that_has_waited_less_than_a_week_is_a_line_of_noust_health_and_nothing_more(
+        self,
+    ) -> None:
+        assert waiting_stack_items([self.waiting("shop.example.com", 6)], now=NOW) == []
+
+    def test_from_the_seventh_day_it_needs_an_operator(self) -> None:
+        [item] = waiting_stack_items([self.waiting("shop.example.com", 7)], now=NOW)
+
+        assert item["id"] == "app:shop.example.com"
+        assert item["subject"] == {"kind": "app", "domain": "shop.example.com"}
+        assert item["severity"] == "warn" and item["origin"] == "state"
+        [why] = item["reasons"]
+        assert why["code"] == "compose_check_waiting"
+        assert why["params"] == {"days": 7}
+        assert why["detail"] == "Docker Compose could not resolve the stack"
+        assert why["when"] == (NOW - timedelta(days=7)).isoformat()
+
+    def test_the_days_are_the_days_it_has_waited(self) -> None:
+        [item] = waiting_stack_items([self.waiting("shop.example.com", 31)], now=NOW)
+
+        assert item["reasons"][0]["params"] == {"days": 31}
+
+    def test_a_stack_whose_start_was_held_back_is_not_one_that_waits_for_the_step(self) -> None:
+        held = self.waiting("shop.example.com", 30, state="refused")
+
+        assert waiting_stack_items([held], now=NOW) == []
+
+    def test_it_joins_the_row_the_application_already_has(self) -> None:
+        rows = AttentionList()
+        rows.add(
+            "app:shop.example.com",
+            {"kind": "app", "domain": "shop.example.com"},
+            "shop.example.com",
+            reason("state", "fail", "service_failed"),
+        )
+
+        rows.extend(waiting_stack_items([self.waiting("shop.example.com", 9)], now=NOW))
+
+        [row], total = rows.result()
+        assert total == 1
+        assert [each["code"] for each in row["reasons"]] == [
+            "service_failed",
+            "compose_check_waiting",
+        ]
+        assert row["severity"] == "fail"
+
+    def test_a_note_whose_date_cannot_be_read_says_nothing(self) -> None:
+        broken = GateNote("shop.example.com", "pending", "x", "yesterday")
+
+        assert waiting_stack_items([broken], now=NOW) == []
 
 
 def test_the_limit_is_the_overviews() -> None:

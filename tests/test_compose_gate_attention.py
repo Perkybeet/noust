@@ -119,6 +119,63 @@ class TestWhoRunsIt:
         assert f"{OUTSIDE}: record written, unit written with the check" in capsys.readouterr().out
         assert lines(unit_of(units, OUTSIDE), "ExecStartPre")
 
+    def test_setup_compose_gate_says_when_a_stack_was_taken_from_its_containers(
+        self,
+        tmp_path: Path,
+        store: NoustStore,
+        units: Path,
+        machine: Machine,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        import json
+
+        from noust.cli.app import main
+        from tests.support.docker_grants_samples import container_id, grants_line, ps_row
+
+        app = make_stack(tmp_path, store, units, machine, OUTSIDE)
+        machine.fail_config = set(machine.stacks)
+        machine.containers = [
+            json.loads(
+                ps_row(
+                    container_id("web"),
+                    "web-1",
+                    project="outside-example-com",
+                    service="web",
+                    working_dir=app.app_path,
+                )
+            )
+        ]
+        machine.script(["docker", "inspect"], stdout=grants_line("web"))
+
+        code = main(["setup", "compose-gate", "--app", OUTSIDE])
+
+        out = capsys.readouterr().out
+        assert code == 0
+        assert (
+            f"{OUTSIDE}: record written from its containers (Compose could not resolve its file), "
+            "unit written with the check" in out
+        )
+
+    def test_the_console_says_in_its_log_when_a_stack_was_taken_from_its_containers(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        import logging
+
+        from noust.web.compose_gate_worker import ComposeGateWorker
+
+        worker = ComposeGateWorker(
+            lambda: [
+                compose_upgrade.Outcome(OUTSIDE, "done", recorded=True, unit=True, containers=True)
+            ],
+            first_after=0.0,
+            every=3600.0,
+        )
+
+        with caplog.at_level(logging.INFO):
+            worker.tick()
+
+        assert "from its containers" in caplog.text
+
     def test_setup_compose_gate_says_what_it_left_and_exits_one(
         self,
         tmp_path: Path,
@@ -164,6 +221,63 @@ class TestWhatHealthSays:
         assert len(said) == 1
         assert OUTSIDE in said[0] and "has not brought" in said[0]
         assert f"noust setup compose-gate --app {OUTSIDE}" in said[0]
+
+    def age(self, store: NoustStore, days: int) -> None:
+        """Make the note of the waiting stack as old as it would be after ``days``."""
+        from datetime import datetime, timedelta, timezone
+
+        since = (datetime.now(timezone.utc) - timedelta(days=days, minutes=5)).isoformat(
+            timespec="seconds"
+        )
+        connection = store._get_connection()
+        connection.execute("UPDATE compose_gate_state SET noted_at = ?", (since,))
+        connection.commit()
+
+    def waiting(self, tmp_path: Path, store: NoustStore, units: Path, machine: Machine) -> None:
+        make_stack(tmp_path, store, units, machine, OUTSIDE)
+        machine.fail_config = set(machine.stacks)
+        compose_upgrade.bring_up_to_date(store=store)
+
+    def test_a_stack_that_waits_says_for_how_many_days(
+        self, tmp_path: Path, store: NoustStore, units: Path, machine: Machine
+    ) -> None:
+        self.waiting(tmp_path, store, units, machine)
+        self.age(store, 3)
+
+        [said] = compose_upgrade.attention(store=store)
+
+        assert "(days waiting: 3)" in said
+
+    def test_a_stack_that_has_just_begun_to_wait_says_so(
+        self, tmp_path: Path, store: NoustStore, units: Path, machine: Machine
+    ) -> None:
+        self.waiting(tmp_path, store, units, machine)
+
+        [said] = compose_upgrade.attention(store=store)
+
+        assert "(days waiting: 0)" in said
+
+    def test_a_pass_that_finds_it_waiting_again_does_not_begin_the_count_again(
+        self, tmp_path: Path, store: NoustStore, units: Path, machine: Machine
+    ) -> None:
+        self.waiting(tmp_path, store, units, machine)
+        self.age(store, 9)
+
+        compose_upgrade.bring_up_to_date(store=store)
+
+        [said] = compose_upgrade.attention(store=store)
+        assert "(days waiting: 9)" in said
+
+    def test_the_sentence_is_a_coded_one_with_the_reason_and_the_way_to_try_again(
+        self, tmp_path: Path, store: NoustStore, units: Path, machine: Machine
+    ) -> None:
+        self.waiting(tmp_path, store, units, machine)
+
+        [said] = compose_upgrade.attention(store=store)
+
+        assert said.startswith(f"{OUTSIDE}: Noust has not brought this stack under the check")
+        assert "It starts as it always did, and Noust tries again by itself" in said
+        assert f"noust setup compose-gate --app {OUTSIDE}" in said
 
     def test_what_was_taken_over_is_listed_to_be_looked_at(
         self, tmp_path: Path, store: NoustStore, units: Path, machine: Machine
@@ -218,10 +332,13 @@ class TestWhatHealthSays:
         compose_upgrade.bring_up_to_date(store=store)
         warnings: list[str] = []
 
-        check = health._check_builds(warnings)
+        check = health._check_compose_stacks(warnings)
 
+        assert check is not None and check.name == "Compose stacks"
         assert check.status == "warning"
         assert any("has not brought this stack" in line for line in warnings)
+        # It is not the build sandbox's business.
+        assert health._check_builds([]).status == "ok"
 
 
 MARK = "# Generated by Noust\n"

@@ -13,6 +13,7 @@ means: the tree it runs from is writable by the stack itself and is not a record
 from __future__ import annotations
 
 from collections.abc import Iterator
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -155,6 +156,83 @@ class TestWhatTheGateSaid:
     def test_a_state_nobody_knows_is_refused(self, store: NoustStore) -> None:
         with pytest.raises(ValueError):
             compose_acceptance.note("shop.example.com", "angry", "x", store=store)
+
+
+class TestHowLongItHasBeenSo:
+    """
+    The date of a note is when the stack came to be in that state: the pass that says it again every ten
+    minutes does not move it, so how long a stack has been waiting can be told.
+    """
+
+    def clock(self, monkeypatch: pytest.MonkeyPatch, *moments: str) -> None:
+        sequence = iter(moments)
+        monkeypatch.setattr(
+            compose_acceptance, "utc_now_iso", lambda timespec="auto": next(sequence)
+        )
+
+    def test_saying_the_same_state_again_keeps_the_day_it_began(
+        self, store: NoustStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self.clock(monkeypatch, "2026-11-01T10:00:00+00:00", "2026-11-05T10:00:00+00:00")
+        compose_acceptance.note(
+            "shop.example.com", "pending", "Compose said: no such file", store=store
+        )
+
+        compose_acceptance.note(
+            "shop.example.com", "pending", "Docker said: not running", store=store
+        )
+
+        note = compose_acceptance.note_of("shop.example.com", store=store)
+        assert note is not None
+        assert note.noted_at == "2026-11-01T10:00:00+00:00"
+        assert note.detail == "Docker said: not running"
+
+    def test_another_state_begins_a_new_day(
+        self, store: NoustStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self.clock(monkeypatch, "2026-11-01T10:00:00+00:00", "2026-11-05T10:00:00+00:00")
+        compose_acceptance.note("shop.example.com", "pending", "x", store=store)
+
+        compose_acceptance.note("shop.example.com", "refused", "privileged", store=store)
+
+        note = compose_acceptance.note_of("shop.example.com", store=store)
+        assert note is not None and note.noted_at == "2026-11-05T10:00:00+00:00"
+
+    def test_a_note_that_was_cleared_begins_again(
+        self, store: NoustStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self.clock(monkeypatch, "2026-11-01T10:00:00+00:00", "2026-11-09T10:00:00+00:00")
+        compose_acceptance.note("shop.example.com", "pending", "x", store=store)
+        compose_acceptance.clear_note("shop.example.com", store=store)
+
+        compose_acceptance.note("shop.example.com", "pending", "x", store=store)
+
+        note = compose_acceptance.note_of("shop.example.com", store=store)
+        assert note is not None and note.noted_at == "2026-11-09T10:00:00+00:00"
+
+    def test_the_days_are_whole_days_and_never_round_up(self) -> None:
+        note = compose_acceptance.GateNote(
+            "shop.example.com", "pending", "x", "2026-11-01T10:00:00+00:00"
+        )
+
+        def at(moment: str) -> int:
+            return note.days(now=datetime.fromisoformat(moment))
+
+        assert at("2026-11-01T10:00:00+00:00") == 0
+        assert at("2026-11-08T09:59:59+00:00") == 6
+        assert at("2026-11-08T10:00:00+00:00") == 7
+
+    def test_a_date_that_cannot_be_read_is_no_time_at_all_and_never_an_error(self) -> None:
+        note = compose_acceptance.GateNote("shop.example.com", "pending", "x", "yesterday")
+
+        assert note.days() == 0
+
+    def test_a_clock_that_went_back_is_no_time_at_all(self) -> None:
+        note = compose_acceptance.GateNote(
+            "shop.example.com", "pending", "x", "2026-11-09T10:00:00+00:00"
+        )
+
+        assert note.days(now=datetime.fromisoformat("2026-11-01T10:00:00+00:00")) == 0
 
 
 class TestItDiesWithTheApplication:

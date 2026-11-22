@@ -39,7 +39,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from noust.core import cert_life
+from noust.core import cert_life, compose_acceptance
 from noust.core.deploy_failures import coded as deploy_failure
 from noust.core.exceptions import NoustError
 from noust.core.first_deploys import FirstDeploys
@@ -51,6 +51,7 @@ from noust.managers.attention import (
     container_items,
     machine_items,
     security_items,
+    waiting_stack_items,
 )
 from noust.managers.attention import reason as _reason
 from noust.monitor import sampler
@@ -741,6 +742,7 @@ def _attention(
     rows.extend(_machine_facts(summary, services))
     rows.extend(_findings(security))
     rows.extend(_broken_containers(containers))
+    rows.extend(_waiting_stacks(store, domains))
     return rows.result(ATTENTION_LIMIT)
 
 
@@ -804,6 +806,24 @@ def _broken_containers(
         log.warning("The attention list could not read the containers of applications: %s", exc)
         return []
     return container_items(failures)
+
+
+def _waiting_stacks(store: Any, domains: set[str]) -> list[dict[str, Any]]:
+    """
+    Args:
+        store: The Noust store, where the gate of the Compose stacks says what it left waiting.
+        domains: The applications that still exist.
+
+    Returns:
+        The rows of the stacks that have waited a week to be brought under the check of their start;
+        none when the notes cannot be read: the rest of the list is still worth showing.
+    """
+    try:
+        notes = compose_acceptance.notes(store=store)
+    except _SECTION_ERRORS as exc:
+        log.warning("The attention list could not read what the gate of the stacks says: %s", exc)
+        return []
+    return waiting_stack_items(note for domain, note in notes.items() if domain in domains)
 
 
 def _first_line(text: str | None) -> str | None:

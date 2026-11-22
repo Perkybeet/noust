@@ -155,33 +155,51 @@ def _deployer(app_path: Path, store: NoustStore) -> DockerComposeDeployer:
 def test_an_update_that_makes_a_service_privileged_is_refused(
     tmp_path: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The compose file at the commit that served was not privileged: the push adds root."""
+    """The stack was not privileged (its record says so): the push adds root."""
+    from noust.core import compose_acceptance
+
     root = _checkout(tmp_path / "stack", privileged=True)
-    before = (FIXTURES / "proggest.docker-compose.prod.yml").read_text()
+    compose = _deployer(root, store)
+    compose_acceptance.record(DOMAIN, [], source="deploy", store=store)
+    monkeypatch.setattr(compose._source_manager().__class__, "file_at_commit", _forged_history)
+    with pytest.raises(DeploymentError, match="asks for root"):
+        compose._check_update_privileges(compose._load_compose_document())
+
+
+def test_an_update_keeps_what_the_record_says_the_stack_already_had(
+    tmp_path: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from noust.core import compose_acceptance
+    from noust.deployers.helpers.compose_guard import inspect_compose
+
+    root = _checkout(tmp_path / "stack", privileged=True)
+    compose = _deployer(root, store)
+    findings = inspect_compose(compose._load_compose_document(), root)
+    compose_acceptance.record(
+        DOMAIN, [findings.keys[s] for s in findings.refused], source="deploy", store=store
+    )
+    monkeypatch.setattr(compose._source_manager().__class__, "file_at_commit", _forged_history)
+    compose._check_update_privileges(compose._load_compose_document())
+
+
+def test_the_history_of_the_checkout_does_not_say_what_the_stack_had(
+    tmp_path: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A container that mounts the tree writes ``.git``: a commit that says the stack was privileged proves nothing."""
+    root = _checkout(tmp_path / "stack", privileged=True)
+    forged = (root / "docker-compose.prod.yml").read_text()
     compose = _deployer(root, store)
     monkeypatch.setattr(
-        compose._source_manager().__class__, "file_at_commit", lambda *a, **k: before
+        compose._source_manager().__class__, "file_at_commit", lambda *a, **k: forged
     )
     with pytest.raises(DeploymentError, match="asks for root"):
         compose._check_update_privileges(compose._load_compose_document())
 
 
-def test_an_update_keeps_what_the_serving_compose_file_already_had(
-    tmp_path: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    root = _checkout(tmp_path / "stack", privileged=True)
-    before = (root / "docker-compose.prod.yml").read_text()
-    compose = _deployer(root, store)
-    monkeypatch.setattr(
-        compose._source_manager().__class__, "file_at_commit", lambda *a, **k: before
-    )
-    compose._check_update_privileges(compose._load_compose_document())
-
-
 def test_an_update_with_nothing_to_compare_with_is_refused(
     tmp_path: Path, store: NoustStore
 ) -> None:
-    """No commit that served: nothing proves the stack had the socket before."""
+    """No record and no container: nothing proves the stack had the socket before."""
     root = _checkout(tmp_path / "stack", privileged=True)
     compose = _deployer(root, store)
     compose.previous_commit = None
@@ -190,7 +208,7 @@ def test_an_update_with_nothing_to_compare_with_is_refused(
 
 
 def test_a_redeploy_that_adds_privileges_is_refused(tmp_path: Path, store: NoustStore) -> None:
-    """The tree before the fetch is what served."""
+    """The file on disk before the fetch is not a witness either: nothing records it."""
     root = _checkout(tmp_path / "stack", privileged=False)
     compose = _deployer(root, store)
     compose._accepted_refusals = compose_privileges.heritage_of_redeploy(compose)
@@ -199,6 +217,10 @@ def test_a_redeploy_that_adds_privileges_is_refused(tmp_path: Path, store: Noust
     compose._discover_compose_file()
     with pytest.raises(DeploymentError, match="asks for root"):
         compose._parse_compose_services()
+
+
+def _forged_history(*_args: object, **_kwargs: object) -> str:
+    raise AssertionError("the tree's history is not a witness of what the stack had")
 
 
 def test_file_at_commit_reads_the_blob_without_filters(tmp_path: Path) -> None:

@@ -166,7 +166,8 @@ applications run as.
   the deployment did not judge; what the gate cannot judge does not start (it fails closed, as the sandbox
   does). Every path of Noust that starts or restarts a stack asks the same first, and so does the one writer of
   the stack's `.env`, so a refusal leaves a running stack running. A stack that was never recorded starts as
-  it always did and `noust health` lists it. A restart made past Noust (`systemctl restart` as root) goes
+  it always did and `noust health` lists it, with how long it has waited; an update of it counts what its
+  containers were given and never a file of its tree, and a stack Compose cannot resolve is taken from them. A restart made past Noust (`systemctl restart` as root) goes
   through the unit's own gate; root can of course edit the unit.
   The guard knows every key of the Compose specification, each decided
   about, and refuses one it does not know like what gives the machine (a newer Compose adds keys that do:

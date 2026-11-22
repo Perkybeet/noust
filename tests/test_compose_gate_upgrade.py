@@ -311,6 +311,217 @@ class TestTheOrderIsWhatKeepsAStackStarting:
         assert not any(key[1] == "devices" for key in accepted.keys)
 
 
+class TestAStackThatComposeCannotResolveIsTakenFromItsContainers:
+    """
+    A stack Compose does not resolve today is not left without a record: what its containers were
+    given is what it runs with, and that is what it is accepted with.
+    """
+
+    def running(
+        self,
+        app: App,
+        machine: Machine,
+        *,
+        project: str = "outside-example-com",
+        devices: tuple[str, ...] = ("/dev/fuse",),
+    ) -> None:
+        machine.containers = [
+            json.loads(
+                ps_row(
+                    container_id("web"),
+                    "web-1",
+                    project=project,
+                    service="web",
+                    working_dir=app.app_path,
+                )
+            )
+        ]
+        machine.script(["docker", "inspect"], stdout=grants_line("web", devices=devices))
+
+    def stack(
+        self, tmp_path: Path, store: NoustStore, units: Path, machine: Machine, **extra: str
+    ) -> App:
+        app = make_stack(tmp_path, store, units, machine, "outside.example.com", **extra)
+        machine.fail_config = set(machine.stacks)
+        return app
+
+    def test_it_is_taken_with_what_its_containers_have(
+        self, tmp_path: Path, store: NoustStore, units: Path, machine: Machine
+    ) -> None:
+        app = self.stack(tmp_path, store, units, machine)
+        self.running(app, machine)
+
+        outcomes = compose_upgrade.bring_up_to_date(store=store)
+
+        assert [(o.state, o.recorded, o.unit) for o in outcomes] == [("done", True, True)]
+        accepted = compose_acceptance.get("outside.example.com", store=store)
+        assert accepted is not None and accepted.inherited and accepted.source == "upgrade"
+        assert accepted.keys == frozenset({("service web", "devices", "/dev/fuse")})
+        assert compose_acceptance.note_of("outside.example.com", store=store) is None
+
+    def test_the_project_is_the_one_on_the_labels_and_the_unit_carries_it(
+        self, tmp_path: Path, store: NoustStore, units: Path, machine: Machine
+    ) -> None:
+        app = self.stack(tmp_path, store, units, machine)
+        self.running(app, machine, project="legacy-shop")
+
+        compose_upgrade.bring_up_to_date(store=store)
+
+        stored = store.get_app("outside.example.com")
+        assert stored is not None and stored.compose_project == "legacy-shop"
+        text = unit_of(units, "outside.example.com")
+        assert "app compose gate outside.example.com --project legacy-shop" in text
+        assert "-p legacy-shop up -d --remove-orphans" in text
+
+    def test_the_project_the_store_pins_is_not_renamed_by_the_labels(
+        self, tmp_path: Path, store: NoustStore, units: Path, machine: Machine
+    ) -> None:
+        app = self.stack(tmp_path, store, units, machine)
+        store.set_app_compose_project("outside.example.com", "pinned-name")
+        self.running(app, machine, project="pinned-name")
+
+        compose_upgrade.bring_up_to_date(store=store)
+
+        stored = store.get_app("outside.example.com")
+        assert stored is not None and stored.compose_project == "pinned-name"
+        assert compose_acceptance.get("outside.example.com", store=store) is not None
+
+    def test_a_file_that_is_not_there_is_no_reason_to_leave_a_running_stack_without_a_record(
+        self, tmp_path: Path, store: NoustStore, units: Path, machine: Machine
+    ) -> None:
+        app = self.stack(tmp_path, store, units, machine)
+        (Path(app.app_path) / "docker-compose.yml").unlink()
+        self.running(app, machine)
+
+        outcomes = compose_upgrade.bring_up_to_date(store=store)
+
+        assert [o.state for o in outcomes] == ["done"]
+        assert compose_acceptance.get("outside.example.com", store=store) is not None
+
+    def test_what_the_file_asks_for_more_than_its_containers_have_is_refused_at_the_start(
+        self, tmp_path: Path, store: NoustStore, units: Path, machine: Machine
+    ) -> None:
+        # The record is what the stack runs with, so a file that now names more than that is a start
+        # that adds something: held back, which is what the check is for.
+        app = self.stack(tmp_path, store, units, machine)
+        self.running(app, machine, devices=())
+        compose_upgrade.bring_up_to_date(store=store)
+        machine.fail_config = set()
+        (Path(app.app_path) / ".env").write_text("DATA=/\n")
+
+        outcome = compose_gate.judge_app(app, store=store)
+
+        assert not outcome.allowed
+        assert any("service web mounts /" in line for line in outcome.lines)
+
+    def test_what_its_containers_have_goes_on_starting(
+        self, tmp_path: Path, store: NoustStore, units: Path, machine: Machine
+    ) -> None:
+        app = self.stack(tmp_path, store, units, machine)
+        self.running(app, machine, devices=("/dev/fuse",))
+        compose_upgrade.bring_up_to_date(store=store)
+        machine.fail_config = set()
+
+        outcome = compose_gate.judge_app(app, store=store)
+
+        # Judged against a record, not let through for lack of one.
+        assert outcome.allowed and not outcome.unrecorded
+
+    def test_nothing_is_started_stopped_or_recreated_to_take_it(
+        self, tmp_path: Path, store: NoustStore, units: Path, machine: Machine
+    ) -> None:
+        app = self.stack(tmp_path, store, units, machine)
+        self.running(app, machine)
+
+        compose_upgrade.bring_up_to_date(store=store)
+
+        changing = [
+            call
+            for call in machine.calls
+            if call[:2] in (("systemctl", "start"), ("systemctl", "restart"), ("systemctl", "stop"))
+            or (call[:2] == ("docker", "compose") and not {"config", "ps"} & set(call))
+        ]
+        assert changing == []
+
+    def test_with_no_container_it_stays_pending_and_says_both_things(
+        self, tmp_path: Path, store: NoustStore, units: Path, machine: Machine
+    ) -> None:
+        self.stack(tmp_path, store, units, machine)
+        before = unit_of(units, "outside.example.com")
+
+        outcomes = compose_upgrade.bring_up_to_date(store=store)
+
+        assert [o.state for o in outcomes] == ["pending"]
+        assert "resolve" in outcomes[0].detail and "container" in outcomes[0].detail
+        assert unit_of(units, "outside.example.com") == before
+        assert compose_acceptance.get("outside.example.com", store=store) is None
+
+    def test_containers_made_from_another_tree_are_not_its_containers(
+        self, tmp_path: Path, store: NoustStore, units: Path, machine: Machine
+    ) -> None:
+        app = self.stack(tmp_path, store, units, machine)
+        self.running(app, machine)
+        machine.containers[0]["working_dir"] = str(tmp_path / "somewhere-else")
+
+        outcomes = compose_upgrade.bring_up_to_date(store=store)
+
+        assert [o.state for o in outcomes] == ["pending"]
+        assert compose_acceptance.get("outside.example.com", store=store) is None
+
+    def test_two_projects_in_the_tree_are_not_guessed_between(
+        self, tmp_path: Path, store: NoustStore, units: Path, machine: Machine
+    ) -> None:
+        app = self.stack(tmp_path, store, units, machine)
+        self.running(app, machine, project="old-name")
+        machine.containers.append(
+            json.loads(
+                ps_row(
+                    container_id("db"),
+                    "db-1",
+                    project="new-name",
+                    service="db",
+                    working_dir=app.app_path,
+                )
+            )
+        )
+
+        outcomes = compose_upgrade.bring_up_to_date(store=store)
+
+        assert [o.state for o in outcomes] == ["pending"]
+        assert "new-name" in outcomes[0].detail and "old-name" in outcomes[0].detail
+        stored = store.get_app("outside.example.com")
+        assert stored is not None and stored.compose_project is None
+
+    def test_a_docker_that_does_not_answer_leaves_it_as_it_was(
+        self, tmp_path: Path, store: NoustStore, units: Path, machine: Machine
+    ) -> None:
+        self.stack(tmp_path, store, units, machine)
+        before = unit_of(units, "outside.example.com")
+        machine.docker_down = True
+
+        outcomes = compose_upgrade.bring_up_to_date(store=store)
+
+        assert [o.state for o in outcomes] == ["pending"]
+        assert unit_of(units, "outside.example.com") == before
+        assert compose_acceptance.get("outside.example.com", store=store) is None
+
+    def test_a_stack_that_compose_does_resolve_is_still_taken_with_its_file_too(
+        self, tmp_path: Path, store: NoustStore, units: Path, machine: Machine
+    ) -> None:
+        # The containers stand in only when the file cannot: where it resolves, what it resolves to
+        # is accepted as well, as it always was.
+        app = make_stack(
+            tmp_path, store, units, machine, "outside.example.com", env="DATA=/srv/shared\n"
+        )
+        self.running(app, machine, devices=())
+
+        compose_upgrade.bring_up_to_date(store=store)
+
+        accepted = compose_acceptance.get("outside.example.com", store=store)
+        assert accepted is not None
+        assert {key[1] for key in accepted.keys} == {"outside"}
+
+
 class TestTwoApplicationsThatShareAProject:
     def test_neither_is_broken_and_both_are_listed(
         self, tmp_path: Path, store: NoustStore, units: Path, machine: Machine

@@ -806,6 +806,10 @@ EVENTS: dict[str, EventSpec] = {
         NOTICE,
         {
             "monitor.webserver_restart": "The monitor started the web server again after it fell.",
+            "compose.pull_removed": (
+                "Noust took the image pull that units wrote until 3.2.1 out of a Compose stack's unit, "
+                "so a start no longer downloads images."
+            ),
         },
     ),
     # The host action ledger: what Noust actually did as root.

@@ -73,13 +73,25 @@ class ComposeGateWorker:
         for outcome in outcomes:
             if outcome.state == "done":
                 _log.info(
-                    "%s is under the check of its start (record %s, unit %s)",
+                    "%s is under the check of its start (record %s%s, unit %s%s)",
                     outcome.domain,
                     "written" if outcome.recorded else "kept",
+                    " from its containers, as Compose could not resolve its file"
+                    if outcome.containers
+                    else "",
                     "written" if outcome.unit else "as it was",
+                    "; the image pull of before 3.2.1 was taken out of it"
+                    if outcome.pull_removed
+                    else "",
                 )
             elif outcome.state == "pending":
                 _log.warning("%s was left as it was: %s", outcome.domain, outcome.detail)
+            elif outcome.state == "edited":
+                _log.warning(
+                    "%s starts as its unit says, not as Noust wrote it: %s",
+                    outcome.domain,
+                    outcome.detail,
+                )
             elif outcome.state == "unverified":
                 _log.warning(
                     "%s: could not tell whether systemd runs the check of its start: %s",

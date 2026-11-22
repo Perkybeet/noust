@@ -222,3 +222,90 @@ class TestWhatAStackHadIsWhatRunsFromItsTree:
         grants.read_project_grants(runner, self.PROJECT, within=tree)
 
         assert [call for call in runner.calls if call[:2] == ("docker", "inspect")] == []
+
+
+class TestWhichProjectATreeRunsAs:
+    """What the labels of the containers made from a tree say its project is, when no file can."""
+
+    def listing(self, runner: FakeRunner, *rows: str) -> FakeRunner:
+        runner.script(["docker", "ps"], stdout="\n".join(rows))
+        return runner
+
+    def test_the_project_of_the_containers_made_from_the_tree_is_the_one_asked_for(
+        self, tmp_path: Path
+    ) -> None:
+        runner = self.listing(
+            FakeRunner(),
+            ps_row(FIRST, "a", project="legacy-shop", service="web", working_dir=str(tmp_path)),
+            ps_row(
+                SECOND,
+                "b",
+                project="legacy-shop",
+                service="db",
+                working_dir=str(tmp_path / "docker"),
+            ),
+        )
+
+        assert grants.read_tree_projects(runner, tmp_path) == ("legacy-shop",)
+
+    def test_another_tree_s_containers_and_the_ones_that_say_nothing_of_where_they_ran_are_not_the_trees(
+        self, tmp_path: Path
+    ) -> None:
+        # A container with no working directory is not proven to be another stack's when the project
+        # is known, but it is no proof of whose project it is when the project is what is asked.
+        runner = self.listing(
+            FakeRunner(),
+            ps_row(
+                FIRST,
+                "a",
+                project="theirs",
+                service="web",
+                working_dir=str(tmp_path / "elsewhere"),
+            ),
+            ps_row(SECOND, "b", project="nobody", service="web"),
+        )
+
+        assert grants.read_tree_projects(runner, tmp_path / "mine") == ()
+
+    def test_a_container_made_for_run_is_not_the_stack_s(self, tmp_path: Path) -> None:
+        runner = self.listing(
+            FakeRunner(),
+            ps_row(
+                FIRST,
+                "a",
+                project="hook",
+                service="migrate",
+                oneoff=True,
+                working_dir=str(tmp_path),
+            ),
+        )
+
+        assert grants.read_tree_projects(runner, tmp_path) == ()
+
+    def test_two_projects_are_both_said_so_that_nobody_guesses(self, tmp_path: Path) -> None:
+        runner = self.listing(
+            FakeRunner(),
+            ps_row(FIRST, "a", project="old-name", service="web", working_dir=str(tmp_path)),
+            ps_row(SECOND, "b", project="new-name", service="web", working_dir=str(tmp_path)),
+        )
+
+        assert grants.read_tree_projects(runner, tmp_path) == ("new-name", "old-name")
+
+    def test_a_label_that_cannot_be_a_project_is_never_returned(self, tmp_path: Path) -> None:
+        runner = self.listing(
+            FakeRunner(),
+            ps_row(FIRST, "a", project="x; reboot", service="web", working_dir=str(tmp_path)),
+        )
+
+        assert grants.read_tree_projects(runner, tmp_path) == ()
+
+    def test_docker_that_does_not_answer_is_said_and_not_taken_for_none(
+        self, tmp_path: Path
+    ) -> None:
+        from noust.core.docker.errors import DockerUnavailableError
+
+        runner = FakeRunner()
+        runner.script(["docker", "ps"], exit_code=1, stderr="Cannot connect to the Docker daemon")
+
+        with pytest.raises(DockerUnavailableError):
+            grants.read_tree_projects(runner, tmp_path)

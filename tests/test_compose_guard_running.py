@@ -21,6 +21,7 @@ from typing import Any
 
 import pytest
 
+from noust.core import compose_acceptance
 from noust.core.compose_yaml import load_compose
 from noust.core.exceptions import DeploymentError
 from noust.core.runner import FakeRunner
@@ -28,6 +29,7 @@ from noust.core.store import App, NoustStore
 from noust.deployers.docker_compose import DockerComposeDeployer
 from noust.deployers.helpers import compose_privileges
 from noust.deployers.helpers import sandbox as build_sandbox
+from noust.deployers.helpers.compose_guard import inspect_compose
 from tests.support.docker_grants_samples import container_id, grants_line, ps_row
 
 DOMAIN = "stack.example.com"
@@ -119,23 +121,19 @@ def stack(
     return compose
 
 
-def update(
-    compose: Any,
-    monkeypatch: pytest.MonkeyPatch,
-    *,
-    served: str = SERVED,
-    changed: Any = frozenset(),
-) -> None:
-    """Run the guard as an update does, against the file of the commit that served."""
+def update(compose: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Run the guard as an update does.
+
+    What the stack already had is its record and its containers. The history of the checkout is
+    written by whatever mounts the tree, so reading it is a failure of the test, not a way to pass.
+    """
 
     class Source:
         def file_at_commit(self, *_args: Any) -> str:
-            return served
+            raise AssertionError("the tree's history is not a witness of what the stack had")
 
     monkeypatch.setattr(compose, "_source_manager", lambda: Source())
-    monkeypatch.setattr(
-        "noust.deployers.helpers.compose_privileges.changed_links", lambda *_a: changed
-    )
     compose._check_update_privileges(load_compose(compose.compose_path.read_text()))
 
 
@@ -191,8 +189,10 @@ class TestWhatOnlyResolvingShows:
             boxes=[{"service": "web", "binds": ("/srv/data",)}],
             said=said,
         )
+        # What the file brings in is read to be judged: it has to be there and be a compose document.
+        (compose.app_path / "common.yml").write_text("services:\n  other:\n    image: nginx\n")
 
-        update(compose, monkeypatch, served=text)
+        update(compose, monkeypatch)
 
         assert any("/srv/data" in line for line in said)
 
@@ -209,8 +209,9 @@ class TestWhatOnlyResolvingShows:
             boxes=[{"service": "web", "binds": ("/srv/data",)}],
             said=said,
         )
+        (compose.app_path / "common.yml").write_text("services:\n  base:\n    image: nginx\n")
 
-        update(compose, monkeypatch, served=text)
+        update(compose, monkeypatch)
 
         assert any("/srv/data" in line for line in said)
 
@@ -416,7 +417,7 @@ class TestWhatAContainerHasIsTheSameFactWhateverTheSpelling:
             said=said,
         )
 
-        update(compose, monkeypatch, served="services:\n  web:\n    image: nginx\n")
+        update(compose, monkeypatch)
 
         assert any("/dev/kvm" in line for line in said)
 
@@ -448,7 +449,7 @@ class TestWhatAContainerHasIsTheSameFactWhateverTheSpelling:
 
 
 class TestWhatIsNotInheritedByRunning:
-    """What 4.2 refused without an exception is only ever inherited from the file that served."""
+    """What 4.2 refused without an exception is only ever inherited from the record of what the stack was accepted with."""
 
     @pytest.mark.parametrize(
         ("box", "added"),
@@ -473,23 +474,41 @@ class TestWhatIsNotInheritedByRunning:
         with pytest.raises(DeploymentError, match="asks for root"):
             update(compose, monkeypatch)
 
-    def test_a_file_that_served_with_it_written_plainly_goes_on_as_it_always_did(
-        self, tmp_path: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        text = "services:\n  web:\n    image: nginx\n    privileged: true\n"
-        said: list[str] = []
-        compose = stack(
+    PLAIN = "services:\n  web:\n    image: nginx\n    privileged: true\n"
+
+    def privileged_stack(
+        self, tmp_path: Path, store: NoustStore, said: list[str] | None = None
+    ) -> Any:
+        return stack(
             tmp_path,
             store,
-            text=text,
+            text=self.PLAIN,
             model=resolved(privileged=True),
             boxes=[{"service": "web", "privileged": True}],
             said=said,
         )
 
-        update(compose, monkeypatch, served=text)
+    def test_a_record_that_has_it_lets_the_stack_go_on_as_it_always_did(
+        self, tmp_path: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # What the upgrade took from the stack, or a deployment that passed the guard wrote down.
+        compose_acceptance.record(
+            DOMAIN, [("service web", "privileged", "")], source="upgrade", store=store
+        )
+        said: list[str] = []
+
+        update(self.privileged_stack(tmp_path, store, said), monkeypatch)
 
         assert any("is privileged" in line for line in said)
+
+    def test_a_file_that_served_with_it_written_plainly_is_not_a_witness_without_a_record(
+        self, tmp_path: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Whatever mounts the tree writes the file at the commit that served as it writes the file on
+        # disk: a stack with no record that is privileged asks for the exception like a new stack,
+        # and the upgrade is what writes the record of the ones that run.
+        with pytest.raises(DeploymentError, match="asks for root"):
+            update(self.privileged_stack(tmp_path, store), monkeypatch)
 
     def test_an_exception_recorded_for_the_stack_lets_it_through_without_asking_docker(
         self, tmp_path: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch
@@ -537,13 +556,13 @@ class TestWhenDockerDoesNotAnswer:
             docker_down="Cannot connect to the Docker daemon",
         )
 
-        update(compose, monkeypatch, served="services:\n  web:\n    image: nginx\n")
+        update(compose, monkeypatch)
 
         assert docker_calls(compose, "docker", "ps") == []
 
 
 class TestAMountThroughALink:
-    """A line that reaches somewhere else because of a link the update put there is not what ran."""
+    """A line that reaches somewhere else through a link is what ran only when a record says so."""
 
     @pytest.fixture
     def linked(self, tmp_path: Path, store: NoustStore) -> Any:
@@ -553,32 +572,37 @@ class TestAMountThroughALink:
         return app
 
     def check(
-        self, linked: Path, tmp_path: Path, store: NoustStore, monkeypatch: Any, changed: Any
+        self, linked: Path, tmp_path: Path, store: NoustStore, monkeypatch: Any, *, record: bool
     ) -> None:
+        document = resolved(volumes=[bind(str(linked / "data"))])
+        if record:
+            findings = inspect_compose(document, linked)
+            compose_acceptance.record(
+                DOMAIN,
+                [findings.keys[sentence] for sentence in findings.refused],
+                source="upgrade",
+                store=store,
+            )
         compose = stack(
             tmp_path,
             store,
-            model=resolved(volumes=[bind(str(linked / "data"))]),
+            model=document,
             boxes=[{"service": "web", "binds": (str(linked / "data"),)}],
         )
-        update(compose, monkeypatch, changed=changed)
+        update(compose, monkeypatch)
 
-    def test_a_link_nobody_committed_is_what_the_container_already_had(
+    def test_a_record_that_has_the_mount_lets_it_go_on(
         self, linked: Path, tmp_path: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        self.check(linked, tmp_path, store, monkeypatch, frozenset())
+        self.check(linked, tmp_path, store, monkeypatch, record=True)
 
-    def test_a_link_the_update_changed_is_refused(
+    def test_without_a_record_nothing_says_the_link_is_an_old_one_so_it_is_refused(
         self, linked: Path, tmp_path: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        # The container has the mount, but where a link leads now is what a link added since would
+        # lead to, and the history that could say which links are old is not a witness.
         with pytest.raises(DeploymentError, match="asks for root"):
-            self.check(linked, tmp_path, store, monkeypatch, frozenset({linked / "data"}))
-
-    def test_when_git_cannot_say_it_is_refused_rather_than_guessed(
-        self, linked: Path, tmp_path: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        with pytest.raises(DeploymentError, match="asks for root"):
-            self.check(linked, tmp_path, store, monkeypatch, None)
+            self.check(linked, tmp_path, store, monkeypatch, record=False)
 
 
 class TestWhatHealthLists:

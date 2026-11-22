@@ -132,9 +132,9 @@ class ComposeFindings:
             an image). A stack that already had one is warned, as with the rest, and never
             stopped.
         said: The sentences that carry a code for the console to translate.
-        links: For a sentence about a path that goes through a link of the tree, that link: what
-            an update that changed the link did not leave as it was (:func:`~noust.deployers.
-            helpers.compose_verdict.unchanged`).
+        links: For a sentence about a path that goes through a link of the tree, that link: where
+            it leads now is not what a container was made with, so only a record carries the finding
+            over (:class:`~noust.deployers.helpers.compose_verdict.Heritage`).
         doors: For each service whose ``env_file`` or ``label_file`` is named through a variable, which
             of them: Compose folds what those files hold into the model it prints, so where the
             variable led is only seen in a path it keeps (``config --no-env-resolution``), and a

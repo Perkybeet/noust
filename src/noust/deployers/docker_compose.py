@@ -697,9 +697,9 @@ class DockerComposeDeployer(AppDeployer):
         # The commit the tree was on before the update pulled, which only the
         # caller that pulled can know: what a failed update checks out again.
         self.previous_commit: str | None = None
-        # What the guard refuses that the stack already ran with, proven by the
-        # compose file that served and by its containers (an update, a redeploy,
-        # an adoption): None until proven, and then nothing is accepted.
+        # What the guard refuses that the stack already ran with, proven by what it was
+        # accepted with and by its containers (an update, a redeploy, an adoption):
+        # None until proven, and then nothing is accepted.
         self._accepted_refusals: Heritage | list[str] | None = None
         # How the activation comes to be, as what the guard writes down says, and what it wrote.
         self._acceptance_source = "deploy"

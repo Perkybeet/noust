@@ -15,9 +15,13 @@ start because of this. Nothing is started, stopped or recreated, and the contain
 It is idempotent and it is safe to run at any time: the package runs it at an update, the console runs
 it again while a stack is still waiting (``noust health`` says which and why), and ``noust setup
 compose-gate`` runs it by hand. The monitor does not: it runs with the system read-only and promises to
-modify no file. A stack that cannot be resolved (Compose fails, Docker does not answer, a
-file is not there) is left exactly as it was, and said; the next pass tries again. A stack whose unit is
-not Noust's to write keeps its record and says so.
+modify no file. A stack Compose cannot resolve (it fails, the file is not valid or not there) is taken from
+what its containers were given when Docker answers and it has some, with the project on their labels: they
+are what it runs with, and a file that then asks for more is held back at its next start. A stack with no
+container to read, or whose Docker does not answer, is left exactly as it was, and said with the days it has
+waited; the next pass tries again. A stack whose unit is not Noust's to write keeps its record and says so;
+one whose unit carries Noust's marker but starts something Noust did not write is said and not rewritten.
+The same pass takes the image pull that templates wrote until 3.2.1 out of a unit that is Noust's.
 
 The same module takes the gate out of the units again (:func:`remove_gates`), which is what going back to a
 version that does not know it needs: a unit that runs a command the older Noust does not have would not
@@ -32,7 +36,7 @@ import sqlite3
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from noust.core import compose_acceptance, paths
+from noust.core import audit, compose_acceptance, paths
 from noust.core.applock import AppBusyError, app_lock
 from noust.core.docker import names
 from noust.core.docker.errors import DockerUnavailableError
@@ -56,6 +60,7 @@ __all__ = [
     "gate_effect",
     "remove_gates",
     "shared_projects",
+    "stack_domains",
     "with_gate",
     "without_gate",
 ]
@@ -80,12 +85,22 @@ _TOLERANT = re.compile(
     r"Exec(?:StartPre|Reload)=/bin/sh -c '\[ ! -x \S+ \] \|\| exec \S+ app compose gate \S+(?: --project \S+)?'"
 )
 
+#: The line the template wrote before 3.2.1, with or without a project: it pulled images before every start,
+#: so a new image of a database downloaded at a restart recreated it with nobody deciding, and 3.2.1 took it
+#: out of the template ("their unit never pulls at start"). Only this exact line is Noust's to take out of a
+#: unit: a pull the operator wrote differently (another path, another argument) is theirs.
+_PULL = re.compile(r"ExecStartPre=/usr/bin/docker compose(?: -p \S+)? pull --ignore-pull-failures")
+
 #: What a pass found of a stack's unit.
 WRITTEN, AS_IT_WAS, THEIRS = "written", "as it was", "theirs"
 
-#: What systemd makes of the check a unit's file has: it runs it, an addition of the unit takes it away, or
-#: systemd could not be asked.
-IN_PLACE, OVERRIDDEN, UNVERIFIED = "in place", "overridden", "unverified"
+#: The directive of a unit that starts it, as ``Effect.directives`` names it.
+START_DIRECTIVE = "ExecStart="
+
+#: What systemd makes of the check a unit's file has: it runs it, an addition of the unit takes it away or
+#: replaces what it starts, systemd could not be asked, or the unit is marked as Noust's but does not start
+#: the way Noust writes (``EDITED``, which no question to systemd is needed for: the file says it).
+IN_PLACE, OVERRIDDEN, UNVERIFIED, EDITED = "in place", "overridden", "unverified", "edited"
 
 #: Why systemd runs a unit without a check its file has when no addition explains it.
 NOT_LOADED = (
@@ -109,15 +124,25 @@ class Outcome:
         state: ``done`` (something was written), ``unchanged`` (it was already under the gate),
             ``own`` (its unit is its operator's, which Noust never rewrites: it was recorded and the unit
             is as it was, and what Noust itself starts is judged all the same), ``overridden`` (its
-            unit has the check and an addition of the unit, which Noust never changes, takes it away:
-            ``detail`` names the additions; the stack starts without the check, and Noust looks again
-            at the next pass), ``unverified`` (systemd could not be asked, or does not run the check and
+            unit has the check and an addition of the unit, which Noust never changes, takes it away or
+            replaces what the unit starts: ``detail`` names the additions and ``directives`` what they
+            replace; Noust looks again at the next pass), ``edited`` (its unit carries Noust's marker but
+            its start is not the one Noust writes, so Noust puts no check in front of it and leaves the
+            unit as it is: ``detail`` is the start it has), ``unverified`` (systemd could not be asked, or does not run the check and
             nothing explains it: ``detail`` says why; nothing is written for it and the next pass asks
             again), ``pending`` (it could not be brought up to date, and ``detail`` says why; nothing of
             it was changed) or ``busy`` (another operation holds it; the next pass takes it).
-        detail: Why, for ``pending``, ``busy`` and ``unverified``; the additions, for ``overridden``.
+        detail: Why, for ``pending``, ``busy`` and ``unverified``; the additions, for ``overridden``; the
+            start the unit has, for ``edited``.
         recorded: A record of what the stack was accepted with was written.
         unit: The stack's unit was written again, with the gate.
+        containers: The record was written from what the stack's containers were given, because
+            Compose could not resolve its file.
+        check_written: The unit got the line that runs the check (what ``unit`` says when nothing else
+            about it changed).
+        pull_removed: The unit lost the line that pulled images before every start, which the template
+            has not written since 3.2.1.
+        directives: What an addition of the unit replaces, for ``overridden``.
     """
 
     domain: str
@@ -125,6 +150,10 @@ class Outcome:
     detail: str = ""
     recorded: bool = False
     unit: bool = False
+    containers: bool = False
+    check_written: bool = False
+    pull_removed: bool = False
+    directives: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -133,19 +162,23 @@ class Effect:
     What systemd will do with the check a stack's unit has in its file.
 
     Attributes:
-        state: ``IN_PLACE`` (it runs the check before it starts and before a reload rebuilds),
-            ``OVERRIDDEN`` (an addition of the unit takes it away) or ``UNVERIFIED`` (systemd could not
-            say, or says it runs the unit without the check and nothing explains it).
+        state: ``IN_PLACE`` (it runs the check before it starts and before a reload rebuilds, and starts
+            what Noust wrote), ``OVERRIDDEN`` (an addition of the unit takes the check away or replaces
+            what the unit starts), ``UNVERIFIED`` (systemd could not say, or says it runs the unit
+            without the check or with another start and nothing explains it) or ``EDITED`` (the unit
+            carries Noust's marker but its start is not the one Noust writes).
         paths: The additions systemd read, for ``OVERRIDDEN``.
-        directives: Which of ``ExecStartPre=`` and ``ExecReload=`` do not run the check, for
-            ``OVERRIDDEN``.
+        directives: Which of ``ExecStartPre=``, ``ExecStart=`` and ``ExecReload=`` do not run what Noust
+            wrote and judged, for ``OVERRIDDEN``.
         reason: Why Noust could not tell, for ``UNVERIFIED``.
+        start: What the unit's file starts with, for ``EDITED``.
     """
 
     state: str
     paths: tuple[str, ...] = ()
     directives: tuple[str, ...] = ()
     reason: str = ""
+    start: tuple[str, ...] = ()
 
 
 def _runs_the_check(entry: str, domain: str) -> bool:
@@ -174,13 +207,50 @@ def _directives_without_the_check(seen: UnitExecution, domain: str) -> tuple[str
     return tuple(missing)
 
 
+def _starts_as_written(text: str) -> bool:
+    """Say whether a unit has the start that Noust writes (``docker compose up -d --remove-orphans``)."""
+    return any(_START.fullmatch(line) for line in text.split("\n"))
+
+
+def _start_lines(text: str) -> tuple[str, ...]:
+    """Name what a unit's file starts with, as written, without the directive."""
+    return tuple(
+        line.removeprefix("ExecStart=")
+        for line in text.split("\n")
+        if line.startswith("ExecStart=")
+    )
+
+
+def _start_replaced(text: str, seen: UnitExecution) -> bool:
+    """
+    Say whether what systemd starts is not what the unit's file says Noust wrote.
+
+    Args:
+        text: The unit's body.
+        seen: What systemd runs.
+
+    Returns:
+        True when the file has the start Noust writes and systemd starts something else, or more: an
+        addition emptied ``ExecStart=`` and gave another, or added a second one. A file whose start is
+        not Noust's is the operator's edit, said as ``EDITED``, and is not compared here.
+    """
+    written = tuple(
+        line.removeprefix("ExecStart=") for line in text.split("\n") if _START.fullmatch(line)
+    )
+    return bool(written) and seen.start != written
+
+
 def gate_effect(deployer: DockerComposeDeployer, text: str | None = None) -> Effect | None:
     """
-    Ask systemd whether the check a stack's unit has in its file is what it will run.
+    Ask systemd whether the check a stack's unit has in its file is what it will run, and starts what
+    Noust wrote and judged.
 
     Rule 4: the answer is decided where the unit is written and told wherever it is read, so that
     what Noust says of a stack is what systemd will do when it starts it. Noust never touches an
-    addition of the operator's: it says which one.
+    addition of the operator's: it says which one. A unit that carries Noust's marker and does not
+    start the way Noust writes (somebody edited it and left the line) is said as ``EDITED`` from the
+    file alone; a start that an addition replaces is ``OVERRIDDEN`` even when the check is in front of
+    it, because what starts is then not what the check judged.
 
     Args:
         deployer: The deployer of the stack.
@@ -188,19 +258,31 @@ def gate_effect(deployer: DockerComposeDeployer, text: str | None = None) -> Eff
 
     Returns:
         None when there is nothing to ask: no unit (Docker keeps the stack alive where there is no
-        systemd) or a file that has no check in it. Otherwise what systemd makes of it.
+        systemd), or a unit that is the operator's with no check in it. Otherwise what systemd makes
+        of it, or ``EDITED``.
 
     Raises:
         ValidationError: The unit's name is not a safe one.
     """
     services = deployer._units()
     body = services.get_service_config(deployer.app_name) if text is None else text
-    if body is None or without_gate(body) == body:
+    if body is None:
+        return None
+    if (
+        deployer.APP_TYPE == "docker-compose"
+        and not is_theirs(body)
+        and not _starts_as_written(body)
+    ):
+        # The file says it, and no addition could mend it: nothing to ask systemd.
+        return Effect(EDITED, start=_start_lines(body) or ("",))
+    if without_gate(body) == body:
         return None
     seen = read_execution(services, deployer.app_name)
     if seen.problem is not None:
         return Effect(UNVERIFIED, reason=seen.problem)
     missing = _directives_without_the_check(seen, deployer.domain)
+    if _start_replaced(body, seen):
+        missing = (*missing, START_DIRECTIVE)
     if not missing:
         return Effect(IN_PLACE)
     if seen.drop_ins:
@@ -293,6 +375,32 @@ def without_gate(text: str) -> str:
     return "\n".join(line for line in text.split("\n") if not is_gate_line(line))
 
 
+def is_pull_line(line: str) -> bool:
+    """
+    Say whether a line of a unit is the image pull that templates wrote until 3.2.1.
+
+    Args:
+        line: One line of the unit, without its newline.
+
+    Returns:
+        True only for ``ExecStartPre=/usr/bin/docker compose [-p PROJECT] pull --ignore-pull-failures``.
+    """
+    return _PULL.fullmatch(line) is not None
+
+
+def without_pull(text: str) -> str:
+    """
+    Take the image pull of before 3.2.1 out of the text of a stack's unit.
+
+    Args:
+        text: The unit's body.
+
+    Returns:
+        The body without those lines and nothing else changed.
+    """
+    return "\n".join(line for line in text.split("\n") if not is_pull_line(line))
+
+
 def _project_of_today(deployer: DockerComposeDeployer) -> str | None:
     """
     Say the project a stack runs under today: the one its unit has started it as.
@@ -329,9 +437,32 @@ def _project_of_today(deployer: DockerComposeDeployer) -> str | None:
     return names.project_of_directory(str(given)) if given else None
 
 
-def _take_over(deployer: DockerComposeDeployer, app: App, store: NoustStore) -> str | None:
+@dataclass(frozen=True)
+class _Taken:
+    """
+    What taking a stack over came to.
+
+    Attributes:
+        problem: Why the stack cannot be taken over now (and nothing was written); None once it is.
+        containers: The record was written from the stack's containers, because Compose could not
+            resolve its file.
+        docker: The problem is that Docker did not answer, which no other source can stand in for.
+    """
+
+    problem: str | None = None
+    containers: bool = False
+    docker: bool = False
+
+
+def _take_over(deployer: DockerComposeDeployer, app: App, store: NoustStore) -> _Taken:
     """
     Write down what a stack that was never recorded runs with today, and pin its project.
+
+    What the model Compose resolves for it shows, and what its containers were given, is what it runs
+    with. When Compose cannot resolve the file (or the file is not there to be read), the containers
+    are all there is, and they are enough to take it: a stack that runs with nothing recorded would
+    otherwise be judged against whatever its tree says, and a container that mounts the tree writes
+    that.
 
     Args:
         deployer: The deployer of the stack.
@@ -339,20 +470,40 @@ def _take_over(deployer: DockerComposeDeployer, app: App, store: NoustStore) -> 
         store: The store.
 
     Returns:
-        Why the stack cannot be taken over now (and nothing was written), or None once it is.
+        What came of it.
+    """
+    taken = _take_over_with_the_file(deployer, app, store)
+    if taken.problem is None or taken.docker:
+        return taken
+    return _take_over_from_containers(deployer, app, store, because=taken.problem)
+
+
+def _take_over_with_the_file(
+    deployer: DockerComposeDeployer, app: App, store: NoustStore
+) -> _Taken:
+    """
+    Take a stack over with what Compose resolves for it and what its containers were given.
+
+    Args:
+        deployer: The deployer of the stack.
+        app: The application.
+        store: The store.
+
+    Returns:
+        What came of it; a problem is why Compose could not resolve the stack, or Docker did not answer.
     """
     from noust.core.docker.gate import DockerGate
 
     try:
         deployer._discover_compose_file()
     except DeploymentError as exc:
-        return exc.message
+        return _Taken(exc.message)
     document = deployer._load_compose_document()
     if document is None:
-        return "its compose file could not be read as YAML"
+        return _Taken("its compose file could not be read as YAML")
     project = app.compose_project or _project_of_today(deployer)
     if project is None:
-        return "Docker Compose did not say which project it runs as"
+        return _Taken("Docker Compose did not say which project it runs as")
     deployer._stored_project = project
     context = compose_privileges.guard_context(deployer)
     found, unresolved = compose_privileges.resolve_findings(
@@ -362,15 +513,79 @@ def _take_over(deployer: DockerComposeDeployer, app: App, store: NoustStore) -> 
         final=True,
     )
     if unresolved or any(key[1] in _UNRESOLVED for key in found.keys.values()):
-        return f"Docker Compose could not resolve the stack ({unresolved or 'what its files bring in'})"
+        return _Taken(
+            f"Docker Compose could not resolve the stack ({unresolved or 'what its files bring in'})"
+        )
     gate = DockerGate(deployer.runner, scope=Scope.everything())
     try:
         running = compose_running.read(
             lambda: gate.project_grants(project, within=deployer.app_path), context
         )
     except DockerUnavailableError as exc:
-        return f"Docker did not say what its containers have: {exc.message}"
+        return _Taken(f"Docker did not say what its containers have: {exc.message}", docker=True)
     keys = compose_privileges.keys_of(found) | compose_privileges.keys_of(running.findings)
+    return _Taken(_record_taken(app, project, keys, store))
+
+
+def _take_over_from_containers(
+    deployer: DockerComposeDeployer, app: App, store: NoustStore, *, because: str
+) -> _Taken:
+    """
+    Take a stack over with what its containers were given, when its file cannot say anything.
+
+    The project is the one the store pins, else the one on the labels of the containers made from the
+    stack's directory. Two projects there are not guessed between, and a stack with no container has
+    nothing to be taken from: it stays as it was, and the reason says both that Compose could not
+    resolve it and that nothing stands in.
+
+    Args:
+        deployer: The deployer of the stack.
+        app: The application.
+        store: The store.
+        because: Why the file did not do.
+
+    Returns:
+        What came of it.
+    """
+    from noust.core.docker.gate import DockerGate
+
+    gate = DockerGate(deployer.runner, scope=Scope.everything())
+    try:
+        project = app.compose_project
+        if project is None:
+            projects = gate.tree_projects(deployer.app_path)
+            if len(projects) > 1:
+                return _Taken(
+                    f"{because}; and its containers belong to more than one Compose project "
+                    f"({', '.join(projects)}), so Noust does not pick one"
+                )
+            project = projects[0] if projects else None
+        made = gate.project_grants(project, within=deployer.app_path) if project else ()
+    except DockerUnavailableError as exc:
+        return _Taken(f"{because}; and Docker did not say what its containers have: {exc.message}")
+    if project is None or not made:
+        return _Taken(f"{because}; and no container of it runs to read what it has from")
+    deployer._stored_project = project
+    running = compose_running.read(lambda: made, compose_privileges.guard_context(deployer))
+    problem = _record_taken(app, project, compose_privileges.keys_of(running.findings), store)
+    return _Taken(problem) if problem is not None else _Taken(containers=True)
+
+
+def _record_taken(
+    app: App, project: str, keys: frozenset[tuple[str, str, str]], store: NoustStore
+) -> str | None:
+    """
+    Pin the project a stack runs as and write down what it is accepted with.
+
+    Args:
+        app: The application.
+        project: The Compose project it runs as.
+        keys: What it was given of the server.
+        store: The store.
+
+    Returns:
+        Why the project cannot be pinned (nothing was written), or None.
+    """
     try:
         if app.compose_project is None:
             store.set_app_compose_project(app.domain, project)
@@ -397,17 +612,36 @@ def is_theirs(text: str) -> bool:
     return not paths.carries_unit_marker(text)
 
 
-def _write_unit(deployer: DockerComposeDeployer, project: str | None) -> str:
+@dataclass(frozen=True)
+class _Written:
     """
-    Write a stack's unit again with the gate, when it has a unit that is Noust's and it lacks it.
+    What a pass did to a stack's unit.
+
+    Attributes:
+        how: ``WRITTEN``, ``AS_IT_WAS`` or ``THEIRS``.
+        check: The line that runs the check was added.
+        pulled: The image pulls of before 3.2.1 that were taken out, as they were written.
+    """
+
+    how: str
+    check: bool = False
+    pulled: tuple[str, ...] = ()
+
+
+def _write_unit(deployer: DockerComposeDeployer, project: str | None) -> _Written:
+    """
+    Write a stack's unit again, when it has a unit that is Noust's and it is not as Noust writes it.
+
+    The unit gets the gate where it lacks it, and loses the image pull that templates wrote until 3.2.1
+    (:data:`_PULL`): both are lines Noust wrote, and nothing else of the unit is touched.
 
     Args:
         deployer: The deployer of the stack.
         project: The project the store records for it.
 
     Returns:
-        ``WRITTEN``; ``AS_IT_WAS`` for a machine that has no unit or one that is as it should be; or
-        ``THEIRS`` for a unit its operator made theirs, which is left exactly as it is.
+        What was done: ``WRITTEN``; ``AS_IT_WAS`` for a machine that has no unit or one that is as it
+        should be; or ``THEIRS`` for a unit its operator made theirs, which is left exactly as it is.
 
     Raises:
         ServiceError: The unit cannot be written.
@@ -416,19 +650,21 @@ def _write_unit(deployer: DockerComposeDeployer, project: str | None) -> str:
     services = deployer._units()
     text = services.get_service_config(deployer.app_name)
     if text is None or deployer.APP_TYPE != "docker-compose":
-        return AS_IT_WAS
+        return _Written(AS_IT_WAS)
     if is_theirs(text):
-        return THEIRS
-    new = with_gate(
+        return _Written(THEIRS)
+    gated = with_gate(
         text,
         domain=deployer.domain,
         executable=compose_privileges.gate_executable(),
         project=project,
     )
+    new = without_pull(gated)
     if new == text:
-        return AS_IT_WAS
+        return _Written(AS_IT_WAS)
+    pulled = tuple(line for line in gated.split("\n") if is_pull_line(line))
     services.rewrite_unit(deployer.app_name, new)
-    return WRITTEN
+    return _Written(WRITTEN, check=gated != text, pulled=pulled)
 
 
 def bring_app(
@@ -469,22 +705,41 @@ def _bring(app: App, store: NoustStore, runner: CommandRunner | None) -> Outcome
         deployer = stack_deployer(app, runner=runner)
         deployer.store = store
         unrecorded = compose_acceptance.get(app.domain, store=store) is None
+        from_containers = False
         if unrecorded:
-            problem = _take_over(deployer, app, store)
-            if problem is not None:
-                return _pending(store, app.domain, problem)
+            taken = _take_over(deployer, app, store)
+            if taken.problem is not None:
+                return _pending(store, app.domain, taken.problem)
+            from_containers = taken.containers
         fresh = store.get_app(app.domain) or app
-        how = _write_unit(deployer, fresh.compose_project)
+        written = _write_unit(deployer, fresh.compose_project)
+        how = written.how
     except (NoustError, OSError, sqlite3.Error, ValueError) as exc:
         return _pending(store, app.domain, exc.message if isinstance(exc, NoustError) else str(exc))
     note = compose_acceptance.note_of(app.domain, store=store)
     if note is not None and note.state == "pending":
         compose_acceptance.clear_note(app.domain, store=store)
+    if written.pulled:
+        audit.record(
+            "compose.pull_removed",
+            target=f"app:{app.domain}",
+            details={"unit": f"{deployer.app_name}.service", "line": written.pulled[0]},
+        )
     # What the file says is not yet what systemd runs: an addition of the unit may take the check away.
     try:
         effect = gate_effect(deployer)
     except (NoustError, OSError) as exc:
         return _pending(store, app.domain, exc.message if isinstance(exc, NoustError) else str(exc))
+    if effect is not None and effect.state == EDITED:
+        return Outcome(
+            app.domain,
+            EDITED,
+            "; ".join(effect.start),
+            recorded=unrecorded,
+            unit=how == WRITTEN,
+            check_written=written.check,
+            pull_removed=bool(written.pulled),
+        )
     if effect is not None and effect.state == OVERRIDDEN:
         return Outcome(
             app.domain,
@@ -492,15 +747,32 @@ def _bring(app: App, store: NoustStore, runner: CommandRunner | None) -> Outcome
             ", ".join(effect.paths),
             recorded=unrecorded,
             unit=how == WRITTEN,
+            check_written=written.check,
+            pull_removed=bool(written.pulled),
+            directives=effect.directives,
         )
     if effect is not None and effect.state == UNVERIFIED:
         return Outcome(
-            app.domain, UNVERIFIED, effect.reason, recorded=unrecorded, unit=how == WRITTEN
+            app.domain,
+            UNVERIFIED,
+            effect.reason,
+            recorded=unrecorded,
+            unit=how == WRITTEN,
+            check_written=written.check,
+            pull_removed=bool(written.pulled),
         )
     if how == THEIRS:
         return Outcome(app.domain, "own", recorded=unrecorded)
     if unrecorded or how == WRITTEN:
-        return Outcome(app.domain, "done", recorded=unrecorded, unit=how == WRITTEN)
+        return Outcome(
+            app.domain,
+            "done",
+            recorded=unrecorded,
+            unit=how == WRITTEN,
+            containers=from_containers,
+            check_written=written.check,
+            pull_removed=bool(written.pulled),
+        )
     return Outcome(app.domain, "unchanged")
 
 
@@ -530,6 +802,19 @@ def _stacks(store: NoustStore, only: str | None) -> list[App]:
         ),
         key=lambda app: app.domain,
     )
+
+
+def stack_domains(*, store: NoustStore | None = None) -> list[str]:
+    """
+    List the applications of this server that are Compose stacks.
+
+    Args:
+        store: The store; the process-wide one by default.
+
+    Returns:
+        Their domains, in order.
+    """
+    return [app.domain for app in _stacks(store or get_store(), None)]
 
 
 def bring_up_to_date(
@@ -618,7 +903,7 @@ def shared_projects(*, store: NoustStore | None = None) -> dict[str, tuple[str, 
     return {project: tuple(domains) for project, domains in found.items() if len(domains) > 1}
 
 
-def _said(code: str, **params: str) -> str:
+def _said(code: str, **params: str | int) -> str:
     """Say a coded sentence as a line of ``noust health``: what happens, then what to do about it."""
     sentence = say(code, **params)
     return f"{sentence.text}. {sentence.hint}" if sentence.hint else sentence.text
@@ -650,10 +935,22 @@ def _start_sentences(store: NoustStore, runner: CommandRunner | None) -> list[st
         if effect is None:
             if text is not None and is_theirs(text):
                 said.append(_said("compose_gate.own", domain=app.domain, command=retry))
+        elif effect.state == EDITED:
+            said.append(
+                _said(
+                    "compose_gate.edited",
+                    domain=app.domain,
+                    start="; ".join(effect.start),
+                    retry_command=retry,
+                )
+            )
         elif effect.state == OVERRIDDEN:
             said.append(
                 _said(
-                    "compose_gate.overridden",
+                    # The check is in front of a start that is not the one it judged: not "without the check".
+                    "compose_gate.start_replaced"
+                    if effect.directives == (START_DIRECTIVE,)
+                    else "compose_gate.overridden",
                     domain=app.domain,
                     paths=", ".join(effect.paths),
                     directives=", ".join(effect.directives),
@@ -700,9 +997,13 @@ def attention(*, store: NoustStore | None = None, runner: CommandRunner | None =
         detail = "; ".join(line.removeprefix("- ") for line in note.detail.splitlines())
         if note.state == "pending":
             said.append(
-                f"{domain}: Noust has not brought this stack under the check of its start yet "
-                f"({detail}). It starts as it always did, and Noust tries again by itself; or "
-                f"run: noust setup compose-gate --app {domain}"
+                _said(
+                    "compose_gate.pending",
+                    domain=domain,
+                    days=note.days(),
+                    reason=detail,
+                    command=f"noust setup compose-gate --app {domain}",
+                )
             )
         else:
             said.append(
