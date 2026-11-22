@@ -92,6 +92,17 @@ class PendingSend:
         """Returns: Whether a notice has covered this row."""
         return self.noticed_at is not None
 
+    def is_due(self, now: datetime) -> bool:
+        """
+        Args:
+            now: The moment to judge at.
+
+        Returns:
+            Whether its next try has come: the question :meth:`PendingSends.due` asks of every row, asked
+            again of one a pass has just taken in hand, because another pass may have failed it since.
+        """
+        return self.next_attempt_at <= _iso(now)
+
     def to_dict(self) -> dict[str, object]:
         """
         Returns:

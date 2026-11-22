@@ -109,7 +109,9 @@ class TestHostKeyChanged:
         assert details["pinned"] == parse_public_key(HOST_KEY).fingerprint
         assert details["presented"] == PRESENTED
         assert details["address"] == "noust-tunnel@web2.example.com:2222"
-        assert details["command"] == "noust node rekey web-2"
+        # The command that checks and takes the new key: `noust node rekey` refuses a server whose host key is not
+        # the one pinned, so it was never a way out of this.
+        assert details["command"] == "noust node host-key web-2"
 
     def test_a_new_change_after_a_tunnel_opened_is_told_again(self, fleet, told):
         _register(fleet)

@@ -51,6 +51,8 @@ from noust.core import cert_life, cgroup_events, descriptors, journalctl
 from noust.core.appdir.layout import app_root
 from noust.core.appdir.releases import Release, ReleaseManager
 from noust.core.config import Config
+from noust.core.docker.errors import DockerUnavailableError
+from noust.core.docker.gate import DockerGate
 from noust.core.exceptions import NoustError
 from noust.core.notifications.formatting import format_bytes
 from noust.core.runner import CommandRunner, get_runner
@@ -58,6 +60,7 @@ from noust.core.server_text import ServerText, say
 from noust.core.store import (
     BLUE_GREEN_COLORS,
     App,
+    AppType,
     DeploymentStatus,
     NoustStore,
     get_store,
@@ -205,6 +208,8 @@ class _Context:
     cert_manager: CertManager
     #: Where the cgroups are mounted: the kernel's own count of what it killed is read from there.
     cgroup_mount: Path = CGROUP_MOUNT
+    #: The door to Docker, for an application that runs in containers; made over the store when None.
+    docker: DockerGate | None = None
 
 
 ProbeResult = tuple[Check, dict[str, Any]]
@@ -572,6 +577,8 @@ def _check_unit(ctx: _Context) -> ProbeResult:
         "result": result_code,
         "exec_main_status": exec_main_status,
         "restarts": restarts,
+        # The one warning of this probe: a state that is not running, restarting or failed.
+        "odd_state": status == "warn",
     }
     return _check("unit", status, said, result.stdout.strip()), facts
 
@@ -978,6 +985,7 @@ def _check_certificate(ctx: _Context) -> ProbeResult:
         "expired": life.state == cert_life.EXPIRED,
         "state": life.state,
         "life_days": life.life_days,
+        "needs_renewal": life.needs_renewal,
     }
     if life.state == cert_life.EXPIRED:
         return _check(
@@ -1072,7 +1080,12 @@ def _check_oom(ctx: _Context) -> ProbeResult:
     if attribution.get("attributed"):
         count = int(attribution["kills"])
         since = str(attribution.get("since") or "its last start")
-        if count == 0:
+        if attribution.get("containers"):
+            said = say(
+                "diagnose.oom.containers_killed",
+                containers=", ".join(attribution["containers"]),
+            )
+        elif count == 0:
             said = say("diagnose.oom.unit_result")
         elif count == 1:
             said = say("diagnose.oom.killed_one", since=since)
@@ -1107,6 +1120,10 @@ def _attribute_oom(ctx: _Context) -> dict[str, Any]:
         ``cannot_say`` (``no_cgroup_v2`` or ``no_file``) when this machine cannot tell whose a kill
         was; or nothing at all for an application that has no unit to ask.
     """
+    if ctx.app is not None and is_compose_backed(ctx.app.app_type):
+        # Its unit started the containers once and stays: the processes, and the kernel's count of what it
+        # killed, are in the containers' own cgroups, which Docker says where and whose they are.
+        return _attribute_container_oom(ctx)
     if _no_unit(ctx) is not None:
         return {}
     info = ctx.service_manager.inspect_unit(ctx.app_name)
@@ -1145,6 +1162,57 @@ def _attribute_oom(ctx: _Context) -> dict[str, Any]:
     return {**found, "cannot_say": why} if why else found
 
 
+def _attribute_container_oom(ctx: _Context) -> dict[str, Any]:
+    """
+    Read how the containers of an application ended, and what the kernel counted in the ones that run.
+
+    Docker says whether the last run of each container ended because the kernel killed it, and what its
+    limit is; the cgroup of each container that runs carries the kernel's count of kills and its peak,
+    which a restart of the container makes again from zero.
+
+    Args:
+        ctx: The diagnosis context.
+
+    Returns:
+        ``attributed`` with ``kills``, ``limit``, ``peak``, ``since``, ``result`` and ``control_group`` as
+        :func:`_attribute_oom` gives them for a unit, plus ``containers`` (the names of those the kernel
+        killed) and ``down`` (one of them is not serving); nothing at all when no container of the
+        application was killed, or Docker cannot be asked.
+    """
+    door = ctx.docker or DockerGate(ctx.runner, store=ctx.store)
+    try:
+        containers = door.app_memory(ctx.domain)
+    except DockerUnavailableError:
+        return {}
+    victims = []
+    for item in containers:
+        directory = cgroup_events.container_cgroup(ctx.cgroup_mount, item.id)
+        kernel = cgroup_events.read_facts(directory) if directory is not None else None
+        if item.oom_killed or (kernel is not None and kernel.kills > 0):
+            victims.append((item, kernel))
+    if not victims:
+        return {}
+    counted = cgroup_events.combine(kernel for _, kernel in victims if kernel is not None)
+    limits = [
+        limit
+        for item, kernel in victims
+        if (limit := item.limit_bytes if item.limit_bytes is not None else kernel and kernel.limit)
+    ]
+    started = sorted(item.started_at for item, _ in victims if item.started_at is not None)
+    return {
+        "attributed": True,
+        # At least one run ended in a kill when Docker says so, whatever a cgroup made again counts.
+        "kills": max(counted.kills, sum(1 for item, _ in victims if item.oom_killed)),
+        "limit": min(limits) if limits else None,
+        "peak": counted.peak,
+        "since": f"{started[0]:%Y-%m-%d %H:%M:%S} UTC" if started else "",
+        "result": "oom-kill",
+        "control_group": "",
+        "containers": tuple(item.name for item, _ in victims),
+        "down": any(item.is_down for item, _ in victims),
+    }
+
+
 def _oom_evidence(attribution: dict[str, Any], logged: str) -> str:
     """
     Args:
@@ -1155,14 +1223,17 @@ def _oom_evidence(attribution: dict[str, Any], logged: str) -> str:
         The figures as the kernel wrote them, then the log's own lines: nothing paraphrased.
     """
     limit = attribution["limit"]
-    lines = [
+    containers = attribution.get("containers")
+    lines = [f"containers={', '.join(containers)}"] if containers else []
+    lines += [
         f"oom_kill={attribution['kills']}",
         f"memory.max={limit if limit is not None else 'max'}",
     ]
     if attribution["peak"] is not None:
         lines.append(f"memory.peak={attribution['peak']}")
     if attribution["since"]:
-        lines.append(f"ActiveEnterTimestamp={attribution['since']}")
+        started = "StartedAt" if containers else "ActiveEnterTimestamp"
+        lines.append(f"{started}={attribution['since']}")
     if attribution["result"]:
         lines.append(f"Result={attribution['result']}")
     return "\n".join([*lines, *([logged] if logged else [])])
@@ -1170,6 +1241,10 @@ def _oom_evidence(attribution: dict[str, Any], logged: str) -> str:
 
 #: The step a suggested limit is rounded up to, in megabytes.
 _LIMIT_STEP_MB = 64
+
+#: The limit suggested for an application the kernel killed when nothing says how much it used: its
+#: container ended and Docker keeps no peak. A web application's common size, to be raised if it is not.
+_UNKNOWN_PEAK_MB = 512
 
 
 def _suggested_megabytes(limit: int | None, peak: int | None) -> int:
@@ -1199,6 +1274,31 @@ def _oom_cause(ctx: _Context, oom: dict[str, Any]) -> ServerText:
         The probable cause.
     """
     limit, peak = oom.get("limit"), oom.get("peak")
+    containers = oom.get("containers")
+    if containers and ctx.app is not None and ctx.app.app_type != AppType.CONTAINER.value:
+        # A stack's limits are in its compose file, which `noust app limits` does not write.
+        named = ", ".join(containers)
+        update = f"noust update {ctx.domain}"
+        if limit is None:
+            return say(
+                "diagnose.cause.oom_service_machine",
+                containers=named,
+                domain=ctx.domain,
+                command=update,
+            )
+        return say(
+            "diagnose.cause.oom_service_limit",
+            containers=named,
+            domain=ctx.domain,
+            limit=format_bytes(int(limit)),
+            command=update,
+        )
+    if containers and limit is None and peak is None:
+        return say(
+            "diagnose.cause.oom_machine_no_peak",
+            domain=ctx.domain,
+            command=f"noust app limits {ctx.domain} --memory {_UNKNOWN_PEAK_MB}M --restart",
+        )
     if oom.get("kills", 0) == 0:
         # Only systemd's record: its cgroup was made again when the unit restarted, and with it the count.
         return say(
@@ -1263,6 +1363,21 @@ _PROBES: tuple[tuple[str, Probe], ...] = (
 
 # -- Verdict ----------------------------------------------------------------
 
+#: The warnings that make a diagnosis "degraded", as ``(check, the fact that says this warning is the one)``.
+#: The application serves, and something it needs next is wrong: a certificate past the point where it ought
+#: to have been renewed, the instance that would take the next update, a unit in a state that is not
+#: running. Each says what it is with the sentence of its own check, which becomes the probable cause, because
+#: "degraded" with nothing under it leaves an operator nothing to do. Every other warning (a line of the
+#: nginx error log, which has no date; a deployment that is not "succeeded"; a kernel log that mentions
+#: memory and no application; a certificate whose expiry cannot be read) is listed beside its check and
+#: leaves the verdict where it was.
+_DEGRADING_WARNINGS: tuple[tuple[str, str], ...] = (
+    ("blue_green", "leftover_unit"),
+    ("blue_green", "idle_failed"),
+    ("certificate", "needs_renewal"),
+    ("unit", "odd_state"),
+)
+
 
 def _decide(
     ctx: _Context, checks: tuple[Check, ...], facts: dict[str, dict[str, Any]]
@@ -1271,8 +1386,10 @@ def _decide(
     Turn the collected facts into a verdict and a probable cause.
 
     Rules are ordered from most specific and most severe to least; the first
-    one that matches wins. A diagnosis where nothing specific matches falls
-    back to the aggregate severity of the checks, with no named cause.
+    one that matches wins. A diagnosis where nothing specific matches is "down"
+    when a check failed (with no named cause) and healthy otherwise: "degraded"
+    is only said with a cause (:data:`_DEGRADING_WARNINGS`), and a warning that
+    has none is listed with its check.
 
     Args:
         ctx: The context the checks ran with.
@@ -1313,7 +1430,7 @@ def _decide(
     if unit.get("exists") is False:
         return "down", say("diagnose.cause.no_unit", unit=ctx.app_name)
 
-    if oom.get("attributed") and (unit_failed or crash_looping):
+    if oom.get("attributed") and (unit_failed or crash_looping or oom.get("down")):
         return "down", _oom_cause(ctx, oom)
 
     if (unit_failed or crash_looping) and oom.get("found"):
@@ -1389,11 +1506,17 @@ def _decide(
         # It is up, and the kernel has been killing it: what it serves now is a restart's worth.
         return "degraded", _oom_cause(ctx, oom)
 
-    statuses = {c.status for c in checks}
-    if "fail" in statuses:
+    for check in checks:
+        if check.status != "warn" or check.coded is None:
+            continue
+        if any(
+            name == check.name and facts.get(check.name, {}).get(fact)
+            for name, fact in _DEGRADING_WARNINGS
+        ):
+            return "degraded", check.coded
+
+    if any(c.status == "fail" for c in checks):
         return "down", None
-    if "warn" in statuses:
-        return "degraded", None
     return "healthy", None
 
 
@@ -1428,6 +1551,7 @@ def diagnose(
     http_get: HttpGet | None = None,
     disk_usage: DiskUsage | None = None,
     cgroup_mount: Path | None = None,
+    docker: DockerGate | None = None,
 ) -> Diagnosis:
     """
     Correlate everything Noust can read about a domain into one diagnosis.
@@ -1447,6 +1571,8 @@ def diagnose(
             signature. Defaults to :func:`shutil.disk_usage`.
         cgroup_mount: Where cgroups are mounted, for the kernel's own count of what it killed.
             Defaults to the system's; tests point it at a fake tree.
+        docker: The door to Docker, for an application that runs in containers. Defaults to one over
+            the store; tests give it a machine and a registry of their own.
 
     Returns:
         Every probe's result and the verdict derived from them.
@@ -1474,6 +1600,7 @@ def diagnose(
         service_manager=ServiceManager(runner=resolved_runner),
         cert_manager=CertManager(runner=resolved_runner),
         cgroup_mount=cgroup_mount or CGROUP_MOUNT,
+        docker=docker,
     )
 
     checks: list[Check] = []

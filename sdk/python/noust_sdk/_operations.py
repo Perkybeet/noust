@@ -892,6 +892,8 @@ OPERATIONS: dict[tuple[str, str], tuple[str, str, str | None, bool]] = {
     ("nodes", "add_node"): ("POST", "/api/nodes", "fleet.manage", True),
     ("nodes", "get_node"): ("GET", "/api/nodes/{node}", "fleet.read", False),
     ("nodes", "remove_node"): ("DELETE", "/api/nodes/{node}", "fleet.manage", True),
+    ("nodes", "accept_node_host_key"): ("POST", "/api/nodes/{node}/host-key", "fleet.manage", True),
+    ("nodes", "scan_node_host_key"): ("POST", "/api/nodes/{node}/host-key/scan", "fleet.manage", False),
     ("nodes", "get_node_inventory"): ("GET", "/api/nodes/{node}/inventory", "fleet.read", False),
     ("nodes", "apply_node_inventory"): ("POST", "/api/nodes/{node}/inventory", "fleet.manage", False),
     ("nodes", "get_node_key"): ("GET", "/api/nodes/{node}/key", "fleet.manage", False),
@@ -8454,7 +8456,7 @@ class Monitor:
 
 
 class Nodes:
-    """Nodes: 15 operations."""
+    """Nodes: 17 operations."""
 
     def __init__(self, call: Call) -> None:
         self._call = call
@@ -8490,6 +8492,22 @@ class Nodes:
 
         Needs: permission `fleet.manage`, sudo mode, a second person's approval can be required."""
         return self._call("DELETE", f"/api/nodes/{quote(str(node), safe='')}", query={"revoke": revoke}, body=None)
+
+    def accept_node_host_key(self, node: str, body: "HostKeyAcceptIn") -> "HostKeyAcceptedOut":
+        """POST /api/nodes/{node}/host-key
+
+        Accept Node Host Key
+
+        Needs: permission `fleet.manage`, sudo mode."""
+        return self._call("POST", f"/api/nodes/{quote(str(node), safe='')}/host-key", query=None, body=body)
+
+    def scan_node_host_key(self, node: str) -> "HostKeyReadingOut":
+        """POST /api/nodes/{node}/host-key/scan
+
+        Scan Node Host Key
+
+        Needs: permission `fleet.manage`."""
+        return self._call("POST", f"/api/nodes/{quote(str(node), safe='')}/host-key/scan", query=None, body=None)
 
     def get_node_inventory(self, node: str) -> dict[str, Any]:
         """GET /api/nodes/{node}/inventory

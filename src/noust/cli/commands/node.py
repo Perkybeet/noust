@@ -17,6 +17,9 @@ Enrollment starts here and finishes on the node:
 ``noust node rekey`` and ``noust node migrate-tunnel`` follow the same two
 steps for a node already registered: a command for the node, then its code.
 
+``noust node host-key`` is for a node whose SSH host key changed: the tunnel stays closed until a person has
+compared the two fingerprints with what the server says of itself and given the one they read.
+
 A thin front end over :class:`~noust.fleet.nodes.NodeManager`, the same one
 ``/api/nodes`` uses.
 """
@@ -425,6 +428,117 @@ def rekey_command(ctx: Context, name: str, join_code: str | None) -> None:
     there.
     """
     _two_step(ctx, name, join_code, what="rekey")
+
+
+def _interactive() -> bool:
+    """
+    Report whether someone is at the terminal to be asked.
+
+    Returns:
+        True when standard input is a terminal.
+    """
+    return sys.stdin.isatty()
+
+
+@cli.command("host-key")
+@click.argument("name")
+@click.option(
+    "--show",
+    is_flag=True,
+    help="Only show the fingerprint that is pinned and the one NAME presents now; change nothing.",
+)
+@click.option(
+    "--fingerprint",
+    default=None,
+    metavar="SHA256:...",
+    help="The fingerprint of NAME's key as read on NAME itself (ssh-keygen -lf "
+    "/etc/ssh/ssh_host_ed25519_key.pub), for a script. The key is taken only when it is the one "
+    "NAME presents. Without it the two are shown and the fingerprint is asked.",
+)
+@json_option("Print what NAME presents, or what was pinned, as JSON.")
+@pass_context
+def host_key_command(ctx: Context, name: str, show: bool, fingerprint: str | None) -> None:
+    """
+    Accept the new SSH host key of NAME, after comparing it with the server's own.
+
+    When a server presents another host key its tunnel stays closed: a key that changed
+    without anybody looking is how a machine in the middle is trusted. This asks NAME's
+    address which key it presents, shows its fingerprint beside the pinned one, and takes
+    the new key only when you give its fingerprint, typed here or with --fingerprint,
+    as you read it on the server (ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub, or its
+    provider's console). The pin is replaced and the tunnel opened again; if the server
+    does not answer with it, the old pin is back. A server that dials in, or that is
+    reached through a bastion, cannot be asked from here.
+    """
+    from noust.fleet.audit import audit
+    from noust.fleet.nodes import cli_actor
+
+    manager = _manager()
+    manager.get(name)
+    if ctx.dry_run:
+        ctx.logger.info(
+            f"would ask the address of {name} for its host key, show it beside the pinned one and, "
+            "once its fingerprint is given, pin it and open the tunnel again"
+        )
+        return
+    seen = manager.read_host_key(name)
+    if ctx.json_output and show:
+        click.echo(json.dumps(seen.to_dict()))
+        return
+    logger = ctx.logger
+    if not ctx.json_output:
+        logger.key_value("Address", seen.address)
+        logger.key_value("Pinned", seen.pinned or "unreadable")
+        logger.key_value("Presents now", seen.presented)
+    if not seen.changed:
+        if ctx.json_output:
+            click.echo(json.dumps({**seen.to_dict(), "accepted": False}))
+        else:
+            logger.info(
+                f"{name} presents the host key that is pinned: the same one, so there is nothing to "
+                f"accept. If its tunnel fails, the reason is another: noust node test {name}"
+            )
+        return
+    if show:
+        logger.info(
+            "Compare it with the server's own (ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub), "
+            f"then give the one you read there: noust node host-key {name} --fingerprint SHA256:..."
+        )
+        return
+    if fingerprint is None:
+        if not _interactive():
+            raise NodeError(
+                "The host key was not accepted: nobody was asked and no --fingerprint was given",
+                details=(
+                    "Read the fingerprint on the server itself (ssh-keygen -lf "
+                    "/etc/ssh/ssh_host_ed25519_key.pub, or its provider's console) and run: "
+                    f"noust node host-key {name} --fingerprint SHA256:..."
+                ),
+                field="fingerprint",
+            )
+        logger.info(
+            "Compare it with the server's own (ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub, or "
+            "its provider's console). Typing it is what accepts it."
+        )
+        fingerprint = str(click.prompt(f"Fingerprint of the key now on {name}"))
+    try:
+        accepted = manager.accept_host_key(name, fingerprint=fingerprint.strip(), actor=cli_actor())
+    except NodeError as exc:
+        audit("fleet.node.host_key", "failure", resource=f"node:{name}", detail=exc.message)
+        raise
+    audit(
+        "fleet.node.host_key",
+        "success",
+        resource=f"node:{name}",
+        detail=f"{accepted.previous or 'none'} -> {accepted.presented}",
+    )
+    if ctx.json_output:
+        click.echo(json.dumps({**accepted.to_dict(), "accepted": True}))
+        return
+    logger.success(
+        f"{name}: the host key {accepted.presented} is pinned now (it was "
+        f"{accepted.previous or 'unreadable'}) and the tunnel answered"
+    )
 
 
 @cli.command("migrate-tunnel")

@@ -121,6 +121,26 @@ def known_hosts_line(node: str, host_key: str) -> str:
     return f"{host_key_alias(node)} {parse_public_key(host_key, what='node host key').bare}"
 
 
+def pinned_fingerprint(line: str) -> str | None:
+    """
+    Name the key a pinned ``known_hosts`` line holds, by its fingerprint.
+
+    Args:
+        line: What :func:`known_hosts_line` wrote: an alias, then ``ssh-ed25519 AAAA...``.
+
+    Returns:
+        ``SHA256:...``, or None when the line holds no key that can be read.
+    """
+    words = line.split()
+    for index, word in enumerate(words[:-1]):
+        if word.startswith("ssh-"):
+            try:
+                return parse_public_key(f"{word} {words[index + 1]}").fingerprint
+            except NodeError:
+                return None
+    return None
+
+
 class NodeKeys:
     """
     Generate, read and forget the per-node SSH material on the central.

@@ -26,6 +26,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 from collections.abc import Callable, Mapping, Sequence
+from contextlib import ExitStack
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Protocol
@@ -34,6 +35,7 @@ from noust.core import timeutil
 from noust.core.exceptions import NoustError
 from noust.core.pending_sends import KINDS, PendingSend, PendingSends
 from noust.core.runner import CommandRunner
+from noust.core.send_claims import claim, claim_directory
 
 __all__ = [
     "ApplicationPusher",
@@ -75,6 +77,7 @@ class ResendReport:
         skipped: Copies not tried because the destination had just not answered.
         dropped: Copies forgotten because nothing owes them any more.
         owed: Copies still owed to a destination when it ended.
+        busy: Copies left alone because another pass had them in hand, or had just sent or failed them.
     """
 
     sent: int = 0
@@ -82,6 +85,7 @@ class ResendReport:
     skipped: int = 0
     dropped: int = 0
     owed: int = 0
+    busy: int = 0
 
     def to_dict(self) -> dict[str, int]:
         """
@@ -94,6 +98,7 @@ class ResendReport:
             "skipped": self.skipped,
             "dropped": self.dropped,
             "owed": self.owed,
+            "busy": self.busy,
         }
 
 
@@ -317,34 +322,37 @@ class Resender:
         else:
             rows = self.pending.due(now)
         silent: set[str] = set()
+        directory = claim_directory(self.pending.store)
         for row in rows:
             if row.destination in silent:
                 report.skipped += 1
                 continue
-            try:
-                send = self._prepare(row)
-            except (NoustError, OSError, sqlite3.Error) as exc:
-                # One copy that cannot be looked at (a sidecar that cannot be read) is not the end of
-                # the pass: it stays owed, and the others go.
-                _log.warning(
-                    "Could not prepare %s %s to be sent again: %s", row.kind, row.item_id, exc
-                )
-                report.failed += 1
-                continue
-            if send is None:
-                self.pending.delivered(row.kind, row.item_id, row.destination)
-                report.dropped += 1
-                dropped_from.add(row.destination)
-                continue
-            outcome = self.sender.retry(row, send)
-            if outcome.ok:
-                report.sent += 1
-                continue
-            report.failed += 1
-            current = self.pending.get(row.kind, row.item_id, row.destination)
-            if current is None or not current.permanent:
-                # The next copy would wait as long as this one did.
-                silent.add(row.destination)
+            with ExitStack() as held:
+                try:
+                    ours = held.enter_context(
+                        claim(directory, row.kind, row.item_id, row.destination)
+                    )
+                except OSError as exc:
+                    # A claim that cannot be made (a directory that cannot be written) is a copy that
+                    # cannot be looked at: it stays owed, and the others go.
+                    _log.warning(
+                        "Could not take %s %s in hand to send it again: %s",
+                        row.kind,
+                        row.item_id,
+                        exc,
+                    )
+                    report.failed += 1
+                    continue
+                if not ours:
+                    report.busy += 1
+                    continue
+                # Read again now that it is in hand: another pass may have delivered it, or failed it
+                # and put the next try ahead, since this one listed it.
+                current = self.pending.get(row.kind, row.item_id, row.destination)
+                if current is None or not (force or only is not None or current.is_due(now)):
+                    report.busy += 1
+                    continue
+                self._send_again(current, report, silent, dropped_from)
         for destination in sorted(dropped_from):
             self.sender.tidy(destination)
         left = self.pending.all()
@@ -352,6 +360,41 @@ class Resender:
         for destination in sorted({row.destination for row in left}):
             self.sender.remind(destination)
         return report
+
+    def _send_again(
+        self, row: PendingSend, report: ResendReport, silent: set[str], dropped_from: set[str]
+    ) -> None:
+        """
+        Try one owed copy that this pass has in hand.
+
+        Args:
+            row: What is owed, as it is now.
+            report: What the pass has done, which this adds to.
+            silent: The destinations that did not answer in this pass, which this adds to.
+            dropped_from: The destinations a copy was forgotten for, which this adds to.
+        """
+        try:
+            send = self._prepare(row)
+        except (NoustError, OSError, sqlite3.Error) as exc:
+            # One copy that cannot be looked at (a sidecar that cannot be read) is not the end of
+            # the pass: it stays owed, and the others go.
+            _log.warning("Could not prepare %s %s to be sent again: %s", row.kind, row.item_id, exc)
+            report.failed += 1
+            return
+        if send is None:
+            self.pending.delivered(row.kind, row.item_id, row.destination)
+            report.dropped += 1
+            dropped_from.add(row.destination)
+            return
+        outcome = self.sender.retry(row, send)
+        if outcome.ok:
+            report.sent += 1
+            return
+        report.failed += 1
+        current = self.pending.get(row.kind, row.item_id, row.destination)
+        if current is None or not current.permanent:
+            # The next copy would wait as long as this one did.
+            silent.add(row.destination)
 
     def _prepare(self, row: PendingSend) -> Callable[[], dict[str, Any]] | None:
         """

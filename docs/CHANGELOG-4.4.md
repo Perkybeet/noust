@@ -35,4 +35,42 @@ What was left over from the check that holds a stack's start to what was judged 
   stacks`, and no longer shares the build sandbox's. The shape of `GET /api/system/health` and of `noust health
   --json` is the same.
 
+## Backups
+
+- **Two passes that send the copies that wait do not send the same one twice** (item 201). When the timer and a
+  pass run by hand met, or two timers after a network cut, both could upload the same copy and both tell of it.
+  A pass now claims each copy for its destination before it sends it and the other leaves it; `noust backup resend`
+  and its `--json` say how many were left to the other pass (`busy`).
+
+## Diagnosing
+
+- **A container that the kernel killed for memory is looked for where it ran** (item 175). For a Compose stack
+  or a container application, `noust app diagnose` read the memory events of the unit that starts the stack, which
+  holds no process. It asks Docker how each container ended and reads the container's own counters; for a stack
+  the cause names the compose file, since its limits are written there.
+- **"Degraded" is only said with the cause that explains it.** A certificate past the day it should have been
+  renewed, a unit left over or an idle copy of a blue/green pair, and a unit in a state that is neither running
+  nor stopped make an application degraded, each with its sentence as the cause. A warning with nothing to do
+  about it (a log with no date, a disk between 90 and 95 %) is listed and does not change the verdict.
+
+## Where an application answers
+
+- **`NOUST_URL`, `{{app.URL}}` and the address a code host shows are where the application answers on that
+  machine.** They were always `https://` and the application's name, also where there is no site and no
+  certificate: a central that deploys on its own machine answers at the machine and a port. They ask the same
+  thing the card at the end of a deployment and a recipe's notes ask.
+
+## Fleet
+
+- **`noust node host-key NAME` accepts the new SSH host key of a server.** When a server's key changes the
+  central closes the tunnel and says so, and the only way on was to remove the server and add it again. The
+  command shows the key the central kept and the one the server presents now and goes on only with the
+  fingerprint typed or given (`--fingerprint SHA256:...`); there is no way to accept it unseen. The API has it
+  as two operations, the second in sudo mode ([CENTRAL.md](CENTRAL.md)).
+
+## Adopting
+
+- **What adopting a stack warns about is said in the console's language**: a checkout with changes nobody
+  committed, a stack with no site or with one that is not enabled, and a port published only on this machine.
+
 ## Fixes

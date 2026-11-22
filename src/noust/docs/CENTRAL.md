@@ -92,6 +92,34 @@ code carries), `sntrup761x25519-sha512@openssh.com` (post-quantum hybrid) or
 `aes256-gcm@openssh.com` as ciphers, and encrypt-then-MAC MACs only. The central asks its own
 `ssh -Q` once and drops what an older client lacks.
 
+### A server whose SSH host key changed
+
+The central pins each server's host key when it adds it and never learns it again. When a server presents
+another one (it was reinstalled, its keys were regenerated, or something else answers at that address) the
+central closes its tunnel, says so (`node_host_key_changed`, with the two fingerprints) and keeps it closed:
+a key that changed without anybody looking is how a machine in the middle is trusted. The way out is a
+decision of a person who has seen both fingerprints, and it is one command:
+
+```bash
+noust node host-key web-5 --show      # the pinned fingerprint and the one it presents now; changes nothing
+noust node host-key web-5             # the same, then asks for the fingerprint you read on the server
+noust node host-key web-5 --fingerprint SHA256:...   # for a script
+```
+
+The central asks the server's own address for its key and shows it beside the pinned one. Compare the new
+fingerprint with what the server says of itself (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` on it, or
+the provider's console), then give it: typed at the prompt, or in `--fingerprint`. The key is taken only when
+it is the one that answers when you give it, so a key that changed once more, or an address that now answers
+for another server, changes nothing. There is no option that accepts without a fingerprint. The pinned line is
+replaced, the tunnel opens again, and when the server does not answer through it the old pin is put back. A
+server that dials in has no host key of the central's to accept, and one reached through a bastion cannot be
+asked from the central: for both, read the key on the server and, if it really changed, remove the server and
+add it again.
+
+Over the API it is two routes, `POST /api/nodes/{node}/host-key/scan` (the two fingerprints, changes nothing)
+and `POST /api/nodes/{node}/host-key` with `{"fingerprint": "SHA256:..."}` (needs sudo mode), both with the
+permission to manage the fleet. Taking the key, or refusing it, is audited as `fleet.node.host_key`.
+
 The rest of this guide is on pages of its own:
 
 - [Add servers to a central](central-servers.md)

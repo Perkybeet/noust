@@ -7,11 +7,13 @@ What was made and not sent is sent again, by itself (item 201).
 A pass looks at what is owed and tries what is due: a copy at a time, oldest first, one destination
 that does not answer ending the tries to it for that pass (the rest would only wait the same). The
 next scheduled run of what a copy belongs to sends its owed copies first, without waiting for the
-clock. A copy that was deleted, or a destination that left the schedule, is not owed to anybody.
+clock. A copy that was deleted, or a destination that left the schedule, is not owed to anybody. Two passes that
+meet (the timer's and one by hand) never send the same copy twice: what one has in hand the other leaves.
 """
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable, Iterator
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -282,4 +284,157 @@ def test_the_report_says_what_it_did_as_plain_data(rig: Rig) -> None:
 
     report = rig.resender.run(force=True)
 
-    assert report.to_dict() == {"sent": 1, "failed": 0, "skipped": 0, "dropped": 0, "owed": 0}
+    assert report.to_dict() == {
+        "sent": 1,
+        "failed": 0,
+        "skipped": 0,
+        "dropped": 0,
+        "owed": 0,
+        "busy": 0,
+    }
+
+
+class TestTwoPassesThatMeet:
+    """What the timer's pass and one started by hand do with the same owed copy."""
+
+    def another_pass(self, rig: Rig) -> Resender:
+        """A second pass over the same store, as another process would run it."""
+        return Resender(
+            sender=rig.sender,
+            pending=PendingSends(rig.pending.store),
+            pushers=dict.fromkeys(("app", "volume", "database", "noust"), rig.pushers),
+        )
+
+    def hold_the_sends(self, rig: Rig) -> tuple[threading.Event, threading.Event]:
+        """Make every send wait inside its push until the test lets it go."""
+        inside = threading.Event()
+        let_go = threading.Event()
+        prepare = rig.pushers.prepare
+
+        def slow(row: PendingSend) -> Callable[[], dict[str, Any]] | None:
+            send = prepare(row)
+            if send is None:
+                return None
+
+            def push() -> dict[str, Any]:
+                inside.set()
+                assert let_go.wait(10), "the test never let the send go"
+                return send()
+
+            return push
+
+        rig.pushers.prepare = slow  # type: ignore[method-assign]
+        return inside, let_go
+
+    def test_a_copy_one_pass_is_sending_is_left_to_it(self, rig: Rig) -> None:
+        rig.owe("one")
+        rig.later(minutes=20)
+        inside, let_go = self.hold_the_sends(rig)
+        first: list[Any] = []
+        sending = threading.Thread(target=lambda: first.append(rig.resender.run()), daemon=True)
+        sending.start()
+        try:
+            assert inside.wait(30)
+
+            second = self.another_pass(rig).run()
+        finally:
+            let_go.set()
+            sending.join(30)
+
+        assert [item for _, item, _ in rig.pushers.sent] == ["one"]
+        assert second.busy == 1 and second.sent == 0 and second.failed == 0
+        assert first[0].sent == 1 and first[0].busy == 0
+        assert rig.pending.all() == []
+
+    def test_the_pass_that_waited_for_nothing_does_not_tell_anyone(self, rig: Rig) -> None:
+        rig.owe("one")
+        rig.pushers.failing = {"nas"}
+        rig.later(minutes=20)
+        inside, let_go = self.hold_the_sends(rig)
+        sending = threading.Thread(target=rig.resender.run, daemon=True)
+        sending.start()
+        try:
+            assert inside.wait(30)
+
+            self.another_pass(rig).run()
+        finally:
+            let_go.set()
+            sending.join(30)
+
+        # One try failed, once: the second pass neither tried nor counted a second attempt.
+        (row,) = rig.pending.all()
+        assert row.attempts == 1
+
+    def test_several_passes_at_once_send_a_copy_once(self, rig: Rig) -> None:
+        rig.owe("one")
+        rig.owe("two")
+        rig.later(minutes=20)
+        passes = [self.another_pass(rig) for _ in range(5)]
+        start = threading.Barrier(len(passes))
+        reports: list[Any] = []
+
+        def go(resender: Resender) -> None:
+            start.wait(30)
+            reports.append(resender.run())
+
+        threads = [threading.Thread(target=go, args=(each,), daemon=True) for each in passes]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(60)
+
+        assert sorted(item for _, item, _ in rig.pushers.sent) == ["one", "two"]
+        assert sum(report.sent for report in reports) == 2
+        assert rig.pending.all() == []
+
+    def test_a_copy_another_pass_delivered_after_this_one_listed_it_is_not_sent_again(
+        self, rig: Rig
+    ) -> None:
+        rig.owe("one")
+        rig.later(minutes=20)
+        late = self.another_pass(rig)
+        listed = late.pending.due(rig.now)
+        late.pending.due = lambda now: listed  # type: ignore[method-assign]
+        assert rig.resender.run().sent == 1
+
+        report = late.run()
+
+        assert [item for _, item, _ in rig.pushers.sent] == ["one"]
+        assert report.sent == 0 and report.busy == 1
+
+    def test_a_copy_another_pass_just_failed_is_not_tried_again_at_once(self, rig: Rig) -> None:
+        rig.owe("one")
+        rig.later(minutes=20)
+        late = self.another_pass(rig)
+        listed = late.pending.due(rig.now)
+        late.pending.due = lambda now: listed  # type: ignore[method-assign]
+        rig.pushers.failing = {"nas"}
+        assert rig.resender.run().failed == 1
+        rig.pushers.failing = set()
+
+        report = late.run()
+
+        # The pass that failed it set the next try a quarter of an hour on: the backoff is not skipped.
+        assert rig.pushers.sent == []
+        assert report.busy == 1
+        (row,) = rig.pending.all()
+        assert row.attempts == 1
+
+    def test_what_a_person_asks_for_by_hand_still_goes_when_nothing_holds_it(
+        self, rig: Rig
+    ) -> None:
+        rig.owe("one")
+
+        report = self.another_pass(rig).run(force=True)
+
+        assert report.sent == 1 and report.busy == 0
+
+    def test_a_pass_leaves_no_claim_behind(self, rig: Rig) -> None:
+        from noust.core.send_claims import claim_directory
+
+        rig.owe("one")
+        rig.later(minutes=20)
+
+        rig.resender.run()
+
+        assert list(claim_directory(rig.pending.store).glob("send-*.lock")) == []

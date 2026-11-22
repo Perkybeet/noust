@@ -4,7 +4,7 @@
 
 Every operation of the HTTP API. Each is served at `/api/...` and, the same, at `/api/v1/...`. **Permission** is what a principal needs ([roles and permissions](security.md)); **Sudo** marks an operation that asks for a recent confirmation of the signed-in person, and **Approval** one that can ask for a second person. How to authenticate, the error contract, events and WebSockets are in [the API guide](api.md).
 
-1257 operations.
+1259 operations.
 
 ## Access
 
@@ -1060,6 +1060,8 @@ Every operation of the HTTP API. Each is served at `/api/...` and, the same, at 
 | POST | `/api/nodes` | Add Node | `fleet.manage` | yes | yes |
 | GET | `/api/nodes/{node}` | Get Node | `fleet.read` |  |  |
 | DELETE | `/api/nodes/{node}` | Remove Node | `fleet.manage` | yes | yes |
+| POST | `/api/nodes/{node}/host-key` | Accept Node Host Key | `fleet.manage` | yes |  |
+| POST | `/api/nodes/{node}/host-key/scan` | Scan Node Host Key | `fleet.manage` |  |  |
 | GET | `/api/nodes/{node}/inventory` | Get Node Inventory | `fleet.read` |  |  |
 | POST | `/api/nodes/{node}/inventory` | Apply Node Inventory | `fleet.manage` |  |  |
 | GET | `/api/nodes/{node}/key` | Get Node Key | `fleet.manage` |  |  |

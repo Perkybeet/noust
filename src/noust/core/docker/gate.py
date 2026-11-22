@@ -51,6 +51,7 @@ from noust.core.docker import (
     states,
     stats,
 )
+from noust.core.docker import memory as memory_module
 from noust.core.docker import restart_loss as restart_loss_module
 from noust.core.docker import summary as summary_module
 from noust.core.docker.errors import (
@@ -1458,6 +1459,41 @@ class DockerGate:
             for item in summary_module.attention(mine, seen, restarts, None)
             if item.kind == "loop" or (item.kind == "stopped" and item.facts.get("kind") == "oom")
         )
+
+    def app_memory(self, domain: str) -> tuple[memory_module.ContainerMemory, ...]:
+        """
+        Say how each container of an application ended, and what limit it has.
+
+        What asks which application the kernel killed for running out of memory when the application runs
+        in containers: its unit is a ``oneshot`` that started them, and the processes (and their count of
+        kills) are in the containers' own cgroups. One look at the containers and one ``inspect`` of the
+        application's own; nothing is read of what belongs to another application or to nobody.
+
+        Args:
+            domain: The application's domain.
+
+        Returns:
+            Its containers, by name; empty when the principal does not see the application or it has
+            none.
+
+        Raises:
+            DockerUnavailableError: Docker cannot be asked.
+        """
+        owned, _index = self._look()
+        mine = sorted(
+            (
+                c
+                for c in owned
+                if c.owner.kind is OwnerKind.APP
+                and c.owner.subject == domain
+                and self._visible(c.owner)
+            ),
+            key=lambda c: c.name,
+        )
+        if not mine:
+            return ()
+        seen = inspect.read_inspect(self.runner, [c.id for c in mine])
+        return tuple(memory_module.memory_of(c, seen[c.id]) for c in mine if c.id in seen)
 
     def version_records(self) -> dict[str, VersionRecord]:
         """

@@ -120,3 +120,32 @@ class TestWhatAnApplicationDid:
         facts = cgroup_events.read_facts(_cgroup(tmp_path, memory_events="oom_kill 2\n"))
 
         assert (facts.kills, facts.limit, facts.peak, facts.readable) == (2, None, None, True)
+
+
+class TestTheCgroupOfAContainer:
+    """Docker puts a container in a scope of its own, where the cgroup driver says."""
+
+    IDENT = "ab" * 32
+
+    def test_under_the_systemd_driver_it_is_a_scope_of_the_system_slice(
+        self, tmp_path: Path
+    ) -> None:
+        scope = tmp_path / "system.slice" / f"docker-{self.IDENT}.scope"
+        scope.mkdir(parents=True)
+
+        assert cgroup_events.container_cgroup(tmp_path, self.IDENT) == scope
+
+    def test_under_the_cgroupfs_driver_it_is_a_directory_of_docker(self, tmp_path: Path) -> None:
+        directory = tmp_path / "docker" / self.IDENT
+        directory.mkdir(parents=True)
+
+        assert cgroup_events.container_cgroup(tmp_path, self.IDENT) == directory
+
+    def test_a_container_that_is_not_running_has_none(self, tmp_path: Path) -> None:
+        assert cgroup_events.container_cgroup(tmp_path, self.IDENT) is None
+
+    def test_what_is_not_an_id_is_never_part_of_a_path(self, tmp_path: Path) -> None:
+        (tmp_path / "docker").mkdir()
+
+        assert cgroup_events.container_cgroup(tmp_path, "../docker") is None
+        assert cgroup_events.container_cgroup(tmp_path, "") is None

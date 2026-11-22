@@ -39,6 +39,7 @@ from noust.core.variables.placement import keeps_predefined_in_env
 from noust.core.variables.predefined import RELEASE_ENV_NAME, RESERVED, Deployment, reserved_in
 from noust.core.variables.resolver import Resolver, context_for
 from noust.core.variables.store import AppVariable, VariableStore
+from noust.deployers.helpers.edge import answers_at
 from noust.validators.environment import EnvironmentValidationError, validate_environment
 
 
@@ -134,6 +135,7 @@ def deployment_for(
         port=app.port,
         pull_request=pull_request,
         preview_of=preview_of,
+        address=answers_at(app.domain, ssl=bool(app.ssl_enabled), port=app.port),
     )
 
 

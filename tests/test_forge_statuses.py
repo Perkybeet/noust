@@ -61,8 +61,9 @@ def forges() -> FakeForges:
 
 
 def app_on(store: NoustStore, source: str, domain: str = "a.example.com", **fields: Any) -> App:
+    fields = {"port": 3000, **fields}
     return store.create_app(
-        App(domain=domain, app_type="nodejs", app_path=f"/var/www/apps/{domain}", port=3000,
+        App(domain=domain, app_type="nodejs", app_path=f"/var/www/apps/{domain}",
             status="running", source=source, **fields)
     )  # fmt: skip
 
@@ -88,6 +89,47 @@ def run(rep: statuses.StatusReporter, *events: DeployEvent) -> None:
         if target is not None:
             rep.submit(target, item)
     assert rep.drain(10)
+
+
+@pytest.fixture
+def container_host(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """The central of a NAS that deploys on its own machine: no site, ports of the machine."""
+    monkeypatch.setenv("NOUST_CENTRAL_ROLE", "hub")
+    monkeypatch.setenv("NOUST_DEPLOY_HERE", "containers")
+    monkeypatch.setattr("noust.deployers.helpers.edge.machine_name", lambda _runner: "nas-oficina")
+    Config.reset_instance()
+    yield
+    # The configuration read under this environment must not outlive it: the next one is read afresh.
+    Config.reset_instance()
+
+
+class TestWhereTheApplicationAnswers:
+    def test_on_a_machine_with_no_site_it_is_the_machine_and_the_port(
+        self, store: NoustStore, container_host: None
+    ) -> None:
+        app_on(store, "https://gitlab.example.com/acme/shop.git", port=8081)
+
+        target = statuses.target_for("a.example.com")
+
+        assert target is not None and target.environment_url == "http://nas-oficina:8081"
+
+    def test_a_site_with_no_certificate_answers_over_http(self, store: NoustStore) -> None:
+        app_on(store, "https://gitlab.example.com/acme/shop.git", ssl_enabled=False)
+
+        target = statuses.target_for("a.example.com")
+
+        assert target is not None and target.environment_url == "http://a.example.com"
+
+    def test_the_commit_status_leads_to_that_address(
+        self, store: NoustStore, forges: FakeForges, container_host: None
+    ) -> None:
+        app_on(store, "https://gitlab.example.com/acme/shop.git", port=8081)
+
+        run(reporter(forges), event(DeployEventKind.STARTED), event(DeployEventKind.SUCCEEDED))
+
+        assert (
+            forges.writes("gitlab.example.com")[-1].form["target_url"] == "http://nas-oficina:8081"
+        )
 
 
 class TestGitLab:

@@ -265,6 +265,15 @@ A Docker Compose stack that publishes no port (a worker) has no port or site to 
 judged by its containers, and the evidence is their state and the last lines of `docker compose
 logs`; when a port is still recorded for it, the report says so and names `noust app headless`.
 
+The verdict is `healthy`, `degraded` or `down`, and `degraded` is only said with its cause beside it: a
+certificate past the point where it ought to have been renewed, the instance of a zero-downtime pair that
+failed to start or a unit left behind, a unit in a state that is not running, a disk past 95 percent, the
+kernel having killed an application that is up now. A warning that names nothing to do (a line of nginx's
+error log, a deployment that is not "succeeded", a kernel log that mentions memory and no application) is
+listed with its check and leaves the verdict alone. For an application that runs in containers, the kernel's
+kills for lack of memory are looked for in the containers, not in the unit that started them: Docker says
+which container ended killed and what limit it has, and the cause names the key of the compose file to raise.
+
 ## Terminal
 
 In the column, under **Fix** (`/apps/<domain>/terminal`): a shell as the

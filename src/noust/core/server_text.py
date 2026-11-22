@@ -51,6 +51,7 @@ from noust.core import (
     server_text_changes,
     server_text_compose,
     server_text_deploy,
+    server_text_fleet,
     server_text_machine,
     server_text_roles,
     server_text_shared,
@@ -1543,6 +1544,10 @@ CATALOG: dict[str, str] = {
         "systemd records that the last run of this application's unit ended because the kernel "
         "killed it for running out of memory"
     ),
+    "diagnose.oom.containers_killed": (
+        "The kernel killed {containers} of this application for running out of memory: Docker "
+        "records it in the last run of the container"
+    ),
     "diagnose.disk.usage": "{free} free ({percent}% used) on the filesystem holding {path}",
     "diagnose.zero_downtime.could": "Its updates restart it in place; it could update without a cut",
     # What the checks add up to, the most likely cause (``probable_cause``). A pool's cause is the
@@ -1570,6 +1575,22 @@ CATALOG: dict[str, str] = {
     "diagnose.cause.oom_unit": (
         "systemd records that the last run of {domain} ended because the kernel killed it for "
         "running out of memory. See its memory limit with: {command}"
+    ),
+    "diagnose.cause.oom_machine_no_peak": (
+        "The kernel killed {domain} for running out of memory and it has no memory limit, so the "
+        "server ran out of memory. Free memory on the server, or give the application a limit it "
+        "can keep to: {command}"
+    ),
+    "diagnose.cause.oom_service_limit": (
+        "The kernel killed {containers} of {domain} for running out of memory: its limit is "
+        "{limit}, so it needs more than it is allowed. Raise the memory limit of that service in "
+        "the compose file (mem_limit, or deploy.resources.limits.memory), then run: {command}"
+    ),
+    "diagnose.cause.oom_service_machine": (
+        "The kernel killed {containers} of {domain} for running out of memory and it has no "
+        "memory limit, so the server ran out of memory. Free memory on the server, or give the "
+        "service a limit it can keep to in the compose file (mem_limit, or "
+        "deploy.resources.limits.memory), then run: {command}"
     ),
     "diagnose.cause.crash_loop": (
         "The process exits with status {status} at start; see the last journal lines below."
@@ -2612,6 +2633,7 @@ _FRAGMENTS = (
     server_text_changes,
     server_text_compose,
     server_text_deploy,
+    server_text_fleet,
     server_text_machine,
     server_text_roles,
     server_text_signin,

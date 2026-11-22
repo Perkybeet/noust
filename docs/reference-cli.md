@@ -12049,7 +12049,7 @@ Manage the servers this central manages, through their API over SSH tunnels.
 noust node [OPTIONS] COMMAND [ARGS]...
 ```
 
-Subcommands: [`add`](#noust-node-add), [`assign`](#noust-node-assign), [`export`](#noust-node-export), [`inventory`](#noust-node-inventory), [`key`](#noust-node-key), [`label`](#noust-node-label), [`link`](#noust-node-link), [`list`](#noust-node-list), [`migrate-tunnel`](#noust-node-migrate-tunnel), [`pause`](#noust-node-pause), [`rekey`](#noust-node-rekey), [`remove`](#noust-node-remove), [`resume`](#noust-node-resume), [`show`](#noust-node-show), [`ssh`](#noust-node-ssh), [`test`](#noust-node-test), [`unassign`](#noust-node-unassign)
+Subcommands: [`add`](#noust-node-add), [`assign`](#noust-node-assign), [`export`](#noust-node-export), [`host-key`](#noust-node-host-key), [`inventory`](#noust-node-inventory), [`key`](#noust-node-key), [`label`](#noust-node-label), [`link`](#noust-node-link), [`list`](#noust-node-list), [`migrate-tunnel`](#noust-node-migrate-tunnel), [`pause`](#noust-node-pause), [`rekey`](#noust-node-rekey), [`remove`](#noust-node-remove), [`resume`](#noust-node-resume), [`show`](#noust-node-show), [`ssh`](#noust-node-ssh), [`test`](#noust-node-test), [`unassign`](#noust-node-unassign)
 
 ### noust node add
 
@@ -12103,6 +12103,23 @@ Arguments: `name`
 | Option | What it does | Default |
 |---|---|---|
 | `-o`, `--output` | Write the inventory to this file instead of printing it. |  |
+| `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
+
+### noust node host-key
+
+Accept the new SSH host key of NAME, after comparing it with the server's own.
+
+```bash
+noust node host-key [OPTIONS] NAME
+```
+
+Arguments: `name`
+
+| Option | What it does | Default |
+|---|---|---|
+| `--show` | Only show the fingerprint that is pinned and the one NAME presents now; change nothing. |  |
+| `--fingerprint` | The fingerprint of NAME's key as read on NAME itself (ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub), for a script. The key is taken only when it is the one NAME presents. Without it the two are shown and the fingerprint is asked. |  |
+| `--json` | Print what NAME presents, or what was pinned, as JSON. |  |
 | `--reason` | Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required only where a compliance framework asks for it (ENS) or security.change_reasons is on. |  |
 
 ### noust node inventory

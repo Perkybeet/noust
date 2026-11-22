@@ -9,7 +9,7 @@ restarted or recreated by the update. The units of the Compose stacks may be wri
 
 ## What you will notice
 
-Everything here is about the Compose stacks that 4.3 left in a state it could not mend by itself, and about
+Most of this is about the Compose stacks that 4.3 left in a state it could not mend by itself, and about
 what `noust health` says of how a stack starts. It is what the step that runs at the update
 (`noust setup compose-gate`) does, and the console runs it again a little after it starts and every ten
 minutes.
@@ -34,6 +34,15 @@ minutes.
   unit that replaces `ExecStart=` is named with its path. Everything about how the stacks start has a line of
   its own, `Compose stacks`, and not the one of the build sandbox. The answer of `GET /api/system/health` and
   of `noust health --json` has the same shape: one more check, with its name.
+
+Three more things, outside the stacks:
+
+- **On a central that deploys on its own machine, `NOUST_URL` changes at each application's next deployment**,
+  from `https://` and its name to where it answers there (`http://`, the machine and its port). An application
+  that built links from that variable builds them to an address that works.
+- **`noust app diagnose` says "healthy" where it said "degraded" with no cause.** Whoever reads `verdict` from
+  `--json` or from the API sees the change; the warnings are still listed.
+- **`noust backup resend --json` has one more field**, `busy`: the copies another pass was already sending.
 
 Check: run `noust setup compose-gate`, then `noust health`. Every stack is under the check
 (`grep -c "app compose gate" /etc/systemd/system/<app>.service` says 2) or named, with the reason, in

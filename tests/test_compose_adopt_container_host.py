@@ -152,6 +152,8 @@ def test_a_stack_published_on_loopback_only_is_said_to_be_unreachable_from_the_n
     said = [warning for warning in plan.warnings if "127.0.0.1" in warning]
     assert said, plan.warnings
     assert "not from your network" in said[0]
+    coded = [item for item in plan.warnings_coded if item is not None]
+    assert "compose_adopt.loopback_only" in [item.code for item in coded]
 
 
 def test_a_stack_published_on_every_address_is_not_said_to_be_loopback_only(

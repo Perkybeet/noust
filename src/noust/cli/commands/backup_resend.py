@@ -44,7 +44,8 @@ def resend(ctx: Context, everything: bool) -> None:
     it is tried again after a quarter of an hour, an hour, four hours and then every day, and by the
     next scheduled backup of the same thing before it takes its own. This does it now. A destination
     that does not answer ends the tries to it for this pass; the others go on. A copy that was
-    deleted, or a destination the schedule no longer sends to, is forgotten.
+    deleted, or a destination the schedule no longer sends to, is forgotten. A copy that another pass
+    (the timer's, or one started by hand) is sending right now is left to it.
     """
     try:
         report = Resender().run(force=everything)
@@ -61,11 +62,13 @@ def resend(ctx: Context, everything: bool) -> None:
         ctx.logger.warning(f"{report.failed} copy(ies) could not be sent and stay owed")
     if report.skipped:
         ctx.logger.info(f"{report.skipped} more were not tried: their destination did not answer")
+    if report.busy:
+        ctx.logger.info(f"{report.busy} more are already being sent by another pass")
     if report.dropped:
         ctx.logger.info(f"{report.dropped} were forgotten: nothing owes them any more")
     if report.owed:
         ctx.logger.info(f"{report.owed} copy(ies) are still owed to a destination")
-    elif not (report.sent or report.dropped):
+    elif not (report.sent or report.dropped or report.busy):
         ctx.logger.info("No copy is owed to any destination")
 
 

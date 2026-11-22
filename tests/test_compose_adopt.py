@@ -378,6 +378,111 @@ def test_no_site_is_a_warning_not_a_refusal(
     assert any("No site" in warning for warning in plan.warnings)
 
 
+def test_no_site_is_said_as_a_sentence_with_its_code(
+    root: Path, docker: Docker, web: NginxManager, store: NoustStore
+) -> None:
+    from noust.deployers.compose_adopt import plan_adoption
+
+    (web.sites_enabled / "proggest").unlink()
+    (web.sites_available / "proggest").unlink()
+
+    plan = plan_adoption(DOMAIN, root, web=web, accept_host_access=True)
+
+    said = _sentences(plan)["compose_adopt.no_site"]
+    assert said.params == {"domain": DOMAIN}
+    assert "No site in sites-available answers on" in said.text
+
+
+def test_a_site_that_is_not_enabled_is_said_as_a_sentence_with_its_code(
+    root: Path, docker: Docker, web: NginxManager, store: NoustStore
+) -> None:
+    from noust.deployers.compose_adopt import plan_adoption
+
+    (web.sites_enabled / "proggest").unlink()
+
+    plan = plan_adoption(DOMAIN, root, web=web, accept_host_access=True)
+
+    said = _sentences(plan)["compose_adopt.site_not_enabled"]
+    assert said.params == {"site": "proggest"}
+    assert said.text == "The site proggest is not enabled."
+
+
+def test_a_checkout_with_changes_is_said_as_a_sentence_with_its_code(
+    root: Path,
+    docker: Docker,
+    web: NginxManager,
+    store: NoustStore,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from dataclasses import replace
+
+    from noust.deployers.compose_adopt import plan_adoption
+
+    lookup = docker._lookup
+
+    def dirty(argv: Any, user: str | None = None, env: Any = None) -> Any:
+        result = lookup(argv, user, env)
+        if result.argv[-2:] == ("status", "--porcelain"):
+            return replace(result, stdout=" M docker-compose.prod.yml\n")
+        return result
+
+    monkeypatch.setattr(docker, "_lookup", dirty)
+
+    plan = plan_adoption(DOMAIN, root, web=web, accept_host_access=True)
+
+    said = _sentences(plan)["compose_adopt.dirty_checkout"]
+    assert "the next update resets them to the branch" in said.text
+    assert said.params == {}
+
+
+def test_a_clean_checkout_says_nothing_of_changes(
+    root: Path, docker: Docker, web: NginxManager, store: NoustStore
+) -> None:
+    from noust.deployers.compose_adopt import plan_adoption
+
+    plan = plan_adoption(DOMAIN, root, web=web, accept_host_access=True)
+
+    assert "compose_adopt.dirty_checkout" not in _sentences(plan)
+
+
+def test_what_a_plan_warns_of_is_a_sentence_of_the_catalog_and_the_uncoded_ones_only_go_down() -> (
+    None
+):
+    # The console says a warning in its own language from its code, so a line typed in English into
+    # `warnings.add` is a Spanish console with an English paragraph in it. What is left is what wraps
+    # what Docker's rehearsal printed (the lines it would change and the ones it would start): they
+    # are two, and the figure only goes down.
+    import ast
+
+    import noust.deployers.compose_adopt as module
+
+    tree = ast.parse(Path(module.__file__).read_text(encoding="utf-8"))
+
+    def spelled(node: ast.expr) -> bool:
+        if isinstance(node, ast.Constant):
+            return isinstance(node.value, str)
+        if isinstance(node, ast.JoinedStr):
+            return True
+        if isinstance(node, ast.BinOp):
+            return spelled(node.left) or spelled(node.right)
+        return False
+
+    uncoded = [
+        node.lineno
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "add"
+        and getattr(node.func.value, "id", None) == "warnings"
+        and node.args
+        and spelled(node.args[0])
+    ]
+
+    assert len(uncoded) <= 2, (
+        f"a warning of an adoption plan is typed in English at lines {uncoded}"
+    )
+
+
 def test_a_domain_already_deployed_is_refused(
     root: Path, docker: Docker, web: NginxManager, store: NoustStore
 ) -> None:

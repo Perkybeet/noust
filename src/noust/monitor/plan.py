@@ -46,7 +46,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from noust.core import legacy_names
+from noust.core import cgroup_events, legacy_names
 from noust.core.exceptions import DeploymentError, NoustError
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import is_compose_backed, runs_as_instances
@@ -918,11 +918,7 @@ class PlanBuilder:
             (``system.slice/docker-<id>.scope``) or the cgroupfs driver
             (``docker/<id>``), whichever exists.
         """
-        for relative in (f"system.slice/docker-{container_id}.scope", f"docker/{container_id}"):
-            candidate = self.cgroup_mount / relative
-            if candidate.is_dir():
-                return candidate
-        return None
+        return cgroup_events.container_cgroup(self.cgroup_mount, container_id)
 
     # --------------------------------------------------------------- traffic
 

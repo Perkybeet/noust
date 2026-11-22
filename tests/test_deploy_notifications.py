@@ -33,7 +33,7 @@ defended:
 from __future__ import annotations
 
 import json
-import time
+import threading
 from collections.abc import Iterator
 from dataclasses import replace
 from pathlib import Path
@@ -51,6 +51,19 @@ from noust.core.store import App, NoustStore, PreviewRecord
 from tests.support.notifier import CapturingOpener, config, public_dns  # noqa: F401
 
 WEBHOOK_URL = "https://hooks.example.test/wasm"
+
+#: How long a test lets the notification worker take to finish what it was given. ``drain`` comes back the
+#: moment the queue is empty, so a worker that is fast costs none of this and a machine that is saturated
+#: has room: the limit is reached only by a worker that is stuck, which is then said as such here and not
+#: as a list that is shorter than the test expected.
+WORKER_LIMIT = 60.0
+
+
+def settled() -> None:
+    """Wait until the notification worker has delivered everything it was given."""
+    assert NOTIFICATION_QUEUE.drain(timeout=WORKER_LIMIT), (
+        "the notification worker did not finish what it was given"
+    )
 
 
 @pytest.fixture
@@ -70,9 +83,12 @@ def _drained_queue() -> Iterator[None]:
     The notification worker is process-wide: a deliberately slow notification
     a test left behind must have finished before the next test counts calls.
     """
-    NOTIFICATION_QUEUE.drain(timeout=10.0)
+    settled()
     yield
-    NOTIFICATION_QUEUE.drain(timeout=10.0)
+    # A channel a test left waiting is let go first, or the worker would never be empty.
+    if FakeNotifier.gate is not None:
+        FakeNotifier.gate.set()
+    settled()
 
 
 def make_event(
@@ -108,14 +124,16 @@ class FakeNotifier:
     #: own Notifier(config) construction still lands in the one place the
     #: test can see it.
     calls: list[Notification] = []
-    delay: float = 0.0
+    #: What a channel that answers slowly waits for: the test sets it when the answer may come. None answers
+    #: at once. The wait has a limit so that a defect fails a test and does not hang it.
+    gate: threading.Event | None = None
 
     def __init__(self, config: Config) -> None:
         del config
 
     def notify(self, event: Notification) -> None:
-        if self.delay:
-            time.sleep(self.delay)
+        if FakeNotifier.gate is not None:
+            FakeNotifier.gate.wait(WORKER_LIMIT / 2)
         FakeNotifier.calls.append(event)
 
 
@@ -123,7 +141,7 @@ class FakeNotifier:
 def fake_notifier(monkeypatch: pytest.MonkeyPatch) -> type[FakeNotifier]:
     """Install FakeNotifier in place of the real Notifier, cleared for this test."""
     FakeNotifier.calls = []
-    FakeNotifier.delay = 0.0
+    FakeNotifier.gate = None
     monkeypatch.setattr(deploy_notifications, "Notifier", FakeNotifier)
     return FakeNotifier
 
@@ -148,7 +166,7 @@ class TestKindMapping:
         notification_kind: str,
     ) -> None:
         deploy_notifications.on_deploy_event(make_event(event_kind))
-        NOTIFICATION_QUEUE.drain(timeout=5.0)
+        settled()
 
         assert [call.kind for call in fake_notifier.calls] == [notification_kind]
 
@@ -160,7 +178,7 @@ class TestKindMapping:
 
         deploy_notifications.on_deploy_event(cancelled)
         deploy_notifications.on_deploy_event(make_event(DeployEventKind.FAILED))
-        NOTIFICATION_QUEUE.drain(timeout=5.0)
+        settled()
 
         assert [call.kind for call in fake_notifier.calls] == ["deploy_failed"]
 
@@ -174,7 +192,7 @@ class TestKindMapping:
             domain = "shop.example.com"
 
         deploy_notifications.on_deploy_event(_FutureEvent())  # type: ignore[arg-type]
-        NOTIFICATION_QUEUE.drain(timeout=1.0)
+        settled()
 
         assert fake_notifier.calls == []
         assert "not-a-real-kind" in caplog.text
@@ -191,7 +209,7 @@ class TestComposedFromTheConfiguration:
 
     def _sent(self, fake_notifier: type[FakeNotifier], event: DeployEvent) -> Notification:
         deploy_notifications.on_deploy_event(event)
-        NOTIFICATION_QUEUE.drain(timeout=5.0)
+        settled()
         return fake_notifier.calls[0]
 
     def test_it_is_the_notification_the_composer_builds(
@@ -394,40 +412,47 @@ class TestDeliveryNeverBlocksTheDeployment:
     def test_on_deploy_event_returns_before_the_channel_answers(
         self, config: Config, fake_notifier: type[FakeNotifier]
     ) -> None:
-        fake_notifier.delay = 0.2
+        gate = threading.Event()
+        fake_notifier.gate = gate
 
-        started = time.perf_counter()
         deploy_notifications.on_deploy_event(make_event())
-        elapsed = time.perf_counter() - started
 
-        assert elapsed < 0.05
-        assert fake_notifier.calls == []  # still in flight
-
-        NOTIFICATION_QUEUE.drain(timeout=5.0)  # let the thread finish before teardown
+        # The channel is held until this test says so, so a call that came back at all came back before it
+        # answered: had it waited, it would have waited for a gate nobody was going to open.
+        assert fake_notifier.calls == []
+        gate.set()
+        settled()
+        assert len(fake_notifier.calls) == 1
 
     def test_drain_waits_for_a_slow_notification_to_actually_send(
         self, config: Config, fake_notifier: type[FakeNotifier]
     ) -> None:
         """What the exit drain relies on: the CLI process exits only once this returns."""
-        fake_notifier.delay = 0.15
+        gate = threading.Event()
+        fake_notifier.gate = gate
+        # The channel answers a moment after drain starts waiting; what the test asserts is not how long
+        # that took but that drain did not come back before it.
+        threading.Timer(0.1, gate.set).start()
 
         deploy_notifications.on_deploy_event(make_event())
-        NOTIFICATION_QUEUE.drain(timeout=5.0)
+        settled()
 
         assert len(fake_notifier.calls) == 1
 
     def test_drain_gives_up_at_its_cap_rather_than_hang(
         self, config: Config, fake_notifier: type[FakeNotifier]
     ) -> None:
-        fake_notifier.delay = 1.0
+        gate = threading.Event()
+        fake_notifier.gate = gate
 
         deploy_notifications.on_deploy_event(make_event())
-        started = time.perf_counter()
-        NOTIFICATION_QUEUE.drain(timeout=0.05)
-        elapsed = time.perf_counter() - started
+        drained = NOTIFICATION_QUEUE.drain(timeout=0.05)
 
-        assert elapsed < 0.5
-        assert fake_notifier.calls == []  # the cap won, not the channel
+        # The cap won, not the channel: drain said it had not emptied while the channel was still held.
+        assert drained is False
+        assert fake_notifier.calls == []
+        gate.set()
+        settled()
 
 
 class TestOrdering:
@@ -437,6 +462,7 @@ class TestOrdering:
         self, config: Config, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         delivered: list[str] = []
+        failure_queued = threading.Event()
 
         class SlowStart:
             def __init__(self, config: Config) -> None:
@@ -444,12 +470,15 @@ class TestOrdering:
 
             def notify(self, event: Notification) -> None:
                 if event.kind == "deploy_started":
-                    time.sleep(0.1)
+                    # Held until the failure is already in the queue behind it: a second worker would
+                    # deliver the failure now, and the only way for it to come second is the order.
+                    failure_queued.wait(WORKER_LIMIT / 2)
                 delivered.append(event.kind)
 
         monkeypatch.setattr(deploy_notifications, "Notifier", SlowStart)
         deploy_notifications.on_deploy_event(make_event(DeployEventKind.STARTED))
         deploy_notifications.on_deploy_event(make_event(DeployEventKind.FAILED, error="boom"))
-        NOTIFICATION_QUEUE.drain(timeout=5.0)
+        failure_queued.set()
+        settled()
 
         assert delivered == ["deploy_started", "deploy_failed"]

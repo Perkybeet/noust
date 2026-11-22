@@ -513,6 +513,7 @@ EVENTS: dict[str, EventSpec] = {
             "fleet.node.test": "A node's connection was tested.",
             "fleet.node.rekey": "A node's key was rotated.",
             "fleet.node.migrate": "A node was moved onto the restricted tunnel account.",
+            "fleet.node.host_key": "The new SSH host key of a node was accepted, or refused, after it changed.",
             "fleet.tunnel.up": "The tunnel to a node opened.",
             "fleet.tunnel.down": "The tunnel to a node closed.",
             "fleet.tunnel.hostkey_changed": "A node answered with a different host key.",

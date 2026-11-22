@@ -5636,6 +5636,25 @@ HookModel = TypedDict("HookModel", {
     "workdir": NotRequired[Union[str, None]],
 })
 
+HostKeyAcceptIn = TypedDict("HostKeyAcceptIn", {
+    "fingerprint": Required[str],
+})
+
+HostKeyAcceptedOut = TypedDict("HostKeyAcceptedOut", {
+    "changed": Required[bool],
+    "node": Required["NodeResponse"],
+    "presented": Required[str],
+    "previous": NotRequired[Union[str, None]],
+})
+
+HostKeyReadingOut = TypedDict("HostKeyReadingOut", {
+    "address": Required[str],
+    "changed": Required[bool],
+    "node": Required[str],
+    "pinned": NotRequired[Union[str, None]],
+    "presented": Required[str],
+})
+
 HostKeyRequest = TypedDict("HostKeyRequest", {
     "host": Required[str],
     "port": NotRequired[int],

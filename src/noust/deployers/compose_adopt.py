@@ -953,10 +953,7 @@ def plan_adoption(
             details="Name where updates fetch from with --source (source in the API).",
         )
     if repo["dirty"]:
-        warnings.add(
-            "The checkout has changes to tracked files; the next update resets them to the "
-            "branch (files git does not track, such as .env and data, are kept)."
-        )
+        warnings.add(say("compose_adopt.dirty_checkout"))
 
     project, containers = find_stack_project(compose_path, runner=runner)
     project_from: ProjectFrom = "containers"
@@ -1020,12 +1017,9 @@ def plan_adoption(
             )
         site_file, site_text, enabled = find_site(domain, found_web, requested=site)
         if site_file is None:
-            warnings.add(
-                f"No site in sites-available answers on {domain}; nothing serves it through "
-                "the web server until one does."
-            )
+            warnings.add(say("compose_adopt.no_site", domain=domain))
         elif not enabled:
-            warnings.add(f"The site {site_file} is not enabled.")
+            warnings.add(say("compose_adopt.site_not_enabled", site=site_file))
 
     port = None if headless else deployer._get_primary_port()
     address: str | None = None
@@ -1034,11 +1028,7 @@ def plan_adoption(
         if port is not None:
             address = edges.address(port, runner=runner)
             if loopback_only(deployer.services):
-                warnings.add(
-                    "It publishes its port on 127.0.0.1 only: it is reachable from the NAS itself "
-                    "and not from your network. Publish it on the network in your compose file, or "
-                    "reach it through a reverse proxy on the NAS."
-                )
+                warnings.add(say("compose_adopt.loopback_only"))
         lost = _lost_on_restart(project, runner=runner, store=store)
         warnings.extend(_restart_warnings(lost))
 

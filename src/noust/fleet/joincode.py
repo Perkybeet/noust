@@ -27,6 +27,7 @@ from typing import Any
 
 from noust.core.exceptions import NodeError
 from noust.fleet.models import (
+    FINGERPRINT,
     parse_public_key,
     validate_central_name,
     validate_node_name,
@@ -45,9 +46,6 @@ _TOKEN = re.compile(r"noust_tok_[A-Za-z0-9_-]{20,128}")
 
 #: A Noust version string.
 _VERSION = re.compile(r"[0-9A-Za-z.+-]{1,32}")
-
-#: A key fingerprint, as :attr:`~noust.fleet.models.PublicKey.fingerprint`.
-_FINGERPRINT = re.compile(r"SHA256:[A-Za-z0-9+/]{43}")
 
 #: A token name: ``fleet-<central>`` or ``fleet-<central>.<n>``.
 _TOKEN_NAME = re.compile(r"fleet-[a-z0-9-]{1,32}(?:\.[0-9]{1,4})?")
@@ -179,7 +177,7 @@ class JoinCode:
         if not _VERSION.fullmatch(version):
             raise _invalid("its version is malformed")
         fingerprint = _text(document, "central_key_fp")
-        if not _FINGERPRINT.fullmatch(fingerprint):
+        if not FINGERPRINT.fullmatch(fingerprint):
             raise _invalid("its central key fingerprint is malformed")
         node_name = _optional_text(document, "node_name")
         if node_name is not None:

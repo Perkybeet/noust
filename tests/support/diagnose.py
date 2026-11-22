@@ -163,6 +163,7 @@ def _diagnose(
     disk_usage: Callable[[str], _DiskUsage] | None = None,
     nginx_log_path: Path | None = None,
     cgroup_mount: Path | None = None,
+    docker: Any = None,
 ) -> Diagnosis:
     """Wire a diagnosis with every seam under the test's control."""
     if services is None:
@@ -179,6 +180,7 @@ def _diagnose(
         http_get=http_get or _http(),
         disk_usage=disk_usage or _disk(10.0),
         cgroup_mount=cgroup_mount or NONEXISTENT_CGROUP,
+        docker=docker,
     )
 
 

@@ -253,7 +253,7 @@ def test_disk_almost_full_is_degraded(monkeypatch: pytest.MonkeyPatch, runner: F
     assert _check(result, "disk").status == "fail"
 
 
-def test_fallback_degraded_when_only_a_warning_check_fires(
+def test_a_warning_with_no_cause_is_listed_and_the_application_is_healthy(
     monkeypatch: pytest.MonkeyPatch, runner: FakeRunner, tmp_path: Path
 ) -> None:
     _fragment(runner)
@@ -274,7 +274,9 @@ def test_fallback_degraded_when_only_a_warning_check_fires(
 
     result = _diagnose(monkeypatch, runner, app=_app(), nginx_log_path=log_path)
 
-    assert result.verdict == "degraded"
+    # The line has no date, and nothing says what to do about it: it is listed with its check, and
+    # "degraded" is only said with a cause (tests/test_diagnose_verdict.py holds the whole rule).
+    assert result.verdict == "healthy"
     assert result.probable_cause is None
     assert _check(result, "nginx_log").status == "warn"
 

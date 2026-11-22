@@ -32,6 +32,7 @@ from noust.core.config import Config
 from noust.core.deploy_events import DeployEvent, DeployEventKind
 from noust.core.exceptions import NoustError
 from noust.core.store import get_store
+from noust.deployers.helpers.edge import answers_at
 from noust.deployers.importers.remote import Opener
 from noust.integrations.forges import api
 from noust.integrations.forges.hosts import GITHUB
@@ -57,7 +58,8 @@ class Target:
         repo: The repository.
         url: The repository's clone URL, which is what the credential is found by.
         context: The name of the check.
-        environment_url: The application's address.
+        environment_url: Where the application answers on this machine
+            (:func:`noust.deployers.helpers.edge.answers_at`).
         console_url: The page of the application in the console, when it has a public address.
     """
 
@@ -122,7 +124,10 @@ def target_for(domain: str) -> Target | None:
         repo=repo,
         url=app.source.split("#", 1)[0],
         context=PREVIEW_CONTEXT if app.preview_parent else CONTEXT,
-        environment_url=f"https://{app.domain}",
+        # A host's status needs a link to lead to: what answers to the name where there is a site, the
+        # machine and its port where there is not, and the name for a worker that answers nowhere.
+        environment_url=answers_at(app.domain, ssl=bool(app.ssl_enabled), port=app.port)
+        or f"https://{app.domain}",
         console_url=f"{base}/apps/{app.domain}" if base else None,
     )
 

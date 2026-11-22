@@ -27,6 +27,7 @@ from noust.core.exceptions import NodeError
 from noust.core.store import NODE_STATUSES, NodeRecord
 
 __all__ = [
+    "FINGERPRINT",
     "NODE_STATUSES",
     "NodeRecord",
     "PublicKey",
@@ -50,6 +51,10 @@ _SSH_USER = re.compile(r"[a-z_][a-z0-9_-]{0,31}")
 
 #: One DNS label.
 _LABEL = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?")
+
+#: A key fingerprint, as :attr:`PublicKey.fingerprint` and ``ssh-keygen -lf`` print it. The one pattern of
+#: it: a join code, a guided enrollment and the acceptance of a new host key all judge one.
+FINGERPRINT = re.compile(r"SHA256:[A-Za-z0-9+/]{43}")
 
 #: Key types a central or a node key may be. ed25519 only: every OpenSSH
 #: that ships Noust has it, and one type is one parser to get right.

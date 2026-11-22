@@ -4158,8 +4158,12 @@ def scenario_legacy_inplace_sandbox(sc: Scenario) -> None:
 SANDBOX_RUNNER_PROBE = r"""
 import json, subprocess
 from noust.core.runner import SandboxSpec, SubprocessRunner
+from noust.deployers.helpers.sandbox import ensure_build_account
 
 runner = SubprocessRunner()
+# The account is made by the first sandboxed build of a server, so a server that has not built anything yet
+# (this scenario first in a run) does not have it: make it as a build does, and the order stops mattering.
+ensure_build_account(runner)
 spec = SandboxSpec(user="noust-build", name="it-runner")
 out = {}
 failed = runner.run(["sh", "-c", "echo no >&2; exit 3"], sandbox=spec, timeout=60)

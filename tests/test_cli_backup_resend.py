@@ -90,6 +90,23 @@ class TestTheCommand:
         assert result.exit_code == 0
         assert "4" in result.output  # what is still owed
 
+    def test_a_copy_another_pass_is_sending_is_said_as_that(self, passes: Passes) -> None:
+        passes.report = ResendReport(sent=1, busy=2, owed=0)
+
+        result = invoke()
+
+        assert result.exit_code == 0, result.output
+        assert "2 more are already being sent by another pass" in result.output
+
+    def test_a_pass_with_nothing_else_to_say_does_not_say_nothing_is_owed_when_one_is_in_hand(
+        self, passes: Passes
+    ) -> None:
+        passes.report = ResendReport(busy=1, owed=1)
+
+        result = invoke()
+
+        assert "No copy is owed" not in result.output
+
     def test_the_json_is_the_report(self, passes: Passes) -> None:
         result = invoke("--json")
 

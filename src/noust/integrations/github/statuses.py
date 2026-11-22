@@ -36,6 +36,7 @@ from noust.core.deploy_events import DeployEvent, DeployEventKind
 from noust.core.exceptions import NoustError
 from noust.core.github_host import integration_repository
 from noust.core.store import get_store
+from noust.deployers.helpers.edge import answers_at
 from noust.integrations.github.app import GitHubApp, installation_for, load_app
 from noust.integrations.github.client import repo_path
 
@@ -57,13 +58,15 @@ class Target:
         repository: ``owner/repo``.
         installation_id: The installation that reaches it.
         environment: ``production``, or ``preview`` for a preview.
-        environment_url: The application's address.
+        environment_url: Where the application answers on this machine
+            (:func:`noust.deployers.helpers.edge.answers_at`); None when nothing does, and then
+            GitHub is not told an address.
     """
 
     repository: str
     installation_id: int
     environment: str
-    environment_url: str
+    environment_url: str | None
 
 
 def target_for(domain: str) -> Target | None:
@@ -97,7 +100,7 @@ def target_for(domain: str) -> Target | None:
         repository=repository,
         installation_id=installation,
         environment="preview" if app.preview_parent else "production",
-        environment_url=f"https://{app.domain}",
+        environment_url=answers_at(app.domain, ssl=bool(app.ssl_enabled), port=app.port),
     )
 
 
@@ -309,7 +312,7 @@ def post_status(
         "environment": target.environment,
         "auto_inactive": state == "success",
     }
-    if state == "success":
+    if state == "success" and target.environment_url:
         body["environment_url"] = target.environment_url
     app.as_installation(
         target.installation_id,

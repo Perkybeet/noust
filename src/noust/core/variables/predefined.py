@@ -67,6 +67,11 @@ class Deployment:
             anything else, a preview of a branch or a tag included.
         preview_of: The application a preview is a copy of; None for any
             application that is not a preview.
+        address: Where the application answers on this machine, when the caller
+            asked the machine's edge (:func:`noust.deployers.helpers.edge.answers_at`):
+            the machine and the port where there is no site, which the name is not an
+            address of. None leaves it to ``ssl`` and ``domain``, which is what a
+            site answers at.
     """
 
     domain: str
@@ -77,11 +82,12 @@ class Deployment:
     port: int | None = None
     pull_request: int | None = None
     preview_of: str | None = None
+    address: str | None = None
 
     @property
     def url(self) -> str:
         """Where the application answers."""
-        return f"{'https' if self.ssl else 'http'}://{self.domain}"
+        return self.address or f"{'https' if self.ssl else 'http'}://{self.domain}"
 
     def fields(self) -> dict[str, str]:
         """

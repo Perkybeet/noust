@@ -19,9 +19,13 @@ same as the answer zero. The directory of an application's cgroup is the monitor
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
+
+#: What a container's id is, so that what is joined to a path is never anything else.
+_CONTAINER_ID = re.compile(r"[0-9a-f]{12,64}")
 
 
 @dataclass(frozen=True)
@@ -140,6 +144,30 @@ def read_facts(cgroup: Path) -> OomFacts:
         peak=read_memory_peak(cgroup),
         readable=kills is not None,
     )
+
+
+def container_cgroup(mount: Path, container_id: str) -> Path | None:
+    """
+    Find the cgroup of a running container.
+
+    Docker puts each container in a scope of its own: ``system.slice/docker-<id>.scope`` under the
+    systemd cgroup driver, ``docker/<id>`` under cgroupfs. It exists while the container runs, and is
+    made again at each start, so a counter in it starts again from zero as a unit's does.
+
+    Args:
+        mount: Where the cgroups are mounted.
+        container_id: The container's id, as Docker prints it.
+
+    Returns:
+        The directory, or None when the container is not running, or the text is not an id.
+    """
+    if _CONTAINER_ID.fullmatch(container_id) is None:
+        return None
+    for relative in (f"system.slice/docker-{container_id}.scope", f"docker/{container_id}"):
+        candidate = mount / relative
+        if candidate.is_dir():
+            return candidate
+    return None
 
 
 def combine(parts: Iterable[OomFacts]) -> OomFacts:

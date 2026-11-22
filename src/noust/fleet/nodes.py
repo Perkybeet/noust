@@ -41,7 +41,9 @@ from noust.core import audit
 from noust.core.exceptions import NodeError, NodeRefusedError, NodeUnreachableError, ValidationError
 from noust.core.runner import CommandRunner
 from noust.core.secrets import SecretStore
+from noust.core.server_text import say
 from noust.core.store import NodeRecord, NoustStore, get_store
+from noust.fleet import host_keys
 from noust.fleet.client import NodeClient, actor_label
 from noust.fleet.joincode import JoinCode
 
@@ -1098,6 +1100,97 @@ class NodeManager:
                     undo()
         self.refresh_access(name, actor=actor)
         return self.get(name)
+
+    # -------------------------------------------------------------------------
+    # The host key a server presents
+    # -------------------------------------------------------------------------
+
+    def read_host_key(self, name: str) -> host_keys.HostKeyReading:
+        """
+        Ask a server's own address which host key it presents, beside the one pinned.
+
+        Changes nothing. This is the first of the two steps of taking a new host key
+        (:mod:`noust.fleet.host_keys`): the person compares the fingerprints with what the server
+        says of itself.
+
+        Args:
+            name: The node's name.
+
+        Returns:
+            The pinned and the presented fingerprints, and whether they differ.
+
+        Raises:
+            NodeError: When no node has that name, it dials in or is reached through a bastion, or
+                nothing answers at its address.
+        """
+        record = self._get_over_ssh(name)
+        host_keys.require_direct(record, self.ssh_options(name))
+        # Imported here: the enrollment is built on this registry.
+        from noust.fleet.enroll import NodeEnroller
+
+        scan = NodeEnroller(self, runner=self._keys.runner).scan_host_key(
+            record.ssh_host, record.ssh_port
+        )
+        return host_keys.reading(record, scan.key.bare, scan.fingerprint)
+
+    def accept_host_key(
+        self, name: str, *, fingerprint: str, actor: str | None = None
+    ) -> host_keys.HostKeyAccepted:
+        """
+        Pin the host key a server presents now, when it is the one whose fingerprint was given.
+
+        The decision is a person's, and what makes it one is the fingerprint: it is asked of the
+        address again here, and the key is taken only when it is exactly that, so a key that changed
+        once more since it was shown, or an address that now answers for another server, changes
+        nothing. The tunnel is closed and opened again with the new pin, and when the server does
+        not answer through it the old pin, the old record and a closed tunnel are what is left.
+
+        Args:
+            name: The node's name.
+            fingerprint: ``SHA256:...``, as the person read it on the server.
+            actor: Who accepts it, for the node's audit log; :func:`cli_actor` when None.
+
+        Returns:
+            What was pinned, and what had been.
+
+        Raises:
+            NodeError: When the text is not a fingerprint, what answers is not that key, the node
+                cannot be asked (see :meth:`read_host_key`), or it does not answer with the new key.
+        """
+        wanted = host_keys.require_fingerprint(fingerprint)
+        record = self._get_over_ssh(name)
+        seen = self.read_host_key(name)
+        if seen.presented != wanted:
+            raise NodeError.from_text(
+                say(
+                    "fleet.host_key.not_what_answers",
+                    node=record.name,
+                    presented=seen.presented,
+                    given=wanted,
+                )
+            )
+        if not seen.changed:
+            return host_keys.HostKeyAccepted(record.name, seen.pinned, seen.presented, False)
+        line = known_hosts_line(name, seen.key)
+        self.tunnels.close(name)
+        switched = False
+        try:
+            self._keys.pin_host_key(name, line)
+            self.store.save_node(NodeRecord(**{**record.to_dict(), "host_key": line}))
+            info = self.client(name, retry_refused=True).get_json(
+                VERSION_PATH, actor=actor or cli_actor(), actor_scope="read"
+            )
+            version = info.get("current_version") if isinstance(info, dict) else None
+            self.store.set_node_status(
+                name, "reachable", version=version if isinstance(version, str) else None
+            )
+            switched = True
+        finally:
+            if not switched:
+                self.tunnels.close(name)
+                self._keys.pin_host_key(name, record.host_key)
+                self.store.save_node(record)
+        return host_keys.HostKeyAccepted(record.name, seen.pinned, seen.presented, True)
 
     @staticmethod
     def _outcome(

@@ -705,6 +705,15 @@ export const serverText = {
       oom_machine: {
         text: "The kernel killed {domain} for running out of memory and it has no memory limit, so the server ran out of memory (it used up to {peak}). Free memory on the server, or give the application a limit it can keep to: {command}",
       },
+      oom_machine_no_peak: {
+        text: "The kernel killed {domain} for running out of memory and it has no memory limit, so the server ran out of memory. Free memory on the server, or give the application a limit it can keep to: {command}",
+      },
+      oom_service_limit: {
+        text: "The kernel killed {containers} of {domain} for running out of memory: its limit is {limit}, so it needs more than it is allowed. Raise the memory limit of that service in the compose file (mem_limit, or deploy.resources.limits.memory), then run: {command}",
+      },
+      oom_service_machine: {
+        text: "The kernel killed {containers} of {domain} for running out of memory and it has no memory limit, so the server ran out of memory. Free memory on the server, or give the service a limit it can keep to in the compose file (mem_limit, or deploy.resources.limits.memory), then run: {command}",
+      },
       oom_unit: {
         text: "systemd records that the last run of {domain} ended because the kernel killed it for running out of memory. See its memory limit with: {command}",
       },
@@ -868,6 +877,9 @@ export const serverText = {
       },
     },
     oom: {
+      containers_killed: {
+        text: "The kernel killed {containers} of this application for running out of memory: Docker records it in the last run of the container",
+      },
       found: {
         text: "The kernel log shows OOM activity in the last 7 days",
       },
@@ -1286,6 +1298,20 @@ export const serverText = {
     },
   },
   fleet: {
+    host_key: {
+      bastion: {
+        text: "{node} is reached through a bastion, so this central cannot ask which host key it presents",
+        hint: "Its address answers only through the bastion. Read the key on the server itself (ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub) and, if the server really changed, remove it and add it again: noust node remove {node}",
+      },
+      fingerprint_malformed: {
+        text: "That is not a host key fingerprint",
+        hint: "A fingerprint is SHA256: followed by 43 letters, digits, + and /, as ssh-keygen prints it on the server itself: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub",
+      },
+      not_what_answers: {
+        text: "{node} presents the key {presented}, not the key {given} that you gave, so nothing was changed",
+        hint: "Either the key of the server changed again, or the address answers for another server. Read the key on the server itself (ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub) and ask again.",
+      },
+    },
     node_descriptors_exhausted: {
       text: "{node} ran out of file descriptors",
       hint: "Its console cannot open a file or a socket until some are freed. On {node}, run: {command}. Then run 'noust setup doctor' there: it says whether the console's unit still has the limit from before 4.3 (1024 files).",
@@ -5925,6 +5951,18 @@ export const serverText = {
     },
     nothing_ran_named: {
       text: "Nothing made from {file} has run yet, so there is nothing to keep as it is. Adopting registers the stack under the project name its own file gives it and starts nothing; the first start creates everything the file describes.",
+    },
+    dirty_checkout: {
+      text: "The checkout has changes to tracked files; the next update resets them to the branch (files git does not track, such as .env and data, are kept).",
+    },
+    no_site: {
+      text: "No site in sites-available answers on {domain}; nothing serves it through the web server until one does.",
+    },
+    site_not_enabled: {
+      text: "The site {site} is not enabled.",
+    },
+    loopback_only: {
+      text: "It publishes its port on 127.0.0.1 only: it is reachable from the NAS itself and not from your network. Publish it on the network in your compose file, or reach it through a reverse proxy on the NAS.",
     },
   },
   security_checks: {

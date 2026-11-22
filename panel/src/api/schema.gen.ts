@@ -25656,6 +25656,83 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/nodes/{node}/host-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept Node Host Key
+         * @description Accept the new SSH host key of a server, and open its tunnel again.
+         *
+         *     The central asks the address again and takes the key only when its fingerprint is the one given,
+         *     replaces the pinned line and reopens the tunnel; when the server does not answer through it, the old
+         *     pin is put back. The decision is the caller's, made with the fingerprints
+         *     ``POST /api/nodes/{node}/host-key/scan`` showed and what the server says of itself, so it needs sudo
+         *     mode and is audited whether it is taken or refused.
+         *
+         *     Args:
+         *         node: The node's name.
+         *         body: The fingerprint the caller read on the server.
+         *         request: The incoming request, for the audit record.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What was pinned and what had been, and the server as it is reached now.
+         *
+         *     Raises:
+         *         NodeError: 400 when the text is not a fingerprint, what answers is not that key, or the server
+         *             cannot be asked from here; 502 when it does not answer with the new key (the old pin is
+         *             back); 404 when it is not registered.
+         */
+        post: operations["accept_node_host_key_api_nodes__node__host_key_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/nodes/{node}/host-key/scan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Scan Node Host Key
+         * @description Ask a server's own address which SSH host key it presents, beside the one pinned.
+         *
+         *     A server that presents another host key has its tunnel closed and is not trusted again by itself.
+         *     This is the first of the two steps of accepting the new key, and it changes nothing: the caller
+         *     compares both fingerprints with what the server says of itself (``ssh-keygen -lf
+         *     /etc/ssh/ssh_host_ed25519_key.pub``). The central connects to the address to read the key, which is
+         *     why this needs the permission to manage the fleet and not the one to read it.
+         *
+         *     Args:
+         *         node: The node's name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The two fingerprints and whether they differ.
+         *
+         *     Raises:
+         *         NodeError: 400 when the server dials in or is reached through a bastion (it cannot be asked
+         *             from here), or nothing answers at its address; 404 when it is not registered.
+         */
+        post: operations["scan_node_host_key_api_nodes__node__host_key_scan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/nodes/{node}/inventory": {
         parameters: {
             query?: never;
@@ -53498,6 +53575,60 @@ export interface components {
              * @description Where it runs
              */
             workdir?: string | null;
+        };
+        /**
+         * HostKeyAcceptIn
+         * @description Body of ``POST /api/nodes/{node}/host-key``.
+         *
+         *     Attributes:
+         *         fingerprint: ``SHA256:...`` of the key the server presents, as the caller read it on the
+         *             server itself. The key is taken only when what answers is exactly this.
+         */
+        HostKeyAcceptIn: {
+            /** Fingerprint */
+            fingerprint: string;
+        };
+        /**
+         * HostKeyAcceptedOut
+         * @description What accepting a server's new host key did.
+         *
+         *     Attributes:
+         *         node: The server as it is reached now.
+         *         previous: The fingerprint that was pinned.
+         *         presented: The fingerprint that is pinned now.
+         *         changed: False when the server presented the key already pinned and nothing was accepted.
+         */
+        HostKeyAcceptedOut: {
+            /** Changed */
+            changed: boolean;
+            node: components["schemas"]["NodeResponse"];
+            /** Presented */
+            presented: string;
+            /** Previous */
+            previous?: string | null;
+        };
+        /**
+         * HostKeyReadingOut
+         * @description What a server presents now beside what is pinned, from ``POST /api/nodes/{node}/host-key/scan``.
+         *
+         *     Attributes:
+         *         node: The server's name.
+         *         address: Where the central asked, ``user@host:port``.
+         *         pinned: The fingerprint of the key pinned when the server was added.
+         *         presented: The fingerprint of the key it presents now.
+         *         changed: Whether the two differ.
+         */
+        HostKeyReadingOut: {
+            /** Address */
+            address: string;
+            /** Changed */
+            changed: boolean;
+            /** Node */
+            node: string;
+            /** Pinned */
+            pinned?: string | null;
+            /** Presented */
+            presented: string;
         };
         /**
          * HostKeyRequest
@@ -107004,6 +107135,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NodeRemovedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_node_host_key_api_nodes__node__host_key_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HostKeyAcceptIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostKeyAcceptedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    scan_node_host_key_api_nodes__node__host_key_scan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostKeyReadingOut"];
                 };
             };
             /** @description Validation Error */

@@ -226,6 +226,54 @@ class MonitoringRequest(BaseModel):
     reason: str | None = Field(default=None, max_length=200)
 
 
+class HostKeyReadingOut(BaseModel):
+    """
+    What a server presents now beside what is pinned, from ``POST /api/nodes/{node}/host-key/scan``.
+
+    Attributes:
+        node: The server's name.
+        address: Where the central asked, ``user@host:port``.
+        pinned: The fingerprint of the key pinned when the server was added.
+        presented: The fingerprint of the key it presents now.
+        changed: Whether the two differ.
+    """
+
+    node: str
+    address: str
+    pinned: str | None = None
+    presented: str
+    changed: bool
+
+
+class HostKeyAcceptIn(BaseModel):
+    """
+    Body of ``POST /api/nodes/{node}/host-key``.
+
+    Attributes:
+        fingerprint: ``SHA256:...`` of the key the server presents, as the caller read it on the
+            server itself. The key is taken only when what answers is exactly this.
+    """
+
+    fingerprint: str = Field(max_length=100)
+
+
+class HostKeyAcceptedOut(BaseModel):
+    """
+    What accepting a server's new host key did.
+
+    Attributes:
+        node: The server as it is reached now.
+        previous: The fingerprint that was pinned.
+        presented: The fingerprint that is pinned now.
+        changed: False when the server presented the key already pinned and nothing was accepted.
+    """
+
+    node: NodeResponse
+    previous: str | None = None
+    presented: str
+    changed: bool
+
+
 class NodeListResponse(BaseModel):
     """
     Response for ``GET /api/nodes``.
@@ -753,6 +801,99 @@ def ask_bastion_line(
     proposed = _chosen_bastion(manager, record.name, body)
     return BastionLineOut(
         authorized_key_line=manager.bastion_authorization(record.name, bastion=proposed)
+    )
+
+
+@router.post("/{node}/host-key/scan", response_model=HostKeyReadingOut)
+def scan_node_host_key(
+    node: str, session: Annotated[dict[str, Any], Depends(require_auth)]
+) -> HostKeyReadingOut:
+    """
+    Ask a server's own address which SSH host key it presents, beside the one pinned.
+
+    A server that presents another host key has its tunnel closed and is not trusted again by itself.
+    This is the first of the two steps of accepting the new key, and it changes nothing: the caller
+    compares both fingerprints with what the server says of itself (``ssh-keygen -lf
+    /etc/ssh/ssh_host_ed25519_key.pub``). The central connects to the address to read the key, which is
+    why this needs the permission to manage the fleet and not the one to read it.
+
+    Args:
+        node: The node's name.
+        session: The authenticated session.
+
+    Returns:
+        The two fingerprints and whether they differ.
+
+    Raises:
+        NodeError: 400 when the server dials in or is reached through a bastion (it cannot be asked
+            from here), or nothing answers at its address; 404 when it is not registered.
+    """
+    record = find_node(node)
+    return HostKeyReadingOut(**node_manager().read_host_key(record.name).to_dict())
+
+
+@router.post("/{node}/host-key", response_model=HostKeyAcceptedOut)
+def accept_node_host_key(
+    node: str,
+    body: HostKeyAcceptIn,
+    request: Request,
+    session: Annotated[dict[str, Any], Depends(require_elevated)],
+) -> HostKeyAcceptedOut:
+    """
+    Accept the new SSH host key of a server, and open its tunnel again.
+
+    The central asks the address again and takes the key only when its fingerprint is the one given,
+    replaces the pinned line and reopens the tunnel; when the server does not answer through it, the old
+    pin is put back. The decision is the caller's, made with the fingerprints
+    ``POST /api/nodes/{node}/host-key/scan`` showed and what the server says of itself, so it needs sudo
+    mode and is audited whether it is taken or refused.
+
+    Args:
+        node: The node's name.
+        body: The fingerprint the caller read on the server.
+        request: The incoming request, for the audit record.
+        session: The authenticated, elevated session.
+
+    Returns:
+        What was pinned and what had been, and the server as it is reached now.
+
+    Raises:
+        NodeError: 400 when the text is not a fingerprint, what answers is not that key, or the server
+            cannot be asked from here; 502 when it does not answer with the new key (the old pin is
+            back); 404 when it is not registered.
+    """
+    record = find_node(node)
+    manager = node_manager()
+    try:
+        done = manager.accept_host_key(
+            record.name, fingerprint=body.fingerprint, actor=actor_label(session)
+        )
+    except NodeError as exc:
+        _audit(
+            request,
+            session,
+            "fleet.node.host_key",
+            record.name,
+            detail=exc.message,
+            result="failure",
+        )
+        raise
+    _audit(
+        request,
+        session,
+        "fleet.node.host_key",
+        record.name,
+        detail=(
+            f"{done.previous or 'none'} -> {done.presented}"
+            if done.changed
+            else f"{done.presented}, already pinned"
+        ),
+    )
+    return HostKeyAcceptedOut(
+        node=describe(manager.get(record.name)),
+        previous=done.previous,
+        presented=done.presented,
+        changed=done.changed,
     )
 
 

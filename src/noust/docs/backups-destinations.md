@@ -156,7 +156,10 @@ message, or none:
   timer (`noust-backup-resend`, every five minutes, made the first time a copy is owed); the central of a
   machine without systemd runs the same command with its own scheduler. `noust backup resend` runs it now
   (`--now` tries everything that is owed, not only what is due). A destination that does not answer ends the
-  tries to it for that pass, the others go on.
+  tries to it for that pass, the others go on. Two passes that meet (the timer's and one started by hand, or two
+  timers after a network cut) never send the same copy: a pass takes a copy in hand before it sends it, and
+  leaves to the other what the other has (`noust backup resend` says how many it left). The hold is released
+  when the pass ends, however it ends, so a pass that was killed holds nothing.
 - **A copy that is owed is never deleted to make room.** No retention of any kind of copy deletes a copy that
   is still owed to a destination, for fourteen days; past them the retention decides again (a disk cannot wait
   for ever) and says it in the audit trail (`backup.unsent_delete`). A schedule that keeps nothing on this server

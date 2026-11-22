@@ -70,6 +70,11 @@ SENTENCES: dict[str, str] = {
     "compose_adopt.no_repository": "{path} has no repository, so Noust fetches no code for it. Adopting changes nothing that runs now. The first update downloads the images the compose file names and recreates only the containers whose image or settings changed. To follow a repository instead, clone it in that folder and adopt the stack again with that repository as its source.",
     "compose_adopt.nothing_ran": "Nothing made from {file} has run yet, so there is nothing to keep as it is. Adopting registers the stack under the project name {project} and starts nothing; the first start creates everything the file describes.",
     "compose_adopt.nothing_ran_named": "Nothing made from {file} has run yet, so there is nothing to keep as it is. Adopting registers the stack under the project name its own file gives it and starts nothing; the first start creates everything the file describes.",
+    # -- What adopting says of the checkout and of how the stack is reached --------------------------------
+    "compose_adopt.dirty_checkout": "The checkout has changes to tracked files; the next update resets them to the branch (files git does not track, such as .env and data, are kept).",
+    "compose_adopt.no_site": "No site in sites-available answers on {domain}; nothing serves it through the web server until one does.",
+    "compose_adopt.site_not_enabled": "The site {site} is not enabled.",
+    "compose_adopt.loopback_only": "It publishes its port on 127.0.0.1 only: it is reachable from the NAS itself and not from your network. Publish it on the network in your compose file, or reach it through a reverse proxy on the NAS.",
     # -- What a deployment is refused with -------------------------------------------------------------
     "compose_guard.asks_for_root": "{domain}'s compose file asks for root on this server",
     "compose_guard.asks_for_root.hint": "{lines}\n\nThe compose file comes from the repository and Docker runs it as root: what is listed above gives a container this server, and the stack did not run with it before. Remove it, or record why this stack needs it and deploy again: {command}",

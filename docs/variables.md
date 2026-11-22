@@ -167,8 +167,12 @@ saved, never a silent drop.
 ## What Noust gives every application
 
 `NOUST_URL`, `NOUST_DOMAIN`, `NOUST_BRANCH`, `NOUST_COMMIT` and `NOUST_RELEASE` are given to the
-running application, and going back to an earlier release gives it that release's commit. Where
-they are written depends on what loads them:
+running application, and going back to an earlier release gives it that release's commit.
+`NOUST_URL` is where the application answers on this machine: its domain, over HTTPS when a certificate
+covers it and over HTTP when none does, and where there is no site (the central of a NAS that deploys on its
+own machine) the machine and the port it is published on, `http://nas:8081`, because nothing answers to the
+name there. The statuses a code host shows for a deployment lead to the same address. Where they are written
+depends on what loads them:
 
 | Type | Where | Rollback |
 |---|---|---|

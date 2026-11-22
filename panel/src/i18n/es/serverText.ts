@@ -694,6 +694,15 @@ export const serverText: Catalog<typeof en> = {
       oom_machine: {
         text: "El núcleo cerró {domain} por falta de memoria y no tiene límite de memoria, así que fue el servidor el que se quedó sin ella (llegó a usar {peak}). Libera memoria en el servidor, o dale a la aplicación un límite que pueda cumplir: {command}",
       },
+      oom_machine_no_peak: {
+        text: "El núcleo cerró {domain} por falta de memoria y no tiene límite de memoria, así que fue el servidor el que se quedó sin ella. Libera memoria en el servidor, o dale a la aplicación un límite que pueda cumplir: {command}",
+      },
+      oom_service_limit: {
+        text: "El núcleo cerró {containers} de {domain} por falta de memoria: su límite es {limit}, así que necesita más de lo que se le permite. Sube el límite de memoria de ese servicio en el archivo compose (mem_limit o deploy.resources.limits.memory) y ejecuta: {command}",
+      },
+      oom_service_machine: {
+        text: "El núcleo cerró {containers} de {domain} por falta de memoria y no tiene límite de memoria, así que fue el servidor el que se quedó sin ella. Libera memoria en el servidor, o dale al servicio un límite que pueda cumplir en el archivo compose (mem_limit o deploy.resources.limits.memory) y ejecuta: {command}",
+      },
       oom_unit: {
         text: "systemd registra que la última ejecución de {domain} terminó porque el núcleo la cerró por falta de memoria. Mira su límite de memoria con: {command}",
       },
@@ -857,6 +866,9 @@ export const serverText: Catalog<typeof en> = {
       },
     },
     oom: {
+      containers_killed: {
+        text: "El núcleo cerró {containers} de esta aplicación por falta de memoria: Docker lo registra en la última ejecución del contenedor",
+      },
       found: {
         text: "El registro del kernel muestra actividad por falta de memoria en los últimos 7 días",
       },
@@ -1275,6 +1287,20 @@ export const serverText: Catalog<typeof en> = {
     },
   },
   fleet: {
+    host_key: {
+      bastion: {
+        text: "{node} se alcanza a través de un bastión, así que esta central no puede preguntarle qué clave de host presenta",
+        hint: "Su dirección responde solo a través del bastión. Lee la clave en el propio servidor (ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub) y, si el servidor ha cambiado de verdad, quítalo y vuelve a añadirlo: noust node remove {node}",
+      },
+      fingerprint_malformed: {
+        text: "Eso no es una huella de clave de host",
+        hint: "Una huella es SHA256: seguido de 43 letras, dígitos, + y /, tal como la imprime ssh-keygen en el propio servidor: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub",
+      },
+      not_what_answers: {
+        text: "{node} presenta la clave {presented}, no la clave {given} que indicaste, así que no se ha cambiado nada",
+        hint: "O la clave del servidor ha vuelto a cambiar, o la dirección responde por otro servidor. Lee la clave en el propio servidor (ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub) y vuelve a preguntar.",
+      },
+    },
     node_descriptors_exhausted: {
       text: "{node} se quedó sin descriptores de archivo",
       hint: "Su consola no puede abrir un archivo ni un socket hasta que se liberen algunos. En {node}, ejecuta: {command}. Después ejecuta 'noust setup doctor' allí: dice si la unidad de la consola aún tiene el límite de antes de la 4.3 (1024 archivos).",
@@ -5914,6 +5940,18 @@ export const serverText: Catalog<typeof en> = {
     },
     nothing_ran_named: {
       text: "Todavía no se ha puesto en marcha nada creado con {file}, así que no hay nada corriendo que conservar tal cual. Registrar la pila la guarda con el nombre de proyecto que le da su propio archivo y no arranca nada; el primer arranque crea todo lo que describe el archivo.",
+    },
+    dirty_checkout: {
+      text: "El checkout tiene cambios en archivos que git sigue; la próxima actualización los restablece a como están en la rama (los archivos que git no sigue, como .env y los datos, se conservan).",
+    },
+    no_site: {
+      text: "Ningún sitio de sites-available responde en {domain}; el servidor web no sirve nada en ese nombre hasta que haya uno.",
+    },
+    site_not_enabled: {
+      text: "El sitio {site} no está activado.",
+    },
+    loopback_only: {
+      text: "Publica su puerto solo en 127.0.0.1: se llega a él desde el propio NAS, pero no desde tu red. Publícalo en la red en tu archivo compose, o accede a él a través de un proxy inverso en el NAS.",
     },
   },
   security_checks: {

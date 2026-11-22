@@ -20,6 +20,24 @@ them before the rest):
   `panel/openapi.baseline.json` in the same commit (`python scripts/api_compat.py --update
   --accept-breaking`).
 
+## 4.4.0
+
+API version 1. No operation is removed or deprecated, and `python scripts/api_compat.py` keeps passing
+against the schema of 4.3.0.
+
+### Added
+
+- `POST /api/nodes/{node}/host-key/scan` reads the SSH host key a server presents now beside the one the central
+  kept, and `POST /api/nodes/{node}/host-key` (sudo mode) accepts it by its fingerprint and opens the tunnel
+  again. Both need `fleet.manage`.
+- The summary of sending the copies that wait has `busy`: how many another pass was already sending.
+- `GET /api/system/health` has one more check, `Compose stacks`.
+
+### Changed, without breaking a client
+
+- The verdict of `GET /api/apps/{domain}/diagnose` is `degraded` only with a probable cause; a warning with
+  nothing to do about it no longer changes it.
+
 ## 4.3.0
 
 API version 1. No operation is removed or deprecated, and `python scripts/api_compat.py` keeps passing

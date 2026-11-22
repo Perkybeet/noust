@@ -12,6 +12,7 @@ edited after.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import Any
 
 import pytest
@@ -82,6 +83,61 @@ def linked(github_configured: NoustStore) -> NoustStore:
         App(domain="a.example.com", source="github:you/app", branch="main")
     )
     return github_configured
+
+
+@pytest.fixture
+def container_host(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """The central of a NAS that deploys on its own machine: no site, ports of the machine."""
+    from noust.core.config import Config
+
+    monkeypatch.setenv("NOUST_CENTRAL_ROLE", "hub")
+    monkeypatch.setenv("NOUST_DEPLOY_HERE", "containers")
+    monkeypatch.setattr("noust.deployers.helpers.edge.machine_name", lambda _runner: "nas-oficina")
+    Config.reset_instance()
+    yield
+    # The configuration read under this environment must not outlive it: the next one is read afresh.
+    Config.reset_instance()
+
+
+def test_the_address_is_where_the_application_answers_on_this_machine(
+    linked: NoustStore, container_host: None
+) -> None:
+    linked.create_app(App(domain="b.example.com", source="github:you/app", port=8081))
+
+    target = statuses.target_for("b.example.com")
+
+    # Nothing answers to its name on a machine with no site: the machine and the port do.
+    assert target is not None and target.environment_url == "http://nas-oficina:8081"
+
+
+def test_a_site_without_a_certificate_answers_over_http(linked: NoustStore) -> None:
+    linked.create_app(App(domain="c.example.com", source="github:you/app", ssl_enabled=False))
+
+    target = statuses.target_for("c.example.com")
+
+    assert target is not None and target.environment_url == "http://c.example.com"
+
+
+def test_an_application_that_answers_nowhere_gives_no_address_to_github(
+    linked: NoustStore, container_host: None
+) -> None:
+    linked.create_app(App(domain="w.example.com", source="github:you/app", port=None))
+
+    target = statuses.target_for("w.example.com")
+
+    assert target is not None and target.environment_url is None
+
+
+def test_the_address_is_left_out_of_a_status_that_has_none(linked: NoustStore) -> None:
+    fake = FakeApp()
+    target = statuses.Target(
+        repository="you/app", installation_id=INSTALLATION_ID, environment="production",
+        environment_url=None,
+    )  # fmt: skip
+
+    statuses.post_status(fake, target, 100, "success", "Deployed")  # type: ignore[arg-type]
+
+    assert "environment_url" not in fake.calls[-1][3]  # type: ignore[operator]
 
 
 def test_the_target_is_decided_from_the_store(linked: NoustStore) -> None:

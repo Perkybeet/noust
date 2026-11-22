@@ -425,7 +425,8 @@ announced, and the fleet still shows what it last answered, with the reason besi
 
 A central sends `node_unreachable` when a server stops answering, `node_recovered` when it
 answers again, and `node_host_key_changed` when a server's SSH host key changed and the tunnel
-was closed, through the central's own notification channels. `server.name` names each server in
+was closed (`noust node host-key NAME` compares the two keys and takes the new one,
+[see](CENTRAL.md#a-server-whose-ssh-host-key-changed)), through the central's own notification channels. `server.name` names each server in
 every message. These three are the central's own and the only things it says: a server's deploys,
 its disk, its certificates and its alerts are said by that server, through its own channels (the
 ones the fleet sent it, [above](#where-a-channel-is-heard), and any of its own), so they keep

@@ -55,6 +55,7 @@ from noust.core.secrets import secrets_dir
 from noust.core.store import NodeRecord
 from noust.fleet.joincode import JoinCode
 from noust.fleet.models import (
+    FINGERPRINT,
     PublicKey,
     central_name,
     parse_public_key,
@@ -98,7 +99,6 @@ MAX_PRIVATE_KEY = 16384
 #: How much of a failing command's output goes in an error.
 OUTPUT_TAIL = 2000
 
-_FINGERPRINT = re.compile(r"SHA256:[A-Za-z0-9+/]{43}")
 _PRIVATE_KEY = re.compile(r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----")
 _VERSION = re.compile(r"Noust (\d+)\.(\d+)\.(\d+)")
 
@@ -517,7 +517,7 @@ class NodeEnroller:
                 details="The account and the port are separate fields.",
                 field="host",
             )
-        if not _FINGERPRINT.fullmatch(request.host_key_fingerprint):
+        if not FINGERPRINT.fullmatch(request.host_key_fingerprint):
             raise NodeError(
                 "The host key fingerprint is missing or malformed",
                 details="Scan the server first and confirm what it shows: SHA256:... "

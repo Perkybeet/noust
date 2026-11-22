@@ -37,6 +37,7 @@ from noust.core.variables.predefined import Deployment
 from noust.core.variables.resolver import Resolver, context_for
 from noust.core.variables.store import VariableStore
 from noust.deployers.helpers.app_env import read_environment_of, refresh_app_env
+from noust.deployers.helpers.edge import answers_at
 from noust.deployers.helpers.env_manager import EnvManager
 from noust.deployers.helpers.env_variables import (
     AppEnvironment,
@@ -129,15 +130,17 @@ def describe_deployment(
         if preview or (row is not None and row.preview_parent)
         else (None, None)
     )
+    secure = bool(row.ssl_enabled) if row is not None else ssl
     return Deployment(
         domain=domain,
-        ssl=bool(row.ssl_enabled) if row is not None else ssl,
+        ssl=secure,
         branch=branch,
         commit=commit,
         release=release,
         port=port,
         pull_request=pull_request,
         preview_of=preview_of,
+        address=answers_at(domain, ssl=secure, port=port),
     )
 
 

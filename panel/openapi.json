@@ -32542,6 +32542,95 @@
         "title": "HookModel",
         "type": "object"
       },
+      "HostKeyAcceptIn": {
+        "description": "Body of ``POST /api/nodes/{node}/host-key``.\n\nAttributes:\n    fingerprint: ``SHA256:...`` of the key the server presents, as the caller read it on the\n        server itself. The key is taken only when what answers is exactly this.",
+        "properties": {
+          "fingerprint": {
+            "maxLength": 100,
+            "title": "Fingerprint",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fingerprint"
+        ],
+        "title": "HostKeyAcceptIn",
+        "type": "object"
+      },
+      "HostKeyAcceptedOut": {
+        "description": "What accepting a server's new host key did.\n\nAttributes:\n    node: The server as it is reached now.\n    previous: The fingerprint that was pinned.\n    presented: The fingerprint that is pinned now.\n    changed: False when the server presented the key already pinned and nothing was accepted.",
+        "properties": {
+          "changed": {
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "node": {
+            "$ref": "#/components/schemas/NodeResponse"
+          },
+          "presented": {
+            "title": "Presented",
+            "type": "string"
+          },
+          "previous": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous"
+          }
+        },
+        "required": [
+          "node",
+          "presented",
+          "changed"
+        ],
+        "title": "HostKeyAcceptedOut",
+        "type": "object"
+      },
+      "HostKeyReadingOut": {
+        "description": "What a server presents now beside what is pinned, from ``POST /api/nodes/{node}/host-key/scan``.\n\nAttributes:\n    node: The server's name.\n    address: Where the central asked, ``user@host:port``.\n    pinned: The fingerprint of the key pinned when the server was added.\n    presented: The fingerprint of the key it presents now.\n    changed: Whether the two differ.",
+        "properties": {
+          "address": {
+            "title": "Address",
+            "type": "string"
+          },
+          "changed": {
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "node": {
+            "title": "Node",
+            "type": "string"
+          },
+          "pinned": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pinned"
+          },
+          "presented": {
+            "title": "Presented",
+            "type": "string"
+          }
+        },
+        "required": [
+          "node",
+          "address",
+          "presented",
+          "changed"
+        ],
+        "title": "HostKeyReadingOut",
+        "type": "object"
+      },
       "HostKeyRequest": {
         "description": "Body of ``POST /api/fleet/enroll/host-key``.\n\nAttributes:\n    host: The server's address or name.\n    port: Where its sshd listens.",
         "properties": {
@@ -123810,6 +123899,105 @@
           "Nodes"
         ],
         "x-noust-permission": "fleet.read"
+      }
+    },
+    "/api/nodes/{node}/host-key": {
+      "post": {
+        "description": "Accept the new SSH host key of a server, and open its tunnel again.\n\nThe central asks the address again and takes the key only when its fingerprint is the one given,\nreplaces the pinned line and reopens the tunnel; when the server does not answer through it, the old\npin is put back. The decision is the caller's, made with the fingerprints\n``POST /api/nodes/{node}/host-key/scan`` showed and what the server says of itself, so it needs sudo\nmode and is audited whether it is taken or refused.\n\nArgs:\n    node: The node's name.\n    body: The fingerprint the caller read on the server.\n    request: The incoming request, for the audit record.\n    session: The authenticated, elevated session.\n\nReturns:\n    What was pinned and what had been, and the server as it is reached now.\n\nRaises:\n    NodeError: 400 when the text is not a fingerprint, what answers is not that key, or the server\n        cannot be asked from here; 502 when it does not answer with the new key (the old pin is\n        back); 404 when it is not registered.",
+        "operationId": "accept_node_host_key_api_nodes__node__host_key_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node",
+            "required": true,
+            "schema": {
+              "title": "Node",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HostKeyAcceptIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostKeyAcceptedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Accept Node Host Key",
+        "tags": [
+          "Nodes"
+        ],
+        "x-noust-permission": "fleet.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/nodes/{node}/host-key/scan": {
+      "post": {
+        "description": "Ask a server's own address which SSH host key it presents, beside the one pinned.\n\nA server that presents another host key has its tunnel closed and is not trusted again by itself.\nThis is the first of the two steps of accepting the new key, and it changes nothing: the caller\ncompares both fingerprints with what the server says of itself (``ssh-keygen -lf\n/etc/ssh/ssh_host_ed25519_key.pub``). The central connects to the address to read the key, which is\nwhy this needs the permission to manage the fleet and not the one to read it.\n\nArgs:\n    node: The node's name.\n    session: The authenticated session.\n\nReturns:\n    The two fingerprints and whether they differ.\n\nRaises:\n    NodeError: 400 when the server dials in or is reached through a bastion (it cannot be asked\n        from here), or nothing answers at its address; 404 when it is not registered.",
+        "operationId": "scan_node_host_key_api_nodes__node__host_key_scan_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node",
+            "required": true,
+            "schema": {
+              "title": "Node",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostKeyReadingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Scan Node Host Key",
+        "tags": [
+          "Nodes"
+        ],
+        "x-noust-permission": "fleet.manage"
       }
     },
     "/api/nodes/{node}/inventory": {

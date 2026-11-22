@@ -60,6 +60,7 @@ from noust.fleet.keys import (
     NodeKeys,
     bastion_host_key_alias,
     host_key_alias,
+    pinned_fingerprint,
 )
 from noust.fleet.link.listener import (
     PROC_NET,
@@ -68,7 +69,7 @@ from noust.fleet.link.listener import (
     require_trusted_listener,
 )
 from noust.fleet.link.records import ACTIVE, LinkRecord, LinkRecords
-from noust.fleet.models import parse_public_key, validate_node_name
+from noust.fleet.models import validate_node_name
 from noust.fleet.ssh_options import (
     DEFAULT_CONNECT_TIMEOUT,
     Bastion,
@@ -648,17 +649,8 @@ def host_key_fingerprints(stderr: str, record: NodeRecord) -> tuple[str | None, 
         ``(pinned, presented)``, each ``SHA256:...`` or None when it cannot
         be read.
     """
-    pinned: str | None = None
-    words = record.host_key.split()
-    for index, word in enumerate(words[:-1]):
-        if word.startswith("ssh-"):
-            try:
-                pinned = parse_public_key(f"{word} {words[index + 1]}").fingerprint
-            except (NodeError, ValueError):
-                pinned = None
-            break
     match = _PRESENTED_FINGERPRINT.search(stderr)
-    return pinned, match.group(1).rstrip(".") if match else None
+    return pinned_fingerprint(record.host_key), match.group(1).rstrip(".") if match else None
 
 
 def key_was_revoked(stderr: str, bastion: Bastion | None = None) -> bool:
@@ -1125,7 +1117,7 @@ class TunnelManager:
         else:
             hop = "node"
             address = f"{record.ssh_user}@{record.ssh_host}:{record.ssh_port}"
-            command = f"noust node rekey {record.name}"
+            command = f"noust node host-key {record.name}"
         audit.record(
             "fleet.tunnel.hostkey_changed",
             target=f"node:{record.name}",
