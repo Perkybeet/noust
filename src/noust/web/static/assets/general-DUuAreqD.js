@@ -1,0 +1,1 @@
+import{t as e}from"./GeneralSettings-BwX1vCL6.js";var t=e;export{t as component};

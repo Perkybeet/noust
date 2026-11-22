@@ -1,1 +1,0 @@
-import{t as e}from"./InvitePage-hirkoYrN.js";var t=e;export{t as component};

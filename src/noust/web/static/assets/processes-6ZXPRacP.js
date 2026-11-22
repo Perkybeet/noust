@@ -1,0 +1,1 @@
+import{t as e}from"./SystemTab-cldksbPB.js";import{Ir as t}from"./routes-work-HQa3GRvu.js";var n=t();function r(){return(0,n.jsx)(e,{view:`processes`})}export{r as component};

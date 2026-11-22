@@ -1,1 +1,0 @@
-import{qo as e,yo as t}from"./routes-XCjvxOSo.js";var n={schedule:[`central`,`schedule`]};function r(){return t(`post`,`/api/central/container-host/check`)}var i=()=>e({queryKey:n.schedule,queryFn:({signal:e})=>t(`get`,`/api/central/schedule`,{signal:e})});export{r as n,i as t};

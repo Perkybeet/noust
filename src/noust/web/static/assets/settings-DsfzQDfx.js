@@ -1,0 +1,1 @@
+import{Wo as e}from"./routes-C41-youl.js";import{t}from"./SettingsShell-CzDXvUFP.js";import{Ir as n}from"./routes-work-HQa3GRvu.js";var r=n();function i(){return(0,r.jsx)(t,{children:(0,r.jsx)(e,{})})}export{i as component};

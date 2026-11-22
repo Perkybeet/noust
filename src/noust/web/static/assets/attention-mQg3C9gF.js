@@ -1,1 +1,0 @@
-import{qo as e,yo as t}from"./routes-XCjvxOSo.js";var n={all:[`attention`],own:[`attention`,`own`]},r=6e4,i=()=>e({queryKey:n.all,queryFn:({signal:e})=>t(`get`,`/api/attention`,{signal:e}),refetchInterval:r}),a=()=>e({queryKey:n.own,queryFn:({signal:e})=>t(`get`,`/api/attention`,{query:{only:`own`},signal:e}),refetchInterval:r});export{i as n,a as r,n as t};

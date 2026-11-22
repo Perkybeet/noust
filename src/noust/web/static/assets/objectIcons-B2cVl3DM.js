@@ -1,0 +1,1 @@
+import{t as e}from"./icons-5YqHOZ52.js";import{Ea as t,Oa as n}from"./routes-C41-youl.js";var r={...t,...n,remove:e.delete,add:e.add};export{r as t};

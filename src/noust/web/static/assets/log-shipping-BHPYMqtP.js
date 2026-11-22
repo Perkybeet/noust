@@ -1,0 +1,1 @@
+import{r as e}from"./OwnSections-g5Demoiv.js";var t=e;export{t as component};

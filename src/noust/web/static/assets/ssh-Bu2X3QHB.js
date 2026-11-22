@@ -1,1 +1,0 @@
-import{i as e}from"./SecurityPages-YaLQZMxu.js";var t=e;export{t as component};

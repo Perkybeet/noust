@@ -1,1 +1,0 @@
-import{t as e}from"./SystemTab-UQohI55y.js";import{Ir as t}from"./routes-work-CNQz8Trz.js";var n=t();function r(){return(0,n.jsx)(e,{view:`monitor`})}export{r as component};

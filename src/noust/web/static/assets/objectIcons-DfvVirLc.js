@@ -1,1 +1,0 @@
-import{t as e}from"./icons-o8GzxN-N.js";import{Ea as t,Oa as n}from"./routes-XCjvxOSo.js";var r={...t,...n,remove:e.delete,add:e.add};export{r as t};

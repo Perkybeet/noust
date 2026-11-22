@@ -1,1 +1,0 @@
-import{Ho as e}from"./routes-XCjvxOSo.js";function t(){return e({select:e=>(e.resolvedLocation??e.location).pathname})}function n(e){let t=e.matches.at(-1)?.fullPath??``;return t===`/fleet/$`?e.location.pathname:t}export{t as n,n as t};
