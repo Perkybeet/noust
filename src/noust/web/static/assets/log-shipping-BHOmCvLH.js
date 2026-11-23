@@ -1,0 +1,1 @@
+import{r as e}from"./OwnSections-SaEaRbx3.js";var t=e;export{t as component};

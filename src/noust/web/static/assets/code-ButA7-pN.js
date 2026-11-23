@@ -1,0 +1,1 @@
+import{t as e}from"./ConfigPage-BLdEthjx.js";import{Ir as t,bt as n}from"./routes-work-Bgcyg2lO.js";var r=t();function i(){let{domain:t}=n.useParams();return(0,r.jsx)(e,{page:`code`,domain:t})}export{i as component};

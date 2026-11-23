@@ -1,0 +1,1 @@
+import{n as e}from"./TextLink-BV2YeXTG.js";var t=e(`inline`);export{t};

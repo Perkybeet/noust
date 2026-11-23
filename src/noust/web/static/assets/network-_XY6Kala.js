@@ -1,0 +1,1 @@
+import{n as e}from"./MachinePage-BPTM2A4V.js";var t=e;export{t as component};

@@ -1,1 +1,0 @@
-import{n as e}from"./MachinePage-Bg1otErK.js";var t=e;export{t as component};

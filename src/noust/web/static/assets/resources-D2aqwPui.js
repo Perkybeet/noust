@@ -1,1 +1,0 @@
-import{t as e}from"./ConfigPage-JKXy15bn.js";import{Ir as t,st as n}from"./routes-work-HQa3GRvu.js";var r=t();function i(){let{domain:t}=n.useParams();return(0,r.jsx)(e,{page:`resources`,domain:t})}export{i as component};

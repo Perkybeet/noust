@@ -1,1 +1,0 @@
-import{t as e}from"./infiniteQueryOptions-Dfvzj6n2.js";import{yo as t}from"./routes-C41-youl.js";var n={all:[`audit`],pages:e=>[`audit`,`pages`,e]},r=(r={})=>e({queryKey:n.pages(r),queryFn:({signal:e,pageParam:n})=>t(`get`,`/api/audit`,{query:n===null?r:{...r,before:n},signal:e}),initialPageParam:null,getNextPageParam:e=>e.next_before??null});export{r as t};

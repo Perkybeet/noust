@@ -1,1 +1,0 @@
-import{Jo as e}from"./routes-C41-youl.js";import{a as t}from"./compliance-B4euNeRu.js";function n(){let{data:n}=e({...t(),select:e=>e.controls.find(e=>e.id===`exception_reasons`)?.enabled??!0});return n??!0}export{n as t};

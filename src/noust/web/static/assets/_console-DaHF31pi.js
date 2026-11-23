@@ -1,0 +1,1 @@
+import{n as e}from"./ErrorBoundary--ebeEOQF.js";import{Ir as t}from"./routes-work-Bgcyg2lO.js";var n=t(),r=({error:t})=>(0,n.jsx)(`main`,{className:`min-h-dvh bg-bg`,children:(0,n.jsx)(`div`,{className:`mx-auto max-w-3xl px-6 py-16`,children:(0,n.jsx)(e,{error:t})})});export{r as errorComponent};
